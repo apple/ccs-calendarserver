@@ -1,0 +1,1 @@
+Chair sends recurring meeting to invitee that starts Monday April 18, 2005 and repeats everyday for 5 days from 0900-1000.  This should yield a recurring meeting with following date/times:    04/18/05    0900-1000    04/19/05    0900-1000    04/20/05    0900-1000    04/21/05    0900-1000    04/22/05    0900-1000

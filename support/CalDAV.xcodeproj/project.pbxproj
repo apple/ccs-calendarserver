@@ -1,0 +1,272 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildStyle section */
+		3506A2F60922BD6500389D48 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Development;
+		};
+		3506A2F70922BD6500389D48 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		35069C170922B96300389D48 /* __init__.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		35069C190922B96300389D48 /* caldavxml.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = caldavxml.py; sourceTree = "<group>"; };
+		35069C1B0922B96300389D48 /* index.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = index.py; sourceTree = "<group>"; };
+		35069C1E0922B96300389D48 /* __init__.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		35069C200922B96300389D48 /* mkcalendar.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = mkcalendar.py; sourceTree = "<group>"; };
+		35069C220922B96300389D48 /* mkcol.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = mkcol.py; sourceTree = "<group>"; };
+		35069C240922B96300389D48 /* put.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = put.py; sourceTree = "<group>"; };
+		35069C260922B96300389D48 /* report_calquery.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = report_calquery.py; sourceTree = "<group>"; };
+		35069C2A0922B96300389D48 /* static.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = static.py; sourceTree = "<group>"; };
+		35069C2D0922B96300389D48 /* __init__.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		35069C790922B96300389D48 /* test_calendarquery.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_calendarquery.py; sourceTree = "<group>"; };
+		35069C7B0922B96300389D48 /* test_collectioncontents.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_collectioncontents.py; sourceTree = "<group>"; };
+		35069C7D0922B96300389D48 /* test_mkcalendar.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_mkcalendar.py; sourceTree = "<group>"; };
+		35069C7F0922B96300389D48 /* test_options.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_options.py; sourceTree = "<group>"; };
+		35069C820922B96300389D48 /* util.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = util.py; sourceTree = "<group>"; };
+		35069C840922B96300389D48 /* ical.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = ical.py; sourceTree = "<group>"; };
+		35069C870922BA1600389D48 /* data */ = {isa = PBXFileReference; lastKnownFileType = folder; path = data; sourceTree = "<group>"; };
+		35069DDE0922BCCE00389D48 /* twisted */ = {isa = PBXFileReference; lastKnownFileType = folder; path = twisted; sourceTree = "<group>"; };
+		3506A2EE0922BD0C00389D48 /* web2 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = web2; path = twisted/web2; sourceTree = "<group>"; };
+		3506A2F10922BD2700389D48 /* dav */ = {isa = PBXFileReference; lastKnownFileType = folder; name = dav; path = twisted/web2/dav; sourceTree = "<group>"; };
+		3506A86C0922BE1500389D48 /* CalendarIndex.xcdatamodel */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = wrapper.xcdatamodel; path = CalendarIndex.xcdatamodel; sourceTree = "<group>"; };
+		3506A86E0922BE1500389D48 /* draft-desruisseaux-caldav-sched.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "draft-desruisseaux-caldav-sched.txt"; sourceTree = "<group>"; };
+		3506A86F0922BE1500389D48 /* draft-dusseault-caldav.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "draft-dusseault-caldav.txt"; sourceTree = "<group>"; };
+		350781A2096DF5A4004A4366 /* dateops.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = dateops.py; sourceTree = "<group>"; };
+		3524530309897DC400B9179C /* TODO.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = TODO.txt; sourceTree = "<group>"; };
+		3524532E098982D900B9179C /* test_DAV.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_DAV.py; sourceTree = "<group>"; };
+		353696D1092BB6500075CE69 /* test_icalendar.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_icalendar.py; sourceTree = "<group>"; };
+		353A557C099153D900A08D28 /* setup.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = setup.py; sourceTree = "<group>"; };
+		353A63BF0994448C00A08D28 /* caldavd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = caldavd; sourceTree = "<group>"; };
+		359CD65C0946136A002E3A15 /* test_xml.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_xml.py; sourceTree = "<group>"; };
+		35A15ED40985C14800D404FF /* run */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = run; sourceTree = "<group>"; };
+		35A15ED60985C14800D404FF /* test */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = test; sourceTree = "<group>"; };
+		35B48642095CA1D000AB3411 /* rfc2518.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = rfc2518.txt; sourceTree = "<group>"; };
+		35B48643095CA1D000AB3411 /* rfc3253.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = rfc3253.txt; sourceTree = "<group>"; };
+		35B48644095CA1D000AB3411 /* rfc3744.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = rfc3744.txt; sourceTree = "<group>"; };
+		35B71A24097C3A3000E65B22 /* instance.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = instance.py; sourceTree = "<group>"; };
+		35B71A25097C3B2C00E65B22 /* copymove.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = copymove.py; sourceTree = "<group>"; };
+		35B71A26097C3B2C00E65B22 /* delete.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = delete.py; sourceTree = "<group>"; };
+		35B71A27097C3B2C00E65B22 /* report_multiget.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = report_multiget.py; sourceTree = "<group>"; };
+		35B8AA660A0BFE60005547E5 /* http.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = http.py; sourceTree = "<group>"; };
+		35B8AA670A0BFE60005547E5 /* repository.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = repository.py; sourceTree = "<group>"; };
+		35CF70B50A0FF59100993B2A /* repository.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = repository.xml; path = conf/repository.xml; sourceTree = "<group>"; };
+		35CF70B60A0FF59100993B2A /* server.pem */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = server.pem; path = conf/server.pem; sourceTree = "<group>"; };
+		35E2ACFF09BF6D3400BC8CB9 /* logging.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = logging.py; sourceTree = "<group>"; };
+		35E2AF1409C2491600BC8CB9 /* put_common.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = put_common.py; sourceTree = "<group>"; };
+		35E2AF1509C2491600BC8CB9 /* schedule.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = schedule.py; sourceTree = "<group>"; };
+		35E2B38109C7C2DF00BC8CB9 /* patches */ = {isa = PBXFileReference; lastKnownFileType = folder; path = patches; sourceTree = "<group>"; };
+		35E8059B0981C33F000981A6 /* test_props.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_props.py; sourceTree = "<group>"; };
+		35F36BAF09B3E8AD00A3D736 /* resource.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = resource.py; sourceTree = "<group>"; };
+		35F36C0E09B4FA6A00A3D736 /* icaldav.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = icaldav.py; sourceTree = "<group>"; };
+		35FC85A009ABEC0600586387 /* test_freebusyquery.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_freebusyquery.py; sourceTree = "<group>"; };
+		35FC85A109ABEC0600586387 /* test_multiget.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_multiget.py; sourceTree = "<group>"; };
+		35FC85A209ABEC9700586387 /* report_common.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = report_common.py; sourceTree = "<group>"; };
+		35FC85A309ABEC9700586387 /* report_freebusy.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = report_freebusy.py; sourceTree = "<group>"; };
+		35FC85A809ABED2B00586387 /* version.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = version.py; path = twistedcaldav/version.py; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		35069C090922B94100389D48 = {
+			isa = PBXGroup;
+			children = (
+				35069CD60922BA8600389D48 /* CalendarServer */,
+				35069CF50922BACA00389D48 /* Twisted */,
+				3506A86B0922BE1500389D48 /* Documentation */,
+				353A63B50994444700A08D28 /* Scripts */,
+				35A15ED30985C12C00D404FF /* Support */,
+			);
+			sourceTree = "<group>";
+		};
+		35069C160922B96300389D48 /* twistedcaldav */ = {
+			isa = PBXGroup;
+			children = (
+				35F36C0E09B4FA6A00A3D736 /* icaldav.py */,
+				35F36BAF09B3E8AD00A3D736 /* resource.py */,
+				35069C2A0922B96300389D48 /* static.py */,
+				35069C840922B96300389D48 /* ical.py */,
+				350781A2096DF5A4004A4366 /* dateops.py */,
+				35B71A24097C3A3000E65B22 /* instance.py */,
+				35069C1B0922B96300389D48 /* index.py */,
+				35069C190922B96300389D48 /* caldavxml.py */,
+				35B8AA670A0BFE60005547E5 /* repository.py */,
+				35B8AA660A0BFE60005547E5 /* http.py */,
+				35E2ACFF09BF6D3400BC8CB9 /* logging.py */,
+				35069C170922B96300389D48 /* __init__.py */,
+				35069C1D0922B96300389D48 /* method */,
+				35069C2C0922B96300389D48 /* test */,
+			);
+			path = twistedcaldav;
+			sourceTree = "<group>";
+		};
+		35069C1D0922B96300389D48 /* method */ = {
+			isa = PBXGroup;
+			children = (
+				35B71A25097C3B2C00E65B22 /* copymove.py */,
+				35B71A26097C3B2C00E65B22 /* delete.py */,
+				35069C200922B96300389D48 /* mkcalendar.py */,
+				35069C220922B96300389D48 /* mkcol.py */,
+				35069C240922B96300389D48 /* put.py */,
+				35E2AF1409C2491600BC8CB9 /* put_common.py */,
+				35069C260922B96300389D48 /* report_calquery.py */,
+				35FC85A209ABEC9700586387 /* report_common.py */,
+				35FC85A309ABEC9700586387 /* report_freebusy.py */,
+				35B71A27097C3B2C00E65B22 /* report_multiget.py */,
+				35E2AF1509C2491600BC8CB9 /* schedule.py */,
+				35069C1E0922B96300389D48 /* __init__.py */,
+			);
+			path = method;
+			sourceTree = "<group>";
+		};
+		35069C2C0922B96300389D48 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				3524530309897DC400B9179C /* TODO.txt */,
+				3524532E098982D900B9179C /* test_DAV.py */,
+				35069C790922B96300389D48 /* test_calendarquery.py */,
+				35069C7B0922B96300389D48 /* test_collectioncontents.py */,
+				35FC85A009ABEC0600586387 /* test_freebusyquery.py */,
+				353696D1092BB6500075CE69 /* test_icalendar.py */,
+				35069C7D0922B96300389D48 /* test_mkcalendar.py */,
+				35FC85A109ABEC0600586387 /* test_multiget.py */,
+				35069C7F0922B96300389D48 /* test_options.py */,
+				35E8059B0981C33F000981A6 /* test_props.py */,
+				359CD65C0946136A002E3A15 /* test_xml.py */,
+				35069C820922B96300389D48 /* util.py */,
+				35069C2D0922B96300389D48 /* __init__.py */,
+				35069C870922BA1600389D48 /* data */,
+			);
+			path = test;
+			sourceTree = "<group>";
+		};
+		35069CD60922BA8600389D48 /* CalendarServer */ = {
+			isa = PBXGroup;
+			children = (
+				35069C160922B96300389D48 /* twistedcaldav */,
+				35E2B38109C7C2DF00BC8CB9 /* patches */,
+			);
+			name = CalendarServer;
+			path = ..;
+			sourceTree = "<group>";
+		};
+		35069CF50922BACA00389D48 /* Twisted */ = {
+			isa = PBXGroup;
+			children = (
+				3506A2F10922BD2700389D48 /* dav */,
+				3506A2EE0922BD0C00389D48 /* web2 */,
+				35069DDE0922BCCE00389D48 /* twisted */,
+			);
+			name = Twisted;
+			path = ../../Twisted;
+			sourceTree = "<group>";
+		};
+		3506A86B0922BE1500389D48 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				3506A86C0922BE1500389D48 /* CalendarIndex.xcdatamodel */,
+				3506A86D0922BE1500389D48 /* RFC */,
+			);
+			name = Documentation;
+			path = ../doc;
+			sourceTree = "<group>";
+		};
+		3506A86D0922BE1500389D48 /* RFC */ = {
+			isa = PBXGroup;
+			children = (
+				35B48642095CA1D000AB3411 /* rfc2518.txt */,
+				35B48643095CA1D000AB3411 /* rfc3253.txt */,
+				35B48644095CA1D000AB3411 /* rfc3744.txt */,
+				3506A86F0922BE1500389D48 /* draft-dusseault-caldav.txt */,
+				3506A86E0922BE1500389D48 /* draft-desruisseaux-caldav-sched.txt */,
+			);
+			path = RFC;
+			sourceTree = "<group>";
+		};
+		353A63B50994444700A08D28 /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				353A63BF0994448C00A08D28 /* caldavd */,
+			);
+			name = Scripts;
+			path = ../bin;
+			sourceTree = "<group>";
+		};
+		35A15ED30985C12C00D404FF /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				35A15ED40985C14800D404FF /* run */,
+				35A15ED60985C14800D404FF /* test */,
+				353A557C099153D900A08D28 /* setup.py */,
+				35FC85A809ABED2B00586387 /* version.py */,
+				35CF70B50A0FF59100993B2A /* repository.xml */,
+				35CF70B60A0FF59100993B2A /* server.pem */,
+			);
+			name = Support;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		35069C0B0922B94100389D48 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalDAV" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				3506A2F60922BD6500389D48 /* Development */,
+				3506A2F70922BD6500389D48 /* Deployment */,
+			);
+			hasScannedForEncodings = 0;
+			mainGroup = 35069C090922B94100389D48;
+			projectDirPath = "";
+			targets = (
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		35069C0D0922B94100389D48 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Debug;
+		};
+		35069C0E0922B94100389D48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalDAV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				35069C0D0922B94100389D48 /* Debug */,
+				35069C0E0922B94100389D48 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 35069C0B0922B94100389D48 /* Project object */;
+}

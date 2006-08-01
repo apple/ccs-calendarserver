@@ -1,0 +1,164 @@
+Index: twisted/web2/dav/static.py
+===================================================================
+--- twisted/web2/dav/static.py	(revision 17005)
++++ twisted/web2/dav/static.py	(working copy)
+@@ -32,8 +32,10 @@
+ import urllib
+ 
+ from twisted.python import log
+-from twisted.web2.static import File
+-from twisted.web2.server import StopTraversal
++from twisted.web2 import dirlist
++from twisted.web2 import http
++from twisted.web2 import responsecode
++from twisted.web2 import stream
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.idav import IDAVResource
+ from twisted.web2.dav.resource import DAVResource
+@@ -38,6 +40,8 @@
+ from twisted.web2.dav.idav import IDAVResource
+ from twisted.web2.dav.resource import DAVResource
+ from twisted.web2.dav.util import bindMethods
++from twisted.web2.server import StopTraversal
++from twisted.web2.static import File
+ 
+ try:
+     from twisted.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
+@@ -117,7 +121,51 @@
+         """
+         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
+         if depth != "0" and self.isCollection():
+-            for name in self.listChildren():
++            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++            # the child resource loop and supply those to the checkAccess on each child.
++            filteredaces = self.inheritedACEsforChildren(request)
++
++            # Check for disabled access
++            if filteredaces is not None:
++                for name in self.listChildren():
++                    try:
++                        child = IDAVResource(self.getChild(name))
++                    except TypeError:
++                        child = None
++    
++                    if child is not None:
++                        # Check privileges of child - skip if access denied
++                        if child.checkAccess(request, privileges, inheritedaces=filteredaces):
++                            continue
++    
++                        if child.isCollection():
++                            yield (child, name + "/")
++                            if depth == "infinity":
++                                for grandchild in child.findChildrenWithPrivileges(depth, privileges, request):
++                                    yield (grandchild[0], name + "/" + grandchild[1])
++                        else:
++                            yield (child, name)
++
++    def listChildrenWithPrivileges(self, privileges, request):
++        """
++        NB This method looks at the actual objects in the file system.
++
++        @return: a sequence of the names of all known children of this resource that have the
++            associated privileges set.
++        """
++        children = self.putChildren.keys()
++        if self.fp.isdir():
++            children += [c for c in self.fp.listdir() if c not in children]
++        
++        result = []
++
++        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++        # the child resource loop and supply those to the checkAccess on each child.
++        filteredaces = self.inheritedACEsforChildren(request)
++
++        # Check for disabled access
++        if filteredaces is not None:
++            for name in children:
+                 try:
+                     child = IDAVResource(self.getChild(name))
+                 except TypeError:
+@@ -122,19 +170,14 @@
+                     child = IDAVResource(self.getChild(name))
+                 except TypeError:
+                     child = None
+-
++    
+                 if child is not None:
+                     # Check privileges of child - skip if access denied
+-                    if child.checkAccess(request, privileges):
++                    if child.checkAccess(request, privileges, inheritedaces=filteredaces):
+                         continue
+-
+-                    if child.isCollection():
+-                        yield (child, name + "/")
+-                        if depth == "infinity":
+-                            for grandchild in child.findChildrenWithPrivileges(depth, privileges, request):
+-                                yield (grandchild[0], name + "/" + grandchild[1])
+-                    else:
+-                        yield (child, name)
++                    result.append(name)
++            
++        return result
+ 
+     ##
+     # ACL
+@@ -256,6 +299,59 @@
+         if len(upath) == 0:
+             upath = "/"
+         return urllib.quote(upath)
++
++    def render(self, req):
++        """
++        This is a direct copy of webs.static.render with the listChildren behavior replaced with
++        findChildrenWithPrivileges to ensure that the current authenticated principal can only list
++        directory contents that they have read permissions for.
++        """
++        if not self.fp.exists():
++            return responsecode.NOT_FOUND
++
++        if self.fp.isdir():
++            if req.uri[-1] != "/":
++                # Redirect to include trailing '/' in URI
++                return http.RedirectResponse(req.unparseURL(path=req.path+'/'))
++            else:
++                ifp = self.fp.childSearchPreauth(*self.indexNames)
++                if ifp:
++                    # Render from the index file
++                    standin = self.createSimilarFile(ifp.path)
++                else:
++                    # Render from a DirectoryLister
++                    standin = dirlist.DirectoryLister(
++                        self.fp.path,
++                        self.listChildrenWithPrivileges((davxml.Read(),), req),
++                        self.contentTypes,
++                        self.contentEncodings,
++                        self.defaultType
++                    )
++                return standin.render(req)
++
++        try:
++            f = self.fp.open()
++        except IOError, e:
++            import errno
++            if e[0] == errno.EACCES:
++                return responsecode.FORBIDDEN
++            elif e[0] == errno.ENOENT:
++                return responsecode.NOT_FOUND
++            else:
++                raise
++
++        response = http.Response()
++        response.stream = stream.FileStream(f, 0, self.fp.getsize())
++
++        for (header, value) in (
++            ("content-type", self.contentType()),
++            ("content-encoding", self.contentEncoding()),
++        ):
++            if value is not None:
++                response.headers.setHeader(header, value)
++
++        return response
++
+         
+ #
+ # Attach method handlers to DAVFile

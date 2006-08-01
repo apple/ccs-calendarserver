@@ -1,0 +1,22 @@
+Index: twisted/web2/dav/element/rfc3744.py
+===================================================================
+--- twisted/web2/dav/element/rfc3744.py	(revision 17005)
++++ twisted/web2/dav/element/rfc3744.py	(working copy)
+@@ -147,7 +147,7 @@
+     Property which contains the URIs of network resources with additional
+     descriptive information about the principal. (RFC 3744, section 4.1)
+     """
+-    name = "alternate-uri-set"
++    name = "alternate-URI-set"
+     hidden = True
+     protected = True
+ 
+@@ -158,7 +158,7 @@
+     Property which contains the URL that must be used to identify this principal
+     in an ACL request. (RFC 3744, section 4.2)
+     """
+-    name = "principal-url"
++    name = "principal-URL"
+     hidden = True
+     protected = True
+ 

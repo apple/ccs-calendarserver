@@ -1,0 +1,83 @@
+Index: src/vobject/icalendar.py
+===================================================================
+--- src/vobject/icalendar.py	(revision 147)
++++ src/vobject/icalendar.py	(working copy)
+@@ -374,8 +374,17 @@
+                     try:
+                         dtstart = self.dtstart.value
+                     except AttributeError, KeyError:
+-                        # if there's no dtstart, just return None
+-                        return None
++                        # Special for VTODO - try DUE property instead
++                        try:
++                            if self.name == "VTODO":
++                                dtstart = self.due.value
++                            else:
++                                # if there's no dtstart, just return None
++                                return None
++                        except AttributeError, KeyError:
++                            # if there's no due, just return None
++                            return None
++
+                     # rrulestr complains about unicode, so cast to str
+                     rule = dateutil.rrule.rrulestr(str(line.value),
+                                                    dtstart=dtstart)
+@@ -380,7 +389,7 @@
+                     rule = dateutil.rrule.rrulestr(str(line.value),
+                                                    dtstart=dtstart)
+                     until = rule._until 
+-                    if until is not None and until.tzinfo != dtstart.tzinfo:
++                    if until is not None and isinstance(dtstart, datetime.datetime) and (until.tzinfo != dtstart.tzinfo):
+                         # dateutil converts the UNTIL date to a datetime,
+                         # check to see if the UNTIL parameter value was a date
+                         vals = dict(pair.split('=') for pair in
+@@ -417,7 +426,16 @@
+         return rruleset
+ 
+     def setrruleset(self, rruleset):
+-        dtstart = self.dtstart.value
++        
++        # Get DTSTART from component (or DUE if no DTSTART in a VTODO)
++        try:
++            dtstart = self.dtstart.value
++        except AttributeError, KeyError:
++            if self.name == "VTODO":
++                dtstart = self.due.value
++            else:
++                raise
++            
+         isDate = datetime.date == type(dtstart)
+         if isDate:
+             dtstart = datetime.datetime(dtstart.year,dtstart.month, dtstart.day)
+@@ -573,6 +591,8 @@
+         if obj.value.tzinfo is None:
+             obj.params['X-VOBJ-FLOATINGTIME-ALLOWED'] = ['TRUE']
+         if obj.params.get('TZID'):
++            # Keep a copy of the original TZID around
++            obj.params['X-VOBJ-ORIGINAL-TZID'] = obj.params['TZID']
+             del obj.params['TZID']
+         return obj
+ 
+@@ -585,6 +605,10 @@
+             obj.value = dateTimeToString(obj.value, cls.forceUTC)
+             if not cls.forceUTC and tzid is not None:
+                 obj.tzid_param = tzid
++            if obj.params.get('X-VOBJ-ORIGINAL-TZID'):
++                if not hasattr(obj, 'tzid_param'):
++                    obj.tzid_param = obj.params['X-VOBJ-ORIGINAL-TZID']
++                del obj.params['X-VOBJ-ORIGINAL-TZID']
+ 
+         return obj
+ 
+@@ -605,7 +629,10 @@
+         obj.value=str(obj.value)
+         obj.value=parseDtstart(obj)
+         if getattr(obj, 'value_param', 'DATE-TIME').upper() == 'DATE-TIME':
+-            if hasattr(obj, 'tzid_param'): del obj.tzid_param
++            if hasattr(obj, 'tzid_param'):
++                # Keep a copy of the original TZID around
++                obj.params['X-VOBJ-ORIGINAL-TZID'] = obj.tzid_param
++                del obj.tzid_param
+         return obj
+ 
+     @staticmethod

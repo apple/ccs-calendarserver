@@ -1,0 +1,71 @@
+#!/bin/sh
+
+##
+# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
+##
+
+set -e
+set -u
+
+ wd="$(cd "$(dirname "$0")" && pwd -P)";
+top="$(cd "${wd}/../.." && pwd -L)"
+
+export PYTHONPATH="$("${wd}/../run" -p)";
+
+##
+# Download and set up dependancies
+##
+
+epydoc="${top}/epydoc-2.1";
+
+if [ ! -d "${epydoc}" ]; then
+   echo "Downloading Epydoc...";
+   cd "${top}" && curl http://easynews.dl.sourceforge.net/sourceforge/epydoc/epydoc-2.1.tar.gz | tar xvzf -;
+fi;
+
+if [ ! -d "${epydoc}/build/lib" ]; then
+   cd "${epydoc}" && python ./setup.py build
+fi;
+
+export PYTHONPATH="${PYTHONPATH}:${epydoc}/build/lib";
+
+python_version="$(python -V 2>&1)";
+python_version="${python_version#Python }";
+python_version="${python_version%*.*}";
+
+epydoc="${epydoc}/build/scripts-${python_version}/epydoc";
+
+##
+# Generate documentation
+##
+
+"${epydoc}" --check		\
+    --ignore-param-mismatch	\
+    "${wd}/../twistedcaldav";
+
+rm -rf "${wd}/html";
+
+"${epydoc}" -n "TwistedCalDAV"  \
+    --ignore-param-mismatch	\
+    --html -o "${wd}/html"	\
+    --private			\
+    "${wd}/../twistedcaldav";
+
+open "${wd}/html/index.html";

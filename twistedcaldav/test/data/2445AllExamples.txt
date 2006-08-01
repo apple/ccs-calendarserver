@@ -1,0 +1,4 @@
+From Cyrus Daboo, Isamet, February 2005:
+    http://www.calconnect.org/tests/2445AllExamples.ics
+
+This contains all the recurrence examples from 2445 Section 4.8.5.4 in one .ics file. The SUMMARY of each item indicates the example number in order from that section. The DESCRIPTION is the description from 2445 for each example. Note that some examples have a couple of variants and these are indicated by additional letters in the numbering (e.g. 05a 05b etc). Most of the examples use start dates in 1997, but there are some unbounded examples that will fill up the calendar display e.g. 'Every 20 minutes from 9:00 AM to 4:40 PM every day'. 

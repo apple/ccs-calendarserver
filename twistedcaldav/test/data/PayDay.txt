@@ -1,0 +1,4 @@
+From Cyrus Daboo, Isamet, February 2005:
+    http://www.calconnect.org/tests/PayDay.ics
+
+This contains a single recurring event that uses a BYSETPOS. It corresponds to 'the last weekday in the month'. 

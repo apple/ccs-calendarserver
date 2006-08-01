@@ -1,0 +1,14 @@
+Index: twisted/web2/dav/http.py
+===================================================================
+--- twisted/web2/dav/http.py	(revision 17005)
++++ twisted/web2/dav/http.py	(working copy)
+@@ -115,9 +115,6 @@
+         """
+         @param xml_responses: an interable of davxml.Response objects.
+         """
+-        multistatus = davxml.MultiStatus(*xml_responses)
+-        output = multistatus.toxml()
+-
+         Response.__init__(self, code=responsecode.MULTI_STATUS,
+                           stream=davxml.MultiStatus(*xml_responses).toxml())
+ 

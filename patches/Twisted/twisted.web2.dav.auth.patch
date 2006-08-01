@@ -1,0 +1,20 @@
+Index: twisted/web2/dav/auth.py
+===================================================================
+--- twisted/web2/dav/auth.py	(revision 17005)
++++ twisted/web2/dav/auth.py	(working copy)
+@@ -190,7 +190,6 @@
+                 log.err("Client authentication password for %s incorrect" % (self.username,))
+                 return False, None
+         else:
+-            log.err("Client authentication user id %s does not match a principal on the server" % (self.username,))
+             return False, None
+         
+ class BasicAuthorizer:
+@@ -306,7 +305,6 @@
+                 log.err("Client authentication password for %s incorrect" % (self.username,))
+                 return False, None
+         else:
+-            log.err("Client authentication user id %s does not match a principal on the server" % (self.username,))
+             return False, None
+         
+     def checkPassword(self, password):

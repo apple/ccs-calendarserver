@@ -1,0 +1,112 @@
+#!/bin/sh
+
+##
+# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
+##
+
+##
+# Submit project to B&I (Apple Internal Build)
+##
+
+set -e
+set -u
+
+ wd="$(cd "$(dirname "$0")" && pwd)";
+src="$(cd "${wd}/.." && pwd)";
+
+##
+# Command line
+##
+
+usage ()
+{
+  program="$(basename "$0")";
+
+  if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
+
+  echo "Usage: ${program} release version";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts 'h' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
+
+if [ $# == 0 ]; then usage "No release specified"; fi;
+
+release="$1"; shift;
+
+if [ $# == 0 ]; then usage "No version specified"; fi;
+
+version="$1"; shift;
+
+if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+
+    tag="CalendarServer-${version}";
+tag_uri="http://macosxserver.apple.com:8000/svn/CalendarServer/tags/${tag}";
+
+##
+# Do the Right Thing
+##
+
+#
+# Check for pre-existing tag
+#
+if ! svn ls "${tag_uri}" > /dev/null 2>&1; then
+    #
+    # Make sure changes are checked in.
+    #
+    if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
+        echo "Working copy has uncommitted changes.  Aborting.";
+        exit 1;
+    fi;
+
+    echo "Tagging ${tag}...";
+    svn cp . "${tag_uri}" -m "Tagging ${tag}";
+else
+    echo "Tag ${tag} already exists.";
+fi;
+
+#
+# Do submission
+#
+
+tmp="$(mktemp -d -t CalendarServer)";
+wc="${tmp}/${tag}";
+
+echo "";
+echo "Exporting ${tag_uri}..."
+svn export "${tag_uri}" "${wc}";
+
+echo "";
+echo "Preparing sources...";
+make -C "${wc}" prep;
+
+echo "";
+echo "Submitting sources...";
+~rc/bin/submitproject "${wc}" "${release}";
+
+rm -rf "${tmp}";

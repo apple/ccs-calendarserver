@@ -1,0 +1,1 @@
+Chair send an update to the body part for all instances of the recurring meeting.  Since this is not a reschedule, sequence number should not be bumped and the dates/times should remain the same.

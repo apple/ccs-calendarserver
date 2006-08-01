@@ -1,0 +1,89 @@
+.\"
+.\" Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+.\"
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+./" Version 2.0 (the 'License'). You may not use this file except in
+./" compliance with the License. Please obtain a copy of the License at
+./" http://www.opensource.apple.com/apsl/ and read it before using this
+./" file.
+./" 
+./" The Original Code and all software distributed under the License are
+./" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+./" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+./" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+./" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+./" Please see the License for the specific language governing rights and
+./" limitations under the License.
+.\"
+.\" DRI: Wilfredo Sanchez, wsanchez@apple.com
+.\"
+.\" The following requests are required for all man pages.
+.Dd June 16, 2006
+.Dt CALDAVD 1
+.Os
+.Sh NAME
+.Nm caldavd
+.Nd Calendar Server Control Interface
+.Sh SYNOPSIS
+.Nm
+.Op Fl v
+.Ar command
+.Sh DESCRIPTION
+.Nm
+is a front end to the Darwin Calendar Server.  The Darwin Calendar
+server is a web server which implements the HTTP, WebDAV, WebDAV ACL,
+and CalDAV protocols.
+.Pp
+.Nm
+is a simple tool for starting, stopping, and restarting the server. It
+takes a single argument, (
+.Ar command )
+which describes the desired action.
+.Sh COMMANDS
+The allows commands are:
+.Bl -tag -width flag
+.It Ar start
+Starts the server.
+.It Ar stop
+Stops the server.
+.It Ar restart
+Restarts the server.  If the server is not running, simply starts the server.
+.El
+.Sh FILES
+.Bl -tag -width flag
+.It /etc/caldavd/caldavd.plist
+The main configuration file for caldavd.  It is an XML property list
+in server options such as the port to bind to, whether to use SSL, and
+the names of other files can specified.
+.It /etc/caldavd/repository.xml
+An XML file describing the basic set of resources that are in the URL
+namespace of the server, and which underlying classes control these
+resources.
+.It /etc/caldavd/server.pem
+PEM-format server keys for use with SSL.
+.It /Library/CalendarServer/Documents
+The location of static files which are exposed into the URL namespace
+of the server, as well as files which are used as a backing store for
+dynamic and managed resources on the server.
+.It /var/log/caldavd/server.log
+The server's main log file.
+.It /var/run/caldavd.pid
+The server's process ID file.
+.It /usr/share/caldavd
+Server implementation and support files.
+.El
+.Sh SEE ALSO
+.Xr httpd 8
+.Sh STANDARDS
+.Nm
+is expected to comply with RFC 2445 (iCalendar), RFC 2518 (WebDAV),
+RFC 3744 (WebDAV ACL), draft-dusseault-caldav-12 (CalDAV), and
+draft-desruisseaux-caldav-sched-01 (CalDAV Scheduling).
+.Sh HISTORY
+.Nm
+was first introduced as part of Darwin 9 and Mac OS 10.5.
+.Sh BUGS
+This version of
+.Nm
+is still in development and testing.

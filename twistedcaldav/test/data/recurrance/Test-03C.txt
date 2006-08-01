@@ -1,0 +1,1 @@
+Chair reschedules another single instance’s (Thursday’s) time portion +2 hrs, so from 1100-1200 on Thursday April 28, 2005.    This should yield a recurring meeting with following date/times:    04/25/05    0900-1000    04/26/05    1000-1100    04/27/05    0900-1000    04/28/05    1100-1200    04/29/05    0900-1000

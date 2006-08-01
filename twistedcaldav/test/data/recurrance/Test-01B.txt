@@ -1,0 +1,1 @@
+Chair reschedules time portion for all instances of the recurring meeting +1 hr, so from 1000-1100.    This should yield a recurring meeting with following date/times:    04/11/05    1000-1100    04/12/05    1000-1100    04/13/05    1000-1100    04/14/05    1000-1100    04/15/05    1000-1100

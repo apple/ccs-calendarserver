@@ -1,0 +1,63 @@
+<!--
+Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+
+This file contains Original Code and/or Modifications of Original Code
+as defined in and that are subject to the Apple Public Source License
+Version 2.0 (the 'License'). You may not use this file except in
+compliance with the License. Please obtain a copy of the License at
+http://www.opensource.apple.com/apsl/ and read it before using this
+file.
+
+The Original Code and all software distributed under the License are
+distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+Please see the License for the specific language governing rights and
+limitations under the License.
+
+DRI: Cyrus Daboo, cdaboo@apple.com
+ -->
+
+<!ELEMENT repository (docroot, accounts) >
+
+  <!ELEMENT docroot (collection) >
+	<!ATTLIST docroot auto-principal-collection-set (yes|no) "yes">
+
+    <!ELEMENT collection (pytype?, params, properties, members)>
+      <!ATTLIST collection name CDATA ""
+                             tag (none|principals|calendars) "none">
+      <!ELEMENT pytype     (#PCDATA)>
+      <!ELEMENT params     (param*)>
+        <!ELEMENT param    (key, value)>
+          <!ELEMENT key    (#PCDATA)>
+          <!ELEMENT value  (#PCDATA)>          
+      <!ELEMENT properties (acl?, prop*)>
+        <!ELEMENT prop     ANY>
+      <!ELEMENT members    (collection*)>
+
+      <!ELEMENT acl                   (ace*) >  
+           <!ELEMENT ace              (principal, (grant|deny), protected?, inheritable?)>
+             <!ELEMENT principal      (href | all | authenticated | unauthenticated)>
+            <!ELEMENT href            (#PCDATA)>
+            <!ELEMENT all             EMPTY>
+            <!ELEMENT authenticated   EMPTY>
+            <!ELEMENT unauthenticated EMPTY>
+          <!ELEMENT grant             (privilege+)>
+          <!ELEMENT deny              (privilege+)>
+            <!ELEMENT privilege       ANY>
+          <!ELEMENT protected         EMPTY>
+          <!ELEMENT inheritable       EMPTY>
+
+          <!ELEMENT read EMPTY>
+
+  <!ELEMENT accounts (user*) >
+
+    <!ELEMENT user (uid, pswd, name, cuaddr*, calendar*, acl?, autorespond?)>
+      <!ATTLIST user repeat CDATA "1">
+      <!ELEMENT uid         (#PCDATA)>
+      <!ELEMENT pswd        (#PCDATA)>
+      <!ELEMENT name        (#PCDATA)>
+      <!ELEMENT cuaddr      (#PCDATA)>
+      <!ELEMENT calendar    (#PCDATA)>
+      <!ELEMENT autorespond EMPTY>

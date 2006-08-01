@@ -1,0 +1,511 @@
+#!/bin/sh
+
+##
+# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
+##
+
+set -e
+set -u
+
+wd="$(cd "$(dirname "$0")" && pwd)";
+
+##
+# Command line
+##
+
+      verbose="";
+   setup_only="false";
+  force_setup="false";
+disable_setup="false";
+   print_path="false";
+      install="";
+    daemonize="-X";
+
+usage ()
+{
+  program="$(basename "$0")";
+
+  if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
+
+  echo "Usage: ${program} [-hvsf] [-iI dst]";
+  echo "Options:";
+  echo "	-h  Print this help and exit";
+  echo "	-v  Be verbose";
+  echo "	-s  Run setup only; don't run server";
+  echo "	-p  Print PYTHONPATH value for server and exit";
+  echo "	-f  Force setup to run";
+  echo "	-n  Do not run setup";
+  echo "        -d  Run caldavd as a daemon";
+  echo "        -i  Perform a system install into dst; implies -s";
+  echo "        -I  Perform a home install into dst; implies -s";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts 'hvsfnpdi:I:' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    'v')       verbose="-v"; ;;
+    's')    setup_only="true"; ;;
+    'f')   force_setup="true"; ;;
+    'n') disable_setup="true"; ;;
+    'p')    print_path="true"; ;;
+    'd')     deamonize=""; ;;
+    'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
+    'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
+
+if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+
+##
+# Set up paths
+##
+
+if [ -x "/Library/Frameworks/Python.framework/Versions/2.4/bin/python" ]; then
+  python="/Library/Frameworks/Python.framework/Versions/2.4/bin/python";
+else
+  python="${PYTHON:=python2.4}";
+fi;
+
+    top="$(cd "${wd}/.." && pwd -L)"
+patches="${wd}/patches";
+twisted="${top}/Twisted";
+    dav="${twisted}/twisted/web2/dav"
+ caldav="${wd}";
+
+if [ -z "${PYTHONPATH:-}" ]; then
+  export PYTHONPATH="${caldav}";
+else
+  export PYTHONPATH="${PYTHONPATH}:${caldav}";
+fi;
+
+# FIXME: There's probably a way to ask distutils for this string...
+             py_os="$(uname -s | tr '[A-Z]' '[a-z]')";
+        py_release="$(uname -r)";
+        py_machine="$(uname -m | tr ' ' '_')";
+        py_version="$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
+py_platform_libdir="lib.${py_os}-${py_release}-${py_machine}-${py_version}";
+
+if [ "${py_version/./}" -lt "24" ]; then
+  echo "Wrong python version: ${py_version}.";
+  exit 1;
+fi;
+
+if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
+  install="$(pwd)/${install}";
+fi;
+
+##
+# Download and set up dependancies
+##
+
+run () {
+  local server_home="$1"; shift;
+
+  if [ "${server_home}" == "${wd}" ]; then
+    if "${print_path}"; then
+      echo "${PYTHONPATH}";
+      exit 0;
+    fi;
+
+    if [ -f "${wd}/conf/repository-dev.xml" ]; then
+        repository="${wd}/conf/repository-dev.xml";
+    else
+        repository="${wd}/conf/repository.xml";
+    fi;
+    
+    if ! "${setup_only}" && [ "${server_home}" == "${wd}" ]; then
+      cd "${server_home}";
+      exec "${wd}/bin/caldavd" "${daemonize}" \
+          -f "${wd}/conf/caldavd-dev.plist"   \
+          -T "${twisted}/bin/twistd"          \
+          start;
+    fi;
+  fi;
+}
+
+apply_patches () {
+  local name="$1"; shift;
+  local path="$1"; shift;
+
+  if [ -d "${patches}/${name}" ]; then
+    echo "";
+    echo "Applying patches to ${name} in ${path}...";
+
+    cd "${path}";
+    find "${patches}/${name}"                  \
+        -type f                                \
+        -name '*.patch'                        \
+        -print                                 \
+        -exec patch -p0 --forward -i '{}' ';';
+  fi;
+}
+
+www_get () {
+  local name="$1"; shift;
+  local path="$1"; shift;
+  local  url="$1"; shift;
+
+  local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
+
+  case "${ext}" in
+    gz|tgz) decompress="gzip -d -c"; ;;
+    bz2)    decompress="bzip2 -d -c"; ;;
+    tar)    decompress="cat"; ;;
+    *)
+      echo "Unknown extension: ${ext}";
+      exit 1;
+      ;;
+  esac;
+
+  if "${force_setup}" || [ ! -d "${path}" ]; then
+    echo "";
+    echo "Downloading ${name}...";
+    rm -rf "${path}";
+    cd "$(dirname "${path}")";
+    curl "${url}" | ${decompress} | tar xvf -;
+
+    apply_patches "${name}" "${path}";
+  fi;
+}
+
+svn_get () {
+  local     name="$1"; shift;
+  local     path="$1"; shift;
+  local      uri="$1"; shift;
+  local revision="$1"; shift;
+
+  if [ -d "${path}" ]; then
+    wc_uri="$(svn info "${path}" 2> /dev/null | sed -n 's|^URL: ||p')";
+
+    if "${force_setup}"; then
+      # Verify that we have a working copy checked out from the correct URI
+      if [ "${wc_uri}" != "${uri}" ]; then
+        echo "";
+        echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
+        rm -rf "${path}";
+        svn_get "${name}" "${path}" "${uri}" "${revision}";
+        return $?;
+      fi;
+
+      echo "";
+
+      echo "Reverting ${name}...";
+      svn revert -R "${path}";
+
+      echo "Updating ${name}...";
+      svn update -r "${revision}" "${path}";
+
+      apply_patches "${name}" "${path}";
+    else
+      if ! "${print_path}"; then
+        # Verify that we have a working copy checked out from the correct URI
+        if [ "${wc_uri}" != "${uri}" ]; then
+          echo "";
+          echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
+          echo "Performing repository switch for ${name}...";
+          svn switch -r "${revision}" "${uri}" "${path}";
+
+          apply_patches "${name}" "${path}";
+        else
+          svnversion="$(svnversion "${path}")";
+          if [ "${svnversion%%[M:]*}" != "${revision}" ]; then
+            echo "";
+            echo "Updating ${name}...";
+            svn update -r "${revision}" "${path}";
+
+            apply_patches "${name}" "${path}";
+          fi;
+        fi;
+      fi;
+    fi;
+  else
+    echo "Checking out ${name}...";
+    svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
+
+    apply_patches "${name}" "${path}";
+  fi;
+}
+
+py_install () {
+  local name="$1"; shift;
+  local path="$1"; shift;
+
+  if [ -n "${install}" ]; then
+    echo "";
+    echo "Installing ${name}...";
+    cd "${path}";
+    "${python}" ./setup.py install "${install_flag}${install}";
+  fi;
+}
+
+py_have_module () {
+    local module="$1"; shift;
+
+    PYTHONPATH="" python -c "import ${module}" > /dev/null 2>&1;
+}
+
+#
+# Zope Interface
+#
+
+if ! py_have_module zope.interface; then
+  zope="${top}/ZopeInterface-3.1.0c1";
+
+  if ! "${disable_setup}"; then
+    www_get "Zope Interface" "${zope}" http://www.zope.org/Products/ZopeInterface/3.1.0c1/ZopeInterface-3.1.0c1.tgz;
+
+    if "${force_setup}" || [ ! -d "${zope}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building Zope Interface...";
+      cd "${zope}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "Zope Interface" "${zope}";
+
+  export PYTHONPATH="${PYTHONPATH}:${zope}/build/${py_platform_libdir}";
+fi;
+
+#
+# PyXML
+#
+
+if ! py_have_module xml.dom.ext; then
+  xml="${top}/PyXML-0.8.4";
+
+  if ! "${disable_setup}"; then
+    www_get "PyXML" "${xml}" http://easynews.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+
+    if "${force_setup}" || [ ! -d "${xml}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building PyXML...";
+      cd "${xml}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "PyXML" "${xml}";
+
+  export PYTHONPATH="${PYTHONPATH}:${xml}/build/${py_platform_libdir}";
+fi;
+
+#
+# PyOpenSSL
+#
+
+if ! py_have_module OpenSSL; then
+  ssl="${top}/pyOpenSSL-0.6";
+
+  if ! "${disable_setup}"; then
+    www_get "PyOpenSSL" "${ssl}" http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
+
+    if "${force_setup}" || [ ! -d "${ssl}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building PyOpenSSL...";
+      cd "${ssl}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "PyOpenSSL" "${ssl}";
+
+  export PYTHONPATH="${PYTHONPATH}:${ssl}/build/${py_platform_libdir}";
+fi;
+
+#
+# PyKerberos
+#
+
+if ! py_have_module kerberos; then
+  kerberos="${top}/PyKerberos";
+
+  if ! "${disable_setup}"; then
+    svn_get "PyKerberos" "${kerberos}" "http://macosxserver.apple.com:8000/svn/PyKerberos/trunk" 3766;
+
+    if "${force_setup}" || [ ! -d "${kerberos}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building PyKerberos...";
+      cd "${kerberos}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "PyKerberos" "${kerberos}";
+
+  export PYTHONPATH="${PYTHONPATH}:${kerberos}/build/${py_platform_libdir}";
+fi;
+
+#
+# PyOpenDirectory
+#
+
+if ! py_have_module opendirectory; then
+  opendirectory="${top}/PyOpenDirectory";
+
+  if ! "${disable_setup}"; then
+    svn_get "PyOpenDirectory" "${opendirectory}" "http://macosxserver.apple.com:8000/svn/PyOpenDirectory/trunk" 3766;
+
+    if "${force_setup}" || [ ! -d "${opendirectory}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building PyOpenDirectory...";
+      cd "${opendirectory}" && "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "PyOpenDirectory" "${opendirectory}";
+
+  export PYTHONPATH="${PYTHONPATH}:${opendirectory}/build/${py_platform_libdir}";
+fi;
+
+#
+# xattr
+#
+
+if ! py_have_module xattr; then
+  xattr="${top}/xattr";
+
+  if ! "${disable_setup}"; then
+    svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.2 545;
+
+    if "${force_setup}" || [ ! -d "${xattr}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building xattr...";
+      cd "${xattr}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "xattr" "${xattr}";
+
+  export PYTHONPATH="${PYTHONPATH}:${xattr}/build/${py_platform_libdir}";
+fi;
+
+#
+# Twisted
+#
+
+if ! "${disable_setup}"; then
+  if [ "${USER}" == "wsanchez" ]; then
+    svn_uri="svn+ssh://svn.twistedmatrix.com/svn/Twisted/branches/wsanchez/acl-1608-2";
+  else
+    svn_uri="svn://svn.twistedmatrix.com/svn/Twisted/branches/wsanchez/acl-1608-2";
+  fi;
+
+  svn_get "Twisted" "${twisted}" "${svn_uri}" 17097;
+fi;
+py_install "Twisted" "${twisted}";
+ 
+export PYTHONPATH="${PYTHONPATH}:${twisted}";
+
+# twisted.web2 doesn't get installed by default
+if [ -n "${install}" ]; then
+  echo "";
+  echo "Installing Twisted.web2...";
+  cd "${twisted}";
+  "${python}" ./twisted/web2/topfiles/setup.py install "${install_flag}${install}";
+fi;
+
+#
+# dateutil
+#
+
+if ! py_have_module dateutil; then
+  dateutil="${top}/python-dateutil-1.0";
+
+  if ! "${disable_setup}"; then
+    www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.0.tar.bz2;
+  fi;
+  py_install "dateutil" "${dateutil}";
+
+  export PYTHONPATH="${PYTHONPATH}:${dateutil}";
+fi;
+
+#
+# vobject
+#
+
+vobject="${top}/vobject";
+
+if ! "${disable_setup}"; then
+  if [ "${USER}" == "cyrusdaboo" ]; then
+    svn_uri="svn+ssh://cdaboo@svn.osafoundation.org/svn/vobject/trunk";
+  else
+    svn_uri="http://svn.osafoundation.org/vobject/trunk";
+  fi;
+  svn_get "vObject" "${vobject}" "${svn_uri}" 147;
+fi;
+py_install "vObject" "${vobject}";
+
+export PYTHONPATH="${PYTHONPATH}:${vobject}/src";
+
+#
+# PySQLite
+#
+
+if ! py_have_module pysqlite2; then
+  pysqlite="${top}/pysqlite-2.2.2";
+
+  if ! "${disable_setup}"; then
+    www_get "PySQLite" "${pysqlite}" http://initd.org/pub/software/pysqlite/releases/2.2/2.2.2/pysqlite-2.2.2.tar.gz;
+
+    if "${force_setup}" || [ ! -d "${pysqlite}/build/${py_platform_libdir}" ]; then
+      echo "";
+      echo "Building PySQLite...";
+      cd "${pysqlite}";
+      "${python}" ./setup.py build;
+    fi;
+  fi;
+  py_install "PySQLite" "${pysqlite}";
+
+  export PYTHONPATH="${PYTHONPATH}:${pysqlite}/build/${py_platform_libdir}";
+fi;
+
+#
+# TwistedCalDAV
+#
+
+py_install "TwistedCalDAV" "${caldav}";
+
+##
+# Do home install
+# This is a hack, but it's needed because installing with --home doesn't work for python-dateutil.
+##
+
+if [ -n "${install_home:-}" ]; then
+  py_prefix="$("${python}" -c "import sys; print sys.prefix;")";
+  py_libdir="$("${python}" -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1);")";
+
+  install -d "${install_home}";
+  install -d "${install_home}/bin";
+  install -d "${install_home}/conf";
+  install -d "${install_home}/lib/python";
+
+  rsync -av "${install}${py_prefix}/bin/" "${install_home}/bin/";
+  rsync -av "${install}${py_libdir}/" "${install_home}/lib/python/";
+  rsync -av "${install}${py_prefix}/caldavd/" "${install_home}/caldavd/";
+
+  rm -rf "${install}";
+fi;
+
+##
+# Run the server
+##
+
+run "${caldav}";

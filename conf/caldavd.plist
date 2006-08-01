@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+
+This file contains Original Code and/or Modifications of Original Code
+as defined in and that are subject to the Apple Public Source License
+Version 2.0 (the 'License'). You may not use this file except in
+compliance with the License. Please obtain a copy of the License at
+http://www.opensource.apple.com/apsl/ and read it before using this
+file.
+
+The Original Code and all software distributed under the License are
+distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+Please see the License for the specific language governing rights and
+limitations under the License.
+ -->
+
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>Verbose</key>
+  <false/>
+
+  <key>RunStandalone</key>
+  <true/>
+
+  <key>DocumentRoot</key>
+  <string>/Library/CalendarServer/Documents</string>
+
+  <key>Port</key>
+  <integer>8008</integer>
+
+  <key>SSLEnable</key>
+  <true/>
+
+  <key>SSLOnly</key>
+  <false/>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>SSLPrivateKey</key>
+  <string>/etc/certificates/Default.key</string>
+
+  <key>SSLCertificate</key>
+  <string>/etc/certificates/Default.crt</string>
+
+  <key>LogFile</key>
+  <string>/var/log/caldavd/server.log</string>
+
+  <key>PIDFile</key>
+  <string>/var/log/caldavd/caldavd.pid</string>
+
+  <key>Repository</key>
+  <string>/etc/caldavd/repository.xml</string>
+
+  <key>CreateAccounts</key>
+  <true/>
+
+  <key>ResetAccountACLs</key>
+  <true/>
+
+  <key>twistdLocation</key>
+  <string>/usr/share/caldavd/bin/twistd</string>
+
+  <key>EventExpirationDays</key>
+  <integer>0</integer>
+
+  <key>MaximumAttachmentSizeBytes</key>
+  <integer>102400</integer>
+
+</dict>
+</plist>
