@@ -42,6 +42,9 @@ limitations under the License.
   <key>GroupName</key>
   <string>calendar</string>
 
+  <key>InitGroups</key>
+  <true/>
+
   <key>KeepAlive</key>
   <true/>
 
