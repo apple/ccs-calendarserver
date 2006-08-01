@@ -2,7 +2,17 @@ Index: twisted/web2/dav/http.py
 ===================================================================
 --- twisted/web2/dav/http.py	(revision 17005)
 +++ twisted/web2/dav/http.py	(working copy)
-@@ -115,9 +115,6 @@
+@@ -102,7 +102,8 @@
+             else:
+                 uri = joinURL(base_uri, subpath)
+ 
+-            denials.append(davxml.Resource(davxml.HRef(uri), *[davxml.Privilege(p) for p in privileges]))
++            for p in privileges:
++                denials.append(davxml.Resource(davxml.HRef(uri), davxml.Privilege(p)))
+ 
+         super(NeedPrivilegesResponse, self).__init__(responsecode.FORBIDDEN, davxml.NeedPrivileges(*denials))
+ 
+@@ -115,9 +116,6 @@
          """
          @param xml_responses: an interable of davxml.Response objects.
          """
