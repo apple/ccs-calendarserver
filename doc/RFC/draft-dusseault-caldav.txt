@@ -3,15 +3,15 @@
 
 Network Working Group                                           C. Daboo
 Internet-Draft
-Expires: October 28, 2006                                B. Desruisseaux
+Expires: January 15, 2007                                B. Desruisseaux
                                                                   Oracle
                                                             L. Dusseault
                                                                     OSAF
-                                                          April 26, 2006
+                                                           July 14, 2006
 
 
                Calendaring Extensions to WebDAV (CalDAV)
-                       draft-dusseault-caldav-12
+                       draft-dusseault-caldav-13
 
 Status of this Memo
 
@@ -36,7 +36,7 @@ Status of this Memo
    The list of Internet-Draft Shadow Directories can be accessed at
    http://www.ietf.org/shadow.html.
 
-   This Internet-Draft will expire on October 28, 2006.
+   This Internet-Draft will expire on January 15, 2007.
 
 Copyright Notice
 
@@ -52,9 +52,9 @@ Abstract
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 1]
+Daboo, et al.           Expires January 15, 2007                [Page 1]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    and calendar publishing.
@@ -108,9 +108,9 @@ Table of Contents
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 2]
+Daboo, et al.           Expires January 15, 2007                [Page 2]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
      7.5.  Partial Retrieval . . . . . . . . . . . . . . . . . . . .  32
@@ -151,11 +151,11 @@ Internet-Draft                   CalDAV                       April 2006
      9.3.  CALDAV:mkcalendar-response XML Element  . . . . . . . . .  74
      9.4.  CALDAV:calendar-query XML Element . . . . . . . . . . . .  75
      9.5.  CALDAV:calendar-data XML Element  . . . . . . . . . . . .  75
-       9.5.1.  CALDAV:comp XML Element . . . . . . . . . . . . . . .  76
+       9.5.1.  CALDAV:comp XML Element . . . . . . . . . . . . . . .  77
        9.5.2.  CALDAV:allcomp XML Element  . . . . . . . . . . . . .  77
        9.5.3.  CALDAV:allprop XML Element  . . . . . . . . . . . . .  77
        9.5.4.  CALDAV:prop XML Element . . . . . . . . . . . . . . .  78
-       9.5.5.  CALDAV:expand XML Element . . . . . . . . . . . . . .  78
+       9.5.5.  CALDAV:expand XML Element . . . . . . . . . . . . . .  79
        9.5.6.  CALDAV:limit-recurrence-set XML Element . . . . . . .  79
        9.5.7.  CALDAV:limit-freebusy-set XML Element . . . . . . . .  80
      9.6.  CALDAV:filter XML Element . . . . . . . . . . . . . . . .  81
@@ -164,9 +164,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 3]
+Daboo, et al.           Expires January 15, 2007                [Page 3]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
        9.6.3.  CALDAV:param-filter XML Element . . . . . . . . . . .  83
@@ -180,28 +180,29 @@ Internet-Draft                   CalDAV                       April 2006
    11. Security Considerations . . . . . . . . . . . . . . . . . . .  90
    12. IANA Consideration  . . . . . . . . . . . . . . . . . . . . .  91
      12.1. Namespace Registration  . . . . . . . . . . . . . . . . .  91
-   13. Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .  91
+   13. Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .  92
    14. References  . . . . . . . . . . . . . . . . . . . . . . . . .  92
      14.1. Normative References  . . . . . . . . . . . . . . . . . .  92
      14.2. Informative References  . . . . . . . . . . . . . . . . .  93
    Appendix A.  CalDAV Method Privilege Table (Normative)  . . . . .  93
-   Appendix B.  Calendar collections used in the examples  . . . . .  93
+   Appendix B.  Calendar collections used in the examples  . . . . .  94
    Appendix C.  Changes (to be removed prior to publication as an
                 RFC) . . . . . . . . . . . . . . . . . . . . . . . . 100
-     C.1.  Changes in -12  . . . . . . . . . . . . . . . . . . . . . 100
-     C.2.  Changes in -11  . . . . . . . . . . . . . . . . . . . . . 100
-     C.3.  Changes in -10  . . . . . . . . . . . . . . . . . . . . . 101
-     C.4.  Changes in -09  . . . . . . . . . . . . . . . . . . . . . 102
-     C.5.  Changes in -08  . . . . . . . . . . . . . . . . . . . . . 104
-     C.6.  Changes in -07  . . . . . . . . . . . . . . . . . . . . . 105
-     C.7.  Changes in -06  . . . . . . . . . . . . . . . . . . . . . 105
-     C.8.  Changes in -05  . . . . . . . . . . . . . . . . . . . . . 106
-     C.9.  Changes in -04  . . . . . . . . . . . . . . . . . . . . . 106
-     C.10. Changes in -03  . . . . . . . . . . . . . . . . . . . . . 107
-     C.11. Changes in -02  . . . . . . . . . . . . . . . . . . . . . 107
-     C.12. Changes in -01  . . . . . . . . . . . . . . . . . . . . . 107
-   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . . 108
-   Intellectual Property and Copyright Statements  . . . . . . . . . 109
+     C.1.  Changes in -13  . . . . . . . . . . . . . . . . . . . . . 100
+     C.2.  Changes in -12  . . . . . . . . . . . . . . . . . . . . . 101
+     C.3.  Changes in -11  . . . . . . . . . . . . . . . . . . . . . 101
+     C.4.  Changes in -10  . . . . . . . . . . . . . . . . . . . . . 102
+     C.5.  Changes in -09  . . . . . . . . . . . . . . . . . . . . . 103
+     C.6.  Changes in -08  . . . . . . . . . . . . . . . . . . . . . 104
+     C.7.  Changes in -07  . . . . . . . . . . . . . . . . . . . . . 105
+     C.8.  Changes in -06  . . . . . . . . . . . . . . . . . . . . . 106
+     C.9.  Changes in -05  . . . . . . . . . . . . . . . . . . . . . 106
+     C.10. Changes in -04  . . . . . . . . . . . . . . . . . . . . . 107
+     C.11. Changes in -03  . . . . . . . . . . . . . . . . . . . . . 108
+     C.12. Changes in -02  . . . . . . . . . . . . . . . . . . . . . 108
+     C.13. Changes in -01  . . . . . . . . . . . . . . . . . . . . . 108
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . . 109
+   Intellectual Property and Copyright Statements  . . . . . . . . . 110
 
 
 
@@ -219,10 +220,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-
-Daboo, et al.           Expires October 28, 2006                [Page 4]
+Daboo, et al.           Expires January 15, 2007                [Page 4]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 1.  Introduction
@@ -240,7 +240,7 @@ Internet-Draft                   CalDAV                       April 2006
    a way to model calendar data in WebDAV, with additional features to
    make an interoperable calendar access protocol.
 
-   Discussion of this Internet-Draft is taking place on the mailing list
+   Discussion of this specification is taking place on the mailing list
    <http://lists.osafoundation.org/mailman/listinfo/ietf-caldav>.
 
 1.1.  Notational Conventions
@@ -276,9 +276,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 5]
+Daboo, et al.           Expires January 15, 2007                [Page 5]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    defined by WebDAV [I-D.ietf-webdav-rfc2518bis] which use the "DAV:"
@@ -308,7 +308,8 @@ Internet-Draft                   CalDAV                       April 2006
    o  MUST support WebDAV ACL [RFC3744] with the additional privilege
       defined in Section 6.1 of this document;
 
-   o  MUST support transport over TLS [RFC2246] as defined in [RFC2818];
+   o  MUST support transport over TLS [RFC2246] as defined in [RFC2818]
+      (note that [RFC2246] has been obsoleted by [RFC4346]);
 
    o  MUST support ETags [RFC2616] with additional requirements
       specified in Section 5.3.4 of this document;
@@ -331,10 +332,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-
-Daboo, et al.           Expires October 28, 2006                [Page 6]
+Daboo, et al.           Expires January 15, 2007                [Page 6]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 3.  Calendaring Data Model
@@ -388,9 +388,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 7]
+Daboo, et al.           Expires January 15, 2007                [Page 7]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    calendar data and state information.  Both CalDAV servers and clients
@@ -444,9 +444,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 8]
+Daboo, et al.           Expires January 15, 2007                [Page 8]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    specify the iCalendar METHOD property.
@@ -500,9 +500,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006                [Page 9]
+Daboo, et al.           Expires January 15, 2007                [Page 9]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    The VEVENT component with the UID value "1@example.com", would be
@@ -556,9 +556,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 10]
+Daboo, et al.           Expires January 15, 2007               [Page 10]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Multiple calendar collections MAY be children of the same collection.
@@ -612,9 +612,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 11]
+Daboo, et al.           Expires January 15, 2007               [Page 11]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Namespace: urn:ietf:params:xml:ns:caldav
@@ -668,9 +668,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 12]
+Daboo, et al.           Expires January 15, 2007               [Page 12]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       specified in a CALDAV:calendar-query REPORT.  The server will also
@@ -724,9 +724,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 13]
+Daboo, et al.           Expires January 15, 2007               [Page 13]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 5.2.3.  CALDAV:supported-calendar-component-set Property
@@ -780,9 +780,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 14]
+Daboo, et al.           Expires January 15, 2007               [Page 14]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 5.2.4.  CALDAV:supported-calendar-data Property
@@ -836,9 +836,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 15]
+Daboo, et al.           Expires January 15, 2007               [Page 15]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Conformance: This property MAY be defined on any calendar collection.
@@ -892,9 +892,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 16]
+Daboo, et al.           Expires January 15, 2007               [Page 16]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       (Section 5.3.2.1) being violated.  Note that servers MUST accept
@@ -948,9 +948,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 17]
+Daboo, et al.           Expires January 15, 2007               [Page 17]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       date may be used at least down to the CALDAV:min-date-time value
@@ -1004,9 +1004,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 18]
+Daboo, et al.           Expires January 15, 2007               [Page 18]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 5.2.9.  CALDAV:max-attendees-per-instance Property
@@ -1060,9 +1060,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 19]
+Daboo, et al.           Expires January 15, 2007               [Page 19]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 5.3.  Creating Resources
@@ -1116,9 +1116,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 20]
+Daboo, et al.           Expires January 15, 2007               [Page 20]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       Instructions MUST either all be executed or none executed.  Thus
@@ -1172,9 +1172,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 21]
+Daboo, et al.           Expires January 15, 2007               [Page 21]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       request body could not be processed successfully.  The following
@@ -1228,9 +1228,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 22]
+Daboo, et al.           Expires January 15, 2007               [Page 22]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -1284,9 +1284,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 23]
+Daboo, et al.           Expires January 15, 2007               [Page 23]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Response <<
@@ -1340,9 +1340,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 24]
+Daboo, et al.           Expires January 15, 2007               [Page 24]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -1396,9 +1396,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 25]
+Daboo, et al.           Expires January 15, 2007               [Page 25]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    The new preconditions are:
@@ -1452,9 +1452,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 26]
+Daboo, et al.           Expires January 15, 2007               [Page 26]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       instance) greater than or equal to the value of the CALDAV:min-
@@ -1508,9 +1508,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 27]
+Daboo, et al.           Expires January 15, 2007               [Page 27]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    A response to a GET request targeted at a calendar object resource
@@ -1530,12 +1530,12 @@ Internet-Draft                   CalDAV                       April 2006
 
    In the case where the data stored by a server as a result of a PUT
    request is not equivalent by octet equality to the submitted calendar
-   object resource, the behavior of the ETag response header is
-   undefined, with the exception that a strong entity tag MUST NOT be
-   returned in the response.  As a result, clients may need to retrieve
-   the modified calendar object resource (and ETag) as a basis for
-   further changes, rather than use the calendar object resource it had
-   sent with the PUT request.
+   object resource, the behavior of the ETag response header is not
+   specified here, with the exception that a strong entity tag MUST NOT
+   be returned in the response.  As a result, clients may need to
+   retrieve the modified calendar object resource (and ETag) as a basis
+   for further changes, rather than use the calendar object resource it
+   had sent with the PUT request.
 
 
 6.  Calendaring Access Control
@@ -1564,9 +1564,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 28]
+Daboo, et al.           Expires January 15, 2007               [Page 28]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Servers MUST support this privilege on all calendar collections,
@@ -1620,9 +1620,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 29]
+Daboo, et al.           Expires January 15, 2007               [Page 29]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Example:
@@ -1676,9 +1676,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 30]
+Daboo, et al.           Expires January 15, 2007               [Page 30]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.3.  Date and floating time
@@ -1732,9 +1732,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 31]
+Daboo, et al.           Expires January 15, 2007               [Page 31]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    When such time range filtering is used, special consideration must be
@@ -1788,9 +1788,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 32]
+Daboo, et al.           Expires January 15, 2007               [Page 32]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.6.  Non-standard components, properties and parameters
@@ -1844,9 +1844,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 33]
+Daboo, et al.           Expires January 15, 2007               [Page 33]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       The request MAY include a Depth header.  If no Depth header is
@@ -1900,9 +1900,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 34]
+Daboo, et al.           Expires January 15, 2007               [Page 34]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       (CALDAV:min-date-time): Any XML element specifying a range of time
@@ -1956,9 +1956,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 35]
+Daboo, et al.           Expires January 15, 2007               [Page 35]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2012,9 +2012,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 36]
+Daboo, et al.           Expires January 15, 2007               [Page 36]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    <?xml version="1.0" encoding="utf-8" ?>
@@ -2068,9 +2068,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 37]
+Daboo, et al.           Expires January 15, 2007               [Page 37]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    END:VEVENT
@@ -2124,9 +2124,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 38]
+Daboo, et al.           Expires January 15, 2007               [Page 38]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.7.2.  Example: Partial retrieval of recurring events
@@ -2180,9 +2180,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 39]
+Daboo, et al.           Expires January 15, 2007               [Page 39]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    <?xml version="1.0" encoding="utf-8" ?>
@@ -2236,9 +2236,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 40]
+Daboo, et al.           Expires January 15, 2007               [Page 40]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
          <D:status>HTTP/1.1 200 OK</D:status>
@@ -2292,9 +2292,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 41]
+Daboo, et al.           Expires January 15, 2007               [Page 41]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
      </D:response>
@@ -2348,9 +2348,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 42]
+Daboo, et al.           Expires January 15, 2007               [Page 42]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    <?xml version="1.0" encoding="utf-8" ?>
@@ -2404,9 +2404,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 43]
+Daboo, et al.           Expires January 15, 2007               [Page 43]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    ORGANIZER:mailto:cyrus@example.com
@@ -2460,9 +2460,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 44]
+Daboo, et al.           Expires January 15, 2007               [Page 44]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2516,9 +2516,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 45]
+Daboo, et al.           Expires January 15, 2007               [Page 45]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Response <<
@@ -2572,9 +2572,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 46]
+Daboo, et al.           Expires January 15, 2007               [Page 46]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2628,9 +2628,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 47]
+Daboo, et al.           Expires January 15, 2007               [Page 47]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Response <<
@@ -2684,9 +2684,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 48]
+Daboo, et al.           Expires January 15, 2007               [Page 48]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2740,9 +2740,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 49]
+Daboo, et al.           Expires January 15, 2007               [Page 49]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    DTSTART:20000404T020000
@@ -2796,9 +2796,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 50]
+Daboo, et al.           Expires January 15, 2007               [Page 50]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2852,9 +2852,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 51]
+Daboo, et al.           Expires January 15, 2007               [Page 51]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    LAST-MODIFIED:20040110T032845Z
@@ -2908,9 +2908,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 52]
+Daboo, et al.           Expires January 15, 2007               [Page 52]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -2964,9 +2964,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 53]
+Daboo, et al.           Expires January 15, 2007               [Page 53]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    END:DAYLIGHT
@@ -3020,9 +3020,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 54]
+Daboo, et al.           Expires January 15, 2007               [Page 54]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    END:VTIMEZONE
@@ -3076,9 +3076,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 55]
+Daboo, et al.           Expires January 15, 2007               [Page 55]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    END:DAYLIGHT
@@ -3132,9 +3132,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 56]
+Daboo, et al.           Expires January 15, 2007               [Page 56]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    >> Request <<
@@ -3188,9 +3188,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 57]
+Daboo, et al.           Expires January 15, 2007               [Page 57]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    DTSTAMP:20060205T235335Z
@@ -3244,9 +3244,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 58]
+Daboo, et al.           Expires January 15, 2007               [Page 58]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.7.10.  Example: Attempt to query unsupported property
@@ -3300,9 +3300,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 59]
+Daboo, et al.           Expires January 15, 2007               [Page 59]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.8.  CALDAV:calendar-multiget Report
@@ -3356,9 +3356,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 60]
+Daboo, et al.           Expires January 15, 2007               [Page 60]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       equal to the value of the CALDAV:min-date-time property value
@@ -3412,9 +3412,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 61]
+Daboo, et al.           Expires January 15, 2007               [Page 61]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Content-Length: xxxx
@@ -3468,9 +3468,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 62]
+Daboo, et al.           Expires January 15, 2007               [Page 62]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
      </D:response>
@@ -3524,9 +3524,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 63]
+Daboo, et al.           Expires January 15, 2007               [Page 63]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Marshalling:
@@ -3580,9 +3580,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 64]
+Daboo, et al.           Expires January 15, 2007               [Page 64]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 7.9.1.  Example: Successful CALDAV:free-busy-query Report
@@ -3636,9 +3636,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 65]
+Daboo, et al.           Expires January 15, 2007               [Page 65]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 8.1.  Client-to-client Interoperability
@@ -3692,9 +3692,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 66]
+Daboo, et al.           Expires January 15, 2007               [Page 66]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    and the future up to a reasonable limit (e.g., one week, one month).
@@ -3748,9 +3748,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 67]
+Daboo, et al.           Expires January 15, 2007               [Page 67]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    REPORT /bernard/work/ HTTP/1.1
@@ -3804,9 +3804,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 68]
+Daboo, et al.           Expires January 15, 2007               [Page 68]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 8.2.2.  Restrict the Properties Returned
@@ -3860,9 +3860,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 69]
+Daboo, et al.           Expires January 15, 2007               [Page 69]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    The choice of HTTP URLs means that calendar object resources are
@@ -3916,9 +3916,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 70]
+Daboo, et al.           Expires January 15, 2007               [Page 70]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    <?xml version="1.0" encoding="utf-8" ?>
@@ -3959,7 +3959,7 @@ Internet-Draft                   CalDAV                       April 2006
       resources (i.e., refusing PUT requests of very large iCalendar
       objects).  Servers that do that MUST use the CALDAV:max-resource-
       size property on a calendar collection to inform the client as to
-      what the limitation is (see Section 5.2.5.
+      what the limitation is (see Section 5.2.5).
 
    o  Servers MAY impose storage quota limitations on calendar
       collections (See [RFC4331]).
@@ -3972,18 +3972,22 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 71]
+Daboo, et al.           Expires January 15, 2007               [Page 71]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       attachment is unchanged.
 
 8.5.2.  External attachments
 
-   CalDAV clients MUST support external attachments: if the client
-   accesses any calendar object resource it MUST be capable of also
-   accessing the external attachment if one exists.  An external
+   CalDAV clients SHOULD support downloading of external attachments
+   referenced by arbitrary URI schemes, by either processing them
+   directly, or by passing the attachment URI to a suitable "helper
+   application" for processing, if such an application exists.  CalDAV
+   clients MUST support downloading of external attachments referenced
+   by the "http" URI scheme, and MAY support downloading of external
+   attachments referenced by the "https" URI scheme.  An external
    attachment could be:
 
    o  In a collection in the calendar collection containing the calendar
@@ -4021,18 +4025,18 @@ Internet-Draft                   CalDAV                       April 2006
    Also, clients are responsible for consistency of permissions when
    using external attachments.  One reason for servers to support the
    storage of attachments within child collections of calendar
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 72]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    collections is that ACL inheritance might make it easier to grant the
    same permissions to attachments that are granted on the calendar
    collection.  Otherwise, it can be very difficult to keep permissions
    synchronized.  With attachments stored on separate repositories, it
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 72]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    can be impossible to keep permissions consistent -- the two
    repositories may not support the same permissions or have the same
    set of principals.  Some systems have used tickets or other anonymous
@@ -4065,7 +4069,7 @@ Internet-Draft                   CalDAV                       April 2006
       email, it SHOULD ignore the alarm but MUST continue to synchronize
       the alarm itself.
 
-      This specification makes no recommendations about executing alarm
+      This specification makes no recommendations about executing alarms
       of type PROCEDURE except to note that clients are advised to take
       care to avoid creating security holes by executing these.
 
@@ -4077,17 +4081,17 @@ Internet-Draft                   CalDAV                       April 2006
    Clients that allow changes to calendar object resources MUST
    synchronize the alarm data that already exists in the resources.
    Clients MAY execute alarms that are downloaded in this fashion,
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 73]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    possibly based on user preference.  If a client is only doing read
    operations on a calendar and there is no risk of losing alarm
    information, then the client MAY discard alarm information.
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 73]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    This specification makes no attempt to provide multi-user alarms on
    group calendars or to find out who an alarm is intended for.
@@ -4131,19 +4135,19 @@ Internet-Draft                   CalDAV                       April 2006
 
 9.3.  CALDAV:mkcalendar-response XML Element
 
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 74]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    Name: mkcalendar-response
 
    Namespace: urn:ietf:params:xml:ns:caldav
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 74]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    Purpose: Specifies a response body for a successful MKCALENDAR
       request.
@@ -4187,19 +4191,21 @@ Internet-Draft                   CalDAV                       April 2006
       property, the CALDAV:calendar-data XML element specifies a media
       type supported by the CalDAV server for calendar object resources.
 
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 75]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
       When used in a calendaring REPORT request, the CALDAV:calendar-
       data XML element specifies which parts of calendar object
       resources need to be returned in the response.  If the CALDAV:
       calendar-data XML element doesn't contain any CALDAV:comp element,
       calendar object resources will be returned in their entirety.
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 75]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
       Finally, when used in a calendaring REPORT response, the CALDAV:
       calendar-data XML element specifies the content of a calendar
@@ -4241,21 +4247,21 @@ Internet-Draft                   CalDAV                       April 2006
          content-type value: a MIME media type
          version value: a version string
 
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 76]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
 9.5.1.  CALDAV:comp XML Element
 
    Name: comp
 
    Namespace: urn:ietf:params:xml:ns:caldav
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 76]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    Purpose: Defines which component types to return.
 
@@ -4297,21 +4303,21 @@ Internet-Draft                   CalDAV                       April 2006
 
    Namespace: urn:ietf:params:xml:ns:caldav
 
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 77]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    Purpose: Specifies that all properties shall be returned.
 
    Description: The CALDAV:allprop XML element can be used when the
       client wants all properties of components returned by a
       calendaring REPORT request.
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 77]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    Definition:
 
@@ -4354,20 +4360,18 @@ Internet-Draft                   CalDAV                       April 2006
       "urn:ietf:params:xml:ns:caldav" namespace instead of the "DAV:"
       namespace.
 
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 78]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
 9.5.5.  CALDAV:expand XML Element
 
    Name: expand
-
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 78]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    Namespace: urn:ietf:params:xml:ns:caldav
 
@@ -4411,20 +4415,22 @@ Internet-Draft                   CalDAV                       April 2006
    Purpose: Specifies a time range to limit the set of "overridden
       components" returned by the server.
 
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 79]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    Description: The CALDAV:limit-recurrence-set XML element specifies
       that for a given calendaring REPORT request the server MUST
       return, in addition to the "master component", only the
       "overridden components" that impact a specified time range.  An
       overridden component impacts a time range if its current start and
       end times overlap the time range, or if the original start and end
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 79]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
       times - the ones that would have been used if the instance were
       not overridden - overlap the time range.  The "start" attribute
       specifies the inclusive start of the time range, and the "end"
@@ -4467,19 +4473,19 @@ Internet-Draft                   CalDAV                       April 2006
       intersect a specified time range.  The "start" attribute specifies
       the inclusive start of the time range, and the "end" attribute
       specifies the non-inclusive end of the time range.  Both
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 80]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
       attributes are specified as "date with UTC time" value.  The value
       of the "end" attribute MUST be greater than the value of the
       "start" attribute.  The server MUST use the same logic as defined
       for CALDAV:time-range to determine if a FREEBUSY property value
       intersect the specified time range.
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 80]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    Definition:
 
@@ -4523,19 +4529,16 @@ Internet-Draft                   CalDAV                       April 2006
          exists, and the CALDAV:comp-filter is empty, or it contains at
          least one recurrence instance scheduled to overlap a given time
          range if a CALDAV:time-range XML element is specified, and that
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 81]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
          any CALDAV:prop-filter and CALDAV:comp-filter child elements
          also match.
-
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 81]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
       or:
 
@@ -4585,12 +4588,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 82]
+Daboo, et al.           Expires January 15, 2007               [Page 82]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 9.6.3.  CALDAV:param-filter XML Element
@@ -4644,9 +4644,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 83]
+Daboo, et al.           Expires January 15, 2007               [Page 83]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 9.6.5.  CALDAV:text-match XML Element
@@ -4669,7 +4669,7 @@ Internet-Draft                   CalDAV                       April 2006
       strongly encouraged to consult "The Unicode Standard" [UNICODE4],
       especially Section 5.18, Subsection "Caseless Matching", for
       guidance when implementing their case-insensitive matching
-      algorithms..  A server MAY ignore the caseless attribute when
+      algorithms.  A server MAY ignore the caseless attribute when
       applied to enumerated iCalendar property or parameter values, and
       default to caseless matching for those values, since they are
       defined as being case-insensitive in iCalendar.
@@ -4700,9 +4700,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 84]
+Daboo, et al.           Expires January 15, 2007               [Page 84]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Purpose: Specifies the time zone component to use when determining
@@ -4756,9 +4756,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 85]
+Daboo, et al.           Expires January 15, 2007               [Page 85]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       present, the value of the "end" attribute MUST be greater than the
@@ -4812,9 +4812,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 86]
+Daboo, et al.           Expires January 15, 2007               [Page 86]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       value MUST be a DATE-TIME value equal to or after the DTSTART
@@ -4868,9 +4868,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 87]
+Daboo, et al.           Expires January 15, 2007               [Page 87]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       +----------------------------------------------------+
@@ -4924,9 +4924,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 88]
+Daboo, et al.           Expires January 15, 2007               [Page 88]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
       A VALARM component is said to overlap a given time range if the
@@ -4980,9 +4980,9 @@ Internet-Draft                   CalDAV                       April 2006
 
 
 
-Daboo, et al.           Expires October 28, 2006               [Page 89]
+Daboo, et al.           Expires January 15, 2007               [Page 89]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
    Definition:
@@ -5012,6 +5012,11 @@ Internet-Draft                   CalDAV                       April 2006
    CalDAV allows internationalized strings to be stored and retrieved
    for the description of calendar collections (see Section 5.2.1).
 
+   The CALDAV:calendar-query report (Section 7.7) includes a text
+   searching option controlled by the CALDAV:text-match element and
+   details of character handling are covered in the description of that
+   element (see Section 9.6.5).
+
 
 11.  Security Considerations
 
@@ -5029,21 +5034,34 @@ Internet-Draft                   CalDAV                       April 2006
    recurrences to be expanded over that range would likely constitute a
    denial-of-service attack on the server.
 
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 90]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    When creating new resources (including calendar collections), clients
    MUST ensure that the resource name (the last path segment of the
    resource URI) assigned to the new resource does not expose any data
    from within the iCalendar resource itself and information about the
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 90]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    nature of a calendar collection.  This is required to ensure that the
    presence of a specific iCalendar component or nature of components in
    a collection cannot be inferred based on the name of a resource.
+
+   When rolling up free-busy information, more information about a
+   user's events is exposed if busy periods overlap or are adjacent
+   (this tells the client requesting the free-busy information that the
+   calendar owner has at least two events, rather than knowing only that
+   the calendar owner has one or more events during the busy period).
+   Thus, a conservative approach to calendar data privacy would have
+   servers always coalesce such busy periods when they are the same
+   type.
+
+   Procedure alarms are a known security risk for either clients or
+   servers to handle, particularly when the alarm was created by another
+   agent.  Clients and servers are not required to execute such
+   procedure alarms.
 
    Security considerations described in iCalendar [RFC2445] and iTIP
    [RFC2446] are also applicable to CalDAV.
@@ -5070,6 +5088,15 @@ Internet-Draft                   CalDAV                       April 2006
    XML: None.  Namespace URIs do not represent an XML specification.
 
 
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 91]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
 13.  Acknowledgements
 
    The authors would like to thank the following individuals for
@@ -5086,23 +5113,12 @@ Internet-Draft                   CalDAV                       April 2006
 
 14.  References
 
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 91]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
 14.1.  Normative References
 
    [I-D.ietf-webdav-rfc2518bis]
               Dusseault, L., "HTTP Extensions for Distributed Authoring
-              - WebDAV", draft-ietf-webdav-rfc2518bis-14 (work in
-              progress), February 2006.
+              - WebDAV", draft-ietf-webdav-rfc2518bis-15 (work in
+              progress), May 2006.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
@@ -5130,12 +5146,22 @@ Internet-Draft                   CalDAV                       April 2006
               Distributed Authoring and Versioning)", RFC 3253,
               March 2002.
 
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 92]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    [RFC3688]  Mealling, M., "The IETF XML Registry", BCP 81, RFC 3688,
               January 2004.
 
    [RFC3744]  Clemm, G., Reschke, J., Sedlar, E., and J. Whitehead, "Web
               Distributed Authoring and Versioning (WebDAV) Access
               Control Protocol", RFC 3744, May 2004.
+
+   [RFC4346]  Dierks, T. and E. Rescorla, "The Transport Layer Security
+              (TLS) Protocol Version 1.1", RFC 4346, April 2006.
 
    [UNICODE4]
               The Unicode Consortium, "The Unicode Standard, Version
@@ -5144,17 +5170,11 @@ Internet-Draft                   CalDAV                       April 2006
               <http://www.unicode.org/versions/Unicode4.0.0/>.
 
    [W3C.REC-xml-20040204]
-              Yergeau, F., Paoli, J., Sperberg-McQueen, C., Bray, T.,
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 92]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
-              and E. Maler, "Extensible Markup Language (XML) 1.0 (Third
-              Edition)", W3C REC REC-xml-20040204, February 2004.
+              Sperberg-McQueen, C., Maler, E., Bray, T., Paoli, J., and
+              F. Yergeau, "Extensible Markup Language (XML) 1.0 (Third
+              Edition)", World Wide Web Consortium
+              Recommendation http://www.w3.org/TR/2004/REC-xml-20040204,
+              February 2004.
 
 14.2.  Informative References
 
@@ -5177,6 +5197,18 @@ Appendix A.  CalDAV Method Privilege Table (Normative)
    The following table extends the WebDAV Method Privilege Table
    specified in Appendix B of [RFC3744].
 
+
+
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 93]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    +------------+------------------------------------------------------+
    | METHOD     | PRIVILEGES                                           |
    +------------+------------------------------------------------------+
@@ -5194,20 +5226,6 @@ Appendix B.  Calendar collections used in the examples
    The content of the calendar collection is being shown as it would be
    returned by a CALDAV:calendar-query REPORT request designed to return
    all the calendar data in the collection:
-
-
-
-
-
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 93]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    >> Request <<
 
@@ -5239,6 +5257,14 @@ Internet-Draft                   CalDAV                       April 2006
    Content-Length: xxxx
 
    <?xml version="1.0" encoding="utf-8" ?>
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 94]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    <D:multistatus xmlns:D="DAV:"
                  xmlns:C="urn:ietf:params:xml:ns:caldav">
 
@@ -5257,14 +5283,6 @@ Internet-Draft                   CalDAV                       April 2006
    DTSTART:20000404T020000
    RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
    TZNAME:EDT
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 94]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    TZOFFSETFROM:-0500
    TZOFFSETTO:-0400
    END:DAYLIGHT
@@ -5295,6 +5313,14 @@ Internet-Draft                   CalDAV                       April 2006
        <D:href>http://cal.example.com/bernard/work/abcd2.ics</D:href>
        <D:propstat>
          <D:prop>
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 95]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
            <D:getetag>"fffff-abcd2"</D:getetag>
            <C:calendar-data>BEGIN:VCALENDAR
    VERSION:2.0
@@ -5313,14 +5339,6 @@ Internet-Draft                   CalDAV                       April 2006
    DTSTART:20001026T020000
    RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
    TZNAME:EST
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 95]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    TZOFFSETFROM:-0400
    TZOFFSETTO:-0500
    END:STANDARD
@@ -5351,6 +5369,14 @@ Internet-Draft                   CalDAV                       April 2006
      <D:response>
        <D:href>http://cal.example.com/bernard/work/abcd3.ics</D:href>
        <D:propstat>
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 96]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
          <D:prop>
            <D:getetag>"fffff-abcd3"</D:getetag>
            <C:calendar-data>BEGIN:VCALENDAR
@@ -5369,14 +5395,6 @@ Internet-Draft                   CalDAV                       April 2006
    BEGIN:STANDARD
    DTSTART:20001026T020000
    RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 96]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    TZNAME:EST
    TZOFFSETFROM:-0400
    TZOFFSETTO:-0500
@@ -5407,6 +5425,14 @@ Internet-Draft                   CalDAV                       April 2006
        <D:propstat>
          <D:prop>
            <D:getetag>"fffff-abcd4"</D:getetag>
+
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 97]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
            <C:calendar-data>BEGIN:VCALENDAR
    VERSION:2.0
    PRODID:-//Example Corp.//CalDAV Client//EN
@@ -5425,14 +5451,6 @@ Internet-Draft                   CalDAV                       April 2006
    </C:calendar-data>
          </D:prop>
          <D:status>HTTP/1.1 200 OK</D:status>
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 97]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
        </D:propstat>
      </D:response>
 
@@ -5464,6 +5482,13 @@ Internet-Draft                   CalDAV                       April 2006
        </D:propstat>
      </D:response>
 
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 98]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
      <D:response>
        <D:href>http://cal.example.com/bernard/work/abcd6.ics</D:href>
        <D:propstat>
@@ -5481,14 +5506,6 @@ Internet-Draft                   CalDAV                       April 2006
    STATUS:COMPLETED
    SUMMARY:Task #3
    UID:E10BA47467C5C69BB74E8722@example.com
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 98]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    END:VTODO
    END:VCALENDAR
    </C:calendar-data>
@@ -5521,6 +5538,13 @@ Internet-Draft                   CalDAV                       April 2006
        </D:propstat>
      </D:response>
 
+
+
+Daboo, et al.           Expires January 15, 2007               [Page 99]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
      <D:response>
        <D:href>http://cal.example.com/bernard/work/abcd8.ics</D:href>
        <D:propstat>
@@ -5537,14 +5561,6 @@ Internet-Draft                   CalDAV                       April 2006
    DTEND:20060108T000000Z
    FREEBUSY:20050531T230000Z/20050601T010000Z
    FREEBUSY;FBTYPE=BUSY-TENTATIVE:20060102T100000Z/20060102T120000Z
-
-
-
-Daboo, et al.           Expires October 28, 2006               [Page 99]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    FREEBUSY:20060103T100000Z/20060103T120000Z
    FREEBUSY:20060104T100000Z/20060104T120000Z
    FREEBUSY;FBTYPE=BUSY-UNAVAILABLE:20060105T100000Z/20060105T120000Z
@@ -5562,7 +5578,32 @@ Internet-Draft                   CalDAV                       April 2006
 
 Appendix C.  Changes (to be removed prior to publication as an RFC)
 
-C.1.  Changes in -12
+C.1.  Changes in -13
+
+   a.  Changed mailing list draft description.
+
+   b.  Added security review suggested text to Security Considerations.
+
+   c.  Changed external attachment support to require http URI
+       downloads, and optionally others.
+
+   d.  Added reference to text-match element in Internationalization
+       Considerations section.
+
+   e.  Changed 'undefined' to 'not specified here' in ETag behavior
+       section.
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 100]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
+   f.  Added reference to RFC4346 with note that it obsoletes RFC2246
+
+C.2.  Changes in -12
 
    a.  Changed requirements for ETags on PUT to better reflect the needs
        of CalDAV clients wrt synchronization and reflect what other
@@ -5571,7 +5612,7 @@ C.1.  Changes in -12
    b.  Changed CALDAV:read-free-busy privilege so that it is also
        defined on regular collections.
 
-C.2.  Changes in -11
+C.3.  Changes in -11
 
    a.  Added statement that calendar-query Depth defaults to zero if
        header is not present.  Fixed one multiget example's Depth
@@ -5593,14 +5634,6 @@ C.2.  Changes in -11
 
    g.  Now require 2518bis Class 3 behaviour.
 
-
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 100]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    h.  Fixed indentation in examples and removed bogus whitespace before
        </C:calendar-data> tags.
 
@@ -5616,6 +5649,13 @@ Internet-Draft                   CalDAV                       April 2006
 
    l.  Added is-not-defined and negate-condition options to reports and
        a new example to illustrate use of those.
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 101]
+
+Internet-Draft                   CalDAV                        July 2006
+
 
    m.  Fixed descriptions of some calendar collection properties.
 
@@ -5639,7 +5679,7 @@ Internet-Draft                   CalDAV                       April 2006
 
    t.  Clarified dependence on UNICODE reference for caseless matching.
 
-C.3.  Changes in -10
+C.4.  Changes in -10
 
    a.  Added new section about support for X- items when storing data.
 
@@ -5647,15 +5687,6 @@ C.3.  Changes in -10
        unsupported X- items, and a new example.
 
    c.  Added new text about always supporting X- in calendar-data.
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 101]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    d.  Created new section for PUT, COPY and MOVE preconditions.
 
@@ -5673,12 +5704,21 @@ Internet-Draft                   CalDAV                       April 2006
    i.  Add constraint that free-busy-query can only be run on a
        collection.
 
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 102]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
    j.  Add preconditions for calendar-timezone property/elements in
        MKCALENDAR, PROPPATCH and calendar-query REPORT.
 
    k.  Fix principal-match example.
 
-C.4.  Changes in -09
+C.5.  Changes in -09
 
    a.   Numerous editorial changes.
 
@@ -5706,13 +5746,6 @@ C.4.  Changes in -09
         repeating VALARM component is said to intersect a given time
         range if at least one of its trigger intersect the time range.
 
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 102]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    j.   Clarified that calendar object resources stored in calendar
         collections MUST NOT specify the iCalendar METHOD property.
 
@@ -5728,6 +5761,13 @@ Internet-Draft                   CalDAV                       April 2006
 
    n.   Changed many ELEMENT and ATTLIST declarations to comply with DTD
         syntax.
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 103]
+
+Internet-Draft                   CalDAV                        July 2006
+
 
    o.   Changed XML element CALDAV:calendar-query to allow new XML
         element CALDAV:timezone.
@@ -5762,13 +5802,6 @@ Internet-Draft                   CalDAV                       April 2006
         calendar-timezone property for a given CALDAV:calendar-query
         REPORT request.
 
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 103]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    y.   Added text on the conversion of "floating date" and "floating
         time" values to date with UTC time values.
 
@@ -5776,12 +5809,21 @@ Internet-Draft                   CalDAV                       April 2006
 
    aa.  Completed security considerations section.
 
-C.5.  Changes in -08
+C.6.  Changes in -08
 
    a.  Removed statement that said that client SHOULD always request
        DAV:getetag in calendar REPORTs.
 
    b.  Removed redefiniton of DAV:response.
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 104]
+
+Internet-Draft                   CalDAV                        July 2006
+
 
    c.  Removed XML elements CALDAV:calendar-data-only.
 
@@ -5816,16 +5858,7 @@ C.5.  Changes in -08
 
    o.  Added guidelines on attachments and alarms.
 
-
-
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 104]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
-C.6.  Changes in -07
+C.7.  Changes in -07
 
    a.  Various editorial changes.
 
@@ -5838,6 +5871,15 @@ C.6.  Changes in -07
    d.  Removed property calendar-URL on principal resources.
 
    e.  Added pre- and postconditions to reports.
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 105]
+
+Internet-Draft                   CalDAV                        July 2006
+
 
    f.  Added new XML elements calendar-data-only and limit-recurrent-
        set.
@@ -5857,7 +5899,7 @@ C.6.  Changes in -07
    l.  Rewrote section on calendar object resource restrictions for
        better clarity.
 
-C.7.  Changes in -06
+C.8.  Changes in -06
 
    a.  Reworded section "Recurrence and the Data Model".
 
@@ -5874,17 +5916,10 @@ C.7.  Changes in -06
    f.  Added informative "Guidelines" section, with information on
        locking and how to find calendar collections.
 
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 105]
-
-Internet-Draft                   CalDAV                       April 2006
-
-
    g.  Moved "Sychronization Operations" section in the "Guidelines"
        section.
 
-C.8.  Changes in -05
+C.9.  Changes in -05
 
    a.  Removed a lot of non-normative text.
 
@@ -5893,6 +5928,14 @@ C.8.  Changes in -05
    c.  Removed calendar-owner and cal-scale properties.
 
    d.  Removed 'ical' prefix/text from element names.
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 106]
+
+Internet-Draft                   CalDAV                        July 2006
+
 
    e.  Relaxed WebDAV Class 2 (locking) requirement to a MAY.
 
@@ -5920,22 +5963,13 @@ C.8.  Changes in -05
 
    p.  Grouped XML Element declarations in a separate section.
 
-C.9.  Changes in -04
+C.10.  Changes in -04
 
    a.  Added a note about the HTTP Location response header.
 
    b.  Added report calendar-query.
 
    c.  Removed reports calendar-property-search and calendar-time-range.
-
-
-
-
-
-Daboo, et al.           Expires October 28, 2006              [Page 106]
-
-Internet-Draft                   CalDAV                       April 2006
-
 
    d.  Removed section on CalDAV and timezones.
 
@@ -5948,7 +5982,18 @@ Internet-Draft                   CalDAV                       April 2006
 
    h.  Removed dependencies on DASL.
 
-C.10.  Changes in -03
+
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 107]
+
+Internet-Draft                   CalDAV                        July 2006
+
+
+C.11.  Changes in -03
 
    a.  Removed Calendar Containers (simplification that doesn't seem to
        remove much functionality)
@@ -5957,7 +6002,7 @@ C.10.  Changes in -03
 
    c.  Added cal-scale property to calendars
 
-C.11.  Changes in -02
+C.12.  Changes in -02
 
    Basically still adding major sections of content:
 
@@ -5971,7 +6016,7 @@ C.11.  Changes in -02
 
    e.  Added new privileges for scheduling
 
-C.12.  Changes in -01
+C.13.  Changes in -01
 
    a.  Added section on privileges for calendaring, extending WebDAV ACL
        privilege set
@@ -5988,9 +6033,20 @@ C.12.  Changes in -01
 
 
 
-Daboo, et al.           Expires October 28, 2006              [Page 107]
+
+
+
+
+
+
+
+
+
+
+
+Daboo, et al.           Expires January 15, 2007              [Page 108]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 Authors' Addresses
@@ -6044,9 +6100,9 @@ Authors' Addresses
 
 
 
-Daboo, et al.           Expires October 28, 2006              [Page 108]
+Daboo, et al.           Expires January 15, 2007              [Page 109]
 
-Internet-Draft                   CalDAV                       April 2006
+Internet-Draft                   CalDAV                        July 2006
 
 
 Intellectual Property Statement
@@ -6100,5 +6156,5 @@ Acknowledgment
 
 
 
-Daboo, et al.           Expires October 28, 2006              [Page 109]
+Daboo, et al.           Expires January 15, 2007              [Page 110]
 

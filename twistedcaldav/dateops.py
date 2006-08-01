@@ -29,6 +29,8 @@ __all__ = [
     "normalizeToUTC",
     "normalizeForIndex",
     "compareDateTime",
+    "differenceDateTime",
+    "makeComparableDateTime",
     "timeRangesOverlap",
     "periodEnd",
     "normalizePeriodList",
@@ -102,6 +104,43 @@ def compareDateTime(dt1, dt2, defaulttz = None):
              -1 if dt1 < dt2
               1 if dt1 > dt2
     """
+
+    dt1, dt2 = makeComparableDateTime(dt1, dt2, defaulttz)
+
+    if dt1 == dt2:
+        return 0
+    elif dt1 < dt2:
+        return -1
+    else:
+        return 1
+
+def differenceDateTime(start, end, defaulttz = None):
+    """
+    Determines the difference between start and end datetime's returning the duration.
+    NB This handles the case where start and end are not of the same datetime type.
+    
+    @param start: a L{datetime.datetime} or L{datetime.date} specify the start time.
+    @param end: a L{datetime.datetime} or L{datetime.date} specify the end time.
+    @param defaulttz: a L{datetime.tzinfo} for the VTIMEZONE object to use if one of the
+        datetime's is a date or floating.
+    @return: the L{datetime.timedelta} for the difference between the two.
+    """
+
+    start, end = makeComparableDateTime(start, end, defaulttz)
+    return end - start
+
+def makeComparableDateTime(dt1, dt2, defaulttz = None):  
+    """
+    Ensure that the two datetime objects passed in are of a comparable type for arithemtic
+    and comparison operations..
+    
+    @param start: a L{datetime.datetime} or L{datetime.date} specifying one time.
+    @param end: a L{datetime.datetime} or L{datetime.date} specifying another time.
+    @param defaulttz: a L{datetime.tzinfo} for the VTIMEZONE object to use if one of the
+        datetime's is a date or floating.
+    @return: a C{tuple} of two L{datetime.xx}'s for the comparable items.
+    """
+
     for dt in (dt1, dt2):
         if not isinstance(dt, datetime.date):
             raise TypeError("$r is not a datetime.date instance" % (dt,))
@@ -128,14 +167,9 @@ def compareDateTime(dt1, dt2, defaulttz = None):
             dt2 = dt2.replace(tzinfo=getTzinfo(dt1.tzinfo))
         elif (dt1.tzinfo is None and dt2.tzinfo is not None):
             dt1 = dt1.replace(tzinfo=getTzinfo(dt2.tzinfo))
+    
+    return (dt1, dt2)
 
-    if dt1 == dt2:
-        return 0
-    elif dt1 < dt2:
-        return -1
-    else:
-        return 1
-            
 def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
     """
     Determines whether two time ranges overlap.

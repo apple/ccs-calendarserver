@@ -24,7 +24,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT docroot (collection) >
 	<!ATTLIST docroot auto-principal-collection-set (yes|no) "yes">
 
-    <!ELEMENT collection (pytype?, params, properties, members)>
+    <!ELEMENT collection (pytype?, params?, properties, members)>
       <!ATTLIST collection name CDATA ""
                              tag (none|principals|calendars) "none">
       <!ELEMENT pytype     (#PCDATA)>

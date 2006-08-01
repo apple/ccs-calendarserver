@@ -24,7 +24,7 @@ iCalendar Recurrence Expansion Utilities
 """
 
 import datetime
-from twistedcaldav.dateops import normalizeForIndex, compareDateTime, periodEnd
+from twistedcaldav.dateops import normalizeForIndex, compareDateTime, differenceDateTime, periodEnd
 
 # The maximum number of instances we will ezpand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
@@ -180,7 +180,7 @@ class InstanceList(object):
                 duration = datetime.timedelta(days=1)
             end = start + duration
         else:
-            duration = end - start
+            duration = differenceDateTime(start, end)
 
         self._addMasterComponent(component, limit, start, end, duration)
 
@@ -209,7 +209,7 @@ class InstanceList(object):
                 duration = datetime.timedelta(days=1)
             end = start + duration
         else:
-            duration = end - start
+            duration = differenceDateTime(start, end)
 
         self._addOverrideComponent(component, start, end)
 
@@ -230,7 +230,7 @@ class InstanceList(object):
             start = due
         elif due is None:
             due = start
-        duration = due - start
+        duration = differenceDateTime(start, due)
 
         self._addMasterComponent(component, limit, start, due, duration)
 

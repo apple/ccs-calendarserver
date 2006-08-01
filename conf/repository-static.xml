@@ -151,7 +151,6 @@ limitations under the License.
       <pswd/>
       <name>Room %02d</name>
       <calendar>calendar</calendar>
-      <autorespond/>
       <acl>
         <ace>
           <principal><all/></principal>
@@ -159,6 +158,7 @@ limitations under the License.
           <protected/>
           <inheritable/>
         </ace>
+      <autorespond/>
       </acl>
     </user>
      -->
