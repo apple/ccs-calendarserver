@@ -133,7 +133,7 @@ class CalDAVResource (DAVResource):
     ##
 
     def davComplianceClasses(self):
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + ("calendar-access",)
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + ("calendar-access", "calendar-schedule")
 
     liveProperties = DAVResource.liveProperties + (
         (caldav_namespace, "supported-calendar-component-set"),
