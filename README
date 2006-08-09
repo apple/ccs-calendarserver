@@ -1,0 +1,76 @@
+This is the core code base for a CalDAV/WebDAV/HTTP server.
+
+For general information about the server, see:
+
+    http://collaboration.apple.com/
+
+
+QUICK START
+===========
+
+Place this source directory into an empty development directory, such
+as ~/Developer/Collaboration/CalendarServer/.  The server requires a
+number of libraries in order to operate.  The "run" script in the
+sources will automatically download or check out the appropriate
+libraries and build them for you:
+
+    ./run -s
+
+Before you can run the server, you need to set up a configuration file
+for development.  Start by deciding whether you want to populate you
+server's users, groups, and resources from data obtained via
+OpenDirectory (LDAP, etc.), or use a static configuration.  The latter
+requires less set up, so you probably want to try that first; you can
+copy the example respository-static.xml file:
+
+    cp ./conf/repository-static.xml ./conf/repository-dev.xml
+
+This file contains one user account ("principal"), named "admin", with
+password "admin".  This principal is also set up with "all"
+permissions on the server.
+
+You can then run the server thusly:
+
+    ~/Developer/Collaboration/CalendarServer/run
+
+This should start up and bind to port 8008 for HTTP and 8443 for
+HTTPS.  You should then be able to connect to the server using your
+web browser (eg. Safari, Firefox) or with a CalDAV client (eg. iCal,
+Chandler).
+
+Note that while the server does support WebDAV, it does not support
+WebDAV level 2, which means it does not implement the LOCK and UNLOCK
+methods.  It therefore is may not be mountable as a file system.
+Speficially, Mac OS X's Finder will not be able to connect to the
+server as a remote data volume.
+
+
+PORTABILITY
+===========
+
+Portability is fairly limited in this release.
+
+The server has only been tested to date on Mac OS X 10.5 developer
+preview, which is only available to Apple developers.  (See
+http://developer.apple.com/.)
+
+If you are using Tiger (OS X 10.4), you will at least need to install
+Python 2.4.
+
+If you are using other operating systems, there is probably additional
+coding work required before you can get started.  For starters,
+twisted.web2.dav requires Bob Ippolito's xattr library to access file
+system extended attributes.  There are available on all file systems
+in Mac OS X, and on some file systems on Linux and FreeBSD.
+
+
+GETTING INVOLVED
+================
+
+If you are interested in getting involed with development, see the
+above web site for a list of available resources.
+
+You can chat with other users and developers on IRC on channel
+#collaboration on the irc.freenode.net server network.
+
+We hope to have some mailing lists available soon.
