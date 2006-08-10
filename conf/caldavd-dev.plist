@@ -19,31 +19,48 @@ limitations under the License.
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Verbose</key>
-	<false/>
-	<key>RunStandalone</key>
-	<true/>
-	<key>DocumentRoot</key>
-	<string>twistedcaldav/test/data/</string>
-	<key>Port</key>
-	<integer>8008</integer>
-	<key>SSLEnable</key>
-	<true/>
-	<key>SSLOnly</key>
-	<false/>
-	<key>SSLPort</key>
-	<integer>8443</integer>
-	<key>SSLCertificate</key>
-	<string>conf/server.pem</string>
-	<key>LogFile</key>
-	<string>bin/caldavd.log</string>
-	<key>PIDFile</key>
-	<string>bin/twistd-caldavd.pid</string>
-	<key>Repository</key>
-	<string>conf/repository-dev.xml</string>
-	<key>CreateAccounts</key>
-	<true/>
-	<key>ResetAccountACLs</key>
-	<true/>
+
+  <key>Verbose</key>
+  <false/>
+
+  <key>RunStandalone</key>
+  <true/>
+
+  <key>DocumentRoot</key>
+  <string>twistedcaldav/test/data/</string>
+
+  <key>Port</key>
+  <integer>8008</integer>
+
+  <key>SSLEnable</key>
+  <true/>
+
+  <key>SSLOnly</key>
+  <false/>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>SSLPrivateKey</key>
+  <string>conf/server.pem</string>
+
+  <key>SSLCertificate</key>
+  <string>conf/server.pem</string>
+
+  <key>LogFile</key>
+  <string>bin/caldavd.log</string>
+
+  <key>PIDFile</key>
+  <string>bin/twistd-caldavd.pid</string>
+
+  <key>Repository</key>
+  <string>conf/repository-dev.xml</string>
+
+  <key>CreateAccounts</key>
+  <true/>
+
+  <key>ResetAccountACLs</key>
+  <true/>
+
 </dict>
 </plist>
