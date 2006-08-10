@@ -97,12 +97,9 @@ else
   export PYTHONPATH="${PYTHONPATH}:${caldav}";
 fi;
 
-# FIXME: There's probably a way to ask distutils for this string...
-             py_os="$(uname -s | tr '[A-Z]' '[a-z]')";
-        py_release="$(uname -r)";
-        py_machine="$(uname -m | tr ' ' '_')";
+       py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
         py_version="$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
-py_platform_libdir="lib.${py_os}-${py_release}-${py_machine}-${py_version}";
+py_platform_libdir="lib.${py_platform}-${py_version}";
 
 if [ "${py_version/./}" -lt "24" ]; then
   echo "Wrong python version: ${py_version}.";
