@@ -260,7 +260,7 @@ py_install () {
 py_have_module () {
     local module="$1"; shift;
 
-    PYTHONPATH="" python -c "import ${module}" > /dev/null 2>&1;
+    PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
 }
 
 #
