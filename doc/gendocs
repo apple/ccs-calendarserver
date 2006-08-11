@@ -38,31 +38,36 @@ if [ ! -d "${epydoc}" ]; then
 fi;
 
 if [ ! -d "${epydoc}/build/lib" ]; then
-   cd "${epydoc}" && python ./setup.py build
+   cd "${epydoc}" && python2.4 ./setup.py build;
 fi;
 
-export PYTHONPATH="${PYTHONPATH}:${epydoc}/build/lib";
+pydoctor="${top}/pydoctor";
+
+if [ ! -d "${pydoctor}" ]; then
+    echo "Downloading PyDoctor...";
+    cd "${top}" && svn co http://codespeak.net/svn/user/mwh/pydoctor/trunk pydoctor;
+fi;
+
+if [ ! -d "${pydoctor}/build/lib" ]; then
+   cd "${pydoctor}" && python2.4 ./setup.py build;
+fi;
+
+nevow="${top}/Nevow";
+if [ ! -d "${nevow}" ]; then
+    echo "Downloading Nevow...";
+    cd "${top}" && svn co http://divmod.org/svn/Divmod/trunk/Nevow;
+fi;
+
+export PYTHONPATH="${PYTHONPATH}:${epydoc}/build/lib:${pydoctor}/build/lib/:${nevow}";
 
 python_version="$(python -V 2>&1)";
 python_version="${python_version#Python }";
 python_version="${python_version%*.*}";
 
-epydoc="${epydoc}/build/scripts-${python_version}/epydoc";
+pydoctor="${pydoctor}/build/scripts-${python_version}/pydoctor";
 
 ##
 # Generate documentation
 ##
 
-"${epydoc}" --check		\
-    --ignore-param-mismatch	\
-    "${wd}/../twistedcaldav";
-
-rm -rf "${wd}/html";
-
-"${epydoc}" -n "TwistedCalDAV"  \
-    --ignore-param-mismatch	\
-    --html -o "${wd}/html"	\
-    --private			\
-    "${wd}/../twistedcaldav";
-
-open "${wd}/html/index.html";
+"${pydoctor}" -c twistedcaldav.cfg --make-html
