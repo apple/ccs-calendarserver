@@ -123,12 +123,6 @@ run () {
       exit 0;
     fi;
 
-    if [ -f "${wd}/conf/repository-dev.xml" ]; then
-        repository="${wd}/conf/repository-dev.xml";
-    else
-        repository="${wd}/conf/repository.xml";
-    fi;
-    
     if ! "${setup_only}" && [ "${server_home}" == "${wd}" ]; then
       cd "${server_home}";
       exec "${wd}/bin/caldavd" "${daemonize}" \
