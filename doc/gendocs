@@ -66,15 +66,9 @@ python_version="${python_version%*.*}";
 
 pydoctor="${pydoctor}/build/scripts-${python_version}/pydoctor";
 
-twisted="${top}/Twisted";
-if [ ! -f "twisted.pickle" ]; then
-    if [ ! -d "${twisted}" ]; then
-        echo "Downloading Twisted...";
-        cd "${top}" && svn co -r 17097 svn://svn.twistedmatrix.com/svn/Twisted/branches/wsanchez/acl-1608-2;
-    fi;
-
+if [ ! -f "${top}/twisted.pickle" ]; then
     echo "Generating Twisted documentation...";
-    pydoctor -c twisted.cfg -o twisted.pickle;
+    "${pydoctor}" -c twisted.cfg -o "${top}/twisted.pickle";
 fi;
 
 ##
@@ -82,4 +76,4 @@ fi;
 ##
 cd "${wd}";
 
-"${pydoctor}" -c twistedcaldav.cfg --extra-system=twisted.pickle:http://twistedmatrix.com/documents/current/api/ --make-html;
+"${pydoctor}" -c twistedcaldav.cfg --extra-system="${top}/twisted.pickle:http://twistedmatrix.com/documents/current/api/" --make-html;
