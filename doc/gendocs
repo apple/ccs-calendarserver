@@ -60,7 +60,7 @@ fi;
 
 export PYTHONPATH="${PYTHONPATH}:${epydoc}/build/lib:${pydoctor}/build/lib/:${nevow}";
 
-python_version="$(python -V 2>&1)";
+python_version="$(python2.4 -V 2>&1)";
 python_version="${python_version#Python }";
 python_version="${python_version%*.*}";
 
