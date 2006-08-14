@@ -79,8 +79,15 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 # Set up paths
 ##
 
-if [ -x "/Library/Frameworks/Python.framework/Versions/2.4/bin/python" ]; then
+# First thing: find an appropriate python
+if [ -x "/usr/local/bin/python2.4" ]; then
+  python="/usr/local/bin/python2.4";
+elif [ -x "/Library/Frameworks/Python.framework/Versions/2.4/bin/python" ]; then
+  # MacPython install
   python="/Library/Frameworks/Python.framework/Versions/2.4/bin/python";
+elif [ -x "/sw/bin/python2.4" ]; then
+  # For the Fink users
+  python="/sw/bin/python2.4";
 else
   python="${PYTHON:=python2.4}";
 fi;
