@@ -19,10 +19,10 @@
 """
 Logging levels:
     
-    0    - no logging
-    1    - errors only
-    2    - errors and warnings only
-    3    - errors, warnings and debug
+0    - no logging
+1    - errors only
+2    - errors and warnings only
+3    - errors, warnings and debug
 """
 
 from twisted.python import log

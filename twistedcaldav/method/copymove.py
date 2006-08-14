@@ -165,14 +165,14 @@ def checkForCalendarAction(self, request):
     Check to see whether the source or destination of the copy/move
     is a calendar collection, since we need to do special processing
     if that is the case.
-    @return: tuple:
+    @return: tuple::
         result:      True if special CalDAV processing required, False otherwise
                      NB If there is any type of error with the request, return False
                      and allow normal COPY/MOVE processing to return the error.
         sourcecal:   True if source is in a calendar collection, False otherwise
         destination_uri: The URI of the destination resource
         destination: CalDAVFile of destination if special proccesing required,
-                     None otherwise
+        None otherwise
         destinationcal: True if the destination is in a calendar collection,
                         False otherwise
         

@@ -62,7 +62,7 @@ class ICalDAVResource(IDAVResource):
         and C{uri} is a URL path relative to this resource.
         @param depth: the search depth (one of "0", "1", or "infinity")
         @param privileges: the privileges that must exist on any returned calendar collections.
-        @param request: L{Request} for the current request.
+        @param request: L{twisted.web2.server.Request} for the current request.
         @return: an iterable of tuples C{(resource, uri)}.
         """
 
@@ -138,31 +138,31 @@ class ICalendarPrincipalResource(IDAVResource):
     def calendarHomeSet():
         """
         Get list of calendar collections for this principal's calendar user.
-        return L{CalendarHomeSet} element.
+        @return: L{CalendarHomeSet} element.
         """
 
     def calendarUserAddressSet():
         """
         Get list of calendar user addresses for this principal's calendar user.
-        return: L{CalendarUserAddressSet} element.
+        @return: L{CalendarUserAddressSet} element.
         """
 
     def calendarFreeBusySet(request):
         """
         Get list of calendars that contribute to free-busy for this principal's calendar user.
         This property actually resides on the schedule Inbox.
-        param request: L{Request} for the current request.
-        return: L{CalendarFreeBusySet} element.
+        @param request: L{twisted.web2.server.Request} for the current request.
+        @return: L{CalendarFreeBusySet} element.
         """
 
     def scheduleInboxURL():
         """
         Get the schedule INBOX URL for this principal's calendar user.
-        return: a string containing the URL from the schedule-inbox-URL property.
+        @return: a string containing the URL from the schedule-inbox-URL property.
         """
 
     def scheduleOutboxURL():
         """
         Get the schedule OUTBOX URL for this principal's calendar user.
-        return: a string containing the URL from the schedule-outbox-URL property.
+        @return: a string containing the URL from the schedule-outbox-URL property.
         """

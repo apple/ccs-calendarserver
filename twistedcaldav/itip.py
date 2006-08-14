@@ -59,7 +59,7 @@ def handleRequest(request, principal, inbox, calendar, child):
     """
     Handle an iTIP response automatically using a deferredGenerator.
 
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
     @param calendar: the L{Component} for the iTIP message we are processing.
@@ -86,20 +86,20 @@ def processRequest(request, principal, inbox, calendar, child):
     
     Steps:
     
-    1. See if this updates existing ones in Inbox.
-        1.1 If so,
-            1.1.1. Remove existing ones in Inbox.
-            1.1.2. See if this updates existing ones in free-busy-set calendars.
-            1.1.3. Remove existing ones in those calendars.
-            1.1.4. See if this fits into a free slot:
-                1.1.4.1. If not, send REPLY with failure status
-                1.1.4.2. If so
-                    1.1.4.2.1 send REPLY with success
-                    1.1.4.2.2 add to f-b-s calendar
-        1.2 If not,
-            1.2.1 remove the one we got - its 'stale'
+      1. See if this updates existing ones in Inbox.
+          1. If so,
+              1. Remove existing ones in Inbox.
+              2. See if this updates existing ones in free-busy-set calendars.
+              3. Remove existing ones in those calendars.
+              4. See if this fits into a free slot:
+                  1. If not, send REPLY with failure status
+                  2. If so
+                      1. send REPLY with success
+                      2. add to f-b-s calendar
+          2. If not,
+              1. remove the one we got - its 'stale'
     
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
     @param calendar: the L{Component} for the iTIP message we are processing.
@@ -260,7 +260,7 @@ def processAdd(request, principal, inbox, calendar, child):
     Process a METHOD=ADD.
     This is a deferredGenerator function so use yield whenever we have a deferred.
 
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
     @param calendar: the L{Component} for the iTIP message we are processing.
@@ -279,25 +279,25 @@ def processCancel(request, principal, inbox, calendar, child):
 
     Steps:
     
-    1. See if this updates existing ones in Inbox.
-    2. Remove existing ones in Inbox.
-    3. See if this updates existing ones in free-busy-set calendars.
-    4. Remove existing ones in those calendars.
+      1. See if this updates existing ones in Inbox.
+      2. Remove existing ones in Inbox.
+      3. See if this updates existing ones in free-busy-set calendars.
+      4. Remove existing ones in those calendars.
 
     NB Removal can be complex as we need to take RECURRENCE-ID into account - i.e a single
     instance may be cancelled. What we need to do for this is:
     
-    1. If the R-ID of iTIP component matches the R-ID of one in Inbox then it is an exact match, so
-       delete the old one.
-    2. If the R-ID of iTIP does not match an R-ID in Inbox, then we are adding a cancellation as an override, so
-       leave the new and existing ones in the Inbox.
-    3. If the R-ID of iTIP component matches the R-ID of an overridden component in an f-b-s calendar, then
-       remove the overridden component from the f-b-s resource.
-    4. Add an EXDATE to the f-b-s resource to 'cancel' that instance.
+      1. If the R-ID of iTIP component matches the R-ID of one in Inbox then it is an exact match, so
+         delete the old one.
+      2. If the R-ID of iTIP does not match an R-ID in Inbox, then we are adding a cancellation as an override, so
+         leave the new and existing ones in the Inbox.
+      3. If the R-ID of iTIP component matches the R-ID of an overridden component in an f-b-s calendar, then
+         remove the overridden component from the f-b-s resource.
+      4. Add an EXDATE to the f-b-s resource to 'cancel' that instance.
     
     TODO: Yes, I am going to ignore RANGE= on RECURRENCE-ID for now...
     
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
     @param calendar: the L{Component} for the iTIP message we are processing.
@@ -418,7 +418,7 @@ def checkForReply(request, principal, calendar):
     invitation) or negative (denied invitation). In addition we will modify calendar to reflect
     any new state (e.g. remove RSVP, set PART-STAT to ACCEPTED or DECLINED).
 
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param calendar: the L{Component} for the iTIP message we are processing.
     @return: C{True} if a reply is needed, C{False} otherwise.
@@ -520,7 +520,7 @@ def writeReply(request, principal, replycal, ainbox):
     """
     Write an iTIP message reply into the specified Inbox.
     
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param replycal: the L{Component} for the iTIP message reply.
     @param ainbox: the L{ScheduleInboxFile} for the principal's Inbox.
@@ -547,7 +547,7 @@ def saveReply(request, principal, replycal, ainbox):
     """
     Write an iTIP message reply into the specified principal's Outbox.
     
-    @param request: the L{Request} for the current request.
+    @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param replycal: the L{Component} for the iTIP message reply.
     @param ainbox: the L{ScheduleInboxFile} for the principal's Inbox.

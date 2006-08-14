@@ -56,9 +56,9 @@ class Property (object):
     """
     def __init__(self, name, value, params={}, **kwargs):
         """
-        @name: the property's name
-        @value: the property's value
-        @params: a dictionary of parameters, where keys are parameter names and
+        @param name: the property's name
+        @param value: the property's value
+        @param params: a dictionary of parameters, where keys are parameter names and
             values are (possibly empty) lists of parameter values.
         """
         if name is None:

@@ -98,8 +98,8 @@ def compareDateTime(dt1, dt2, defaulttz = None):
     @param defaulttz: a L{datetime.tzinfo} for the VTIMEZONE object to use if one of the
         datetime's is a date or floating.
     @return:  0 if dt1 == dt2,
-             -1 if dt1 < dt2
-              1 if dt1 > dt2
+        -1 if dt1 < dt2
+        1 if dt1 > dt2
     """
 
     dt1, dt2 = makeComparableDateTime(dt1, dt2, defaulttz)

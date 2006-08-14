@@ -673,7 +673,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         @param pswd: C{str} password for BASIC authentication, of C{None}.
         @param resetacl: C{True} if ACLs on the principal resource should be reset.
         @param cuaddrs: C{list} list of calendar user addresses, or C{None}
-        @param cuhome: C{tuple} of (C{str} - URI of calendar home root, L{DAVResource} - resource of home root}
+        @param cuhome: C{tuple} of (C{str} - URI of calendar home root, L{DAVResource} - resource of home root)
         @param cuhomeacls: L{ACL} acls to use on calendar home when resetting ACLs, or C{None} to use default set.
         @param cals: C{list} list of calendar names to create in the calendar home for this prinicpal.
         @param autorespond: C{True} if iTIP auto-response is required, C{False} otherwise.

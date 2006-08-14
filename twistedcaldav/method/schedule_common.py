@@ -54,7 +54,7 @@ def processScheduleRequest(self, method, request):
     requests on an Outbox. These can currently come from either a SCHEDULE or POST method. SCHEDULE will be deprecated soon.
 
     @param method: the C{str} containing the current HTTP method.
-    @param request: the L{Request} for the current HTTP request.
+    @param request: the L{twisted.web2.server.Request} for the current HTTP request.
     """
 
     # Must be targetting an OUTBOX

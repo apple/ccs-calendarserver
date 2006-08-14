@@ -1428,7 +1428,7 @@ class Processed (CalDAVEmptyElement):
 
 class NotProcessed (CalDAVEmptyElement):
     """
-     Indicates that a schedule message in a schedule Inbox has not been processed.
+    Indicates that a schedule message in a schedule Inbox has not been processed.
     (CalDAV-schedule, section x.x.x)
     """
     name = "not-processed"

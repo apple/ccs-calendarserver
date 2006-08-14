@@ -58,7 +58,7 @@ def storeCalendarObjectResource(
     """
     Function that does common PUT/COPY/MOVE behaviour.
     
-    @param request:           the L{Request} for the current HTTP request.
+    @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
     @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
                               is to be read from the request.
     @param source_uri:        the URI for the source resource.
@@ -178,7 +178,7 @@ def storeCalendarObjectResource(
         """
         Make sure that the content-type of the source resource is text/calendar.
         This test is only needed when the source is not in a calendar collection.
-        @param request: the L{Request} for the current HTTP request.
+        @param request: the L{twisted.web2.server.Request} for the current HTTP request.
         @param source:  the L{Component} for the calendar to test.
         """
         result = True
@@ -194,7 +194,7 @@ def storeCalendarObjectResource(
         """
         Check that the calendar data is valid iCalendar.
          
-        @param request:  the L{Request} for the current HTTP request.
+        @param request:  the L{twisted.web2.server.Request} for the current HTTP request.
         @param calendar: the L{Component} for the calendar to test.
         @return:         tuple: (True/False if the calendra data is valid,
                                  log message string).
@@ -217,7 +217,7 @@ def storeCalendarObjectResource(
         """
         Check that the calendar data is valid as a CalDAV calendar object resource.
          
-        @param request:  the L{Request} for the current HTTP request.
+        @param request:  the L{twisted.web2.server.Request} for the current HTTP request.
         @param calendar: the L{Component} for the calendar to test.
         @return:         tuple: (True/False if the calendar data is valid,
                                  log message string).
@@ -241,7 +241,7 @@ def storeCalendarObjectResource(
         CalDAV, i.e. it must be unique in the collection and we must not overwrite a
         different UID.
 
-        @param request:           the L{Request} for the current HTTP request.
+        @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
         @param uid:               the UID for the resource being stored.
         @param destination:       the L{CalDAVFile} for the destination resource to copy into.
         @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
