@@ -132,9 +132,9 @@ run () {
 
     if ! "${setup_only}" && [ "${server_home}" == "${wd}" ]; then
       cd "${server_home}";
-      exec "${wd}/bin/caldavd" "${daemonize}" \
-          -f "${wd}/conf/caldavd-dev.plist"   \
-          -T "${twisted}/bin/twistd"          \
+      exec "${python}" "${wd}/bin/caldavd" "${daemonize}" \
+          -f "${wd}/conf/caldavd-dev.plist"               \
+          -T "${twisted}/bin/twistd"                      \
           start;
     fi;
   fi;
