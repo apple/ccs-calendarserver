@@ -66,6 +66,8 @@ python_version="${python_version%*.*}";
 
 pydoctor="${pydoctor}/build/scripts-${python_version}/pydoctor";
 
+cd "${wd}";
+
 if [ ! -f "${top}/twisted.pickle" ]; then
     echo "Generating Twisted documentation...";
     "${pydoctor}" -c twisted.cfg -o "${top}/twisted.pickle";
@@ -74,6 +76,6 @@ fi;
 ##
 # Generate documentation
 ##
-cd "${wd}";
 
-"${pydoctor}" -c twistedcaldav.cfg --extra-system="${top}/twisted.pickle:http://twistedmatrix.com/documents/current/api/" --make-html;
+echo "Generating TwistedCalDAV documentation...";
+"${pydoctor}" -c twistedcaldav.cfg --resolve-aliases --extra-system="${top}/twisted.pickle:http://twistedmatrix.com/documents/current/api/" --make-html;
