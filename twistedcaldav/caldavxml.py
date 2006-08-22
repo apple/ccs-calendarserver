@@ -1361,22 +1361,22 @@ class ScheduleInboxURL (CalDAVTextElement):
     A principal property to indicate the schedule INBOX for the principal.
     (CalDAV-schedule, section x.x.x)
     """
-    name = "schedule-inbox-url"
+    name = "schedule-inbox-URL"
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
 class ScheduleOutboxURL (CalDAVTextElement):
     """
     A principal property to indicate the schedule OUTBOX for the principal.
     (CalDAV-schedule, section x.x.x)
     """
-    name = "schedule-outbox-url"
+    name = "schedule-outbox-URL"
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
 class Originator (CalDAVElement):
     """

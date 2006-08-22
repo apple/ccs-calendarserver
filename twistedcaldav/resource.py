@@ -461,8 +461,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: the schedule INBOX URL for this principal.
         """
-        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-url")):
-            inbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-url"))
+        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-URL")):
+            inbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-URL"))
             assert isinstance(inbox, caldavxml.ScheduleInboxURL)
             inbox.removeWhitespaceNodes()
             if len(inbox.children) == 1:
@@ -474,8 +474,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: the schedule OUTBOX URL for this principal.
         """
-        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-url")):
-            outbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-url"))
+        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-URL")):
+            outbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-URL"))
             assert isinstance(outbox, caldavxml.ScheduleOutboxURL)
             outbox.removeWhitespaceNodes()
             if len(outbox.children) == 1:
