@@ -37,6 +37,9 @@ import os
 import errno
 from urlparse import urlsplit
 
+from twisted.internet.defer import fail
+from twisted.internet.defer import succeed
+from twisted.internet.defer import waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
@@ -163,7 +166,11 @@ class CalDAVFile (CalDAVResource, DAVFile):
         # Create the collection once we know it is safe to do so
         #
         try:
+            # We do not yield this as mkcollection executes immediately with a result,
+            # plus this method is a deferredGenerator and thus can only return Deferreds
             r = mkcollection(self.fp)
+            assert r.called
+            r = r.result
             if r != responsecode.CREATED: raise HTTPError(r)
     
             self.writeDeadProperty(davxml.ResourceType.calendar)
@@ -176,11 +183,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
             except Exception, e:
                 log.err("Unable to clean up after failed MKCALENDAR: %s" % e)
     
-            if isinstance(f.value, HTTPError): return f.value.response
+            if isinstance(f.value, HTTPError):
+                return fail(f.value.response)
     
             f.raiseException()
     
-        return responsecode.CREATED
+        return succeed(responsecode.CREATED)
 
     def iCalendar(self, name=None, request=None):
         if self.isPseudoCalendarCollection():
@@ -769,7 +777,9 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
             child = CalDAVFile(os.path.join(home.fp.path, calendar))
             child_exists = child.exists()
             if not child_exists:
-                child.createCalendarCollection()
+                c = child.createCalendarCollection()
+                assert c.called
+                c = c.result
             calendars.append(childURL)
             if (resetacl or not child_exists):
                 child.setAccessControlList(
