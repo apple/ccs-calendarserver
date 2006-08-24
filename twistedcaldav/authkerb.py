@@ -29,7 +29,7 @@ This implements two authentication modes:
      that implements full GSSAPI authentication.
 """
 
-from twisted.web2.dav import auth
+from twisted.web2.auth.interfaces import ICredentialFactory
 from zope import interface
 from twisted.cred.credentials import ICredentials
 
@@ -87,7 +87,7 @@ class BasicKerberosCredentials(credentials.UsernamePassword):
         else:
             return False, None
         
-class BasicKerberosAuthorizer:
+class BasicKerberosCredentialFactory:
     """
     Authorizer for insecure Basic (base64-encoded plaintext) authentication.
 
@@ -95,7 +95,7 @@ class BasicKerberosAuthorizer:
     Right now we do not check for that.
     """
 
-    implements(auth.IAuthorizer)
+    implements(ICredentialFactory)
 
     def __init__(self, realm):
 
@@ -209,7 +209,7 @@ class NegotiateCredentials(credentials.UsernamePassword):
         else:
             return False, None
         
-class NegotiateAuthorizer:
+class NegotiateCredentialFactory:
     """
     Authorizer for insecure Basic (base64-encoded plaintext) authentication.
 
@@ -217,7 +217,7 @@ class NegotiateAuthorizer:
     Right now we do not check for that.
     """
 
-    implements(auth.IAuthorizer)
+    implements(ICredentialFactory)
 
     def __init__(self, service):
 
