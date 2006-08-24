@@ -38,6 +38,7 @@ from weakref import WeakValueDictionary
 from zope.interface import implements
 import twisted.web2.server
 from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.iweb import IResponse
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
@@ -151,10 +152,8 @@ class CalDAVResource (DAVResource):
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property
-            sname = "{%s}%s" % property
         else:
             qname = property.qname()
-            sname = property.sname()
 
         namespace, name = qname
 
@@ -163,15 +162,15 @@ class CalDAVResource (DAVResource):
                 # CalDAV-access-09, section 5.2.3
                 if self.deadProperties().contains(qname):
                     return self.deadProperties().get(qname)
-                return self.supportedCalendarComponentSet
+                return succeed(self.supportedCalendarComponentSet)
             elif name == "supported-calendar-data":
                 # CalDAV-access-09, section 5.2.4
-                return caldavxml.SupportedCalendarData(
+                return succeed(caldavxml.SupportedCalendarData(
                     caldavxml.CalendarData(**{
                         "content-type": "text/calendar",
                         "version"     : "2.0",
                     }),
-                )
+                ))
 
         return super(CalDAVResource, self).readProperty(property, request)
 
@@ -572,7 +571,7 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
                 if self.isScheduleInbox(): types.append(caldavxml.ScheduleInbox())
                 if self.isScheduleOutbox(): types.append(caldavxml.ScheduleOutbox())
 
-                return davxml.ResourceType(*types)
+                return succeed(davxml.ResourceType(*types))
 
         return super(CalendarSchedulingCollectionResource, self).readProperty(property, request)
 
