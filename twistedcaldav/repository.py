@@ -641,7 +641,10 @@ class Provisioner(object):
             child = CalDAVFile(os.path.join(home.fp.path, calendar))
             child_exists = child.exists()
             if not child_exists:
-                child.createCalendarCollection()
+                c = child.createCalendarCollection()
+                assert c.called
+                c = c.result
+                
             calendars.append(childURL)
             if (resetACLs or not child_exists):
                 child.setAccessControlList(
