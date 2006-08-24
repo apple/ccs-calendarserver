@@ -1,0 +1,23 @@
+Index: twisted/web2/dav/auth.py
+===================================================================
+--- twisted/web2/dav/auth.py	(revision 17935)
++++ twisted/web2/dav/auth.py	(working copy)
+@@ -6,6 +6,8 @@
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.acl import TwistedPasswordProperty
+ 
++__all__ = ["PrincipalCredentials"]
++
+ class AuthenticationWrapper(WrapperResource):
+     def __init__(self, resource, portal, credentialFactories, loginInterfaces):
+         super(AuthenticationWrapper, self).__init__(resource)
+@@ -11,7 +13,8 @@
+         super(AuthenticationWrapper, self).__init__(resource)
+ 
+         self.portal = portal
+-        self.credentialFactories = credentialFactories
++        self.credentialFactories = dict([(factory.scheme, factory) 
++                                         for factory in credentialFactories])
+         self.loginInterfaces = loginInterfaces
+ 
+     def hook(self, req):
