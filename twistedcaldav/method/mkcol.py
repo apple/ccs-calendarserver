@@ -43,6 +43,8 @@ def http_MKCOL(self, request):
             "Cannot create collection within special collection %s" % (parent,))
         )
 
-    yield super(CalDAVFile, self).http_MKCOL(request)
+    d = waitForDeferred(super(CalDAVFile, self).http_MKCOL(request))
+    yield d
+    yield d.getResult()
 
 http_MKCOL = deferredGenerator(http_MKCOL)
