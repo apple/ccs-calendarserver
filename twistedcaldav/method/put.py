@@ -78,6 +78,8 @@ def http_PUT(self, request):
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:
-        yield super(CalDAVFile, self).http_PUT(request)
+        d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
+        yield d
+        yield d.getResult()
 
 http_PUT = deferredGenerator(http_PUT)
