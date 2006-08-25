@@ -309,11 +309,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
             
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
-            return CalDAVFile._supportedCalendarPrivilegeSet
+            return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
         else:
-            parent = self.locateParent(request, self.getURI(request))
-            if parent and isCalendarCollectionResource(parent):
-                return CalDAVFile._supportedCalendarPrivilegeSet
+            def _callback(parent):
+                if parent and isCalendarCollectionResource(parent):
+                    return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+                else:
+                    return super(CalDAVFile, self).supportedPrivileges(request)
+
+            d = self.locateParent(request, request.urlForResource(self))
+            d.addCallback(_callback)
+            return d
         
         return super(CalDAVFile, self).supportedPrivileges(request)
 

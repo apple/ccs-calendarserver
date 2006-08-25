@@ -339,7 +339,7 @@ class CalDAVResource (DAVResource):
         @param request: an L{IRequest} object for the request being processed.
         @param uri: the URI whose parent resource is desired.
         """
-        return self.locateSiblingResource(request, parentForURL(uri))
+        return request.locateResource(parentForURL(uri))
 
 class CalendarPrincipalCollectionResource (CalDAVResource):
     """

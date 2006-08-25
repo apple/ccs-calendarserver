@@ -1,0 +1,15 @@
+Index: twisted/web2/dav/idav.py
+===================================================================
+--- twisted/web2/dav/idav.py	(revision 17940)
++++ twisted/web2/dav/idav.py	(working copy)
+@@ -153,8 +153,8 @@
+     def supportedPrivileges(request):
+         """
+         @param request: the request being processed.
+-        @return: a L{davxml.SupportedPrivilegeSet} describing the the access
+-            control privileges which are supported by this resource.
++        @return: a L{Deferred} with an L{davxml.SupportedPrivilegeSet} result describing
++            the access control privileges which are supported by this resource.
+         """
+ 
+     def currentPrivileges(request):

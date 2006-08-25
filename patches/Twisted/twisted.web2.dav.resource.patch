@@ -2,7 +2,15 @@ Index: twisted/web2/dav/resource.py
 ===================================================================
 --- twisted/web2/dav/resource.py	(revision 17940)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -262,7 +262,8 @@
+@@ -34,7 +34,6 @@
+ ]
+ 
+ import urllib
+-import itertools
+ 
+ from zope.interface import implements
+ from twisted.python import log
+@@ -262,7 +261,8 @@
                  if name == "acl":
                      return ifAllowed(
                          (davxml.ReadACL(),),
@@ -12,7 +20,7 @@ Index: twisted/web2/dav/resource.py
                      )
  
              if namespace == twisted_dav_namespace:
-@@ -582,17 +583,28 @@
+@@ -582,17 +582,28 @@
  
          authHeader = request.headers.getHeader('authorization')
          if authHeader is not None:
@@ -46,7 +54,7 @@ Index: twisted/web2/dav/resource.py
                  d.addCallback(loginSuccess)
                  return d
          else:
-@@ -609,7 +621,7 @@
+@@ -609,7 +620,7 @@
          @return: the current principal, as derived from the given request.
          """
          if hasattr(request, "user"):
@@ -55,7 +63,7 @@ Index: twisted/web2/dav/resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -716,6 +728,10 @@
+@@ -716,6 +727,10 @@
          yield oldacl
          oldacl = oldacl.getResult()
  
@@ -66,7 +74,7 @@ Index: twisted/web2/dav/resource.py
          # Need to get list of supported privileges
          supported = []
          def addSupportedPrivilege(sp):
-@@ -747,10 +763,18 @@
+@@ -747,10 +762,18 @@
                          yield (davxml.dav_namespace, "no-protected-ace-conflict")
                          return
                      # Step 2
@@ -89,7 +97,7 @@ Index: twisted/web2/dav/resource.py
  
              # Step 3
              if ace.allow and got_deny:
-@@ -806,7 +830,7 @@
+@@ -806,7 +829,7 @@
          # FIXME: verify acl is self-consistent
  
          # Step 11
@@ -98,7 +106,7 @@ Index: twisted/web2/dav/resource.py
          yield None
  
      mergeAccessControlList = deferredGenerator(mergeAccessControlList)
-@@ -811,7 +835,24 @@
+@@ -811,7 +834,24 @@
  
      mergeAccessControlList = deferredGenerator(mergeAccessControlList)
          
@@ -124,7 +132,7 @@ Index: twisted/web2/dav/resource.py
          """
          Check whether the given principal has the given privileges.
          (RFC 3744, section 5.5)
-@@ -821,6 +862,8 @@
+@@ -821,6 +861,8 @@
          @param recurse: a boolean.  C{True} if a recursive check on all child
              resources should be performed as well, C{False} otherwise.  (Has
              no effect if this resource is not a collection resource.)
@@ -133,7 +141,36 @@ Index: twisted/web2/dav/resource.py
          @return: A L{Deferred} that callbacks with C{None} or errbacks with an
              L{twisted.web2.dav.acl.AccessDeniedError}
          """
-@@ -918,7 +961,13 @@
+@@ -828,7 +870,9 @@
+         from twisted.web2.dav.acl import AccessDeniedError
+         if principal is None:
+             principal = self.currentPrincipal(request)
+-        supportedPrivileges = self.supportedPrivileges(request)
++        supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
++        yield supportedPrivs
++        supportedPrivs = supportedPrivs.getResult()
+ 
+         # Other principals types don't make sense as actors.
+         assert (
+@@ -838,7 +882,7 @@
+ 
+         def match_privilege(privilege, ace_privileges):
+             for ace_privilege in ace_privileges:
+-                if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivileges):
++                if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivs):
+                     return True
+ 
+             return False
+@@ -906,7 +950,7 @@
+         This implementation returns a supported privilege set containing only
+         the DAV:all privilege.
+         """
+-        return allPrivilegeSet
++        return succeed(allPrivilegeSet)
+ 
+     def currentPrivileges(self, request):
+         """
+@@ -918,7 +962,13 @@
          current = self.currentPrincipal(request)
          return self.privilegesForPrincipal(current, request)
  
@@ -148,7 +185,7 @@ Index: twisted/web2/dav/resource.py
          """
          See L{IDAVResource.accessControlList}.
  
-@@ -926,6 +975,7 @@
+@@ -926,6 +976,7 @@
          C{(L{twisted_private_namespace}, "acl")}.
          If no ACL has been stored for this resource, it returns the value
          returned by C{defaultAccessControlList}.
@@ -156,7 +193,7 @@ Index: twisted/web2/dav/resource.py
          """
          #
          # Inheritance is problematic. Here is what we do:
-@@ -941,6 +991,12 @@
+@@ -941,6 +992,12 @@
          # If those are defined, the relevant ace is applied to the ACL on the
          # current resource.
          #
@@ -169,7 +206,7 @@ Index: twisted/web2/dav/resource.py
          myURL = None
  
          def getMyURL():
-@@ -976,29 +1032,36 @@
+@@ -976,29 +1033,36 @@
              if myURL is None:
                  myURL = getMyURL()
  
@@ -229,7 +266,7 @@ Index: twisted/web2/dav/resource.py
  
              # Always filter out any remaining private properties when we are
              # returning the ACL for the final resource after doing parent
-@@ -1018,6 +1081,49 @@
+@@ -1018,6 +1082,49 @@
  
      accessControlList = deferredGenerator(accessControlList)
  
@@ -260,7 +297,7 @@ Index: twisted/web2/dav/resource.py
 +                # Adjust ACE for inherit on this resource
 +                children = list(ace.children)
 +                children.remove(TwistedACLInheritable())
-+                children.append(davxml.Inherited(davxml.HRef.fromString(self.getURI(request))))
++                children.append(davxml.Inherited(davxml.HRef.fromString(request.urlForResource(self))))
 +                aces.append(davxml.ACE(*children))
 +                
 +        # Filter out those that do not have a principal match with the current principal
@@ -279,7 +316,7 @@ Index: twisted/web2/dav/resource.py
      def inheritedACLSet(self):
          """
          @return: a sequence of L{davxml.HRef}s from which ACLs are inherited.
-@@ -1054,6 +1160,10 @@
+@@ -1054,6 +1161,10 @@
                  yield (principal, principalURI)
                  return
          else:
@@ -290,24 +327,28 @@ Index: twisted/web2/dav/resource.py
              yield None
  
      findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
-@@ -1135,13 +1245,12 @@
+@@ -1135,12 +1246,17 @@
  
          # Now principal2 is an HRef
  
--        if principal1 == principal2:
 +        # Compare two HRefs and do group membership test as well
-+        if ((principal1 == principal2) or
-+            self.principalIsGroupMember(str(principal1), str(principal2), request)):
+         if principal1 == principal2:
              yield True
              return
- 
+-
 -        # FIXME: We still need to handle the case where principal2 is a group
 -        # containing principal1.
--
++        
++        ismember = waitForDeferred(self.principalIsGroupMember(str(principal1), str(principal2), request))
++        yield ismember
++        ismember = ismember.getResult()
++        if ismember:
++            yield True
++            return
+ 
          yield False
  
-     matchPrincipal = deferredGenerator(matchPrincipal)
-@@ -1146,6 +1255,29 @@
+@@ -1146,6 +1262,30 @@
  
      matchPrincipal = deferredGenerator(matchPrincipal)
  
@@ -318,12 +359,11 @@ Index: twisted/web2/dav/resource.py
 +        @param principal1: C{str} principalURL for principal to test.
 +        @param principal2: C{str} principalURL for possible group principal to test against.
 +        @param request: the request being processed.
-+        @return: C{True} if principal1 is a member of principal2, C{False} otherwise
++        @return: L{Deferred} with result C{True} if principal1 is a member of principal2, C{False} otherwise
 +        """
 +        
-+        def defer():
++        def _testGroup(group):
 +            # Get principal resource for principal2
-+            group = self.locateSiblingResource(request, principal2)
 +            from twisted.web2.dav.acl import DAVPrincipalResource
 +            if group and isinstance(group, DAVPrincipalResource):
 +                members = group.groupMembers()
@@ -332,12 +372,14 @@ Index: twisted/web2/dav/resource.py
 +                
 +            return False
 +
-+        return maybeDeferred(defer)
++        d = request.locateResource(principal2)
++        d.addCallback(_testGroup)
++        return d
 +        
      def validPrincipal(self, ace_principal, request):
          """
          Check whether the supplied principal is valid for this resource.
-@@ -1207,11 +1339,10 @@
+@@ -1207,11 +1347,10 @@
          All other principals, including meta-principals (eg. L{davxml.All}),
          resolve to C{None}.
  
@@ -350,7 +392,7 @@ Index: twisted/web2/dav/resource.py
  
          if isinstance(principal, davxml.Property):
              # raise NotImplementedError("Property principals are not implemented.")
-@@ -1291,6 +1422,10 @@
+@@ -1291,6 +1430,10 @@
          yield acl
          acl = acl.getResult()
  
@@ -361,7 +403,20 @@ Index: twisted/web2/dav/resource.py
          granted = []
          denied = []
          for ace in acl.children:
-@@ -1430,6 +1565,10 @@
+@@ -1304,8 +1447,11 @@
+             if match:
+                 # Expand aggregate privileges
+                 ps = []
++                supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
++                yield supportedPrivs
++                supportedPrivs = supportedPrivs.getResult()
+                 for p in ace.privileges:
+-                    ps.extend(p.expandAggregate(self.supportedPrivileges(request)))
++                    ps.extend(p.expandAggregate(supportedPrivs))
+ 
+                 # Merge grant/deny privileges
+                 if ace.allow:
+@@ -1430,6 +1576,10 @@
  davxml.registerElement(TwistedPrincipalCollectionSetProperty)
  
  class TwistedACLInheritable (davxml.WebDAVEmptyElement):
@@ -372,7 +427,7 @@ Index: twisted/web2/dav/resource.py
      namespace = twisted_dav_namespace
      name = "inheritable"
  
-@@ -1436,6 +1575,16 @@
+@@ -1436,6 +1586,16 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
