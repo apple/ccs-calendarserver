@@ -167,31 +167,29 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         # Create the collection once we know it is safe to do so
         #
-        try:
-            # We do not yield this as mkcollection executes immediately with a result,
-            # plus this method is a deferredGenerator and thus can only return Deferreds
-            r = mkcollection(self.fp)
-            assert r.called
-            r = r.result
-            if r != responsecode.CREATED: raise HTTPError(r)
+        def _deferOK(result):
+            if result != responsecode.CREATED:
+                raise HTTPError(result)
     
             self.writeDeadProperty(davxml.ResourceType.calendar)
-
-        except:
-            f = Failure()
-    
+            return responsecode.CREATED
+        
+        def _deferErr(f):
             try:
                 rmdir(self.fp)
             except Exception, e:
                 log.err("Unable to clean up after failed MKCALENDAR: %s" % e)
     
             if isinstance(f.value, HTTPError):
-                return fail(f.value.response)
+                return f.value.response
     
             f.raiseException()
-    
-        return succeed(responsecode.CREATED)
-
+            
+        d = mkcollection(self.fp)
+        d.addCallback(_deferOK)
+        d.addErrback(_deferErr)
+        return d
+ 
     def iCalendar(self, name=None, request=None):
         if self.isPseudoCalendarCollection():
             if name is None:
