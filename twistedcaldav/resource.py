@@ -51,10 +51,9 @@ from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import DAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import parentForURL
+from twisted.web2.dav.util import parentForURL, unimplemented
 
 import twistedcaldav
-from twistedcaldav import authkerb
 from twistedcaldav import caldavxml
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
@@ -64,30 +63,6 @@ if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
 else:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/?"
-
-# Need to replace global DAVResource authenticator with the one we want for our server
-def getAuthenticator(self, request):
-    """
-    See L{DAVResource.getAuthenticator}.
-    
-    This implementation picks a suitable authorizer from a list of available auth mechanisms.
-    
-    TODO: We need some way to input a 'realm' to the authorizer. Right now it is empty.
-    """
-
-    validAuths = [auth.BasicAuthorizer]
-    #validAuths = [auth.DigestAuthorizer]
-    #validAuths = [auth.BasicAuthorizer, auth.DigestAuthorizer]
-    #validAuths = [authkerb.BasicKerberosAuthorizer]
-    #validAuths = [authkerb.NegotiateAuthorizer]
-    for authert in validAuths:
-        auther = authert("")
-        if auther.validForRequest(request):
-            return auther
-    else:
-        return None
-
-DAVResource.getAuthenticator = getAuthenticator
 
 class CalDAVResource (DAVResource):
     """
@@ -238,7 +213,7 @@ class CalDAVResource (DAVResource):
         override it.
         """
         # FIXME: Can this be implemented genericly by using findChildren()?
-        return NotImplementedError("Subclass must implement findCalendarCollections()")
+        unimplemented(self)
 
     def findCalendarCollectionsWithPrivileges(self, depth, privileges, request):
         """
@@ -247,7 +222,7 @@ class CalDAVResource (DAVResource):
         override it.
         """
         # FIXME: Can this be implemented genericly by using findChildren()?
-        return NotImplementedError("Subclass must implement findCalendarCollectionsWithPrivileges()")
+        unimplemented(self)
 
     def createCalendar(self, request):
         """
@@ -255,7 +230,7 @@ class CalDAVResource (DAVResource):
         This implementation raises L{NotImplementedError}; a subclass must
         override it.
         """
-        return NotImplementedError("Subclass must implement createCalendar()")
+        unimplemented(self)
 
     def iCalendar(self, name=None):
         """
