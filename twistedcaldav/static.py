@@ -37,9 +37,7 @@ import os
 import errno
 from urlparse import urlsplit
 
-from twisted.internet.defer import fail
-from twisted.internet.defer import succeed
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
@@ -140,26 +138,30 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         if self.fp.exists():
             log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
-            return responsecode.NOT_ALLOWED
+            return fail(responsecode.NOT_ALLOWED)
 
         if not os.path.isdir(os.path.dirname(self.fp.path)):
             log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
-            return StatusResponse(responsecode.CONFLICT, "No parent collection")
+            return succeed(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
         #
         log.msg("Creating calendar collection %s" % (self,))
 
+        def _defer(parent):
+            if parent is not None:
+                log.err("Cannot create a calendar collection within a calendar collection %s" % (parent,))
+                return ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldavxml.caldav_namespace, "calendar-collection-location-ok")
+                )
+    
+            return self.createCalendarCollection()
+            
         parent = self._checkParents(request, isPseudoCalendarCollectionResource)
-        if parent is not None:
-            log.err("Cannot create a calendar collection within a calendar collection %s" % (parent,))
-            return ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldavxml.caldav_namespace, "calendar-collection-location-ok")
-            )
-
-        return self.createCalendarCollection()
+        parent.addCallback(_defer)
+        return parent
 
     def createCalendarCollection(self):
         #
@@ -395,13 +397,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
             parent_uri = parentForURL(parent_uri)
             if not parent_uri: break
 
-            parent = self.locateSiblingResource(request, parent_uri)
+            parent = waitForDeferred(request.locateResource(parent_uri))
+            yield parent
+            parent = parent.getResult()
 
-            log.msg("Testing parent: %s" % (parent,))
+            if test(parent):
+                yield parent
+                return
 
-            if test(parent): return parent
-
-        return None
+        yield None
+    
+    _checkParents = deferredGenerator(_checkParents)
 
 class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     """

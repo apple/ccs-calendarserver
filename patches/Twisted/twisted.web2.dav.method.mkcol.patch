@@ -1,0 +1,19 @@
+Index: twisted/web2/dav/method/mkcol.py
+===================================================================
+--- twisted/web2/dav/method/mkcol.py	(revision 17951)
++++ twisted/web2/dav/method/mkcol.py	(working copy)
+@@ -62,14 +62,6 @@
+             "Parent resource is not a collection."
+         ))
+ 
+-    if not self.fp.parent().isdir():
+-        log.err("Attempt to create collection with no parent directory: %s"
+-                % (self.fp.path,))
+-        raise HTTPError(StatusResponse(
+-            responsecode.INTERNAL_SERVER_ERROR,
+-            "The requested resource is not backed by a parent directory."
+-        ))
+-
+     #
+     # Read request body
+     #
