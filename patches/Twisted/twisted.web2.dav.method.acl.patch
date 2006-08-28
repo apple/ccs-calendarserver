@@ -1,0 +1,15 @@
+Index: twisted/web2/dav/method/acl.py
+===================================================================
+--- twisted/web2/dav/method/acl.py	(revision 17951)
++++ twisted/web2/dav/method/acl.py	(working copy)
+@@ -85,7 +85,9 @@
+     #
+     # Do ACL merger
+     #
+-    result = self.mergeAccessControlList(acl, request)
++    result = waitForDeferred(self.mergeAccessControlList(acl, request))
++    yield result
++    result = result.getResult()
+ 
+     #
+     # Return response
