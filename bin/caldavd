@@ -352,10 +352,13 @@ if dossl:
     else:
         raise IOError("SSL Certificate file does not exist: %%s" %% (certfile,))
 
-from twisted.application.service import Application, IServiceCollection
+from twisted.application.service  import Application, IServiceCollection
 from twisted.application.internet import TCPServer
-from twisted.web2.server import Site
-from twisted.web2.channel.http import HTTPFactory
+from twisted.cred.portal 		  import Portal
+from twisted.web2.auth			  import basic
+from twisted.web2.dav             import davxml, auth
+from twisted.web2.server          import Site
+from twisted.web2.channel.http    import HTTPFactory
 
 if dossl:
     from twisted.application.internet import SSLServer
@@ -365,10 +368,23 @@ from twistedcaldav.repository import RepositoryBuilder
 
 builder = RepositoryBuilder(docroot, doAccounts=doacct, resetACLs=doacl)
 builder.buildFromFile(repo)
+rootresource = builder.docRoot.collection.resource
 
 application = Application("CalDAVServer")
 parent      = IServiceCollection(application)
-site        = Site(builder.docRoot.collection.resource)
+
+portal = Portal(auth.DavRealm())
+portal.registerChecker(auth.TwistedPropertyChecker())
+
+credentialFactories = (basic.BasicCredentialFactory(""),)
+
+loginInterfaces = (auth.IPrincipal,)
+
+site = Site(auth.AuthenticationWrapper(rootresource, 
+                                            portal,
+                                            credentialFactories,
+                                            loginInterfaces))
+
 factory     = HTTPFactory(site)
 
 if not onlyssl:
