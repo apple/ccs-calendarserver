@@ -1,390 +1,121 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 17940)
+--- twisted/web2/dav/resource.py	(revision 17967)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -34,7 +34,6 @@
- ]
- 
- import urllib
--import itertools
- 
- from zope.interface import implements
- from twisted.python import log
-@@ -262,7 +261,8 @@
-                 if name == "acl":
-                     return ifAllowed(
-                         (davxml.ReadACL(),),
--                        lambda: self.accessControlList(request)
-+                        # TODO: Merge change from original patch
-+                        lambda: self.safeAccessControlList(request)
-                     )
- 
-             if namespace == twisted_dav_namespace:
-@@ -582,17 +582,28 @@
- 
-         authHeader = request.headers.getHeader('authorization')
-         if authHeader is not None:
--            if authHeader[0] in request.credentialFactories:
-+            if authHeader[0] not in request.credentialFactories:
-                 log.err("Client authentication scheme %s is not provided by server %s"
-                         % (authHeader[0], request.credentialFactories.keys()))
--                return succeed((True, False))
-+                raise HTTPError(responsecode.FORBIDDEN)
-             else:
+@@ -593,9 +593,6 @@
                  factory = request.credentialFactories[authHeader[0]]
  
--                # FIXME: response, req are not defined
--                creds = factory.decode(response, req.method)
-+                creds = factory.decode(authHeader[1], request.method)
-+
-+                # Try to match principals in each principal collection on the resource
-+                pdetails = self.findPrincipalForAuthID(request, creds.username)
-+                assert pdetails.called
-+                pdetails = pdetails.result
-+                if pdetails:
-+                    principal = IDAVPrincipalResource(pdetails[0])
-+                    principalURI = pdetails[1]
-+                else:
-+                   raise HTTPError(responsecode.FORBIDDEN) 
-+                from twisted.web2.dav.auth import PrincipalCredentials
-+                pcreds = PrincipalCredentials(principal, principalURI, creds)
+                 creds = factory.decode(authHeader[1], request.method)
+-                
+-
+-                creds = factory.decode(authHeader[1], request.method)
  
--                d = request.portal.login(creds, None, *request.loginInterfaces)
-+                d = request.portal.login(pcreds, None, *request.loginInterfaces)
-                 d.addCallback(loginSuccess)
-                 return d
-         else:
-@@ -609,7 +620,7 @@
+                 # Try to match principals in each principal collection on 
+                 # the resource
+@@ -635,7 +632,7 @@
          @return: the current principal, as derived from the given request.
          """
          if hasattr(request, "user"):
--            return request.user
-+            return request.user.element
+-            return request.user.element
++            return request.user
          else:
              return unauthenticatedPrincipal
  
-@@ -716,6 +727,10 @@
-         yield oldacl
-         oldacl = oldacl.getResult()
+@@ -760,7 +757,10 @@
+                 elif isinstance(item, davxml.SupportedPrivilege):
+                     addSupportedPrivilege(item)
  
-+        # Check disabled
-+        if oldacl is None:
-+            yield None
-+
-         # Need to get list of supported privileges
-         supported = []
-         def addSupportedPrivilege(sp):
-@@ -747,10 +762,18 @@
-                         yield (davxml.dav_namespace, "no-protected-ace-conflict")
-                         return
-                     # Step 2
--                    elif oldace.inherited:
--                        log.err("Attempt to overwrite inherited ace %r on resource %r" % (oldace, self))
--                        yield (davxml.dav_namespace, "no-inherited-ace-conflict")
--                        return
-+                    """
-+                    RFC3744 says that we either enforce the inherited ace conflict or we ignore it
-+                    # but use access control evaluation to determine whether there us any impact. Given that we
-+                    # have the 'inheritable' behavior it does not make sense to disallow overrides of inherited ACEs
-+                    # since 'inheritable' cannot itself be controlled via protocol.
-+                    
-+                    So the following lines have been commented out for now.
-+                    """
-+                    #elif oldace.inherited:
-+                    #    log.err("Attempt to overwrite inherited ace %r on resource %r" % (oldace, self))
-+                    #    yield (davxml.dav_namespace, "no-inherited-ace-conflict")
-+                    #    return
- 
-             # Step 3
-             if ace.allow and got_deny:
-@@ -806,7 +829,7 @@
-         # FIXME: verify acl is self-consistent
- 
-         # Step 11
--        self.writeDeadProperty(TwistedACLProperty(davxml.ACL(*newset)))
-+        self.writeNewACEs(newset)
-         yield None
- 
-     mergeAccessControlList = deferredGenerator(mergeAccessControlList)
-@@ -811,7 +834,24 @@
- 
-     mergeAccessControlList = deferredGenerator(mergeAccessControlList)
-         
--    def checkAccess(self, request, privileges, recurse=False, principal=None):
-+    def writeNewACEs(self, newaces):
-+        """
-+        Write a new ACL to the resource's property store.
-+        NB We have this as a separate method so that it can be overridden by resources that need to do extra
-+        processing of ACLs being set via the ACL command.
-+        
-+        @param newaces: C{list} of L{ACE} for ACL being set.
-+        """
-+        self.writeDeadProperty(TwistedACLProperty(davxml.ACL(*newaces)))
-+
-+    def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
-+        for ace_privilege in ace_privileges:
-+            if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivileges):
-+                return True
-+
-+        return False
-+
-+    def checkAccess(self, request, privileges, recurse=False, principal=None, inheritedaces=None):
-         """
-         Check whether the given principal has the given privileges.
-         (RFC 3744, section 5.5)
-@@ -821,6 +861,8 @@
-         @param recurse: a boolean.  C{True} if a recursive check on all child
-             resources should be performed as well, C{False} otherwise.  (Has
-             no effect if this resource is not a collection resource.)
-+        @param inheritedaces: a list of L{Aces} corresponding to the precomputed
-+            inheritable aces from the parent resource hierarchy.
-         @return: A L{Deferred} that callbacks with C{None} or errbacks with an
-             L{twisted.web2.dav.acl.AccessDeniedError}
-         """
-@@ -828,7 +870,9 @@
-         from twisted.web2.dav.acl import AccessDeniedError
-         if principal is None:
-             principal = self.currentPrincipal(request)
--        supportedPrivileges = self.supportedPrivileges(request)
+-        for item in self.supportedPrivileges(request).children:
 +        supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
 +        yield supportedPrivs
 +        supportedPrivs = supportedPrivs.getResult()
++        for item in supportedPrivs.children:
+             assert (
+                 isinstance(item, davxml.SupportedPrivilege),
+                 "Not a SupportedPrivilege: %r" % (item,)
+@@ -920,7 +920,7 @@
+         yield ign
+         ign.getResult()
  
-         # Other principals types don't make sense as actors.
-         assert (
-@@ -838,7 +882,7 @@
+-        for resource, subpath in resources:
++        for resource, uri in resources:
+             acl = waitForDeferred(resource.accessControlList(request))
+             yield acl
+             acl = acl.getResult()
+@@ -930,7 +930,7 @@
  
-         def match_privilege(privilege, ace_privileges):
-             for ace_privilege in ace_privileges:
--                if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivileges):
-+                if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivs):
-                     return True
+             for ace in acl.children:
+                 for privilege in tuple(pending):
+-                    if not match_privilege(privilege, ace.privileges):
++                    if not match_privilege(davxml.Privilege(privilege), ace.privileges):
+                         continue
  
-             return False
-@@ -906,7 +950,7 @@
-         This implementation returns a supported privilege set containing only
-         the DAV:all privilege.
-         """
--        return allPrivilegeSet
-+        return succeed(allPrivilegeSet)
+                     match = waitForDeferred(self.matchPrincipal(principal, ace.principal, request))
+@@ -952,7 +952,7 @@
+             denied += pending # If no matching ACE, then denied
  
-     def currentPrivileges(self, request):
-         """
-@@ -918,7 +962,13 @@
-         current = self.currentPrincipal(request)
-         return self.privilegesForPrincipal(current, request)
+             if denied: 
+-                errors.append((subpath, denied))
++                errors.append((uri, denied))
  
--    def accessControlList(self, request, inheritance=True, expanding=False):
-+    def safeAccessControlList(self, request):
-+        acl = self.accessControlList(request)
-+        if acl is None:
-+            acl = davxml.ACL()
-+        return acl
-+
-+    def accessControlList(self, request, inheritance=True, expanding=False, inheritedaces=None):
-         """
-         See L{IDAVResource.accessControlList}.
- 
-@@ -926,6 +976,7 @@
-         C{(L{twisted_private_namespace}, "acl")}.
-         If no ACL has been stored for this resource, it returns the value
-         returned by C{defaultAccessControlList}.
-+        If access is disabled it will return C{None}.
-         """
-         #
-         # Inheritance is problematic. Here is what we do:
-@@ -941,6 +992,12 @@
-         # If those are defined, the relevant ace is applied to the ACL on the
-         # current resource.
-         #
-+
-+        # Check disabled
-+        disabled = self.hasDeadProperty(TwistedAccessDisabledProperty)
-+        if disabled:
-+            yield None
-+
-         myURL = None
- 
-         def getMyURL():
-@@ -976,29 +1033,36 @@
-             if myURL is None:
-                 myURL = getMyURL()
- 
--            if myURL != "/":
--                parentURL = parentForURL(myURL)
--
--                parent = waitForDeferred(request.locateResource(parentURL))
--                yield parent
--                parent = parent.getResult()
--
--                if parent:
--                    parent_acl = waitForDeferred(
--                        parent.accessControlList(request, inheritance=True, expanding=True)
--                    )
--                    yield parent_acl
--                    parent_acl = parent_acl.getResult()
--
--                    for ace in parent_acl.children:
--                        if ace.inherited:
--                            aces.append(ace)
--                        elif TwistedACLInheritable() in ace.children:
--                            # Adjust ACE for inherit on this resource
--                            children = list(ace.children)
--                            children.remove(TwistedACLInheritable())
--                            children.append(davxml.Inherited(davxml.HRef.fromString(parentURL)))
--                            aces.append(davxml.ACE(*children))
-+            if inheritedaces is None:
-+                if myURL != "/":
-+                    parentURL = parentForURL(myURL)
-+    
-+                    parent = waitForDeferred(request.locateResource(parentURL))
-+                    yield parent
-+                    parent = parent.getResult()
-+    
-+                    if parent:
-+                        parent_acl = waitForDeferred(
-+                            parent.accessControlList(request, inheritance=True, expanding=True)
-+                        )
-+                        yield parent_acl
-+                        parent_acl = parent_acl.getResult()
-+    
-+                        # Check disabled
-+                        if parent_acl is None:
-+                            yield None
-+    
-+                        for ace in parent_acl.children:
-+                            if ace.inherited:
-+                                aces.append(ace)
-+                            elif TwistedACLInheritable() in ace.children:
-+                                # Adjust ACE for inherit on this resource
-+                                children = list(ace.children)
-+                                children.remove(TwistedACLInheritable())
-+                                children.append(davxml.Inherited(davxml.HRef.fromString(parentURL)))
-+                                aces.append(davxml.ACE(*children))
-+            else:
-+                aces.extend(inheritedaces)
- 
-             # Always filter out any remaining private properties when we are
-             # returning the ACL for the final resource after doing parent
-@@ -1018,6 +1082,49 @@
- 
-     accessControlList = deferredGenerator(accessControlList)
- 
-+    # TODO: Convert to deferredGenerator
-+    def inheritedACEsforChildren(self, request):
-+        """
-+        Do some optimisation of access control calculation by determining any inherited ACLs outside of
-+        the child resource loop and supply those to the checkAccess on each child.
-+
-+        @param request: the L{IRequest} for the request in progress.
-+        @return:        a C{list} of L{Ace}s that child resources of this one will
-+            inherit and which will match the currently authenticated principal.
-+        """
-+        
-+        # Get the parent ACLs with inheritance and preserve the <inheritable> element.
-+        parent_acl = self.accessControlList(request, inheritance=True, expanding=True)
-+        
-+        # Check disabled
-+        if parent_acl is None:
-+            return None
-+
-+        # Filter out those that are not inheritable (and remove the inheritable element from those that are)
-+        aces = []
-+        for ace in parent_acl.children:
-+            if ace.inherited:
-+                aces.append(ace)
-+            elif TwistedACLInheritable() in ace.children:
-+                # Adjust ACE for inherit on this resource
-+                children = list(ace.children)
-+                children.remove(TwistedACLInheritable())
-+                children.append(davxml.Inherited(davxml.HRef.fromString(request.urlForResource(self))))
-+                aces.append(davxml.ACE(*children))
-+                
-+        # Filter out those that do not have a principal match with the current principal
-+        principal = self.currentPrincipal(request)
-+        filteredaces = []
-+        for ace in aces:
-+            if self.matchPrincipal(principal, ace.principal, request):
-+                if ace.invert:
-+                    continue
-+            else:
-+                if not ace.invert:
-+                    continue
-+            filteredaces.append(ace)
-+        return filteredaces
-+
-     def inheritedACLSet(self):
-         """
-         @return: a sequence of L{davxml.HRef}s from which ACLs are inherited.
-@@ -1054,6 +1161,10 @@
+         if errors:
+             raise AccessDeniedError(errors,)
+@@ -1180,6 +1180,14 @@
                  yield (principal, principalURI)
                  return
          else:
-+            if len(self.principalCollections(request)) == 0:
++            principalCollections = waitForDeferred(self.principalCollections(request))
++            yield principalCollections
++            principalCollections = principalCollections.getResult()
++
++            if len(principalCollections) == 0:
 +                log.msg("<DAV:principal-collection-set> property cannot be found on the resource being authorized: %s" % self)
 +            else:
 +                log.msg("Could not find principal matching user id: %s" % authid)
-             yield None
+             raise HTTPError(responsecode.FORBIDDEN)
  
      findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
-@@ -1135,12 +1246,17 @@
+@@ -1261,7 +1269,7 @@
+         assert principal2 is not None, "principal2 is None"
  
-         # Now principal2 is an HRef
  
+-         # Compare two HRefs and do group membership test as well
 +        # Compare two HRefs and do group membership test as well
          if principal1 == principal2:
              yield True
              return
+@@ -1301,7 +1309,7 @@
+         d = request.locateResource(principal2)
+         d.addCallback(_testGroup)
+         return d
 -
--        # FIXME: We still need to handle the case where principal2 is a group
--        # containing principal1.
-+        
-+        ismember = waitForDeferred(self.principalIsGroupMember(str(principal1), str(principal2), request))
-+        yield ismember
-+        ismember = ismember.getResult()
-+        if ismember:
-+            yield True
-+            return
- 
-         yield False
- 
-@@ -1146,6 +1262,30 @@
- 
-     matchPrincipal = deferredGenerator(matchPrincipal)
- 
-+    def principalIsGroupMember(self, principal1, principal2, request):
-+        """
-+        Check whether one principal is a group member of another.
-+        
-+        @param principal1: C{str} principalURL for principal to test.
-+        @param principal2: C{str} principalURL for possible group principal to test against.
-+        @param request: the request being processed.
-+        @return: L{Deferred} with result C{True} if principal1 is a member of principal2, C{False} otherwise
-+        """
-+        
-+        def _testGroup(group):
-+            # Get principal resource for principal2
-+            from twisted.web2.dav.acl import DAVPrincipalResource
-+            if group and isinstance(group, DAVPrincipalResource):
-+                members = group.groupMembers()
-+                if principal1 in members:
-+                    return True
-+                
-+            return False
-+
-+        d = request.locateResource(principal2)
-+        d.addCallback(_testGroup)
-+        return d
 +        
      def validPrincipal(self, ace_principal, request):
          """
          Check whether the supplied principal is valid for this resource.
-@@ -1207,11 +1347,10 @@
-         All other principals, including meta-principals (eg. L{davxml.All}),
-         resolve to C{None}.
+@@ -1317,16 +1325,16 @@
+             # We know that the element contains a valid element type, so all
+             # we need to do is check for a valid property and a valid href.
+             #
+-            ace_principal = ace_principal.children[0]
++            real_principal = ace_principal.children[0]
  
--        @param principal: the L{davxml.Principal} element to resolve.
-+        @param principal: the L{davxml.Principal} child element to resolve.
+-            if isinstance(ace_principal, davxml.Property):
++            if isinstance(real_principal, davxml.Property):
+                 # See comments in matchPrincipal().  We probably need some common code.
+                 log.err("Encountered a property principal (%s), but handling is not implemented.  Invalid for ACL use."
+-                        % (ace_principal,))
++                        % (real_principal,))
+                 return False
+ 
+-            if isinstance(ace_principal, davxml.HRef):
+-                return self.validHrefPrincipal(ace_principal, request)
++            if isinstance(real_principal, davxml.HRef):
++                return self.validHrefPrincipal(real_principal, request)
+ 
+             return True
+ 
+@@ -1367,7 +1375,6 @@
          @param request: the request being processed.
          @return: a deferred L{davxml.HRef} element or C{None}.
          """
@@ -392,55 +123,19 @@ Index: twisted/web2/dav/resource.py
  
          if isinstance(principal, davxml.Property):
              # raise NotImplementedError("Property principals are not implemented.")
-@@ -1291,6 +1430,10 @@
-         yield acl
-         acl = acl.getResult()
+@@ -1428,15 +1435,6 @@
+         if isinstance(principal, davxml.HRef):
+             yield principal
+         else:
+-            principalCollections = waitForDeferred(
+-                self.principalCollections(request))
+-            yield principalCollections
+-            principalCollections = principalCollections.getResult()
+-
+-            if len(principalCollections) == 0:
+-                log.msg("<DAV:principal-collection-set> property cannot be found on the resource being authorized: %s" % self)
+-            else:
+-                log.msg("Could not find principal matching user id: %s" % authid)
+             yield None
  
-+        # Check disabled
-+        if acl is None:
-+            yield []
-+
-         granted = []
-         denied = []
-         for ace in acl.children:
-@@ -1304,8 +1447,11 @@
-             if match:
-                 # Expand aggregate privileges
-                 ps = []
-+                supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
-+                yield supportedPrivs
-+                supportedPrivs = supportedPrivs.getResult()
-                 for p in ace.privileges:
--                    ps.extend(p.expandAggregate(self.supportedPrivileges(request)))
-+                    ps.extend(p.expandAggregate(supportedPrivs))
- 
-                 # Merge grant/deny privileges
-                 if ace.allow:
-@@ -1430,6 +1576,10 @@
- davxml.registerElement(TwistedPrincipalCollectionSetProperty)
- 
- class TwistedACLInheritable (davxml.WebDAVEmptyElement):
-+    """
-+    When set on an ACE, this indicates that the ACE privileges should be inherited by
-+    all child resources within the resource with this ACE.
-+    """
-     namespace = twisted_dav_namespace
-     name = "inheritable"
- 
-@@ -1436,6 +1586,16 @@
- davxml.registerElement(TwistedACLInheritable)
- davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
- 
-+"""
-+When set on a resource, this property indicates that all access to the resource and any of its children
-+is completely disabled - irrespective of any other privileges directly set or inherited.
-+"""
-+class TwistedAccessDisabledProperty (davxml.WebDAVEmptyElement):
-+    namespace = twisted_private_namespace
-+    name = "access-disabled"
-+
-+davxml.registerElement(TwistedAccessDisabledProperty)
-+
- allACL = davxml.ACL(
-     davxml.ACE(
-         davxml.Principal(davxml.All()),
+         assert (
