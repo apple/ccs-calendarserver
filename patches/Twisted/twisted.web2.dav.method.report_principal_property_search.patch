@@ -1,0 +1,13 @@
+Index: twisted/web2/dav/method/report_principal_property_search.py
+===================================================================
+--- twisted/web2/dav/method/report_principal_property_search.py	(revision 18009)
++++ twisted/web2/dav/method/report_principal_property_search.py	(working copy)
+@@ -150,7 +150,7 @@
+                     prop_common.responseForHref(
+                         request,
+                         responses,
+-                        davxml.HRef.fromString(joinURL(ruri, uri)),
++                        davxml.HRef.fromString(uri),
+                         child,
+                         propertiesForResource,
+                         propElement
