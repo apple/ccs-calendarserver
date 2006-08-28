@@ -488,7 +488,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
                 ),
             )
             
-        return ScheduleInboxFile._supportedSchedulePrivilegeSet
+        return succeed(ScheduleInboxFile._supportedSchedulePrivilegeSet)
 
 class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     """
@@ -571,7 +571,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
                 ),
             )
             
-        return ScheduleOutboxFile._supportedSchedulePrivilegeSet
+        return succeed(ScheduleOutboxFile._supportedSchedulePrivilegeSet)
 
 class CalendarHomeFile (CalDAVFile):
     """
