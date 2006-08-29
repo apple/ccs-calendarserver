@@ -83,11 +83,15 @@ class CalDAVResource (DAVResource):
                 # Redirect to include trailing '/' in URI
                 return RedirectResponse(request.unparseURL(path=request.path+'/'))
 
-            response = Response()
-            response.stream = MemoryStream(str(self.iCalendar(request=request)))
-            response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
+            def _defer(data):
+                response = Response()
+                response.stream = MemoryStream(str(data))
+                response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
+                return response
 
-            return response
+            d = self.iCalendarRolledup(request)
+            d.addCallback(_defer)
+            return d
         else:
             return super(CalDAVResource, self).render(request)
 
@@ -251,6 +255,15 @@ class CalDAVResource (DAVResource):
             return iComponent.fromString(calendar_data)
         except ValueError:
             return None
+
+    def iCalendarRolledup(self, request):
+        """
+        See L{ICalDAVResource.iCalendarRolledup}.
+
+        This implementation raises L{NotImplementedError}; a subclass must
+        override it.
+        """
+        unimplemented(self)
 
     def iCalendarText(self, name=None):
         """

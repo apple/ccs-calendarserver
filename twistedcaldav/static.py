@@ -190,38 +190,46 @@ class CalDAVFile (CalDAVResource, DAVFile):
         d.addErrback(_deferErr)
         return d
  
-    def iCalendar(self, name=None, request=None):
+    def iCalendarRolledup(self, request):
         if self.isPseudoCalendarCollection():
-            if name is None:
-                # Generate a monolithic calendar
-                calendar = iComponent("VCALENDAR")
-                calendar.addProperty(iProperty("VERSION", "2.0"))
+            # Generate a monolithic calendar
+            calendar = iComponent("VCALENDAR")
+            calendar.addProperty(iProperty("VERSION", "2.0"))
 
-                # Must verify ACLs which means we need a request object at this point
-                if request is not None:
-                    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-                    # the child resource loop and supply those to the checkAccess on each child.
-                    filteredaces = self.inheritedACEsforChildren(request)
+            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+            # the child resource loop and supply those to the checkAccess on each child.
+            filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
+            yield filteredaces
+            filteredaces = filteredaces.getResult()
 
-                    for name, uid, type in self.index().search(None): #@UnusedVariable
-                        try:
-                            child = IDAVResource(self.getChild(name))
-                        except TypeError:
-                            child = None
-            
-                        if child is not None:
-                            # Check privileges of child - skip if access denied
-                            if child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces):
-                                continue
-                            subcalendar = self.iCalendar(name)
-                            assert subcalendar.name() == "VCALENDAR"
-        
-                            for component in subcalendar.subcomponents():
-                                calendar.addComponent(component)
+            # Must verify ACLs which means we need a request object at this point
+            for name, uid, type in self.index().search(None): #@UnusedVariable
+                try:
+                    child = IDAVResource(self.getChild(name))
+                    request.rememberURLForResource(joinURL(request.uri, str(name)), child)
+                except TypeError:
+                    child = None
+    
+                if child is not None:
+                    # Check privileges of child - skip if access denied
+                    try:
+                        d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                        yield d
+                        d.getResult()
+                    except:
+                        continue
+                    subcalendar = self.iCalendar(name)
+                    assert subcalendar.name() == "VCALENDAR"
 
-                return calendar
+                    for component in subcalendar.subcomponents():
+                        calendar.addComponent(component)
+                        
+            yield calendar
+            return
 
-        return super(CalDAVFile, self).iCalendar(name)
+        yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
+
+    iCalendarRolledup = deferredGenerator(iCalendarRolledup)
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
