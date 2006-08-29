@@ -1,0 +1,31 @@
+Index: twisted/web2/server.py
+===================================================================
+--- twisted/web2/server.py	(revision 17932)
++++ twisted/web2/server.py	(working copy)
+@@ -316,7 +316,7 @@
+         if newpath is StopTraversal:
+             # We need to rethink how to do this.
+             #if newres is res:
+-                self._rememberURLForResource(path, res)
++                self.rememberURLForResource(path, res)
+                 return res
+             #else:
+             #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
+@@ -337,7 +337,7 @@
+                 self.prepath.append(self.postpath.pop(0))
+ 
+         child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
+-        self._rememberURLForResource(url, child)
++        self.rememberURLForResource(url, child)
+ 
+         return child
+ 
+@@ -343,7 +343,7 @@
+ 
+     _resourcesByURL = weakref.WeakKeyDictionary()
+ 
+-    def _rememberURLForResource(self, url, resource):
++    def rememberURLForResource(self, url, resource):
+         """
+         Remember the URL of visited resources.
+         """
