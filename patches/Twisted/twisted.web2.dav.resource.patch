@@ -33,7 +33,7 @@ Index: twisted/web2/dav/resource.py
              assert (
                  isinstance(item, davxml.SupportedPrivilege),
                  "Not a SupportedPrivilege: %r" % (item,)
-@@ -920,8 +920,8 @@
+@@ -920,11 +920,16 @@
          yield ign
          ign.getResult()
  
@@ -44,7 +44,15 @@ Index: twisted/web2/dav/resource.py
              yield acl
              acl = acl.getResult()
  
-@@ -930,7 +930,7 @@
++            # Check for disabled
++            if acl is None:
++                errors.append((uri, list(privileges)))
++                continue
++
+             pending = list(privileges)
+             denied = []
+ 
+@@ -930,7 +935,7 @@
  
              for ace in acl.children:
                  for privilege in tuple(pending):
@@ -53,7 +61,7 @@ Index: twisted/web2/dav/resource.py
                          continue
  
                      match = waitForDeferred(self.matchPrincipal(principal, ace.principal, request))
-@@ -952,7 +952,7 @@
+@@ -952,7 +957,7 @@
              denied += pending # If no matching ACE, then denied
  
              if denied: 
@@ -62,7 +70,23 @@ Index: twisted/web2/dav/resource.py
  
          if errors:
              raise AccessDeniedError(errors,)
-@@ -1100,7 +1100,6 @@
+@@ -1015,6 +1020,7 @@
+         disabled = self.hasDeadProperty(TwistedAccessDisabledProperty)
+         if disabled:
+             yield None
++            return
+ 
+         myURL = None
+ 
+@@ -1069,6 +1075,7 @@
+                         # Check disabled
+                         if parent_acl is None:
+                             yield None
++                            return
+     
+                         for ace in parent_acl.children:
+                             if ace.inherited:
+@@ -1100,7 +1107,6 @@
  
      accessControlList = deferredGenerator(accessControlList)
  
@@ -70,7 +94,7 @@ Index: twisted/web2/dav/resource.py
      def inheritedACEsforChildren(self, request):
          """
          Do some optimisation of access control calculation by determining any inherited ACLs outside of
-@@ -1112,11 +1111,14 @@
+@@ -1112,11 +1118,14 @@
          """
          
          # Get the parent ACLs with inheritance and preserve the <inheritable> element.
@@ -87,7 +111,7 @@ Index: twisted/web2/dav/resource.py
  
          # Filter out those that are not inheritable (and remove the inheritable element from those that are)
          aces = []
-@@ -1141,7 +1143,9 @@
+@@ -1141,7 +1150,9 @@
                  if not ace.invert:
                      continue
              filteredaces.append(ace)
@@ -98,7 +122,7 @@ Index: twisted/web2/dav/resource.py
  
      def inheritedACLSet(self):
          """
-@@ -1180,6 +1184,14 @@
+@@ -1180,6 +1191,14 @@
                  yield (principal, principalURI)
                  return
          else:
@@ -113,7 +137,7 @@ Index: twisted/web2/dav/resource.py
              raise HTTPError(responsecode.FORBIDDEN)
  
      findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
-@@ -1261,7 +1273,7 @@
+@@ -1261,7 +1280,7 @@
          assert principal2 is not None, "principal2 is None"
  
  
@@ -122,7 +146,7 @@ Index: twisted/web2/dav/resource.py
          if principal1 == principal2:
              yield True
              return
-@@ -1301,7 +1313,7 @@
+@@ -1301,7 +1320,7 @@
          d = request.locateResource(principal2)
          d.addCallback(_testGroup)
          return d
@@ -131,7 +155,7 @@ Index: twisted/web2/dav/resource.py
      def validPrincipal(self, ace_principal, request):
          """
          Check whether the supplied principal is valid for this resource.
-@@ -1317,16 +1329,16 @@
+@@ -1317,16 +1336,16 @@
              # We know that the element contains a valid element type, so all
              # we need to do is check for a valid property and a valid href.
              #
@@ -153,7 +177,7 @@ Index: twisted/web2/dav/resource.py
  
              return True
  
-@@ -1367,7 +1379,6 @@
+@@ -1367,7 +1386,6 @@
          @param request: the request being processed.
          @return: a deferred L{davxml.HRef} element or C{None}.
          """
@@ -161,7 +185,7 @@ Index: twisted/web2/dav/resource.py
  
          if isinstance(principal, davxml.Property):
              # raise NotImplementedError("Property principals are not implemented.")
-@@ -1428,15 +1439,6 @@
+@@ -1428,15 +1446,6 @@
          if isinstance(principal, davxml.HRef):
              yield principal
          else:
