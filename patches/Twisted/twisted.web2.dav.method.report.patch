@@ -1,0 +1,38 @@
+Index: twisted/web2/dav/method/report.py
+===================================================================
+--- twisted/web2/dav/method/report.py	(revision 17951)
++++ twisted/web2/dav/method/report.py	(working copy)
+@@ -36,6 +36,7 @@
+ from twisted.web2 import responsecode
+ from twisted.web2.http import HTTPError, StatusResponse
+ from twisted.web2.dav import davxml
++from twisted.web2.dav.element.parser import lookupElement
+ from twisted.web2.dav.http import ErrorResponse
+ from twisted.web2.dav.util import davXMLFromStream
+ 
+@@ -99,6 +100,15 @@
+ 
+     try:
+         method = getattr(self, method_name)
++        
++        # Also double-check via supported-reports property
++        reports = self.supportedReports()
++        test = lookupElement((namespace, name))
++        if not test:
++            raise AttributeError()
++        test = davxml.Report(test())
++        if test not in reports:
++            raise AttributeError()
+     except AttributeError:
+         #
+         # Requested report is not supported.
+@@ -111,6 +121,8 @@
+             davxml.SupportedReport()
+         ))
+ 
+-    yield method(request, doc.root_element)
++    d = waitForDeferred(method(request, doc.root_element))
++    yield d
++    yield d.getResult()
+ 
+ http_REPORT = deferredGenerator(http_REPORT)

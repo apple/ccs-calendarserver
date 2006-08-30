@@ -2,12 +2,88 @@ Index: twisted/web2/dav/method/report_principal_property_search.py
 ===================================================================
 --- twisted/web2/dav/method/report_principal_property_search.py	(revision 18009)
 +++ twisted/web2/dav/method/report_principal_property_search.py	(working copy)
-@@ -150,7 +150,7 @@
-                     prop_common.responseForHref(
-                         request,
-                         responses,
+@@ -56,8 +56,7 @@
+     depth = request.headers.getHeader("depth", "0")
+     if depth != "0":
+         log.err("Error in prinicpal-property-search REPORT, Depth set to %s" % (depth,))
+-        yield StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,))
+-        return
++        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
+     
+     # Get a single DAV:prop element from the REPORT request body
+     propertiesForResource = None
+@@ -107,15 +106,21 @@
+             # Test each property
+             for prop in props:
+                 try:
+-                    propvalue = resource.readProperty(prop.qname(), request)
++                    propvalue = waitForDeferred(resource.readProperty(prop.qname(), request))
++                    yield propvalue
++                    propvalue = propvalue.getResult()
+                     if propvalue and not nodeMatch(propvalue, match):
+-                        return False
++                        yield False
++                        return
+                 except HTTPError:
+                     # No property => no match
+-                    return False
++                    yield False
++                    return
+         
+-        return True
+-                
++        yield True
++
++    propertySearch = deferredGenerator(propertySearch)
++
+     # Run report
+     try:
+         resources = []
+@@ -140,21 +145,33 @@
+ 
+         # Loop over all collections and principal resources within
+         for resource, ruri in resources:
+-            for child, uri in resource.findChildrenWithPrivileges("infinity", (davxml.Read(),), request):
+-                if isPrincipalResource(child) and propertySearch(child, request):
+-                    # Check size of results is within limit
+-                    matchcount += 1
+-                    if matchcount > max_number_of_matches:
+-                        raise NumberOfMatchesWithinLimits
++
++            children = []
++            d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x,y)), privileges=(davxml.Read(),)))
++            yield d
++            d.getResult()
+ 
+-                    prop_common.responseForHref(
+-                        request,
+-                        responses,
 -                        davxml.HRef.fromString(joinURL(ruri, uri)),
-+                        davxml.HRef.fromString(uri),
-                         child,
-                         propertiesForResource,
-                         propElement
+-                        child,
+-                        propertiesForResource,
+-                        propElement
+-                    )
++            for child, uri in children:
++                if isPrincipalResource(child):
++                    d = waitForDeferred(propertySearch(child, request))
++                    yield d
++                    d = d.getResult()
++                    if d:
++                        # Check size of results is within limit
++                        matchcount += 1
++                        if matchcount > max_number_of_matches:
++                            raise NumberOfMatchesWithinLimits
++    
++                        d = waitForDeferred(prop_common.responseForHref(
++                            request,
++                            responses,
++                            davxml.HRef.fromString(uri),
++                            child,
++                            propertiesForResource,
++                            propElement
++                        ))
++                        yield d
++                        d.getResult()
+ 
+     except NumberOfMatchesWithinLimits:
+         log.err("Too many matching components in prinicpal-property-search report")

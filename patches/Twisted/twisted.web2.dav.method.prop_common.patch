@@ -1,0 +1,58 @@
+Index: twisted/web2/dav/method/prop_common.py
+===================================================================
+--- twisted/web2/dav/method/prop_common.py	(revision 17951)
++++ twisted/web2/dav/method/prop_common.py	(working copy)
+@@ -12,6 +12,7 @@
+     "propertyListForResource",
+ ]
+ 
++from twisted.internet.defer import deferredGenerator, waitForDeferred
+ from twisted.python import log
+ from twisted.python.failure import Failure
+ from twisted.web2 import responsecode
+@@ -56,7 +57,9 @@
+ def responseForHref(request, responses, href, resource, propertiesForResource, propertyreq):
+ 
+     if propertiesForResource is not None:
+-        properties_by_status = propertiesForResource(request, propertyreq, resource)
++        properties_by_status = waitForDeferred(propertiesForResource(request, propertyreq, resource))
++        yield properties_by_status
++        properties_by_status = properties_by_status.getResult()
+         
+         for status in properties_by_status:
+             properties = properties_by_status[status]
+@@ -78,6 +81,8 @@
+             )
+         )
+ 
++responseForHref = deferredGenerator(responseForHref)
++
+ # def allPropertiesForResource(request, prop, resource):
+ #     """
+ #     Return all (non-hidden) properties for the specified resource.
+@@ -134,9 +139,15 @@
+         else:
+             qname = property
+     
+-        if qname in resource.listProperties(request):
++        props = waitForDeferred(resource.listProperties(request))
++        yield props
++        props = props.getResult()
++        if qname in props:
+             try:
+-                properties_by_status[responsecode.OK].append(resource.readProperty(qname, request))
++                prop = waitForDeferred(resource.readProperty(qname, request))
++                yield prop
++                prop = prop.getResult()
++                properties_by_status[responsecode.OK].append(prop)
+             except:
+                 f = Failure()
+     
+@@ -149,4 +160,6 @@
+             log.err("Can't find property %r for resource %s" % (qname, request.uri))
+             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
+     
+-    return properties_by_status
++    yield properties_by_status
++
++_namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
