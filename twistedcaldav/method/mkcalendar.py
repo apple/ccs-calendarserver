@@ -15,10 +15,6 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
-from twisted.internet.defer import succeed
-from twisted.internet.defer import waitForDeferred
-from twisted.web2.dav.util import parentForURL
-from twisted.internet.defer import deferredGenerator
 
 """
 CalDAV MKCALENDAR method.
@@ -28,17 +24,16 @@ __version__ = "0.0"
 
 __all__ = ["http_MKCALENDAR"]
 
-import os
-
-from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
 from twisted.web2.dav.util import davXMLFromStream
+from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
-from twisted.web2.iweb import IResponse
 
 from twistedcaldav import caldavxml
 
