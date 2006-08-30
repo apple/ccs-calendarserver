@@ -36,22 +36,21 @@ __all__ = [
 from weakref import WeakValueDictionary
 
 from zope.interface import implements
-import twisted.web2.server
-from twisted.internet.defer import maybeDeferred
-from twisted.internet.defer import succeed
+
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.web2 import responsecode
-from twisted.web2.iweb import IResponse
-from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
-from twisted.web2.http_headers import MimeType
-from twisted.web2.stream import MemoryStream
-from twisted.web2.dav import auth
-from twisted.web2.dav import davxml
+from twisted.web2.dav import auth, davxml
 from twisted.web2.dav.acl import DAVPrincipalResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
-from twisted.web2.dav.resource import DAVResource
-from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import parentForURL, unimplemented
+from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
+from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from twisted.web2.http_headers import MimeType
+from twisted.web2.iweb import IResponse
+from twisted.web2.stream import MemoryStream
+import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml
@@ -210,23 +209,63 @@ class CalDAVResource (DAVResource):
         """
         return self.isCalendarCollection()
 
-    def findCalendarCollections(self, depth):
+    def findCalendarCollections(self, depth, request, callback, privileges=None):
         """
-        See L{ICalDAVResource.findCalendarCollections}.
-        This implementation raises L{NotImplementedError}; a subclass must
-        override it.
-        """
-        # FIXME: Can this be implemented genericly by using findChildren()?
-        unimplemented(self)
+        See L{IDAVResource.findChildren}.
 
-    def findCalendarCollectionsWithPrivileges(self, depth, privileges, request):
+        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
+        and C{"infinity"}.  As long as C{self.listChildren} is implemented
         """
-        See L{ICalDAVResource.findCalendarCollectionsWithPrivileges}.
-        This implementation raises L{NotImplementedError}; a subclass must
-        override it.
-        """
-        # FIXME: Can this be implemented genericly by using findChildren()?
-        unimplemented(self)
+        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
+
+        def _checkAccessEb(failure):
+            from twisted.web2.dav.acl import AccessDeniedError
+            failure.trap(AccessDeniedError)
+            
+            reactor.callLater(0, _getChild)
+
+        def _checkAccess(child):
+            if privileges is None:
+                return child
+   
+            ca = child.checkAccess(request, privileges)
+            ca.addCallback(lambda ign: child)
+            return ca
+
+        def _gotChild(child, childpath):
+            if child.isCalendarCollection():
+                callback(child, childpath)
+            elif child.isCollection():
+                callback(child, childpath + '/')
+                if depth == 'infinity': 
+                    fc = child.findCalendarCollections(depth, request, callback, privileges)
+                    fc.addCallback(lambda x: reactor.callLater(0, _getChild))
+                    return fc
+
+            reactor.callLater(0, _getChild)
+
+        def _getChild():
+            try:
+                childname = children.pop()
+            except IndexError:
+                completionDeferred.callback(None)
+            else:
+                childpath = joinURL(basepath, childname)
+                child = request.locateResource(childpath)
+                child.addCallback(_checkAccess)
+                child.addCallbacks(_gotChild, _checkAccessEb, (childpath,))
+                child.addErrback(completionDeferred.errback)
+
+        completionDeferred = Deferred()
+
+        if depth != "0" and self.isCollection():
+            basepath = request.urlForResource(self)
+            children = self.listChildren()
+            _getChild()
+        else:
+            completionDeferred.callback(None)
+
+        return completionDeferred
 
     def createCalendar(self, request):
         """

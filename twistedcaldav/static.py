@@ -78,58 +78,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     # CalDAV
     ##
 
-    def findCalendarCollections(self, depth):
-        """
-        Find all calendar collections within this collection down to the specified depth.
-        Note that we only want 'regular' calendar collections returned - not schedule-inbox or schedule-outbox.
-        
-        @param depth:    string with the appropriate depth -on ly "0", "1" or "infinity" allowed.
-        """
-        
-        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
-        if depth != "0" and self.isCollection():
-            for name in self.listChildren():
-                try:
-                    child = ICalDAVResource(self.getChild(name))
-                except TypeError:
-                    child = None
-
-                if child is not None:
-                    if child.isCalendarCollection():
-                        yield (child, name)
-                    elif child.isCollection():
-                        if depth == "infinity":
-                            for grandchild in child.findCalendarCollections(depth):
-                                yield (grandchild[0], name + "/" + grandchild[1])
-
-    def findCalendarCollectionsWithPrivileges(self, depth, privileges, request):
-        """
-        Find all calendar collections within this collection down to the specified depth.
-        Note that we only want 'regular' calendar collections returned - not schedule-inbox or schedule-outbox.
-        
-        @param depth:    string with the appropriate depth -on ly "0", "1" or "infinity" allowed.
-        """
-        
-        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
-        if depth != "0" and self.isCollection():
-            for name in self.listChildren():
-                try:
-                    child = ICalDAVResource(self.getChild(name))
-                except TypeError:
-                    child = None
-
-                if child is not None:
-                    # Check privileges of child - skip if access denied
-                    if child.checkAccess(request, privileges):
-                        continue
-
-                    if child.isCalendarCollection():
-                        yield (child, name)
-                    elif child.isCollection():
-                        if depth == "infinity":
-                            for grandchild in child.findCalendarCollections(depth):
-                                yield (grandchild[0], name + "/" + grandchild[1])
-
     def createCalendar(self, request):
         #
         # request object is required because we need to validate against parent
