@@ -1,0 +1,15 @@
+Index: twisted/web2/dav/method/proppatch.py
+===================================================================
+--- twisted/web2/dav/method/proppatch.py	(revision 17951)
++++ twisted/web2/dav/method/proppatch.py	(working copy)
+@@ -117,8 +117,8 @@
+                     x = waitForDeferred(action(property, request))
+                     yield x
+                     x.getResult()
+-                except ValueError, e:
+-                    # Convert ValueError exception into HTTPError
++                except KeyError, e:
++                    # Convert KeyError exception into HTTPError
+                     responses.add(
+                         Failure(exc_value=HTTPError(StatusResponse(responsecode.FORBIDDEN, str(e)))),
+                         property
