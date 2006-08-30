@@ -138,11 +138,11 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         if self.fp.exists():
             log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
-            return fail(responsecode.NOT_ALLOWED)
+            raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         if not os.path.isdir(os.path.dirname(self.fp.path)):
             log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
-            return succeed(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+            raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
@@ -152,10 +152,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
         def _defer(parent):
             if parent is not None:
                 log.err("Cannot create a calendar collection within a calendar collection %s" % (parent,))
-                return ErrorResponse(
+                raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldavxml.caldav_namespace, "calendar-collection-location-ok")
-                )
+                ))
     
             return self.createCalendarCollection()
             
