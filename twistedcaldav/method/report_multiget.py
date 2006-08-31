@@ -50,7 +50,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     if not self.isCollection():
         parent = waitForDeferred(self.locateParent(request, request.uri))
         yield parent
-        parent = parent.getresult()
+        parent = parent.getResult()
         if not parent.isPseudoCalendarCollection():
             log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))

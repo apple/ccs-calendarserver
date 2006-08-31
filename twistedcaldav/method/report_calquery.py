@@ -43,12 +43,18 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     Generate a calendar-query REPORT.
     (CalDAV-access-09, section 7.6)
     """
-    if not self.isCollection() and not self.locateParent(request, request.uri).isPseudoCalendarCollection():
-        log.err("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
-        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar collection or calendar resource"))
 
+    # Verify root element
     if calendar_query.qname() != (caldav_namespace, "calendar-query"):
         raise ValueError("{CalDAV:}calendar-query expected as root element, not %s." % (calendar_query.sname(),))
+
+    if not self.isCollection():
+        parent = waitForDeferred(self.locateParent(request, request.uri))
+        yield parent
+        parent = parent.getResult()
+        if not parent.isPseudoCalendarCollection():
+            log.err("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar collection or calendar resource"))
 
     responses = []
 
@@ -149,10 +155,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     yield child
                     child = child.getResult()
 
-                    error = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
-                    yield error
-                    error = error.getResult()
-                    if error:
+                    try:
+                        d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                        yield d
+                        d.getResult()
+                    except:
                         continue
     
                     calendar = calresource.iCalendar(name)

@@ -69,27 +69,26 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     """
 
     # First check the privilege on this resource
-    d = waitForDeferred(resource.checkAccess(request, privileges))
-    yield d
-    d.getResult()
+    try:
+        d = waitForDeferred(resource.checkAccess(request, privileges))
+        yield d
+        d.getResult()
+    except:
+        yield None
+        return
 
     # When scanning we only go down as far as a calendar collection - not into one
     if resource.isPseudoCalendarCollection():
         resources = [(resource, request_uri)]
-        doJoin = False
     elif not resource.isCollection():
         resources = [(resource, request_uri)]
-        doJoin = False
     else:
         resources = []
         d = waitForDeferred(resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges))
         yield d
         d.getResult()
-        doJoin = True
-        
+         
     for calresource, uri in resources:
-        if doJoin:
-            uri = joinURL(request_uri, uri)
         d = waitForDeferred(apply(calresource, uri))
         yield d
         d.getResult()

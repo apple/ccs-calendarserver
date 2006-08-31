@@ -236,7 +236,6 @@ class CalDAVResource (DAVResource):
             if child.isCalendarCollection():
                 callback(child, childpath)
             elif child.isCollection():
-                callback(child, childpath + '/')
                 if depth == 'infinity': 
                     fc = child.findCalendarCollections(depth, request, callback, privileges)
                     fc.addCallback(lambda x: reactor.callLater(0, _getChild))
