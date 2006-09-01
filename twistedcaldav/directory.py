@@ -19,18 +19,23 @@
 """
 Implements a directory-backed principal hierarchy.
 """
+from zope.interface import implements
 
-from twisted.cred import credentials
+from twisted.cred import checkers, credentials, error
+from twisted.cred.credentials import UsernamePassword
 from twisted.internet import reactor
 from twisted.internet import task
+from twisted.internet.defer import succeed
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.web2.dav.resource import TwistedAccessDisabledProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import StatusResponse
+
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.principalindex import GroupIndex
@@ -38,6 +43,7 @@ from twistedcaldav.principalindex import ResourceIndex
 from twistedcaldav.principalindex import UserIndex
 from twistedcaldav.resource import CalendarPrincipalCollectionResource
 from twistedcaldav.static import CalendarPrincipalFile
+
 import dsattributes
 import opendirectory
 import os
@@ -50,6 +56,28 @@ __all__ = [
     "DirectoryResourcePrincipalProvisioningResource",
     "DirectoryPrincipalProvisioningResource",
 ]
+
+
+class DirectoryCredentialsChecker:
+    implements(checkers.ICredentialsChecker)
+
+    credentialInterfaces = (IPrincipalCredentials,)
+
+    def requestAvatarId(self, credentials):
+
+        # If there is no calendar principal URI then the calendar user is disabled.
+        pcreds = IPrincipalCredentials(credentials)
+        if not pcreds.principal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
+            raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
+
+        creds = pcreds.credentials
+        if isinstance(creds, UsernamePassword):
+            user = creds.username
+            pswd = creds.password
+            if opendirectory.authenticateUser(pcreds.principal.directory(), user, pswd):
+                return succeed(pcreds.principalURI)
+        
+        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
 
 class DirectoryPrincipalFile (CalendarPrincipalFile):
     """
@@ -81,6 +109,15 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
             return opendirectory.authenticateUser(self._parent.directory, self.fp.basename(), creds.password)
         else:
             return False
+
+    def directory(self):
+        """
+        Get the directory object used for directory operations.
+        
+        @return:      C{object} for the directory instance
+        """
+
+        return self._parent.directory
 
     def groupMembers(self):
         """
@@ -152,7 +189,7 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
         # Only return the calendar prinicpal URI when calendar-user-address-set is requested.
         if namespace == caldavxml.caldav_namespace:
             if name == "calendar-user-address-set":
-                return caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self.getPropertyValue(customxml.TwistedCalendarPrincipalURI)))
+                return succeed(caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self.getPropertyValue(customxml.TwistedCalendarPrincipalURI))))
 
         return super(DirectoryPrincipalFile, self).readProperty(qname, request)
 
@@ -242,10 +279,21 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
         newname = self.principalUID() + "-" + self.getPropertyValue(customxml.TwistedGUIDProperty)
         
         try:
+            # Make sure the new name is not already in use
+            if os.path.exists(newname):
+                count = 1
+                tempname = newname + "-%d"
+                while(os.path.exists(tempname % count)):
+                    count += 1
+                newname = tempname % count 
             os.rename(calrsrc.fp.path, calrsrc.fp.sibling(newname).path)
         except OSError:
             log.msg("Directory: Failed to rename %s to %s when deleting a principal" %
                     (calrsrc.fp.path, calrsrc.fp.sibling(newname).path))
+            
+            # Remove the disabled property to prevent lock out in the future
+            calrsrc.removeDeadProperty(TwistedAccessDisabledProperty())
+           
 
 class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionResource, DAVFile):
     """
