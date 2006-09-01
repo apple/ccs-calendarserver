@@ -24,7 +24,8 @@ __version__ = "0.0"
 
 __all__ = ["http_POST"]
 
-from twisted.internet.defer import deferredGenerator, maybeDeferred
+from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.web2.dav.util import parentForURL
 
 from twistedcaldav import caldavxml
 from twistedcaldav.method.schedule_common import processScheduleRequest
@@ -43,8 +44,17 @@ def http_POST(self, request):
     #
     # Check authentication and access controls
     #
-    parent = self.locateParent(request, request.uri)
-    parent.securityCheck(request, (caldavxml.Schedule(),))
+    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    yield parent
+    parent = parent.getResult()
+
+    d = waitForDeferred(parent.securityCheck(request, (caldavxml.Schedule(),)))
+    yield d
+    d.getResult()
         
     # Initiate deferred generator
-    return maybeDeferred(deferredGenerator(processScheduleRequest), self, "POST", request)
+    d = waitForDeferred(processScheduleRequest(self, "POST", request))
+    yield d
+    yield d.getResult()
+
+http_POST = deferredGenerator(http_POST)

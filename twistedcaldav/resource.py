@@ -39,6 +39,7 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.dav import auth, davxml
 from twisted.web2.dav.acl import DAVPrincipalResource
@@ -385,11 +386,16 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         @return: the URI of the calendar outbox, or C{None} if no outbox for
             exists for the user.
         """
-        principal = clazz.findAnyCalendarUser(request, address)
-        if principal:
-            return principal.scheduleOutboxURL()
-        else:
-            return None
+        
+        def _defer(principal):
+            if principal:
+                return principal.scheduleOutboxURL()
+            else:
+                return None
+
+        d = findAnyCalendarUser(request, address)
+        d.addCallback(_defer)
+        return d
 
     @classmethod
     def inboxForCalendarUser(clazz, request, address):
@@ -401,34 +407,16 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         @return: the URI of the calendar inbox, or C{None} if no inbox exists
             for the user
         """
-        principal = clazz.findAnyCalendarUser(request, address)
-        if principal:
-            return principal.scheduleInboxURL()
-        else:
-            return None
+        
+        def _defer(principal):
+            if principal:
+                return principal.scheduleInboxURL()
+            else:
+                return None
 
-    @classmethod
-    def findAnyCalendarUser(clazz, request, address):
-        """
-        Find the calendar user principal associated with the specified calendar
-        user address in any of the currently defined principal collections.
-        @param request: an L{IRequest} object for the request being processed.
-        @param address: the calendar user address to look up.
-        @return: the L{CalendarPrincipalResource} for the specified calendar
-            user, or C{None} if the user is not found.
-        """
-        for url in clazz._principleCollectionSet.keys():
-            try:
-                pcollection = clazz._principleCollectionSet[url]
-                if isinstance(pcollection, CalendarPrincipalCollectionResource):
-                    principal = pcollection.findCalendarUser(request, address)
-                    if principal is not None:
-                        return principal
-            except ReferenceError:
-                pass
-
-        return None
-
+        d = findAnyCalendarUser(request, address)
+        d.addCallback(_defer)
+        return d
 
     def __init__(self, url):
         self._url = url
@@ -448,13 +436,19 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         
         # Look at cuaddress property on each child and do attempt a match
         for childname in self.listChildren():
-            child = self.getChild(childname)
+            child_url = joinURL(self._url, childname)
+            child = waitForDeferred(request.locateResource(child_url))
+            yield child
+            child = child.getResult()
             if not isinstance(child, CalendarPrincipalResource):
                 continue
             if child.matchesCalendarUserAddress(request, address):
-                return child
+                yield child
+                return
         
-        return None
+        yield None
+
+    findCalendarUser = deferredGenerator(findCalendarUser)
 
     def principalCollectionURL(self):
         return self._url
@@ -468,6 +462,32 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         result.append(davxml.Report(davxml.PrincipalSearchPropertySet(),))
         return result
 
+def findAnyCalendarUser(request, address):
+    """
+    Find the calendar user principal associated with the specified calendar
+    user address in any of the currently defined principal collections.
+    @param request: an L{IRequest} object for the request being processed.
+    @param address: the calendar user address to look up.
+    @return: the L{CalendarPrincipalResource} for the specified calendar
+        user, or C{None} if the user is not found.
+    """
+    for url in CalendarPrincipalCollectionResource._principleCollectionSet.keys():
+        try:
+            pcollection = CalendarPrincipalCollectionResource._principleCollectionSet[url]
+            if isinstance(pcollection, CalendarPrincipalCollectionResource):
+                principal = waitForDeferred(pcollection.findCalendarUser(request, address))
+                yield principal
+                principal = principal.getResult()
+                if principal is not None:
+                    yield principal
+                    return
+        except ReferenceError:
+            pass
+
+    yield None
+
+findAnyCalendarUser = deferredGenerator(findAnyCalendarUser)
+
 class CalendarPrincipalResource (DAVPrincipalResource):
     """
     CalDAV principal resource.
@@ -480,14 +500,14 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: a list of calendar user home URLs for this principal.
         """
-        return self.readDeadProperty((caldavxml.caldav_namespace, "calendar-home-set"))
+        return self.readDeadProperty((caldav_namespace, "calendar-home-set"))
 
     def scheduleInboxURL(self):
         """
         @return: the schedule INBOX URL for this principal.
         """
-        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-URL")):
-            inbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-inbox-URL"))
+        if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
+            inbox = self.readDeadProperty((caldav_namespace, "schedule-inbox-URL"))
             assert isinstance(inbox, caldavxml.ScheduleInboxURL)
             inbox.removeWhitespaceNodes()
             if len(inbox.children) == 1:
@@ -499,8 +519,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: the schedule OUTBOX URL for this principal.
         """
-        if self.hasDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-URL")):
-            outbox = self.readDeadProperty((caldavxml.caldav_namespace, "schedule-outbox-URL"))
+        if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
+            outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
             assert isinstance(outbox, caldavxml.ScheduleOutboxURL)
             outbox.removeWhitespaceNodes()
             if len(outbox.children) == 1:
@@ -512,8 +532,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: a list of calendar user addresses for this principal.
         """
-        if self.hasDeadProperty((caldavxml.caldav_namespace, "calendar-user-address-set")):
-            return self.readDeadProperty((caldavxml.caldav_namespace, "calendar-user-address-set"))
+        if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
+            return self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
             
         # Must have a valid address of some kind so use the principal uri
         return caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self._url))
@@ -539,24 +559,27 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             return True
 
         # Look at the property if URI lookup does not work
-        if self.hasProperty((caldav_namespace, "calendar-user-address-set"), request):
-            addresses = self.readProperty((caldav_namespace, "calendar-user-address-set"), request)
-            for cua in addresses.childrenOfType(davxml.HRef):
-                if str(cua) == address:
-                    return True
+        for cua in self.calendarUserAddressSet().children:
+            if str(cua) == address:
+                return True
         
         return False
 
     def calendarFreeBusySet(self, request):
         """
-        @return: a list of calendars that contribute to free-busy for this
+        @return: L{Deferred} whose result is a list of calendars that contribute to free-busy for this
             principal's calendar user.
         """
-        inbox = self.scheduleInboxURL()
-        resource = self.locateSiblingResource(request, inbox)
-        if resource and resource.hasDeadProperty((caldavxml.caldav_namespace, "calendar-free-busy-set")):
-            return resource.readDeadProperty((caldavxml.caldav_namespace, "calendar-free-busy-set"))
-        return caldavxml.CalendarFreeBusySet()
+        
+        def _defer(inbox):
+            if inbox and inbox.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
+                return inbox.readDeadProperty((caldav_namespace, "calendar-free-busy-set"))
+            return caldavxml.CalendarFreeBusySet()
+
+        inbox_url = self.scheduleInboxURL()
+        d = request.locateResource(inbox_url)
+        d.addCallback(_defer)
+        return d
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """

@@ -15,7 +15,6 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twistedcaldav.method.schedule_common import processScheduleRequest
 
 """
 CalDAV SCHEDULE method.
@@ -25,9 +24,11 @@ __version__ = "0.0"
 
 __all__ = ["http_SCHEDULE"]
 
-from twisted.internet.defer import deferredGenerator, maybeDeferred
+from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.web2.dav.util import parentForURL
 
 from twistedcaldav import caldavxml
+from twistedcaldav.method.schedule_common import processScheduleRequest
 
 def http_SCHEDULE(self, request):
 
@@ -43,8 +44,17 @@ def http_SCHEDULE(self, request):
     #
     # Check authentication and access controls
     #
-    parent = self.locateParent(request, request.uri)
-    parent.securityCheck(request, (caldavxml.Schedule(),))
+    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    yield parent
+    parent = parent.getResult()
+
+    d = waitForDeferred(parent.securityCheck(request, (caldavxml.Schedule(),)))
+    yield d
+    d.getResult()
         
     # Initiate deferred generator
-    return maybeDeferred(deferredGenerator(processScheduleRequest), self, "SCHEDULE", request)
+    d = waitForDeferred(processScheduleRequest(self, "SCHEDULE", request))
+    yield d
+    yield d.getResult()
+
+http_SCHEDULE = deferredGenerator(http_SCHEDULE)
