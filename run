@@ -342,7 +342,7 @@ if ! py_have_module kerberos; then
   kerberos="${top}/PyKerberos";
 
   if ! "${disable_setup}"; then
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 74;
+    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 96;
 
     if "${force_setup}" || [ ! -d "${kerberos}/build/${py_platform_libdir}" ]; then
       echo "";
