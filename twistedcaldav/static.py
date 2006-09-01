@@ -153,8 +153,11 @@ class CalDAVFile (CalDAVResource, DAVFile):
             # Must verify ACLs which means we need a request object at this point
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
-                    child = IDAVResource(self.getChild(name))
-                    request.rememberURLForResource(joinURL(request.uri, str(name)), child)
+                    child_url = joinURL(request.uri, str(name))
+                    child = waitForDeferred(request.locateResource(child_url))
+                    yield child
+                    child = child.getResult()
+                    child = IDAVResource(child)
                 except TypeError:
                     child = None
     
