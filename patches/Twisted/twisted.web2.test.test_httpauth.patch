@@ -1,0 +1,71 @@
+Index: twisted/web2/test/test_httpauth.py
+===================================================================
+--- twisted/web2/test/test_httpauth.py	(revision 17932)
++++ twisted/web2/test/test_httpauth.py	(working copy)
+@@ -2,6 +2,7 @@
+ from twisted.internet import defer
+ from twisted.cred import error
+ from twisted.web2.auth import basic, digest, wrapper
++from twisted.web2.test.test_server import SimpleRequest
+ 
+ from twisted.web2.test import test_server
+ 
+@@ -25,7 +26,7 @@
+                 self.username,
+                 self.password))
+ 
+-        creds = self.credentialFactory.decode(response)
++        creds = self.credentialFactory.decode(response, SimpleRequest(None, 'GET', '/'))
+         self.failUnless(creds.checkPassword(self.password))
+ 
+     def testIncorrectPassword(self):
+@@ -33,7 +34,7 @@
+                 self.username,
+                 'incorrectPassword'))
+ 
+-        creds = self.credentialFactory.decode(response)
++        creds = self.credentialFactory.decode(response, SimpleRequest(None, 'GET', '/'))
+         self.failIf(creds.checkPassword(self.password))
+ 
+     def testIncorrectPadding(self):
+@@ -43,7 +44,7 @@
+ 
+         response = response.strip('=')
+ 
+-        creds = self.credentialFactory.decode(response)
++        creds = self.credentialFactory.decode(response, SimpleRequest(None, 'GET', '/'))
+         self.failUnless(creds.checkPassword(self.password))
+ 
+     def testInvalidCredentials(self):
+@@ -51,7 +52,7 @@
+ 
+         self.assertRaises(error.LoginFailed, 
+                           self.credentialFactory.decode, 
+-                          response)
++                          response, SimpleRequest(None, 'GET', '/'))
+ 
+ challengeResponse = ('digest', {'nonce': '178288758716122392881254770685', 
+                                 'qop': 'auth', 'realm': 'test realm', 
+@@ -74,7 +75,7 @@
+     def testResponse(self):
+         challenge = self.credentialFactory.getChallenge(None)
+ 
+-        creds = self.credentialFactory.decode(authRequest, 'GET')
++        creds = self.credentialFactory.decode(authRequest, SimpleRequest(None, 'GET', '/'))
+         self.failUnless(creds.checkPassword('password'))
+ 
+     def testFailsWithDifferentMethod(self):
+@@ -80,11 +81,11 @@
+     def testFailsWithDifferentMethod(self):
+         challenge = self.credentialFactory.getChallenge(None)
+         
+-        creds = self.credentialFactory.decode(authRequest, 'POST')
++        creds = self.credentialFactory.decode(authRequest, SimpleRequest(None, 'POST', '/'))
+         self.failIf(creds.checkPassword('password'))
+ 
+     def testNoUsername(self):
+-        self.assertRaises(error.LoginFailed, self.credentialFactory.decode, namelessAuthRequest, 'GET')
++        self.assertRaises(error.LoginFailed, self.credentialFactory.decode, namelessAuthRequest, SimpleRequest(None, 'GET', '/'))
+ 
+ from zope.interface import Interface, implements
+ from twisted.cred import portal, checkers

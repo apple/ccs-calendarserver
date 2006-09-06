@@ -1,0 +1,13 @@
+Index: twisted/web2/auth/wrapper.py
+===================================================================
+--- twisted/web2/auth/wrapper.py	(revision 17932)
++++ twisted/web2/auth/wrapper.py	(working copy)
+@@ -87,7 +87,7 @@
+             return UnauthorizedResource(self.credentialFactories)
+ 
+         try:
+-            creds = factory.decode(response, req.method)
++            creds = factory.decode(response, req)
+         except error.LoginFailed:
+             return UnauthorizedResource(self.credentialFactories)
+ 
