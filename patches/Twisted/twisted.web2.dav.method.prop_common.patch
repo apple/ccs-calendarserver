@@ -10,7 +10,15 @@ Index: twisted/web2/dav/method/prop_common.py
  from twisted.python import log
  from twisted.python.failure import Failure
  from twisted.web2 import responsecode
-@@ -56,7 +57,9 @@
+@@ -19,7 +20,6 @@
+ from twisted.web2.dav.element.base import WebDAVElement
+ from twisted.web2.dav.http import statusForFailure
+ from twisted.web2.dav.method.propfind import propertyName
+-from twisted.web2.dav.util import joinURL
+ 
+ # def applyToCollections(resource, request_uri, depth, apply):
+ #     """
+@@ -56,7 +56,9 @@
  def responseForHref(request, responses, href, resource, propertiesForResource, propertyreq):
  
      if propertiesForResource is not None:
@@ -21,7 +29,7 @@ Index: twisted/web2/dav/method/prop_common.py
          
          for status in properties_by_status:
              properties = properties_by_status[status]
-@@ -78,6 +81,8 @@
+@@ -78,6 +80,8 @@
              )
          )
  
@@ -30,7 +38,7 @@ Index: twisted/web2/dav/method/prop_common.py
  # def allPropertiesForResource(request, prop, resource):
  #     """
  #     Return all (non-hidden) properties for the specified resource.
-@@ -134,9 +139,15 @@
+@@ -134,9 +138,15 @@
          else:
              qname = property
      
@@ -48,7 +56,7 @@ Index: twisted/web2/dav/method/prop_common.py
              except:
                  f = Failure()
      
-@@ -149,4 +160,6 @@
+@@ -149,4 +159,6 @@
              log.err("Can't find property %r for resource %s" % (qname, request.uri))
              properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
      
