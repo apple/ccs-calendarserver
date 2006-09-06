@@ -13,3 +13,15 @@ Index: twisted/web2/dav/idav.py
          """
  
      def currentPrivileges(request):
+@@ -219,11 +219,3 @@
+         directly a member.  (RFC 3744, section 4.4)
+         @return: a iterable of group principal URLs.
+         """
+-
+-    def checkCredentials(creds):
+-        """
+-        Check whether the provided credentials can be used to authenticate this
+-        prinicpal.
+-        @param creds: the L{ICredentials} for testing.
+-        @return: C{True} if the credentials match, C{False} otherwise
+-        """
