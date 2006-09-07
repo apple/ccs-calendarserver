@@ -44,7 +44,7 @@ except ImportError:
     __version__ = None
 
 # Load in suitable file extension/content-type map from OS X
-File.contentTypes = loadMimeTypes(["/etc/httpd/mime.types"])
+File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.types",))
 
 import twisted.web2.dav.davxml
 import twistedcaldav.caldavxml
