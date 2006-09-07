@@ -15,6 +15,8 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
+from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import deferredGenerator
 
 import os
 
@@ -23,7 +25,7 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
-from twisted.web2.dav.test.util import SimpleRequest
+from twisted.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml
@@ -61,7 +63,7 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                           % (response.code,))
 
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
-        return self.send(request, do_test, path)
+        return self.send(request, do_test)
 
     def test_make_calendar_with_props(self):
         """
@@ -86,12 +88,18 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                 (davxml.DisplayName.qname(), "Lisa's Events"),
                 (caldavxml.CalendarDescription.qname(), "Calendar restricted to events."),
             ):
-                stored = str(resource.readProperty(qname, None))
+                stored = waitForDeferred(resource.readProperty(qname, None))
+                yield stored
+                stored = stored.getResult()
+                stored = str(stored)
                 if stored != value:
                     self.fail("MKCALENDAR failed to set property %s: %s != %s"
                               % (qname, stored, value))
 
-            supported_components = resource.readProperty(caldavxml.SupportedCalendarComponentSet, None).children
+            supported_components = waitForDeferred(resource.readProperty(caldavxml.SupportedCalendarComponentSet, None))
+            yield supported_components
+            supported_components = supported_components.getResult()
+            supported_components = supported_components.children
             if len(supported_components) != 1:
                 self.fail("MKCALENDAR failed to set property %s: len(%s) != 1"
                           % (caldavxml.SupportedCalendarComponentSet.qname(), supported_components))
@@ -100,9 +108,14 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                           % (caldavxml.SupportedCalendarComponentSet.qname(),
                              supported_components[0].toxml(), caldavxml.CalendarComponent(name="VEVENT").toxml()))
 
-            tz = resource.readProperty(caldavxml.CalendarTimeZone, None).calendar()
+            tz = waitForDeferred(resource.readProperty(caldavxml.CalendarTimeZone, None))
+            yield tz
+            tz = tz.getResult()
+            tz = tz.calendar()
             self.failUnless(tz.resourceType() == "VTIMEZONE")
             self.failUnless(tuple(tz.subcomponents())[0].propertyValue("TZID") == "US-Eastern")
+        
+        do_test = deferredGenerator(do_test)
 
         mk = caldavxml.MakeCalendar(
             davxml.Set(
@@ -141,7 +154,7 @@ END:VCALENDAR
 
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
         request.stream = MemoryStream(mk.toxml())
-        return self.send(request, do_test, path)
+        return self.send(request, do_test)
 
     def test_make_calendar_no_parent(self):
         """
@@ -159,7 +172,7 @@ END:VCALENDAR
             # FIXME: Check for CalDAV:calendar-collection-location-ok element
 
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
-        return self.send(request, do_test, path)
+        return self.send(request, do_test)
 
     def test_make_calendar_on_resource(self):
         """
@@ -181,7 +194,7 @@ END:VCALENDAR
             # FIXME: Check for DAV:resource-must-be-null element
 
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
-        return self.send(request, do_test, path)
+        return self.send(request, do_test)
 
     def test_make_calendar_in_calendar(self):
         """
@@ -208,7 +221,7 @@ END:VCALENDAR
             nested_path = os.path.join(self.docroot, nested_uri[1:])
 
             request = SimpleRequest(self.site, "MKCALENDAR", nested_uri)
-            self.send(request, do_test, nested_path)
+            self.send(request, do_test)
 
         request = SimpleRequest(self.site, "MKCALENDAR", first_uri)
-        return self.send(request, next, first_path)
+        return self.send(request, next)

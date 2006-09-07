@@ -24,8 +24,9 @@ from twisted.web2 import responsecode
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
-from twisted.web2.dav.test.util import SimpleRequest
+from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav.util import davXMLFromStream
+from twisted.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml
@@ -93,7 +94,7 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
         def got_xml(doc):
             if not isinstance(doc.root_element, davxml.MultiStatus):
-                self.fail("REPORT response XML root element is not multistatus: %r" % (multistatus,))
+                self.fail("REPORT response XML root element is not multistatus: %r" % (doc.root_element,))
 
             for response in doc.root_element.childrenOfType(davxml.PropertyStatusResponse):
                 properties_to_find = [p.qname() for p in calendar_properties]
@@ -156,7 +157,6 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
         Event by UID.
         (CalDAV-access-09, section 7.6.6)
         """
-        cal_uri = "/calendar_query_uid/"
         uid = "C3189A88-1ED0-11D9-A5E0-000A958A3252"
 
         return self.simple_event_query(
@@ -203,7 +203,7 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
         def got_xml(doc):
             if not isinstance(doc.root_element, davxml.MultiStatus):
-                self.fail("REPORT response XML root element is not multistatus: %r" % (multistatus,))
+                self.fail("REPORT response XML root element is not multistatus: %r" % (doc.root_element,))
 
             for response in doc.root_element.childrenOfType(davxml.PropertyStatusResponse):
                 for propstat in response.childrenOfType(davxml.PropertyStatus):
@@ -211,9 +211,7 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
                     if status.code != responsecode.OK:
                         self.fail("REPORT failed (status %s) to locate properties: %r"
-                                  % (status.code, properties))
-
-                    caldata = propstat.childOfType(davxml.PropertyContainer).childOfType(caldavxml.CalendarData)
+                                  % (status.code, propstat))
 
                     properties = propstat.childOfType(davxml.PropertyContainer).children
 
@@ -275,8 +273,8 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
                 return davXMLFromStream(response.stream).addCallback(got_xml)
 
-            return self.send(request, do_test, calendar_path)
+            return self.send(request, do_test)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
 
-        return self.send(request, do_report, calendar_path)
+        return self.send(request, do_report)

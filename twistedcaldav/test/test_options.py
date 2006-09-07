@@ -17,7 +17,7 @@
 ##
 
 from twisted.web2.iweb import IResponse
-from twisted.web2.dav.test.util import SimpleRequest
+from twisted.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 

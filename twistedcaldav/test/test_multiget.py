@@ -24,8 +24,8 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
-from twisted.web2.dav.test.util import SimpleRequest
 from twisted.web2.dav.util import davXMLFromStream
+from twisted.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml
@@ -115,7 +115,11 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
             
             for response in doc.root_element.childrenOfType(davxml.StatusResponse):
                 href = str(response.childOfType(davxml.HRef))
-                status = response.childOfType(davxml.Status)
+                propstatus = response.childOfType(davxml.PropertyStatus)
+                if propstatus is not None:
+                    status = propstatus.childOfType(davxml.Status)
+                else:
+                    status = response.childOfType(davxml.Status)
                 if status.code != responsecode.OK:
                     if href in okhrefs:
                         self.fail("REPORT failed (status %s) to locate properties: %r"
@@ -165,8 +169,8 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
 
                 return davXMLFromStream(response.stream).addCallback(got_xml)
 
-            return self.send(request, do_test, calendar_path)
+            return self.send(request, do_test)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
 
-        return self.send(request, do_report, calendar_path)
+        return self.send(request, do_report)
