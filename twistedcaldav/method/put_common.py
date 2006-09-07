@@ -302,7 +302,11 @@ def storeCalendarObjectResource(
                     # At this point we need the calendar data to do more tests
                     calendar = source.iCalendar()
                 else:
-                    calendar = Component.fromString(calendardata)
+                    try:
+                        calendar = Component.fromString(calendardata)
+                    except ValueError, e:
+                        log.err(e)
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
                         
                 # Valid calendar data check
                 result, message = validCalendarDataCheck()
