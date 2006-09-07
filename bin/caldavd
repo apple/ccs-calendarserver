@@ -136,7 +136,7 @@ class caldavd(object):
 
         # spawn the twistd python process
         try:
-            os.spawnvpe(os.P_WAIT, sys.executable, args, environment)
+            os.spawnve(os.P_WAIT, sys.executable, args, environment)
         except OSError, why:
             print "        [Failed]"
             print "Error: %s" % (why[1],)
