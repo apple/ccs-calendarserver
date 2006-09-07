@@ -140,7 +140,7 @@ class CalDAVResource (DAVResource):
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
                 if self.deadProperties().contains(qname):
-                    return self.deadProperties().get(qname)
+                    return succeed(self.deadProperties().get(qname))
                 return succeed(self.supportedCalendarComponentSet)
             elif name == "supported-calendar-data":
                 # CalDAV-access-09, section 5.2.4
