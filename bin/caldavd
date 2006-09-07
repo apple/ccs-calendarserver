@@ -121,7 +121,7 @@ class caldavd(object):
             sys.exit(1)
         
         # Create arguments for twistd
-        args = ["python"]
+        args = [os.path.basename(sys.executable)]
         args.append(self.twistd)
         if not self.daemonize:
             args.append("-n")
@@ -136,7 +136,7 @@ class caldavd(object):
 
         # spawn the twistd python process
         try:
-            os.spawnvpe(os.P_WAIT, "python", args, environment)
+            os.spawnvpe(os.P_WAIT, sys.executable, args, environment)
         except OSError, why:
             print "        [Failed]"
             print "Error: %s" % (why[1],)
