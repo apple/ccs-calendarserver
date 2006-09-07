@@ -60,8 +60,9 @@ Python 2.4.
 If you are using other operating systems, there is probably additional
 coding work required before you can get started.  For starters,
 twisted.web2.dav requires Bob Ippolito's xattr library to access file
-system extended attributes.  There are available on all file systems
-in Mac OS X, and on some file systems on Linux and FreeBSD.
+system extended attributes.  File system extended attributes are
+available on all file systems in Mac OS X, and on some file systems on
+Linux and FreeBSD.
 
 
 GETTING INVOLVED
