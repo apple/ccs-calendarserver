@@ -68,7 +68,7 @@ if [ -f "${cdt}" ]; then
   cd "${cdt}";
   svn update .;
 else
-  svn checkout http://macosxserver.apple.com:8000/svn/CalDAVTester/trunk "${cdt}"
+  svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
 fi;
 
 cd "${documentroot}/calendars/users/user01/"
