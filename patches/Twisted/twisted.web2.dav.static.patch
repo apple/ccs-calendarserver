@@ -1,113 +1,13 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 17966)
+--- twisted/web2/dav/static.py	(revision 18074)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -29,7 +29,11 @@
- __all__ = ["DAVFile"]
- 
- from twisted.python import log
--from twisted.internet import reactor, defer
-+from twisted.internet.defer import deferredGenerator, waitForDeferred
-+from twisted.internet.defer import succeed
-+from twisted.web2 import http
-+from twisted.web2 import dirlist
-+from twisted.web2 import responsecode
+@@ -34,6 +34,8 @@
+ from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
  from twisted.web2.static import File
- from twisted.web2.dav import davxml
- from twisted.web2.dav.idav import IDAVResource
-@@ -34,7 +38,7 @@
+ from twisted.web2 import dirlist
++from twisted.web2 import http
++from twisted.web2 import responsecode
  from twisted.web2.dav import davxml
  from twisted.web2.dav.idav import IDAVResource
  from twisted.web2.dav.resource import DAVResource
--from twisted.web2.dav.util import bindMethods, joinURL
-+from twisted.web2.dav.util import bindMethods
- 
- try:
-     from twisted.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
-@@ -154,6 +158,86 @@
-     def createSimilarFile(self, path):
-         return self.__class__(path, defaultType=self.defaultType, indexNames=self.indexNames[:])
- 
-+    def listChildrenWithPrivileges(self, privileges, request):
-+        """
-+        NB This method looks at the actual objects in the file system.
-+
-+        @return: a sequence of the names of all known children of this resource that have the
-+            associated privileges set.
-+        """
-+        children = self.listChildren()
-+        
-+        result = []
-+
-+        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-+        # the child resource loop and supply those to the checkAccess on each child.
-+        filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
-+        yield filteredaces
-+        filteredaces = filteredaces.getResult()
-+
-+        # Check for disabled access
-+        if filteredaces is not None:
-+            for name in children:
-+                try:
-+                    child = IDAVResource(self.getChild(name))
-+                except TypeError:
-+                    child = None
-+    
-+                if child is not None:
-+                    # Check privileges of child - skip if access denied
-+                    try:
-+                        d = waitForDeferred(child.checkAccess(request, privileges, inheritedaces=filteredaces))
-+                        yield d
-+                        d.getResult()
-+                    except:
-+                        continue
-+                    result.append(name)
-+            
-+        yield result
-+    
-+    listChildrenWithPrivileges = deferredGenerator(listChildrenWithPrivileges)
-+
-+    def render(self, req):
-+        """
-+        This is a direct copy of webs.static.render with the listChildren behavior replaced with
-+        findChildrenWithPrivileges to ensure that the current authenticated principal can only list
-+        directory contents that they have read permissions for.
-+        """
-+        if not self.fp.exists():
-+            yield responsecode.NOT_FOUND
-+            return
-+
-+        if self.fp.isdir():
-+            if req.uri[-1] != "/":
-+                # Redirect to include trailing '/' in URI
-+                yield http.RedirectResponse(req.unparseURL(path=req.path+'/'))
-+                return
-+            else:
-+                ifp = self.fp.childSearchPreauth(*self.indexNames)
-+                if ifp:
-+                    # Render from the index file
-+                    standin = self.createSimilarFile(ifp.path)
-+                else:
-+                    children = waitForDeferred(self.listChildrenWithPrivileges((davxml.Read(),), req))
-+                    yield children
-+                    children = children.getResult()
-+
-+                    # Render from a DirectoryLister
-+                    standin = dirlist.DirectoryLister(
-+                        self.fp.path,
-+                        children,
-+                        self.contentTypes,
-+                        self.contentEncodings,
-+                        self.defaultType
-+                    )
-+                yield standin.render(req)
-+                return
-+
-+        # Do regular resource behavior from superclass
-+        yield super(DAVFile, self).render(req)
-+    
-+    render = deferredGenerator(render)
-+
- #
- # Attach method handlers to DAVFile
- #

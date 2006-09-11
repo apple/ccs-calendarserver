@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18065)
+--- twisted/web2/dav/resource.py	(revision 18074)
 +++ twisted/web2/dav/resource.py	(working copy)
 @@ -599,7 +599,7 @@
              else:
