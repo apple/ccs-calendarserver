@@ -874,9 +874,10 @@ class CalendarPrincipalProvisioningResource (DAVFile):
         assert self.exists(), "%s should exist" % (self,)
         assert self.isCollection(), "%s should be a collection" % (self,)
 
+        # FIXME: I don't think we need this anymore nwo that we have static & OD repository builders.
         # Create children
         for name, clazz in (
-            ("users" , CalendarUserPrincipalProvisioningResource),
+            ("users/" , CalendarUserPrincipalProvisioningResource),
         ):
             child_fp = self.fp.child(name)
             if not child_fp.exists(): child_fp.makedirs()
