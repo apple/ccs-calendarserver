@@ -24,7 +24,7 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream, FileStream
 from twisted.web2.http_headers import MimeType
 from twisted.web2.dav.fileop import rmdir
-from twisted.web2.dav.test.util import SimpleRequest
+from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.ical import Component
 from twistedcaldav.static import CalDAVFile
@@ -56,13 +56,12 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
                     self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
 
             nested_uri  = os.path.join(calendar_uri, "nested")
-            nested_path = os.path.join(self.docroot, nested_uri[1:])
 
             request = SimpleRequest(self.site, "MKCOL", nested_uri)
-            self.send(request, mkcol_cb, nested_path)
+            self.send(request, mkcol_cb)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-        return self.send(request, mkcalendar_cb, calendar_path)
+        return self.send(request, mkcalendar_cb)
 
     def test_bogus_file(self):
         """
@@ -70,9 +69,11 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         """
         # FIXME: Should FileStream be OK here?
         dst_file = file(__file__)
-        try: stream = FileStream(dst_file)
-        finally: dst_file.close()
-        return self._test_file_in_calendar("bogus file in calendar", (stream, responsecode.FORBIDDEN))
+        try:
+            stream = FileStream(dst_file)
+            return self._test_file_in_calendar("bogus file in calendar", (stream, responsecode.FORBIDDEN))
+        finally:
+            dst_file.close()
 
     def test_monolithic_ical(self):
         """
@@ -80,9 +81,11 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         """
         # FIXME: Should FileStream be OK here?
         dst_file = file(os.path.join(self.data_dir, "Holidays.ics"))
-        try: stream = FileStream(dst_file)
-        finally: dst_file.close()
-        return self._test_file_in_calendar("monolithic iCalendar file in calendar", (stream, responsecode.FORBIDDEN))
+        try:
+            stream = FileStream(dst_file)
+            return self._test_file_in_calendar("monolithic iCalendar file in calendar", (stream, responsecode.FORBIDDEN))
+        finally:
+            dst_file.close()
 
     def test_single_events(self):
         """
@@ -146,17 +149,16 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
                         self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
                 dst_uri  = os.path.join(calendar_uri, "dst%d.ics" % (c,))
-                dst_path = os.path.join(self.docroot, dst_uri[1:])
     
                 request = SimpleRequest(self.site, "PUT", dst_uri)
                 request.headers.setHeader("if-none-match", "*")
                 request.headers.setHeader("content-type", MimeType("text", "calendar"))
                 request.stream = stream
-                ds.append(self.send(request, put_cb, dst_path))
+                ds.append(self.send(request, put_cb))
 
                 c += 1
 
             return DeferredList(ds)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-        return self.send(request, mkcalendar_cb, calendar_path)
+        return self.send(request, mkcalendar_cb)

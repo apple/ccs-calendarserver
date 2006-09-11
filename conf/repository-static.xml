@@ -155,8 +155,8 @@ limitations under the License.
           <protected/>
           <inheritable/>
         </ace>
-      <autorespond/>
       </acl>
+      <autorespond/>
     </user>
      -->
   </accounts>

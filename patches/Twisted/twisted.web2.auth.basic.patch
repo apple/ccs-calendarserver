@@ -1,0 +1,13 @@
+Index: twisted/web2/auth/basic.py
+===================================================================
+--- twisted/web2/auth/basic.py	(revision 17932)
++++ twisted/web2/auth/basic.py	(working copy)
+@@ -20,7 +20,7 @@
+     def getChallenge(self, peer):
+         return {'realm': self.realm}
+ 
+-    def decode(self, response, method=None):
++    def decode(self, response, request):
+         try:
+             creds = (response + '===').decode('base64')
+         except:

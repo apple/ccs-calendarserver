@@ -1,0 +1,19 @@
+Index: twisted/web2/auth/digest.py
+===================================================================
+--- twisted/web2/auth/digest.py	(revision 17932)
++++ twisted/web2/auth/digest.py	(working copy)
+@@ -154,7 +154,7 @@
+                 'algorithm': self.algorithm,
+                 'realm': self.realm}
+ 
+-    def decode(self, response, method='GET'):
++    def decode(self, response, request):
+         def unq(s):
+             if s[0] == s[-1] == '"':
+                 return s[1:-1]
+@@ -172,4 +172,4 @@
+ 
+         del self.outstanding[auth['opaque']]
+             
+-        return DigestedCredentials(username, method, self.realm, auth)
++        return DigestedCredentials(username, request.method, self.realm, auth)

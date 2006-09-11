@@ -15,7 +15,6 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twisted.python import failure
 
 """
 PUT/COPY/MOVE common behavior.
@@ -26,6 +25,7 @@ __version__ = "0.0"
 __all__ = ["storeCalendarObjectResource"]
 
 from twisted.internet.defer import maybeDeferred
+from twisted.python import failure
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -36,6 +36,7 @@ from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.fileop import put
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL, parentForURL
+from twisted.web2.http import HTTPError
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -296,24 +297,28 @@ def storeCalendarObjectResource(
                     result, message = validContentType()
                     if not result:
                         log.err(message)
-                        return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data"))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
                 
                     # At this point we need the calendar data to do more tests
                     calendar = source.iCalendar()
                 else:
-                    calendar = Component.fromString(calendardata)
+                    try:
+                        calendar = Component.fromString(calendardata)
+                    except ValueError, e:
+                        log.err(e)
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
                         
                 # Valid calendar data check
                 result, message = validCalendarDataCheck()
                 if not result:
                     log.err(message)
-                    return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
                     
                 # Valid calendar data for CalDAV check
                 result, message = validCalDAVDataCheck()
                 if not result:
                     log.err(message)
-                    return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource"))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
 
                 # Must have a valid UID at this point
                 uid = calendar.resourceUID()
@@ -323,7 +328,7 @@ def storeCalendarObjectResource(
                 uid = source_index.resourceUIDForName(source.fp.basename())
                 if uid is None:
                     log.err("Source calendar does not have a UID: %s" % source.fp.basename())
-                    return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource"))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
@@ -334,9 +339,9 @@ def storeCalendarObjectResource(
                 result, message, rname = noUIDConflict(uid)
                 if not result:
                     log.err(message)
-                    return ErrorResponse(responsecode.FORBIDDEN,
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
                         NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(destination_uri), rname)))
-                    )
+                    ))
             
             # Reserve UID
             # FIXME: A race-condition could exist here if a deferred action were to be inserted between this statement
@@ -405,10 +410,10 @@ def storeCalendarObjectResource(
                 logging.debug("Destination indexed %s" % (destination.fp.path,), system="Store Resource")
             except TooManyInstancesError, ex:
                 log.err("Cannot index calendar resource as there are too many recurrence instances %s" % destination)
-                return ErrorResponse(
+                raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
-                )
+                ))
 
             destination.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
             return None
@@ -448,10 +453,10 @@ def storeCalendarObjectResource(
             try:
                 source_index.addResource(source.fp.basename(), calendar)
             except TooManyInstancesError, ex:
-                return ErrorResponse(
+                raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
-                )
+                ))
 
             source.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
             return None

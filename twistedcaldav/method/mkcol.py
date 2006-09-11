@@ -24,8 +24,9 @@ __version__ = "0.0"
 
 __all__ = ["http_MKCOL"]
 
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
-from twisted.web2.http import StatusResponse
+from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
@@ -33,11 +34,17 @@ def http_MKCOL(self, request):
     #
     # Don't allow DAV collections in a calendar collection for now
     #
-    parent = self._checkParents(request, isPseudoCalendarCollectionResource)
+    parent = waitForDeferred(self._checkParents(request, isPseudoCalendarCollectionResource))
+    yield parent
+    parent = parent.getResult()
     if parent is not None:
-        return StatusResponse(
+        raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
-            "Cannot create collection within special collection %s" % (parent,)
+            "Cannot create collection within special collection %s" % (parent,))
         )
 
-    return super(CalDAVFile, self).http_MKCOL(request)
+    d = waitForDeferred(super(CalDAVFile, self).http_MKCOL(request))
+    yield d
+    yield d.getResult()
+
+http_MKCOL = deferredGenerator(http_MKCOL)

@@ -331,7 +331,7 @@ fi;
 # PyKerberos
 #
 
-svn_uri_base="$(svn info "${caldav}" | sed -n -e 's|/CalendarServer/trunk$||' -e 's|^URL: ||p')";
+svn_uri_base="$(svn info "${caldav}" | sed -n 's|Repository Root: ||p')";
 
 if [ -z "${svn_uri_base}" ]; then
     echo "Unable to locate subversion base URI for sources.";
@@ -406,12 +406,12 @@ fi;
 
 if ! "${disable_setup}"; then
   if [ "${USER}" == "wsanchez" ]; then
-    svn_uri="svn+ssh://svn.twistedmatrix.com/svn/Twisted/branches/wsanchez/acl-1608-2";
+    svn_uri="svn+ssh://svn.twistedmatrix.com/svn/Twisted/branches/acl-1608-8";
   else
-    svn_uri="svn://svn.twistedmatrix.com/svn/Twisted/branches/wsanchez/acl-1608-2";
+    svn_uri="svn://svn.twistedmatrix.com/svn/Twisted/branches/acl-1608-8";
   fi;
 
-  svn_get "Twisted" "${twisted}" "${svn_uri}" 17097;
+  svn_get "Twisted" "${twisted}" "${svn_uri}" 18078;
 fi;
 py_install "Twisted" "${twisted}";
  

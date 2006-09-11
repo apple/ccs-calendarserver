@@ -23,8 +23,8 @@ import os
 from twisted.web2 import responsecode
 from twisted.web2.iweb import IResponse
 from twisted.web2.dav import davxml
-from twisted.web2.dav.test.util import SimpleRequest
 from twisted.web2.dav.util import davXMLFromStream
+from twisted.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml
 
 import twistedcaldav.test.util
@@ -139,10 +139,10 @@ class Properties (twistedcaldav.test.util.TestCase):
 
             request = SimpleRequest(self.site, "PROPFIND", calendar_uri)
             request.stream = MemoryStream(query.toxml())
-            return self.send(request, propfind_cb, calendar_path)
+            return self.send(request, propfind_cb)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-        return self.send(request, mkcalendar_cb, calendar_path)
+        return self.send(request, mkcalendar_cb)
 
     def test_all_props(self):
         """
@@ -205,8 +205,8 @@ class Properties (twistedcaldav.test.util.TestCase):
 
             request = SimpleRequest(self.site, "PROPFIND", calendar_uri)
             request.stream = MemoryStream(query.toxml())
-            return self.send(request, propfind_cb, calendar_path)
+            return self.send(request, propfind_cb)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-        return self.send(request, mkcalendar_cb, calendar_path)
+        return self.send(request, mkcalendar_cb)
         

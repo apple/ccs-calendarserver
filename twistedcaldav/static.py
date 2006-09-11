@@ -37,6 +37,7 @@ import os
 import errno
 from urlparse import urlsplit
 
+from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
@@ -77,58 +78,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     # CalDAV
     ##
 
-    def findCalendarCollections(self, depth):
-        """
-        Find all calendar collections within this collection down to the specified depth.
-        Note that we only want 'regular' calendar collections returned - not schedule-inbox or schedule-outbox.
-        
-        @param depth:    string with the appropriate depth -on ly "0", "1" or "infinity" allowed.
-        """
-        
-        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
-        if depth != "0" and self.isCollection():
-            for name in self.listChildren():
-                try:
-                    child = ICalDAVResource(self.getChild(name))
-                except TypeError:
-                    child = None
-
-                if child is not None:
-                    if child.isCalendarCollection():
-                        yield (child, name)
-                    elif child.isCollection():
-                        if depth == "infinity":
-                            for grandchild in child.findCalendarCollections(depth):
-                                yield (grandchild[0], name + "/" + grandchild[1])
-
-    def findCalendarCollectionsWithPrivileges(self, depth, privileges, request):
-        """
-        Find all calendar collections within this collection down to the specified depth.
-        Note that we only want 'regular' calendar collections returned - not schedule-inbox or schedule-outbox.
-        
-        @param depth:    string with the appropriate depth -on ly "0", "1" or "infinity" allowed.
-        """
-        
-        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
-        if depth != "0" and self.isCollection():
-            for name in self.listChildren():
-                try:
-                    child = ICalDAVResource(self.getChild(name))
-                except TypeError:
-                    child = None
-
-                if child is not None:
-                    # Check privileges of child - skip if access denied
-                    if child.checkAccess(request, privileges):
-                        continue
-
-                    if child.isCalendarCollection():
-                        yield (child, name)
-                    elif child.isCollection():
-                        if depth == "infinity":
-                            for grandchild in child.findCalendarCollections(depth):
-                                yield (grandchild[0], name + "/" + grandchild[1])
-
     def createCalendar(self, request):
         #
         # request object is required because we need to validate against parent
@@ -137,83 +86,101 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         if self.fp.exists():
             log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
-            return responsecode.NOT_ALLOWED
+            raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         if not os.path.isdir(os.path.dirname(self.fp.path)):
             log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
-            return StatusResponse(responsecode.CONFLICT, "No parent collection")
+            raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
         #
         log.msg("Creating calendar collection %s" % (self,))
 
+        def _defer(parent):
+            if parent is not None:
+                log.err("Cannot create a calendar collection within a calendar collection %s" % (parent,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldavxml.caldav_namespace, "calendar-collection-location-ok")
+                ))
+    
+            return self.createCalendarCollection()
+            
         parent = self._checkParents(request, isPseudoCalendarCollectionResource)
-        if parent is not None:
-            log.err("Cannot create a calendar collection within a calendar collection %s" % (parent,))
-            return ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldavxml.caldav_namespace, "calendar-collection-location-ok")
-            )
-
-        return self.createCalendarCollection()
+        parent.addCallback(_defer)
+        return parent
 
     def createCalendarCollection(self):
         #
         # Create the collection once we know it is safe to do so
         #
-        try:
-            r = mkcollection(self.fp)
-            if r != responsecode.CREATED: raise HTTPError(r)
+        def _deferOK(result):
+            if result != responsecode.CREATED:
+                raise HTTPError(result)
     
             self.writeDeadProperty(davxml.ResourceType.calendar)
-
-        except:
-            f = Failure()
-    
+            return responsecode.CREATED
+        
+        def _deferErr(f):
             try:
                 rmdir(self.fp)
             except Exception, e:
                 log.err("Unable to clean up after failed MKCALENDAR: %s" % e)
     
-            if isinstance(f.value, HTTPError): return f.value.response
+            if isinstance(f.value, HTTPError):
+                return f.value.response
     
             f.raiseException()
-    
-        return responsecode.CREATED
-
-    def iCalendar(self, name=None, request=None):
-        if self.isPseudoCalendarCollection():
-            if name is None:
-                # Generate a monolithic calendar
-                calendar = iComponent("VCALENDAR")
-                calendar.addProperty(iProperty("VERSION", "2.0"))
-
-                # Must verify ACLs which means we need a request object at this point
-                if request is not None:
-                    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-                    # the child resource loop and supply those to the checkAccess on each child.
-                    filteredaces = self.inheritedACEsforChildren(request)
-
-                    for name, uid, type in self.index().search(None): #@UnusedVariable
-                        try:
-                            child = IDAVResource(self.getChild(name))
-                        except TypeError:
-                            child = None
             
-                        if child is not None:
-                            # Check privileges of child - skip if access denied
-                            if child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces):
-                                continue
-                            subcalendar = self.iCalendar(name)
-                            assert subcalendar.name() == "VCALENDAR"
-        
-                            for component in subcalendar.subcomponents():
-                                calendar.addComponent(component)
+        d = mkcollection(self.fp)
+        d.addCallback(_deferOK)
+        d.addErrback(_deferErr)
+        return d
+ 
+    def iCalendarRolledup(self, request):
+        if self.isPseudoCalendarCollection():
+            # Generate a monolithic calendar
+            calendar = iComponent("VCALENDAR")
+            calendar.addProperty(iProperty("VERSION", "2.0"))
 
-                return calendar
+            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+            # the child resource loop and supply those to the checkAccess on each child.
+            filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
+            yield filteredaces
+            filteredaces = filteredaces.getResult()
 
-        return super(CalDAVFile, self).iCalendar(name)
+            # Must verify ACLs which means we need a request object at this point
+            for name, uid, type in self.index().search(None): #@UnusedVariable
+                try:
+                    child_url = joinURL(request.uri, str(name))
+                    child = waitForDeferred(request.locateResource(child_url))
+                    yield child
+                    child = child.getResult()
+                    child = IDAVResource(child)
+                except TypeError:
+                    child = None
+    
+                if child is not None:
+                    # Check privileges of child - skip if access denied
+                    try:
+                        d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                        yield d
+                        d.getResult()
+                    except:
+                        continue
+                    subcalendar = self.iCalendar(name)
+                    assert subcalendar.name() == "VCALENDAR"
+
+                    for component in subcalendar.subcomponents():
+                        calendar.addComponent(component)
+                        
+            yield calendar
+            return
+
+        yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
+
+    iCalendarRolledup = deferredGenerator(iCalendarRolledup)
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
@@ -301,11 +268,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
             
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
-            return CalDAVFile._supportedCalendarPrivilegeSet
+            return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
         else:
-            parent = self.locateParent(request, self.getURI(request))
-            if parent and isCalendarCollectionResource(parent):
-                return CalDAVFile._supportedCalendarPrivilegeSet
+            def _callback(parent):
+                if parent and isCalendarCollectionResource(parent):
+                    return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+                else:
+                    return super(CalDAVFile, self).supportedPrivileges(request)
+
+            d = self.locateParent(request, request.urlForResource(self))
+            d.addCallback(_callback)
+            return d
         
         return super(CalDAVFile, self).supportedPrivileges(request)
 
@@ -381,13 +354,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
             parent_uri = parentForURL(parent_uri)
             if not parent_uri: break
 
-            parent = self.locateSiblingResource(request, parent_uri)
+            parent = waitForDeferred(request.locateResource(parent_uri))
+            yield parent
+            parent = parent.getResult()
 
-            log.msg("Testing parent: %s" % (parent,))
+            if test(parent):
+                yield parent
+                return
 
-            if test(parent): return parent
-
-        return None
+        yield None
+    
+    _checkParents = deferredGenerator(_checkParents)
 
 class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     """
@@ -470,7 +447,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
                 ),
             )
             
-        return ScheduleInboxFile._supportedSchedulePrivilegeSet
+        return succeed(ScheduleInboxFile._supportedSchedulePrivilegeSet)
 
 class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     """
@@ -553,7 +530,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
                 ),
             )
             
-        return ScheduleOutboxFile._supportedSchedulePrivilegeSet
+        return succeed(ScheduleOutboxFile._supportedSchedulePrivilegeSet)
 
 class CalendarHomeFile (CalDAVFile):
     """
@@ -769,7 +746,9 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
             child = CalDAVFile(os.path.join(home.fp.path, calendar))
             child_exists = child.exists()
             if not child_exists:
-                child.createCalendarCollection()
+                c = child.createCalendarCollection()
+                assert c.called
+                c = c.result
             calendars.append(childURL)
             if (resetacl or not child_exists):
                 child.setAccessControlList(
@@ -895,9 +874,10 @@ class CalendarPrincipalProvisioningResource (DAVFile):
         assert self.exists(), "%s should exist" % (self,)
         assert self.isCollection(), "%s should be a collection" % (self,)
 
+        # FIXME: I don't think we need this anymore nwo that we have static & OD repository builders.
         # Create children
         for name, clazz in (
-            ("users" , CalendarUserPrincipalProvisioningResource),
+            ("users/" , CalendarUserPrincipalProvisioningResource),
         ):
             child_fp = self.fp.child(name)
             if not child_fp.exists(): child_fp.makedirs()

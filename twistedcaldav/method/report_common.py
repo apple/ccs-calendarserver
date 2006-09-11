@@ -28,6 +28,7 @@ __all__ = [
     "buildFreeBusyResult",
 ]
 
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
@@ -68,26 +69,31 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     """
 
     # First check the privilege on this resource
-    error = resource.checkAccess(request, privileges)
-    if error:
+    try:
+        d = waitForDeferred(resource.checkAccess(request, privileges))
+        yield d
+        d.getResult()
+    except:
+        yield None
         return
 
     # When scanning we only go down as far as a calendar collection - not into one
     if resource.isPseudoCalendarCollection():
         resources = [(resource, request_uri)]
-        doJoin = False
     elif not resource.isCollection():
         resources = [(resource, request_uri)]
-        doJoin = False
     else:
         resources = []
-        resources.extend(resource.findCalendarCollectionsWithPrivileges(depth, privileges, request))
-        doJoin = True
-        
+        d = waitForDeferred(resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges))
+        yield d
+        d.getResult()
+         
     for calresource, uri in resources:
-        if doJoin:
-            uri = joinURL(request_uri, uri)
-        apply(calresource, uri)
+        d = waitForDeferred(apply(calresource, uri))
+        yield d
+        d.getResult()
+
+applyToCalendarCollections = deferredGenerator(applyToCalendarCollections)
 
 def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq):
     """
@@ -104,20 +110,23 @@ def responseForHref(request, responses, href, resource, calendar, propertiesForR
     @param propertyreq: the L{PropertyContainer} element for the properties of interest.
     """
 
-    properties_by_status = propertiesForResource(request, propertyreq, resource, calendar)
-    
-    for status in properties_by_status:
-        properties = properties_by_status[status]
-        if properties:
-            responses.append(
-                davxml.PropertyStatusResponse(
-                    href,
-                    davxml.PropertyStatus(
-                        davxml.PropertyContainer(*properties),
-                        davxml.Status.fromResponseCode(status)
+    def _defer(properties_by_status):
+        for status in properties_by_status:
+            properties = properties_by_status[status]
+            if properties:
+                responses.append(
+                    davxml.PropertyStatusResponse(
+                        href,
+                        davxml.PropertyStatus(
+                            davxml.PropertyContainer(*properties),
+                            davxml.Status.fromResponseCode(status)
+                        )
                     )
                 )
-            )
+
+    d = propertiesForResource(request, propertyreq, resource, calendar)
+    d.addCallback(_defer)
+    return d
 
 def allPropertiesForResource(request, prop, resource, calendar=None): #@UnusedVariable
     """
@@ -130,9 +139,13 @@ def allPropertiesForResource(request, prop, resource, calendar=None): #@UnusedVa
                      will be used to get the calendar if needed.
     @return: a map of OK and NOT FOUND property values.
     """
-    props = resource.listAllprop(request)
 
-    return _namedPropertiesForResource(request, props, resource, calendar)
+    def _defer(props):
+        return _namedPropertiesForResource(request, props, resource, calendar)
+
+    d = resource.listAllprop(request)
+    d.addCallback(_defer)
+    return d
 
 def propertyNamesForResource(request, prop, resource, calendar=None): #@UnusedVariable
     """
@@ -145,11 +158,16 @@ def propertyNamesForResource(request, prop, resource, calendar=None): #@UnusedVa
                      will be used to get the calendar if needed.
     @return: a map of OK and NOT FOUND property values.
     """
-    properties_by_status = {
-        responsecode.OK: [propertyName(p) for p in resource.listProperties(request)]
-    }
+
+    def _defer(props):
+        properties_by_status = {
+            responsecode.OK: [propertyName(p) for p in props]
+        }
+        return properties_by_status
     
-    return properties_by_status
+    d = resource.listProperties(request)
+    d.addCallback(_defer)
+    return d
 
 def propertyListForResource(request, prop, resource, calendar=None):
     """
@@ -218,9 +236,16 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
         else:
             qname = property
     
-        if qname in resource.listProperties(request):
+        props = waitForDeferred(resource.listProperties(request))
+        yield props
+        props = props.getResult()
+
+        if qname in props:
             try:
-                properties_by_status[responsecode.OK].append(resource.readProperty(qname, request))
+                prop = waitForDeferred(resource.readProperty(qname, request))
+                yield prop
+                prop = prop.getResult()
+                properties_by_status[responsecode.OK].append(prop)
             except:
                 f = Failure()
     
@@ -233,7 +258,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
             log.err("Can't find property %r for resource %s" % (qname, request.uri))
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
     
-    return properties_by_status
+    yield properties_by_status
+
+_namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
     
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, excludeuid=None):
     """
@@ -249,9 +276,13 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
     """
     
     # First check the privilege on this collection
-    error = calresource.checkAccess(request, (caldavxml.ReadFreeBusy(),))
-    if error:
-        return matchtotal
+    try:
+        d = waitForDeferred(calresource.checkAccess(request, (caldavxml.ReadFreeBusy(),)))
+        yield d
+        d.getResult()
+    except:
+        yield matchtotal
+        return
 
     #
     # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
@@ -276,16 +307,24 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
 
     # Get the timezone property from the collection, and store in the query filter
     # for use during the query itself.
-    if calresource.hasProperty((caldav_namespace, "calendar-timezone"), request):
-        tz = calresource.readProperty((caldav_namespace, "calendar-timezone"), request)
+    has_prop = waitForDeferred(calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+    yield has_prop
+    has_prop = has_prop.getResult()
+    if has_prop:
+        tz = waitForDeferred(calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
+        yield tz
+        tz = tz.getResult()
     else:
         tz = None
     tzinfo = filter.settimezone(tz)
 
     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkAccess on each child.
-    filteredaces = calresource.inheritedACEsforChildren(request)
+    filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
+    yield filteredaces
+    filteredaces = filteredaces.getResult()
 
+    uri = request.urlForResource(calresource)
     for name, uid, type in calresource.index().search(filter): #@UnusedVariable
         
         # Ignore ones of this UID
@@ -293,9 +332,16 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
             continue
 
         # Check privileges - must have at least CalDAV:read-free-busy
-        child = calresource.getChild(name)
-        error = child.checkAccess(request, (caldavxml.ReadFreeBusy(),), inheritedaces=filteredaces)
-        if error:
+        child_url = joinURL(uri, name)
+        child = waitForDeferred(request.locateResource(child_url))
+        yield child
+        child = child.getResult()
+
+        try:
+            d = waitForDeferred(child.checkAccess(request, (caldavxml.ReadFreeBusy(),), inheritedaces=filteredaces))
+            yield d
+            d.getResult()
+        except:
             continue
 
         calendar = calresource.iCalendar(name)
@@ -314,7 +360,9 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
             else:
                 assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
     
-    return matchtotal
+    yield matchtotal
+
+generateFreeBusyInfo = deferredGenerator(generateFreeBusyInfo)
 
 def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """

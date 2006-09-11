@@ -24,12 +24,14 @@ __version__ = "0.0"
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
 
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.method.report import max_number_of_matches
+from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method import report_common
@@ -39,12 +41,19 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     Generate a multiget REPORT.
     (CalDAV-access-09, section 7.7)
     """
-    if not self.isCollection() and not self.locateParent(request, request.uri).isPseudoCalendarCollection():
-        log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
-        return responsecode.FORBIDDEN
 
+    # Verify root element
     if multiget.qname() != (caldav_namespace, "calendar-multiget"):
         raise ValueError("{CalDAV:}calendar-multiget expected as root element, not %s." % (multiget.sname(),))
+
+    # Make sure target resource is of the right type
+    if not self.isCollection():
+        parent = waitForDeferred(self.locateParent(request, request.uri))
+        yield parent
+        parent = parent.getResult()
+        if not parent.isPseudoCalendarCollection():
+            log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
 
     responses = []
 
@@ -64,14 +73,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         result, message = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
         if not result:
             log.err(message)
-            return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data"))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
     else:
         raise AssertionError("We shouldn't be here")
 
     # Check size of results is within limit
     if len(resources) > max_number_of_matches:
         log.err("Too many results in multiget report: %d" % len(resources))
-        return ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits"))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
 
     """
     Three possibilities exist:
@@ -94,7 +103,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
         # the child resource loop and supply those to the checkAccess on each child.
-        filteredaces = self.inheritedACEsforChildren(request)
+        filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
+        yield filteredaces
+        filteredaces = filteredaces.getResult()
     
         # Check for disabled access
         if filteredaces is None:
@@ -113,9 +124,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
             # Do href checks
             if requestURIis == "calendar":
                 # Verify that href is an immediate child of the request URI and that resource exists.
-                resource = str(href)
-                name = resource[resource.rfind("/") + 1:]
-                if not self._isChildURI(request, resource) or self.getChild(name) is None:
+                resource_uri = str(href)
+                name = resource_uri[resource_uri.rfind("/") + 1:]
+                if not self._isChildURI(request, resource_uri) or self.getChild(name) is None:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
                 
@@ -124,44 +135,63 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
                 
-                child = self.getChild(name)
+                child = waitForDeferred(request.locateResource(resource_uri))
+                yield child
+                child = child.getResult()
     
             elif requestURIis == "collection":
-                resource = str(href)
-                name = resource[resource.rfind("/") + 1:]
-                if not self._isChildURI(request, resource, False):
+                resource_uri = str(href)
+                name = resource_uri[resource_uri.rfind("/") + 1:]
+                if not self._isChildURI(request, resource_uri, False):
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
-                child = self.locateSiblingResource(request, resource)
+ 
+                child = waitForDeferred(request.locateResource(resource_uri))
+                yield child
+                child = child.getResult()
+
                 if not child or not child.exists():
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
-                parent = child.locateParent(request, resource)
+
+                parent = waitForDeferred(child.locateParent(request, resource_uri))
+                yield parent
+                parent = parent.getResult()
+
                 if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
                 
                 # Check privileges on parent - must have at least DAV:read
-                error = parent.checkAccess(request, (davxml.Read(),))
-                if error:
+                try:
+                    d = waitForDeferred(parent.checkAccess(request, (davxml.Read(),)))
+                    yield d
+                    d.getResult()
+                except:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
                 
-                # Cache the last parents inherited aces for checkAccess optimization
+                # Cache the last parent's inherited aces for checkAccess optimization
                 if lastParent != parent:
                     lastParent = parent
             
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                     # the child resource loop and supply those to the checkAccess on each child.
-                    filteredaces = parent.inheritedACEsforChildren(request)
+                    filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
+                    yield filteredaces
+                    filteredaces = filteredaces.getResult()
     
             else:
-                resource = str(href)
-                name = resource[resource.rfind("/") + 1:]
-                if (resource != request.uri) or not self.exists():
+                resource_uri = str(href)
+                name = resource_uri[resource_uri.rfind("/") + 1:]
+                if (resource_uri != request.uri) or not self.exists():
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
-                parent = self.locateParent(request, resource)
+
+                parent = waitForDeferred(self.locateParent(request, resource_uri))
+                yield parent
+                parent = parent.getResult()
+
                 if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
@@ -169,14 +199,23 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         
                 # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                 # the child resource loop and supply those to the checkAccess on each child.
-                filteredaces = parent.inheritedACEsforChildren(request)
+                filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
+                yield filteredaces
+                filteredaces = filteredaces.getResult()
     
             # Check privileges - must have at least DAV:read
-            error = child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces)
-            if error:
+            try:
+                d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                yield d
+                d.getResult()
+            except:
                 responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                 continue
     
-            report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq)
+            d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq))
+            yield d
+            d.getResult()
 
-    return MultiStatusResponse(responses)
+    yield MultiStatusResponse(responses)
+
+report_urn_ietf_params_xml_ns_caldav_calendar_multiget = deferredGenerator(report_urn_ietf_params_xml_ns_caldav_calendar_multiget)

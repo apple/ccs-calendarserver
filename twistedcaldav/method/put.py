@@ -24,19 +24,22 @@ __version__ = "0.0"
 
 __all__ = ["http_PUT"]
 
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
-from twisted.web2.http import HTTPError
+from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_PUT(self, request):
-    parent = self.locateParent(request, request.uri)
+
+    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    yield parent
+    parent = parent.getResult()
 
     if isPseudoCalendarCollectionResource(parent):
         self.fp.restat(False)
@@ -45,41 +48,38 @@ def http_PUT(self, request):
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
             log.err("MIME type %s not allowed in calendar collection" % (content_type,))
-            return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data"))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
             
         # Read the calendar component from the stream
-        d = allDataFromStream(request.stream)
-
-        def gotCalendarData(calendardata):
+        try:
+            d = waitForDeferred(allDataFromStream(request.stream))
+            yield d
+            calendardata = d.getResult()
 
             # We must have some data at this point
             if calendardata is None:
                 # Use correct DAV:error response
-                return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
-            return storeCalendarObjectResource(
+            d = waitForDeferred(storeCalendarObjectResource(
                 request = request,
                 sourcecal = False,
                 calendardata = calendardata,
                 destination = self,
                 destination_uri = request.uri,
                 destinationcal = True,
-                destinationparent = parent,
+                destinationparent = parent,)
             )
-        
-        def gotError(f):
-            log.err("Error while handling (calendar) PUT: %s" % (f,))
-    
-            # ValueError is raised on a bad request.  Re-raise others.
-            f.trap(ValueError)
-    
-            # Use correct DAV:error response
-            return ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"))
-    
-        d.addCallback(gotCalendarData)
-        d.addErrback(gotError)
-
-        return d
+            yield d
+            yield d.getResult()
+            return
+        except ValueError, e:
+            log.err("Error while handling (calendar) PUT: %s" % (e,))
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:
-        return super(CalDAVFile, self).http_PUT(request)
+        d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
+        yield d
+        yield d.getResult()
+
+http_PUT = deferredGenerator(http_PUT)
