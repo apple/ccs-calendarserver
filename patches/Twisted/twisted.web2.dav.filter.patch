@@ -1,0 +1,82 @@
+Index: twisted/web2/dav/filter/__init__.py
+===================================================================
+--- twisted/web2/dav/filter/__init__.py	(revision 0)
++++ twisted/web2/dav/filter/__init__.py	(revision 0)
+@@ -0,0 +1,31 @@
++##
++# Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++# 
++# The above copyright notice and this permission notice shall be included in all
++# copies or substantial portions of the Software.
++# 
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++# SOFTWARE.
++#
++# DRI: Cyrus Daboo, cdaboo@apple.com
++##
++
++"""
++Output filters.
++"""
++
++__all__ = [
++    "location",
++]
+Index: twisted/web2/dav/filter/location.py
+===================================================================
+--- twisted/web2/dav/filter/location.py	(revision 0)
++++ twisted/web2/dav/filter/location.py	(revision 0)
+@@ -0,0 +1,41 @@
++"""
++Filter that adds a Location header to a response if the status is 201 Created.
++"""
++
++__all__ = ['locationfilter']
++
++from twisted.web2 import responsecode
++import urlparse
++
++def addlocation(request, location):
++    """
++    Ensure that the supplied location URI is added to any response to this request.
++
++    @param request:  L{IRequest} the request whose response is to be modified.
++    @param location: the C{str} containing the path relative URI for the location header value.
++    """
++
++    def locationfilter(request, response): #@UnusedVariable
++        """
++        Add a Location header to the response if the status is 201. Note that the location
++        value must be a valid URI (already % encoded etc).
++    
++        @param request:  L{IRequest} for the current request.
++        @param response: L{IResponse} for the response to add the header to.
++        @return: the original L{IResponse} with (or without) the added header.
++        """
++        
++        if (response.code == responsecode.CREATED):
++            # Check to see whether we have an absolute URI or not. If not, have the request
++            # turn it into an absolute URI.
++            (scheme, host, path, params, querystring, fragment) = urlparse.urlparse(location)
++            if scheme == '':
++                abslocation = request.unparseURL(path=location)
++            else:
++                abslocation = location
++        
++            response.headers.setHeader('location', abslocation)
++        return response
++
++    request.addResponseFilter(locationfilter)
++    return
