@@ -1,0 +1,19 @@
+Index: twisted/web2/dav/method/put.py
+===================================================================
+--- twisted/web2/dav/method/put.py	(revision 17951)
++++ twisted/web2/dav/method/put.py	(working copy)
+@@ -22,6 +22,7 @@
+ #
+ # DRI: Wilfredo Sanchez, wsanchez@apple.com
+ ##
++from twisted.web2.dav.method import put_common
+ 
+ """
+ WebDAV PUT method
+@@ -107,4 +108,5 @@
+     # to return a MULTI_STATUS response, which is WebDAV-specific (and PUT is
+     # not).
+     #
+-    return put(request.stream, self.fp)
++    #return put(request.stream, self.fp)
++    return put_common.storeResource(request, destination=self, destination_uri=request.uri)

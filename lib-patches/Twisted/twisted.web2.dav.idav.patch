@@ -1,0 +1,77 @@
+Index: twisted/web2/dav/idav.py
+===================================================================
+--- twisted/web2/dav/idav.py	(revision 18078)
++++ twisted/web2/dav/idav.py	(working copy)
+@@ -187,6 +187,72 @@
+             the specified principal.
+         """
+ 
++    ##
++    # Quota
++    ##
++    
++    def quota(request):
++        """
++        Get current available & used quota values for this resource's quota root
++        collection.
++
++        @return: a C{tuple} containing two C{int}'s the first is 
++            quota-available-bytes, the second is quota-used-bytes, or
++            C{None} if quota is not defined on the resource.
++        """
++    
++    def quotaRoot(request):
++        """
++        Get the quota root (max. allowed bytes) value for this collection.
++
++        @return: a C{int} containing the maximum allowed bytes if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++    
++    def setQuotaRoot(request, maxsize):
++        """
++        Set the quota root (max. allowed bytes) value for this collection.
++
++        @param maxsize: a C{int} containing the maximum allowed bytes for the contents
++            of this collection.
++        """
++    
++    def quotaSize(request):
++        """
++        Get the size of this resource.
++        TODO: Take into account size of dead-properties.
++
++        @return: a C{int} containing the size of the resource.
++        """
++        
++    def currentQuotaUse(request):
++        """
++        Get the cached quota use value, or if not present (or invalid) determine
++        quota use by brute force.
++
++        @return: a C{int} containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++        
++    def updateQuotaUse(request, adjust):
++        """
++        Adjust current quota use on this all all parent collections that also
++        have quota roots.
++
++        @param adjust: a C{int} containing the number of bytes added (positive) or
++        removed (negative) that should be used to adjust the cached total.
++        @return: a C{int} containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++        
++    def determineActualQuotaUse(request):
++        """
++        Brute force determination of quota used by this collection.
++
++        @return: a C{int} containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++
+ class IDAVPrincipalResource (IDAVResource):
+     """
+     WebDAV principal resource.  (RFC 3744, section 2)
