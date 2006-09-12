@@ -319,6 +319,7 @@ if ! py_have_module OpenSSL; then
       echo "";
       echo "Building PyOpenSSL...";
       cd "${ssl}";
+      "${python}" ./setup.py build_ext -I/usr/kerberos/include;
       "${python}" ./setup.py build;
     fi;
   fi;
