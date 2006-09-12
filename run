@@ -93,7 +93,7 @@ else
 fi;
 
     top="$(cd "${wd}/.." && pwd -L)"
-patches="${wd}/patches";
+patches="${wd}/lib-patches";
 twisted="${top}/Twisted";
     dav="${twisted}/twisted/web2/dav"
  caldav="${wd}";
