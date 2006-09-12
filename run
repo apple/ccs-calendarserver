@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##
 # Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
@@ -93,7 +93,7 @@ else
 fi;
 
     top="$(cd "${wd}/.." && pwd -L)"
-patches="${wd}/patches";
+patches="${wd}/lib-patches";
 twisted="${top}/Twisted";
     dav="${twisted}/twisted/web2/dav"
  caldav="${wd}";
@@ -319,6 +319,7 @@ if ! py_have_module OpenSSL; then
       echo "";
       echo "Building PyOpenSSL...";
       cd "${ssl}";
+      "${python}" ./setup.py build_ext -I/usr/kerberos/include;
       "${python}" ./setup.py build;
     fi;
   fi;
@@ -411,7 +412,7 @@ if ! "${disable_setup}"; then
     svn_uri="svn://svn.twistedmatrix.com/svn/Twisted/branches/acl-1608-8";
   fi;
 
-  svn_get "Twisted" "${twisted}" "${svn_uri}" 18078;
+  svn_get "Twisted" "${twisted}" "${svn_uri}" 18092;
 fi;
 py_install "Twisted" "${twisted}";
  
