@@ -1,8 +1,8 @@
 Index: twisted/web2/dav/idav.py
 ===================================================================
---- twisted/web2/dav/idav.py	(revision 18078)
-+++ twisted/web2/dav/idav.py	(working copy)
-@@ -187,6 +187,72 @@
+--- twisted/web2/dav/idav.py	(revision 18092)
++++twisted/web2/dav/idav.py	(working copy)
+@@ -187,6 +187,64 @@
              the specified principal.
          """
  
@@ -38,7 +38,7 @@ Index: twisted/web2/dav/idav.py
 +    
 +    def quotaSize(request):
 +        """
-+        Get the size of this resource.
++        Get the size of this resource (if its a collection get total for all children as well).
 +        TODO: Take into account size of dead-properties.
 +
 +        @return: a C{int} containing the size of the resource.
@@ -60,14 +60,6 @@ Index: twisted/web2/dav/idav.py
 +
 +        @param adjust: a C{int} containing the number of bytes added (positive) or
 +        removed (negative) that should be used to adjust the cached total.
-+        @return: a C{int} containing the current used byte if this collection
-+            is quota-controlled, or C{None} if not quota controlled.
-+        """
-+        
-+    def determineActualQuotaUse(request):
-+        """
-+        Brute force determination of quota used by this collection.
-+
 +        @return: a C{int} containing the current used byte if this collection
 +            is quota-controlled, or C{None} if not quota controlled.
 +        """

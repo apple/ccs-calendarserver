@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18074)
+--- twisted/web2/dav/static.py	(revision 18092)
 +++ twisted/web2/dav/static.py	(working copy)
 @@ -29,6 +29,7 @@
  __all__ = ["DAVFile"]
@@ -19,7 +19,7 @@ Index: twisted/web2/dav/static.py
  from twisted.web2.dav import davxml
  from twisted.web2.dav.idav import IDAVResource
  from twisted.web2.dav.resource import DAVResource
-@@ -145,6 +148,55 @@
+@@ -145,6 +148,58 @@
          return succeed(DAVFile._supportedPrivilegeSet)
  
      ##
@@ -34,10 +34,13 @@ Index: twisted/web2/dav/static.py
 +
 +        @return: a C{int} containing the size of the resource.
 +        """
-+        result = os.stat(self.fp.path)
-+        return result[stat.ST_SIZE]
++        if self.isCollection():
++            return self.collectionQuotaUse(request)
++        else:
++            result = os.stat(self.fp.path)
++            return result[stat.ST_SIZE]
 +
-+    def determineActualQuotaUse(self, request):
++    def collectionQuotaUse(self, request):
 +        """
 +        Brute force determination of quota used by this collection.
 +

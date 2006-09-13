@@ -1,16 +1,17 @@
 Index: twisted/web2/dav/method/put.py
 ===================================================================
---- twisted/web2/dav/method/put.py	(revision 17951)
+--- twisted/web2/dav/method/put.py	(revision 18092)
 +++ twisted/web2/dav/method/put.py	(working copy)
-@@ -22,6 +22,7 @@
- #
- # DRI: Wilfredo Sanchez, wsanchez@apple.com
- ##
+@@ -34,7 +34,7 @@
+ from twisted.web2 import responsecode
+ from twisted.web2.http import HTTPError, StatusResponse
+ from twisted.web2.dav import davxml
+-from twisted.web2.dav.fileop import put
 +from twisted.web2.dav.method import put_common
+ from twisted.web2.dav.util import parentForURL
  
- """
- WebDAV PUT method
-@@ -107,4 +108,5 @@
+ def preconditions_PUT(self, request):
+@@ -107,4 +107,5 @@
      # to return a MULTI_STATUS response, which is WebDAV-specific (and PUT is
      # not).
      #

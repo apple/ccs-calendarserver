@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18074)
+--- twisted/web2/dav/resource.py	(revision 18092)
 +++ twisted/web2/dav/resource.py	(working copy)
 @@ -125,6 +125,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
@@ -53,7 +53,7 @@ Index: twisted/web2/dav/resource.py
  
                  # Try to match principals in each principal collection on 
                  # the resource
-@@ -1526,6 +1554,179 @@
+@@ -1526,6 +1554,219 @@
          return None
  
      ##
@@ -128,12 +128,33 @@ Index: twisted/web2/dav/resource.py
 +        @return: a C{int} containing the maximum allowed bytes if this collection
 +            is quota-controlled, or C{None} if not quota controlled.
 +        """
-+        assert self.isCollection(), "Only collections can have a quota root"
 +        if self.hasDeadProperty(TwistedQuotaRootProperty):
 +            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
 +        else:
 +            return None
 +    
++    def quotaRootParent(self, request):
++        """
++        Return the next quota root above this resource.
++        
++        @return: L{DAVResource} or C{None}
++        """
++
++        # Check the next parent
++        url = request.urlForResource(self)
++        while (url != "/"):
++            url = parentForURL(url)
++            parent = waitForDeferred(request.locateResource(url))
++            yield parent
++            parent = parent.getResult()
++            if parent.hasDeadProperty(TwistedQuotaRootProperty):
++                yield parent
++                return
++
++        yield None
++    
++    quotaRootParent = deferredGenerator(quotaRootParent)
++        
 +    def setQuotaRoot(self, request, maxsize):
 +        """
 +        @param maxsize: a C{int} containing the maximum allowed bytes for the contents
@@ -146,12 +167,41 @@ Index: twisted/web2/dav/resource.py
 +    
 +    def quotaSize(self, request):
 +        """
-+        Get the size of this resource.
++        Get the size of this resource (if its a collection get total for all children as well).
 +        TODO: Take into account size of dead-properties.
 +
 +        @return: a C{int} containing the size of the resource.
 +        """
 +        unimplemented(self)
++
++    def checkQuota(self, request, available):
++        """
++        Check to see whether all quota roots have sufficient available bytes.
++        We currently do not use hierarchical quota checks - i.e. only the most
++        immediate quota root parent is checked for quota.
++        
++        @param available: a C{int} containing the additional quota required.
++        @return: C{True} if there is sufficient quota remaining on all quota roots,
++            C{False} otherwise.
++        """
++        
++        quotaroot = self
++        while(quotaroot is not None):
++            # Check quota on this root (if it has one)
++            quota = quotaroot.quotaRoot(request)
++            if quota is not None:
++                if available > quota[0]:
++                    yield False
++                    return
++
++            # Check the next parent with a quota root
++            quotaroot = waitForDeferred(quotaroot.quotaRootParent(request))
++            yield quotaroot
++            quotaroot = quotaroot.getResult()
++
++        yield True
++
++    checkQuota = deferredGenerator(checkQuota)
 +
 +    def quotaSizeAdjust(self, request, adjust):
 +        """
@@ -196,7 +246,7 @@ Index: twisted/web2/dav/resource.py
 +            return int(str(self.readDeadProperty(TwistedQuotaUsedProperty)))
 +        else:
 +            # Do brute force size determination
-+            result = self.determineActualQuotaUse(request)
++            result = self.quotaSize(request)
 +            
 +            # Cache the brute force value in the private property
 +            self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(result)))
@@ -218,22 +268,12 @@ Index: twisted/web2/dav/resource.py
 +        size = self.currentQuotaUse(request)
 +        size += adjust
 +        self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(size)))
-+
-+    def determineActualQuotaUse(self, request):
-+        """
-+        Brute force determination of quota used by this collection.
-+
-+        @return: a C{int} containing the current used byte if this collection
-+            is quota-controlled, or C{None} if not quota controlled.
-+        """
-+        assert self.isCollection(), "Only collections can have a quota root"
-+        unimplemented(self)
 +        
 +    ##
      # HTTP
      ##
  
-@@ -1631,6 +1832,28 @@
+@@ -1631,6 +1872,28 @@
  
  davxml.registerElement(TwistedAccessDisabledProperty)
  

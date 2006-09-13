@@ -2,7 +2,7 @@ Index: twisted/web2/dav/method/put_common.py
 ===================================================================
 --- twisted/web2/dav/method/put_common.py	(revision 0)
 +++ twisted/web2/dav/method/put_common.py	(revision 0)
-@@ -0,0 +1,232 @@
+@@ -0,0 +1,229 @@
 +##
 +# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
 +#
@@ -20,9 +20,6 @@ Index: twisted/web2/dav/method/put_common.py
 +#
 +# DRI: Cyrus Daboo, cdaboo@apple.com
 +##
-+from twisted.internet.defer import waitForDeferred
-+from twisted.internet.defer import deferredGenerator
-+from twisted.web2.http import StatusResponse
 +
 +"""
 +PUT/COPY/MOVE common behavior.
@@ -32,22 +29,21 @@ Index: twisted/web2/dav/method/put_common.py
 +
 +__all__ = ["storeCalendarObjectResource"]
 +
-+from twisted.internet.defer import maybeDeferred
-+from twisted.python import failure
-+from twisted.python import log
++from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
++from twisted.python import failure, log
 +from twisted.python.filepath import FilePath
 +from twisted.web2 import responsecode
-+from twisted.web2.dav.fileop import copy
-+from twisted.web2.dav.fileop import delete
-+from twisted.web2.dav.fileop import put
++from twisted.web2.dav.fileop import copy, delete, put
 +from twisted.web2.http import HTTPError
++from twisted.web2.http import StatusResponse
 +from twisted.web2.iweb import IResponse
 +
 +def storeResource(
 +    request,
 +    source=None, source_uri=None,
 +    destination=None, destination_uri=None,
-+    deletesource=False
++    deletesource=False,
++    depth="0"
 +):
 +    """
 +    Function that does common PUT/COPY/MOVE behaviour.
@@ -59,6 +55,7 @@ Index: twisted/web2/dav/method/put_common.py
 +    @param destination:       the L{DAVFile} for the destination resource to copy into.
 +    @param destination_uri:   the URI for the destination resource.
 +    @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
++    @param depth:             a C{str} containing the COPY/MOVE Depth header value.
 +    @return:                  status response.
 +    """
 +    
@@ -74,6 +71,7 @@ Index: twisted/web2/dav/method/put_common.py
 +        log.err("destination=%s\n" % (destination,))
 +        log.err("destination_uri=%s\n" % (destination_uri,))
 +        log.err("deletesource=%s\n" % (deletesource,))
++        log.err("depth=%s\n" % (depth,))
 +        raise
 +
 +    class RollbackState(object):
@@ -188,7 +186,7 @@ Index: twisted/web2/dav/method/put_common.py
 +
 +        # Do put or copy based on whether source exists
 +        if source is not None:
-+            response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, "0")
++            response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, depth)
 +        else:
 +            response = maybeDeferred(put, request.stream, destination.fp)
 +        response = waitForDeferred(response)
@@ -214,12 +212,11 @@ Index: twisted/web2/dav/method/put_common.py
 +            # Delete the source resource
 +            if sourcequota is not None:
 +                delete_size = 0 - old_source_size
-+                source.updateQuotaUse(request, delete_size)
 +                d = waitForDeferred(source.quotaSizeAdjust(request, delete_size))
 +                yield d
 +                d.getResult()
 +
-+            delete(source_uri, source.fp, "0")
++            delete(source_uri, source.fp, depth)
 +            rollback.source_deleted = True
 +
 +        # Can now commit changes and forget the rollback details
