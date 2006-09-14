@@ -40,7 +40,7 @@ limitations under the License.
         <!--  Must explicitly set which principal hierarchies will be listed in WebDAV properties.
               The order of these will determine how a user id will map to a principal in a particular hierarchy
               if an id appears in more than one. -->
-             <prop><principal-collection-set xmlns='http://twistedmatrix.com/xml_namespace/dav/private/'><href xmlns='DAV:'>/principals/users/</href><href xmlns='DAV:'>/principals/groups/</href><href xmlns='DAV:'>/principals/resources/</href></principal-collection-set></prop>
+        <prop><principal-collection-set xmlns='http://twistedmatrix.com/xml_namespace/dav/private/'><href xmlns='DAV:'>/principals/users/</href><href xmlns='DAV:'>/principals/groups/</href><href xmlns='DAV:'>/principals/resources/</href></principal-collection-set></prop>
       </properties>
       <members>
         <!--  We must define the calendar home location before the principals as
