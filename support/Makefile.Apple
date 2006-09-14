@@ -1,5 +1,7 @@
 ##
-# Makefile for CalendarServer
+# B&I Makefile for CalendarServer
+#
+# This is only useful internally at Apple, probably.
 ##
 # Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
 #

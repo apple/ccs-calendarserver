@@ -98,6 +98,10 @@ echo "";
 echo "Exporting ${tag_uri}..."
 svn export "${tag_uri}" "${wc}";
 
+echo ""
+echo "Tweaking for B&I...";
+ln -s support/Makefile.Apple "${wc}/Makefile";
+
 echo "";
 echo "Preparing sources...";
 make -C "${wc}" prep;
