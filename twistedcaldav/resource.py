@@ -42,7 +42,7 @@ from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.dav import auth, davxml
-from twisted.web2.dav.acl import DAVPrincipalResource
+from twisted.web2.dav.resource import DAVPrincipalResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
