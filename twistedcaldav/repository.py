@@ -25,7 +25,7 @@ properties, access control etc setup.
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
-from twisted.web2.dav.acl import TwistedPasswordProperty
+from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
