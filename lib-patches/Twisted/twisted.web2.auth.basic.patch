@@ -1,6 +1,6 @@
 Index: twisted/web2/auth/basic.py
 ===================================================================
---- twisted/web2/auth/basic.py	(revision 17932)
+--- twisted/web2/auth/basic.py	(revision 18157)
 +++ twisted/web2/auth/basic.py	(working copy)
 @@ -20,7 +20,7 @@
      def getChallenge(self, peer):

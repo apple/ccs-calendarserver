@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18092)
+--- twisted/web2/dav/static.py	(revision 18157)
 +++ twisted/web2/dav/static.py	(working copy)
 @@ -29,6 +29,7 @@
  __all__ = ["DAVFile"]
@@ -18,9 +18,9 @@ Index: twisted/web2/dav/static.py
 +from twisted.web2 import responsecode
  from twisted.web2.dav import davxml
  from twisted.web2.dav.idav import IDAVResource
- from twisted.web2.dav.resource import DAVResource
-@@ -145,6 +148,58 @@
-         return succeed(DAVFile._supportedPrivilegeSet)
+ from twisted.web2.dav.resource import DAVResource, davPrivilegeSet
+@@ -98,6 +101,58 @@
+         return succeed(davPrivilegeSet)
  
      ##
 +    # Quota

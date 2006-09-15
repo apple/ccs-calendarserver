@@ -1,6 +1,6 @@
 Index: twisted/web2/test/test_httpauth.py
 ===================================================================
---- twisted/web2/test/test_httpauth.py	(revision 17932)
+--- twisted/web2/test/test_httpauth.py	(revision 18157)
 +++ twisted/web2/test/test_httpauth.py	(working copy)
 @@ -2,6 +2,7 @@
  from twisted.internet import defer

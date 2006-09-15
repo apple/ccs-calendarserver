@@ -1,8 +1,8 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18092)
+--- twisted/web2/dav/resource.py	(revision 18157)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -125,6 +125,8 @@
+@@ -126,6 +126,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
          (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
          (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
@@ -44,16 +44,16 @@ Index: twisted/web2/dav/resource.py
  
              if namespace == twisted_dav_namespace:
                  if name == "resource-class":
-@@ -599,7 +627,7 @@
+@@ -596,7 +624,7 @@
              else:
                  factory = request.credentialFactories[authHeader[0]]
  
 -                creds = factory.decode(authHeader[1], request.method)
 +                creds = factory.decode(authHeader[1], request)
  
-                 # Try to match principals in each principal collection on 
-                 # the resource
-@@ -1526,6 +1554,219 @@
+                 # Try to match principals in each principal collection on the resource
+                 def gotDetails(details):
+@@ -1502,6 +1530,219 @@
          return None
  
      ##
@@ -273,7 +273,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1631,6 +1872,28 @@
+@@ -1736,6 +1977,28 @@
  
  davxml.registerElement(TwistedAccessDisabledProperty)
  

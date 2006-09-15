@@ -1,6 +1,6 @@
 Index: twisted/web2/auth/interfaces.py
 ===================================================================
---- twisted/web2/auth/interfaces.py	(revision 17932)
+--- twisted/web2/auth/interfaces.py	(revision 18157)
 +++ twisted/web2/auth/interfaces.py	(working copy)
 @@ -13,7 +13,7 @@
          @return: dictionary of challenge arguments

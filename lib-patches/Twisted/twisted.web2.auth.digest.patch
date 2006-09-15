@@ -1,6 +1,6 @@
 Index: twisted/web2/auth/digest.py
 ===================================================================
---- twisted/web2/auth/digest.py	(revision 17932)
+--- twisted/web2/auth/digest.py	(revision 18157)
 +++ twisted/web2/auth/digest.py	(working copy)
 @@ -154,7 +154,7 @@
                  'algorithm': self.algorithm,

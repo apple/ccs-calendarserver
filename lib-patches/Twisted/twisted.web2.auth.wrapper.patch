@@ -1,6 +1,6 @@
 Index: twisted/web2/auth/wrapper.py
 ===================================================================
---- twisted/web2/auth/wrapper.py	(revision 17932)
+--- twisted/web2/auth/wrapper.py	(revision 18157)
 +++ twisted/web2/auth/wrapper.py	(working copy)
 @@ -87,7 +87,7 @@
              return UnauthorizedResource(self.credentialFactories)
