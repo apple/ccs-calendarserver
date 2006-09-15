@@ -24,19 +24,18 @@ __version__ = "0.0"
 
 __all__ = ["storeCalendarObjectResource"]
 
+from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import maybeDeferred
-from twisted.python import failure
-from twisted.python import log
+from twisted.internet.defer import waitForDeferred
+from twisted.python import failure, log
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import PCDATAElement
-from twisted.web2.dav.fileop import copy
-from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.fileop import put
+from twisted.web2.dav.fileop import copy, delete, put
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL, parentForURL
-from twisted.web2.http import HTTPError
+from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -290,6 +289,7 @@ def storeCalendarObjectResource(
         Handle validation operations here.
         """
 
+        reserved = False
         if destinationcal:
             if not sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
@@ -350,10 +350,32 @@ def storeCalendarObjectResource(
             # deferreds.
             destination_index = destinationparent.index()
             destination_index.reserveUID(uid)
+            reserved = True
         
         """
         Handle rollback setup here.
         """
+
+        # Do quota checks on destination and source before we start messing with adding other files
+        destquota = waitForDeferred(destination.quota(request))
+        yield destquota
+        destquota = destquota.getResult()
+        if destquota is not None and destination.exists():
+            old_dest_size = destination.quotaSize(request)
+        else:
+            old_dest_size = 0
+            
+        if source is not None:
+            sourcequota = waitForDeferred(source.quota(request))
+            yield sourcequota
+            sourcequota = sourcequota.getResult()
+            if sourcequota is not None and source.exists():
+                old_source_size = source.quotaSize(request)
+            else:
+                old_source_size = 0
+        else:
+            sourcequota = None
+            old_source_size = 0
 
         # We may need to restore the original resource data if the PUT/COPY/MOVE fails,
         # so rename the original file in case we need to rollback.
@@ -389,9 +411,14 @@ def storeCalendarObjectResource(
 
         # Do put or copy based on whether source exists
         if source is not None:
-            d = maybeDeferred(copy, source.fp, destination.fp, destination_uri, "0")
+            response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, "0")
         else:
-            d = maybeDeferred(put, MemoryStream(calendardata), destination.fp)
+            response = maybeDeferred(put, MemoryStream(calendardata), destination.fp)
+        response = waitForDeferred(response)
+        yield response
+        response = response.getResult()
+
+        response = IResponse(response)
         
         def doDestinationIndex(caltoindex):
             """
@@ -437,6 +464,13 @@ def storeCalendarObjectResource(
                 logging.debug("Source index removed %s" % (source.fp.path,), system="Store Resource")
 
             # Delete the source resource
+            if sourcequota is not None:
+                delete_size = 0 - old_source_size
+                d = waitForDeferred(source.quotaSizeAdjust(request, delete_size))
+                yield d
+                d.getResult()
+
+            # Delete the source resource
             delete(source_uri, source.fp, "0")
             rollback.source_deleted = True
             logging.debug("Source removed %s" % (source.fp.path,), system="Store Resource")
@@ -461,45 +495,46 @@ def storeCalendarObjectResource(
             source.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
             return None
 
-        def doIndexing(response):
-            """
-            Callback after initial store operation succeeds.
-            """
-            logging.debug("Write to destination completed %r" % response, system="Store Resource")
-            response = IResponse(response)
-            if response.code in [responsecode.NO_CONTENT, responsecode.CREATED]:
-                if deletesource:
-                    doSourceDelete()
-        
-                if destinationcal:
-                    result = doDestinationIndex(calendar)
-                    if result is not None:
-                        rollback.Rollback()
-                        return result
-    
-                # Can now commit changes and forget the rollback details
-                rollback.Commit()
+        if destinationcal:
+            result = doDestinationIndex(calendar)
+            if result is not None:
+                rollback.Rollback()
+                yield result
+                return
 
-            return response
+        # Do quota check on destination
+        if destquota is not None:
+            # Get size of new/old resources
+            new_dest_size = destination.quotaSize(request)
+            diff_size = new_dest_size - old_dest_size
+            if diff_size >= destquota[0]:
+                log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))
+                raise HTTPError(StatusResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, "Over quota"))
+            d = waitForDeferred(destination.quotaSizeAdjust(request, diff_size))
+            yield d
+            d.getResult()
 
-        def cleanUpIndex(f):
-            if destinationcal:
-                destination_index.unreserveUID(uid)
-            
-            # Always do the rollback operation: actually this will not
-            # rollback if the PUT was successful as the rollback will have
-            # been deactivated by a commit.
-            rollback.Rollback()
+        if deletesource:
+            doSourceDelete()
 
-            return f
+        # Can now commit changes and forget the rollback details
+        rollback.Commit()
 
-        d.addCallback(doIndexing)
-        d.addBoth(cleanUpIndex)
+        if reserved:
+            destination_index.unreserveUID(uid)
+            reserved = False
 
-        return d
+        yield response
+        return
 
     except:
+        if reserved:
+            destination_index.unreserveUID(uid)
+            reserved = False
+
         # Roll back changes to original server state. Note this may do nothing
         # if the rollback has already ocurred or changes already committed.
         rollback.Rollback()
         raise
+
+storeCalendarObjectResource = deferredGenerator(storeCalendarObjectResource)

@@ -35,6 +35,7 @@ __all__ = [
 
 import os
 import errno
+import stat
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
@@ -43,7 +44,7 @@ from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.acl import TwistedPasswordProperty
+from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
@@ -305,6 +306,53 @@ class CalDAVFile (CalDAVResource, DAVFile):
             child for child in super(CalDAVFile, self).listChildren()
             if child != db_basename
         ]
+
+    ##
+    # Quota
+    ##
+
+    def collectionQuotaUse(self, request):
+        """
+        Brute force determination of quota used by this collection.
+
+        @return: a C{int} containing the current used byte if this collection
+            is quota-controlled, or C{None} if not quota controlled.
+        """
+        assert self.isCollection(), "Only collections can have a quota root"
+
+        # Do default if not a calendar collection
+        if not self.isPseudoCalendarCollection():
+            return super(CalDAVFile, self).collectionQuotaUse(request)
+
+        def walktree(top, top_level = False):
+            """
+            Recursively descend the directory tree rooted at top,
+            calling the callback function for each regular file
+            """
+        
+            total = 0
+            for f in os.listdir(top):
+                
+                # Ignore the database
+                if top_level and f == db_basename:
+                    continue
+
+                pathname = os.path.join(top, f)
+                result = os.stat(pathname)
+                mode = result[stat.ST_MODE]
+                if stat.S_ISDIR(mode):
+                    # It's a directory, recurse into it
+                    total += walktree(pathname)
+                elif stat.S_ISREG(mode):
+                    # It's a file, call the callback function
+                    total += result[stat.ST_SIZE]
+                else:
+                    # Unknown file type, print a message
+                    pass
+        
+            return total
+        
+        return walktree(self.fp.path, True)
 
     ##
     # Utilities
