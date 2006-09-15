@@ -11,7 +11,18 @@ Index: twisted/web2/server.py
  from urlparse import urlsplit
  
  import weakref
-@@ -316,7 +316,12 @@
+@@ -156,7 +156,9 @@
+         self.resources = []
+         http.Request.__init__(self, *args, **kw)
+ 
+-    def addResponseFilter(self, f, atEnd=False):
++    def addResponseFilter(self, f, atEnd=False, onlyOnce = False):
++        if onlyOnce and f in self.responseFilters:
++            return
+         if atEnd:
+             self.responseFilters.append(f)
+         else:
+@@ -316,7 +318,12 @@
          if newpath is StopTraversal:
              # We need to rethink how to do this.
              #if newres is res:
@@ -25,7 +36,7 @@ Index: twisted/web2/server.py
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -337,7 +342,7 @@
+@@ -337,7 +344,7 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
@@ -34,7 +45,7 @@ Index: twisted/web2/server.py
  
          return child
  
-@@ -404,6 +409,7 @@
+@@ -404,6 +411,7 @@
          segments = path.split("/")
          assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
          segments = segments[1:]
