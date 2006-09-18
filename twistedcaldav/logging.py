@@ -22,12 +22,16 @@ Logging levels:
 0    - no logging
 1    - errors only
 2    - errors and warnings only
-3    - errors, warnings and debug
+3    - errors, warnings and info
+3    - errors, warnings, info and debug
 """
 
-from twisted.python import log
+import datetime
 
-logtypes = {"none": 0, "info": 1, "warning": 2, "error": 3, "debug": 4}
+from twisted.python import log
+from twisted.web2.log import BaseCommonAccessLoggingObserver
+
+logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
 currentLogLevel = 1
 
@@ -85,3 +89,22 @@ def debug(message, **kwargs):
     if canLog("debug"):
         log.msg(message, debug=True, **kwargs)
 
+class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
+    """I log requests to a single logfile
+    """
+    
+    def __init__(self, logpath):
+        self.logpath = logpath
+                
+    def logMessage(self, message):
+        self.f.write(message + '\n')
+
+    def start(self):
+        super(RotatingFileAccessLoggingObserver, self).start()
+        self.f = open(self.logpath, 'a', 1)
+        self.logMessage("Log opened: [%s]." % (datetime.datetime.now().ctime(),))
+        
+    def stop(self):
+        self.logMessage("Log closed: [%s]." % (datetime.datetime.now().ctime(),))
+        super(RotatingFileAccessLoggingObserver, self).stop()
+        self.f.close()

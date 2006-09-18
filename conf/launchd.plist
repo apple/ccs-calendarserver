@@ -46,7 +46,7 @@ limitations under the License.
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/var/log/caldavd/error.log</string>
+  <string>/var/log/caldavd/server.log</string>
 
   <key>StandardErrorPath</key>
   <string>/var/log/caldavd/error.log</string>
