@@ -40,7 +40,6 @@ from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
 from twisted.python import log
-from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -50,6 +49,7 @@ from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.resource import TwistedACLProperty
+from twisted.web2.dav.resource import TwistedQuotaRootProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 from twisted.web2.http import HTTPError, StatusResponse
@@ -58,7 +58,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
-from twistedcaldav.icaldav import ICalDAVResource
 from twistedcaldav.index import Index, IndexSchedule, db_basename
 from twistedcaldav.resource import CalDAVResource, isPseudoCalendarCollectionResource, CalendarPrincipalResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
@@ -584,6 +583,11 @@ class CalendarHomeFile (CalDAVFile):
     """
     L{CalDAVFile} calendar home collection resource.
     """
+    
+    # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
+    # quota to that size, or C{None} for no limit.
+    quotaLimit = None
+
     def __init__(self, path):
         """
         @param path: the path to the file which will back the resource.
@@ -604,6 +608,26 @@ class CalendarHomeFile (CalDAVFile):
 
     def createSimilarFile(self, path):
         return CalDAVFile(path)
+
+    ##
+    # Quota
+    ##
+
+    def hasQuotaRoot(self, request):
+        """
+        @return: a C{True} if this resource has quota root, C{False} otherwise.
+        """
+        return self.hasDeadProperty(TwistedQuotaRootProperty) or CalendarHomeFile.quotaLimit is not None
+    
+    def quotaRoot(self, request):
+        """
+        @return: a C{int} containing the maximum allowed bytes if this collection
+            is quota-controlled, or C{None} if not quota controlled.
+        """
+        if self.hasDeadProperty(TwistedQuotaRootProperty):
+            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
+        else:
+            return CalendarHomeFile.quotaLimit
 
 class CalendarHomeProvisioningFile (CalDAVFile):
     """

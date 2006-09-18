@@ -45,6 +45,7 @@ from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.instance import TooManyInstancesError
+from twistedcaldav.resource import CalDAVResource
 
 def storeCalendarObjectResource(
     request,
@@ -235,6 +236,23 @@ def storeCalendarObjectResource(
         
         return result, message
     
+    def validSizeCheck():
+        """
+        Make sure that the content-type of the source resource is text/calendar.
+        This test is only needed when the source is not in a calendar collection.
+        @param request: the L{twisted.web2.server.Request} for the current HTTP request.
+        @param source:  the L{Component} for the calendar to test.
+        """
+        result = True
+        message = ""
+        if CalDAVResource.sizeLimit is not None:
+            calsize = len(str(calendar))
+            if calsize > CalDAVResource.sizeLimit:
+                result = False
+                message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, CalDAVResource.sizeLimit)
+
+        return result, message
+
     def noUIDConflict(uid):
         """
         Check that the UID of the new calendar object conforms to the requirements of
@@ -282,7 +300,6 @@ def storeCalendarObjectResource(
                     message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid)
         
         return result, message, rname
-
 
     try:
         """
@@ -333,7 +350,13 @@ def storeCalendarObjectResource(
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
                 calendar = source.iCalendar()
-                
+
+            # Valid calendar data size check
+            result, message = validSizeCheck()
+            if not result:
+                log.err(message)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+
             # uid conflict check
             if not isiTIP:
                 result, message, rname = noUIDConflict(uid)
@@ -464,17 +487,10 @@ def storeCalendarObjectResource(
                 logging.debug("Source index removed %s" % (source.fp.path,), system="Store Resource")
 
             # Delete the source resource
-            if sourcequota is not None:
-                delete_size = 0 - old_source_size
-                d = waitForDeferred(source.quotaSizeAdjust(request, delete_size))
-                yield d
-                d.getResult()
-
-            # Delete the source resource
             delete(source_uri, source.fp, "0")
             rollback.source_deleted = True
             logging.debug("Source removed %s" % (source.fp.path,), system="Store Resource")
-        
+
         def doSourceIndexRecover():
             """
             Do source resource indexing. This only gets called when restoring
@@ -495,6 +511,16 @@ def storeCalendarObjectResource(
             source.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
             return None
 
+        if deletesource:
+            doSourceDelete()
+            # Update quota
+            if sourcequota is not None:
+                delete_size = 0 - old_source_size
+                d = waitForDeferred(source.quotaSizeAdjust(request, delete_size))
+                yield d
+                d.getResult()
+
+
         if destinationcal:
             result = doDestinationIndex(calendar)
             if result is not None:
@@ -513,9 +539,6 @@ def storeCalendarObjectResource(
             d = waitForDeferred(destination.quotaSizeAdjust(request, diff_size))
             yield d
             d.getResult()
-
-        if deletesource:
-            doSourceDelete()
 
         # Can now commit changes and forget the rollback details
         rollback.Commit()
