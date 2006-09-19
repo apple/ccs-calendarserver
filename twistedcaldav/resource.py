@@ -229,31 +229,31 @@ class CalDAVResource (DAVResource):
         """
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
-        def _checkAccessEb(failure):
+        def checkPrivilegesError(failure):
             failure.trap(AccessDeniedError)
             
-            reactor.callLater(0, _getChild)
+            reactor.callLater(0, getChild)
 
-        def _checkAccess(child):
+        def checkPrivileges(child):
             if privileges is None:
                 return child
    
-            ca = child.checkAccess(request, privileges)
+            ca = child.checkPrivileges(request, privileges)
             ca.addCallback(lambda ign: child)
             return ca
 
-        def _gotChild(child, childpath):
+        def gotChild(child, childpath):
             if child.isCalendarCollection():
                 callback(child, childpath)
             elif child.isCollection():
                 if depth == 'infinity': 
                     fc = child.findCalendarCollections(depth, request, callback, privileges)
-                    fc.addCallback(lambda x: reactor.callLater(0, _getChild))
+                    fc.addCallback(lambda x: reactor.callLater(0, getChild))
                     return fc
 
-            reactor.callLater(0, _getChild)
+            reactor.callLater(0, getChild)
 
-        def _getChild():
+        def getChild():
             try:
                 childname = children.pop()
             except IndexError:
@@ -261,8 +261,8 @@ class CalDAVResource (DAVResource):
             else:
                 childpath = joinURL(basepath, childname)
                 child = request.locateResource(childpath)
-                child.addCallback(_checkAccess)
-                child.addCallbacks(_gotChild, _checkAccessEb, (childpath,))
+                child.addCallback(checkPrivileges)
+                child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                 child.addErrback(completionDeferred.errback)
 
         completionDeferred = Deferred()
@@ -270,7 +270,7 @@ class CalDAVResource (DAVResource):
         if depth != "0" and self.isCollection():
             basepath = request.urlForResource(self)
             children = self.listChildren()
-            _getChild()
+            getChild()
         else:
             completionDeferred.callback(None)
 

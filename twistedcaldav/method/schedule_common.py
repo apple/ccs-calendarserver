@@ -259,7 +259,7 @@ def processScheduleRequest(self, method, request):
             # Check access controls
             #
             try:
-                d = waitForDeferred(inbox.checkAccess(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(oprincipal))))
+                d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(oprincipal))))
                 yield d
                 d.getResult()
             except:
