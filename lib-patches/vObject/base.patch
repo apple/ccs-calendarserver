@@ -1,6 +1,6 @@
 Index: src/vobject/base.py
 ===================================================================
---- src/vobject/base.py	(revision 147)
+--- src/vobject/base.py	(revision 155)
 +++ src/vobject/base.py	(working copy)
 @@ -1,5 +1,6 @@
  """vobject module for reading vCard and vCalendar files."""
