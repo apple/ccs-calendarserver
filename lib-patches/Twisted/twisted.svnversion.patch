@@ -1,0 +1,24 @@
+Index: twisted/python/versions.py
+===================================================================
+--- twisted/python/versions.py  (revision 18204)
++++ twisted/python/versions.py  (working copy)
+@@ -90,17 +90,8 @@
+         """
+         mod = sys.modules.get(self.package)
+         if mod:
+-            ent = os.path.join(os.path.dirname(mod.__file__),
+-                               '.svn',
+-                               'entries')
+-            if os.path.exists(ent):
+-                from xml.dom.minidom import parse
+-                doc = parse(file(ent)).documentElement
+-                for node in doc.childNodes:
+-                    if hasattr(node, 'getAttribute'):
+-                        rev = node.getAttribute('revision')
+-                        if rev is not None:
+-                            return rev.encode('ascii')
++            rev = os.popen("svnversion %r" % (os.path.dirname(mod.__file__),)).read()
++            return rev
+ 
+     def _formatSVNVersion(self):
+         ver = self._getSVNVersion()
