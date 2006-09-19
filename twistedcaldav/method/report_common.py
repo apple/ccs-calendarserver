@@ -70,7 +70,7 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
 
     # First check the privilege on this resource
     try:
-        d = waitForDeferred(resource.checkAccess(request, privileges))
+        d = waitForDeferred(resource.checkPrivileges(request, privileges))
         yield d
         d.getResult()
     except:
@@ -277,7 +277,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
     
     # First check the privilege on this collection
     try:
-        d = waitForDeferred(calresource.checkAccess(request, (caldavxml.ReadFreeBusy(),)))
+        d = waitForDeferred(calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),)))
         yield d
         d.getResult()
     except:
@@ -319,7 +319,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
     tzinfo = filter.settimezone(tz)
 
     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-    # the child resource loop and supply those to the checkAccess on each child.
+    # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
     yield filteredaces
     filteredaces = filteredaces.getResult()
@@ -338,7 +338,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
         child = child.getResult()
 
         try:
-            d = waitForDeferred(child.checkAccess(request, (caldavxml.ReadFreeBusy(),), inheritedaces=filteredaces))
+            d = waitForDeferred(child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
         except:

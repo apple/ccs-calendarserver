@@ -48,7 +48,7 @@ def http_POST(self, request):
     yield parent
     parent = parent.getResult()
 
-    d = waitForDeferred(parent.securityCheck(request, (caldavxml.Schedule(),)))
+    d = waitForDeferred(parent.authorize(request, (caldavxml.Schedule(),)))
     yield d
     d.getResult()
         

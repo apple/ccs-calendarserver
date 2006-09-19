@@ -145,7 +145,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             calendar.addProperty(iProperty("VERSION", "2.0"))
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-            # the child resource loop and supply those to the checkAccess on each child.
+            # the child resource loop and supply those to the checkPrivileges on each child.
             filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
             yield filteredaces
             filteredaces = filteredaces.getResult()
@@ -164,7 +164,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 if child is not None:
                     # Check privileges of child - skip if access denied
                     try:
-                        d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                        d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
                         yield d
                         d.getResult()
                     except:

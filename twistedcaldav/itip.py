@@ -565,7 +565,7 @@ def writeReply(request, principal, replycal, ainbox):
     inbox = inbox.getResult()
 
     try:
-        d = waitForDeferred(inbox.checkAccess(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
+        d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
         yield d
         d.getResult()
     except:
@@ -600,7 +600,7 @@ def saveReply(request, principal, replycal, ainbox):
     outbox = outbox.getResult()
 
     try:
-        d = waitForDeferred(outbox.checkAccess(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
+        d = waitForDeferred(outbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
         yield d
         d.getResult()
     except:

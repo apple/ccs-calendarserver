@@ -58,12 +58,12 @@ def http_COPY(self, request):
     #
     # Check authentication and access controls
     #
-    x = waitForDeferred(self.securityCheck(request, (davxml.Read(),), recurse=True))
+    x = waitForDeferred(self.authorize(request, (davxml.Read(),), recurse=True))
     yield x
     x.getResult()
 
     if destination.exists():
-        x = waitForDeferred(destination.securityCheck(request, (davxml.WriteContent(), davxml.WriteProperties()), recurse=True))
+        x = waitForDeferred(destination.authorize(request, (davxml.WriteContent(), davxml.WriteProperties()), recurse=True))
         yield x
         x.getResult()
     else:
@@ -71,7 +71,7 @@ def http_COPY(self, request):
         yield destparent
         destparent = destparent.getResult()
  
-        x = waitForDeferred(destparent.securityCheck(request, (davxml.Bind(),)))
+        x = waitForDeferred(destparent.authorize(request, (davxml.Bind(),)))
         yield x
         x.getResult()
 
@@ -141,12 +141,12 @@ def http_MOVE(self, request):
     yield parent
     parent = parent.getResult()
 
-    x = waitForDeferred(parent.securityCheck(request, (davxml.Unbind(),)))
+    x = waitForDeferred(parent.authorize(request, (davxml.Unbind(),)))
     yield x
     x.getResult()
 
     if destination.exists():
-        x = waitForDeferred(destination.securityCheck(request, (davxml.Bind(), davxml.Unbind()), recurse=True))
+        x = waitForDeferred(destination.authorize(request, (davxml.Bind(), davxml.Unbind()), recurse=True))
         yield x
         x.getResult()
     else:
@@ -154,7 +154,7 @@ def http_MOVE(self, request):
         yield destparent
         destparent = destparent.getResult()
 
-        x = waitForDeferred(destparent.securityCheck(request, (davxml.Bind(),)))
+        x = waitForDeferred(destparent.authorize(request, (davxml.Bind(),)))
         yield x
         x.getResult()
 

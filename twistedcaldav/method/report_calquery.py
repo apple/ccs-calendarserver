@@ -141,7 +141,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 filter.settimezone(tz)
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-            # the child resource loop and supply those to the checkAccess on each child.
+            # the child resource loop and supply those to the checkPrivileges on each child.
             filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
             yield filteredaces
             filteredaces = filteredaces.getResult()
@@ -156,7 +156,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     child = child.getResult()
 
                     try:
-                        d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                        d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
                         yield d
                         d.getResult()
                     except:

@@ -102,7 +102,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         requestURIis = "calendar"
 
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-        # the child resource loop and supply those to the checkAccess on each child.
+        # the child resource loop and supply those to the checkPrivileges on each child.
         filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
         yield filteredaces
         filteredaces = filteredaces.getResult()
@@ -164,19 +164,19 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                 
                 # Check privileges on parent - must have at least DAV:read
                 try:
-                    d = waitForDeferred(parent.checkAccess(request, (davxml.Read(),)))
+                    d = waitForDeferred(parent.checkPrivileges(request, (davxml.Read(),)))
                     yield d
                     d.getResult()
                 except:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
                 
-                # Cache the last parent's inherited aces for checkAccess optimization
+                # Cache the last parent's inherited aces for checkPrivileges optimization
                 if lastParent != parent:
                     lastParent = parent
             
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-                    # the child resource loop and supply those to the checkAccess on each child.
+                    # the child resource loop and supply those to the checkPrivileges on each child.
                     filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
                     yield filteredaces
                     filteredaces = filteredaces.getResult()
@@ -198,14 +198,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                 child = self
         
                 # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-                # the child resource loop and supply those to the checkAccess on each child.
+                # the child resource loop and supply those to the checkPrivileges on each child.
                 filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
                 yield filteredaces
                 filteredaces = filteredaces.getResult()
     
             # Check privileges - must have at least DAV:read
             try:
-                d = waitForDeferred(child.checkAccess(request, (davxml.Read(),), inheritedaces=filteredaces))
+                d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
                 yield d
                 d.getResult()
             except:

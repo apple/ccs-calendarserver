@@ -50,7 +50,7 @@ def http_MKCALENDAR(self, request):
     yield parent
     parent = parent.getResult()
 
-    x = waitForDeferred(parent.securityCheck(request, (davxml.Bind(),)))
+    x = waitForDeferred(parent.authorize(request, (davxml.Bind(),)))
     yield x
     x.getResult()
 
