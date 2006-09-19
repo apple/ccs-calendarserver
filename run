@@ -406,13 +406,16 @@ fi;
 #
 
 if ! "${disable_setup}"; then
-  if [ "${USER}" == "wsanchez" ]; then
-    svn_uri="svn+ssh://svn.twistedmatrix.com/svn/Twisted/branches/acl-1608-8";
-  else
-    svn_uri="svn://svn.twistedmatrix.com/svn/Twisted/branches/acl-1608-8";
-  fi;
-
-  svn_get "Twisted" "${twisted}" "${svn_uri}" 18165;
+  case "${USER}" in
+    wsanchez)
+      proto="svn+ssh";
+      ;;
+    *)
+      proto="svn";
+      ;;
+  esac;
+  svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608";
+  svn_get "Twisted" "${twisted}" "${svn_uri}" 18204;
 fi;
 py_install "Twisted" "${twisted}";
  
@@ -448,11 +451,15 @@ fi;
 vobject="${top}/vobject";
 
 if ! "${disable_setup}"; then
-  if [ "${USER}" == "cyrusdaboo" ]; then
-    svn_uri="svn+ssh://cdaboo@svn.osafoundation.org/svn/vobject/trunk";
-  else
-    svn_uri="http://svn.osafoundation.org/vobject/trunk";
-  fi;
+  case "${USER}" in
+    cyrusdaboo)
+      base="svn+ssh://cdaboo@svn.osafoundation.org/svn";
+      ;;
+    *)
+      base="http://svn.osafoundation.org";
+      ;;
+  esac;
+  svn_uri="${base}/vobject/trunk";
   svn_get "vObject" "${vobject}" "${svn_uri}" 147;
 fi;
 py_install "vObject" "${vobject}";

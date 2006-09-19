@@ -27,8 +27,8 @@ from urlparse import urlsplit
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
+from twisted.web2.filter.location import addLocation
 from twisted.web2.dav import davxml
-from twisted.web2.dav.filter.location import addlocation
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import StatusResponse, HTTPError
@@ -99,7 +99,7 @@ def http_COPY(self, request):
         )
 
     # May need to add a location header
-    addlocation(request, destination_uri)
+    addLocation(request, destination_uri)
 
     x = waitForDeferred(storeCalendarObjectResource(
         request = request,
@@ -183,7 +183,7 @@ def http_MOVE(self, request):
             ))
 
     # May need to add a location header
-    addlocation(request, destination_uri)
+    addLocation(request, destination_uri)
 
     x = waitForDeferred(storeCalendarObjectResource(
         request = request,
