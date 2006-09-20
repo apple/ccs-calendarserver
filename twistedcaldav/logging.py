@@ -17,6 +17,17 @@
 ##
 
 """
+Classes and functions to do better logging.
+"""
+
+import datetime
+import os
+import time
+
+from twisted.python import log
+from twisted.web2.log import BaseCommonAccessLoggingObserver
+
+"""
 Logging levels:
     
 0    - no logging
@@ -25,11 +36,6 @@ Logging levels:
 3    - errors, warnings and info
 3    - errors, warnings, info and debug
 """
-
-import datetime
-
-from twisted.python import log
-from twisted.web2.log import BaseCommonAccessLoggingObserver
 
 logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
@@ -90,21 +96,113 @@ def debug(message, **kwargs):
         log.msg(message, debug=True, **kwargs)
 
 class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
-    """I log requests to a single logfile
+    """
+    Class to do 'apache' style access logging to a rotating log file. The log
+    file is rotated after midnight each day.
     """
     
     def __init__(self, logpath):
         self.logpath = logpath
                 
-    def logMessage(self, message):
+    def logMessage(self, message, allowrotate=True):
+        """
+        Log a message to the file and possibly rotate if date has changed.
+
+        @param message: C{str} for the message to log.
+        @param allowrotate: C{True} if log rotate allowed, C{False} to log to current file
+            without testing for rotation.
+        """
+        
+        if self.shouldRotate() and allowrotate:
+            self.flush()
+            self.rotate()
         self.f.write(message + '\n')
 
     def start(self):
+        """
+        Start logging. Open the log file and log an 'open' message.
+        """
+        
         super(RotatingFileAccessLoggingObserver, self).start()
-        self.f = open(self.logpath, 'a', 1)
-        self.logMessage("Log opened: [%s]." % (datetime.datetime.now().ctime(),))
+        self._open()
+        self.logMessage("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
         
     def stop(self):
-        self.logMessage("Log closed: [%s]." % (datetime.datetime.now().ctime(),))
+        """
+        Stop logging. Close the log file and log an 'open' message.
+        """
+        
+        self.logMessage("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
         super(RotatingFileAccessLoggingObserver, self).stop()
+        self._close()
+
+    def _open(self):
+        """
+        Open the log file.
+        """
+
+        self.f = open(self.logpath, 'a', 1)
+        self.lastDate = self.toDate(os.stat(self.logpath)[8])
+    
+    def _close(self):
+        """
+        Close the log file.
+        """
+
         self.f.close()
+    
+    def flush(self):
+        """
+        Flush the log file.
+        """
+
+        self.f.flush()
+    
+    def shouldRotate(self):
+        """
+        Rotate when the date has changed since last write
+        """
+
+        return self.toDate() > self.lastDate
+
+    def toDate(self, *args):
+        """
+        Convert a unixtime to (year, month, day) localtime tuple,
+        or return the current (year, month, day) localtime tuple.
+        
+        This function primarily exists so you may overload it with
+        gmtime, or some cruft to make unit testing possible.
+        """
+
+        # primarily so this can be unit tested easily
+        return time.localtime(*args)[:3]
+
+    def suffix(self, tupledate):
+        """
+        Return the suffix given a (year, month, day) tuple or unixtime
+        """
+
+        try:
+            return '_'.join(map(str, tupledate))
+        except:
+            # try taking a float unixtime
+            return '_'.join(map(str, self.toDate(tupledate)))
+
+    def rotate(self):
+        """
+        Rotate the file and create a new one.
+
+        If it's not possible to open new logfile, this will fail silently,
+        and continue logging to old logfile.
+        """
+
+        newpath = "%s.%s" % (self.logpath, self.suffix(self.lastDate))
+        if os.path.exists(newpath):
+            log.msg("Cannot rotate log file to %s because it already exists." % (newpath,))
+            return
+        self.logMessage("Log closed - rotating: [%s]." % (datetime.datetime.now().ctime(),), False)
+        self.f.close()
+        os.rename(self.logpath, newpath)
+        self._open()
+        self.logMessage("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
+
