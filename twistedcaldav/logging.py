@@ -39,7 +39,7 @@ Logging levels:
 
 logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
-currentLogLevel = 1
+currentLogLevel = logtypes["error"]
 
 def canLog(type):
     """
@@ -201,6 +201,7 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
             log.msg("Cannot rotate log file to %s because it already exists." % (newpath,))
             return
         self.logMessage("Log closed - rotating: [%s]." % (datetime.datetime.now().ctime(),), False)
+        info("Rotating log file to: %s" % (newpath,), system="Logging")
         self.f.close()
         os.rename(self.logpath, newpath)
         self._open()
