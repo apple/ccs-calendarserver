@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/delete.py
 ===================================================================
---- twisted/web2/dav/method/delete.py	(revision 18157)
+--- twisted/web2/dav/method/delete.py	(revision 18209)
 +++ twisted/web2/dav/method/delete.py	(working copy)
 @@ -58,8 +58,26 @@
      yield x

@@ -1,0 +1,378 @@
+Index: twisted/web2/dav/resource.py
+===================================================================
+--- twisted/web2/dav/resource.py	(revision 18209)
++++ twisted/web2/dav/resource.py	(working copy)
+@@ -75,7 +75,9 @@
+        stored anywhere (by this class) but instead are derived from the resource
+        state or from data that is persisted elsewhere.  These are listed in the
+        L{liveProperties} attribute and are handled explicitly by the
+-       L{readProperty} method.
++       L{readProperty} method. There is also a L{dynamicLiveProperties} attribute
++       that contains live properties that may not be on every resource and thus need
++       to be tested for existence before being returned.
+ 
+     3. Live properties may be acted on specially and are stored in the X{dead
+        property store}.  These are not listed in the L{liveProperties} attribute,
+@@ -129,6 +131,12 @@
+         (twisted_dav_namespace, "resource-class"),
+     )
+ 
++    # These are live (compued) properties that may exist on only certain resources
++    dynamicLiveProperties = (
++         (dav_namespace, "quota-available-bytes"     ), # RFC 4331, section 3
++        (dav_namespace, "quota-used-bytes"          ), # RFC 4331, section 4
++    )
++
+     def deadProperties(self):
+         """
+         Provides internal access to the WebDAV dead property store.  You
+@@ -161,6 +169,20 @@
+         if qname[0] == twisted_private_namespace:
+             return succeed(False)
+ 
++        # Need to special case the dynamic live properties
++        if (qname in self.dynamicLiveProperties):
++            namespace, name = qname
++            if namespace == dav_namespace:
++                if name == "quota-available-bytes":
++                    d = self.quota(request)
++                    d.addCallback(lambda qvalue: qvalue is not None)
++                    return d
++    
++                if name == "quota-used-bytes":
++                    d = self.quota(request)
++                    d.addCallback(lambda qvalue: qvalue is not None)
++                    return d
++        
+         return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
+ 
+     def readProperty(self, property, request):
+@@ -263,6 +285,32 @@
+                         # TODO: Merge change from original patch
+                         lambda: self.safeAccessControlList(request)
+                     )
++                    
++                if name == "quota-available-bytes":
++                    def callback(qvalue):
++                        if qvalue is None:
++                            raise HTTPError(StatusResponse(
++                                responsecode.NOT_FOUND,
++                                "Property %s does not exist." % (sname,)
++                            ))
++                        else:
++                            return davxml.QuotaAvailableBytes(str(qvalue[0]))
++                    d = self.quota(request)
++                    d.addCallback(callback)
++                    return d
++
++                if name == "quota-used-bytes":
++                    def callback(qvalue):
++                        if qvalue is None:
++                            raise HTTPError(StatusResponse(
++                                responsecode.NOT_FOUND,
++                                "Property %s does not exist." % (sname,)
++                            ))
++                        else:
++                            return davxml.QuotaUsedBytes(str(qvalue[1]))
++                    d = self.quota(request)
++                    d.addCallback(callback)
++                    return d
+ 
+             if namespace == twisted_dav_namespace:
+                 if name == "resource-class":
+@@ -320,7 +368,8 @@
+                 qname = property.qname()
+                 sname = property.sname()
+ 
+-            if qname in self.liveProperties:
++            if (qname in self.liveProperties or
++                qname in self.dynamicLiveProperties):
+                 raise HTTPError(StatusResponse(
+                     responsecode.FORBIDDEN,
+                     "Live property %s cannot be deleted." % (sname,)
+@@ -343,6 +392,14 @@
+         # FIXME: A set would be better here, that that's a python 2.4+ feature.
+         qnames = list(self.liveProperties)
+ 
++        # Add dynamic live properties that exist
++        for dqname in self.dynamicLiveProperties:
++            has = waitForDeferred(self.hasProperty(dqname, request))
++            yield has
++            has = has.getResult()
++            if has:
++                qnames.append(dqname)
++
+         for qname in self.deadProperties().list():
+             if (qname not in qnames) and (qname[0] != twisted_private_namespace):
+                 qnames.append(qname)
+@@ -347,7 +404,9 @@
+             if (qname not in qnames) and (qname[0] != twisted_private_namespace):
+                 qnames.append(qname)
+ 
+-        return succeed(qnames)
++        yield qnames
++
++    listProperties = deferredGenerator(listProperties)
+ 
+     def listAllprop(self, request):
+         """
+@@ -1507,6 +1566,230 @@
+         return None
+ 
+     ##
++    # Quota
++    ##
++    
++    """
++    The basic policy here is to define a private 'quota-root' property on a collection.
++    That property will contain the maximum allowed bytes for the collections and all
++    its contents.
++    
++    In order to determine the quota property values on a resource, the server must look
++    for the private property on that resource and any of its parents. If found on a parent,
++    then that parent should be queried for quota information. If not found, no quota
++    exists for the resource.
++    
++    To determine tha actual quota in use we will cache the used byte count on the quota-root
++    collection in another private property. It is the servers responsibility to
++    keep that property up to date by adjusting it after every PUT, DELETE, COPY,
++    MOVE, MKCOL, PROPPATCH, ACL, POST or any other method that may affect the size of
++    stored data. If the private property is not present, the server will fall back to
++    getting the size by iterating over all resources (this is done in static.py).
++    
++    """
++
++    def quota(self, request):
++        """
++        Get current available & used quota values for this resource's quota root
++        collection.
++
++        @return: an L{Defered} with result C{tuple} containing two C{int}'s the first is 
++            quota-available-bytes, the second is quota-used-bytes, or
++            C{None} if quota is not defined on the resource.
++        """
++        
++        # See if already cached
++        if hasattr(request, "quota"):
++            yield request.quota
++            return
++
++        # Check this resource first
++        if self.isCollection():
++            qroot = self.quotaRoot(request)
++            if qroot is not None:
++                used = self.currentQuotaUse(request)
++                available = qroot - used
++                if available < 0:
++                    available = 0
++                request.quota = (available, used)
++                yield request.quota
++                return
++        
++        # Check the next parent
++        url = request.urlForResource(self)
++        if url != "/":
++            parent = waitForDeferred(request.locateResource(parentForURL(url)))
++            yield parent
++            parent = parent.getResult()
++            d = waitForDeferred(parent.quota(request))
++            yield d
++            request.quota = d.getResult()
++        else:
++            request.quota = None
++
++        yield request.quota
++        return
++    
++    quota = deferredGenerator(quota)
++
++    def hasQuotaRoot(self, request):
++        """
++        @return: a C{True} if this resource has quota root, C{False} otherwise.
++        """
++        return self.hasDeadProperty(TwistedQuotaRootProperty)
++    
++    def quotaRoot(self, request):
++        """
++        @return: a C{int} containing the maximum allowed bytes if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++        if self.hasDeadProperty(TwistedQuotaRootProperty):
++            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
++        else:
++            return None
++    
++    def quotaRootParent(self, request):
++        """
++        Return the next quota root above this resource.
++        
++        @return: L{DAVResource} or C{None}
++        """
++
++        # Check the next parent
++        url = request.urlForResource(self)
++        while (url != "/"):
++            url = parentForURL(url)
++            parent = waitForDeferred(request.locateResource(url))
++            yield parent
++            parent = parent.getResult()
++            if parent.hasQuotaRoot(request):
++                yield parent
++                return
++
++        yield None
++    
++    quotaRootParent = deferredGenerator(quotaRootParent)
++        
++    def setQuotaRoot(self, request, maxsize):
++        """
++        @param maxsize: a C{int} containing the maximum allowed bytes for the contents
++            of this collection, or C{None} tp remove quota restriction.
++        """
++        assert self.isCollection(), "Only collections can have a quota root"
++        assert maxsize is None or isinstance(maxsize, int), "maxsize must be an int or None"
++        
++        if maxsize is not None:
++            self.writeDeadProperty(TwistedQuotaRootProperty.fromString(str(maxsize)))
++        else:
++            # Remove both the root and the cached used value
++            self.removeDeadProperty(TwistedQuotaRootProperty)
++            self.removeDeadProperty(TwistedQuotaUsedProperty)
++    
++    def quotaSize(self, request):
++        """
++        Get the size of this resource (if its a collection get total for all children as well).
++        TODO: Take into account size of dead-properties.
++
++        @return: a C{int} containing the size of the resource.
++        """
++        unimplemented(self)
++
++    def checkQuota(self, request, available):
++        """
++        Check to see whether all quota roots have sufficient available bytes.
++        We currently do not use hierarchical quota checks - i.e. only the most
++        immediate quota root parent is checked for quota.
++        
++        @param available: a C{int} containing the additional quota required.
++        @return: C{True} if there is sufficient quota remaining on all quota roots,
++            C{False} otherwise.
++        """
++        
++        quotaroot = self
++        while(quotaroot is not None):
++            # Check quota on this root (if it has one)
++            quota = quotaroot.quotaRoot(request)
++            if quota is not None:
++                if available > quota[0]:
++                    yield False
++                    return
++
++            # Check the next parent with a quota root
++            quotaroot = waitForDeferred(quotaroot.quotaRootParent(request))
++            yield quotaroot
++            quotaroot = quotaroot.getResult()
++
++        yield True
++
++    checkQuota = deferredGenerator(checkQuota)
++
++    def quotaSizeAdjust(self, request, adjust):
++        """
++        Update the quota used value on all quota root parents of this resource.
++
++        @param adjust: a C{int} containing the number of bytes added (positive) or
++        removed (negative) that should be used to adjust the cached total.
++        """
++        
++        # Check this resource first
++        if self.isCollection():
++            if self.hasQuotaRoot(request):
++                self.updateQuotaUse(request, adjust)
++        
++        # Check the next parent
++        url = request.urlForResource(self)
++        if url != "/":
++            parent = waitForDeferred(request.locateResource(parentForURL(url)))
++            yield parent
++            parent = parent.getResult()
++            d = waitForDeferred(parent.quotaSizeAdjust(request, adjust))
++            yield d
++            d.getResult()
++
++        yield None
++
++    quotaSizeAdjust = deferredGenerator(quotaSizeAdjust)
++
++    def currentQuotaUse(self, request):
++        """
++        Get the cached quota use value, or if not present (or invalid) determine
++        quota use by brute force.
++
++        @return: a C{int} containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++        assert self.isCollection(), "Only collections can have a quota root"
++        assert self.hasQuotaRoot(request), "Quota use only on quota root collection"
++        
++        # Try to get the cached value property
++        if self.hasDeadProperty(TwistedQuotaUsedProperty):
++            return int(str(self.readDeadProperty(TwistedQuotaUsedProperty)))
++        else:
++            # Do brute force size determination
++            result = self.quotaSize(request)
++            
++            # Cache the brute force value in the private property
++            self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(result)))
++            
++            return result
++
++    def updateQuotaUse(self, request, adjust):
++        """
++        Update the quota used value on this resource.
++
++        @param adjust: a C{int} containing the number of bytes added (positive) or
++        removed (negative) that should be used to adjust the cached total.
++        @return: a C{int} containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++        assert self.isCollection(), "Only collections can have a quota root"
++        
++        # Get current value
++        size = self.currentQuotaUse(request)
++        size += adjust
++        self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(size)))
++        
++    ##
+     # HTTP
+     ##
+ 
+@@ -1741,6 +2024,28 @@
+ 
+ davxml.registerElement(TwistedAccessDisabledProperty)
+ 
++"""
++When set on a collection, this property indicates that the collection has a quota limit for
++the size of all resources stored in the collection (and any associate meta-data such as properties).
++The value is a number - the maximum size in bytes allowed.
++"""
++class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
++    namespace = twisted_private_namespace
++    name = "quota-root"
++
++davxml.registerElement(TwistedQuotaRootProperty)
++
++"""
++When set on a collection, this property contains the cached running total of the size of all
++resources stored in the collection (and any associate meta-data such as properties).
++The value is a number - the size in bytes used.
++"""
++class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
++    namespace = twisted_private_namespace
++    name = "quota-used"
++
++davxml.registerElement(TwistedQuotaUsedProperty)
++
+ allACL = davxml.ACL(
+     davxml.ACE(
+         davxml.Principal(davxml.All()),

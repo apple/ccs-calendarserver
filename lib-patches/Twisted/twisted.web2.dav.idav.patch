@@ -1,8 +1,8 @@
 Index: twisted/web2/dav/idav.py
 ===================================================================
---- twisted/web2/dav/idav.py	(revision 18157)
+--- twisted/web2/dav/idav.py	(revision 18209)
 +++ twisted/web2/dav/idav.py	(working copy)
-@@ -175,6 +175,64 @@
+@@ -180,6 +180,72 @@
              the specified principal.
          """
  
@@ -20,6 +20,14 @@ Index: twisted/web2/dav/idav.py
 +            C{None} if quota is not defined on the resource.
 +        """
 +    
++    def hasQuotaRoot(request):
++        """
++        Determine whether the resource has a quota root.
++
++        @return: a C{True} if this resource has quota root, C{False} otherwise.
++        """
++    
++
 +    def quotaRoot(request):
 +        """
 +        Get the quota root (max. allowed bytes) value for this collection.
