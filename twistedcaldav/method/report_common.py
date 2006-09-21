@@ -41,11 +41,9 @@ from twisted.web2.dav.method.report import max_number_of_matches
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
-from twistedcaldav import constants
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
-from twistedcaldav.ical import Component
-from twistedcaldav.ical import Property
+from twistedcaldav.ical import Component, Property, iCalendarProductID
 
 from vobject.icalendar import utc
 
@@ -481,7 +479,7 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     
     # Now build a new calendar object with the free busy info we have
     fbcalendar = Component("VCALENDAR")
-    fbcalendar.addProperty(Property("PRODID", constants.ICALENDAR_PRODID))
+    fbcalendar.addProperty(Property("PRODID", iCalendarProductID))
     fb = Component("VFREEBUSY")
     fbcalendar.addComponent(fb)
     if organizer is not None:

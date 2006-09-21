@@ -386,7 +386,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         @return: the URI of the calendar outbox, or C{None} if no outbox for
             exists for the user.
         """
-        
         def _defer(principal):
             if principal:
                 return principal.scheduleOutboxURL()
@@ -407,7 +406,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         @return: the URI of the calendar inbox, or C{None} if no inbox exists
             for the user
         """
-        
         def _defer(principal):
             if principal:
                 return principal.scheduleInboxURL()
@@ -545,7 +543,6 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         @param address: the calendar user address to match.
         @return: C{True} if the principal matches, C{False} otherwise.
         """
-
         # By default we will always allow either a relative or absolute URI to the principal to
         # be supplied as a valid calendar user address.
 
@@ -570,7 +567,6 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         @return: L{Deferred} whose result is a list of calendars that contribute to free-busy for this
             principal's calendar user.
         """
-        
         def _defer(inbox):
             if inbox and inbox.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
                 return inbox.readDeadProperty((caldav_namespace, "calendar-free-busy-set"))

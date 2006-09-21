@@ -301,9 +301,7 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
     as needed.
     
     This includes a periodic task for refreshing the cached data.
-    
     """
-
     periodicSyncIntervalSeconds = 60.0
     
     typeUnknown  = 0
@@ -340,18 +338,18 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         self.index.check()
         self.calendarhomeroot = (homeuri, home)
 
-        """
-        There is a problem with the interaction of Directory Services and the
-        fork/fork process the server goes through to daemonize itself. For some
-        resaon, if DS is used before the fork, then calls to it afterwards all
-        return eServerSendError (-14740) errors.
-        
-        To get around this we must not use opendirectory module calls here, as this
-        method gets run before the fork/fork. So instead, we schedule a sync
-        operation to occur one second after the reactor starts up - which is after
-        the fork/fork. The problem with this is that the http server is already up
-        and running at that point BEFORE any initially provisioning is done.
-        """
+        #
+        # There is a problem with the interaction of Directory Services and the
+        # fork/fork process the server goes through to daemonize itself. For some
+        # resaon, if DS is used before the fork, then calls to it afterwards all
+        # return eServerSendError (-14740) errors.
+        # 
+        # To get around this we must not use opendirectory module calls here, as this
+        # method gets run before the fork/fork. So instead, we schedule a sync
+        # operation to occur one second after the reactor starts up - which is after
+        # the fork/fork. The problem with this is that the http server is already up
+        # and running at that point BEFORE any initially provisioning is done.
+        #
 
         # Create a periodic sync operation to keep the cached user list
         # in sync with the directory server.
@@ -415,7 +413,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         """
         Synchronize the data in the directory with the local cache of resources in the file system.
         """
-        
         #log.msg("Directory: Synchronizing cache for %s" % (self.getTitle(),))
 
         # Get index entries from directory and from cache
@@ -485,7 +482,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         @param attrs: C{dict} directory attributes for this name, or C{None} if attributes need to be read in.
         @param fast: if C{True} then final commit is not done, if C{False} commit is done.
         """
-        
         # This will create it
         child_fp = self.fp.child(name)
         assert not child_fp.exists()
@@ -508,7 +504,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         @param new: C{str} containing the name of the new resource.
         @param fast: if C{True} then final commit is not done, if C{False} commit is done.
         """
-        
         # Look for change to calendar enabled state
         
         # See if the name changed because that is a real pain!
@@ -534,7 +529,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         @param old: C{str} containing the name of the original resource.
         @param new: C{str} containing the name of the new resource.
         """
-
         log.msg("Directory: Renamed Principal %s to %s in %s" % (old, new, self.getTitle()))
         raise NotImplementedError
     
@@ -549,7 +543,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         @param new: C{True} when this update is the result of adding a new principal,
             C{False} otherwise.
         """
-        
         # Get attributes from directory
         if attrs is None:
             attrs = self.directoryAttributes(name)
@@ -699,7 +692,6 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         @param guid: the C{str} containing the GUID to match.
         @return: C{list} with matching principal URIs
         """
-        
         # Only both for group collections
         if self.type != DirectoryTypePrincipalProvisioningResource.typeGroup:
             return []
