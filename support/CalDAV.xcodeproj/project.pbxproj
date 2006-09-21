@@ -54,7 +54,6 @@
 		350892600ABA0AC100F9995A /* repository-dev.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "repository-dev.xml"; sourceTree = "<group>"; };
 		350892610ABA0AC100F9995A /* repository-static.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "repository-static.xml"; sourceTree = "<group>"; };
 		350892620ABA0AC100F9995A /* repository.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = repository.dtd; sourceTree = "<group>"; };
-		3524530309897DC400B9179C /* TODO.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = TODO.txt; sourceTree = "<group>"; };
 		3524532E098982D900B9179C /* test_DAV.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_DAV.py; sourceTree = "<group>"; };
 		353696D1092BB6500075CE69 /* test_icalendar.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_icalendar.py; sourceTree = "<group>"; };
 		353A557C099153D900A08D28 /* setup.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = setup.py; path = ../setup.py; sourceTree = "<group>"; };
@@ -159,7 +158,6 @@
 		35069C2C0922B96300389D48 /* test */ = {
 			isa = PBXGroup;
 			children = (
-				3524530309897DC400B9179C /* TODO.txt */,
 				3524532E098982D900B9179C /* test_DAV.py */,
 				35069C790922B96300389D48 /* test_calendarquery.py */,
 				35069C7B0922B96300389D48 /* test_collectioncontents.py */,
