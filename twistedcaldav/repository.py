@@ -158,7 +158,6 @@ class RepositoryBuilder(object):
         Parse the required information from an XML file.
         @param file: the path of the XML file to parse.
         """
-        
         # Read in XML
         fd = open(file, "r")
         doc = xml.dom.minidom.parse( fd )
@@ -194,8 +193,6 @@ class DocRoot(object):
     """
     Represents the hierarchy of resource collections that form the CalDAV repository.
     """
-    
-    
     def __init__(self, docroot):
         """
         @param docroot: the file system path for the root of the hierarchy.
@@ -224,7 +221,6 @@ class DocRoot(object):
         """
         Build the entire repository starting at the root resource.
         """
-        
         self.collection.build(self.path, "/")
         
         # Setup the principal-collection-set property if required
@@ -370,7 +366,6 @@ class Prop(object):
     """
     Parses a property from XML.
     """
-
     def __init__(self):
         self.prop = None
 
@@ -403,7 +398,6 @@ class ACL(object):
     """
     Parses a DAV:ACL from XML.
     """
-    
     def __init__(self):
         self.acl = None
 

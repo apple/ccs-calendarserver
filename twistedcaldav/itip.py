@@ -40,9 +40,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.fileop import delete
-from twistedcaldav import constants
 from twistedcaldav import caldavxml
-from twistedcaldav.ical import Property
+from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, isCalendarCollectionResource
@@ -523,7 +522,7 @@ def checkForReply(request, principal, calendar):
     replycal.getProperty("METHOD").setValue("REPLY")
     
     # Change PRODID to this server
-    replycal.getProperty("PRODID").setValue(constants.ICALENDAR_PRODID)
+    replycal.getProperty("PRODID").setValue(iCalendarProductID)
     
     # Add REQUEST-STATUS
     if accepted:

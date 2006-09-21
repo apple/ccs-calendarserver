@@ -41,7 +41,7 @@ class ScheduleResponseResponse (Response):
         @param xml_responses: an interable of davxml.Response objects.
         @param location:      the value of the location header to return in the response,
                               or None.
-         """
+        """
 
         Response.__init__(self, code=responsecode.OK,
                           stream=caldavxml.ScheduleResponse(*xml_responses).toxml())

@@ -31,14 +31,18 @@ from twistedcaldav.db import db_basename
 
 __version__ = "0.0"
 
-__all__ = ["UserIndex",
-           "GroupIndex",
-           "ResourceIndex"]
+__all__ = [
+    "UserIndex",
+    "GroupIndex",
+    "ResourceIndex",
+]
 
 schema_version = "1"
-collection_types = {"Users": "User Principals",
-                    "Groups": "Group Principals",
-                    "Resources": "Resource Principals"}
+collection_types = {
+    "Users"    : "User Principals",
+    "Groups"   : "Group Principals",
+    "Resources": "Resource Principals",
+}
 
 class PrincipalIndex(AbstractIndex):
     """
