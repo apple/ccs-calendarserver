@@ -35,7 +35,6 @@ __all__ = [
 
 import os
 import errno
-import stat
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
@@ -330,28 +329,26 @@ class CalDAVFile (CalDAVResource, DAVFile):
             """
         
             total = 0
-            for f in os.listdir(top):
+            for f in top.listdir():
                 
                 # Ignore the database
                 if top_level and f == db_basename:
                     continue
 
-                pathname = os.path.join(top, f)
-                result = os.stat(pathname)
-                mode = result[stat.ST_MODE]
-                if stat.S_ISDIR(mode):
+                child = top.child(f)
+                if child.isdir():
                     # It's a directory, recurse into it
-                    total += walktree(pathname)
-                elif stat.S_ISREG(mode):
+                    total += walktree(child)
+                elif child.isfile():
                     # It's a file, call the callback function
-                    total += result[stat.ST_SIZE]
+                    total += child.getsize()
                 else:
                     # Unknown file type, print a message
                     pass
         
             return total
         
-        return walktree(self.fp.path, True)
+        return walktree(self.fp, True)
 
     ##
     # Utilities

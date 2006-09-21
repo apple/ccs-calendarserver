@@ -2,15 +2,7 @@ Index: twisted/web2/dav/static.py
 ===================================================================
 --- twisted/web2/dav/static.py	(revision 18209)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -29,6 +29,7 @@
- __all__ = ["DAVFile"]
- 
- import os
-+import stat
- 
- from twisted.python import log
- from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
-@@ -98,6 +99,58 @@
+@@ -98,6 +98,57 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -28,8 +20,7 @@ Index: twisted/web2/dav/static.py
 +        if self.isCollection():
 +            return self.collectionQuotaUse(request)
 +        else:
-+            result = os.stat(self.fp.path)
-+            return result[stat.ST_SIZE]
++            return self.fp.getsize()
 +
 +    def collectionQuotaUse(self, request):
 +        """
@@ -44,26 +35,26 @@ Index: twisted/web2/dav/static.py
 +            """
 +            Recursively descend the directory tree rooted at top,
 +            calling the callback function for each regular file
++            
++            @param top: L{FilePath} for the directory to walk.
 +            """
 +        
 +            total = 0
-+            for f in os.listdir(top):
-+                pathname = os.path.join(top, f)
-+                result = os.stat(pathname)
-+                mode = result[stat.ST_MODE]
-+                if stat.S_ISDIR(mode):
++            for f in top.listdir():
++                child = top.child(f)
++                if child.isdir():
 +                    # It's a directory, recurse into it
-+                    total += walktree(pathname)
-+                elif stat.S_ISREG(mode):
++                    total += walktree(child)
++                elif child.isfile():
 +                    # It's a file, call the callback function
-+                    total += result[stat.ST_SIZE]
++                    total += child.getsize()
 +                else:
 +                    # Unknown file type, print a message
 +                    pass
 +        
 +            return total
 +        
-+        return walktree(self.fp.path)
++        return walktree(self.fp)
 +
 +    ##
      # Workarounds for issues with File
