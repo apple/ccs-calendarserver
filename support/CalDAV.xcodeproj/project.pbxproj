@@ -59,6 +59,14 @@
 		353696D1092BB6500075CE69 /* test_icalendar.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = test_icalendar.py; sourceTree = "<group>"; };
 		353A557C099153D900A08D28 /* setup.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = setup.py; path = ../setup.py; sourceTree = "<group>"; };
 		353A63BF0994448C00A08D28 /* caldavd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = caldavd; sourceTree = "<group>"; };
+		356E29FC0AC301C900F46D07 /* authkerb.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = authkerb.py; sourceTree = "<group>"; };
+		356E29FE0AC301C900F46D07 /* customxml.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = customxml.py; sourceTree = "<group>"; };
+		356E29FF0AC301C900F46D07 /* db.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = db.py; sourceTree = "<group>"; };
+		356E2A000AC301C900F46D07 /* directory.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = directory.py; sourceTree = "<group>"; };
+		356E2A010AC301C900F46D07 /* itip.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = itip.py; sourceTree = "<group>"; };
+		356E2A020AC301C900F46D07 /* principalindex.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = principalindex.py; sourceTree = "<group>"; };
+		356E2A440AC3057F00F46D07 /* post.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = post.py; sourceTree = "<group>"; };
+		356E2A450AC3057F00F46D07 /* schedule_common.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = schedule_common.py; sourceTree = "<group>"; };
 		359CD65C0946136A002E3A15 /* test_xml.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_xml.py; sourceTree = "<group>"; };
 		35A15ED40985C14800D404FF /* run */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = run; path = ../run; sourceTree = "<group>"; };
 		35A15ED60985C14800D404FF /* test */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = test; path = ../test; sourceTree = "<group>"; };
@@ -106,13 +114,19 @@
 				35F36C0E09B4FA6A00A3D736 /* icaldav.py */,
 				35F36BAF09B3E8AD00A3D736 /* resource.py */,
 				35069C2A0922B96300389D48 /* static.py */,
-				35069C840922B96300389D48 /* ical.py */,
-				350781A2096DF5A4004A4366 /* dateops.py */,
-				35B71A24097C3A3000E65B22 /* instance.py */,
-				35069C1B0922B96300389D48 /* index.py */,
-				35069C190922B96300389D48 /* caldavxml.py */,
-				35B8AA670A0BFE60005547E5 /* repository.py */,
 				35B8AA660A0BFE60005547E5 /* http.py */,
+				35069C190922B96300389D48 /* caldavxml.py */,
+				356E29FE0AC301C900F46D07 /* customxml.py */,
+				356E29FC0AC301C900F46D07 /* authkerb.py */,
+				35069C840922B96300389D48 /* ical.py */,
+				356E2A010AC301C900F46D07 /* itip.py */,
+				35B71A24097C3A3000E65B22 /* instance.py */,
+				350781A2096DF5A4004A4366 /* dateops.py */,
+				35069C1B0922B96300389D48 /* index.py */,
+				356E2A020AC301C900F46D07 /* principalindex.py */,
+				356E29FF0AC301C900F46D07 /* db.py */,
+				35B8AA670A0BFE60005547E5 /* repository.py */,
+				356E2A000AC301C900F46D07 /* directory.py */,
 				35E2ACFF09BF6D3400BC8CB9 /* logging.py */,
 				35069C170922B96300389D48 /* __init__.py */,
 				35069C1D0922B96300389D48 /* method */,
@@ -124,10 +138,12 @@
 		35069C1D0922B96300389D48 /* method */ = {
 			isa = PBXGroup;
 			children = (
+				356E2A450AC3057F00F46D07 /* schedule_common.py */,
 				35B71A25097C3B2C00E65B22 /* copymove.py */,
 				35B71A26097C3B2C00E65B22 /* delete.py */,
 				35069C200922B96300389D48 /* mkcalendar.py */,
 				35069C220922B96300389D48 /* mkcol.py */,
+				356E2A440AC3057F00F46D07 /* post.py */,
 				35069C240922B96300389D48 /* put.py */,
 				35E2AF1409C2491600BC8CB9 /* put_common.py */,
 				35069C260922B96300389D48 /* report_calquery.py */,
