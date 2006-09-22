@@ -40,16 +40,15 @@ from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
+from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedACLProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
-from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
@@ -735,8 +734,8 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
                 inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(TwistedACLProperty()):
-                outbox.removeDeadProperty(TwistedACLProperty())
+            if outbox.hasDeadProperty(davxml.ACL()):
+                outbox.removeDeadProperty(davxml.ACL())
 
         calendars = []
         for calendar in cals:

@@ -31,8 +31,6 @@ from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedACLProperty
-from twisted.web2.dav.resource import TwistedPrincipalCollectionSetProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twistedcaldav import caldavxml
@@ -218,7 +216,7 @@ class DocRoot (object):
                 return
             
             # Create the private property
-            pcs = TwistedPrincipalCollectionSetProperty(davxml.HRef.fromString(self.principalCollection.uri))
+            pcs = davxml.PrincipalCollectionSet(davxml.HRef.fromString(self.principalCollection.uri))
             self.collection.resource.writeDeadProperty(pcs)
 
 class Collection (object):
@@ -630,8 +628,8 @@ class Provisioner (object):
                 inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(TwistedACLProperty()):
-                outbox.removeDeadProperty(TwistedACLProperty())
+            if outbox.hasDeadProperty(davxml.ACL()):
+                outbox.removeDeadProperty(davxml.ACL())
 
         calendars = []
         for calendar in item.calendars:
