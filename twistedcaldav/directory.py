@@ -39,7 +39,6 @@ from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.auth import IPrincipalCredentials
-from twisted.web2.dav.resource import TwistedAccessDisabledProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
@@ -250,21 +249,20 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
         @param calhome: L{DAVFile} for the container of the calendar home of this user.
         @param enable: C{True} to enable, C{False} to disable.
         """
-        
         # Get home collection resource
         calrsrc = calhome.getChild(self.principalUID())
 
         # Handle access for the calendar home
         if enable:
-            calrsrc.removeDeadProperty(TwistedAccessDisabledProperty)
+            calrsrc.disable(False)
         else:
-            calrsrc.writeDeadProperty(TwistedAccessDisabledProperty())
+            calrsrc.disable(True)
 
     def remove(self, calhome):
         """
         Remove this principal by hiding (archiving) any calendars owned by it. This is done
-        by turning on the TwistedAccessDisabledProperty and renaming the calendar home to ensure
-        a future user with the same id won't see the old calendars.
+        by turning on the disabling and renaming the calendar home to ensure a future user
+        with the same id won't see the old calendars.
         
         @param calhome: L{DAVFile} for the container of the calendar home of this user.
         """
@@ -273,7 +271,7 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
         calrsrc = calhome.getChild(self.principalUID())
 
         # Disable access for the calendar home
-        calrsrc.writeDeadProperty(TwistedAccessDisabledProperty())
+        calrsrc.disable(True)
         
         # Rename the calendar home to the original name with the GUID appended
         newname = self.principalUID() + "-" + self.getPropertyValue(customxml.TwistedGUIDProperty)
@@ -292,8 +290,7 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
                     (calrsrc.fp.path, calrsrc.fp.sibling(newname).path))
             
             # Remove the disabled property to prevent lock out in the future
-            calrsrc.removeDeadProperty(TwistedAccessDisabledProperty())
-           
+            calrsrc.disable(False)
 
 class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionResource, DAVFile):
     """
