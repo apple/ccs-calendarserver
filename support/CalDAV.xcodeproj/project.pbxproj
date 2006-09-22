@@ -66,6 +66,11 @@
 		356E2A020AC301C900F46D07 /* principalindex.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = principalindex.py; sourceTree = "<group>"; };
 		356E2A440AC3057F00F46D07 /* post.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = post.py; sourceTree = "<group>"; };
 		356E2A450AC3057F00F46D07 /* schedule_common.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = schedule_common.py; sourceTree = "<group>"; };
+		356E2A480AC3490100F46D07 /* caldavd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = caldavd.8; sourceTree = "<group>"; };
+		356E2A490AC3490100F46D07 /* twisted.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = twisted.cfg; sourceTree = "<group>"; };
+		356E2A4A0AC3490100F46D07 /* twistedcaldav.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = twistedcaldav.cfg; sourceTree = "<group>"; };
+		356E2A510AC3495700F46D07 /* Directory Repository.graffle */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "Directory Repository.graffle"; sourceTree = "<group>"; };
+		356E2A520AC3495700F46D07 /* XML Repository.graffle */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "XML Repository.graffle"; sourceTree = "<group>"; };
 		359CD65C0946136A002E3A15 /* test_xml.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_xml.py; sourceTree = "<group>"; };
 		35A15ED40985C14800D404FF /* run */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = run; path = ../run; sourceTree = "<group>"; };
 		35A15ED60985C14800D404FF /* test */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = test; path = ../test; sourceTree = "<group>"; };
@@ -113,6 +118,7 @@
 				35F36C0E09B4FA6A00A3D736 /* icaldav.py */,
 				35F36BAF09B3E8AD00A3D736 /* resource.py */,
 				35069C2A0922B96300389D48 /* static.py */,
+				356E2A000AC301C900F46D07 /* directory.py */,
 				35B8AA660A0BFE60005547E5 /* http.py */,
 				35069C190922B96300389D48 /* caldavxml.py */,
 				356E29FE0AC301C900F46D07 /* customxml.py */,
@@ -125,7 +131,6 @@
 				356E2A020AC301C900F46D07 /* principalindex.py */,
 				356E29FF0AC301C900F46D07 /* db.py */,
 				35B8AA670A0BFE60005547E5 /* repository.py */,
-				356E2A000AC301C900F46D07 /* directory.py */,
 				35E2ACFF09BF6D3400BC8CB9 /* logging.py */,
 				35069C170922B96300389D48 /* __init__.py */,
 				35069C1D0922B96300389D48 /* method */,
@@ -200,7 +205,11 @@
 			isa = PBXGroup;
 			children = (
 				3506A86C0922BE1500389D48 /* CalendarIndex.xcdatamodel */,
+				356E2A500AC3492D00F46D07 /* Repository */,
 				3506A86D0922BE1500389D48 /* RFC */,
+				356E2A480AC3490100F46D07 /* caldavd.8 */,
+				356E2A490AC3490100F46D07 /* twisted.cfg */,
+				356E2A4A0AC3490100F46D07 /* twistedcaldav.cfg */,
 			);
 			name = Documentation;
 			path = ../doc;
@@ -265,6 +274,15 @@
 			);
 			name = Scripts;
 			path = ../bin;
+			sourceTree = "<group>";
+		};
+		356E2A500AC3492D00F46D07 /* Repository */ = {
+			isa = PBXGroup;
+			children = (
+				356E2A510AC3495700F46D07 /* Directory Repository.graffle */,
+				356E2A520AC3495700F46D07 /* XML Repository.graffle */,
+			);
+			path = Repository;
 			sourceTree = "<group>";
 		};
 		35A15ED30985C12C00D404FF /* Support */ = {
