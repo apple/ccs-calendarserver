@@ -20,8 +20,6 @@
 CalDAV freebusy report
 """
 
-__version__ = "0.0"
-
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred

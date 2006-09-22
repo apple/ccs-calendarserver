@@ -20,8 +20,6 @@
 CalDAV-aware static resources.
 """
 
-__version__ = "0.0"
-
 __all__ = [
     "CalDAVFile",
     "ScheduleInboxFile",

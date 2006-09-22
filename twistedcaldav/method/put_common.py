@@ -20,8 +20,6 @@
 PUT/COPY/MOVE common behavior.
 """
 
-__version__ = "0.0"
-
 __all__ = ["storeCalendarObjectResource"]
 
 from twisted.internet.defer import maybeDeferred

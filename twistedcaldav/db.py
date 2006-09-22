@@ -21,21 +21,16 @@ Abstract SQLite Index base class. This class will be sub-classed for the
 different types of index we need in the server.
 """
 
+__all__ = ["AbstractIndex"]
+
 from pysqlite2 import dbapi2 as sqlite
 from twisted.python import log
 from twisted.python.failure import Failure
 import os
 
-__version__ = "0.0"
-
-__all__ = ["AbstractIndex"]
-
 db_basename = ".db.sqlite"
 
 class AbstractIndex(object):
-    """
-    """
-
     def __init__(self, resource, returnUTF8 = True):
         """
         @param resource: the L{twistedcaldav.static.CalDAVFile} resource to

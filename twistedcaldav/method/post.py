@@ -20,8 +20,6 @@
 CalDAV POST method.
 """
 
-__version__ = "0.0"
-
 __all__ = ["http_POST"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred

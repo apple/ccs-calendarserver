@@ -19,6 +19,15 @@
 """
 Implements a directory-backed principal hierarchy.
 """
+
+__all__ = [
+    "DirectoryPrincipalFile",
+    "DirectoryUserPrincipalProvisioningResource",
+    "DirectoryGroupPrincipalProvisioningResource",
+    "DirectoryResourcePrincipalProvisioningResource",
+    "DirectoryPrincipalProvisioningResource",
+]
+
 from zope.interface import implements
 
 from twisted.cred import checkers, credentials, error
@@ -48,15 +57,6 @@ import dsattributes
 import opendirectory
 import os
 import unicodedata
-
-__all__ = [
-    "DirectoryPrincipalFile",
-    "DirectoryUserPrincipalProvisioningResource",
-    "DirectoryGroupPrincipalProvisioningResource",
-    "DirectoryResourcePrincipalProvisioningResource",
-    "DirectoryPrincipalProvisioningResource",
-]
-
 
 class DirectoryCredentialsChecker:
     implements(checkers.ICredentialsChecker)

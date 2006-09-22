@@ -20,8 +20,6 @@
 CalDAV Schedule processing.
 """
 
-__version__ = "0.0"
-
 __all__ = ["processScheduleRequest"]
 
 from twisted.internet import reactor

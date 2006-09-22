@@ -27,8 +27,6 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-__version__ = "0.0"
-
 from twisted.python import log
 from twisted.web2.dav import davxml
 

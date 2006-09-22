@@ -25,17 +25,15 @@ with those cached locally.
 
 """
 
-from twistedcaldav import customxml
-from twistedcaldav.db import AbstractIndex
-from twistedcaldav.db import db_basename
-
-__version__ = "0.0"
-
 __all__ = [
     "UserIndex",
     "GroupIndex",
     "ResourceIndex",
 ]
+
+from twistedcaldav import customxml
+from twistedcaldav.db import AbstractIndex
+from twistedcaldav.db import db_basename
 
 schema_version = "1"
 collection_types = {

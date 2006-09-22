@@ -20,8 +20,6 @@
 iCalendar Utilities
 """
 
-__version__ = "0.0"
-
 __all__ = [
     "Property",
     "Component",
