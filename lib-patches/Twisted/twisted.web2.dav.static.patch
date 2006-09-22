@@ -1,0 +1,55 @@
+Index: twisted/web2/dav/static.py
+===================================================================
+--- twisted/web2/dav/static.py	(revision 18219)
++++ twisted/web2/dav/static.py	(working copy)
+@@ -98,6 +98,50 @@
+         return succeed(davPrivilegeSet)
+ 
+     ##
++    # Quota
++    ##
++
++    def quotaSize(self, request):
++        """
++        Get the size of this resource.
++        TODO: Take into account size of dead-properties. Does stat
++            include xattrs size?
++
++        @return: an L{Deferred} with a C{int} result containing the size of the resource.
++        """
++        if self.isCollection():
++            def walktree(top):
++                """
++                Recursively descend the directory tree rooted at top,
++                calling the callback function for each regular file
++                
++                @param top: L{FilePath} for the directory to walk.
++                """
++            
++                total = 0
++                for f in top.listdir():
++                    child = top.child(f)
++                    if child.isdir():
++                        # It's a directory, recurse into it
++                        result = waitForDeferred(walktree(child))
++                        yield result
++                        total += result.getResult()
++                    elif child.isfile():
++                        # It's a file, call the callback function
++                        total += child.getsize()
++                    else:
++                        # Unknown file type, print a message
++                        pass
++            
++                yield total
++            
++            walktree = deferredGenerator(walktree)
++    
++            return walktree(self.fp)
++        else:
++            return succeed(self.fp.getsize())
++
++    ##
+     # Workarounds for issues with File
+     ##
+ 
