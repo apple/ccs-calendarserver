@@ -1,11 +1,13 @@
 Index: twisted/python/versions.py
 ===================================================================
---- twisted/python/versions.py  (revision 18204)
-+++ twisted/python/versions.py  (working copy)
-@@ -90,17 +90,8 @@
+--- twisted/python/versions.py	(revision 18241)
++++ twisted/python/versions.py	(working copy)
+@@ -88,19 +88,7 @@
+ 
+         @return: None or string containing SVN Revision number.
          """
-         mod = sys.modules.get(self.package)
-         if mod:
+-        mod = sys.modules.get(self.package)
+-        if mod:
 -            ent = os.path.join(os.path.dirname(mod.__file__),
 -                               '.svn',
 -                               'entries')
@@ -17,8 +19,7 @@ Index: twisted/python/versions.py
 -                        rev = node.getAttribute('revision')
 -                        if rev is not None:
 -                            return rev.encode('ascii')
-+            rev = os.popen("svnversion %r" % (os.path.dirname(mod.__file__),)).read()
-+            return rev
++        return "unknown"
  
      def _formatSVNVersion(self):
          ver = self._getSVNVersion()
