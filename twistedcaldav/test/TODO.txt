@@ -1,2 +1,0 @@
-Tests to write:
-- Make sure index behaviour is correct after COPY, MOVE, DELETE
