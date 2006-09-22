@@ -71,8 +71,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
-    test_allow_header_acl.todo = "ACLs are unimplemented."
-
     def test_allow_header_deltav(self):
         """
         Allow header advertises REPORT
