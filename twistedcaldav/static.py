@@ -309,46 +309,50 @@ class CalDAVFile (CalDAVResource, DAVFile):
     # Quota
     ##
 
-    def collectionQuotaUse(self, request):
+    def quotaSize(self, request):
         """
-        Brute force determination of quota used by this collection.
+        Get the size of this resource.
+        TODO: Take into account size of dead-properties. Does stat
+            include xattrs size?
 
-        @return: a C{int} containing the current used byte if this collection
-            is quota-controlled, or C{None} if not quota controlled.
+        @return: an L{Deferred} with a C{int} result containing the size of the resource.
         """
-        assert self.isCollection(), "Only collections can have a quota root"
-
-        # Do default if not a calendar collection
-        if not self.isPseudoCalendarCollection():
-            return super(CalDAVFile, self).collectionQuotaUse(request)
-
-        def walktree(top, top_level = False):
-            """
-            Recursively descend the directory tree rooted at top,
-            calling the callback function for each regular file
-            """
-        
-            total = 0
-            for f in top.listdir():
+        if self.isCollection():
+            def walktree(top, top_level = False):
+                """
+                Recursively descend the directory tree rooted at top,
+                calling the callback function for each regular file
                 
-                # Ignore the database
-                if top_level and f == db_basename:
-                    continue
-
-                child = top.child(f)
-                if child.isdir():
-                    # It's a directory, recurse into it
-                    total += walktree(child)
-                elif child.isfile():
-                    # It's a file, call the callback function
-                    total += child.getsize()
-                else:
-                    # Unknown file type, print a message
-                    pass
-        
-            return total
-        
-        return walktree(self.fp, True)
+                @param top: L{FilePath} for the directory to walk.
+                """
+            
+                total = 0
+                for f in top.listdir():
+    
+                    # Ignore the database
+                    if top_level and f == db_basename:
+                        continue
+    
+                    child = top.child(f)
+                    if child.isdir():
+                        # It's a directory, recurse into it
+                        result = waitForDeferred(walktree(child))
+                        yield result
+                        total += result.getResult()
+                    elif child.isfile():
+                        # It's a file, call the callback function
+                        total += child.getsize()
+                    else:
+                        # Unknown file type, print a message
+                        pass
+            
+                yield total
+            
+            walktree = deferredGenerator(walktree)
+    
+            return walktree(self.fp, True)
+        else:
+            return succeed(self.fp.getsize())
 
     ##
     # Utilities

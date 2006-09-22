@@ -2,7 +2,7 @@ Index: twisted/web2/dav/static.py
 ===================================================================
 --- twisted/web2/dav/static.py	(revision 18209)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -98,6 +98,57 @@
+@@ -98,6 +98,61 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -15,18 +15,18 @@ Index: twisted/web2/dav/static.py
 +        TODO: Take into account size of dead-properties. Does stat
 +            include xattrs size?
 +
-+        @return: a C{int} containing the size of the resource.
++        @return: an L{Deferred} with a C{int} result containing the size of the resource.
 +        """
 +        if self.isCollection():
 +            return self.collectionQuotaUse(request)
 +        else:
-+            return self.fp.getsize()
++            return succeed(self.fp.getsize())
 +
 +    def collectionQuotaUse(self, request):
 +        """
 +        Brute force determination of quota used by this collection.
 +
-+        @return: a C{int} containing the current used byte if this collection
++        @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
 +            is quota-controlled, or C{None} if not quota controlled.
 +        """
 +        assert self.isCollection(), "Only collections can have a quota root"
@@ -44,7 +44,9 @@ Index: twisted/web2/dav/static.py
 +                child = top.child(f)
 +                if child.isdir():
 +                    # It's a directory, recurse into it
-+                    total += walktree(child)
++                    result = waitForDeferred(walktree(child))
++                    yield result
++                    total += result.getResult()
 +                elif child.isfile():
 +                    # It's a file, call the callback function
 +                    total += child.getsize()
@@ -52,8 +54,10 @@ Index: twisted/web2/dav/static.py
 +                    # Unknown file type, print a message
 +                    pass
 +        
-+            return total
++            yield total
 +        
++        walktree = deferredGenerator(walktree)
++
 +        return walktree(self.fp)
 +
 +    ##

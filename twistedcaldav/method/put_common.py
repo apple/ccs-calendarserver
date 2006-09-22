@@ -384,7 +384,9 @@ def storeCalendarObjectResource(
         yield destquota
         destquota = destquota.getResult()
         if destquota is not None and destination.exists():
-            old_dest_size = destination.quotaSize(request)
+            old_dest_size = waitForDeferred(destination.quotaSize(request))
+            yield old_dest_size
+            old_dest_size = old_dest_size.getResult()
         else:
             old_dest_size = 0
             
@@ -393,7 +395,9 @@ def storeCalendarObjectResource(
             yield sourcequota
             sourcequota = sourcequota.getResult()
             if sourcequota is not None and source.exists():
-                old_source_size = source.quotaSize(request)
+                old_source_size = waitForDeferred(source.quotaSize(request))
+                yield old_source_size
+                old_source_size = old_source_size.getResult()
             else:
                 old_source_size = 0
         else:
@@ -531,7 +535,9 @@ def storeCalendarObjectResource(
         # Do quota check on destination
         if destquota is not None:
             # Get size of new/old resources
-            new_dest_size = destination.quotaSize(request)
+            new_dest_size = waitForDeferred(destination.quotaSize(request))
+            yield new_dest_size
+            new_dest_size = new_dest_size.getResult()
             diff_size = new_dest_size - old_dest_size
             if diff_size >= destquota[0]:
                 log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))

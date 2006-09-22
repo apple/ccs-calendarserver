@@ -2,7 +2,7 @@ Index: twisted/web2/dav/idav.py
 ===================================================================
 --- twisted/web2/dav/idav.py	(revision 18209)
 +++ twisted/web2/dav/idav.py	(working copy)
-@@ -180,6 +180,72 @@
+@@ -180,6 +180,80 @@
              the specified principal.
          """
  
@@ -20,6 +20,14 @@ Index: twisted/web2/dav/idav.py
 +            C{None} if quota is not defined on the resource.
 +        """
 +    
++    def hasQuota(request):
++        """
++        Check whether this resource is undre quota control by checking each parent to see if
++        it has a quota root.
++        
++        @return: C{True} if under quota control, C{False} if not.
++        """
++        
 +    def hasQuotaRoot(request):
 +        """
 +        Determine whether the resource has a quota root.
@@ -49,7 +57,7 @@ Index: twisted/web2/dav/idav.py
 +        Get the size of this resource (if its a collection get total for all children as well).
 +        TODO: Take into account size of dead-properties.
 +
-+        @return: a C{int} containing the size of the resource.
++        @return: a L{Deferred} with a C{int} result containing the size of the resource.
 +        """
 +        
 +    def currentQuotaUse(request):
@@ -57,8 +65,8 @@ Index: twisted/web2/dav/idav.py
 +        Get the cached quota use value, or if not present (or invalid) determine
 +        quota use by brute force.
 +
-+        @return: a C{int} containing the current used byte if this collection
-+            is quota-controlled, or C{None} if not quota controlled.
++        @return: an L{Deferred} with a C{int} result containing the current used byte count if
++            this collection is quota-controlled, or C{None} if not quota controlled.
 +        """
 +        
 +    def updateQuotaUse(request, adjust):
@@ -68,7 +76,7 @@ Index: twisted/web2/dav/idav.py
 +
 +        @param adjust: a C{int} containing the number of bytes added (positive) or
 +        removed (negative) that should be used to adjust the cached total.
-+        @return: a C{int} containing the current used byte if this collection
++        @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
 +            is quota-controlled, or C{None} if not quota controlled.
 +        """
 +
