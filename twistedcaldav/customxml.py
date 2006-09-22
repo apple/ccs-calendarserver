@@ -29,8 +29,6 @@ from twisted.web2.dav.element import parser
 from twisted.web2.dav.resource import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
-__version__ = "0.0"
-
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     Contains the GUID value for a directory record corresponding to a principal.

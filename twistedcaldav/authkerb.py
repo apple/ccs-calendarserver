@@ -29,7 +29,6 @@ This implements two authentication modes:
      that implements full GSSAPI authentication.
 """
 
-
 __all__ = [
     "BasicKerberosCredentials",
     "BasicKerberosAuthorizer",

@@ -22,6 +22,8 @@ auto-provisioning of user calendar home collections and principals, with appropr
 properties, access control etc setup.
 """
 
+__all__ = ["RepositoryBuilder"]
+
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
@@ -29,8 +31,6 @@ from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedACLProperty
-from twisted.web2.dav.resource import TwistedPrincipalCollectionSetProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twistedcaldav import caldavxml
@@ -102,28 +102,30 @@ ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
 
-classMap = {"DAVFile":                                        DAVFile,
-            "CalDAVFile":                                     CalDAVFile,
-            "CalendarPrincipalProvisioningResource":          CalendarPrincipalProvisioningResource,
-            "CalendarUserPrincipalProvisioningResource":      CalendarUserPrincipalProvisioningResource,
-            "CalendarPrincipalFile":                          CalendarPrincipalFile,
-            "CalendarHomeProvisioningFile":                   CalendarHomeProvisioningFile,
-            "CalendarHomeFile":                               CalendarHomeFile,
-            "DirectoryPrincipalProvisioningResource":         DirectoryPrincipalProvisioningResource,
-            "DirectoryUserPrincipalProvisioningResource":     DirectoryUserPrincipalProvisioningResource,
-            "DirectoryGroupPrincipalProvisioningResource":    DirectoryGroupPrincipalProvisioningResource,
-            "DirectoryResourcePrincipalProvisioningResource": DirectoryResourcePrincipalProvisioningResource,
+classMap = {
+    "DAVFile":                                        DAVFile,
+    "CalDAVFile":                                     CalDAVFile,
+    "CalendarPrincipalProvisioningResource":          CalendarPrincipalProvisioningResource,
+    "CalendarUserPrincipalProvisioningResource":      CalendarUserPrincipalProvisioningResource,
+    "CalendarPrincipalFile":                          CalendarPrincipalFile,
+    "CalendarHomeProvisioningFile":                   CalendarHomeProvisioningFile,
+    "CalendarHomeFile":                               CalendarHomeFile,
+    "DirectoryPrincipalProvisioningResource":         DirectoryPrincipalProvisioningResource,
+    "DirectoryUserPrincipalProvisioningResource":     DirectoryUserPrincipalProvisioningResource,
+    "DirectoryGroupPrincipalProvisioningResource":    DirectoryGroupPrincipalProvisioningResource,
+    "DirectoryResourcePrincipalProvisioningResource": DirectoryResourcePrincipalProvisioningResource,
 }
 
-urld = ["CalendarPrincipalProvisioningResource",
-        "CalendarUserPrincipalProvisioningResource",
-        "DirectoryPrincipalProvisioningResource",
-        "DirectoryUserPrincipalProvisioningResource",
-        "DirectoryGroupPrincipalProvisioningResource",
-        "DirectoryResourcePrincipalProvisioningResource",
-        ]
+urld = [
+    "CalendarPrincipalProvisioningResource",
+    "CalendarUserPrincipalProvisioningResource",
+    "DirectoryPrincipalProvisioningResource",
+    "DirectoryUserPrincipalProvisioningResource",
+    "DirectoryGroupPrincipalProvisioningResource",
+    "DirectoryResourcePrincipalProvisioningResource",
+]
 
-class RepositoryBuilder(object):
+class RepositoryBuilder (object):
     """
     Builds a repository hierarchy at a supplied document root file system path,
     and optionally provisions accounts.
@@ -189,7 +191,7 @@ class RepositoryBuilder(object):
             elif child._get_localName() == ELEMENT_ACCOUNTS:
                 self.accounts.parseXML(child)
 
-class DocRoot(object):
+class DocRoot (object):
     """
     Represents the hierarchy of resource collections that form the CalDAV repository.
     """
@@ -231,10 +233,10 @@ class DocRoot(object):
                 return
             
             # Create the private property
-            pcs = TwistedPrincipalCollectionSetProperty(davxml.HRef.fromString(self.principalCollection.uri))
+            pcs = davxml.PrincipalCollectionSet(davxml.HRef.fromString(self.principalCollection.uri))
             self.collection.resource.writeDeadProperty(pcs)
 
-class Collection(object):
+class Collection (object):
     """
     Contains information about a collection in the repository.
     """
@@ -362,7 +364,7 @@ class Collection(object):
 
         return self.resource
 
-class Prop(object):
+class Prop (object):
     """
     Parses a property from XML.
     """
@@ -394,7 +396,7 @@ class Prop(object):
 
         return propClazz(*children)
         
-class ACL(object):
+class ACL (object):
     """
     Parses a DAV:ACL from XML.
     """
@@ -498,7 +500,7 @@ class ACL(object):
                    item = davxml.HRef.fromString("")
         return davxml.Inherited(item)
     
-class Provisioner(object):
+class Provisioner (object):
     """
     Manages account provisioning.
     """
@@ -647,8 +649,8 @@ class Provisioner(object):
                 inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(TwistedACLProperty()):
-                outbox.removeDeadProperty(TwistedACLProperty())
+            if outbox.hasDeadProperty(davxml.ACL()):
+                outbox.removeDeadProperty(davxml.ACL())
 
         calendars = []
         for calendar in item.calendars:
@@ -680,7 +682,7 @@ class Provisioner(object):
             fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
             inbox.writeDeadProperty(fbset)
 
-class ProvisionPrincipal(object):
+class ProvisionPrincipal (object):
     """
     Contains provision information for one user.
     """
@@ -759,5 +761,3 @@ class ProvisionPrincipal(object):
                 self.acl.parseXML(child)
             elif child._get_localName() == ELEMENT_AUTORESPOND:
                 self.autorespond = True
-
-           

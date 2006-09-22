@@ -16,10 +16,10 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-__version__ = "0.0"
-
-__all__ = ["ScheduleResponseResponse", "ScheduleResponseQueue"]
-
+__all__ = [
+    "ScheduleResponseResponse",
+    "ScheduleResponseQueue"
+]
 
 from twisted.python import log
 from twisted.python.failure import Failure

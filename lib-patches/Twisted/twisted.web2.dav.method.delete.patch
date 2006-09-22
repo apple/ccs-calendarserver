@@ -1,8 +1,8 @@
 Index: twisted/web2/dav/method/delete.py
 ===================================================================
---- twisted/web2/dav/method/delete.py	(revision 18209)
+--- twisted/web2/dav/method/delete.py	(revision 18219)
 +++ twisted/web2/dav/method/delete.py	(working copy)
-@@ -58,8 +58,26 @@
+@@ -58,8 +58,28 @@
      yield x
      x.getResult()
  
@@ -11,7 +11,9 @@ Index: twisted/web2/dav/method/delete.py
 +    yield myquota
 +    myquota = myquota.getResult()
 +    if myquota is not None:
-+        old_size = self.quotaSize(request)
++        old_size = waitForDeferred(self.quotaSize(request))
++        yield old_size
++        old_size = old_size.getResult()
 +    else:
 +        old_size = 0
 +

@@ -20,8 +20,6 @@
 CalDAV SCHEDULE method.
 """
 
-__version__ = "0.0"
-
 __all__ = ["http_SCHEDULE"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred

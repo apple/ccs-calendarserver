@@ -18,15 +18,19 @@
 
 """
 iTIP (RFC2446) processing.
-
-This is currently used for handling auto-replies to schedule request arriving in an Inbox. It is called in a delayed
-fashion via reactor.callLater.
-
-BTW We assume that all the components/calendars we deal with have been determined as being 'valid for CalDAV/iTIP'.
-i.e. they contain UIDs, single component types etc.
-
-NB The logic for component matching needs a lot more work as it currently does not know how to deal with overridden instances.
 """
+
+#
+# This is currently used for handling auto-replies to schedule requests arriving
+# in an inbox. It is called in a delayed fashion via reactor.callLater.
+#
+# We assume that all the components/calendars we deal with have been determined
+# as being 'valid for CalDAV/iTIP', i.e. they contain UIDs, single component
+# types, etc.
+#
+# The logic for component matching needs a lot more work as it currently does not
+# know how to deal with overridden instances.
+#
 
 import datetime
 import logging

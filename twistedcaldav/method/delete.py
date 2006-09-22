@@ -20,8 +20,6 @@
 CalDAV DELETE method.
 """
 
-__version__ = "0.0"
-
 __all__ = ["http_DELETE"]
 
 from twisted.internet.defer import maybeDeferred

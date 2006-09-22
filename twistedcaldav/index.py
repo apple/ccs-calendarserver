@@ -23,9 +23,11 @@ This API is considered private to static.py and is therefore subject to
 change.
 """
 
-__version__ = "0.0"
-
-__all__ = ["Index"]
+__all__ = [
+    "AbstractIndex",
+    "Index",
+    "IndexSchedule",
+]
 
 import os
 import datetime
@@ -665,7 +667,6 @@ class IndexSchedule (CalendarIndex):
     """
     Schedule collection index - does not require UID uniqueness.
     """
-    
     def __init__(self, resource):
         """
         @param resource: the L{twistedcaldav.static.CalDAVFile} resource to

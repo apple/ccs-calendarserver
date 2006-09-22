@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/idav.py
 ===================================================================
---- twisted/web2/dav/idav.py	(revision 18209)
+--- twisted/web2/dav/idav.py	(revision 18219)
 +++ twisted/web2/dav/idav.py	(working copy)
 @@ -180,6 +180,80 @@
              the specified principal.

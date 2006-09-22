@@ -1,8 +1,8 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18209)
+--- twisted/web2/dav/resource.py	(revision 18219)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -75,7 +75,9 @@
+@@ -80,7 +80,9 @@
         stored anywhere (by this class) but instead are derived from the resource
         state or from data that is persisted elsewhere.  These are listed in the
         L{liveProperties} attribute and are handled explicitly by the
@@ -13,16 +13,7 @@ Index: twisted/web2/dav/resource.py
  
      3. Live properties may be acted on specially and are stored in the X{dead
         property store}.  These are not listed in the L{liveProperties} attribute,
-@@ -125,6 +127,8 @@
-         (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
-         (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
-         (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
-+        (dav_namespace, "quota-available-bytes"     ), # RFC 4331, section 3
-+        (dav_namespace, "quota-used-bytes"          ), # RFC 4331, section 4
- 
-         (twisted_dav_namespace, "resource-class"),
-     )
-@@ -129,6 +133,12 @@
+@@ -134,6 +136,12 @@
          (twisted_dav_namespace, "resource-class"),
      )
  
@@ -35,26 +26,26 @@ Index: twisted/web2/dav/resource.py
      def deadProperties(self):
          """
          Provides internal access to the WebDAV dead property store.  You
-@@ -161,6 +171,15 @@
+@@ -166,6 +174,15 @@
          if qname[0] == twisted_private_namespace:
              return succeed(False)
  
 +        # Need to special case the dynamic live properties
-+        if (qname in self.dynamicLiveProperties):
++        if qname in self.dynamicLiveProperties:
 +            namespace, name = qname
 +            if namespace == dav_namespace:
-+                if name in ["quota-available-bytes", "quota-used-bytes"]:
-+                    d = self.quota(request)
-+                    d.addCallback(lambda qvalue: qvalue is not None)
++                if name in ("quota-available-bytes", "quota-used-bytes"):
++                    d = self.hasQuota(request)
++                    d.addCallback(lambda result: result)
 +                    return d
 +        
          return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
  
      def readProperty(self, property, request):
-@@ -263,6 +282,32 @@
-                         # TODO: Merge change from original patch
-                         lambda: self.safeAccessControlList(request)
-                     )
+@@ -272,6 +289,32 @@
+                         d.addCallback(gotACL)
+                         return d
+                     return ifAllowed((davxml.ReadACL(),), callback)
 +                    
 +                if name == "quota-available-bytes":
 +                    def callback(qvalue):
@@ -82,9 +73,9 @@ Index: twisted/web2/dav/resource.py
 +                    d.addCallback(callback)
 +                    return d
  
-             if namespace == twisted_dav_namespace:
+             elif namespace == twisted_dav_namespace:
                  if name == "resource-class":
-@@ -320,7 +365,8 @@
+@@ -329,7 +372,8 @@
                  qname = property.qname()
                  sname = property.sname()
  
@@ -94,7 +85,7 @@ Index: twisted/web2/dav/resource.py
                  raise HTTPError(StatusResponse(
                      responsecode.FORBIDDEN,
                      "Live property %s cannot be deleted." % (sname,)
-@@ -343,6 +389,14 @@
+@@ -352,6 +396,14 @@
          # FIXME: A set would be better here, that that's a python 2.4+ feature.
          qnames = list(self.liveProperties)
  
@@ -109,7 +100,7 @@ Index: twisted/web2/dav/resource.py
          for qname in self.deadProperties().list():
              if (qname not in qnames) and (qname[0] != twisted_private_namespace):
                  qnames.append(qname)
-@@ -347,7 +401,9 @@
+@@ -356,7 +408,9 @@
              if (qname not in qnames) and (qname[0] != twisted_private_namespace):
                  qnames.append(qname)
  
@@ -120,7 +111,7 @@ Index: twisted/web2/dav/resource.py
  
      def listAllprop(self, request):
          """
-@@ -1507,6 +1563,264 @@
+@@ -1501,6 +1555,265 @@
          return None
  
      ##
@@ -203,6 +194,7 @@ Index: twisted/web2/dav/resource.py
 +        # Check this one first
 +        if self.hasQuotaRoot(request):
 +            yield True
++            return
 +        
 +        # Look at each parent
 +        url = request.urlForResource(self)
@@ -385,9 +377,9 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1741,6 +2055,28 @@
- 
- davxml.registerElement(TwistedAccessDisabledProperty)
+@@ -1702,6 +2015,28 @@
+ davxml.registerElement(TwistedACLInheritable)
+ davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
 +"""
 +When set on a collection, this property indicates that the collection has a quota limit for

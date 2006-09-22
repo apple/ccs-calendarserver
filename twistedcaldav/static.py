@@ -20,8 +20,6 @@
 CalDAV-aware static resources.
 """
 
-__version__ = "0.0"
-
 __all__ = [
     "CalDAVFile",
     "ScheduleInboxFile",
@@ -41,17 +39,16 @@ from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDefe
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
+from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedACLProperty
 from twisted.web2.dav.resource import TwistedQuotaRootProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
-from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
@@ -607,6 +604,31 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, clazz(child_fp.path))
 
+    def disable(self, disabled=True):
+        """
+        Completely disables all access to this resource, regardless of ACL
+        settings.
+        @param disabled: If true, disabled all access. If false, enables access.
+        """
+        if disabled:
+            self.writeDeadProperty(AccessDisabled)
+        else:
+            self.removeDeadProperty(AccessDisabled)
+
+    def isDisabled(self):
+        """
+        @return: C{True} if access to this resource is disabled, C{False}
+            otherwise.
+        """
+        return self.hasDeadProperty(AccessDisabled)
+
+    # FIXME: Perhaps this is better done in authorize() instead.
+    def accessControlList(self, *args, **kwargs):
+        if self.isDisabled():
+            return succeed(None)
+
+        return super(CalendarHomeFile, self).accessControlList(*args, **kwargs)
+
     def createSimilarFile(self, path):
         return CalDAVFile(path)
 
@@ -810,8 +832,8 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
                 inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(TwistedACLProperty()):
-                outbox.removeDeadProperty(TwistedACLProperty())
+            if outbox.hasDeadProperty(davxml.ACL()):
+                outbox.removeDeadProperty(davxml.ACL())
 
         calendars = []
         for calendar in cals:
@@ -976,6 +998,16 @@ class CalendarPrincipalProvisioningResource (DAVFile):
             "This collection contains principal resources",
             title=self.displayName()
         )
+
+##
+# Utilities
+##
+
+class AccessDisabled (davxml.WebDAVEmptyElement):
+    namespace = davxml.twisted_private_namespace
+    name = "caldav-access-disabled"
+
+davxml.registerElement(AccessDisabled)
 
 ##
 # Attach methods

@@ -20,8 +20,6 @@
 CalDAV multiget report
 """
 
-__version__ = "0.0"
-
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred

@@ -20,8 +20,6 @@
 Date/time Utilities
 """
 
-__version__ = "0.0"
-
 __all__ = [
     "normalizeToUTC",
     "normalizeForIndex",

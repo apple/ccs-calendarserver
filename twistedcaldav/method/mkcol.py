@@ -20,8 +20,6 @@
 CalDAV MKCOL method.
 """
 
-__version__ = "0.0"
-
 __all__ = ["http_MKCOL"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
