@@ -1,0 +1,46 @@
+Index: twisted/web2/dav/method/copymove.py
+===================================================================
+--- twisted/web2/dav/method/copymove.py	(revision 18219)
++++ twisted/web2/dav/method/copymove.py	(working copy)
+@@ -38,7 +38,7 @@
+ from twisted.web2.filter.location import addLocation
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.idav import IDAVResource
+-from twisted.web2.dav.fileop import copy, move
++from twisted.web2.dav.method import put_common
+ from twisted.web2.dav.util import parentForURL
+ 
+ # FIXME: This is circular
+@@ -81,7 +81,15 @@
+         # May need to add a location header
+         addLocation(request, destination_uri)
+ 
+-    x = waitForDeferred(copy(self.fp, destination.fp, destination_uri, depth))
++    #x = waitForDeferred(copy(self.fp, destination.fp, destination_uri, depth))
++    x = waitForDeferred(put_common.storeResource(request,
++                                                 source=self,
++                                                 source_uri=request.uri,
++                                                 destination=destination,
++                                                 destination_uri=destination_uri,
++                                                 deletesource=False,
++                                                 depth=depth
++                                                 ))
+     yield x
+     yield x.getResult()
+ 
+@@ -144,7 +152,14 @@
+     # May need to add a location header
+     addLocation(request, destination_uri)
+ 
+-    x = waitForDeferred(move(self.fp, request.uri, destination.fp, destination_uri, depth))
++    #x = waitForDeferred(move(self.fp, request.uri, destination.fp, destination_uri, depth))
++    x = waitForDeferred(put_common.storeResource(request,
++                                                 source=self,
++                                                 source_uri=request.uri,
++                                                 destination=destination,
++                                                 destination_uri=destination_uri,
++                                                 deletesource=True,
++                                                 depth=depth))
+     yield x
+     yield x.getResult()
+ 

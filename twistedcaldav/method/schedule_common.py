@@ -41,10 +41,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, isScheduleOutboxResource, isCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile
 
 import md5
-import os
 import time
 
 def processScheduleRequest(self, method, request):
@@ -193,8 +191,10 @@ def processScheduleRequest(self, method, request):
         name = md5.new(str(calendar) + str(time.time()) + self.fp.path).hexdigest() + ".ics"
         
         # Save a copy of the calendar data into the Outbox
-        child = CalDAVFile(os.path.join(self.fp.path, name))
-        childURL = request.uri + name
+        childURL = joinURL(request.uri, name)
+        child = waitForDeferred(request.locateResource(childURL))
+        yield child
+        child = child.getResult()
         responses.setLocation(childURL)
         
         d = waitForDeferred(
@@ -295,7 +295,6 @@ def processScheduleRequest(self, method, request):
                             # properly manage the free busy set that should not prevent us from working.
                             continue
                          
-                        # TODO: make this a waitForDeferred and yield it
                         matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(request, cal, fbinfo, timerange, matchtotal))
                         yield matchtotal
                         matchtotal = matchtotal.getResult()
@@ -317,8 +316,10 @@ def processScheduleRequest(self, method, request):
                 name = md5.new(str(calendar) + str(time.time()) + inbox.fp.path).hexdigest() + ".ics"
                 
                 # Get a resource for the new item
-                child = CalDAVFile(os.path.join(inbox.fp.path, name))
                 childURL = joinURL(inboxURL, name)
+                child = waitForDeferred(request.locateResource(childURL))
+                yield child
+                child = child.getResult()
             
                 # Copy calendar to inbox (doing fan-out)
                 d = waitForDeferred(

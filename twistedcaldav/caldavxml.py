@@ -254,6 +254,15 @@ class SupportedCalendarData (CalDAVElement):
 
     allowed_children = { (caldav_namespace, "calendar-data"): (0, None) }
 
+class MaxResourceSize (CalDAVTextElement):
+    """
+    Specifies restrictions on a calendar collection.
+    (CalDAV-access-15, section 5.2.5)
+    """
+    name = "max-resource-size"
+    hidden = True
+    protected = True
+
 class Calendar (CalDAVEmptyElement):
     """
     Denotes a calendar collection.

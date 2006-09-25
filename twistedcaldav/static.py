@@ -37,7 +37,6 @@ from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
 from twisted.python import log
-from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
@@ -47,6 +46,7 @@ from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
+from twisted.web2.dav.resource import TwistedQuotaRootProperty
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 
@@ -54,7 +54,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
-from twistedcaldav.icaldav import ICalDAVResource
 from twistedcaldav.index import Index, IndexSchedule, db_basename
 from twistedcaldav.resource import CalDAVResource, isPseudoCalendarCollectionResource, CalendarPrincipalResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
@@ -304,6 +303,55 @@ class CalDAVFile (CalDAVResource, DAVFile):
         ]
 
     ##
+    # Quota
+    ##
+
+    def quotaSize(self, request):
+        """
+        Get the size of this resource.
+        TODO: Take into account size of dead-properties. Does stat
+            include xattrs size?
+
+        @return: an L{Deferred} with a C{int} result containing the size of the resource.
+        """
+        if self.isCollection():
+            def walktree(top, top_level = False):
+                """
+                Recursively descend the directory tree rooted at top,
+                calling the callback function for each regular file
+                
+                @param top: L{FilePath} for the directory to walk.
+                """
+            
+                total = 0
+                for f in top.listdir():
+    
+                    # Ignore the database
+                    if top_level and f == db_basename:
+                        continue
+    
+                    child = top.child(f)
+                    if child.isdir():
+                        # It's a directory, recurse into it
+                        result = waitForDeferred(walktree(child))
+                        yield result
+                        total += result.getResult()
+                    elif child.isfile():
+                        # It's a file, call the callback function
+                        total += child.getsize()
+                    else:
+                        # Unknown file type, print a message
+                        pass
+            
+                yield total
+            
+            walktree = deferredGenerator(walktree)
+    
+            return walktree(self.fp, True)
+        else:
+            return succeed(self.fp.getsize())
+
+    ##
     # Utilities
     ##
 
@@ -533,6 +581,11 @@ class CalendarHomeFile (CalDAVFile):
     """
     L{CalDAVFile} calendar home collection resource.
     """
+    
+    # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
+    # quota to that size, or C{None} for no limit.
+    quotaLimit = None
+
     def __init__(self, path):
         """
         @param path: the path to the file which will back the resource.
@@ -574,10 +627,30 @@ class CalendarHomeFile (CalDAVFile):
         if self.isDisabled():
             return succeed(None)
 
-        super(CalDAVResource, self).accessControlList(*args, **kwargs)
+        return super(CalendarHomeFile, self).accessControlList(*args, **kwargs)
 
     def createSimilarFile(self, path):
         return CalDAVFile(path)
+
+    ##
+    # Quota
+    ##
+
+    def hasQuotaRoot(self, request):
+        """
+        @return: a C{True} if this resource has quota root, C{False} otherwise.
+        """
+        return self.hasDeadProperty(TwistedQuotaRootProperty) or CalendarHomeFile.quotaLimit is not None
+    
+    def quotaRoot(self, request):
+        """
+        @return: a C{int} containing the maximum allowed bytes if this collection
+            is quota-controlled, or C{None} if not quota controlled.
+        """
+        if self.hasDeadProperty(TwistedQuotaRootProperty):
+            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
+        else:
+            return CalendarHomeFile.quotaLimit
 
 class CalendarHomeProvisioningFile (CalDAVFile):
     """

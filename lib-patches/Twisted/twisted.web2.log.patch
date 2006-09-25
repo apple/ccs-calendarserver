@@ -1,0 +1,13 @@
+Index: twisted/web2/log.py
+===================================================================
+--- twisted/web2/log.py	(revision 18219)
++++ twisted/web2/log.py	(working copy)
+@@ -88,7 +88,7 @@
+ class LogWrapperResource(resource.WrapperResource):
+     def hook(self, request):
+         # Insert logger
+-        request.addResponseFilter(logFilter, atEnd=True)
++        request.addResponseFilter(logFilter, atEnd=True, onlyOnce=True)
+ 
+ monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

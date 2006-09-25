@@ -1,44 +1,15 @@
 Index: twisted/web2/server.py
 ===================================================================
---- twisted/web2/server.py	(revision 17932)
+--- twisted/web2/server.py	(revision 18219)
 +++ twisted/web2/server.py	(working copy)
-@@ -11,7 +11,7 @@
- import cStringIO as StringIO
+@@ -156,7 +156,9 @@
+         self.resources = []
+         http.Request.__init__(self, *args, **kw)
  
- import cgi, time, urlparse
--from urllib import unquote
-+from urllib import quote, unquote
- from urlparse import urlsplit
- 
- import weakref
-@@ -316,7 +316,12 @@
-         if newpath is StopTraversal:
-             # We need to rethink how to do this.
-             #if newres is res:
--                self._rememberURLForResource(path, res)
-+                if path:
-+                    url = "/" + "/".join(path)
-+                else:
-+                    url = "/"
-+        
-+                self._rememberURLForResource(quote(url), res)
-                 return res
-             #else:
-             #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -337,7 +342,7 @@
-                 self.prepath.append(self.postpath.pop(0))
- 
-         child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
--        self._rememberURLForResource(url, child)
-+        self._rememberURLForResource(quote(url), child)
- 
-         return child
- 
-@@ -404,6 +409,7 @@
-         segments = path.split("/")
-         assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
-         segments = segments[1:]
-+        segments = map(unquote, segments)
- 
-         def notFound(f):
-             f.trap(http.HTTPError)
+-    def addResponseFilter(self, f, atEnd=False):
++    def addResponseFilter(self, f, atEnd=False, onlyOnce = False):
++        if onlyOnce and f in self.responseFilters:
++            return
+         if atEnd:
+             self.responseFilters.append(f)
+         else:

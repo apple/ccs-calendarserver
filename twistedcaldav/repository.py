@@ -39,6 +39,7 @@ from twistedcaldav.directory import DirectoryResourcePrincipalProvisioningResour
 from twistedcaldav.directory import DirectoryGroupPrincipalProvisioningResource
 from twistedcaldav.directory import DirectoryUserPrincipalProvisioningResource
 from twistedcaldav.directory import DirectoryPrincipalProvisioningResource
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import CalendarPrincipalProvisioningResource
@@ -97,6 +98,7 @@ ELEMENT_PASSWORD = "pswd"
 ELEMENT_NAME = "name"
 ELEMENT_CUADDR = "cuaddr"
 ELEMENT_CALENDAR = "calendar"
+ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
 
@@ -129,18 +131,29 @@ class RepositoryBuilder (object):
     and optionally provisions accounts.
     """
     
-    def __init__(self, docroot, doAccounts, resetACLs = False):
+    def __init__(self, docroot, doAccounts, resetACLs = False, maxsize = None, quota = None):
         """
         @param docroot:    file system path to use as the root.
         @param doAccounts: if True accounts will be auto-provisioned, if False
             no auto-provisioning is done
         @param resetACLs:  if True, when auto-provisioning access control privileges are initialised
             in an appropriate fashion for user accounts, if False no privileges are set or changed.
+        @param maxsize:    maximum size in bytes for any calendar object resource, C{int} to set size,
+            if <= 0, then no limit will be set.
+        @param quota:    maximum quota size in bytes for a user's calendar home, C{int} to set size,
+            if <= 0, then no limit will be set.
         """
         self.docRoot = DocRoot(docroot)
         self.doAccounts = doAccounts
         self.accounts = Provisioner()
         self.resetACLs = resetACLs
+        self.maxsize = maxsize
+        self.quota = quota
+        
+        if self.maxsize <= 0:
+            self.maxsized = None
+        if self.quota <= 0:
+            self.quota = None
         
     def buildFromFile(self, file):
         """
@@ -162,6 +175,10 @@ class RepositoryBuilder (object):
         self.docRoot.build()
         if self.doAccounts:
             self.accounts.provision(self.docRoot.principalCollection, self.docRoot.calendarHome, self.resetACLs)
+            
+        # Handle global quota value
+        CalendarHomeFile.quotaLimit = self.quota
+        CalDAVResource.sizeLimit = self.maxsize
 
     def parseXML(self, node):
         """
@@ -505,7 +522,7 @@ class Provisioner (object):
                 else:
                     repeat = 1
 
-                principal = ProvisionPrincipal("", "", "", [], [], None, False)
+                principal = ProvisionPrincipal("", "", "", [], [], None, None, False)
                 principal.parseXML( child )
                 self.items.append((repeat, principal))
     
@@ -584,6 +601,7 @@ class Provisioner (object):
             home.createDirectory()
         home = CalendarHomeFile(home.path)
 
+        # Handle ACLs on calendar home
         if resetACLs or not home_exists:
             if item.acl:
                 home.setAccessControlList(item.acl.acl)
@@ -606,6 +624,9 @@ class Provisioner (object):
                     )
                 )
         
+        # Handle quota on calendar home
+        home.setQuotaRoot(None, item.quota)
+
         # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
         principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
         principal.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
@@ -665,7 +686,7 @@ class ProvisionPrincipal (object):
     """
     Contains provision information for one user.
     """
-    def __init__(self, uid, pswd, name, cuaddrs, calendars, acl, autorespond):
+    def __init__(self, uid, pswd, name, cuaddrs, calendars, acl, quota, autorespond):
         """
         @param uid:           user id.
         @param pswd:          clear-text password for this user.
@@ -673,6 +694,8 @@ class ProvisionPrincipal (object):
         @param cuaddr:        list of calendar user addresses.
         @param calendars:     list of calendars to auto-create.
         @param acl:           ACL to apply to calendar home
+        @param quota:         quota allowed on user's calendar home C{int} size in bytes
+            or C{None} if no quota
         @param autorespond    auto-respond to scheduling requests
         """
         
@@ -682,6 +705,7 @@ class ProvisionPrincipal (object):
         self.cuaddrs = cuaddrs
         self.calendars = calendars
         self.acl = acl
+        self.quota = quota
         self.autorespond = autorespond
 
     def repeat(self, ctr):
@@ -710,7 +734,7 @@ class ProvisionPrincipal (object):
             else:
                 cuaddrs.append(cuaddr)
         
-        return ProvisionPrincipal(uid, pswd, name, cuaddrs, self.calendars, self.acl, self.autorespond)
+        return ProvisionPrincipal(uid, pswd, name, cuaddrs, self.calendars, self.acl, self.quota, self.autorespond)
 
     def parseXML( self, node ):
         for child in node._get_childNodes():
@@ -729,6 +753,9 @@ class ProvisionPrincipal (object):
             elif child._get_localName() == ELEMENT_CALENDAR:
                 if child.firstChild is not None:
                    self.calendars.append(child.firstChild.data.encode("utf-8"))
+            elif child._get_localName() == ELEMENT_QUOTA:
+                if child.firstChild is not None:
+                   self.quota = int(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_ACL:
                 self.acl = ACL()
                 self.acl.parseXML(child)

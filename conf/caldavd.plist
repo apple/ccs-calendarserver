@@ -47,8 +47,11 @@ limitations under the License.
   <key>SSLCertificate</key>
   <string>/etc/certificates/Default.crt</string>
 
-  <key>LogFile</key>
+  <key>ServerLogFile</key>
   <string>/var/log/caldavd/server.log</string>
+
+  <key>ErrorLogFile</key>
+  <string>/var/log/caldavd/error.log</string>
 
   <key>PIDFile</key>
   <string>/var/log/caldavd/caldavd.pid</string>
@@ -69,7 +72,10 @@ limitations under the License.
   <integer>0</integer>
 
   <key>MaximumAttachmentSizeBytes</key>
-  <integer>102400</integer>
+  <integer>1048576</integer><!-- 1Mb -->
+
+  <key>UserQuotaBytes</key>
+  <integer>104857600</integer><!-- 100Mb -->
 
 </dict>
 </plist>

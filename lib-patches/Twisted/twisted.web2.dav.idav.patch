@@ -1,0 +1,85 @@
+Index: twisted/web2/dav/idav.py
+===================================================================
+--- twisted/web2/dav/idav.py	(revision 18219)
++++ twisted/web2/dav/idav.py	(working copy)
+@@ -180,6 +180,80 @@
+             the specified principal.
+         """
+ 
++    ##
++    # Quota
++    ##
++    
++    def quota(request):
++        """
++        Get current available & used quota values for this resource's quota root
++        collection.
++
++        @return: a C{tuple} containing two C{int}'s the first is 
++            quota-available-bytes, the second is quota-used-bytes, or
++            C{None} if quota is not defined on the resource.
++        """
++    
++    def hasQuota(request):
++        """
++        Check whether this resource is undre quota control by checking each parent to see if
++        it has a quota root.
++        
++        @return: C{True} if under quota control, C{False} if not.
++        """
++        
++    def hasQuotaRoot(request):
++        """
++        Determine whether the resource has a quota root.
++
++        @return: a C{True} if this resource has quota root, C{False} otherwise.
++        """
++    
++
++    def quotaRoot(request):
++        """
++        Get the quota root (max. allowed bytes) value for this collection.
++
++        @return: a C{int} containing the maximum allowed bytes if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++    
++    def setQuotaRoot(request, maxsize):
++        """
++        Set the quota root (max. allowed bytes) value for this collection.
++
++        @param maxsize: a C{int} containing the maximum allowed bytes for the contents
++            of this collection.
++        """
++    
++    def quotaSize(request):
++        """
++        Get the size of this resource (if its a collection get total for all children as well).
++        TODO: Take into account size of dead-properties.
++
++        @return: a L{Deferred} with a C{int} result containing the size of the resource.
++        """
++        
++    def currentQuotaUse(request):
++        """
++        Get the cached quota use value, or if not present (or invalid) determine
++        quota use by brute force.
++
++        @return: an L{Deferred} with a C{int} result containing the current used byte count if
++            this collection is quota-controlled, or C{None} if not quota controlled.
++        """
++        
++    def updateQuotaUse(request, adjust):
++        """
++        Adjust current quota use on this all all parent collections that also
++        have quota roots.
++
++        @param adjust: a C{int} containing the number of bytes added (positive) or
++        removed (negative) that should be used to adjust the cached total.
++        @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
++            is quota-controlled, or C{None} if not quota controlled.
++        """
++
+ class IDAVPrincipalResource (IDAVResource):
+     """
+     WebDAV principal resource.  (RFC 3744, section 2)

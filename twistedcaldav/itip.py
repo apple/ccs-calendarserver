@@ -634,9 +634,12 @@ def writeResource(request, collURL, collection, name, calendar):
     # Create a new name if one was not provided
     if name is None:
         name =  md5.new(str(calendar) + str(time.time()) + collection.fp.path).hexdigest() + ".ics"
-        newchild = CalDAVFile(os.path.join(collection.fp.path, name))
-    else:
-        newchild = collection.getChild(name)
+
+    # Get a resource for the new item
+    newchildURL = joinURL(collURL, name)
+    newchild = waitForDeferred(request.locateResource(newchildURL))
+    yield newchild
+    newchild = newchild.getResult()
     
     # Modify the original calendar data by removing the METHOD property - everything else is left as-is,
     # as any other needed changes (e.g. RSVP/PARTSTAT) will have been updated.
@@ -648,29 +651,26 @@ def writeResource(request, collURL, collection, name, calendar):
         itipper = False
     
     # Now write it to the resource
-
-    # Get a resource for the new item
-    newchildURL = joinURL(collURL, name)
+    try:
+        d = waitForDeferred(storeCalendarObjectResource(
+                request=request,
+                sourcecal = False,
+                destination = newchild,
+                destination_uri = newchildURL,
+                calendardata = str(calendar),
+                destinationparent = collection,
+                destinationcal = True,
+                isiTIP = itipper
+            ))
+        yield d
+        d.getResult()
+    except:
+        yield None
+        return
     
-    # Copy calendar to inbox (doing fan-out)
-    def _defer(result):
-        return newchild
-    def _deferErr(f):
-        return None
+    yield newchild
 
-    d = maybeDeferred(
-            storeCalendarObjectResource,
-            request=request,
-            sourcecal = False,
-            destination = newchild,
-            destination_uri = newchildURL,
-            calendardata = str(calendar),
-            destinationparent = collection,
-            destinationcal = True,
-            isiTIP = itipper
-        )
-    d.addCallbacks(_defer, _deferErr)
-    return d
+writeResource = deferredGenerator(writeResource)    
 
 def newInboxResource(child, newchild):
     """

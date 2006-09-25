@@ -50,11 +50,12 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 
   <!ELEMENT accounts (user*) >
 
-    <!ELEMENT user (uid, pswd, name, cuaddr*, calendar*, acl?, autorespond?)>
+    <!ELEMENT user (uid, pswd, name, cuaddr*, calendar*, acl?, quota?, autorespond?)>
       <!ATTLIST user repeat CDATA "1">
       <!ELEMENT uid         (#PCDATA)>
       <!ELEMENT pswd        (#PCDATA)>
       <!ELEMENT name        (#PCDATA)>
       <!ELEMENT cuaddr      (#PCDATA)>
       <!ELEMENT calendar    (#PCDATA)>
+      <!ELEMENT quota       (#PCDATA)>
       <!ELEMENT autorespond EMPTY>

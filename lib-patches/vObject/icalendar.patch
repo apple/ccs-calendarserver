@@ -40,6 +40,15 @@ Index: src/vobject/icalendar.py
          isDate = datetime.date == type(dtstart)
          if isDate:
              dtstart = datetime.datetime(dtstart.year,dtstart.month, dtstart.day)
+@@ -488,7 +506,7 @@
+ 
+                     if rule._bymonth is not None and len(rule._bymonth) > 0:
+                         if (rule._byweekday is not None or
+-                            len(rrule._bynweekday or ()) > 0 or
++                            len(rule._bynweekday or ()) > 0 or
+                             not (rule._freq == dateutil.rrule.YEARLY and
+                                  len(rule._bymonth) == 1 and
+                                  rule._bymonth[0] == rule._dtstart.month)):
 @@ -580,6 +598,8 @@
          if obj.value.tzinfo is None:
              obj.params['X-VOBJ-FLOATINGTIME-ALLOWED'] = ['TRUE']

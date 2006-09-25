@@ -41,8 +41,8 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
-from twisted.web2.dav import auth, davxml
-from twisted.web2.dav.resource import DAVPrincipalResource
+from twisted.web2.dav import davxml
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
@@ -71,6 +71,10 @@ class CalDAVResource (DAVResource):
     Extends L{DAVResource} to provide CalDAV functionality.
     """
     implements(ICalDAVResource)
+
+    # A global limit for the size of calendar object resources. Either a C{int} (size in bytes) to limit
+    # resources to that size, or C{None} for no limit.
+    sizeLimit = None
 
     ##
     # HTTP
@@ -150,6 +154,12 @@ class CalDAVResource (DAVResource):
                         "version"     : "2.0",
                     }),
                 ))
+            elif name == "max-resource-size":
+                # CalDAV-access-15, section 5.2.5
+                if CalDAVResource.sizeLimit is not None:
+                    return succeed(caldavxml.MaxResourceSize.fromString(
+                        str(CalDAVResource.sizeLimit)
+                    ))
 
         return super(CalDAVResource, self).readProperty(property, request)
 
@@ -220,7 +230,6 @@ class CalDAVResource (DAVResource):
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
         def checkPrivilegesError(failure):
-            from twisted.web2.dav.acl import AccessDeniedError
             failure.trap(AccessDeniedError)
             
             reactor.callLater(0, getChild)

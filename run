@@ -415,7 +415,7 @@ if ! "${disable_setup}"; then
       ;;
   esac;
   svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608";
-  svn_get "Twisted" "${twisted}" "${svn_uri}" 18218;
+  svn_get "Twisted" "${twisted}" "${svn_uri}" 18219;
 fi;
 py_install "Twisted" "${twisted}";
  
