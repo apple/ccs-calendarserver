@@ -1,0 +1,29 @@
+Index: twisted/web2/dav/test/test_prop.py
+===================================================================
+--- twisted/web2/dav/test/test_prop.py	(revision 18219)
++++ twisted/web2/dav/test/test_prop.py	(working copy)
+@@ -21,6 +21,8 @@
+ #
+ # DRI: Wilfredo Sanchez, wsanchez@apple.com
+ ##
++from twisted.web2.dav.element.rfc4331 import QuotaUsedBytes
++from twisted.web2.dav.element.rfc4331 import QuotaAvailableBytes
+ 
+ import random
+ 
+@@ -37,7 +39,14 @@
+ from twisted.web2.dav.test.util import serialize
+ import twisted.web2.dav.test.util
+ 
+-live_properties = [lookupElement(qname)() for qname in DAVResource.liveProperties if qname[0] == dav_namespace]
++# Remove dynamic live properties that exist
++dynamicLiveProperties = (
++    (dav_namespace, "quota-available-bytes"     ),
++    (dav_namespace, "quota-used-bytes"          ),
++)
++
++live_properties = [lookupElement(qname)() for qname in DAVResource.liveProperties if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
++print live_properties
+ 
+ #
+ # See whether dead properties are available
