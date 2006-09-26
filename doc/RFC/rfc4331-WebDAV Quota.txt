@@ -1,0 +1,563 @@
+
+
+
+
+
+
+Network Working Group                                          B. Korver
+Request for Comments: 4331                             Network Resonance
+Category: Standards Track                                   L. Dusseault
+                                                                    OSAF
+                                                           February 2006
+
+
+                       Quota and Size Properties
+       for Distributed Authoring and Versioning (DAV) Collections
+
+Status of This Memo
+
+   This document specifies an Internet standards track protocol for the
+   Internet community, and requests discussion and suggestions for
+   improvements.  Please refer to the current edition of the "Internet
+   Official Protocol Standards" (STD 1) for the standardization state
+   and status of this protocol.  Distribution of this memo is unlimited.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2006).
+
+Abstract
+
+   Web Distributed Authoring and Versioning (WebDAV) servers are
+   frequently deployed with quota (size) limitations.  This document
+   discusses the properties and minor behaviors needed for clients to
+   interoperate with quota (size) implementations on WebDAV
+   repositories.
+
+Table of Contents
+
+   1. Introduction ....................................................2
+      1.1. Notational Conventions .....................................2
+      1.2. Requirement for Quotas .....................................2
+   2. Solution Overview ...............................................3
+   3. DAV:quota-available-bytes .......................................3
+   4. DAV:quota-used-bytes ............................................4
+   5. Example PROPFIND Request and Response ...........................5
+   6. Error Reporting .................................................6
+   7. Notes ...........................................................6
+   8. Security Considerations .........................................8
+   9. Internationalization Considerations .............................8
+   10. Acknowledgements ...............................................8
+   11. References .....................................................8
+      11.1. Normative References ......................................8
+      11.2. Informative References ....................................8
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 1]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+1.  Introduction
+
+1.1.  Notational Conventions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   The definition of live property is provided in [RFC2518].  The
+   definition of protected and computed properties is provided in
+   [RFC3253], Section 1.4.
+
+1.2.  Requirement for Quotas
+
+   WebDAV servers based on [RFC2518] have been implemented and deployed
+   with quota restrictions on collections and users, so it makes sense
+   to standardize this functionality to improve user experience and
+   client interoperability.
+
+   The reasons why WebDAV servers frequently have quotas enforced are
+   the same reasons why any storage system comes with quotas.
+
+   o  Sometimes the storage service charges according to quota.
+
+   o  Sometimes the storage service is provided free, but the storage
+      service provider has limited storage space (e.g., university-
+      provided student accounts).
+
+   o  Even in cases where the storage can be upgraded, the storage
+      managers may choose to limit quota in order to encourage users to
+      limit the files they store on the system and to clean up obsolete
+      files (e.g., IT departments within corporations).
+
+   In order to work best with repositories that support quotas, client
+   software should be able to determine and display the DAV:quota-
+   available-bytes (defined below) on collections.  Further, client
+   software should have some way of fairly reliably determining how much
+   storage space is already counted towards that quota.
+
+   Support for the properties defined in this document enhances the
+   client experience, because the client has a chance of managing its
+   files to avoid running out of allocated storage space.  Clients may
+   not be able to calculate the value as accurately on their own,
+   depending on how total space used is calculated by the server.
+
+
+
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 2]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+2.  Solution Overview
+
+   The approach to meeting the requirements and scenarios outlined above
+   is to define two live properties.  This specification can be met on a
+   server by implementing both DAV:quota-available-bytes and DAV:quota-
+   used-bytes on collections only.
+
+   A <DAV:allprop> PROPFIND request SHOULD NOT return any of the
+   properties defined by this document.  However, these property names
+   MUST be returned in a <DAV:propname> request for a resource that
+   supports the properties, except in the case of infinite limits, which
+   are explained below.
+
+   The DAV:quota-available-bytes and DAV:quota-used-bytes definitions
+   below borrow heavily from the quota definitions in the Network File
+   System (NFS) [RFC3530] specification.
+
+3.  DAV:quota-available-bytes
+
+   Name: quota-available-bytes
+
+   Namespace: DAV:
+
+   Purpose: Indicates the maximum amount of additional storage available
+      to be allocated to a resource.
+
+   DTD: <!ELEMENT quota-available-bytes (#PCDATA) >
+
+   The DAV:quota-available-bytes property value is the value in octets
+   representing the amount of additional disk space beyond the current
+   allocation that can be allocated to this resource before further
+   allocations will be refused.  It is understood that this space may be
+   consumed by allocations to other resources.
+
+   Support for this property is REQUIRED on collections, and OPTIONAL on
+   other resources.  A server SHOULD implement this property for each
+   resource that has the DAV:quota-used-bytes property.
+
+   Clients SHOULD expect that as the DAV:quota-available-bytes on a
+   resource approaches 0, further allocations to that resource may be
+   refused.  A value of 0 indicates that users will probably not be able
+   to perform operations that write additional information (e.g., a PUT
+   inside a collection), but may be able to replace through overwrite an
+   existing resource of equal size.
+
+   Note that there may be a number of distinct but overlapping limits,
+   which may even include physical media limits.  When reporting DAV:
+   quota-available-bytes, the server is at liberty to choose any of
+
+
+
+Korver & Dusseault          Standards Track                     [Page 3]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+   those limits but SHOULD do so in a repeatable way.  The rule may be
+   configured per repository, or may be "choose the smallest number".
+
+   If a resource has no quota enforced or unlimited storage ("infinite
+   limits"), the server MAY choose not to return this property (404 Not
+   Found response in Multi-Status), although this specification
+   RECOMMENDS that servers return some appropriate value (e.g., the
+   amount of free disk space).  A client cannot entirely assume that
+   there is no quota enforced on a resource that does not have this
+   property, but might as well act as if there is no quota.
+
+   The value of this property is protected (see Section 1.4.2 of
+   [RFC3253] for the definition of protected properties).  A 403
+   Forbidden response is RECOMMENDED for attempts to write a protected
+   property, and the server SHOULD include an XML error body as defined
+   by DeltaV [RFC3253] with the <DAV:cannot-modify-protected-property/>
+   precondition tag.
+
+4.  DAV:quota-used-bytes
+
+   Name: quota-used-bytes
+
+   Namespace: DAV:
+
+   Purpose: Contains the amount of storage counted against the quota on
+      a resource.
+
+   DTD: <!ELEMENT quota-used-bytes (#PCDATA) >
+
+   The DAV:quota-used-bytes value is the value in octets representing
+   the amount of space used by this resource and possibly a number of
+   other similar resources, where the set of "similar" meets at least
+   the criterion that allocating space to any resource in the set will
+   count against the DAV:quota-available-bytes.  It MUST include the
+   total count including usage derived from sub-resources if
+   appropriate.  It SHOULD include metadata storage size if metadata
+   storage is counted against the DAV:quota-available-bytes.
+
+   Note that there may be a number of distinct but overlapping sets of
+   resources for which a DAV:quota-used-bytes is maintained (e.g., "all
+   files with a given owner", "all files with a given group owner",
+   etc.).  The server is at liberty to choose any of those sets but
+   SHOULD do so in a repeatable way.  The rule may be configured per
+   repository.
+
+   Support for this property is REQUIRED on collections, and OPTIONAL on
+   other resources.  A server SHOULD implement this property for each
+   resource that has the DAV:quota-available-bytes property.
+
+
+
+Korver & Dusseault          Standards Track                     [Page 4]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+   This value of this property is computed (see Section 1.4.3 of
+   [RFC3253] for the definition of computed property).  A 403 Forbidden
+   response is RECOMMENDED for attempts to write a protected property,
+   and the server SHOULD include an XML error body as defined by DeltaV
+   [RFC3253] with the <DAV:cannot-modify-protected-property/>
+   precondition tag.
+
+5.  Example PROPFIND Request and Response
+
+   Request:
+
+         PROPFIND /~milele/public/ HTTP/1.1
+         Depth: 0
+         Host: www.example.com
+         Content-Type: text/xml
+         Content-Length: xxx
+
+         <?xml version="1.0" ?>
+         <D:propfind xmlns:D="DAV:">
+           <D:prop>
+             <D:quota-available-bytes/>
+             <D:quota-used-bytes/>
+           </D:prop>
+         </D:propfind>
+
+   Response:
+
+         HTTP/1.1 207 Multi-Status
+         Date: Tue, 16 Oct 2001 22:13:39 GMT
+         Content-Length: xxx
+         Content-Type: text/xml; charset=UTF-8
+
+         <?xml version="1.0" encoding="utf-8" ?>
+         <D:multistatus xmlns:D="DAV:">
+         <D:response>
+           <D:href>http://www.example.com/~milele/public/</D:href>
+           <D:propstat>
+             <D:prop>
+               <D:quota-available-bytes>596650</D:quota-available-bytes>
+               <D:quota-used-bytes>403350</D:quota-used-bytes>
+             </D:prop>
+             <D:status>HTTP/1.1 200 OK</D:status>
+           </D:propstat>
+         </D:response>
+         </D:multistatus>
+
+
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 5]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+6.  Error Reporting
+
+   WebDAV [RFC2518] defines the status code 507 (Insufficient Storage).
+   This status code SHOULD be used when a client request (e.g., a PUT,
+   PROPFIND, MKCOL, MOVE, or COPY) fails because it would exceed their
+   quota or physical storage limits.  In order to differentiate the
+   response from other storage problems, the server SHOULD include an
+   XML error body as defined by DeltaV [RFC3253] with the appropriate
+   precondition tag.
+
+   Preconditions:
+
+   (DAV:quota-not-exceeded): the request MUST NOT cause the allocated
+   quota to be exceeded.
+
+   (DAV:sufficient-disk-space): there is sufficient physical space to
+   execute the request.
+
+   Example error response:
+
+      HTTP/1.1 507 Insufficient Storage
+      Content-Length: xxx
+      Content-Type: text/xml
+
+      <?xml version="1.0">
+      <error xmlns="DAV:">
+        <quota-not-exceeded/>
+      </error>
+
+   Implementation note: some clients may be able to take advantage of
+   the different precondition codes when mapping to operating system
+   status codes, such as E_NOSPC and E_DQUOT in NFS (see [RFC3530],
+   Section 12).
+
+7.  Notes
+
+   Server implementations store and account for their data in many
+   different ways.  Some of the challenges:
+
+   o  Some server implementations find it prohibitive to count storage
+      used for metadata; others may choose to do so for better
+      accounting.
+
+   o  Older versions of resources may be stored as well.
+
+   o  Variants of one resource may exist with different content lengths.
+
+   o  Content may be dynamically generated.
+
+
+
+Korver & Dusseault          Standards Track                     [Page 6]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+   o  Resource bodies can be compressed.
+
+   o  Some resources may be stored for "free", not counting against
+      quota.
+
+   Since server storage accounting can vary so much, clients should
+   expect the following:
+
+   o  The size of a file on the client's file system, or in a PUT
+      message, may not correspond to the amount of storage required by
+      the server to store the resource.  Thus, the client cannot predict
+      with 100% accuracy whether a given file will be allowed given the
+      storage quota.
+
+   o  Deleting or overwriting a resource may not free up the same amount
+      of storage as indicated by the DAV:getcontentlength property
+      defined in [RFC2518] for the resource.  If deleting a resource
+      does not free up any space, the file may have been moved to a
+      "trash" folder or "recycle bin", or retained as in versioning
+      systems ([RFC3253]).
+
+   o  Since there are many factors that affect the storage used by a set
+      of resources, including automatic compression, the size of
+      associated metadata, and server-inserted content (such as that
+      created by PHP code) in the on-the-wire representation of
+      resources, clients are advised not to depend on the value of DAV:
+      quota-used-bytes being the sum of the DAV:getcontentlength
+      properties for resources contained by a collection.
+
+   o  Additionally, because there may be a number of distinct but
+      overlapping sets of resources for which a DAV:quota-used-bytes is
+      maintained (Section 4), there may be no correlation between the
+      size of the resources in a collection and DAV:quota-used-bytes.
+      For example, for a server that implements user-based quotas,
+      DAV:quota-used-bytes usually will be the same for a collection and
+      its members.
+
+   o  On some systems where quota is counted by collection and not by
+      user, a quota on a sub-collection may be larger than the quota on
+      the parent collection that contains it.  For example, the quota on
+      /~milele/ may be 100 MB, but the quota on /~milele/public/ may be
+      unlimited.  This allows the space used by /~milele/public/ to be
+      as large as the quota on /~milele/ allows (depending on the other
+      contents of /~milele/) even if the quota on /~milele/ is changed.
+      Thus, even when the quota on a parent collection is changed, it is
+      not necessarily required to change the quota on every child or
+      descendant collection.
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 7]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+8.  Security Considerations
+
+   A hacker may prefer to store files in collections with a large quota.
+   This isn't strictly a security concern because it doesn't make it any
+   easier to store files.  On the other hand, the DAV:quota-used-bytes
+   property may make it easier to detect tampering or misuse.
+
+9.  Internationalization Considerations
+
+   Quota is counted in Arabic numerals expressed in strings.  There are
+   no internationalization considerations.
+
+10.  Acknowledgements
+
+   Stefan Eissing, Geoff Clemm, Jim Luther, Julian Reschke, and Jim
+   Whitehead, among others, have provided valuable comments on this
+   document.
+
+11.  References
+
+11.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2518]  Goland, Y., Whitehead, E., Faizi, A., Carter, S., and D.
+              Jensen, "HTTP Extensions for Distributed Authoring --
+              WebDAV", RFC 2518, February 1999.
+
+   [RFC3253]  Clemm, G., Amsden, J., Ellison, T., Kaler, C., and J.
+              Whitehead, "Versioning Extensions to WebDAV (Web
+              Distributed Authoring and Versioning)", RFC 3253, March
+              2002.
+
+11.2.  Informative References
+
+   [RFC3530]  Shepler, S., Callaghan, B., Robinson, D., Thurlow, R.,
+              Beame, C., Eisler, M., and D. Noveck, "Network File System
+              (NFS) version 4 Protocol", RFC 3530, April 2003.
+
+
+
+
+
+
+
+
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 8]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+Authors' Addresses
+
+   Brian Korver
+   Network Resonance, Inc.
+   2483 E. Bayshore Road
+   Suite 212
+   Palo Alto, CA  94303
+   US
+
+   Phone: +1 650 812-7705
+   EMail: briank@networkresonance.com
+
+
+   Lisa Dusseault
+   Open Source Applications Foundation
+   543 Howard Street
+   5th Floor
+   San Francisco, CA  94105
+   US
+
+   Phone: +1 415 946-3040
+   EMail: lisa@osafoundation.org
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Korver & Dusseault          Standards Track                     [Page 9]
+
+RFC 4331                     WebDAV Quotas                 February 2006
+
+
+Full Copyright Statement
+
+   Copyright (C) The Internet Society (2006).
+
+   This document is subject to the rights, licenses and restrictions
+   contained in BCP 78, and except as set forth therein, the authors
+   retain all their rights.
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET
+   ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE
+   INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+Intellectual Property
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+
+Acknowledgement
+
+   Funding for the RFC Editor function is provided by the IETF
+   Administrative Support Activity (IASA).
+
+
+
+
+
+
+
+Korver & Dusseault          Standards Track                    [Page 10]
+
