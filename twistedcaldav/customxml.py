@@ -35,6 +35,7 @@ class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     namespace = twisted_dav_namespace
     name = "guid"
+    hidden = True
 
     def getValue(self):
         return str(self)
@@ -47,6 +48,7 @@ class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
     """
     namespace = twisted_dav_namespace
     name = "last-modified"
+    hidden = True
 
     def getValue(self):
         return str(self)
@@ -59,6 +61,7 @@ class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
     """
     namespace = twisted_dav_namespace
     name = "calendar-principal-uri"
+    hidden = True
 
     def getValue(self):
         return str(self)
@@ -71,6 +74,7 @@ class TwistedGroupMemberGUIDs(davxml.WebDAVElement):
     """
     namespace = twisted_dav_namespace
     name = "group-member-guids"
+    hidden = True
 
     allowed_children = { (twisted_dav_namespace, "guid"): (0, None) }
 
@@ -82,6 +86,6 @@ class TwistedScheduleAutoRespond(davxml.WebDAVEmptyElement):
     """
     namespace = twisted_dav_namespace
     name = "schedule-auto-respond"
+    hidden = True
 
 parser.registerElement(TwistedScheduleAutoRespond)
-
