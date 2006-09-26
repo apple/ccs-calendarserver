@@ -110,27 +110,23 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         # Create the collection once we know it is safe to do so
         #
-        def _deferOK(result):
-            if result != responsecode.CREATED:
+        def onCollection(status):
+            if status != responsecode.CREATED:
                 raise HTTPError(result)
     
             self.writeDeadProperty(davxml.ResourceType.calendar)
-            return responsecode.CREATED
+            return status
         
-        def _deferErr(f):
+        def onError(f):
             try:
                 rmdir(self.fp)
             except Exception, e:
                 log.err("Unable to clean up after failed MKCALENDAR: %s" % e)
-    
-            if isinstance(f.value, HTTPError):
-                return f.value.response
-    
-            f.raiseException()
-            
+            return f
+
         d = mkcollection(self.fp)
-        d.addCallback(_deferOK)
-        d.addErrback(_deferErr)
+        d.addCallback(onCollection)
+        d.addErrback(onError)
         return d
  
     def iCalendarRolledup(self, request):
