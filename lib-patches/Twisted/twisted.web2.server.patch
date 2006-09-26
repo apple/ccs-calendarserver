@@ -1,0 +1,15 @@
+Index: twisted/web2/server.py
+===================================================================
+--- twisted/web2/server.py	(revision 18289)
++++ twisted/web2/server.py	(working copy)
+@@ -156,7 +156,9 @@
+         self.resources = []
+         http.Request.__init__(self, *args, **kw)
+ 
+-    def addResponseFilter(self, f, atEnd=False):
++    def addResponseFilter(self, f, atEnd=False, onlyOnce = False):
++        if onlyOnce and f in self.responseFilters:
++            return
+         if atEnd:
+             self.responseFilters.append(f)
+         else:
