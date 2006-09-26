@@ -22,9 +22,17 @@ import sys
 import os
 import getopt
 import signal
-
-from plistlib import readPlist
 from tempfile import mkstemp
+
+try:
+    #
+    # plistlib is only included in Mac OS distributions of Python.
+    # This may change in Python 2.6, see:
+    #   https://sourceforge.net/tracker/?func=detail&atid=105470&aid=1555501&group_id=5470
+    #
+    from plistlib import readPlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist
 
 sys.path.insert(0, "/usr/share/caldavd/lib/python")
 
