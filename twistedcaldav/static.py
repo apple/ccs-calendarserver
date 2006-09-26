@@ -28,7 +28,6 @@ __all__ = [
     "CalendarHomeProvisioningFile",
     "CalendarPrincipalFile",
     "CalendarUserPrincipalProvisioningResource",
-    "CalendarPrincipalProvisioningResource",
 ]
 
 import os
@@ -953,51 +952,6 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
-class CalendarPrincipalProvisioningResource (DAVFile):
-    """
-    L{DAVFile} resource which provisions calendar principal resources as needed.
-    """
-    def __init__(self, path, url):
-        """
-        @param path: the path to the file which will back the resource.
-        @param url: the primary URL for the resource.  Provisioned child
-            resources will use a URL based on C{url} as their primary URLs.
-        """
-        super(CalendarPrincipalProvisioningResource, self).__init__(path)
-
-        assert self.exists(), "%s should exist" % (self,)
-        assert self.isCollection(), "%s should be a collection" % (self,)
-
-        # FIXME: I don't think we need this anymore nwo that we have static & OD repository builders.
-        # Create children
-        for name, clazz in (
-            ("users/" , CalendarUserPrincipalProvisioningResource),
-        ):
-            child_fp = self.fp.child(name)
-            if not child_fp.exists(): child_fp.makedirs()
-            principalCollection = clazz(child_fp.path, joinURL(url, name))
-            self.putChild(name, principalCollection)
-
-    def initialize(self, homeuri, home):
-        """
-        May be called during repository account initialization.
-        This implementation does nothing.
-        
-        @param homeuri: C{str} uri of the calendar home root.
-        @param home: L{DAVFile} of the calendar home root.
-        """
-        pass
-    
-    def createSimilarFile(self, path):
-        return DAVFile(path)
-
-    def render(self, request):
-        return StatusResponse(
-            responsecode.OK,
-            "This collection contains principal resources",
-            title=self.displayName()
-        )
 
 ##
 # Utilities

@@ -42,7 +42,6 @@ from twistedcaldav.directory import DirectoryPrincipalProvisioningResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
 from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.static import CalendarPrincipalProvisioningResource
 from twistedcaldav.static import CalendarUserPrincipalProvisioningResource
 
 import os
@@ -105,7 +104,6 @@ ATTRIBUTE_REPEAT = "repeat"
 classMap = {
     "DAVFile":                                        DAVFile,
     "CalDAVFile":                                     CalDAVFile,
-    "CalendarPrincipalProvisioningResource":          CalendarPrincipalProvisioningResource,
     "CalendarUserPrincipalProvisioningResource":      CalendarUserPrincipalProvisioningResource,
     "CalendarPrincipalFile":                          CalendarPrincipalFile,
     "CalendarHomeProvisioningFile":                   CalendarHomeProvisioningFile,
@@ -117,7 +115,6 @@ classMap = {
 }
 
 urld = [
-    "CalendarPrincipalProvisioningResource",
     "CalendarUserPrincipalProvisioningResource",
     "DirectoryPrincipalProvisioningResource",
     "DirectoryUserPrincipalProvisioningResource",
