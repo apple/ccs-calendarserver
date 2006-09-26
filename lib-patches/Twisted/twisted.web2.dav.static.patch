@@ -2,7 +2,15 @@ Index: twisted/web2/dav/static.py
 ===================================================================
 --- twisted/web2/dav/static.py	(revision 18219)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -98,6 +98,50 @@
+@@ -21,6 +21,7 @@
+ #
+ # DRI: Wilfredo Sanchez, wsanchez@apple.com
+ ##
++from os import path
+ 
+ """
+ WebDAV-aware static resources.
+@@ -98,6 +99,50 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -53,3 +61,17 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
+@@ -135,8 +180,12 @@
+                 else:
+                     children = []
+ 
++                    def _childname(r, u):
++                        u = u.rstrip("/")
++                        children.append(u.split("/")[-1])
++
+                     d = self.findChildren('1', request,
+-                                          lambda r,u: children.append(os.path.basename(u)),
++                                          _childname,
+                                           (davxml.Read(),))
+                     d = waitForDeferred(d)
+                     yield d
