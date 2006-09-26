@@ -225,7 +225,7 @@ class AbstractIndex(object):
                 q.execute(sql, query_params)
             except:
                 log.err("Exception while executing SQL: %r %r" % (sql, query_params))
-                Failure().raiseException()
+                raise
             return q.fetchall()
         finally:
             q.close()
