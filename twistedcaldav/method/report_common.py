@@ -253,7 +253,6 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
                 if status not in properties_by_status: properties_by_status[status] = []
                 properties_by_status[status].append(propertyName(qname))
         else:
-            log.err("Can't find property %r for resource %s" % (qname, request.uri))
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
     
     yield properties_by_status
