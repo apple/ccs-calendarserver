@@ -34,7 +34,7 @@ src="$(cd "${wd}/.." && pwd)";
 
 usage ()
 {
-  program="$(basename "$0")";
+  program="$(basename "$0") version release";
 
   if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
 
@@ -52,39 +52,41 @@ while getopts 'h' option; do
 done;
 shift $((${OPTIND} - 1));
 
-if [ $# == 0 ]; then usage "No release specified"; fi;
-
-release="$1"; shift;
-
 if [ $# == 0 ]; then usage "No version specified"; fi;
 
 version="$1"; shift;
 
+if [ $# == 0 ]; then usage "No release specified"; fi;
+
+release="$1"; shift;
+
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
-    tag="CalendarServer-${version}";
-tag_uri="http://macosxserver.apple.com:8000/svn/CalendarServer/tags/${tag}";
+ project="CalendarServer";
+     tag="${project}-${version}";
+     uri="$(svn info "${src}" --xml | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
+revision="$(svnversion "${src}")";
 
 ##
 # Do the Right Thing
 ##
 
 #
-# Check for pre-existing tag
+# We need a single revision number
 #
-if ! svn ls "${tag_uri}" > /dev/null 2>&1; then
-    #
-    # Make sure changes are checked in.
-    #
-    if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
-        echo "Working copy has uncommitted changes.  Aborting.";
-        exit 1;
-    fi;
-
-    echo "Tagging ${tag}...";
-    svn cp . "${tag_uri}" -m "Tagging ${tag}";
+if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
+    echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
+    exit 1;
 else
-    echo "Tag ${tag} already exists.";
+    revision="$(echo "${revision}" | sed 's|M$||g')";
+fi;
+
+#
+# Make sure changes are checked in.
+#
+if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
+    echo "Working copy has uncommitted changes.  Aborting.";
+    exit 1;
 fi;
 
 #
@@ -95,12 +97,28 @@ tmp="$(mktemp -d -t CalendarServer)";
 wc="${tmp}/${tag}";
 
 echo "";
-echo "Exporting ${tag_uri}..."
-svn export "${tag_uri}" "${wc}";
+echo "Exporting ${uri}@${revision}..."
+svn export -r "${revision}" "${uri}@${revision}" "${wc}";
 
 echo ""
 echo "Tweaking for B&I...";
 ln -s support/Makefile.Apple "${wc}/Makefile";
+
+version_file="${wc}/SubmissionInfo.xml";
+cat - >> "${version_file}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<submission>
+ <project>${project}</project>
+ <version>${version}</version>
+ <source>
+  <svn>
+   <uri>${uri}</uri>
+   <revision>${revision}</revision>
+   <date>$(date -u)</date>
+  </svn>
+ </source>
+</submission>
+EOF
 
 echo "";
 echo "Preparing sources...";
