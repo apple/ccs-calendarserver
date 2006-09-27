@@ -124,8 +124,6 @@ echo "";
 echo "Preparing sources...";
 make -C "${wc}" prep;
 
-echo "WC: ${wc}"; exit 0;
-
 echo "";
 echo "Submitting sources...";
 ~rc/bin/submitproject "${wc}" "${release}";
