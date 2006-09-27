@@ -332,7 +332,9 @@ fi;
 # PyKerberos
 #
 
-svn_uri_base="$(svn info "${caldav}" --xml | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
+if ! svn_uri_base="$(svn info "${caldav}" --xml | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')" 2>/dev/null; then
+    svn_uri_base="http://svn.opensource.apple.com/repository/calendarserver";
+fi;
 
 if [ -z "${svn_uri_base}" ]; then
     echo "Unable to locate subversion base URI for sources.";
