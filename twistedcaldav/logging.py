@@ -27,15 +27,14 @@ import time
 from twisted.python import log
 from twisted.web2.log import BaseCommonAccessLoggingObserver
 
-"""
-Logging levels:
-    
-0    - no logging
-1    - errors only
-2    - errors and warnings only
-3    - errors, warnings and info
-3    - errors, warnings, info and debug
-"""
+#
+# Logging levels:
+#  0 - no logging
+#  1 - errors only
+#  2 - errors and warnings only
+#  3 - errors, warnings and info
+#  4 - errors, warnings, info and debug
+#
 
 logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
