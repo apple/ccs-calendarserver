@@ -66,7 +66,7 @@ while getopts 'hvsfnpdi:I:' option; do
     'f')   force_setup="true"; ;;
     'n') disable_setup="true"; ;;
     'p')    print_path="true"; ;;
-    'd')     deamonize=""; ;;
+    'd')     daemonize=""; ;;
     'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
     'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
   esac;
@@ -92,11 +92,18 @@ else
   python="${PYTHON:=python2.4}";
 fi;
 
-    top="$(cd "${wd}/.." && pwd -L)"
-patches="${wd}/lib-patches";
+if [ -z "${caldav:-}" ]; then
+  caldav="${wd}";
+fi;
+
+    top="$(cd "${caldav}/.." && pwd -L)"
+patches="${caldav}/lib-patches";
 twisted="${top}/Twisted";
     dav="${twisted}/twisted/web2/dav"
- caldav="${wd}";
+
+if [ -z "${config:-}" ]; then
+  config="${wd}/conf/caldavd-dev.plist";
+fi;
 
 if [ -z "${PYTHONPATH:-}" ]; then
   export PYTHONPATH="${caldav}";
@@ -122,21 +129,17 @@ fi;
 ##
 
 run () {
-  local server_home="$1"; shift;
+  if "${print_path}"; then
+    echo "${PYTHONPATH}";
+    exit 0;
+  fi;
 
-  if [ "${server_home}" == "${wd}" ]; then
-    if "${print_path}"; then
-      echo "${PYTHONPATH}";
-      exit 0;
-    fi;
-
-    if ! "${setup_only}" && [ "${server_home}" == "${wd}" ]; then
-      cd "${server_home}";
-      exec "${python}" "${wd}/bin/caldavd" "${daemonize}" \
-          -f "${wd}/conf/caldavd-dev.plist"               \
-          -T "${twisted}/bin/twistd"                      \
-          start;
-    fi;
+  if ! "${setup_only}"; then
+    cd "${wd}";
+    exec "${python}" "${caldav}/bin/caldavd" ${daemonize} \
+        -f "${config}"                                    \
+        -T "${twisted}/bin/twistd"                        \
+        start;
   fi;
 }
 
@@ -518,4 +521,4 @@ fi;
 # Run the server
 ##
 
-run "${caldav}";
+run;
