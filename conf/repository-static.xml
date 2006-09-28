@@ -22,7 +22,7 @@ limitations under the License.
 
   <docroot>
     <collection>
-      <pytype>DAVFile</pytype>
+      <pytype>twisted.web2.dav.static.DAVFile</pytype>
       <properties>
         <acl>
           <ace>
@@ -40,7 +40,7 @@ limitations under the License.
       </properties>
       <members>
         <collection name="principals">
-          <pytype>CalDAVFile</pytype>
+          <pytype>twistedcaldav.static.CalDAVFile</pytype>
           <properties>
             <acl>
               <ace>
@@ -52,7 +52,7 @@ limitations under the License.
           </properties>
           <members>
             <collection name="users" tag="principals">
-              <pytype>CalendarUserPrincipalProvisioningResource</pytype>
+              <pytype>twistedcaldav.static.CalendarUserPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
                   <ace>
@@ -67,7 +67,7 @@ limitations under the License.
           </members>
         </collection>
         <collection name="calendars">
-          <pytype>CalDAVFile</pytype>
+          <pytype>twistedcaldav.static.CalDAVFile</pytype>
           <properties>
             <acl>
               <ace>
@@ -79,7 +79,7 @@ limitations under the License.
           </properties>
           <members>
             <collection name="users" tag="calendars">
-              <pytype>CalendarHomeProvisioningFile</pytype>
+              <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
               <properties>
                 <acl>
                   <ace>

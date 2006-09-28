@@ -26,23 +26,17 @@ __all__ = ["RepositoryBuilder"]
 
 from twisted.python import log
 from twisted.python.filepath import FilePath
+from twisted.python.reflect import namedObject
 from twisted.web2.dav import davxml
 from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
-from twistedcaldav.directory import DirectoryResourcePrincipalProvisioningResource
-from twistedcaldav.directory import DirectoryGroupPrincipalProvisioningResource
-from twistedcaldav.directory import DirectoryUserPrincipalProvisioningResource
-from twistedcaldav.directory import DirectoryPrincipalProvisioningResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
-from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.static import CalendarUserPrincipalProvisioningResource
 
 import os
 
@@ -100,27 +94,6 @@ ELEMENT_CALENDAR = "calendar"
 ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
-
-classMap = {
-    "DAVFile":                                        DAVFile,
-    "CalDAVFile":                                     CalDAVFile,
-    "CalendarUserPrincipalProvisioningResource":      CalendarUserPrincipalProvisioningResource,
-    "CalendarPrincipalFile":                          CalendarPrincipalFile,
-    "CalendarHomeProvisioningFile":                   CalendarHomeProvisioningFile,
-    "CalendarHomeFile":                               CalendarHomeFile,
-    "DirectoryPrincipalProvisioningResource":         DirectoryPrincipalProvisioningResource,
-    "DirectoryUserPrincipalProvisioningResource":     DirectoryUserPrincipalProvisioningResource,
-    "DirectoryGroupPrincipalProvisioningResource":    DirectoryGroupPrincipalProvisioningResource,
-    "DirectoryResourcePrincipalProvisioningResource": DirectoryResourcePrincipalProvisioningResource,
-}
-
-urld = [
-    "CalendarUserPrincipalProvisioningResource",
-    "DirectoryPrincipalProvisioningResource",
-    "DirectoryUserPrincipalProvisioningResource",
-    "DirectoryGroupPrincipalProvisioningResource",
-    "DirectoryResourcePrincipalProvisioningResource",
-]
 
 class RepositoryBuilder (object):
     """
@@ -239,7 +212,7 @@ class Collection (object):
     """
     def __init__(self):
         self.name = None
-        self.pytype = "CalDAVFile"
+        self.pytype = "twistedcaldav.static.CalDAVFile" # FIXME: Why not None?
         self.params = {}
         self.properties = []
         self.acl = None
@@ -332,17 +305,19 @@ class Collection (object):
 
         if not os.path.exists(mypath):
             os.mkdir(mypath)
-        
-        if self.pytype in urld:
-            if len(self.params) != 0:
-                self.resource = classMap[self.pytype](mypath, myurl, params=self.params)
-            else:
-                self.resource = classMap[self.pytype](mypath, myurl)
-        else:
-            if len(self.params) != 0:
-                self.resource = classMap[self.pytype](mypath, params=self.params)
-            else:
-                self.resource = classMap[self.pytype](mypath)
+
+        try:
+            resource_class = namedObject(self.pytype)
+        except (ImportError, AttributeError):
+            log.err("Unable to locate Python class %r" % (self.pytype,))
+            raise
+        kwargs = {}
+        if "url" in resource_class.__init__.func_code.co_varnames:
+            kwargs["url"] = myurl
+        if self.params:
+            kwargs["params"] = self.params
+        self.resource = resource_class(mypath, **kwargs)
+
         self.uri = myurl
         
         # Set properties now
