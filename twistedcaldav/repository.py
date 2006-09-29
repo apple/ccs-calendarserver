@@ -312,11 +312,16 @@ class Collection (object):
             log.err("Unable to locate Python class %r" % (self.pytype,))
             raise
         kwargs = {}
-        if "url" in resource_class.__init__.func_code.co_varnames:
-            kwargs["url"] = myurl
+        argnames = resource_class.__init__.func_code.co_varnames
+        for name, value in (
+            ("path", mypath),
+            ("url" , myurl ),
+        ):
+            if name in argnames:
+                kwargs[name] = value
         if self.params:
             kwargs["params"] = self.params
-        self.resource = resource_class(mypath, **kwargs)
+        self.resource = resource_class(**kwargs)
 
         self.uri = myurl
         
@@ -510,7 +515,11 @@ class Provisioner (object):
         self.principalCollection = principalCollection
         self.calendarHome = calendarHome
 
-        self.principalCollection.resource.initialize(self.calendarHome.uri, self.calendarHome.resource)
+        if self.calendarHome is not None:
+            self.principalCollection.resource.initialize(
+                self.calendarHome.uri,
+                self.calendarHome.resource,
+            )
 
         # Provision each user
         for repeat, principal in self.items:
