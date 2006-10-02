@@ -25,6 +25,8 @@
 set -e
 set -u
 
+version="11";
+
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
 
@@ -34,7 +36,7 @@ src="$(cd "${wd}/.." && pwd)";
 
 usage ()
 {
-  program="$(basename "$0") version release";
+  program="$(basename "$0") release";
 
   if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
 
@@ -52,10 +54,6 @@ while getopts 'h' option; do
 done;
 shift $((${OPTIND} - 1));
 
-if [ $# == 0 ]; then usage "No version specified"; fi;
-
-version="$1"; shift;
-
 if [ $# == 0 ]; then usage "No release specified"; fi;
 
 release="$1"; shift;
@@ -63,7 +61,6 @@ release="$1"; shift;
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
  project="CalendarServer";
-     tag="${project}-${version}";
      uri="$(svn info "${src}" --xml | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
 revision="$(svnversion "${src}")";
 
@@ -75,18 +72,20 @@ revision="$(svnversion "${src}")";
 # We need a single revision number
 #
 if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
-    echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
-    exit 1;
+  echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
+  exit 1;
 else
-    revision="$(echo "${revision}" | sed 's|M$||g')";
+  revision="$(echo "${revision}" | sed 's|M$||g')";
 fi;
+
+tag="${project}-${version}.${revision}";
 
 #
 # Make sure changes are checked in.
 #
 if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
-    echo "Working copy has uncommitted changes.  Aborting.";
-    exit 1;
+  echo "Working copy has uncommitted changes.  Aborting.";
+  exit 1;
 fi;
 
 #
