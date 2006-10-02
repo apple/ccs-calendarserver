@@ -37,15 +37,27 @@ limitations under the License.
             <inheritable/>
           </ace>
         </acl>
-        <!--  Must explicitly set which principal hierarchies will be listed in WebDAV properties.
-              The order of these will determine how a user id will map to a principal in a particular hierarchy
-              if an id appears in more than one. -->
-        <prop><principal-collection-set xmlns='DAV:'><href>/principals/users/</href><href>/principals/groups/</href><href>/principals/resources/</href></principal-collection-set></prop>
+        <!--
+          Must explicitly set which principal hierarchies will be
+          listed in WebDAV properties.  The order of these will
+          determine how a user id will map to a principal in a
+          particular hierarchy if an id appears in more than one.
+         -->
+        <prop>
+          <principal-collection-set xmlns="DAV:">
+            <href>/principals/users/</href>
+            <href>/principals/groups/</href>
+            <href>/principals/resources/</href>
+          </principal-collection-set>
+        </prop>
       </properties>
       <members>
-        <!--  We must define the calendar home location before the principals as
-            auto-provisioning of accounts occurs when the principal collections are
-            created and we need to have the calendar home path setup by then. -->
+        <!--
+          We must define the calendar home location before the
+          principals as auto-provisioning of accounts occurs when the
+          principal collections are created and we need to have the
+          calendar home path setup by then.
+         -->
         <collection name="calendars" tag="calendars">
           <pytype>twistedcaldav.static.CalDAVFile</pytype>
           <properties>
