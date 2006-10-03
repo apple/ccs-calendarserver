@@ -907,7 +907,7 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
 
             child_fp.open("w").close()
 
-        return CalendarPrincipalFile(child_fp.path, joinURL(self._url, name))
+        return CalendarPrincipalFile(child_fp.path, joinURL(self.principalCollectionURL(), name))
 
     def principalSearchPropertySet(self):
         """
