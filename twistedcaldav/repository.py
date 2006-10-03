@@ -90,6 +90,7 @@ ELEMENT_USERID = "uid"
 ELEMENT_PASSWORD = "pswd"
 ELEMENT_NAME = "name"
 ELEMENT_CUADDR = "cuaddr"
+ELEMENT_CUHOME = "cuhome"
 ELEMENT_CALENDAR = "calendar"
 ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
@@ -499,7 +500,7 @@ class Provisioner (object):
                 else:
                     repeat = 1
 
-                principal = ProvisionPrincipal("", "", "", [], [], None, None, False)
+                principal = ProvisionPrincipal("", "", "", [], "", [], None, None, False)
                 principal.parseXML( child )
                 self.items.append((repeat, principal))
     
@@ -574,100 +575,103 @@ class Provisioner (object):
         if not item.cuaddrs and not item.calendars:
             return
 
-        # Create calendar home
-        homeURL = joinURL(self.calendarHome.uri, item.uid)
-        home = FilePath(os.path.join(self.calendarHome.resource.fp.path, item.uid))
-        home_exists = home.exists()
-        if not home_exists:
-            home.createDirectory()
-        home = CalendarHomeFile(home.path)
-
-        # Handle ACLs on calendar home
-        if resetACLs or not home_exists:
-            if item.acl:
-                home.setAccessControlList(item.acl.acl)
-            else:
-                home.setAccessControlList(
+        if item.cuhome:
+            principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(item.cuhome)))
+        else:
+            # Create calendar home
+            homeURL = joinURL(self.calendarHome.uri, item.uid)
+            home = FilePath(os.path.join(self.calendarHome.resource.fp.path, item.uid))
+            home_exists = home.exists()
+            if not home_exists:
+                home.createDirectory()
+            home = CalendarHomeFile(home.path)
+    
+            # Handle ACLs on calendar home
+            if resetACLs or not home_exists:
+                if item.acl:
+                    home.setAccessControlList(item.acl.acl)
+                else:
+                    home.setAccessControlList(
+                        davxml.ACL(
+                            davxml.ACE(
+                                davxml.Principal(davxml.Authenticated()),
+                                davxml.Grant(
+                                    davxml.Privilege(davxml.Read()),
+                                ),
+                            ),
+                            davxml.ACE(
+                                davxml.Principal(davxml.HRef.fromString(principalURL)),
+                                davxml.Grant(
+                                    davxml.Privilege(davxml.All()),
+                                ),
+                                TwistedACLInheritable(),
+                            ),
+                        )
+                    )
+            
+            # Handle quota on calendar home
+            home.setQuotaRoot(None, item.quota)
+    
+            # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
+            principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
+            principal.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
+            principal.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
+            
+            # Set ACLs on inbox and outbox
+            if resetACLs or not home_exists:
+                inbox = home.getChild("inbox")
+                inbox.setAccessControlList(
                     davxml.ACL(
                         davxml.ACE(
                             davxml.Principal(davxml.Authenticated()),
                             davxml.Grant(
-                                davxml.Privilege(davxml.Read()),
+                                davxml.Privilege(caldavxml.Schedule()),
                             ),
-                        ),
-                        davxml.ACE(
-                            davxml.Principal(davxml.HRef.fromString(principalURL)),
-                            davxml.Grant(
-                                davxml.Privilege(davxml.All()),
-                            ),
-                            TwistedACLInheritable(),
                         ),
                     )
                 )
-        
-        # Handle quota on calendar home
-        home.setQuotaRoot(None, item.quota)
-
-        # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
-        principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
-        principal.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
-        principal.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
-        
-        # Set ACLs on inbox and outbox
-        if resetACLs or not home_exists:
+                if item.autorespond:
+                    inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+    
+                outbox = home.getChild("outbox")
+                if outbox.hasDeadProperty(davxml.ACL()):
+                    outbox.removeDeadProperty(davxml.ACL())
+    
+            calendars = []
+            for calendar in item.calendars:
+                childURL = joinURL(homeURL, calendar)
+                child = CalDAVFile(os.path.join(home.fp.path, calendar))
+                child_exists = child.exists()
+                if not child_exists:
+                    c = child.createCalendarCollection()
+                    assert c.called
+                    c = c.result
+                    
+                calendars.append(childURL)
+                if (resetACLs or not child_exists):
+                    child.setAccessControlList(
+                        davxml.ACL(
+                            davxml.ACE(
+                                davxml.Principal(davxml.Authenticated()),
+                                davxml.Grant(
+                                    davxml.Privilege(caldavxml.ReadFreeBusy()),
+                                ),
+                                TwistedACLInheritable(),
+                            ),
+                        )
+                    )
+            
+            # Set calendar-free-busy-set on Inbox if not already present
             inbox = home.getChild("inbox")
-            inbox.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.Authenticated()),
-                        davxml.Grant(
-                            davxml.Privilege(caldavxml.Schedule()),
-                        ),
-                    ),
-                )
-            )
-            if item.autorespond:
-                inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-
-            outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(davxml.ACL()):
-                outbox.removeDeadProperty(davxml.ACL())
-
-        calendars = []
-        for calendar in item.calendars:
-            childURL = joinURL(homeURL, calendar)
-            child = CalDAVFile(os.path.join(home.fp.path, calendar))
-            child_exists = child.exists()
-            if not child_exists:
-                c = child.createCalendarCollection()
-                assert c.called
-                c = c.result
-                
-            calendars.append(childURL)
-            if (resetACLs or not child_exists):
-                child.setAccessControlList(
-                    davxml.ACL(
-                        davxml.ACE(
-                            davxml.Principal(davxml.Authenticated()),
-                            davxml.Grant(
-                                davxml.Privilege(caldavxml.ReadFreeBusy()),
-                            ),
-                            TwistedACLInheritable(),
-                        ),
-                    )
-                )
-        
-        # Set calendar-free-busy-set on Inbox if not already present
-        inbox = home.getChild("inbox")
-        if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
-            inbox.writeDeadProperty(fbset)
+            if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
+                fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
+                inbox.writeDeadProperty(fbset)
 
 class ProvisionPrincipal (object):
     """
     Contains provision information for one user.
     """
-    def __init__(self, uid, pswd, name, cuaddrs, calendars, acl, quota, autorespond):
+    def __init__(self, uid, pswd, name, cuaddrs, cuhome, calendars, acl, quota, autorespond):
         """
         @param uid:           user id.
         @param pswd:          clear-text password for this user.
@@ -684,6 +688,7 @@ class ProvisionPrincipal (object):
         self.pswd = pswd
         self.name = name
         self.cuaddrs = cuaddrs
+        self.cuhome = cuhome
         self.calendars = calendars
         self.acl = acl
         self.quota = quota
@@ -714,8 +719,12 @@ class ProvisionPrincipal (object):
                 cuaddrs.append(cuaddr % ctr)
             else:
                 cuaddrs.append(cuaddr)
+        if self.cuhome.find("%") != -1:
+            cuhome = self.cuhome % ctr
+        else:
+            cuhome = self.cuhome
         
-        return ProvisionPrincipal(uid, pswd, name, cuaddrs, self.calendars, self.acl, self.quota, self.autorespond)
+        return ProvisionPrincipal(uid, pswd, name, cuaddrs, cuhome, self.calendars, self.acl, self.quota, self.autorespond)
 
     def parseXML( self, node ):
         for child in node._get_childNodes():
@@ -731,6 +740,9 @@ class ProvisionPrincipal (object):
             elif child._get_localName() == ELEMENT_CUADDR:
                 if child.firstChild is not None:
                    self.cuaddrs.append(child.firstChild.data.encode("utf-8"))
+            elif child._get_localName() == ELEMENT_CUHOME:
+                if child.firstChild is not None:
+                   self.cuhome = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_CALENDAR:
                 if child.firstChild is not None:
                    self.calendars.append(child.firstChild.data.encode("utf-8"))
