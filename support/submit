@@ -78,7 +78,7 @@ else
   revision="$(echo "${revision}" | sed 's|M$||g')";
 fi;
 
-tag="${project}-${version}.${revision}";
+project_version="${project}-$((${version} + ${revision} / 10000 % 100)).$((${revision} / 100 % 100)).$((${revision} % 100))";
 
 #
 # Make sure changes are checked in.
@@ -93,7 +93,7 @@ fi;
 #
 
 tmp="$(mktemp -d -t CalendarServer)";
-wc="${tmp}/${tag}";
+wc="${tmp}/${project_version}";
 
 echo "";
 echo "Exporting ${uri}@${revision}..."
