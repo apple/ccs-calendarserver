@@ -43,13 +43,7 @@ limitations under the License.
           determine how a user id will map to a principal in a
           particular hierarchy if an id appears in more than one.
          -->
-        <prop>
-          <principal-collection-set xmlns="DAV:">
-            <href>/principals/users/</href>
-            <href>/principals/groups/</href>
-            <href>/principals/resources/</href>
-          </principal-collection-set>
-        </prop>
+        <prop><principal-collection-set xmlns="DAV:"><href>/principals/users/</href><href>/principals/groups/</href><href>/principals/resources/</href></principal-collection-set></prop>
       </properties>
       <members>
         <!--
