@@ -694,7 +694,7 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
             return []
         
         result = []
-        for name in self.listFileChildren():
+        for name in self.listChildren():
             principal = self.getChild(name)
             if principal.hasDeadProperty(customxml.TwistedGroupMemberGUIDs):
                 guids = principal.readDeadProperty(customxml.TwistedGroupMemberGUIDs)
@@ -711,47 +711,22 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         """
         return True
 
-    def listChildren(self):
-        """
-        @return: a sequence of the names of all known children of this resource.
-        """
-        
-        # Lookup all users
-        return self.listNames()
- 
-    def listFileChildren(self):
-        """
-        @return: a sequence of the names of all known file children of this resource.
-        """
-        
-        # Lookup all users
-        return DAVFile.listChildren(self)
- 
     def getChild(self, name):
-        if name == "": return self
+        """
+        Look up a child resource.
+        @return: the child of this resource with the given name.
+        """
+        if name == "":
+            return self
+
+        child = self.putChildren.get(name, None)
+        if child: return child
 
         child_fp = self.fp.child(name)
         if child_fp.exists():
-            assert child_fp.isfile()
+            return DirectoryPrincipalFile(self, child_fp.path, joinURL(self._url, name))
         else:
-            assert self.exists()
-            assert self.isCollection()
-
-            # FIXME: Do a real lookup of what's valid here
-            if name[0] == ".": return None
-            
-            # Verify that name is valid in the directory
-            if not self.validName(name):
-                return None
-
-            # Verify that this directory entry is one that supports clendars
-            dattrs = self.directoryAttributes(name)
-            if not dattrs.has_key(dsattributes.attrCalendarPrincipalURI):
-                return None
-
-            self.addPrincipal(name)
-
-        return DirectoryPrincipalFile(self, child_fp.path, joinURL(self._url, name))
+            return None
 
     def principalSearchPropertySet(self):
         """

@@ -64,7 +64,7 @@ class PrincipalIndex(AbstractIndex):
 
         # Now verify that index entries have a corresponding child
         indexnames = set(self.listNames())
-        filenames = set(self.resource.listFileChildren())
+        filenames = set(self.resource.listChildren())
         extranames = indexnames.difference(filenames)
         for name in extranames:
             self.deleteName(name)
@@ -231,7 +231,7 @@ class PrincipalIndex(AbstractIndex):
         This allows for index recovery if the DB file gets deleted.
         """
 
-        for name in self.resource.listFileChildren():
+        for name in self.resource.listChildren():
             if name == db_basename: continue
             principal = self.resource.getChild(name)
             #if not isinstance(principal, DirectoryPrincipalFile): continue
