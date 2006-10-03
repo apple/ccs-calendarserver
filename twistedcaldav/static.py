@@ -606,9 +606,9 @@ class CalendarHomeFile (CalDAVFile):
         @param disabled: If true, disabled all access. If false, enables access.
         """
         if disabled:
-            self.writeDeadProperty(AccessDisabled)
+            self.writeDeadProperty(AccessDisabled())
         else:
-            self.removeDeadProperty(AccessDisabled)
+            self.removeDeadProperty(AccessDisabled())
 
     def isDisabled(self):
         """
