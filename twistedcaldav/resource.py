@@ -431,6 +431,15 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         # Register self with class
         CalendarPrincipalCollectionResource._principleCollectionSet[url] = self
 
+    def isCollection(self):
+        return True
+
+    def isCalendarCollection(self):
+        return False
+
+    def isPseudoCalendarCollection(self):
+        return False
+
     def findCalendarUser(self, request, address):
         """
         Find the calendar user principal associated with the specified calendar
