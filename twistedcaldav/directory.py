@@ -1030,7 +1030,7 @@ class DirectoryPrincipalProvisioningResource (DAVFile):
         ):
             child_fp = self.fp.child(name)
             if not child_fp.exists(): child_fp.makedirs()
-            principalCollection = clazz(child_fp.path, joinURL(url, name))
+            principalCollection = clazz(child_fp.path, joinURL(url, name) + "/")
             principalCollection.setup(self.directory)
             self.putChild(name, principalCollection)
 

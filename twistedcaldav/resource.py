@@ -429,7 +429,8 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         self._url = url
 
         # Register self with class
-        CalendarPrincipalCollectionResource._principleCollectionSet[url] = self
+        if url not in CalendarPrincipalCollectionResource._principleCollectionSet:
+            CalendarPrincipalCollectionResource._principleCollectionSet[url] = self
 
     def isCollection(self):
         return True
