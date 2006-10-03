@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/copymove.py
 ===================================================================
---- twisted/web2/dav/method/copymove.py	(revision 18219)
+--- twisted/web2/dav/method/copymove.py	(revision 18375)
 +++ twisted/web2/dav/method/copymove.py	(working copy)
 @@ -38,7 +38,7 @@
  from twisted.web2.filter.location import addLocation
