@@ -123,6 +123,9 @@ echo "";
 echo "Preparing sources...";
 make -C "${wc}" prep;
 
+# FIXME: Work around dircaldavd hack
+mv "${wc}/bin/dircaldavd" "${wc}/bin/caldavd";
+
 echo "";
 echo "Submitting sources...";
 ~rc/bin/submitproject "${wc}" "${release}";
