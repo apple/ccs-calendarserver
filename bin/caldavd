@@ -332,113 +332,24 @@ Options:
     
     def generateTAC(self):
         return """
-import os
-from os.path import dirname, join
+docroot       = "%(docroot)s"
+repo          = "%(repo)s"
+doacct        =  %(doacct)s
+doacl         =  %(doacl)s
+dossl         =  %(dossl)s
+keyfile       = "%(keyfile)s"
+certfile      = "%(certfile)s"
+onlyssl       =  %(onlyssl)s
+port          =  %(port)d
+sslport       =  %(sslport)d
+maxsize       =  %(maxsize)d
+quota         =  %(quota)d
+serverlogfile = "%(serverlogfile)s"
 
-docroot   = "%(docroot)s"
-repo      = "%(repo)s"
-doacct    =  %(doacct)s
-doacl     =  %(doacl)s
-dossl     =  %(dossl)s
-keyfile   = "%(keyfile)s"
-certfile  = "%(certfile)s"
-onlyssl   =  %(onlyssl)s
-port      =  %(port)d
-sslport   =  %(sslport)d
-maxsize   =  %(maxsize)d
-quota     =  %(quota)d
-serverlog = "%(serverlogfile)s"
+from twistedcaldav.repository import startServer
 
+application, site = startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile)
 
-if not dossl and onlyssl:
-    dossl = True
-
-if os.path.exists(docroot):
-    print "Document root is: %%s" %% (docroot,)
-else:
-    raise IOError("No such docroot: %%s" %% (docroot,))
-
-if os.path.exists(repo):
-    print "Repository configuration is: %%s" %% (repo,)
-else:
-    raise IOError("No such repo: %%s" %% (repo,))
-
-if dossl:
-    if os.path.exists(keyfile):
-        print "Using SSL private key file: %%s" %% (keyfile,)
-    else:
-        raise IOError("SSL Private Key file does not exist: %%s" %% (keyfile,))
-
-    if os.path.exists(certfile):
-        print "Using SSL certificate file: %%s" %% (certfile,)
-    else:
-        raise IOError("SSL Certificate file does not exist: %%s" %% (certfile,))
-
-from twisted.application.service  import Application, IServiceCollection, MultiService
-from twisted.application.internet import TCPServer
-from twisted.cred.portal          import Portal
-from twisted.web2.auth            import basic
-from twisted.web2.dav             import davxml, auth
-from twisted.web2.log             import LogWrapperResource
-from twisted.web2.server          import Site
-from twisted.web2.channel.http    import HTTPFactory
-
-if dossl:
-    from twisted.application.internet import SSLServer
-    from twisted.internet.ssl         import DefaultOpenSSLContextFactory
-
-from twistedcaldav.logging    import RotatingFileAccessLoggingObserver
-from twistedcaldav.repository import RepositoryBuilder
-
-class Web2Service(MultiService):
-    def __init__(self, logObserver):
-        self.logObserver = logObserver
-        MultiService.__init__(self)
-
-    def startService(self):
-        MultiService.startService(self)
-        self.logObserver.start()
-
-    def stopService(self):
-        MultiService.stopService(self)
-        self.logObserver.stop()
-
-builder = RepositoryBuilder(docroot,
-                            doAccounts=doacct,
-                            resetACLs=doacl,
-                            maxsize=maxsize,
-                            quota=quota)
-builder.buildFromFile(repo)
-rootresource = builder.docRoot.collection.resource
-
-application = Application("CalDAVServer")
-parent      = IServiceCollection(application)
-web2        = Web2Service(RotatingFileAccessLoggingObserver(serverlog))
-web2.setServiceParent(parent)
-parent = web2
-
-portal = Portal(auth.DavRealm())
-portal.registerChecker(auth.TwistedPropertyChecker())
-
-credentialFactories = (basic.BasicCredentialFactory(""),)
-
-loginInterfaces = (auth.IPrincipal,)
-
-site = Site(LogWrapperResource(auth.AuthenticationWrapper(rootresource, 
-                                                          portal,
-                                                          credentialFactories,
-                                                          loginInterfaces)))
-
-factory     = HTTPFactory(site)
-
-if not onlyssl:
-    print "Starting http server"
-    server = TCPServer(port, factory).setServiceParent(parent)
-
-if dossl:
-    print "Starting https server"
-    sslContext = DefaultOpenSSLContextFactory(keyfile, certfile)
-    sslserver  = SSLServer(sslport, factory, sslContext).setServiceParent(parent)
 """ % {"docroot":       self.docroot,
        "repo":          self.repo,
        "doacct":        self.doacct,

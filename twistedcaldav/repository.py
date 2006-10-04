@@ -24,17 +24,27 @@ properties, access control etc setup.
 
 __all__ = ["RepositoryBuilder"]
 
+
+
+from twisted.application.internet import SSLServer, TCPServer
+from twisted.application.service import Application, IServiceCollection, MultiService
+from twisted.cred.portal import Portal
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedObject
-from twisted.web2.dav import davxml
+from twisted.web2.auth import basic
+from twisted.web2.channel.http import HTTPFactory
+from twisted.web2.dav import auth, davxml
 from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL
-from twistedcaldav import caldavxml
-from twistedcaldav import customxml
+from twisted.web2.log import LogWrapperResource
+from twisted.web2.server import Site
+from twistedcaldav import caldavxml, customxml
+from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
 
@@ -95,6 +105,84 @@ ELEMENT_CALENDAR = "calendar"
 ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
+
+def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile):
+
+    if not dossl and onlyssl:
+        dossl = True
+    
+    if os.path.exists(docroot):
+        print "Document root is: %s" % (docroot,)
+    else:
+        raise IOError("No such docroot: %s" % (docroot,))
+    
+    if os.path.exists(repo):
+        print "Repository configuration is: %s" % (repo,)
+    else:
+        raise IOError("No such repo: %s" % (repo,))
+    
+    if dossl:
+        if os.path.exists(keyfile):
+            print "Using SSL private key file: %s" % (keyfile,)
+        else:
+            raise IOError("SSL Private Key file does not exist: %s" % (keyfile,))
+    
+        if os.path.exists(certfile):
+            print "Using SSL certificate file: %s" % (certfile,)
+        else:
+            raise IOError("SSL Certificate file does not exist: %s" % (certfile,))
+    
+    class Web2Service(MultiService):
+        def __init__(self, logObserver):
+            self.logObserver = logObserver
+            MultiService.__init__(self)
+    
+        def startService(self):
+            MultiService.startService(self)
+            self.logObserver.start()
+    
+        def stopService(self):
+            MultiService.stopService(self)
+            self.logObserver.stop()
+    
+    builder = RepositoryBuilder(docroot,
+                                doAccounts=doacct,
+                                resetACLs=doacl,
+                                maxsize=maxsize,
+                                quota=quota)
+    builder.buildFromFile(repo)
+    rootresource = builder.docRoot.collection.resource
+    
+    application = Application("CalDAVServer")
+    parent      = IServiceCollection(application)
+    web2        = Web2Service(RotatingFileAccessLoggingObserver(serverlogfile))
+    web2.setServiceParent(parent)
+    parent = web2
+    
+    portal = Portal(auth.DavRealm())
+    portal.registerChecker(auth.TwistedPropertyChecker())
+    
+    credentialFactories = (basic.BasicCredentialFactory(""),)
+    
+    loginInterfaces = (auth.IPrincipal,)
+    
+    site = Site(LogWrapperResource(auth.AuthenticationWrapper(rootresource, 
+                                                              portal,
+                                                              credentialFactories,
+                                                              loginInterfaces)))
+    
+    factory     = HTTPFactory(site)
+    
+    if not onlyssl:
+        print "Starting http server"
+        server = TCPServer(port, factory).setServiceParent(parent)
+    
+    if dossl:
+        print "Starting https server"
+        sslContext = DefaultOpenSSLContextFactory(keyfile, certfile)
+        sslserver  = SSLServer(sslport, factory, sslContext).setServiceParent(parent)
+
+    return application, site
 
 class RepositoryBuilder (object):
     """
