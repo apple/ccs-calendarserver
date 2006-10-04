@@ -632,12 +632,12 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         """
         super(CalendarHomeProvisioningFile, self).__init__(path)
 
-    def render(self, request):
-        return StatusResponse(
-            responsecode.OK,
-            "This collection contains user calendar home collections",
-            title=self.displayName()
-        )
+    def hasChild(self, name):
+        """
+        @return: C{True} if this resource has a child with the given name,
+            C{False} otherwise.
+        """
+        return name in self.listChildren()
 
     def getChild(self, name):
         if name == "": return self
@@ -649,9 +649,8 @@ class CalendarHomeProvisioningFile (CalDAVFile):
             assert self.exists()
             assert self.isCollection()
 
-            # FIXME: Do a real lookup of what's valid here
-            if name[0] == ".": return None
-            if len(name) > 8: return None
+            if not self.hasChild(name):
+                return None
 
             child_fp.makedirs()
 
