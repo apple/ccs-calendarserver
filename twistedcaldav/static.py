@@ -599,31 +599,6 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, clazz(child_fp.path))
 
-    def disable(self, disabled=True):
-        """
-        Completely disables all access to this resource, regardless of ACL
-        settings.
-        @param disabled: If true, disabled all access. If false, enables access.
-        """
-        if disabled:
-            self.writeDeadProperty(AccessDisabled())
-        else:
-            self.removeDeadProperty(AccessDisabled())
-
-    def isDisabled(self):
-        """
-        @return: C{True} if access to this resource is disabled, C{False}
-            otherwise.
-        """
-        return self.hasDeadProperty(AccessDisabled)
-
-    # FIXME: Perhaps this is better done in authorize() instead.
-    def accessControlList(self, *args, **kwargs):
-        if self.isDisabled():
-            return succeed(None)
-
-        return super(CalendarHomeFile, self).accessControlList(*args, **kwargs)
-
     def createSimilarFile(self, path):
         return CalDAVFile(path)
 
@@ -948,16 +923,6 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
-##
-# Utilities
-##
-
-class AccessDisabled (davxml.WebDAVEmptyElement):
-    namespace = davxml.twisted_private_namespace
-    name = "caldav-access-disabled"
-
-davxml.registerElement(AccessDisabled)
 
 ##
 # Attach methods
