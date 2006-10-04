@@ -47,6 +47,9 @@ limitations under the License.
   <key>SSLCertificate</key>
   <string>conf/server.pem</string>
 
+  <key>ManholePort</key>
+  <integer>8000</integer>
+
   <key>ServerLogFile</key>
   <string>bin/server.log</string>
 

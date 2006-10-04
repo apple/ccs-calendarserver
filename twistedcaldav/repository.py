@@ -106,7 +106,7 @@ ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
 
-def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile):
+def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole):
 
     if not dossl and onlyssl:
         dossl = True
@@ -171,16 +171,28 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
                                                               credentialFactories,
                                                               loginInterfaces)))
     
-    factory     = HTTPFactory(site)
+    factory = HTTPFactory(site)
     
     if not onlyssl:
         print "Starting http server"
-        server = TCPServer(port, factory).setServiceParent(parent)
+        TCPServer(port, factory).setServiceParent(parent)
     
     if dossl:
         print "Starting https server"
         sslContext = DefaultOpenSSLContextFactory(keyfile, certfile)
-        sslserver  = SSLServer(sslport, factory, sslContext).setServiceParent(parent)
+        SSLServer(sslport, factory, sslContext).setServiceParent(parent)
+
+    print "Manhole: %r" % (manhole,)
+    if manhole:
+        print "Starting manhole on port %d" % (manhole,)
+        from twisted.manhole.telnet import ShellFactory
+        from twisted.internet import reactor
+        manhole_factory = ShellFactory()
+        reactor.listenTCP(manhole, manhole_factory)
+        manhole_factory.username = "admin"
+        manhole_factory.password = ""
+        manhole_factory.namespace["site"] = site
+        manhole_factory.namespace["portal"] = portal
 
     return application, site
 

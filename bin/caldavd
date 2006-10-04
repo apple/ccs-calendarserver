@@ -63,6 +63,7 @@ class caldavd(object):
         self.onlyssl = False
         self.keyfile = "/etc/certificates/Default.key"
         self.certfile = "/etc/certificates/Default.crt"
+        self.manhole = 0
 
         self.serverlogfile = "/var/log/caldavd/server.log"
         self.errorlogfile = "/var/log/caldavd/error.log"
@@ -271,6 +272,7 @@ class caldavd(object):
                    "SSLOnly":                    "onlyssl",
                    "SSLPrivateKey":              "keyfile",
                    "SSLCertificate":             "certfile",
+                   "ManholePort":                "manhole",
                    "ServerLogFile":              "serverlogfile",
                    "ErrorLogFile":               "errorlogfile",
                    "PIDFile":                    "pidfile",
@@ -285,6 +287,8 @@ class caldavd(object):
         for k,v in root.items():
             if mapper.has_key(k) and hasattr(self, mapper[k]):
                 setattr(self, mapper[k], v)
+            else:
+                print "Unknown option: %s" % (k,)
 
     def validate(self):
         
@@ -345,24 +349,28 @@ sslport       =  %(sslport)d
 maxsize       =  %(maxsize)d
 quota         =  %(quota)d
 serverlogfile = "%(serverlogfile)s"
+manhole       =  %(manhole)d
 
 from twistedcaldav.repository import startServer
 
-application, site = startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile)
+application, site = startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole)
 
-""" % {"docroot":       self.docroot,
-       "repo":          self.repo,
-       "doacct":        self.doacct,
-       "doacl":         self.doacl,
-       "dossl":         self.dossl,
-       "keyfile":       self.keyfile,
-       "certfile":      self.certfile,
-       "onlyssl":       self.onlyssl,
-       "port":          self.port,
-       "sslport":       self.sslport,
-       "maxsize":       self.maxsize,
-       "quota":         self.quota,
-       "serverlogfile": self.serverlogfile}
+""" % {
+    "docroot":       self.docroot,
+    "repo":          self.repo,
+    "doacct":        self.doacct,
+    "doacl":         self.doacl,
+    "dossl":         self.dossl,
+    "keyfile":       self.keyfile,
+    "certfile":      self.certfile,
+    "onlyssl":       self.onlyssl,
+    "port":          self.port,
+    "sslport":       self.sslport,
+    "maxsize":       self.maxsize,
+    "quota":         self.quota,
+    "serverlogfile": self.serverlogfile,
+    "manhole":       self.manhole,
+}
 
 if __name__ == "__main__":
 
