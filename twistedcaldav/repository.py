@@ -397,7 +397,7 @@ class Collection (object):
 
         try:
             resource_class = namedObject(self.pytype)
-        except (ImportError, AttributeError):
+        except:
             log.err("Unable to locate Python class %r" % (self.pytype,))
             raise
         kwargs = {}
