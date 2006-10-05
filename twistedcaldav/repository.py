@@ -186,23 +186,29 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
     portal = Portal(auth.DavRealm())
     if authenticator.credentials == ATTRIBUTE_VALUE_PROPERTY:
         portal.registerChecker(auth.TwistedPropertyChecker())
+        print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
         portal.registerChecker(directory.DirectoryCredentialsChecker())
+        print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
         if authenticator.type == "basic":
             portal.registerChecker(authkerb.BasicKerberosCredentialsChecker())
         elif authenticator.type == "kerberos":
             portal.registerChecker(authkerb.NegotiateCredentialsChecker())
+        print "Using Kerberos-based password checker."
     
     if authenticator.type == "basic":
         if authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
             credentialFactories = (authkerb.BasicKerberosCredentialFactory(authenticator.service, authenticator.realm),)
         else:
             credentialFactories = (basic.BasicCredentialFactory(authenticator.realm),)
+        print "Using HTTP BASIC authentication."
     elif authenticator.type == "digest":
         credentialFactories = (digest.DigestCredentialFactory("md5", authenticator.realm),)
+        print "Using HTTP DIGEST authentication."
     elif authenticator.type == "kerberos":
         credentialFactories = (authkerb.NegotiateCredentialFactory(authenticator.service),)
+        print "Using HTTP NEGOTIATE authentication."
     
     loginInterfaces = (auth.IPrincipal,)
     
