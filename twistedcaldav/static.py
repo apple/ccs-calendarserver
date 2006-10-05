@@ -599,18 +599,8 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, clazz(child_fp.path))
 
-    def locateChild(self, req, segments):
-        """
-        This implementation tries fails to find children we don't already know
-        about.
-        """
-        # If getChild() finds a child resource, return it
-        child = self.getChild(segments[0])
-        if child is not None:
-            return (child, segments[1:])
-
-        # Otherwise, there is no child
-        return (None, ())
+    def locateChild(self, request, segments):
+        return locateExistingChild(self, request, segments)
 
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.
@@ -661,8 +651,15 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         """
         return name in self.listChildren()
 
+    def locateChild(self, request, segments):
+        return locateExistingChild(self, request, segments)
+
     def getChild(self, name):
         if name == "": return self
+
+        # Avoid case variants when allocating resources
+        if not self.hasChild(name):
+            return None
 
         child_fp = self.fp.child(name)
         if child_fp.exists():
@@ -670,9 +667,6 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         else:
             assert self.exists()
             assert self.isCollection()
-
-            if not self.hasChild(name):
-                return None
 
             child_fp.makedirs()
 
@@ -944,6 +938,23 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
+
+##
+# Utilities
+##
+
+def locateExistingChild(resource, request, segments):
+    """
+    This C{locateChild()} implementation fails to find children if C{getChild()}
+    doesn't return one.
+    """
+    # If getChild() finds a child resource, return it
+    child = resource.getChild(segments[0])
+    if child is not None:
+        return (child, segments[1:])
+
+    # Otherwise, there is no child
+    return (None, ())
 
 ##
 # Attach methods
