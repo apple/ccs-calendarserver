@@ -24,8 +24,6 @@ properties, access control etc setup.
 
 __all__ = ["RepositoryBuilder"]
 
-
-
 from twisted.application.internet import SSLServer, TCPServer
 from twisted.application.service import Application, IServiceCollection, MultiService
 from twisted.cred.portal import Portal
@@ -33,20 +31,21 @@ from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.python import log
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedObject
-from twisted.web2.auth import basic
+from twisted.web2.auth import basic, digest
 from twisted.web2.channel.http import HTTPFactory
 from twisted.web2.dav import auth, davxml
-from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
+
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
+from twistedcaldav import authkerb, directory
 
 import os
 
@@ -94,6 +93,21 @@ ATTRVALUE_NONE = "none"
 ATTRVALUE_PRINCIPALS = "principals"
 ATTRVALUE_CALENDARS = "calendars"
 
+ELEMENT_AUTHENTICATION = "authentication"
+ELEMENT_BASIC = "basic"
+ELEMENT_DIGEST = "digest"
+ELEMENT_KERBEROS = "kerberos"
+ELEMENT_REALM = "realm"
+ELEMENT_SERVICE = "service"
+
+ATTRIBUTE_ENABLE = "enable"
+ATTRIBUTE_ONLYSSL = "onlyssl"
+ATTRIBUTE_CREDENTIALS = "credentials"
+
+ATTRIBUTE_VALUE_PROPERTY = "property"
+ATTRIBUTE_VALUE_DIRECTORY = "directory"
+ATTRIBUTE_VALUE_KERBEROS = "kerberos"
+
 ELEMENT_ACCOUNTS = "accounts"
 ELEMENT_USER = "user"
 ELEMENT_USERID = "uid"
@@ -107,10 +121,15 @@ ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
 
 def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole):
-
+    """
+    Start the server using XML-based configuration details and supplied .plist based options.
+    """
+    
+    # Make sure SSL options make sense
     if not dossl and onlyssl:
         dossl = True
     
+    # Check the file paths for validity
     if os.path.exists(docroot):
         print "Document root is: %s" % (docroot,)
     else:
@@ -132,6 +151,7 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
         else:
             raise IOError("SSL Certificate file does not exist: %s" % (certfile,))
     
+    # We need a special service for the access log
     class Web2Service(MultiService):
         def __init__(self, logObserver):
             self.logObserver = logObserver
@@ -145,6 +165,7 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
             MultiService.stopService(self)
             self.logObserver.stop()
     
+    # Build the server
     builder = RepositoryBuilder(docroot,
                                 doAccounts=doacct,
                                 resetACLs=doacl,
@@ -159,13 +180,33 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
     web2.setServiceParent(parent)
     parent = web2
     
-    portal = Portal(auth.DavRealm())
-    portal.registerChecker(auth.TwistedPropertyChecker())
+    # Configure appropriate authentication 
+    authenticator = builder.authentication.getEnabledAuthenticator()
     
-    credentialFactories = (basic.BasicCredentialFactory(""),)
+    portal = Portal(auth.DavRealm())
+    if authenticator.credentials == ATTRIBUTE_VALUE_PROPERTY:
+        portal.registerChecker(auth.TwistedPropertyChecker())
+    elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
+        portal.registerChecker(directory.DirectoryCredentialsChecker())
+    elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
+        if authenticator.type == "basic":
+            portal.registerChecker(authkerb.BasicKerberosCredentialsChecker())
+        elif authenticator.type == "kerberos":
+            portal.registerChecker(authkerb.NegotiateCredentialsChecker())
+    
+    if authenticator.type == "basic":
+        if authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
+            credentialFactories = (authkerb.BasicKerberosCredentialFactory(authenticator.service, authenticator.realm),)
+        else:
+            credentialFactories = (basic.BasicCredentialFactory(authenticator.realm),)
+    elif authenticator.type == "digest":
+        credentialFactories = (digest.DigestCredentialFactory("md5", authenticator.realm),)
+    elif authenticator.type == "kerberos":
+        credentialFactories = (authkerb.NegotiateCredentialFactory(authenticator.service),)
     
     loginInterfaces = (auth.IPrincipal,)
     
+    # Build the site and server instances
     site = Site(LogWrapperResource(auth.AuthenticationWrapper(rootresource, 
                                                               portal,
                                                               credentialFactories,
@@ -216,6 +257,7 @@ class RepositoryBuilder (object):
         """
         self.docRoot = DocRoot(docroot)
         self.doAccounts = doAccounts
+        self.authentication = Authentication()
         self.accounts = Provisioner()
         self.resetACLs = resetACLs
         self.maxsize = maxsize
@@ -259,6 +301,8 @@ class RepositoryBuilder (object):
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_DOCROOT:
                 self.docRoot.parseXML(child)
+            elif child._get_localName() == ELEMENT_AUTHENTICATION:
+                self.authentication.parseXML(child)
             elif child._get_localName() == ELEMENT_ACCOUNTS:
                 self.accounts.parseXML(child)
 
@@ -647,9 +691,9 @@ class Provisioner (object):
             log.msg("Created principal: %s" % principalURL)
         principal = CalendarPrincipalFile(principal.path, principalURL)
         if len(item.pswd):
-            principal.writeDeadProperty(TwistedPasswordProperty.fromString(item.pswd))
+            principal.writeDeadProperty(auth.TwistedPasswordProperty.fromString(item.pswd))
         else:
-            principal.removeDeadProperty(TwistedPasswordProperty())
+            principal.removeDeadProperty(auth.TwistedPasswordProperty())
         if len(item.name):
             principal.writeDeadProperty(davxml.DisplayName.fromString(item.name))
         else:
@@ -854,3 +898,82 @@ class ProvisionPrincipal (object):
                 self.acl.parseXML(child)
             elif child._get_localName() == ELEMENT_AUTORESPOND:
                 self.autorespond = True
+
+class Authentication:
+    """
+    Parses authentication information  for XML file.
+    """
+    
+    class AuthType:
+        """
+        Base class for authentication method behaviors.
+        """
+        
+        def __init__(self, type):
+            self.type = type
+            self.enabled = False
+            self.onlyssl = False
+            self.credentials = ATTRIBUTE_VALUE_PROPERTY
+            self.realm = ""
+            self.service = ""
+            
+        def parseXML(self, node):
+            if node.hasAttribute(ATTRIBUTE_ENABLE):
+                self.enabled = node.getAttribute(ATTRIBUTE_ENABLE) == ATTRIBUTE_VALUE_YES
+            if node.hasAttribute(ATTRIBUTE_ONLYSSL):
+                self.onlyssl = node.getAttribute(ATTRIBUTE_ONLYSSL) == ATTRIBUTE_VALUE_YES
+            if node.hasAttribute(ATTRIBUTE_CREDENTIALS):
+                self.credentials = node.getAttribute(ATTRIBUTE_CREDENTIALS)
+            for child in node._get_childNodes():
+                if child._get_localName() == ELEMENT_REALM:
+                    if child.firstChild is not None:
+                       self.realm = child.firstChild.data.encode("utf-8")
+                elif child._get_localName() == ELEMENT_SERVICE:
+                    if child.firstChild is not None:
+                       self.service = child.firstChild.data.encode("utf-8")
+            
+    def __init__(self):
+        self.basic = Authentication.AuthType("basic")
+        self.digest = Authentication.AuthType("digest")
+        self.kerberos = Authentication.AuthType("kerberos")
+    
+    def getEnabledAuthenticator(self):
+        if self.basic.enabled:
+            return self.basic
+        elif self.digest.enabled:
+            return self.digest
+        elif self.kerberos.enabled:
+            return self.kerberos
+        else:
+            return None
+
+    def parseXML(self, node):
+        for child in node._get_childNodes():
+            if child._get_localName() == ELEMENT_BASIC:
+                self.basic.parseXML(child)
+            elif child._get_localName() == ELEMENT_DIGEST:
+                self.digest.parseXML(child)
+            elif child._get_localName() == ELEMENT_KERBEROS:
+                self.kerberos.parseXML(child)
+        
+        # Sanity checks
+        ctr = 0
+        if self.basic.enabled:
+            ctr += 1
+        if self.digest.enabled:
+            ctr += 1
+        if self.kerberos.enabled:
+            ctr += 1
+        if ctr == 0:
+            log.msg("One authentication method must be enabled.")
+            raise ValueError, "One authentication method must be enabled."
+        elif ctr > 1:
+            log.msg("Only one authentication method allowed.")
+            raise ValueError, "Only one authentication method allowed."
+        
+        # FIXME: currently we have no way to turn off an auth mechanism based on whether SSL is in use or not,
+        # so the onlyssl attribute is meaning less for now.
+#        if self.basic.enabled and not self.basic.onlyssl:
+#            log.msg("IMPORTANT: plain text passwords are allowed without an encrypted/secure connection.")
+        if self.basic.enabled:
+            log.msg("IMPORTANT: plain text passwords are allowed without an encrypted/secure connection.")

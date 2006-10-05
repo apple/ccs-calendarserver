@@ -16,7 +16,7 @@ limitations under the License.
 DRI: Cyrus Daboo, cdaboo@apple.com
  -->
 
-<!ELEMENT repository (docroot, accounts) >
+<!ELEMENT repository (docroot, authentication, accounts) >
 
   <!ELEMENT docroot (collection) >
 	<!ATTLIST docroot auto-principal-collection-set (yes|no) "yes">
@@ -48,6 +48,22 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 
           <!ELEMENT read EMPTY>
 
+  <!ELEMENT authentication (basic, digest, kerberos) >
+  	<!ELEMENT basic (realm, service?)>
+	  <!ATTLIST basic enable  (yes|no) "yes"
+	                  onlyssl (yes|no) "yes"
+	                  credentials (property|directory|kerberos) "property">
+  	<!ELEMENT digest (realm)>
+	  <!ATTLIST digest enable  (yes|no) "no"
+	                   onlyssl (yes|no) "no"
+	                   credentials (property) "property">
+  	<!ELEMENT kerberos (service)>
+	  <!ATTLIST kerberos enable  (yes|no) "no"
+	                     onlyssl (yes|no) "no">
+    
+    <!ELEMENT realm         (#PCDATA)>
+    <!ELEMENT service       (#PCDATA)>
+  	
   <!ELEMENT accounts (user*) >
 
     <!ELEMENT user (uid, pswd, name, cuaddr*, calendar*, acl?, quota?, autorespond?)>

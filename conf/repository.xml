@@ -187,6 +187,18 @@ limitations under the License.
     </collection>
   </docroot>
 
+  <authentication>
+  	<basic enable="yes" onlyssl="yes" credentials="directory">
+  	  <realm></realm>
+  	</basic>
+  	<digest enable="no" onlyssl="no" credentials="property">
+  	  <realm></realm>
+  	</digest>
+  	<kerberos enable="no" onlyssl="no">
+  	  <service></service>
+  	</kerberos>
+  </authentication>
+
   <accounts/>
 
 </repository>
