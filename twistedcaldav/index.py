@@ -156,10 +156,9 @@ class AbstractIndex(object):
 
     def resourceNameForUID(self, uid):
         """
-        Looks up the names of the resources with the given UID.
+        Looks up the name of the resource with the given UID.
         @param uid: the UID of the resource to look up.
-        @return: If the resource is found, a list of the resource names; C{None}
-            otherwise.
+        @return: If the resource is found, its name; C{None} otherwise.
         """
         names = self.resourceNamesForUID(uid)
         if len(names) > 0:
