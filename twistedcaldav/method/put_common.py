@@ -177,8 +177,6 @@ def storeCalendarObjectResource(
         """
         Make sure that the content-type of the source resource is text/calendar.
         This test is only needed when the source is not in a calendar collection.
-        @param request: the L{twisted.web2.server.Request} for the current HTTP request.
-        @param source:  the L{Component} for the calendar to test.
         """
         result = True
         message = ""
@@ -192,9 +190,6 @@ def storeCalendarObjectResource(
     def validCalendarDataCheck():
         """
         Check that the calendar data is valid iCalendar.
-         
-        @param request:  the L{twisted.web2.server.Request} for the current HTTP request.
-        @param calendar: the L{Component} for the calendar to test.
         @return:         tuple: (True/False if the calendra data is valid,
                                  log message string).
         """
@@ -215,9 +210,6 @@ def storeCalendarObjectResource(
     def validCalDAVDataCheck():
         """
         Check that the calendar data is valid as a CalDAV calendar object resource.
-         
-        @param request:  the L{twisted.web2.server.Request} for the current HTTP request.
-        @param calendar: the L{Component} for the calendar to test.
         @return:         tuple: (True/False if the calendar data is valid,
                                  log message string).
         """
@@ -238,8 +230,6 @@ def storeCalendarObjectResource(
         """
         Make sure that the content-type of the source resource is text/calendar.
         This test is only needed when the source is not in a calendar collection.
-        @param request: the L{twisted.web2.server.Request} for the current HTTP request.
-        @param source:  the L{Component} for the calendar to test.
         """
         result = True
         message = ""
@@ -256,14 +246,9 @@ def storeCalendarObjectResource(
         Check that the UID of the new calendar object conforms to the requirements of
         CalDAV, i.e. it must be unique in the collection and we must not overwrite a
         different UID.
-
-        @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
-        @param uid:               the UID for the resource being stored.
-        @param destination:       the L{CalDAVFile} for the destination resource to copy into.
-        @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
-        @return:                  tuple: (True/False if the uid is valid,
-                                          log message string,
-                                          name of conflicted resource).
+        @param uid: the UID for the resource being stored.
+        @return: tuple: (True/False if the uid is valid, log message string,
+            name of conflicted resource).
         """
 
         result = True
@@ -303,7 +288,6 @@ def storeCalendarObjectResource(
         """
         Handle validation operations here.
         """
-
         reserved = False
         if destinationcal:
             if not sourcecal:
