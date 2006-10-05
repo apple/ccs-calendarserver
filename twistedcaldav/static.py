@@ -626,6 +626,8 @@ class CalendarHomeProvisioningFile (CalDAVFile):
     """
     L{CalDAVFile} resource which provisions calendar home collections as needed.
     """
+    calendarHomeClass = CalendarHomeFile
+
     def __init__(self, path):
         """
         @param path: the path to the file which will back the resource.
@@ -654,7 +656,7 @@ class CalendarHomeProvisioningFile (CalDAVFile):
 
             child_fp.makedirs()
 
-        return CalendarHomeFile(child_fp.path)
+        return self.calendarHomeClass(child_fp.path)
 
     def createSimilarFile(self, path):
         return CalDAVFile(path)
