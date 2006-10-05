@@ -599,6 +599,26 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, clazz(child_fp.path))
 
+    def locateChild(self, req, segments):
+        """
+        This implementation tries fails to find children we don't already know
+        about.
+        """
+        # If getChild() finds a child resource, return it
+        child = self.getChild(segments[0])
+        if child is not None:
+            return (child, segments[1:])
+
+        # Otherwise, there is no child
+        return (None, ())
+
+    def getChild(self, name):
+        # This avoids finding case variants of put children on case-insensitive filesystems.
+        if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
+            return None
+
+        return super(CalendarHomeFile, self).getChild(name)
+
     def createSimilarFile(self, path):
         return CalDAVFile(path)
 
