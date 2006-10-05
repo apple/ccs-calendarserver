@@ -229,7 +229,6 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
         sslContext = DefaultOpenSSLContextFactory(keyfile, certfile)
         SSLServer(sslport, factory, sslContext).setServiceParent(parent)
 
-    print "Manhole: %r" % (manhole,)
     if manhole:
         print "Starting manhole on port %d" % (manhole,)
         from twisted.manhole.telnet import ShellFactory
