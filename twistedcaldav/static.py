@@ -599,6 +599,9 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, clazz(child_fp.path))
 
+    def createSimilarFile(self, path):
+        return self.__class__(path)
+
     def locateChild(self, request, segments):
         return locateExistingChild(self, request, segments)
 
@@ -643,6 +646,9 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         @param path: the path to the file which will back the resource.
         """
         super(CalendarHomeProvisioningFile, self).__init__(path)
+
+    def createSimilarFile(self, path):
+        return self.__class__(path)
 
     def hasChild(self, name):
         """
@@ -863,6 +869,9 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
         """
         CalendarPrincipalCollectionResource.__init__(self, url)
         DAVFile.__init__(self, path)
+
+    def createSimilarFile(self, path):
+        return self.__class__(path, self.principalCollectionURL())
 
     def initialize(self, homeuri, home):
         """
