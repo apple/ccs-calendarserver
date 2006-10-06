@@ -74,7 +74,7 @@ def storeCalendarObjectResource(
     """
     
     try:
-        assert request is not None and destination is not None and destination_uri is not None and destinationparent is not None
+        assert destination is not None and destination_uri is not None and destinationparent is not None
         assert (source is None and sourceparent is None) or (source is not None and sourceparent is not None)
         assert (calendardata is None and source is not None) or (calendardata is not None and source is None)
         assert not deletesource or (deletesource and source is not None)
@@ -362,17 +362,22 @@ def storeCalendarObjectResource(
         """
 
         # Do quota checks on destination and source before we start messing with adding other files
-        destquota = waitForDeferred(destination.quota(request))
-        yield destquota
-        destquota = destquota.getResult()
-        if destquota is not None and destination.exists():
-            old_dest_size = waitForDeferred(destination.quotaSize(request))
-            yield old_dest_size
-            old_dest_size = old_dest_size.getResult()
+        if request is None:
+            destquota = None
         else:
-            old_dest_size = 0
+            destquota = waitForDeferred(destination.quota(request))
+            yield destquota
+            destquota = destquota.getResult()
+            if destquota is not None and destination.exists():
+                old_dest_size = waitForDeferred(destination.quotaSize(request))
+                yield old_dest_size
+                old_dest_size = old_dest_size.getResult()
+            else:
+                old_dest_size = 0
             
-        if source is not None:
+        if request is None:
+            sourcequota = None
+        elif source is not None:
             sourcequota = waitForDeferred(source.quota(request))
             yield sourcequota
             sourcequota = sourcequota.getResult()
@@ -451,7 +456,7 @@ def storeCalendarObjectResource(
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
                 ))
 
-            destination.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
+            destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
             return None
 
         def doRemoveDestinationIndex():
@@ -494,7 +499,7 @@ def storeCalendarObjectResource(
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
                 ))
 
-            source.writeProperty(davxml.GETContentType.fromString("text/calendar"), request)
+            source.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
             return None
 
         if deletesource:
