@@ -112,7 +112,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         def onCollection(status):
             if status != responsecode.CREATED:
-                raise HTTPError(result)
+                raise HTTPError(status)
     
             self.writeDeadProperty(davxml.ResourceType.calendar)
             return status
@@ -603,7 +603,7 @@ class CalendarHomeFile (CalDAVFile):
         if path == self.fp.path:
             return self
         else:
-            return self.CalDAVFile(path)
+            return CalDAVFile(path)
 
     def locateChild(self, request, segments):
         return locateExistingChild(self, request, segments)
