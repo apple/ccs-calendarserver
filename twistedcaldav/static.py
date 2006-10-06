@@ -605,9 +605,6 @@ class CalendarHomeFile (CalDAVFile):
         else:
             return CalDAVFile(path)
 
-    def locateChild(self, request, segments):
-        return locateExistingChild(self, request, segments)
-
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
