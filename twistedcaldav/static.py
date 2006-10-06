@@ -424,7 +424,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
-            return ScheduleInboxFile(path)
+            return self
         else:
             return CalDAVFile(path)
 
@@ -600,7 +600,10 @@ class CalendarHomeFile (CalDAVFile):
             self.putChild(name, clazz(child_fp.path))
 
     def createSimilarFile(self, path):
-        return self.__class__(path)
+        if path == self.fp.path:
+            return self
+        else:
+            return self.CalDAVFile(path)
 
     def locateChild(self, request, segments):
         return locateExistingChild(self, request, segments)
@@ -611,9 +614,6 @@ class CalendarHomeFile (CalDAVFile):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
-
-    def createSimilarFile(self, path):
-        return CalDAVFile(path)
 
     ##
     # Quota
@@ -647,9 +647,6 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         """
         super(CalendarHomeProvisioningFile, self).__init__(path)
 
-    def createSimilarFile(self, path):
-        return self.__class__(path)
-
     def hasChild(self, name):
         """
         @return: C{True} if this resource has a child with the given name,
@@ -679,7 +676,7 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         return self.calendarHomeClass(child_fp.path)
 
     def createSimilarFile(self, path):
-        return CalDAVFile(path)
+        raise NotImplementedError("Not allowed")
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
@@ -870,9 +867,6 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
         CalendarPrincipalCollectionResource.__init__(self, url)
         DAVFile.__init__(self, path)
 
-    def createSimilarFile(self, path):
-        return self.__class__(path, self.principalCollectionURL())
-
     def initialize(self, homeuri, home):
         """
         May be called during repository account initialization.
@@ -908,6 +902,9 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
 
         return CalendarPrincipalFile(child_fp.path, joinURL(self.principalCollectionURL(), name))
 
+    def createSimilarFile(self, path):
+        raise NotImplementedError("Not allowed.")
+
     def principalSearchPropertySet(self):
         """
         See L{IDAVResource.principalSearchPropertySet}.
@@ -936,13 +933,6 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
                 ),
             ),
         )
-
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            # TODO: Fix this - not sure how to get URI for second argument of __init__
-            return CalendarPrincipalFile(path, "")
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
