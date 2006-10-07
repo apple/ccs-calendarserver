@@ -214,28 +214,16 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
 
         return super(DirectoryPrincipalFile, self).readProperty(qname, request)
 
-    def calendarUserAddressSet(self):
-        """
-        @return: a list of calendar user addresses for this principal.
-        """
-
+    def calendarUserAddresses(self):
         # Must have a valid calendar principal uri
         if self.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
-            return caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self.getPropertyValue(customxml.TwistedCalendarPrincipalURI)))
+            return (self.getPropertyValue(customxml.TwistedCalendarPrincipalURI),)
         else:
             # If there is no calendar principal URI then the calendar user is disabled so do not provide
             # a valid calendar address.
-            return caldavxml.CalendarUserAddressSet()
+            return ()
 
     def matchesCalendarUserAddress(self, request, address):
-        """
-        Determine whether this principal matches the supplied calendar user
-        address.
-
-        @param address: the calendar user address to match.
-        @return: C{True} if the principal matches, C{False} otherwise.
-        """
-
         # By default we will always allow either a relative or absolute URI to the principal to
         # be supplied as a valid calendar user address.
 

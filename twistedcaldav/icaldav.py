@@ -132,27 +132,25 @@ class ICalendarPrincipalResource(IDAVResource):
     """
     def principalUID():
         """
-        Get the user id for this principal.
+        @return: the user id for this principal.
         """
 
-    def calendarHomeSet():
+    def calendarHomeURLs():
         """
-        Get list of calendar collections for this principal's calendar user.
-        @return: L{CalendarHomeSet} element.
-        """
-
-    def calendarUserAddressSet():
-        """
-        Get list of calendar user addresses for this principal's calendar user.
-        @return: L{CalendarUserAddressSet} element.
+        @return: a list of calendar home URLs for this principal's calendar user.
         """
 
-    def calendarFreeBusySet(request):
+    def calendarUserAddresses():
         """
-        Get list of calendars that contribute to free-busy for this principal's calendar user.
-        This property actually resides on the schedule Inbox.
-        @param request: L{twisted.web2.server.Request} for the current request.
-        @return: L{CalendarFreeBusySet} element.
+        @return: a list of calendar user addresses for this principal's calendar
+            user.
+        """
+
+    def calendarFreeBusyURIs(self, request):
+        """
+        @param request: the request being processed.
+        @return: a L{Deferred} list of URIs for calendars that contribute to
+            free-busy for this principal's calendar user.
         """
 
     def scheduleInboxURL():

@@ -272,11 +272,11 @@ def processScheduleRequest(self, method, request):
             # Different behaviour for free-busy vs regular invite
             if freebusy:
                 # Extract the ATTENDEE property matching current recipient from the calendar data
-                cuas = principal.calendarUserAddressSet()
+                cuas = principal.calendarUserAddresses()
                 attendeeProp = calendar.getAttendeeProperty(cuas)
             
                 # Find the current recipients calendar-free-busy-set
-                fbset = waitForDeferred(principal.calendarFreeBusySet(request))
+                fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
                 yield fbset
                 fbset = fbset.getResult()
 
@@ -285,8 +285,7 @@ def processScheduleRequest(self, method, request):
                 
                 try:
                     matchtotal = 0
-                    for href in fbset.children:
-                        calURL = str(href)
+                    for calURL in fbset:
                         cal = waitForDeferred(request.locateResource(calURL))
                         yield cal
                         cal = cal.getResult()

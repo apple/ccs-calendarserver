@@ -939,6 +939,7 @@ class Component (object):
         @param match: a C{list} of calendar user address strings to try and match.
         @return: the string value of the Organizer property, or None
         """
+        # FIXME: match argument is unused (except in recursion...)
         
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":

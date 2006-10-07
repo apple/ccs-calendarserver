@@ -85,7 +85,7 @@ class CalDAVResource (DAVResource):
             # Render a monolithic iCalendar file
             if request.uri[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=request.path+'/'))
+                return RedirectResponse(request.unparseURL(path=request.path+"/"))
 
             def _defer(data):
                 response = Response()
@@ -143,8 +143,8 @@ class CalDAVResource (DAVResource):
         if namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
-                if self.deadProperties().contains(qname):
-                    return succeed(self.deadProperties().get(qname))
+                if self.hasDeadProperty(qname):
+                    return succeed(self.readDeadProperty(qname))
                 return succeed(self.supportedCalendarComponentSet)
             elif name == "supported-calendar-data":
                 # CalDAV-access-09, section 5.2.4
@@ -251,10 +251,7 @@ class CalDAVResource (DAVResource):
 
     def findCalendarCollections(self, depth, request, callback, privileges=None):
         """
-        See L{IDAVResource.findChildren}.
-
-        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
-        and C{"infinity"}.  As long as C{self.listChildren} is implemented
+        See L{ICalDAVResource.findCalendarCollections}.
         """
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
@@ -275,7 +272,7 @@ class CalDAVResource (DAVResource):
             if child.isCalendarCollection():
                 callback(child, childpath)
             elif child.isCollection():
-                if depth == 'infinity': 
+                if depth == "infinity": 
                     fc = child.findCalendarCollections(depth, request, callback, privileges)
                     fc.addCallback(lambda x: reactor.callLater(0, getChild))
                     return fc
@@ -542,11 +539,106 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     """
     implements(ICalendarPrincipalResource)
 
-    def calendarHomeSet(self):
+    liveProperties = DAVPrincipalResource.liveProperties + (
+        (caldav_namespace, "calendar-home-set"        ),
+        (caldav_namespace, "calendar-user-address-set"),
+        (caldav_namespace, "calendar-free-busy-set"   ),
+        (caldav_namespace, "schedule-inbox-URL"       ),
+        (caldav_namespace, "schedule-outbox-URL"      ),
+    )
+
+    def readProperty(self, property, request):
+        def defer():
+            if type(property) is tuple:
+                qname = property
+                sname = "{%s}%s" % property
+            else:
+                qname = property.qname()
+                sname = property.sname()
+
+            namespace, name = qname
+
+            if namespace == caldav_namespace:
+                if name == "calendar-home-set":
+                    return caldavxml.CalendarHomeSet(
+                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                    )
+
+                if name == "calendar-user-address-set":
+                    return caldavxml.CalendarUserAddressSet(
+                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                    )
+
+                if name == "calendar-free-busy-set":
+                    return caldavxml.CalendarFreeBusySet(
+                        *[davxml.HRef(url) for url in self.calendarFreeBusyURIs()]
+                    )
+
+                if name == "schedule-inbox-URL":
+                    url = self.scheduleInboxURL()
+                    if url is None:
+                        return None
+                    else:
+                        return caldavxml.ScheduleInboxURL(davxml.HRef(url))
+
+                if name == "schedule-outbox-URL":
+                    url = self.scheduleOutboxURL()
+                    if url is None:
+                        return None
+                    else:
+                        return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+
+        return maybeDeferred(defer)
+
+    def calendarHomeURLs(self):
         """
-        @return: a list of calendar user home URLs for this principal.
+        See L{ICalendarPrincipalResource.calendarHomeURLs}.
+        This implementation raises L{NotImplementedError} if the dead property
+        C{(caldav_namespace, "calendar-home-set")} is not set.
         """
-        return self.readDeadProperty((caldav_namespace, "calendar-home-set"))
+        if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
+            home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))
+            return [str(h) for h in home_set.children]
+        else:
+            raise NotImplementedError()
+
+    def calendarUserAddresses(self):
+        """
+        See L{ICalendarPrincipalResource.calendarUserAddresses}.
+        """
+        if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
+            addresses = self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
+            return [str(h) for h in addresses.children]
+        else:
+            # Must have a valid address of some kind so use the principal uri
+            return (self.principalURL(),)
+
+    @deferredGenerator
+    def calendarFreeBusyURIs(self, request):
+        """
+        See L{ICalendarPrincipalResource.calendarFreeBusyURIs}.
+        """
+        inbox = waitForDeferred(request.locateResource(self.scheduleInboxURL()))
+        yield inbox
+        inbox = inbox.getResult()
+
+        if inbox is None:
+            yield None
+            return
+        
+        has = waitForDeferred(inbox.hasProperty((caldav_namespace, "calendar-free-busy-set", request)))
+        yield has
+        has = has.getResult()
+        
+        if not has:
+            yield None
+            return
+
+        fbset = waitForDeferred(inbox.readProperty((caldav_namespace, "calendar-free-busy-set", request)))
+        yield fbset
+        fbset = fbset.getResult()
+
+        yield [str(h) for h in fbset.children]
 
     def scheduleInboxURL(self):
         """
@@ -554,12 +646,9 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
             inbox = self.readDeadProperty((caldav_namespace, "schedule-inbox-URL"))
-            assert isinstance(inbox, caldavxml.ScheduleInboxURL)
-            inbox.removeWhitespaceNodes()
-            if len(inbox.children) == 1:
-                return str(inbox.children[0])
-        
-        return ""
+            return str(inbox.children[0])
+        else:
+            return None
 
     def scheduleOutboxURL(self):
         """
@@ -567,23 +656,10 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
             outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
-            assert isinstance(outbox, caldavxml.ScheduleOutboxURL)
-            outbox.removeWhitespaceNodes()
-            if len(outbox.children) == 1:
-                return str(outbox.children[0])
+            return str(outbox.children[0])        
+        else:
+            return None
         
-        return ""
-        
-    def calendarUserAddressSet(self):
-        """
-        @return: a list of calendar user addresses for this principal.
-        """
-        if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
-            return self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
-            
-        # Must have a valid address of some kind so use the principal uri
-        return caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self._url))
-
     def matchesCalendarUserAddress(self, request, address):
         """
         Determine whether this principal matches the supplied calendar user
@@ -604,26 +680,11 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             return True
 
         # Look at the property if URI lookup does not work
-        for cua in self.calendarUserAddressSet().children:
-            if str(cua) == address:
+        for cua in self.calendarUserAddresses():
+            if cua == address:
                 return True
         
         return False
-
-    def calendarFreeBusySet(self, request):
-        """
-        @return: L{Deferred} whose result is a list of calendars that contribute to free-busy for this
-            principal's calendar user.
-        """
-        def _defer(inbox):
-            if inbox and inbox.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
-                return inbox.readDeadProperty((caldav_namespace, "calendar-free-busy-set"))
-            return caldavxml.CalendarFreeBusySet()
-
-        inbox_url = self.scheduleInboxURL()
-        d = request.locateResource(inbox_url)
-        d.addCallback(_defer)
-        return d
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """

@@ -163,14 +163,13 @@ def processRequest(request, principal, inbox, calendar, child):
         # to free-busy as we will need to update those with the new one.
         
         # Find the current recipients calendar-free-busy-set
-        fbset = waitForDeferred(principal.calendarFreeBusySet(request))
+        fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
         yield fbset
         fbset = fbset.getResult()
 
         # Find the first calendar in the list with a component matching the one we are processing
         calmatch = None
-        for href in fbset.children:
-            calURL = str(href)
+        for calURL in fbset:
             updatecal = waitForDeferred(request.locateResource(calURL))
             yield updatecal
             updatecal = updatecal.getResult()
@@ -223,8 +222,8 @@ def processRequest(request, principal, inbox, calendar, child):
                 return
         else:
             # Write new resource into first calendar in f-b-set
-            if len(fbset.children) != 0 and accepted:
-                calURL = str(fbset.children[0])
+            if len(fbset) != 0 and accepted:
+                calURL = fbset[0]
                 updatecal = waitForDeferred(request.locateResource(calURL))
                 yield updatecal
                 updatecal = updatecal.getResult()
@@ -363,14 +362,13 @@ def processCancel(request, principal, inbox, calendar, child):
         # to free-busy as we will need to update those with the new one.
         
         # Find the current recipients calendar-free-busy-set
-        fbset = waitForDeferred(principal.calendarFreeBusySet(request))
+        fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
         yield fbset
         fbset = fbset.getResult()
 
         # Find the first calendar in the list with a component matching the one we are processing
         calmatch = None
-        for href in fbset.children:
-            calURL = str(href)
+        for calURL in fbset:
             updatecal = waitForDeferred(request.locateResource(calURL))
             yield updatecal
             updatecal = updatecal.getResult()
@@ -455,11 +453,11 @@ def checkForReply(request, principal, calendar):
     uid = comp.propertyValue("UID")
 
     # Now compare each instance time-range with the index and see if there is an overlap
-    fbset = waitForDeferred(principal.calendarFreeBusySet(request))
+    fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
     yield fbset
     fbset = fbset.getResult()
-    for href in fbset.children:
-        calURL = str(href)
+
+    for calURL in fbset:
         testcal = waitForDeferred(request.locateResource(calURL))
         yield testcal
         testcal = testcal.getResult()
@@ -490,7 +488,7 @@ def checkForReply(request, principal, calendar):
             break
      
     # Extract the ATTENDEE property matching current recipient from the calendar data
-    cuas = principal.calendarUserAddressSet()
+    cuas = principal.calendarUserAddresses()
     attendeeProp = calendar.getAttendeeProperty(cuas)
     if attendeeProp is None:
         yield False, None, accepted
