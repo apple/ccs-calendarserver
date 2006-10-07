@@ -570,9 +570,14 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     )
 
                 if name == "calendar-free-busy-set":
-                    return caldavxml.CalendarFreeBusySet(
-                        *[davxml.HRef(url) for url in self.calendarFreeBusyURIs()]
-                    )
+                    def onURIs(uris):
+                        return caldavxml.CalendarFreeBusySet(
+                            *[davxml.HRef(url) for url in uris]
+                        )
+
+                    d = self.calendarFreeBusyURIs(request)
+                    d.addCallback(onURIs)
+                    return d
 
                 if name == "schedule-inbox-URL":
                     url = self.scheduleInboxURL()
@@ -587,6 +592,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                         return None
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+
+            return super(CalendarPrincipalResource, self).readProperty(property, request)
 
         return maybeDeferred(defer)
 
@@ -618,20 +625,20 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         See L{ICalendarPrincipalResource.calendarFreeBusyURIs}.
         """
-        inbox = waitForDeferred(request.locateResource(self.scheduleInboxURL()))
+        inbox = waitForDeferred(maybeDeferred(request.locateResource, self.scheduleInboxURL()))
         yield inbox
         inbox = inbox.getResult()
 
         if inbox is None:
-            yield None
+            yield ()
             return
-        
+
         has = waitForDeferred(inbox.hasProperty((caldav_namespace, "calendar-free-busy-set", request)))
         yield has
         has = has.getResult()
         
         if not has:
-            yield None
+            yield ()
             return
 
         fbset = waitForDeferred(inbox.readProperty((caldav_namespace, "calendar-free-busy-set", request)))
