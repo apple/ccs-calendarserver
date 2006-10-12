@@ -1,16 +1,43 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18219)
+--- twisted/web2/dav/static.py	(revision 18375)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -21,6 +21,7 @@
- #
- # DRI: Wilfredo Sanchez, wsanchez@apple.com
- ##
-+from os import path
+@@ -28,16 +28,16 @@
  
- """
- WebDAV-aware static resources.
-@@ -98,6 +99,50 @@
+ __all__ = ["DAVFile"]
+ 
+-import os
+-
+-from twisted.python import log
+ from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+-from twisted.web2.static import File
++from twisted.python import log
++from twisted.web2 import http_headers
+ from twisted.web2 import responsecode, dirlist
+-from twisted.web2.http import RedirectResponse
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.resource import DAVResource, davPrivilegeSet
++from twisted.web2.dav.resource import TwistedGETContentMD5
+ from twisted.web2.dav.util import bindMethods
++from twisted.web2.http import RedirectResponse
++from twisted.web2.static import File
+ 
+ try:
+     from twisted.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
+@@ -75,6 +75,12 @@
+     # WebDAV
+     ##
+ 
++    def etag(self):
++        if self.hasDeadProperty(TwistedGETContentMD5):
++            return http_headers.ETag(str(self.readDeadProperty(TwistedGETContentMD5)))
++        else:
++            return super(DAVFile, self).etag()
++
+     def davComplianceClasses(self):
+         return ("1", "access-control") # Add "2" when we have locking
+ 
+@@ -98,6 +104,50 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -61,7 +88,7 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -135,8 +180,12 @@
+@@ -135,8 +185,12 @@
                  else:
                      children = []
  

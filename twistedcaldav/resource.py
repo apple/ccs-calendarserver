@@ -633,7 +633,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             yield ()
             return
 
-        has = waitForDeferred(inbox.hasProperty((caldav_namespace, "calendar-free-busy-set", request)))
+        has = waitForDeferred(inbox.hasProperty((caldav_namespace, "calendar-free-busy-set"), request))
         yield has
         has = has.getResult()
         
@@ -641,7 +641,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             yield ()
             return
 
-        fbset = waitForDeferred(inbox.readProperty((caldav_namespace, "calendar-free-busy-set", request)))
+        fbset = waitForDeferred(inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request))
         yield fbset
         fbset = fbset.getResult()
 

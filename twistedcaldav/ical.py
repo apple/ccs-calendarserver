@@ -174,6 +174,8 @@ class Component (object):
             return clazz(None, vobject=readComponents(stream).next())
         except vParseError, e:
             raise ValueError(e)
+        except StopIteration, e:
+            raise ValueError(e)
 
     @classmethod
     def fromIStream(clazz, stream):

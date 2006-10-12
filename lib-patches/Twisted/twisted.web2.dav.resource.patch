@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18219)
+--- twisted/web2/dav/resource.py	(revision 18375)
 +++ twisted/web2/dav/resource.py	(working copy)
 @@ -130,6 +130,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
@@ -355,10 +355,19 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1702,6 +2011,28 @@
+@@ -1702,6 +2011,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
++class TwistedGETContentMD5 (davxml.WebDAVTextElement):
++    """
++    MD5 hash of the resource content.
++    """
++    namespace = twisted_dav_namespace
++    name = "getcontentmd5"
++
++davxml.registerElement(TwistedGETContentMD5)
++
 +"""
 +When set on a collection, this property indicates that the collection has a quota limit for
 +the size of all resources stored in the collection (and any associate meta-data such as properties).

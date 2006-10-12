@@ -32,6 +32,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.fileop import copy, delete, put
 from twisted.web2.dav.http import ErrorResponse
+from twisted.web2.dav.resource import TwistedGETContentMD5
+from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.iweb import IResponse
@@ -427,10 +429,23 @@ def storeCalendarObjectResource(
         if source is not None:
             response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, "0")
         else:
-            response = maybeDeferred(put, MemoryStream(calendardata), destination.fp)
+            md5 = MD5StreamWrapper(MemoryStream(calendardata))
+            response = maybeDeferred(put, md5, destination.fp)
         response = waitForDeferred(response)
         yield response
         response = response.getResult()
+
+        # Update the MD5 value on the resource
+        if source is not None:
+            # Copy MD5 value from source to destination
+            if source.hasDeadProperty(TwistedGETContentMD5):
+                md5 = source.readDeadProperty(TwistedGETContentMD5)
+                destination.writeDeadProperty(md5)
+        else:
+            # Finish MD5 calc and write dead property
+            md5.close()
+            md5 = md5.getMD5()
+            destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
 
         response = IResponse(response)
         
@@ -543,7 +558,7 @@ def storeCalendarObjectResource(
         yield response
         return
 
-    except:
+    except Exception, e:
         if reserved:
             destination_index.unreserveUID(uid)
             reserved = False
