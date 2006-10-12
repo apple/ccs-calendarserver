@@ -462,7 +462,7 @@ if ! "${disable_setup}"; then
       ;;
   esac;
   svn_uri="${base}/vobject/trunk";
-  svn_get "vObject" "${vobject}" "${svn_uri}" 155;
+  svn_get "vObject" "${vobject}" "${svn_uri}" 160;
 fi;
 py_install "vObject" "${vobject}";
 
