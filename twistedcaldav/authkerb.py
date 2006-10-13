@@ -45,6 +45,8 @@ from twisted.internet.defer import succeed
 from twisted.web2.auth.interfaces import ICredentialFactory
 from twisted.web2.dav.auth import IPrincipalCredentials
 
+from twistedcaldav import logging
+
 import kerberos
 
 class BasicKerberosCredentials(credentials.UsernamePassword):
@@ -107,7 +109,12 @@ class BasicKerberosCredentialsChecker:
 
         creds = pcreds.credentials
         if isinstance(creds, BasicKerberosCredentials):
-            if kerberos.checkPassword(creds.username, creds.password, creds.service, creds.default_realm):
+            try:
+                kerberos.checkPassword(creds.username, creds.password, creds.service, creds.default_realm)
+            except kerberos.BasicAuthError, ex:
+                logging.err("%s" % (ex[0],), system="BasicKerberosCredentialsChecker")
+                raise error.UnauthorizedLogin("Bad credentials for: %s (%s)" % (pcreds.principalURI, ex[0],))
+            else:
                 return succeed(pcreds.principalURI)
         
         raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
@@ -145,26 +152,37 @@ class NegotiateCredentialFactory:
     def decode(self, base64data, request):
         
         # Init GSSAPI first
-        result, context = kerberos.authGSSServerInit(self.service);
-        if result != 1:
-            raise error.LoginFailed('Authentication System Failure')
+        try:
+            result, context = kerberos.authGSSServerInit(self.service);
+        except kerberos.GSSError, ex:
+            logging.err("authGSSServerInit: %s" % (ex[0][0], ex[1][0],), system="NegotiateCredentialFactory")
+            raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
 
         # Do the GSSAPI step and get response and username
-        result = kerberos.authGSSServerStep(context, base64data);
-        if result == -1:
-            raise error.UnauthorizedLogin("Bad credentials for")
-        else:
-            response = kerberos.authGSSServerResponse(context)
-            username = kerberos.authGSSServerUserName(context)
-            
-            # Username may include realm suffix which we want to strip
-            if username.find("@") != -1:
-                username = username.split("@", 1)[0]
+        try:
+            kerberos.authGSSServerStep(context, base64data);
+        except kerberos.GSSError, ex:
+            logging.err("authGSSServerStep: %s" % (ex[0][0], ex[1][0],), system="NegotiateCredentialFactory")
+            kerberos.authGSSServerClean(context)
+            raise error.UnauthorizedLogin('Bad credentials: %s(%s)' % (ex[0][0], ex[1][0],))
+        except kerberos.KrbError, ex:
+            logging.err("authGSSServerStep: %s" % (ex[0],), system="NegotiateCredentialFactory")
+            kerberos.authGSSServerClean(context)
+            raise error.UnauthorizedLogin('Bad credentials: %s' % (ex[0],))
+
+        response = kerberos.authGSSServerResponse(context)
+        username = kerberos.authGSSServerUserName(context)
+        
+        # Username may include realm suffix which we want to strip
+        if username.find("@") != -1:
+            username = username.split("@", 1)[0]
 
         # Close the context
-        result = kerberos.authGSSServerClean(context);
-        if result != 1:
-            raise error.LoginFailed('Authentication System Failure')
+        try:
+            result = kerberos.authGSSServerClean(context);
+        except kerberos.GSSError, ex:
+            logging.err("authGSSServerClean: %s" % (ex[0][0], ex[1][0],), system="NegotiateCredentialFactory")
+            raise error.LoginFailed('Authentication System Failure %s(%s)' % (ex[0][0], ex[1][0],))
         
         # If we successfully decoded and verified the Kerberos credentials we need to add the Kerberos
         # response data to the outgoing request
