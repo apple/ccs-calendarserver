@@ -918,7 +918,10 @@ class Authentication:
             self.type = type
             self.enabled = False
             self.onlyssl = False
-            self.credentials = ATTRIBUTE_VALUE_PROPERTY
+            if type == "kerberos":
+                self.credentials = ATTRIBUTE_VALUE_KERBEROS
+            else:
+                self.credentials = ATTRIBUTE_VALUE_PROPERTY
             self.realm = ""
             self.service = ""
             
