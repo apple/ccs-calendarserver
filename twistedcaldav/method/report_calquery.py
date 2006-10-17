@@ -148,8 +148,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             if filteredaces is not None:
                 for name, uid, type in calresource.index().search(filter): #@UnusedVariable
                     # Check privileges - must have at least DAV:read
-                    child_url = joinURL(uri, name)
-                    child = waitForDeferred(request.locateResource(child_url))
+                    child = waitForDeferred(request.locateChildResource(calresource, name))
                     yield child
                     child = child.getResult()
 

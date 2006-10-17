@@ -329,8 +329,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
             continue
 
         # Check privileges - must have at least CalDAV:read-free-busy
-        child_url = joinURL(uri, name)
-        child = waitForDeferred(request.locateResource(child_url))
+        child = waitForDeferred(request.locateChildResource(calresource, name))
         yield child
         child = child.getResult()
 

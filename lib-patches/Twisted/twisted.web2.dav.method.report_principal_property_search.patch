@@ -1,0 +1,21 @@
+Index: twisted/web2/dav/method/report_principal_property_search.py
+===================================================================
+--- twisted/web2/dav/method/report_principal_property_search.py	(revision 18375)
++++ twisted/web2/dav/method/report_principal_property_search.py	(working copy)
+@@ -145,8 +145,15 @@
+         # Loop over all collections and principal resources within
+         for resource, ruri in resources:
+ 
++            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++            # the child resource loop and supply those to the checkPrivileges on each child.
++            filteredaces = waitForDeferred(resource.inheritedACEsforChildren(request))
++            yield filteredaces
++            filteredaces = filteredaces.getResult()
++
+             children = []
+-            d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x,y)), privileges=(davxml.Read(),)))
++            d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x,y)),
++                                                      privileges=(davxml.Read(),), inherited_aces=filteredaces))
+             yield d
+             d.getResult()
+ 

@@ -479,8 +479,7 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         
         # Look at cuaddress property on each child and do attempt a match
         for childname in self.listChildren():
-            child_url = joinURL(self._url, childname)
-            child = waitForDeferred(request.locateResource(child_url))
+            child = waitForDeferred(request.locateChildResource(self, childname))
             yield child
             child = child.getResult()
             if not isinstance(child, CalendarPrincipalResource):

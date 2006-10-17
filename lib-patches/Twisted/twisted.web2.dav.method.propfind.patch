@@ -1,0 +1,22 @@
+Index: twisted/web2/dav/method/propfind.py
+===================================================================
+--- twisted/web2/dav/method/propfind.py	(revision 18375)
++++ twisted/web2/dav/method/propfind.py	(working copy)
+@@ -102,11 +102,15 @@
+ 
+     xml_responses = []
+ 
+-    # FIXME: take advantage of the new generative properties of findChildren
++    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++    # the child resource loop and supply those to the checkPrivileges on each child.
++    filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
++    yield filteredaces
++    filteredaces = filteredaces.getResult()
+ 
+     resources = [(self, None)]
+ 
+-    d = self.findChildren(depth, request, lambda x, y: resources.append((x, y)), (davxml.Read(),))
++    d = self.findChildren(depth, request, lambda x, y: resources.append((x, y)), (davxml.Read(),), inherited_aces=filteredaces)
+     x = waitForDeferred(d)
+     yield x
+     x.getResult()

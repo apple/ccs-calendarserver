@@ -89,7 +89,94 @@ Index: twisted/web2/dav/resource.py
  
      def listAllprop(self, request):
          """
-@@ -1501,6 +1551,265 @@
+@@ -474,7 +524,7 @@
+         """
+         unimplemented(self)
+ 
+-    def findChildren(self, depth, request, callback, privileges=None):
++    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+         """
+         See L{IDAVResource.findChildren}.
+ 
+@@ -491,7 +541,7 @@
+             if privileges is None:
+                 return child
+    
+-            ca = child.checkPrivileges(request, privileges)
++            ca = child.checkPrivileges(request, privileges, inherited_aces=inherited_aces)
+             ca.addCallback(lambda _: child)
+             return ca
+ 
+@@ -514,7 +564,7 @@
+                 completionDeferred.callback(None)
+             else:
+                 childpath = joinURL(basepath, childname)
+-                child = request.locateResource(childpath)
++                child = request.locateChildResource(self, childname)
+                 child.addCallback(_checkPrivileges)
+                 child.addCallbacks(_gotChild, _checkPrivilegesError, (childpath,))
+                 child.addErrback(completionDeferred.errback)
+@@ -530,6 +580,43 @@
+ 
+         return completionDeferred
+ 
++#    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
++#        """
++#        See L{IDAVResource.findChildren}.
++#
++#        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
++#        and C{"infinity"}.  As long as C{self.listChildren} is implemented
++#        """
++#        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
++#
++#        completionDeferred = Deferred()
++#
++#        if depth != "0" and self.isCollection():
++#            basepath = request.urlForResource(self)
++#            children = self.listChildren()
++#            for childname in children:
++#                childpath = joinURL(basepath, childname)
++#                child = waitForDeferred(request.locateResource(childpath))
++#                yield child
++#                child = child.getResult()
++#                if privileges is not None:
++#                    try:
++#                        d = waitForDeferred(child.checkPrivileges(request, privileges, inherited_aces=inherited_aces))
++#                        yield d
++#                        d.getResult()
++#                    except AccessDeniedError:
++#                        continue
++#                if child.isCollection():
++#                    callback(child, childpath + "/")
++#                    if depth == "infinity":
++#                        d = waitForDeferred(child.findChildren(depth, request, callback, privileges))
++#                        yield d
++#                        d.getResult()
++#                else:
++#                    callback(child, childpath)
++#
++#    findChildren = deferredGenerator(findChildren)
++
+     def supportedReports(self):
+         """
+         See L{IDAVResource.supportedReports}.
+@@ -904,10 +991,11 @@
+ 
+         resources = [(self, None)]
+ 
+-        x = self.findChildren(depth, request, lambda x, y: resources.append((x,y)))
+-        x = waitForDeferred(x)
+-        yield x
+-        x.getResult()
++        if recurse:
++            x = self.findChildren(depth, request, lambda x, y: resources.append((x,y)))
++            x = waitForDeferred(x)
++            yield x
++            x.getResult()
+ 
+         for resource, uri in resources:
+             acl = waitForDeferred(resource.accessControlList(request, inherited_aces=inherited_aces))
+@@ -1501,6 +1589,265 @@
          return None
  
      ##
@@ -355,7 +442,25 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1702,6 +2011,37 @@
+@@ -1548,7 +1895,7 @@
+     """
+     DAV resource with no children.
+     """
+-    def findChildren(self, depth, request, callback, privileges=None):
++    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+         return succeed(None)
+ 
+ class DAVPrincipalResource (DAVLeafResource):
+@@ -1574,7 +1921,7 @@
+     def isCollection(self):
+         return False
+ 
+-    def findChildren(self, depth, request, callback, privileges=None):
++    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+         return succeed(None)
+ 
+     def readProperty(self, property, request):
+@@ -1702,6 +2049,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
