@@ -20,3 +20,31 @@ Index: twisted/web2/dav/method/propfind.py
      x = waitForDeferred(d)
      yield x
      x.getResult()
+@@ -116,11 +120,11 @@
+             uri = normalizeURL(request_uri)
+             if self.isCollection() and not uri.endswith("/"): uri += "/"
+ 
+-        resource_properties = waitForDeferred(resource.listProperties(request))
+-        yield resource_properties
+-        resource_properties = resource_properties.getResult()
++        if search_properties is "names":
++            resource_properties = waitForDeferred(resource.listProperties(request))
++            yield resource_properties
++            resource_properties = resource_properties.getResult()
+ 
+-        if search_properties is "names":
+             properties_by_status = {
+                 responsecode.OK: [propertyName(p) for p in resource_properties]
+             }
+@@ -138,7 +142,10 @@
+                 properties_to_enumerate = search_properties
+ 
+             for property in properties_to_enumerate:
+-                if property in resource_properties:
++                has = waitForDeferred(self.hasProperty(property, request))
++                yield has
++                has = has.getResult()
++                if has:
+                     try:
+                         resource_property = waitForDeferred(resource.readProperty(property, request))
+                         yield resource_property
