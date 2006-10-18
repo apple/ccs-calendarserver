@@ -541,7 +541,6 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     liveProperties = DAVPrincipalResource.liveProperties + (
         (caldav_namespace, "calendar-home-set"        ),
         (caldav_namespace, "calendar-user-address-set"),
-        (caldav_namespace, "calendar-free-busy-set"   ),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
     )
@@ -567,16 +566,6 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     return caldavxml.CalendarUserAddressSet(
                         *[davxml.HRef(url) for url in self.calendarHomeURLs()]
                     )
-
-                if name == "calendar-free-busy-set":
-                    def onURIs(uris):
-                        return caldavxml.CalendarFreeBusySet(
-                            *[davxml.HRef(url) for url in uris]
-                        )
-
-                    d = self.calendarFreeBusyURIs(request)
-                    d.addCallback(onURIs)
-                    return d
 
                 if name == "schedule-inbox-URL":
                     url = self.scheduleInboxURL()
