@@ -133,8 +133,7 @@ class AbstractIndex(object):
         """
         Looks up the names of the resources with the given UID.
         @param uid: the UID of the resources to look up.
-        @return: If the resource is found, alist of the resource names; C{None}
-            otherwise.
+        @return: a list of resource names
         """
         names = self._db_values_for_sql("select NAME from RESOURCE where UID = :1", uid)
 
@@ -160,11 +159,13 @@ class AbstractIndex(object):
         @param uid: the UID of the resource to look up.
         @return: If the resource is found, its name; C{None} otherwise.
         """
-        names = self.resourceNamesForUID(uid)
-        if len(names) > 0:
-            return names[0]
-        else:
-            return None
+        result = None
+
+        for name in self.resourceNamesForUID(uid):
+            assert result is None, "More than one resource with UID %s in calendar collection %r" % (uid, self)
+            result = name
+            
+        return result
 
     def resourceUIDForName(self, name):
         """
