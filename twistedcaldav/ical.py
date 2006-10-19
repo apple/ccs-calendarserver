@@ -793,12 +793,15 @@ class Component (object):
         
         #
         # FIXME:
-        #   This test is not part of the spec; comment out unless debugging, as it
-        #   appears to be legal (but goofy?) to have extra timezone components.
+        #   This test is not part of the spec; it appears to be legal (but
+        #   goofy?) to have extra timezone components.
         #
         for timezone in timezones:
             if timezone not in timezone_refs:
-                raise ValueError("Timezone %s is not referenced by any non-timezone component" % (timezone,))
+                #raise ValueError(
+                log.msg(
+                    "Timezone %s is not referenced by any non-timezone component" % (timezone,)
+                )
 
     def transformAllFromNative(self):
         self._vobject = self._vobject.transformFromNative()
