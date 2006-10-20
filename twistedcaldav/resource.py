@@ -409,7 +409,7 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
     """
     # Use a WeakKeyDictionary to keep track of all instances.
     # A WeakKeySet would be more appropriate, but there is no such class yet.
-    _principleCollectionSet = WeakValueDictionary()
+    _principleCollectionSet = set()
 
     @classmethod
     def outboxForCalendarUser(clazz, request, address):
@@ -456,7 +456,7 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
 
         # Register self with class
         if url not in CalendarPrincipalCollectionResource._principleCollectionSet:
-            CalendarPrincipalCollectionResource._principleCollectionSet[url] = self
+            CalendarPrincipalCollectionResource._principleCollectionSet.add(url)
 
     def isCollection(self):
         return True
@@ -513,9 +513,11 @@ def findAnyCalendarUser(request, address):
     @return: the L{CalendarPrincipalResource} for the specified calendar
         user, or C{None} if the user is not found.
     """
-    for url in CalendarPrincipalCollectionResource._principleCollectionSet.keys():
+    for url in CalendarPrincipalCollectionResource._principleCollectionSet:
         try:
-            pcollection = CalendarPrincipalCollectionResource._principleCollectionSet[url]
+            pcollection = waitForDeferred(request.locateResource(url))
+            yield pcollection
+            pcollection = pcollection.getResult()
             if isinstance(pcollection, CalendarPrincipalCollectionResource):
                 principal = waitForDeferred(pcollection.findCalendarUser(request, address))
                 yield principal
