@@ -1,8 +1,26 @@
 Index: twisted/web2/dav/idav.py
 ===================================================================
---- twisted/web2/dav/idav.py	(revision 18219)
+--- twisted/web2/dav/idav.py	(revision 18375)
 +++ twisted/web2/dav/idav.py	(working copy)
-@@ -180,6 +180,80 @@
+@@ -41,7 +41,7 @@
+             otherwise.
+         """
+ 
+-    def findChildren(depth, request, callback, privileges):
++    def findChildren(depth, request, callback, privileges, inherited_aces):
+         """
+         Returns an iterable of child resources for the given depth.
+         Because resources do not know their request URIs, chidren are returned
+@@ -52,6 +52,8 @@
+         @param callback: C{callable} that will be called for each child found
+         @param privileges: the list of L{Privilege}s to test for.  This should 
+             default to None.
++        @param inherited_aces: a list of L{Privilege}s for aces being inherited from
++            the parent collection used to bypass inheritance lookup.
+         @return: An L{Deferred} that fires when all the children have been found
+         """
+ 
+@@ -180,6 +182,80 @@
              the specified principal.
          """
  

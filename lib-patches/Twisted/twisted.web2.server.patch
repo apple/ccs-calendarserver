@@ -11,7 +11,17 @@ Index: twisted/web2/server.py
  
  
  """This is a web-sever which integrates with the twisted.internet
-@@ -156,7 +158,9 @@
+@@ -150,6 +152,9 @@
+             self._initialprepath = kw['prepathuri']
+             del kw['prepathuri']
+ 
++        self._resourcesByURL = {}
++        self._resourcesFromURL = {}
++
+         # Copy response filters from the class
+         self.responseFilters = self.responseFilters[:]
+         self.files = {}
+@@ -156,7 +161,9 @@
          self.resources = []
          http.Request.__init__(self, *args, **kw)
  
@@ -22,15 +32,46 @@ Index: twisted/web2/server.py
          if atEnd:
              self.responseFilters.append(f)
          else:
-@@ -347,6 +351,7 @@
+@@ -263,8 +270,15 @@
+             failedDeferred = self._processingFailed(failure.Failure())
+             return
+         
++        def _registerResource(child):
++            url = "/" + "/".join(self.prepath)
++            self._resourcesByURL[child] = url
++            self._resourcesFromURL[url] = child
++            return child
++        
+         d = defer.Deferred()
+         d.addCallback(self._getChild, self.site.resource, self.postpath)
++        d.addCallback(_registerResource)
+         d.addCallback(lambda res, req: res.renderHTTP(req), self)
+         d.addCallback(self._cbFinishRender)
+         d.addErrback(self._processingFailed)
+@@ -321,7 +335,7 @@
+                 else:
+                     url = "/"
+         
+-                self._rememberURLForResource(quote(url), res)
++                #self._rememberURLForResource(quote(url), res)
+                 return res
+             #else:
+             #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
+@@ -342,12 +356,10 @@
+                 self.prepath.append(self.postpath.pop(0))
+ 
+         child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
+-        self._rememberURLForResource(quote(url), child)
++        #self._rememberURLForResource(quote(url), child)
+ 
          return child
  
-     _resourcesByURL = weakref.WeakKeyDictionary()
-+    _resourcesFromURL = weakref.WeakValueDictionary()
- 
+-    _resourcesByURL = weakref.WeakKeyDictionary()
+-
      def _rememberURLForResource(self, url, resource):
          """
-@@ -387,6 +392,11 @@
+         Remember the URL of visited resources.
+@@ -387,6 +399,11 @@
          """
          if url is None: return None
  
@@ -42,13 +83,14 @@ Index: twisted/web2/server.py
          #
          # Parse the URL
          #
-@@ -417,7 +427,50 @@
+@@ -417,7 +434,52 @@
                  raise f
              return None
  
 -        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
 +        def _registerResource(child):
-+            self._resourcesFromURL[url] = child
++            self._resourcesByURL[child] = path
++            self._resourcesFromURL[path] = child
 +            return child
 +        
 +        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
@@ -85,6 +127,7 @@ Index: twisted/web2/server.py
 +            return None
 +
 +        def _registerResource(child):
++            self._resourcesByURL[child] = url
 +            self._resourcesFromURL[url] = child
 +            return child
 +        

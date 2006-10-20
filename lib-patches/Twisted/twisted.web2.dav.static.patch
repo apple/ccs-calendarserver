@@ -88,8 +88,16 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -135,8 +185,12 @@
+@@ -133,11 +183,22 @@
+                     # Render from the index file
+                     standin = self.createSimilarFile(ifp.path)
                  else:
++                    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++                    # the child resource loop and supply those to the checkPrivileges on each child.
++                    filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
++                    yield filteredaces
++                    filteredaces = filteredaces.getResult()
++
                      children = []
  
 +                    def _childname(r, u):
@@ -98,7 +106,10 @@ Index: twisted/web2/dav/static.py
 +
                      d = self.findChildren('1', request,
 -                                          lambda r,u: children.append(os.path.basename(u)),
+-                                          (davxml.Read(),))
 +                                          _childname,
-                                           (davxml.Read(),))
++                                          (davxml.Read(),),
++                                          inherited_aces=filteredaces)
                      d = waitForDeferred(d)
                      yield d
+                     d = d.getResult()

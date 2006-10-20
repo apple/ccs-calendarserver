@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/davxml.py
 ===================================================================
---- twisted/web2/dav/davxml.py	(revision 18219)
+--- twisted/web2/dav/davxml.py	(revision 18375)
 +++ twisted/web2/dav/davxml.py	(working copy)
 @@ -45,6 +45,7 @@
  from twisted.web2.dav.element.rfc2518 import *

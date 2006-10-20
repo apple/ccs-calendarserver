@@ -176,7 +176,15 @@ Index: twisted/web2/dav/resource.py
  
          for resource, uri in resources:
              acl = waitForDeferred(resource.accessControlList(request, inherited_aces=inherited_aces))
-@@ -1501,6 +1589,265 @@
+@@ -1004,7 +1092,6 @@
+             url = request.urlForResource(self)
+ 
+             assert url is not None, "urlForResource(self) returned None for resource %s" % (self,)
+-
+             return url
+ 
+         try:
+@@ -1501,6 +1588,265 @@
          return None
  
      ##
@@ -442,7 +450,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1548,7 +1895,7 @@
+@@ -1548,7 +1894,7 @@
      """
      DAV resource with no children.
      """
@@ -451,7 +459,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1574,7 +1921,7 @@
+@@ -1574,7 +1920,7 @@
      def isCollection(self):
          return False
  
@@ -460,7 +468,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
      def readProperty(self, property, request):
-@@ -1702,6 +2049,37 @@
+@@ -1702,6 +2048,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  

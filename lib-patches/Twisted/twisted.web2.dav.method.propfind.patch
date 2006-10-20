@@ -41,7 +41,7 @@ Index: twisted/web2/dav/method/propfind.py
  
              for property in properties_to_enumerate:
 -                if property in resource_properties:
-+                has = waitForDeferred(self.hasProperty(property, request))
++                has = waitForDeferred(resource.hasProperty(property, request))
 +                yield has
 +                has = has.getResult()
 +                if has:

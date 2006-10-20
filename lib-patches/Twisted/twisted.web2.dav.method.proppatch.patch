@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/proppatch.py
 ===================================================================
---- twisted/web2/dav/method/proppatch.py	(revision 18219)
+--- twisted/web2/dav/method/proppatch.py	(revision 18375)
 +++ twisted/web2/dav/method/proppatch.py	(working copy)
 @@ -105,7 +105,7 @@
                  if has:
