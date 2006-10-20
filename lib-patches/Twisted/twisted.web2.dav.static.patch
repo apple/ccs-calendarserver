@@ -37,7 +37,15 @@ Index: twisted/web2/dav/static.py
      def davComplianceClasses(self):
          return ("1", "access-control") # Add "2" when we have locking
  
-@@ -98,6 +104,50 @@
+@@ -87,7 +93,6 @@
+         """
+         See L{IDAVResource.isCollection}.
+         """
+-        for child in self.listChildren(): return True
+         return self.fp.isdir()
+ 
+     ##
+@@ -98,6 +103,50 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -88,7 +96,7 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -133,11 +183,22 @@
+@@ -133,11 +182,22 @@
                      # Render from the index file
                      standin = self.createSimilarFile(ifp.path)
                  else:
