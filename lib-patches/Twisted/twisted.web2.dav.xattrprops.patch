@@ -1,0 +1,23 @@
+Index: twisted/web2/dav/xattrprops.py
+===================================================================
+--- twisted/web2/dav/xattrprops.py	(revision 18375)
++++ twisted/web2/dav/xattrprops.py	(working copy)
+@@ -66,16 +66,8 @@
+         deadPropertyXattrPrefix = "user."
+ 
+     def _encode(clazz, name):
+-        #
+-        # FIXME: The xattr API in Mac OS 10.4.2 breaks if you have "/" in an
+-        # attribute name (radar://4202440). We'll quote the strings to get rid
+-        # of "/" characters for now.
+-        #
+-        result = list("{%s}%s" % name)
+-        for i in range(len(result)):
+-            c = result[i]
+-            if c in "%/": result[i] = "%%%02X" % (ord(c),)
+-        r = clazz.deadPropertyXattrPrefix + ''.join(result)
++        result = urllib.quote("{%s}%s" % name, safe='{}:')
++        r = clazz.deadPropertyXattrPrefix + result
+         return r
+ 
+     def _decode(clazz, name):
