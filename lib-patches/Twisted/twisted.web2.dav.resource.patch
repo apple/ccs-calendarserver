@@ -111,7 +111,7 @@ Index: twisted/web2/dav/resource.py
              else:
                  childpath = joinURL(basepath, childname)
 -                child = request.locateResource(childpath)
-+                child = request.locateChildResource(childpath)
++                child = request.locateChildResource(self, childname)
                  child.addCallback(checkPrivileges)
                  child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                  child.addErrback(completionDeferred.errback)
