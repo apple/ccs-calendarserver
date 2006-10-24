@@ -35,7 +35,6 @@ import datetime
 from pysqlite2 import dbapi2 as sqlite
 
 from twisted.python import log
-from twisted.python.failure import Failure
 
 from twistedcaldav.dateops import normalizeForIndex
 from twistedcaldav.ical import Component
@@ -645,8 +644,15 @@ class Index (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name == db_basename: continue
-            stream = fp.child(name).open()
+            if name == db_basename:
+                continue
+
+            try:
+                stream = fp.child(name).open()
+            except (IOError, OSError), e:
+                log.err("Unable to open resource %s: %s" % (name, e))
+                continue
+
             try:
                 # FIXME: This is blocking I/O
                 try:
@@ -744,8 +750,15 @@ class IndexSchedule (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name == db_basename: continue
-            stream = fp.child(name).open()
+            if name == db_basename:
+                continue
+
+            try:
+                stream = fp.child(name).open()
+            except (IOError, OSError), e:
+                log.err("Unable to open resource %s: %s" % (name, e))
+                continue
+
             try:
                 # FIXME: This is blocking I/O
                 try:
