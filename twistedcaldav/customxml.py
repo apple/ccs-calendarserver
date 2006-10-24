@@ -89,3 +89,26 @@ class TwistedScheduleAutoRespond(davxml.WebDAVEmptyElement):
     hidden = True
 
 parser.registerElement(TwistedScheduleAutoRespond)
+
+class DropBox (davxml.WebDAVEmptyElement):
+    """
+    Denotes a drop box collection.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "dropbox"
+
+class Notifications (davxml.WebDAVEmptyElement):
+    """
+    Denotes a notifications collection.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "notifications"
+
+##
+# Extensions to davxml.ResourceType
+##
+
+davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
+davxml.ResourceType.notifications = davxml.ResourceType(davxml.Collection(), Notifications())
