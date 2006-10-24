@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18375)
+--- twisted/web2/dav/resource.py	(revision 18479)
 +++ twisted/web2/dav/resource.py	(working copy)
 @@ -130,6 +130,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
@@ -26,7 +26,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
  
      def readProperty(self, property, request):
-@@ -272,6 +282,32 @@
+@@ -286,7 +296,33 @@
                          d.addCallback(gotACL)
                          return d
                      return ifAllowed((davxml.ReadACL(),), callback)
@@ -43,7 +43,7 @@ Index: twisted/web2/dav/resource.py
 +                    d = self.quota(request)
 +                    d.addCallback(callback)
 +                    return d
-+
+ 
 +                if name == "quota-used-bytes":
 +                    def callback(qvalue):
 +                        if qvalue is None:
@@ -56,10 +56,11 @@ Index: twisted/web2/dav/resource.py
 +                    d = self.quota(request)
 +                    d.addCallback(callback)
 +                    return d
- 
++
              elif namespace == twisted_dav_namespace:
                  if name == "resource-class":
-@@ -352,6 +388,18 @@
+                     class ResourceClass (davxml.WebDAVTextElement):
+@@ -366,12 +402,26 @@
          # FIXME: A set would be better here, that that's a python 2.4+ feature.
          qnames = list(self.liveProperties)
  
@@ -78,18 +79,16 @@ Index: twisted/web2/dav/resource.py
          for qname in self.deadProperties().list():
              if (qname not in qnames) and (qname[0] != twisted_private_namespace):
                  qnames.append(qname)
-@@ -356,7 +404,9 @@
-             if (qname not in qnames) and (qname[0] != twisted_private_namespace):
-                 qnames.append(qname)
  
 -        return succeed(qnames)
 +        yield qnames
-+
-+    listProperties = deferredGenerator(listProperties)
  
++    listProperties = deferredGenerator(listProperties)
++
      def listAllprop(self, request):
          """
-@@ -474,7 +524,7 @@
+         Some DAV properties should not be returned to a C{DAV:allprop} query.
+@@ -488,7 +538,7 @@
          """
          unimplemented(self)
  
@@ -98,25 +97,25 @@ Index: twisted/web2/dav/resource.py
          """
          See L{IDAVResource.findChildren}.
  
-@@ -491,7 +541,7 @@
+@@ -512,7 +562,7 @@
              if privileges is None:
                  return child
     
--            ca = child.checkPrivileges(request, privileges)
-+            ca = child.checkPrivileges(request, privileges, inherited_aces=inherited_aces)
-             ca.addCallback(lambda _: child)
-             return ca
+-            d = child.checkPrivileges(request, privileges)
++            d = child.checkPrivileges(request, privileges, inherited_aces=inherited_aces)
+             d.addCallback(lambda _: child)
+             return d
  
-@@ -514,7 +564,7 @@
+@@ -535,7 +585,7 @@
                  completionDeferred.callback(None)
              else:
                  childpath = joinURL(basepath, childname)
 -                child = request.locateResource(childpath)
-+                child = request.locateChildResource(self, childname)
-                 child.addCallback(_checkPrivileges)
-                 child.addCallbacks(_gotChild, _checkPrivilegesError, (childpath,))
++                child = request.locateChildResource(childpath)
+                 child.addCallback(checkPrivileges)
+                 child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                  child.addErrback(completionDeferred.errback)
-@@ -530,6 +580,43 @@
+@@ -544,6 +594,43 @@
  
          return completionDeferred
  
@@ -160,7 +159,7 @@ Index: twisted/web2/dav/resource.py
      def supportedReports(self):
          """
          See L{IDAVResource.supportedReports}.
-@@ -904,10 +991,11 @@
+@@ -918,10 +1005,11 @@
  
          resources = [(self, None)]
  
@@ -176,7 +175,7 @@ Index: twisted/web2/dav/resource.py
  
          for resource, uri in resources:
              acl = waitForDeferred(resource.accessControlList(request, inherited_aces=inherited_aces))
-@@ -1004,7 +1092,6 @@
+@@ -1018,7 +1106,6 @@
              url = request.urlForResource(self)
  
              assert url is not None, "urlForResource(self) returned None for resource %s" % (self,)
@@ -184,7 +183,7 @@ Index: twisted/web2/dav/resource.py
              return url
  
          try:
-@@ -1501,6 +1588,265 @@
+@@ -1515,6 +1602,265 @@
          return None
  
      ##
@@ -450,7 +449,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1548,7 +1894,7 @@
+@@ -1562,7 +1908,7 @@
      """
      DAV resource with no children.
      """
@@ -459,7 +458,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1574,7 +1920,7 @@
+@@ -1588,7 +1934,7 @@
      def isCollection(self):
          return False
  
@@ -468,7 +467,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
      def readProperty(self, property, request):
-@@ -1702,6 +2048,37 @@
+@@ -1716,6 +2062,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  

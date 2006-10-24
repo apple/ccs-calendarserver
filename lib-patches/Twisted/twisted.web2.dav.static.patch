@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18375)
+--- twisted/web2/dav/static.py	(revision 18479)
 +++ twisted/web2/dav/static.py	(working copy)
 @@ -28,16 +28,16 @@
  
@@ -8,10 +8,10 @@ Index: twisted/web2/dav/static.py
  
 -import os
 -
--from twisted.python import log
- from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
++from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+ from twisted.python import log
+-from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 -from twisted.web2.static import File
-+from twisted.python import log
 +from twisted.web2 import http_headers
  from twisted.web2 import responsecode, dirlist
 -from twisted.web2.http import RedirectResponse
@@ -96,28 +96,24 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -133,11 +182,22 @@
+@@ -157,11 +206,17 @@
                      # Render from the index file
                      standin = self.createSimilarFile(ifp.path)
                  else:
-+                    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-+                    # the child resource loop and supply those to the checkPrivileges on each child.
-+                    filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
-+                    yield filteredaces
-+                    filteredaces = filteredaces.getResult()
++                    filtered_aces = waitForDeferred(self.inheritedACEsforChildren(request))
++                    yield filtered_aces
++                    filtered_aces = filtered_aces.getResult()
 +
                      children = []
  
-+                    def _childname(r, u):
-+                        u = u.rstrip("/")
-+                        children.append(u.split("/")[-1])
-+
-                     d = self.findChildren('1', request,
+-                    d = self.findChildren("1", request,
 -                                          lambda r,u: children.append(os.path.basename(u)),
 -                                          (davxml.Read(),))
-+                                          _childname,
-+                                          (davxml.Read(),),
-+                                          inherited_aces=filteredaces)
++                    def found(request, uri):
++                        children.append(uri.split("/")[-1].rstrip("/"))
++
++                    d = self.findChildren("1", request, found, (davxml.Read(),),
++                                          inherited_aces=filtered_aces)
                      d = waitForDeferred(d)
                      yield d
                      d = d.getResult()

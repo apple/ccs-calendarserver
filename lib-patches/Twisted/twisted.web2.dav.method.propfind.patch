@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/propfind.py
 ===================================================================
---- twisted/web2/dav/method/propfind.py	(revision 18375)
+--- twisted/web2/dav/method/propfind.py	(revision 18479)
 +++ twisted/web2/dav/method/propfind.py	(working copy)
 @@ -102,11 +102,15 @@
  
@@ -20,23 +20,31 @@ Index: twisted/web2/dav/method/propfind.py
      x = waitForDeferred(d)
      yield x
      x.getResult()
-@@ -116,11 +120,11 @@
-             uri = normalizeURL(request_uri)
-             if self.isCollection() and not uri.endswith("/"): uri += "/"
+@@ -117,15 +121,15 @@
+             if self.isCollection() and not uri.endswith("/"):
+                 uri += "/"
  
--        resource_properties = waitForDeferred(resource.listProperties(request))
--        yield resource_properties
--        resource_properties = resource_properties.getResult()
+-        try:
+-            resource_properties = waitForDeferred(resource.listProperties(request))
+-            yield resource_properties
+-            resource_properties = resource_properties.getResult()
+-        except:
+-            log.err("Unable to get properties for resource %r" % (resource,))
+-            raise
 +        if search_properties is "names":
-+            resource_properties = waitForDeferred(resource.listProperties(request))
-+            yield resource_properties
-+            resource_properties = resource_properties.getResult()
++            try:
++                resource_properties = waitForDeferred(resource.listProperties(request))
++                yield resource_properties
++                resource_properties = resource_properties.getResult()
++            except:
++                log.err("Unable to get properties for resource %r" % (resource,))
++                raise
  
 -        if search_properties is "names":
              properties_by_status = {
                  responsecode.OK: [propertyName(p) for p in resource_properties]
              }
-@@ -138,7 +142,10 @@
+@@ -143,7 +147,10 @@
                  properties_to_enumerate = search_properties
  
              for property in properties_to_enumerate:
