@@ -71,7 +71,7 @@ def storeCalendarObjectResource(
     @param sourceparent:      the L{CalDAVFile} for the source resource's parent collection, or None if source is None.
     @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
     @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
-    @param isiTIP:            True if relaxed calendar data validation is to be done, False otehrwise.
+    @param isiTIP:            True if relaxed calendar data validation is to be done, False otherwise.
     @return:                  status response.
     """
     
@@ -268,16 +268,15 @@ def storeCalendarObjectResource(
             rname = index.resourceNameForUID(uid)
             # This can happen if two simulataneous PUTs occur with the same UID.
             # i.e. one PUT has reserved the UID but has not yet written the resource,
-            # the other PUT tries to reserve and fails but no index entry exists yets.
+            # the other PUT tries to reserve and fails but no index entry exists yet.
             if rname is None:
                 rname = "<<Unknown Resource>>"
             
             result = False
             message = "Calendar resource %s already exists with same UID %s" % (rname, uid)
         else:
-            # Cannot overwrite different UID
-            overwrite = destination.fp.exists()
-            if overwrite:
+            # Cannot overwrite a resource with different UID
+            if destination.fp.exists():
                 olduid = index.resourceUIDForName(destination.fp.basename())
                 if olduid != uid:
                     rname = destination.fp.basename()
