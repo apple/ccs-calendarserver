@@ -27,7 +27,6 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from twisted.python import log
 from twisted.web2.dav import davxml
 
 from twistedcaldav.dateops import clipPeriod, timeRangesOverlap

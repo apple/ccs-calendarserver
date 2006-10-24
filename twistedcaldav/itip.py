@@ -35,7 +35,6 @@ iTIP (RFC2446) processing.
 import datetime
 import logging
 import md5
-import os
 import time
 
 from twisted.python import log, failure
@@ -49,7 +48,6 @@ from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, isCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile
 
 __version__ = "0.0"
 

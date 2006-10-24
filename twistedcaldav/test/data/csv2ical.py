@@ -25,7 +25,6 @@
 # Dedicated to Amir.
 #
 
-import os
 import sys
 import csv
 import datetime

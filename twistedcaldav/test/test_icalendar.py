@@ -20,7 +20,6 @@ import os
 import datetime
 
 from twisted.trial.unittest import SkipTest
-from twisted.web2.dav import davxml
 
 from twistedcaldav.ical import *
 import twistedcaldav.test.util

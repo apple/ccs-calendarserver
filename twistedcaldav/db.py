@@ -25,7 +25,6 @@ __all__ = ["AbstractIndex"]
 
 from pysqlite2 import dbapi2 as sqlite
 from twisted.python import log
-from twisted.python.failure import Failure
 import os
 
 db_basename = ".db.sqlite"

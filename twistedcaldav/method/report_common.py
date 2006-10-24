@@ -38,7 +38,6 @@ from twisted.web2.dav.http import statusForFailure
 from twisted.web2.dav.method.propfind import propertyName
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.method.report import max_number_of_matches
-from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace

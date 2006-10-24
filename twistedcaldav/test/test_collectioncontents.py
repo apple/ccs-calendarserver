@@ -23,11 +23,9 @@ from twisted.web2 import responsecode
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream, FileStream
 from twisted.web2.http_headers import MimeType
-from twisted.web2.dav.fileop import rmdir
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.ical import Component
-from twistedcaldav.static import CalDAVFile
 import twistedcaldav.test.util
 
 class CollectionContents (twistedcaldav.test.util.TestCase):
