@@ -35,13 +35,14 @@ import datetime
 import StringIO
 
 from vobject import newFromBehavior, readComponents
-from vobject.base import Component   as vComponent
+from vobject.base import Component as vComponent
 from vobject.base import ContentLine as vContentLine
-from vobject.base import ParseError  as vParseError
+from vobject.base import ParseError as vParseError
 from vobject.icalendar import TimezoneComponent
 from vobject.icalendar import stringToDate, stringToDateTime, stringToDurations
 from vobject.icalendar import utc
 
+from twisted.python import log
 from twisted.web2.stream import IStream
 from twisted.web2.dav.util import allDataFromStream
 
@@ -214,6 +215,8 @@ class Component (object):
             else:
                 raise AssertionError("name may not be None")
 
+            # FIXME: _parent is not use internally, and appears to be used elsewhere,
+            # even though it's names as a private variable.
             if "parent" in kwargs:
                 parent = kwargs["parent"]
                 
@@ -238,7 +241,8 @@ class Component (object):
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
-        if not isinstance(other, Component): return False
+        if not isinstance(other, Component):
+            return False
 
         my_properties = set(self.properties())
         for property in other.properties():
@@ -260,6 +264,7 @@ class Component (object):
 
         return True
 
+    # FIXME: Should this not be in __eq__?
     def same(self, other):
         return self._vobject == other._vobject
     
@@ -726,11 +731,7 @@ class Component (object):
         @raise ValueError: if the given calendar component is not valid for
             use as a X{CalDAV} resource.
         """
-        if self.name() != "VCALENDAR": raise ValueError("Not a calendar")
-        if not self.resourceType(): raise ValueError("Unknown resource type")
-
-        version = self.propertyValue("VERSION")
-        if version != "2.0": raise ValueError("Not a version 2.0 iCalendar (version=%s)" % (version,))
+        self.validCalendarForCalDAV()
 
         # Disallowed in CalDAV-Access-08, section 4.1
         if self.hasProperty("METHOD"):
