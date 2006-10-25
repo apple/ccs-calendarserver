@@ -536,6 +536,7 @@ class Component (object):
         return (trigger, related, repeat, duration)
  
     def getRRuleSet(self, addRDate = False):
+        self.transformAllToNative()
         return self._vobject.getrruleset(addRDate)
 
     def addProperty(self, property):
