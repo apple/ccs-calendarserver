@@ -233,7 +233,7 @@ class AbstractIndex(object):
         else:
             qualifiers = None
         if qualifiers is not None:
-            rowiter = self._db_execute("select RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
+            rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
         else:
             rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
             
