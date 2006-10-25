@@ -65,6 +65,12 @@ class caldavd(object):
         self.certfile = "/etc/certificates/Default.crt"
         self.manhole = 0
 
+        self.dropbox = True
+        self.dropboxName = "dropbox"
+        self.dropboxACLs = True
+        self.notifications = False
+        self.notifcationName = "notifications"
+
         self.serverlogfile = "/var/log/caldavd/server.log"
         self.errorlogfile = "/var/log/caldavd/error.log"
         self.pidfile = "/var/run/caldavd.pid"
@@ -96,6 +102,11 @@ class caldavd(object):
         print "Only Use SSL:                     %s" % (self.onlyssl,)
         print "SSL Private Key File:             %s" % (self.keyfile,)
         print "SSL Certificate File:             %s" % (self.certfile,)
+        print "Drop Box Enabled:                 %s" % (self.dropbox,)
+        print "Drop Box Name:                    %s" % (self.dropboxName,)
+        print "Drop Box ACLs are Inherited       %s" % (self.dropboxACLs,)
+        print "Notifications Enabled:            %s" % (self.notifications,)
+        print "Notification Collection Name:     %s" % (self.notifcationName,)
         print "Server Log File:                  %s" % (self.serverlogfile,)
         print "Error Log File:                   %s" % (self.errorlogfile,)
         print "PID File:                         %s" % (self.pidfile,)
@@ -259,6 +270,8 @@ class caldavd(object):
         self.action = args[0]
     
     def parsePlist(self):
+    	print "Reading configuration file %s." % (self.plistfile,)
+
         root = readPlist(self.plistfile)
         
         # dict that maps between plist keys and class attributes
@@ -273,6 +286,11 @@ class caldavd(object):
                    "SSLPrivateKey":              "keyfile",
                    "SSLCertificate":             "certfile",
                    "ManholePort":                "manhole",
+                   "DropBoxEnabled":             "dropbox",
+                   "DropBoxName":                "dropboxName",
+                   "DropBoxInheritedACLs":       "dropboxACLs",
+                   "NotificationsEnabled":       "notifications",
+                   "NotificationCollectionName": "notifcationName",
                    "ServerLogFile":              "serverlogfile",
                    "ErrorLogFile":               "errorlogfile",
                    "PIDFile":                    "pidfile",
@@ -336,40 +354,69 @@ Options:
     
     def generateTAC(self):
         return """
-docroot       = "%(docroot)s"
-repo          = "%(repo)s"
-doacct        =  %(doacct)s
-doacl         =  %(doacl)s
-dossl         =  %(dossl)s
-keyfile       = "%(keyfile)s"
-certfile      = "%(certfile)s"
-onlyssl       =  %(onlyssl)s
-port          =  %(port)d
-sslport       =  %(sslport)d
-maxsize       =  %(maxsize)d
-quota         =  %(quota)d
-serverlogfile = "%(serverlogfile)s"
-manhole       =  %(manhole)d
+docroot         = "%(docroot)s"
+repo            = "%(repo)s"
+doacct          =  %(doacct)s
+doacl           =  %(doacl)s
+dossl           =  %(dossl)s
+keyfile         = "%(keyfile)s"
+certfile        = "%(certfile)s"
+onlyssl         =  %(onlyssl)s
+port            =  %(port)d
+sslport         =  %(sslport)d
+maxsize         =  %(maxsize)d
+quota           =  %(quota)d
+serverlogfile   = "%(serverlogfile)s"
+dropbox         = "%(dropbox)s"
+dropboxName     = "%(dropboxName)s"
+dropboxACLs     = "%(dropboxACLs)s"
+notifications   = "%(notifications)s"
+notifcationName = "%(notifcationName)s"
+manhole         =  %(manhole)d
 
 from twistedcaldav.repository import startServer
 
-application, site = startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole)
+application, site = startServer(docroot,
+                                repo,
+                                doacct,
+                                doacl,
+                                dossl,
+                                keyfile,
+                                certfile,
+                                onlyssl,
+                                port,
+                                sslport,
+                                maxsize,
+                                quota,
+                                serverlogfile,
+                                dropbox,
+                                dropboxName,
+                                dropboxACLs,
+                                notifications,
+                                notifcationName,
+                                manhole)
 
 """ % {
-    "docroot":       self.docroot,
-    "repo":          self.repo,
-    "doacct":        self.doacct,
-    "doacl":         self.doacl,
-    "dossl":         self.dossl,
-    "keyfile":       self.keyfile,
-    "certfile":      self.certfile,
-    "onlyssl":       self.onlyssl,
-    "port":          self.port,
-    "sslport":       self.sslport,
-    "maxsize":       self.maxsize,
-    "quota":         self.quota,
-    "serverlogfile": self.serverlogfile,
-    "manhole":       self.manhole,
+    "docroot":         self.docroot,
+    "repo":            self.repo,
+    "doacct":          self.doacct,
+    "doacl":           self.doacl,
+    "dossl":           self.dossl,
+    "keyfile":         self.keyfile,
+    "certfile":        self.certfile,
+    "onlyssl":         self.onlyssl,
+    "port":            self.port,
+    "sslport":         self.sslport,
+    "maxsize":         self.maxsize,
+    "quota":           self.quota,
+    "serverlogfile":   self.serverlogfile,
+    "dropbox":         self.dropbox,
+    "dropboxName":     self.dropboxName,
+    "dropboxACLs":     self.dropboxACLs,
+    "notifications":   self.notifications,
+    "notifcationName": self.notifcationName,
+    "manhole":         self.manhole,
+    
 }
 
 if __name__ == "__main__":

@@ -35,6 +35,14 @@ class ICalDAVResource(IDAVResource):
             otherwise.
         """
 
+    def isSpecialCollection(collectiontype):
+        """
+        (CalDAV-access-10, Section 4.2)
+        @param collectiontype: L{WebDAVElement} for the collection type to test for.
+        @return: True if this resource is a collection that also has the specified type,
+            False otherwise.
+        """
+
     def isPseudoCalendarCollection():
         """
         @return: True if this resource is a calendar collection like (e.g.

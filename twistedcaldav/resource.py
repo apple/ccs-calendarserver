@@ -33,8 +33,6 @@ __all__ = [
     "isScheduleOutboxResource",
 ]
 
-from weakref import WeakValueDictionary
-
 from zope.interface import implements
 
 from twisted.internet import reactor
@@ -47,6 +45,7 @@ from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
 from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
+from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.iweb import IResponse
@@ -54,7 +53,7 @@ from twisted.web2.stream import MemoryStream
 import twisted.web2.server
 
 import twistedcaldav
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, customxml
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component as iComponent
@@ -234,11 +233,17 @@ class CalDAVResource (DAVResource):
         """
         See L{ICalDAVResource.isCalendarCollection}.
         """
+        return self.isSpecialCollection(caldavxml.Calendar)
+
+    def isSpecialCollection(self, collectiontype):
+        """
+        See L{ICalDAVResource.isSpecialCollection}.
+        """
         if not self.isCollection(): return False
 
         try:
             resourcetype = self.readDeadProperty((dav_namespace, "resourcetype"))
-            return resourcetype.isCalendar()
+            return bool(resourcetype.childrenOfType(collectiontype))
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND
             return False
@@ -582,6 +587,23 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                         return None
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+
+            elif namespace == twisted_dav_namespace:
+                from twistedcaldav.dropbox import DropBox
+                if name == "drop-box-home-URL":
+                    # Use the first calendar home only
+                    home = ""
+                    for url in self.calendarHomeURLs():
+                        home = joinURL(url, DropBox.dropboxName) + "/"
+                    return customxml.DropBoxHomeURL(davxml.HRef(home))
+
+                if name == "notifications-URL":
+                    # Use the first calendar home only
+                    home = ""
+                    for url in self.calendarHomeURLs():
+                        home = joinURL(url, DropBox.notifcationName) + "/"
+                    return customxml.NotificationsURL(davxml.HRef(home))
+
 
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 

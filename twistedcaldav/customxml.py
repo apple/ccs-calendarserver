@@ -106,6 +106,28 @@ class Notifications (davxml.WebDAVEmptyElement):
     namespace = twisted_dav_namespace
     name = "notifications"
 
+class DropBoxHomeURL (davxml.WebDAVTextElement):
+    """
+    A principal property to indicate the location of the drop box home.
+    (Apple Extension to CalDAV)
+    """
+    name = "drop-box-home-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class NotificationsURL (davxml.WebDAVTextElement):
+    """
+    A principal property to indicate the location of the notification collection.
+    (Apple Extension to CalDAV)
+    """
+    name = "notifications-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
 ##
 # Extensions to davxml.ResourceType
 ##

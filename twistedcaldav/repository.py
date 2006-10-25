@@ -42,6 +42,7 @@ from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
@@ -120,7 +121,12 @@ ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
 ATTRIBUTE_REPEAT = "repeat"
 
-def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole):
+def startServer(docroot, repo, doacct, doacl, dossl,
+                keyfile, certfile, onlyssl, port, sslport, maxsize,
+                quota, serverlogfile,
+                dropbox, dropboxName, dropboxACLs,
+                notifications, notifcationName,
+                manhole):
     """
     Start the server using XML-based configuration details and supplied .plist based options.
     """
@@ -165,6 +171,9 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
             MultiService.stopService(self)
             self.logObserver.stop()
     
+    # Turn on drop box support before building the repository
+    DropBox.enable(dropbox, dropboxName, dropboxACLs, notifications, notifcationName)
+
     # Build the server
     builder = RepositoryBuilder(docroot,
                                 doAccounts=doacct,
