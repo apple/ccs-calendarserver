@@ -16,16 +16,22 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
-from twisted.web2.dav.resource import twisted_dav_namespace
-from twistedcaldav.customxml import davxml
-from twistedcaldav.resource import CalendarPrincipalResource
-from twistedcaldav.static import CalDAVFile
-import os
-
 """
 Implements drop-box functionality. A drop box is an external attachment store that provides
 for automatic notification of changes to subscribed users.
 """
+
+__all__ = [
+    "DropBox",
+]
+
+from twisted.web2.dav.resource import twisted_dav_namespace
+
+from twistedcaldav.customxml import davxml
+from twistedcaldav.resource import CalendarPrincipalResource
+from twistedcaldav.static import CalDAVFile
+
+import os
 
 class DropBox(object):
     
@@ -91,7 +97,7 @@ class DropBox(object):
         child = CalDAVFile(os.path.join(cuhome[1].fp.path, DropBox.dropboxName))
         child_exists = child.exists()
         if not child_exists:
-            c = child.createSpecialCollection(davxml.ResourceType.dropbox)
+            c = child.createSpecialCollection(davxml.ResourceType.dropboxhome)
             assert c.called
             c = c.result
         

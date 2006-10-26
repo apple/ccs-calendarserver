@@ -379,13 +379,17 @@ class CalDAVResource (DAVResource):
         """
         Write a new ACL to the resource's property store. We override this for calendar collections
         and force all the ACEs to be inheritable so that all calendar object resources within the
-        calendar collection have the same privileges unless explicitly overridden.
+        calendar collection have the same privileges unless explicitly overridden. The same applies
+        to drop box collections as we want all resources (attachments) to have the same privileges as
+        the drop box collection.
         
         @param newaces: C{list} of L{ACE} for ACL being set.
         """
         
         # Do this only for regular calendar collections and Inbox/Outbox
-        if self.isPseudoCalendarCollection():
+        from twistedcaldav.dropbox import DropBox
+        if self.isPseudoCalendarCollection() or \
+            DropBox.enabled and self.isSpecialCollection(customxml.DropBox):
             # Add inheritable option to each ACE in the list
             for ace in newaces:
                 if TwistedACLInheritable() not in ace.children:
@@ -595,6 +599,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     home = ""
                     for url in self.calendarHomeURLs():
                         home = joinURL(url, DropBox.dropboxName) + "/"
+                        break
                     return customxml.DropBoxHomeURL(davxml.HRef(home))
 
                 if name == "notifications-URL":
@@ -602,6 +607,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     home = ""
                     for url in self.calendarHomeURLs():
                         home = joinURL(url, DropBox.notifcationName) + "/"
+                        break
                     return customxml.NotificationsURL(davxml.HRef(home))
 
 
