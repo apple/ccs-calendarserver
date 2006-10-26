@@ -28,8 +28,6 @@ __all__ = [
 from twisted.web2.dav.resource import twisted_dav_namespace
 
 from twistedcaldav.customxml import davxml
-from twistedcaldav.resource import CalendarPrincipalResource
-from twistedcaldav.static import CalDAVFile
 
 import os
 
@@ -70,6 +68,7 @@ class DropBox(object):
         if DropBox.enabled:
 
             # Need to setup live properties
+            from twistedcaldav.resource import CalendarPrincipalResource
             assert (twisted_dav_namespace, "dropbox-home-URL") not in CalendarPrincipalResource.liveProperties, \
                 "DropBox.enable must only be called once"
 
@@ -94,6 +93,7 @@ class DropBox(object):
         
         # Create drop box collection in calendar-home collection resource if not already present.
         
+        from twistedcaldav.static import CalDAVFile
         child = CalDAVFile(os.path.join(cuhome[1].fp.path, DropBox.dropboxName))
         child_exists = child.exists()
         if not child_exists:

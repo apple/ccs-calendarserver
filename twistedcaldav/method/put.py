@@ -25,11 +25,14 @@ __all__ = ["http_PUT"]
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
+from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
@@ -75,6 +78,9 @@ def http_PUT(self, request):
             log.err("Error while handling (calendar) PUT: %s" % (e,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
+    elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBoxHome):
+        # Cannot create resources in a drop box home collection
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (twisted_dav_namespace, "valid-drop-box")))
     else:
         d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
         yield d

@@ -29,13 +29,13 @@ from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import customxml
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav.resource import isNonCollectionParentResource
 
 def http_MKCOL(self, request):
     #
     # Don't allow DAV collections in a calendar collection for now
     #
-    parent = waitForDeferred(self._checkParents(request, isPseudoCalendarCollectionResource))
+    parent = waitForDeferred(self._checkParents(request, isNonCollectionParentResource))
     yield parent
     parent = parent.getResult()
     if parent is not None:
