@@ -70,11 +70,11 @@ class DropBox(object):
         if DropBox.enabled:
 
             # Need to setup live properties
-            assert (twisted_dav_namespace, "drop-box-home-URL") not in CalendarPrincipalResource.liveProperties, \
+            assert (twisted_dav_namespace, "dropbox-home-URL") not in CalendarPrincipalResource.liveProperties, \
                 "DropBox.enable must only be called once"
 
             CalendarPrincipalResource.liveProperties += (
-                (twisted_dav_namespace, "drop-box-home-URL"      ),
+                (twisted_dav_namespace, "dropbox-home-URL"  ),
                 (twisted_dav_namespace, "notifications-URL" ),
             )
 

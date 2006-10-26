@@ -85,7 +85,7 @@ class DropBoxHome (davxml.WebDAVEmptyElement):
     (Apple Extension to CalDAV)
     """
     namespace = twisted_dav_namespace
-    name = "dropboxhome"
+    name = "dropbox-home"
 
 class DropBox (davxml.WebDAVEmptyElement):
     """
@@ -109,7 +109,7 @@ class DropBoxHomeURL (davxml.WebDAVTextElement):
     (Apple Extension to CalDAV)
     """
     namespace = twisted_dav_namespace
-    name = "drop-box-home-URL"
+    name = "dropbox-home-URL"
     hidden = True
     protected = True
 

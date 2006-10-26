@@ -594,7 +594,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
 
             elif namespace == twisted_dav_namespace:
                 from twistedcaldav.dropbox import DropBox
-                if name == "drop-box-home-URL":
+                if name == "dropbox-home-URL":
                     # Use the first calendar home only
                     home = ""
                     for url in self.calendarHomeURLs():
