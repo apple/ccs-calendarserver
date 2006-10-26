@@ -45,7 +45,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
-from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
@@ -58,6 +58,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component as iComponent
+from twistedcaldav.extensions import DAVResource
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__

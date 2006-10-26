@@ -46,7 +46,6 @@ from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.resource import TwistedQuotaRootProperty
-from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 
 from twistedcaldav import caldavxml
@@ -57,6 +56,7 @@ from twistedcaldav.index import Index, IndexSchedule, db_basename
 from twistedcaldav.resource import CalDAVResource, isPseudoCalendarCollectionResource, CalendarPrincipalResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
 from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.extensions import DAVFile
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
