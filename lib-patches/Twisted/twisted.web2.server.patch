@@ -47,23 +47,15 @@ Index: twisted/web2/server.py
  
      def unparseURL(self, scheme=None, host=None, port=None,
                     path=None, params=None, querystring=None, fragment=None):
-@@ -263,8 +280,15 @@
-             failedDeferred = self._processingFailed(failure.Failure())
-             return
+@@ -265,6 +282,7 @@
          
-+        def _registerResource(child):
-+            url = "/" + "/".join(self.prepath)
-+            self._resourcesByURL[child] = url
-+            self._urlsByResource[url] = child
-+            return child
-+        
          d = defer.Deferred()
          d.addCallback(self._getChild, self.site.resource, self.postpath)
-+        d.addCallback(_registerResource)
++        d.addCallback(self._rememberResource, "/" + "/".join(self.prepath))
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -320,8 +344,6 @@
+@@ -320,8 +338,6 @@
                      url = "/" + "/".join(path)
                  else:
                      url = "/"
@@ -72,7 +64,7 @@ Index: twisted/web2/server.py
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -342,12 +364,9 @@
+@@ -342,17 +358,16 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
@@ -82,10 +74,19 @@ Index: twisted/web2/server.py
  
 -    _resourcesByURL = weakref.WeakKeyDictionary()
 -
-     def _rememberURLForResource(self, url, resource):
+-    def _rememberURLForResource(self, url, resource):
++    def _rememberResource(self, resource, url):
          """
-         Remember the URL of visited resources.
-@@ -367,10 +386,7 @@
+-        Remember the URL of visited resources.
++        Remember the URL of a visited resources.
+         """
+         self._resourcesByURL[resource] = url
++        self._urlsByResource[url] = resource
++        return resource
+ 
+     def urlForResource(self, resource):
+         """
+@@ -367,10 +382,7 @@
  
          @return: the URL of C{resource} if known, otherwise C{None}.
          """
@@ -97,7 +98,7 @@ Index: twisted/web2/server.py
  
      def locateResource(self, url):
          """
-@@ -385,8 +401,13 @@
+@@ -385,8 +397,13 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -112,7 +113,7 @@ Index: twisted/web2/server.py
          #
          # Parse the URL
          #
-@@ -414,11 +435,56 @@
+@@ -414,11 +431,48 @@
          def notFound(f):
              f.trap(http.HTTPError)
              if f.response.code != responsecode.NOT_FOUND:
@@ -121,13 +122,9 @@ Index: twisted/web2/server.py
              return None
  
 -        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        def _registerResource(child):
-+            self._resourcesByURL[child] = path
-+            self._urlsByResource[path] = child
-+            return child
-+        
 +        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        d.addCallback(_registerResource)
++        d.addCallback(self._rememberResource, path)
++        d.addErrback(notFound)
 +        return d
  
 +    def locateChildResource(self, res, childpath):
@@ -159,13 +156,9 @@ Index: twisted/web2/server.py
 +                return f
 +            return None
 +
-+        def _registerResource(child):
-+            self._resourcesByURL[child] = url
-+            self._urlsByResource[url] = child
-+            return child
-+        
 +        d = defer.maybeDeferred(self._getChild, None, res, [segment], updatepaths=False)
-+        d.addCallback(_registerResource)
++        d.addCallback(self._rememberResource, url)
++        d.addErrback(notFound)
 +        return d
 +
      def _processingFailed(self, reason):
