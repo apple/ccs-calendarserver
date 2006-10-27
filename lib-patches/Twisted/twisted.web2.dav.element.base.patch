@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/element/base.py
 ===================================================================
---- twisted/web2/dav/element/base.py	(revision 18375)
+--- twisted/web2/dav/element/base.py	(revision 18545)
 +++ twisted/web2/dav/element/base.py	(working copy)
 @@ -190,14 +190,93 @@
          return child in self.children

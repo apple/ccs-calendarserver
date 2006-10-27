@@ -1,17 +1,8 @@
 Index: twisted/web2/dav/method/copymove.py
 ===================================================================
---- twisted/web2/dav/method/copymove.py	(revision 18479)
+--- twisted/web2/dav/method/copymove.py	(revision 18545)
 +++ twisted/web2/dav/method/copymove.py	(working copy)
-@@ -29,8 +29,6 @@
- 
- __all__ = ["http_COPY", "http_MOVE"]
- 
--import urlparse
--
- from twisted.python import log
- from twisted.internet.defer import waitForDeferred, deferredGenerator
- from twisted.web2 import responsecode
-@@ -38,7 +36,7 @@
+@@ -38,7 +38,7 @@
  from twisted.web2.filter.location import addLocation
  from twisted.web2.dav import davxml
  from twisted.web2.dav.idav import IDAVResource
@@ -20,7 +11,7 @@ Index: twisted/web2/dav/method/copymove.py
  from twisted.web2.dav.util import parentForURL
  
  # FIXME: This is circular
-@@ -81,7 +79,15 @@
+@@ -81,7 +81,15 @@
          # May need to add a location header
          addLocation(request, destination_uri)
  
@@ -37,7 +28,7 @@ Index: twisted/web2/dav/method/copymove.py
      yield x
      yield x.getResult()
  
-@@ -144,7 +150,14 @@
+@@ -144,7 +152,14 @@
          log.err(msg)
          raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
  

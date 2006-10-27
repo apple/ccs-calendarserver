@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/__init__.py
 ===================================================================
---- twisted/web2/dav/__init__.py	(revision 18375)
+--- twisted/web2/dav/__init__.py	(revision 18545)
 +++ twisted/web2/dav/__init__.py	(working copy)
 @@ -45,6 +45,7 @@
      "noneprops",
