@@ -29,22 +29,28 @@ from twisted.web2.iweb import IResponse
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_DELETE(self, request):
+    #
     # Override base DELETE request handling to ensure that the calendar
     # index file has the entry for the deleted calendar component removed.
-
-    # Do inherited default behaviour
-    d = maybeDeferred(super(CalDAVFile, self).http_DELETE, request)
-    
+    #
     def deleteFromIndex(response):
         response = IResponse(response)
 
         if response.code == responsecode.NO_CONTENT:
+            def deleteFromParent(parent):
+                if isPseudoCalendarCollectionResource(parent):
+                    index = parent.index()
+                    index.deleteResource(self.fp.basename())
+
+                return response
+            
             # Remove index entry if we are a child of a calendar collection
-            parent = self.locateParent(request, request.uri)
-            if isPseudoCalendarCollectionResource(parent):
-                index = parent.index()
-                index.deleteResource(self.fp.basename())
+            d = self.locateParent(request, request.uri)
+            d.addCallback(deleteFromParent)
+            return d
 
         return response
-        
-    return d.addCallback(deleteFromIndex)
+
+    d = maybeDeferred(super(CalDAVFile, self).http_DELETE, request)
+    d.addCallback(deleteFromIndex)
+    return d
