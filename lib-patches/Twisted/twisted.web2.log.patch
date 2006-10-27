@@ -1,6 +1,6 @@
 Index: twisted/web2/log.py
 ===================================================================
---- twisted/web2/log.py	(revision 18375)
+--- twisted/web2/log.py	(revision 18545)
 +++ twisted/web2/log.py	(working copy)
 @@ -88,7 +88,7 @@
  class LogWrapperResource(resource.WrapperResource):

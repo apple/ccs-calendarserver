@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/idav.py
 ===================================================================
---- twisted/web2/dav/idav.py	(revision 18375)
+--- twisted/web2/dav/idav.py	(revision 18545)
 +++ twisted/web2/dav/idav.py	(working copy)
 @@ -41,7 +41,7 @@
              otherwise.
