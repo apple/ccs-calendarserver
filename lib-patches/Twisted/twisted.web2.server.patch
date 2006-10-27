@@ -85,7 +85,19 @@ Index: twisted/web2/server.py
      def _rememberURLForResource(self, url, resource):
          """
          Remember the URL of visited resources.
-@@ -385,8 +404,14 @@
+@@ -367,10 +386,7 @@
+ 
+         @return: the URL of C{resource} if known, otherwise C{None}.
+         """
+-        try:
+-            return self._resourcesByURL[resource]
+-        except KeyError:
+-            return None
++        return self._resourcesByURL.get(resource, None)
+ 
+     def locateResource(self, url):
+         """
+@@ -385,8 +401,13 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -93,15 +105,14 @@ Index: twisted/web2/server.py
 +        if url is None:
 +            return None
  
-+        try:
-+            return succeed(self._urlsByResource[url])
-+        except KeyError:
-+            pass
++        cached = self._urlsByResource.get(url, None)
++        if cached is not None:
++            return succeed(cached)
 +
          #
          # Parse the URL
          #
-@@ -414,11 +439,56 @@
+@@ -414,11 +435,56 @@
          def notFound(f):
              f.trap(http.HTTPError)
              if f.response.code != responsecode.NOT_FOUND:
@@ -135,10 +146,10 @@ Index: twisted/web2/server.py
 +        if res is None or childpath is None: return None
 +        
 +        url = joinURL(self.urlForResource(res), childpath)
-+        try:
-+            return succeed(self._urlsByResource[url])
-+        except KeyError:
-+            pass
++
++        cached = self._urlsByResource.get(url, None)
++        if cached is not None:
++            return succeed(cached)
 +
 +        segment = unquote(childpath)
 +
