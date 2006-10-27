@@ -113,7 +113,7 @@ Index: twisted/web2/server.py
          #
          # Parse the URL
          #
-@@ -414,11 +431,48 @@
+@@ -414,11 +431,53 @@
          def notFound(f):
              f.trap(http.HTTPError)
              if f.response.code != responsecode.NOT_FOUND:
@@ -127,10 +127,14 @@ Index: twisted/web2/server.py
 +        d.addErrback(notFound)
 +        return d
  
-+    def locateChildResource(self, res, childpath):
++    def locateChildResource(self, resource, child_path):
 +        """
-+        Looks up the child resource with the given name given the parent resource.
-+        @param uri: The URL last path segment of the desired resource.
++        Looks up the child resource with the given name given the parent
++        resource.  This is similar to locateResource(), but doesn't have to
++        start the lookup from the root resource, so it is potentially faster.
++        @param resource: the parent of the resource being looked up.
++        @param child_path: the path of the resource being looked up, relative
++            to C{parent}.
 +        @return: a L{Deferred} resulting in the L{IResource} at the
 +            given URL or C{None} if no such resource can be located.
 +        @raise HTTPError: If C{url} is not a URL on the site that this
@@ -140,15 +144,16 @@ Index: twisted/web2/server.py
 +            The contained response will have a status code of
 +            L{responsecode.BAD_REQUEST}.
 +        """
-+        if res is None or childpath is None: return None
++        if resource is None or child_path is None:
++            return None
 +        
-+        url = joinURL(self.urlForResource(res), childpath)
++        url = joinURL(self.urlForResource(resource), child_path)
 +
 +        cached = self._urlsByResource.get(url, None)
 +        if cached is not None:
 +            return succeed(cached)
 +
-+        segment = unquote(childpath)
++        segment = unquote(child_path)
 +
 +        def notFound(f):
 +            f.trap(http.HTTPError)
@@ -156,7 +161,7 @@ Index: twisted/web2/server.py
 +                return f
 +            return None
 +
-+        d = defer.maybeDeferred(self._getChild, None, res, [segment], updatepaths=False)
++        d = defer.maybeDeferred(self._getChild, None, resource, [segment], updatepaths=False)
 +        d.addCallback(self._rememberResource, url)
 +        d.addErrback(notFound)
 +        return d
