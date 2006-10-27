@@ -1,0 +1,32 @@
+Index: twisted/web2/iweb.py
+===================================================================
+--- twisted/web2/iweb.py	(revision 18545)
++++ twisted/web2/iweb.py	(working copy)
+@@ -41,14 +41,23 @@
+         """
+ 
+ # Is there a better way to do this than this funky extra class?
++NotSpecified = object()
+ class SpecialAdaptInterfaceClass(interface.InterfaceClass):
+     # A special adapter for IResource to handle the extra step of adapting
+     # from IOldNevowResource-providing resources.
+-    def __call__(self, other, alternate=None):
+-        result = super(SpecialAdaptInterfaceClass, self).__call__(other, alternate)
+-        if result is not alternate:
+-            return result
++    def __call__(self, other, alternate=NotSpecified):
++        if alternate == NotSpecified:
++            try:
++                return super(SpecialAdaptInterfaceClass, self).__call__(other)
++            except TypeError:
++                pass
++        else:
++            result = super(SpecialAdaptInterfaceClass, self).__call__(other, alternate)
++            if result is not alternate:
++                return result
+         
++        if alternate == NotSpecified:
++            return IOldNevowResource(other)
+         result = IOldNevowResource(other, alternate)
+         if result is not alternate:
+             return IResource(result)
