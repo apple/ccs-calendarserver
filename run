@@ -79,17 +79,48 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 # Set up paths
 ##
 
-# First thing: find an appropriate python
-if [ -x "/usr/local/bin/python2.4" ]; then
-  python="/usr/local/bin/python2.4";
-elif [ -x "/Library/Frameworks/Python.framework/Versions/2.4/bin/python" ]; then
-  # MacPython install
-  python="/Library/Frameworks/Python.framework/Versions/2.4/bin/python";
-elif [ -x "/sw/bin/python2.4" ]; then
-  # For the Fink users
-  python="/sw/bin/python2.4";
-else
-  python="${PYTHON:=python2.4}";
+py_version ()
+{
+  local python="$1"; shift
+  echo "$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
+}
+
+try_python ()
+{
+  local python="$1"; shift
+
+  if [ -z "${python}" ]; then return 1; fi;
+
+  if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
+  local py_version="$(py_version "${python}")";
+  if [ "${py_version/./}" -lt "24" ]; then return 1; fi;
+
+  return 0;
+}
+
+for v in "" "2.5" "2.4"; do
+  for p in								\
+    "${PYTHON:=}"							\
+    "python${v}"							\
+    "/usr/local/bin/python${v}"						\
+    "/usr/local/python/bin/python${v}"					\
+    "/usr/local/python${v}/bin/python${v}"				\
+    "/opt/bin/python${v}"						\
+    "/opt/python/bin/python${v}"					\
+    "/opt/python${v}/bin/python${v}"					\
+    "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"	\
+    "/opt/local/bin/python${v}"						\
+    "/sw/bin/python${v}"						\
+    ;
+  do
+    if try_python "${p}"; then python="${p}"; break; fi;
+  done;
+  if [ -n "${python:-}" ]; then break; fi;
+done;
+
+if [ -z "${python:-}" ]; then
+  echo "No suitable python found.";
+  exit 1;
 fi;
 
 if [ -z "${caldav:-}" ]; then
@@ -112,13 +143,8 @@ else
 fi;
 
        py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
-        py_version="$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
+        py_version="$(py_version "${python}")";
 py_platform_libdir="lib.${py_platform}-${py_version}";
-
-if [ "${py_version/./}" -lt "24" ]; then
-  echo "Wrong python version: ${py_version}.";
-  exit 1;
-fi;
 
 if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
   install="$(pwd)/${install}";
