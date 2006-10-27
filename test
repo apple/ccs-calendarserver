@@ -24,7 +24,7 @@ twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
 
 export PYTHONPATH="$("${wd}/run" -p)";
 
-ulimit -S -n $(ulimit -H -n);
+ulimit -S -n 2048;
 
 if [ $# -gt 0 ]; then
     test_modules="$@";
