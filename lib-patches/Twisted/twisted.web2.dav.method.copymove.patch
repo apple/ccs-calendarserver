@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/copymove.py
 ===================================================================
---- twisted/web2/dav/method/copymove.py	(revision 18375)
+--- twisted/web2/dav/method/copymove.py	(revision 18545)
 +++ twisted/web2/dav/method/copymove.py	(working copy)
 @@ -38,7 +38,7 @@
  from twisted.web2.filter.location import addLocation
@@ -29,8 +29,8 @@ Index: twisted/web2/dav/method/copymove.py
      yield x.getResult()
  
 @@ -144,7 +152,14 @@
-     # May need to add a location header
-     addLocation(request, destination_uri)
+         log.err(msg)
+         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
  
 -    x = waitForDeferred(move(self.fp, request.uri, destination.fp, destination_uri, depth))
 +    #x = waitForDeferred(move(self.fp, request.uri, destination.fp, destination_uri, depth))

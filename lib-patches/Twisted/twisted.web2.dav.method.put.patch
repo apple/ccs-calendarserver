@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/put.py
 ===================================================================
---- twisted/web2/dav/method/put.py	(revision 18375)
+--- twisted/web2/dav/method/put.py	(revision 18545)
 +++ twisted/web2/dav/method/put.py	(working copy)
 @@ -34,7 +34,7 @@
  from twisted.web2 import responsecode

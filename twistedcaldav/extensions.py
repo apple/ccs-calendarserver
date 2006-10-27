@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ##
 # Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
 #
@@ -7,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,18 +16,24 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-     wd="$(cd "$(dirname "$0")" && pwd -L)";
-twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
+"""
+Extensions to web2.dav
+"""
 
+__all__ = [
+    "DAVResource",
+    "DAVFile",
+]
 
-export PYTHONPATH="$("${wd}/run" -p)";
+import twisted.web2.dav.resource
+import twisted.web2.dav.static
 
-ulimit -S -n 2048;
+class DAVResource (twisted.web2.dav.resource.DAVResource):
+    """
+    Extended L{twisted.web2.dav.resource.DAVResource} implementation.
+    """
 
-if [ $# -gt 0 ]; then
-    test_modules="$@";
-else
-    test_modules="twistedcaldav.test";
-fi;
-
-cd "${wd}" && "${twisted}/bin/trial" "$@" ${test_modules};
+class DAVFile (twisted.web2.dav.static.DAVFile):
+    """
+    Extended L{twisted.web2.dav.static.DAVFile} implementation.
+    """
