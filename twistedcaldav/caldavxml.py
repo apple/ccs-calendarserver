@@ -1126,13 +1126,28 @@ class TextMatch (CalDAVTextElement):
         test = str(self)
         if self.caseless:
             test = test.lower()
-        for value in values:
+
+        def _textCompare(s):
             if self.caseless:
-                if value.lower().find(test) != -1:
-                    return not self.negate
+                if s.lower().find(test) != -1:
+                    return True, not self.negate
             else:
-                if value.find(test) != -1:
-                    return not self.negate
+                if s.find(test) != -1:
+                    return True, not self.negate
+            return False, False
+
+        for value in values:
+            # NB Its possible that we have a text list value which appears as a Pythin list,
+            # so we need to check for that an iterate over thr list.
+            if isinstance(value, list):
+                for subvalue in value:
+                    matched, result = _textCompare(subvalue)
+                    if matched:
+                        return result
+            else:
+                matched, result = _textCompare(value)
+                if matched:
+                    return result
         
         return self.negate
 
