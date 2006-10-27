@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18479)
+--- twisted/web2/dav/static.py	(revision 18545)
 +++ twisted/web2/dav/static.py	(working copy)
 @@ -28,16 +28,16 @@
  
@@ -96,24 +96,3 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -157,11 +206,17 @@
-                     # Render from the index file
-                     standin = self.createSimilarFile(ifp.path)
-                 else:
-+                    filtered_aces = waitForDeferred(self.inheritedACEsforChildren(request))
-+                    yield filtered_aces
-+                    filtered_aces = filtered_aces.getResult()
-+
-                     children = []
- 
--                    d = self.findChildren("1", request,
--                                          lambda r,u: children.append(os.path.basename(u)),
--                                          (davxml.Read(),))
-+                    def found(request, uri):
-+                        children.append(uri.split("/")[-1].rstrip("/"))
-+
-+                    d = self.findChildren("1", request, found, (davxml.Read(),),
-+                                          inherited_aces=filtered_aces)
-                     d = waitForDeferred(d)
-                     yield d
-                     d = d.getResult()

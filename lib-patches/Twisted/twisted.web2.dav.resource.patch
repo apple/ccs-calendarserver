@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 18479)
+--- twisted/web2/dav/resource.py	(revision 18545)
 +++ twisted/web2/dav/resource.py	(working copy)
 @@ -130,6 +130,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
@@ -88,24 +88,6 @@ Index: twisted/web2/dav/resource.py
      def listAllprop(self, request):
          """
          Some DAV properties should not be returned to a C{DAV:allprop} query.
-@@ -488,7 +538,7 @@
-         """
-         unimplemented(self)
- 
--    def findChildren(self, depth, request, callback, privileges=None):
-+    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
-         """
-         See L{IDAVResource.findChildren}.
- 
-@@ -512,7 +562,7 @@
-             if privileges is None:
-                 return child
-    
--            d = child.checkPrivileges(request, privileges)
-+            d = child.checkPrivileges(request, privileges, inherited_aces=inherited_aces)
-             d.addCallback(lambda _: child)
-             return d
- 
 @@ -535,7 +585,7 @@
                  completionDeferred.callback(None)
              else:
@@ -159,23 +141,7 @@ Index: twisted/web2/dav/resource.py
      def supportedReports(self):
          """
          See L{IDAVResource.supportedReports}.
-@@ -918,10 +1005,11 @@
- 
-         resources = [(self, None)]
- 
--        x = self.findChildren(depth, request, lambda x, y: resources.append((x,y)))
--        x = waitForDeferred(x)
--        yield x
--        x.getResult()
-+        if recurse:
-+            x = self.findChildren(depth, request, lambda x, y: resources.append((x,y)))
-+            x = waitForDeferred(x)
-+            yield x
-+            x.getResult()
- 
-         for resource, uri in resources:
-             acl = waitForDeferred(resource.accessControlList(request, inherited_aces=inherited_aces))
-@@ -1018,7 +1106,6 @@
+@@ -1014,7 +1101,6 @@
              url = request.urlForResource(self)
  
              assert url is not None, "urlForResource(self) returned None for resource %s" % (self,)
@@ -183,7 +149,7 @@ Index: twisted/web2/dav/resource.py
              return url
  
          try:
-@@ -1515,6 +1602,265 @@
+@@ -1511,6 +1597,265 @@
          return None
  
      ##
@@ -449,7 +415,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1562,7 +1908,7 @@
+@@ -1558,7 +1903,7 @@
      """
      DAV resource with no children.
      """
@@ -458,16 +424,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1588,7 +1934,7 @@
-     def isCollection(self):
-         return False
- 
--    def findChildren(self, depth, request, callback, privileges=None):
-+    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
-         return succeed(None)
- 
-     def readProperty(self, property, request):
-@@ -1716,6 +2062,37 @@
+@@ -1712,6 +2057,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
