@@ -305,7 +305,7 @@ def storeCalendarObjectResource(
                     try:
                         calendar = Component.fromString(calendardata)
                     except ValueError, e:
-                        log.err(e)
+                        log.err(str(e))
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
                         
                 # Valid calendar data check
