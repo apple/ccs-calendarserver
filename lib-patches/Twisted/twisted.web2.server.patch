@@ -113,7 +113,16 @@ Index: twisted/web2/server.py
          #
          # Parse the URL
          #
-@@ -414,11 +431,53 @@
+@@ -406,19 +423,62 @@
+                 "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
+             ))
+ 
+-        segments = path.split("/")
++        segments = unquote(path).split("/")
+         assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
+         segments = segments[1:]
+-        segments = map(unquote, segments)
+ 
          def notFound(f):
              f.trap(http.HTTPError)
              if f.response.code != responsecode.NOT_FOUND:
@@ -127,13 +136,13 @@ Index: twisted/web2/server.py
 +        d.addErrback(notFound)
 +        return d
  
-+    def locateChildResource(self, resource, child_path):
++    def locateChildResource(self, parent, child_name):
 +        """
 +        Looks up the child resource with the given name given the parent
 +        resource.  This is similar to locateResource(), but doesn't have to
 +        start the lookup from the root resource, so it is potentially faster.
-+        @param resource: the parent of the resource being looked up.
-+        @param child_path: the path of the resource being looked up, relative
++        @param parent: the parent of the resource being looked up.
++        @param child_name: the name of the child of C{parent} to looked up.
 +            to C{parent}.
 +        @return: a L{Deferred} resulting in the L{IResource} at the
 +            given URL or C{None} if no such resource can be located.
@@ -144,16 +153,18 @@ Index: twisted/web2/server.py
 +            The contained response will have a status code of
 +            L{responsecode.BAD_REQUEST}.
 +        """
-+        if resource is None or child_path is None:
++        if parent is None or child_name is None:
 +            return None
-+        
-+        url = joinURL(self.urlForResource(resource), child_path)
++
++        url = joinURL(self.urlForResource(parent), child_name)
 +
 +        cached = self._urlsByResource.get(url, None)
 +        if cached is not None:
 +            return succeed(cached)
 +
-+        segment = unquote(child_path)
++        assert "/" not in child_name, "Child name may not contain '/': %s" % (child_name,)
++
++        segment = unquote(child_name)
 +
 +        def notFound(f):
 +            f.trap(http.HTTPError)
@@ -161,7 +172,7 @@ Index: twisted/web2/server.py
 +                return f
 +            return None
 +
-+        d = defer.maybeDeferred(self._getChild, None, resource, [segment], updatepaths=False)
++        d = defer.maybeDeferred(self._getChild, None, parent, [segment], updatepaths=False)
 +        d.addCallback(self._rememberResource, url)
 +        d.addErrback(notFound)
 +        return d
