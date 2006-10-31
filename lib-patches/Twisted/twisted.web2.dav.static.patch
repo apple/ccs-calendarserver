@@ -96,3 +96,12 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
+@@ -164,7 +213,7 @@
+                     children = []
+ 
+                     def found(request, uri):
+-                        children.append(uri.split("/")[-1].rstrip("/"))
++                        children.append(uri.rstrip("/").split("/")[-1])
+ 
+                     x = waitForDeferred(
+                         self.findChildren("1", request, found, (davxml.Read(),),
