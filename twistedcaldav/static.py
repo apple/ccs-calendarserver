@@ -27,11 +27,12 @@ __all__ = [
     "CalendarHomeFile",
     "CalendarHomeProvisioningFile",
     "CalendarPrincipalFile",
-    "CalendarUserPrincipalProvisioningResource",
+    "CalendarPrincipalCollectionFile",
 ]
 
 import os
 import errno
+from posixpath import basename
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
@@ -849,7 +850,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
             inbox.writeDeadProperty(fbset)
 
 
-class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionResource, DAVFile):
+class CalendarPrincipalCollectionFile (CalendarPrincipalCollectionResource, DAVFile):
     """
     L{DAVFile} resource which provisions user L{CalendarPrincipalFile} resources
     as needed.
@@ -873,33 +874,12 @@ class CalendarUserPrincipalProvisioningResource (CalendarPrincipalCollectionReso
         """
         pass
     
-    def render(self, request):
-        return StatusResponse(
-            responsecode.OK,
-            "This collection contains user principal resources",
-            title=self.displayName()
-        )
-
-    def getChild(self, name):
-        if name == "": return self
-
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isfile()
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            # FIXME: Do a real lookup of what's valid here
-            if name[0] == ".": return None
-            if len(name) > 8: return None
-
-            child_fp.open("w").close()
-
-        return CalendarPrincipalFile(child_fp.path, joinURL(self.principalCollectionURL(), name))
-
     def createSimilarFile(self, path):
-        raise NotImplementedError("Not allowed.")
+        if path == self.fp.path:
+            return self
+        else:
+            # TODO: Fix this - not sure how to get URI for second argument of __init__
+            return CalendarPrincipalFile(path, joinURL(self.principalCollectionURL(), basename(path)))
 
     def principalSearchPropertySet(self):
         """
