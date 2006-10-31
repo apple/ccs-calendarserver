@@ -120,14 +120,11 @@ cat - >> "${version_file}" <<EOF
 EOF
 
 echo "";
-echo "Preparing sources...";
+echo "Preparing sources for ${project_version}...";
 make -C "${wc}" prep;
 
-# FIXME: Work around dircaldavd hack
-mv "${wc}/bin/dircaldavd" "${wc}/bin/caldavd";
-
 echo "";
-echo "Submitting sources...";
+echo "Submitting sources for $(project_version}...";
 ~rc/bin/submitproject "${wc}" "${release}";
 
 rm -rf "${tmp}";
