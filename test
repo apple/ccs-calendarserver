@@ -32,4 +32,4 @@ else
     test_modules="twistedcaldav.test";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" "$@" ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${test_modules};
