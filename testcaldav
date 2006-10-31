@@ -64,9 +64,8 @@ export PYTHONPATH=$("${wd}/run" -p);
 
 cdt="${wd}/../CalDAVTester";
 
-if [ -f "${cdt}" ]; then
-  cd "${cdt}";
-  svn update .;
+if [ -d "${cdt}" ]; then
+  svn update "${cdt}";
 else
   svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
 fi;
