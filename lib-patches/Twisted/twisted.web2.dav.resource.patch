@@ -98,7 +98,212 @@ Index: twisted/web2/dav/resource.py
                  child.addCallback(checkPrivileges)
                  child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                  child.addErrback(completionDeferred.errback)
-@@ -1511,6 +1561,265 @@
+@@ -574,9 +624,9 @@
+             def onErrors(failure):
+                 failure.trap(AccessDeniedError)
+                 
+-                # If we were unauthorized to start with (no Authorization header from client) then
++                # If we were unauthenticated to start with (no Authorization header from client) then
+                 # we should return an unauthorized response instead to force the client to login if it can
+-                if request.user == davxml.Principal(davxml.Unauthenticated()):
++                if request.authnUser == davxml.Principal(davxml.Unauthenticated()):
+                     response = UnauthorizedResponse(request.credentialFactories,
+                                                     request.remoteAddr)
+                 else:
+@@ -600,8 +650,13 @@
+ 
+     def authenticate(self, request):
+         def loginSuccess(result):
+-            request.user = result[1]
+-            return request.user
++            """
++            @param result: returned tuple from auth.DAVRealm.requestAvatar.
++            """
++            
++            request.authnUser = result[1]
++            request.authzUser = result[2]
++            return (request.authnUser, request.authzUser,)
+ 
+         if not (
+             hasattr(request, 'portal') and 
+@@ -608,8 +663,9 @@
+             hasattr(request, 'credentialFactories') and
+             hasattr(request, 'loginInterfaces')
+         ):
+-            request.user = davxml.Principal(davxml.Unauthenticated())
+-            return request.user
++            request.authnUser = davxml.Principal(davxml.Unauthenticated())
++            request.authzUser = davxml.Principal(davxml.Unauthenticated())
++            return (request.authnUser, request.authzUser,)
+ 
+         authHeader = request.headers.getHeader('authorization')
+ 
+@@ -625,9 +681,11 @@
+ 
+                 # Try to match principals in each principal collection on the resource
+                 def gotDetails(details):
+-                    principal = IDAVPrincipalResource(details[0])
+-                    principalURI = details[1]
+-                    return PrincipalCredentials(principal, principalURI, creds)
++                    authnPrincipal = IDAVPrincipalResource(details[0][0])
++                    authnURI = details[0][1]
++                    authzPrincipal = IDAVPrincipalResource(details[1][0])
++                    authzURI = details[1][1]
++                    return PrincipalCredentials(authnPrincipal, authnURI, authzPrincipal, authzURI, creds)
+ 
+                 def login(pcreds):
+                     d = request.portal.login(pcreds, None, *request.loginInterfaces)
+@@ -635,7 +693,7 @@
+ 
+                     return d
+ 
+-                d = self.findPrincipalForAuthID(request, creds.username)
++                d = self.principalsForAuthID(request, creds.username)
+                 d.addCallback(gotDetails).addCallback(login)
+ 
+                 return d
+@@ -640,8 +698,9 @@
+ 
+                 return d
+         else:
+-            request.user = davxml.Principal(davxml.Unauthenticated())
+-            return request.user
++            request.authnUser = davxml.Principal(davxml.Unauthenticated())
++            request.authzUser = davxml.Principal(davxml.Unauthenticated())
++            return (request.authnUser, request.authzUser,)
+ 
+     ##
+     # ACL
+@@ -650,10 +709,10 @@
+     def currentPrincipal(self, request):
+         """
+         @param request: the request being processed.
+-        @return: the current principal, as derived from the given request.
++        @return: the current authorized principal, as derived from the given request.
+         """
+-        if hasattr(request, "user"):
+-            return request.user
++        if hasattr(request, "authzUser"):
++            return request.authzUser
+         else:
+             return unauthenticatedPrincipal
+ 
+@@ -1149,8 +1208,12 @@
+ 
+         return []
+ 
+-    def findPrincipalForAuthID(self, request, authid):
++    def principalsForAuthID(self, request, authid):
+         """
++        Return authentication and authorization prinicipal identifiers for the
++        authentication identifer passed in. In this implementation authn and authz
++        principals are the same.
++
+         @param request: the L{IRequest} for the request in progress.
+         @param authid: a string containing the
+             authentication/authorization identifier for the principal
+@@ -1155,12 +1218,55 @@
+         @param authid: a string containing the
+             authentication/authorization identifier for the principal
+             to lookup.
+-        @return: a deferred tuple of C{(principal, principalURI)}
+-            where: C{principal} is the L{Principal} that is found;
+-            C{principalURI} is the C{str} URI of the principal. 
++        @return: a deferred tuple of two tuples. Each tuple is
++            C{(principal, principalURI)} where: C{principal} is the L{Principal}
++            that is found; {principalURI} is the C{str} URI of the principal.
++            The first tuple corresponds to authentication identifiers,
++            the second to authorization identifiers.
+             It will errback with an HTTPError(responsecode.FORBIDDEN) if
+             the principal isn't found.
+         """
++
++        # Try to match principals in each principal collection on the resource
++        d = waitForDeferred(self.findPrincipalForAuthID(request, authid))
++        yield d
++        result = d.getResult()
++        
++        if result is not None:
++            authnPrincipal = result[0]
++            authnURI = result[1]
++            d = waitForDeferred(self.authorizationPrincipal(request, authid, authnPrincipal, authnURI))
++            yield d
++            authzPrincipal, authzURI = d.getResult()
++            yield ((authnPrincipal, authnURI), (authzPrincipal, authzURI),)
++            return
++        else:
++            principalCollections = waitForDeferred(self.principalCollections(request))
++            yield principalCollections
++            principalCollections = principalCollections.getResult()
++
++            if len(principalCollections) == 0:
++                log.msg("DAV:principal-collection-set property cannot be found on the resource being authorized: %s" % self)
++            else:
++                log.msg("Could not find principal matching user id: %s" % authid)
++            raise HTTPError(responsecode.FORBIDDEN)
++
++    principalsForAuthID = deferredGenerator(principalsForAuthID)
++
++    def findPrincipalForAuthID(self, request, authid):
++        """
++        Return authentication and authoirization prinicipal identifiers for the
++        authentication identifer passed in. In this implementation authn and authz
++        principals are the same.
++
++        @param request: the L{IRequest} for the request in progress.
++        @param authid: a string containing the
++            authentication/authorization identifier for the principal
++            to lookup.
++        @return: a tuple of C{(principal, principalURI)} where: C{principal} is the L{Principal}
++            that is found; {principalURI} is the C{str} URI of the principal.
++            If not found return None.
++        """
+         # Try to match principals in each principal collection on the resource
+         collections = waitForDeferred(self.principalCollections(request))
+         yield collections
+@@ -1173,22 +1279,30 @@
+             yield principal
+             principal = principal.getResult()
+ 
+-            if isPrincipalResource(principal):
+-                yield (principal, principalURI)
++            if isPrincipalResource(principal) and principal.exists():
++                yield principal, principalURI
+                 return
+         else:
+-            principalCollections = waitForDeferred(self.principalCollections(request))
+-            yield principalCollections
+-            principalCollections = principalCollections.getResult()
+-
+-            if len(principalCollections) == 0:
+-                log.msg("DAV:principal-collection-set property cannot be found on the resource being authorized: %s" % self)
+-            else:
+-                log.msg("Could not find principal matching user id: %s" % authid)
+-            raise HTTPError(responsecode.FORBIDDEN)
++            yield None
++            return
+ 
+     findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
+ 
++    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):
++        """
++        Determine the authorization principal for the given request and authentication principal.
++        This implementation simply uses aht authentication principalk as the authoization principal.
++        
++        @param request: the L{IRequest} for the request in progress.
++        @param authid: a string containing the uthentication/authorization identifier
++            for the principal to lookup.
++        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
++        @param authnURI: a C{str} containing the URI of the authenticated principal
++        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
++            resource and URI respectively.
++        """
++        return succeed((authnPrincipal, authnURI,))
++        
+     def samePrincipal(self, principal1, principal2):
+         """
+         Check whether the two prinicpals are exactly the same in terms of
+@@ -1511,6 +1625,265 @@
          return None
  
      ##
@@ -364,7 +569,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1867,7 @@
+@@ -1558,7 +1931,7 @@
      """
      DAV resource with no children.
      """
@@ -373,7 +578,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2021,37 @@
+@@ -1712,6 +2085,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  

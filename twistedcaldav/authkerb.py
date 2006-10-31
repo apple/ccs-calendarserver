@@ -113,11 +113,11 @@ class BasicKerberosCredentialsChecker:
                 kerberos.checkPassword(creds.username, creds.password, creds.service, creds.default_realm)
             except kerberos.BasicAuthError, ex:
                 logging.err("%s" % (ex[0],), system="BasicKerberosCredentialsChecker")
-                raise error.UnauthorizedLogin("Bad credentials for: %s (%s)" % (pcreds.principalURI, ex[0],))
+                raise error.UnauthorizedLogin("Bad credentials for: %s (%s)" % (pcreds.authnURI, ex[0],))
             else:
-                return succeed(pcreds.principalURI)
+                return succeed((pcreds.authnURI, pcreds.authzURI,))
         
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
+        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
 class NegotiateCredentials:
     """
@@ -207,14 +207,14 @@ class NegotiateCredentialsChecker:
 
     def requestAvatarId(self, credentials):
         # NB If we get here authentication has already succeeded as it is done in NegotiateCredentialsFactory.decode
-        # So all we need to do is return the principal URI from the credentials.
+        # So all we need to do is return the principal URIs from the credentials.
 
-        # If there is no calendar principal URI then the calendar user is disabled.
+        # Look for proper credential type.
         pcreds = IPrincipalCredentials(credentials)
 
         creds = pcreds.credentials
         if isinstance(creds, NegotiateCredentials):
-            return succeed(pcreds.principalURI)
+            return succeed((pcreds.authnURI, pcreds.authzURI,))
         
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
+        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 

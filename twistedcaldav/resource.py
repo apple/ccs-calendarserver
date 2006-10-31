@@ -40,6 +40,7 @@ from zope.interface import implements
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource
@@ -76,6 +77,10 @@ class CalDAVResource (DAVResource):
     # A global limit for the size of calendar object resources. Either a C{int} (size in bytes) to limit
     # resources to that size, or C{None} for no limit.
     sizeLimit = None
+
+    # Set containing user ids of all the users who have been given
+    # the right to authorize as someone else.
+    proxyUsers = set()
 
     ##
     # HTTP
@@ -226,6 +231,61 @@ class CalDAVResource (DAVResource):
             return succeed(None)
 
         return super(CalDAVResource, self).accessControlList(*args, **kwargs)
+
+    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):
+        """
+        Determine the authorization principal for the given request and authentication principal.
+        This implementation looks for an X-Authorize-As header value to use as the authoization principal.
+        
+        @param request: the L{IRequest} for the request in progress.
+        @param authid: a string containing the uthentication/authorization identifier
+            for the principal to lookup.
+        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
+        @param authnURI: a C{str} containing the URI of the authenticated principal
+        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
+            resource and URI respectively.
+        """
+
+        # Look for X-Authorize-As Header
+        authz = request.headers.getRawHeaders("x-authorize-as")
+        if authz is not None and (len(authz) == 1):
+            # Substitute the authz value for principal look up
+            authz = authz[0]
+
+        # See if authenticated uid is a proxy user
+        if authid in CalDAVResource.proxyUsers:
+            if authz:
+                if authz in CalDAVResource.proxyUsers:
+                    log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
+                    raise HTTPError(responsecode.UNAUTHORIZED)
+                else:
+                    d = waitForDeferred(self.findPrincipalForAuthID(request, authz))
+                    yield d
+                    result = d.getResult()
+
+                    if result is not None:
+                        log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
+                        authzPrincipal = result[0]
+                        authzURI = result[1]
+                        yield authzPrincipal, authzURI
+                        return
+                    else:
+                        log.msg("Could not find proxy user id: '%s'" % authid)
+                        raise HTTPError(responsecode.UNAUTHORIZED)
+            else:
+                log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authid, ))
+                raise HTTPError(responsecode.UNAUTHORIZED)
+        elif authz:
+            log.msg("Cannot proxy: user '%s' as '%s'" % (authid, authz,))
+            raise HTTPError(responsecode.UNAUTHORIZED)
+        else:
+            # No proxy - do default behavior
+            d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal, authnURI))
+            yield d
+            yield d.getResult()
+            return
+
+    authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
     ##
     # CalDAV

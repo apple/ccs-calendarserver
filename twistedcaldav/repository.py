@@ -118,6 +118,7 @@ ELEMENT_CUHOME = "cuhome"
 ELEMENT_CALENDAR = "calendar"
 ELEMENT_QUOTA = "quota"
 ELEMENT_AUTORESPOND = "autorespond"
+ELEMENT_CANPROXY = "canproxy"
 ATTRIBUTE_REPEAT = "repeat"
 
 def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole):
@@ -903,6 +904,8 @@ class ProvisionPrincipal (object):
                 self.acl.parseXML(child)
             elif child._get_localName() == ELEMENT_AUTORESPOND:
                 self.autorespond = True
+            elif child._get_localName() == ELEMENT_CANPROXY:
+                CalDAVResource.proxyUsers.add(self.uid)
 
 class Authentication:
     """
