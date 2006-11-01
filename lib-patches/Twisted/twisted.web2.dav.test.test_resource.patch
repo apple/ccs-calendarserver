@@ -1,0 +1,25 @@
+Index: twisted/web2/dav/test/test_resource.py
+===================================================================
+--- twisted/web2/dav/test/test_resource.py	(revision 18545)
++++ twisted/web2/dav/test/test_resource.py	(working copy)
+@@ -282,7 +282,8 @@
+         # Has auth; should allow
+ 
+         request = SimpleRequest(site, "GET", "/")
+-        request.user = davxml.Principal(davxml.HRef("/users/d00d"))
++        request.authnUser = davxml.Principal(davxml.HRef("/users/d00d"))
++        request.authzUser = davxml.Principal(davxml.HRef("/users/d00d"))
+         d = request.locateResource('/')
+         d.addCallback(_checkPrivileges)
+         d.addCallback(expectOK)
+@@ -380,8 +381,8 @@
+         return succeed(davPrivilegeSet)
+ 
+     def currentPrincipal(self, request):
+-        if hasattr(request, "user"):
+-            return request.user
++        if hasattr(request, "authzUser"):
++            return request.authzUser
+         else:
+             return davxml.Principal(davxml.Unauthenticated())
+ 

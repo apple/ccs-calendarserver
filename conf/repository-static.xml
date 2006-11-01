@@ -52,7 +52,7 @@ limitations under the License.
           </properties>
           <members>
             <collection name="users" tag="principals">
-              <pytype>twistedcaldav.static.CalendarUserPrincipalProvisioningResource</pytype>
+              <pytype>twistedcaldav.static.CalendarPrincipalCollectionFile</pytype>
               <properties>
                 <acl>
                   <ace>
@@ -133,6 +133,12 @@ limitations under the License.
       <uid>admin</uid>
       <pswd>admin</pswd>
       <name>Super User</name>
+    </user>
+    <user>
+      <uid>proxy</uid>
+      <pswd>proxy</pswd>
+      <name>User who can authorize as someone else</name>
+      <canproxy/>
     </user>
     <user repeat='99'>
       <uid>user%02d</uid>

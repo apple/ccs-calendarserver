@@ -35,6 +35,5 @@ __all__ = [
     "report_calquery",
     "report_multiget",
     "report_freebusy",
-    "schedule",
     "schedule_common",
 ]

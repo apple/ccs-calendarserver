@@ -11,96 +11,139 @@ Index: twisted/web2/server.py
  
  
  """This is a web-sever which integrates with the twisted.internet
-@@ -150,6 +152,9 @@
+@@ -150,17 +152,32 @@
              self._initialprepath = kw['prepathuri']
              del kw['prepathuri']
  
 +        self._resourcesByURL = {}
-+        self._resourcesFromURL = {}
++        self._urlsByResource = {}
 +
          # Copy response filters from the class
          self.responseFilters = self.responseFilters[:]
          self.files = {}
-@@ -156,7 +161,9 @@
          self.resources = []
          http.Request.__init__(self, *args, **kw)
  
 -    def addResponseFilter(self, f, atEnd=False):
-+    def addResponseFilter(self, f, atEnd=False, onlyOnce = False):
-+        if onlyOnce and f in self.responseFilters:
++    def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
++        """
++        Add a response filter to this request.
++        Response filters are applied to the response to this request in order.
++        @param filter: a callable which takes an response argument and returns
++            a response object.
++        @param atEnd: if C{True}, C{filter} is added at the end of the list of
++            response filters; if C{False}, it is added to the beginning.
++        @param onlyOnce: if C{True}, C{filter} is not added to the list of
++            response filters if it already in the list.
++        """
++        if onlyOnce and filter in self.responseFilters:
 +            return
          if atEnd:
-             self.responseFilters.append(f)
+-            self.responseFilters.append(f)
++            self.responseFilters.append(filter)
          else:
-@@ -263,8 +270,15 @@
-             failedDeferred = self._processingFailed(failure.Failure())
-             return
+-            self.responseFilters.insert(0, f)
++            self.responseFilters.insert(0, filter)
+ 
+     def unparseURL(self, scheme=None, host=None, port=None,
+                    path=None, params=None, querystring=None, fragment=None):
+@@ -265,6 +282,7 @@
          
-+        def _registerResource(child):
-+            url = "/" + "/".join(self.prepath)
-+            self._resourcesByURL[child] = url
-+            self._resourcesFromURL[url] = child
-+            return child
-+        
          d = defer.Deferred()
          d.addCallback(self._getChild, self.site.resource, self.postpath)
-+        d.addCallback(_registerResource)
++        d.addCallback(self._rememberResource, "/" + "/".join(self.prepath))
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -321,7 +335,7 @@
+@@ -320,8 +338,6 @@
+                     url = "/" + "/".join(path)
                  else:
                      url = "/"
-         
+-        
 -                self._rememberURLForResource(quote(url), res)
-+                #self._rememberURLForResource(quote(url), res)
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -342,12 +356,10 @@
+@@ -342,17 +358,16 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
 -        self._rememberURLForResource(quote(url), child)
-+        #self._rememberURLForResource(quote(url), child)
  
          return child
  
 -    _resourcesByURL = weakref.WeakKeyDictionary()
 -
-     def _rememberURLForResource(self, url, resource):
+-    def _rememberURLForResource(self, url, resource):
++    def _rememberResource(self, resource, url):
          """
-         Remember the URL of visited resources.
-@@ -387,6 +399,11 @@
+-        Remember the URL of visited resources.
++        Remember the URL of a visited resources.
          """
-         if url is None: return None
+         self._resourcesByURL[resource] = url
++        self._urlsByResource[url] = resource
++        return resource
  
-+        try:
-+            return succeed(self._resourcesFromURL[url])
-+        except KeyError:
-+            pass
+     def urlForResource(self, resource):
+         """
+@@ -367,10 +382,7 @@
+ 
+         @return: the URL of C{resource} if known, otherwise C{None}.
+         """
+-        try:
+-            return self._resourcesByURL[resource]
+-        except KeyError:
+-            return None
++        return self._resourcesByURL.get(resource, None)
+ 
+     def locateResource(self, url):
+         """
+@@ -385,8 +397,13 @@
+             The contained response will have a status code of
+             L{responsecode.BAD_REQUEST}.
+         """
+-        if url is None: return None
++        if url is None:
++            return None
+ 
++        cached = self._urlsByResource.get(url, None)
++        if cached is not None:
++            return succeed(cached)
 +
          #
          # Parse the URL
          #
-@@ -417,7 +434,52 @@
-                 raise f
+@@ -406,19 +423,62 @@
+                 "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
+             ))
+ 
+-        segments = path.split("/")
++        segments = unquote(path).split("/")
+         assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
+         segments = segments[1:]
+-        segments = map(unquote, segments)
+ 
+         def notFound(f):
+             f.trap(http.HTTPError)
+             if f.response.code != responsecode.NOT_FOUND:
+-                raise f
++                return f
              return None
  
 -        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        def _registerResource(child):
-+            self._resourcesByURL[child] = path
-+            self._resourcesFromURL[path] = child
-+            return child
-+        
 +        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        d.addCallback(_registerResource)
++        d.addCallback(self._rememberResource, path)
++        d.addErrback(notFound)
 +        return d
-+
-+    def locateChildResource(self, res, childpath):
+ 
++    def locateChildResource(self, parent, child_name):
 +        """
-+        Looks up the child resource with the given name given the parent resource.
-+        @param uri: The URL last path segment of the desired resource.
++        Looks up the child resource with the given name given the parent
++        resource.  This is similar to locateResource(), but doesn't have to
++        start the lookup from the root resource, so it is potentially faster.
++        @param parent: the parent of the resource being looked up.
++        @param child_name: the name of the child of C{parent} to looked up.
++            to C{parent}.
 +        @return: a L{Deferred} resulting in the L{IResource} at the
 +            given URL or C{None} if no such resource can be located.
 +        @raise HTTPError: If C{url} is not a URL on the site that this
@@ -110,30 +153,30 @@ Index: twisted/web2/server.py
 +            The contained response will have a status code of
 +            L{responsecode.BAD_REQUEST}.
 +        """
-+        if res is None or childpath is None: return None
-+        
-+        url = joinURL(self.urlForResource(res), childpath)
-+        try:
-+            return succeed(self._resourcesFromURL[url])
-+        except KeyError:
-+            pass
++        if parent is None or child_name is None:
++            return None
 +
-+        segment = unquote(childpath)
++        url = joinURL(self.urlForResource(parent), child_name)
++
++        cached = self._urlsByResource.get(url, None)
++        if cached is not None:
++            return succeed(cached)
++
++        assert "/" not in child_name, "Child name may not contain '/': %s" % (child_name,)
++
++        segment = unquote(child_name)
 +
 +        def notFound(f):
 +            f.trap(http.HTTPError)
 +            if f.response.code != responsecode.NOT_FOUND:
-+                raise f
++                return f
 +            return None
 +
-+        def _registerResource(child):
-+            self._resourcesByURL[child] = url
-+            self._resourcesFromURL[url] = child
-+            return child
-+        
-+        d = defer.maybeDeferred(self._getChild, None, res, [segment], updatepaths=False)
-+        d.addCallback(_registerResource)
++        d = defer.maybeDeferred(self._getChild, None, parent, [segment], updatepaths=False)
++        d.addCallback(self._rememberResource, url)
++        d.addErrback(notFound)
 +        return d
- 
++
      def _processingFailed(self, reason):
          if reason.check(http.HTTPError) is not None:
+             # If the exception was an HTTPError, leave it alone

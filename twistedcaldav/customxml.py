@@ -103,7 +103,7 @@ class Notifications (davxml.WebDAVEmptyElement):
     namespace = twisted_dav_namespace
     name = "notifications"
 
-class DropBoxHomeURL (davxml.WebDAVTextElement):
+class DropBoxHomeURL (davxml.WebDAVElement):
     """
     A principal property to indicate the location of the drop box home.
     (Apple Extension to CalDAV)
@@ -115,13 +115,170 @@ class DropBoxHomeURL (davxml.WebDAVTextElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class NotificationsURL (davxml.WebDAVTextElement):
+class NotificationsURL (davxml.WebDAVElement):
     """
     A principal property to indicate the location of the notification collection.
     (Apple Extension to CalDAV)
     """
     namespace = twisted_dav_namespace
     name = "notifications-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class Notification(davxml.WebDAVElement):
+    """
+    Root element for XML data in a notification resource.
+    """
+    namespace = twisted_dav_namespace
+    name = "notification"
+
+    allowed_children = {
+        (twisted_dav_namespace, "action"     ): (1, 1),
+        (twisted_dav_namespace, "time-stamp" ): (1, 1),
+        (twisted_dav_namespace, "auth-id"    ): (1, 1),
+        (twisted_dav_namespace, "old-etag"   ): (1, 1),
+        (twisted_dav_namespace, "new-etag"   ): (1, 1),
+        (twisted_dav_namespace, "old-uri"    ): (1, 1),
+        (twisted_dav_namespace, "new_uri"    ): (1, 1),
+    }
+
+class Action (davxml.WebDAVElement):
+    """
+    A property to indicate the action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "action"
+    hidden = True
+    protected = True
+
+    allowed_children = {
+        (twisted_dav_namespace, "created"    ): (0, 1),
+        (twisted_dav_namespace, "modified"   ): (0, 1),
+        (twisted_dav_namespace, "deleted"    ): (0, 1),
+        (twisted_dav_namespace, "copiedto"   ): (0, 1),
+        (twisted_dav_namespace, "copiedfrom" ): (0, 1),
+        (twisted_dav_namespace, "movedout"   ): (0, 1),
+        (twisted_dav_namespace, "movedin"    ): (0, 1),
+    }
+
+class Created (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the created action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "created"
+
+class Modified (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the modified action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "modified"
+
+class Deleted (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the deleted action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "deleted"
+
+class CopiedTo (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the copied to action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "copiedto"
+
+class CopiedFrom (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the copied from action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "copiedfrom"
+
+class MovedTo (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the moved to action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "movedto"
+
+class MovedFrom (davxml.WebDAVEmptyElement):
+    """
+    A property value to indicate the moved from action of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "movedfrom"
+
+class TimeStamp (davxml.WebDAVTextElement):
+    """
+    A property to indicate the timestamp of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "time-stamp"
+    hidden = True
+    protected = True
+
+class AuthID (davxml.WebDAVTextElement):
+    """
+    A property to indicate the authorization identitifer of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "auth-id"
+    hidden = True
+    protected = True
+
+class OldETag (davxml.WebDAVTextElement):
+    """
+    A property to indicate the old ETag of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "old-etag"
+    hidden = True
+    protected = True
+
+class NewETag (davxml.WebDAVTextElement):
+    """
+    A property to indicate the new ETag of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "new-etag"
+    hidden = True
+    protected = True
+
+class OldURI (davxml.WebDAVElement):
+    """
+    A property to indicate the old URI of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "old-uri"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class NewURI (davxml.WebDAVElement):
+    """
+    A property to indicate the new URI of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "new-uri"
     hidden = True
     protected = True
 

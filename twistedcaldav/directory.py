@@ -39,6 +39,7 @@ from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.auth import IPrincipalCredentials
+from twisted.web2.dav.auth import TwistedPropertyChecker
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
@@ -57,26 +58,24 @@ import opendirectory
 import os
 import unicodedata
 
-class DirectoryCredentialsChecker:
-    implements(checkers.ICredentialsChecker)
-
-    credentialInterfaces = (IPrincipalCredentials,)
+class DirectoryCredentialsChecker (TwistedPropertyChecker):
 
     def requestAvatarId(self, credentials):
 
         # If there is no calendar principal URI then the calendar user is disabled.
         pcreds = IPrincipalCredentials(credentials)
-        if not pcreds.principal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
-            raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
+        if not pcreds.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
+            # Try regular password check
+            return TwistedPropertyChecker.requestAvatarId(self, credentials)
 
         creds = pcreds.credentials
         if isinstance(creds, UsernamePassword):
             user = creds.username
             pswd = creds.password
-            if opendirectory.authenticateUser(pcreds.principal.directory(), user, pswd):
-                return succeed(pcreds.principalURI)
+            if opendirectory.authenticateUser(pcreds.authnPrincipal.directory(), user, pswd):
+                return succeed((pcreds.authnURI, pcreds.authzURI,))
         
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.principalURI,))
+        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
 class DirectoryPrincipalFile (CalendarPrincipalFile):
     """

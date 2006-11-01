@@ -36,11 +36,11 @@ src="$(cd "${wd}/.." && pwd)";
 
 usage ()
 {
-  program="$(basename "$0") release";
+  program="$(basename "$0")";
 
   if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
 
-  echo "Usage: ${program} release version";
+  echo "Usage: ${program} release";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
