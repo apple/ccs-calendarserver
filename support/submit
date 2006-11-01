@@ -124,7 +124,7 @@ echo "Preparing sources for ${project_version}...";
 make -C "${wc}" prep;
 
 echo "";
-echo "Submitting sources for $(project_version}...";
+echo "Submitting sources for ${project_version}...";
 ~rc/bin/submitproject "${wc}" "${release}";
 
 rm -rf "${tmp}";
