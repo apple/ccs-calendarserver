@@ -284,6 +284,28 @@ class NewURI (davxml.WebDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
+class AutoSubscribed (davxml.WebDAVElement):
+    """
+    A property to indicate which principals will receive notifications.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "auto-subscribed"
+    hidden = True
+
+    allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
+
+class Unsubscribed (davxml.WebDAVElement):
+    """
+    A property to indicate which auto-subscribed principals will not receive notifications.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "unsubscribed"
+    hidden = True
+
+    allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
+
 ##
 # Extensions to davxml.ResourceType
 ##

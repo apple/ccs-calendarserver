@@ -19,6 +19,7 @@ from twistedcaldav.extensions import DAVFile
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import waitForDeferred
 from twisted.web2.dav.method import put_common
+from twisted.web2.dav.resource import DAVPrincipalResource
 from twisted.web2.dav import davxml
 from twistedcaldav import customxml
 from twisted.web2.dav.element.base import twisted_dav_namespace
@@ -63,13 +64,72 @@ class Notification(object):
         self.oldURI = oldURI
         self.newURI = newURI
 
-    def doNotification(self, request, principals):
+    def doNotification(self, request, parent, resource):
         """
         Put the supplied noitification into the notification collection of the specified principal.
         
         @param request: L{Request} for request in progress.
-        @param principals: C{list} of L{davxml.Principal}'s to send notifications to.
+        @param resource: L{DAVResource}trigerring the notification.
         """
+        
+        # First determine which principals should get notified
+        #
+        # Procedure:
+        #
+        # 1. Get the list of auto-subscribed principals from the parent collection property.
+        # 2. Expand any group principals in the list into their user principals.
+        # 3. Get the list of unsubscribed principals from the parent collection property.
+        # 4. Expand any group principals in the list into their user principals.
+        # 5. Generate a set from the difference between the subscribed list and unsubscribed list.
+        
+        def _expandPrincipals(principals):
+            result = []
+            for principal in principals:
+
+                principal = waitForDeferred(parent.resolvePrincipal(principal.children[0], request))
+                yield principal
+                principal = principal.getResult()
+                if principal is None:
+                    continue
+        
+                presource = waitForDeferred(request.locateResource(str(principal)))
+                yield presource
+                presource = presource.getResult()
+        
+                if not isinstance(presource, DAVPrincipalResource):
+                    continue
+                
+                # Step 2. Expand groups.
+                members = presource.groupMembers()
+                
+                if members:
+                    for member in members:
+                        result.append(davxml.Principal(davxml.HRef.fromString(member)))
+                else:
+                    result.append(davxml.Principal(principal))
+            yield result
+
+        _expandPrincipals = deferredGenerator(_expandPrincipals)
+
+        # For drop box we look at the parent collection of the target resource and get the
+        # set of auto-subscribed principals, then subtract the set of unsubscribed principals.
+        if not parent.hasDeadProperty(customxml.AutoSubscribed):
+            yield None
+            return
+
+        principals = set()
+        autosubs = parent.readDeadProperty(customxml.AutoSubscribed).children
+        d = waitForDeferred(_expandPrincipals(autosubs))
+        yield d
+        autosubs = d.getResult()
+        principals.update(autosubs)
+        
+        if parent.hasDeadProperty(customxml.Unsubscribed):
+            unsubs = parent.readDeadProperty(customxml.Unsubscribed).children
+            d = waitForDeferred(_expandPrincipals(unsubs))
+            yield d
+            unsubs = d.getResult()
+            principals.difference_update(unsubs)
         
         for principal in principals:
             if not isinstance(principal.children[0], davxml.HRef):

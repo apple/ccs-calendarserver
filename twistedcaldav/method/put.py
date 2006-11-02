@@ -110,16 +110,12 @@ def http_PUT(self, request):
             else:
                 newETag = None
             
-            principals = waitForDeferred(self.principalsWithReadPrivilege(request))
-            yield principals
-            principals = principals.getResult()
-
             notification = Notification(action={
                 responsecode.OK         : Notification.ACTION_MODIFIED,
                 responsecode.CREATED    : Notification.ACTION_CREATED,
                 responsecode.NO_CONTENT : Notification.ACTION_MODIFIED,
             }[response.code], authid=authid, oldETag=oldETag, newETag=newETag, oldURI=request.uri)
-            d = waitForDeferred(notification.doNotification(request, principals))
+            d = waitForDeferred(notification.doNotification(request, parent, self))
             yield d
             d.getResult()
         
