@@ -23,7 +23,9 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 
     <!ELEMENT collection (pytype?, params?, properties, members)>
       <!ATTLIST collection name CDATA ""
-                             tag (none|principals|calendars) "none">
+                             tag (none|principals|calendars) "none"
+                             account (yes|no) "no"
+                             initialize (yes|no) "no">
       <!ELEMENT pytype     (#PCDATA)>
       <!ELEMENT params     (param*)>
         <!ELEMENT param    (key, value)>
