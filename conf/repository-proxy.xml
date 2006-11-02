@@ -20,7 +20,7 @@ limitations under the License.
 
 <repository>
 
-  <docroot auto-principal-collection-set="no">
+  <docroot auto-principal-collection-set="yes">
     <collection>
       <pytype>twisted.web2.dav.static.DAVFile</pytype>
       <properties>
@@ -37,13 +37,6 @@ limitations under the License.
             <inheritable/>
           </ace>
         </acl>
-        <!--
-          Must explicitly set which principal hierarchies will be
-          listed in WebDAV properties.  The order of these will
-          determine how a user id will map to a principal in a
-          particular hierarchy if an id appears in more than one.
-         -->
-        <prop><principal-collection-set xmlns="DAV:"><href>/principals/localusers/</href><href>/principals/users/</href><href>/principals/users/</href><href>/principals/groups/</href><href>/principals/resources/</href></principal-collection-set></prop>
       </properties>
       <members>
         <!--
@@ -124,7 +117,7 @@ limitations under the License.
             </collection>
           </members>
         </collection>
-        <collection name="principals">
+        <collection name="principals" initialize="yes">
           <pytype>twistedcaldav.directory.DirectoryPrincipalProvisioningResource</pytype>
           <params>
             <param>
@@ -142,7 +135,7 @@ limitations under the License.
             </acl>
           </properties>
           <members>
-            <collection name="users">
+            <collection name="users" tag="principals">
               <pytype>twistedcaldav.directory.DirectoryUserPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
@@ -155,7 +148,7 @@ limitations under the License.
               </properties>
               <members/>
             </collection>
-            <collection name="groups">
+            <collection name="groups" tag="principals">
               <pytype>twistedcaldav.directory.DirectoryGroupPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
@@ -168,7 +161,7 @@ limitations under the License.
               </properties>
               <members/>
             </collection>
-            <collection name="resources">
+            <collection name="resources" tag="principals">
               <pytype>twistedcaldav.directory.DirectoryResourcePrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
@@ -181,7 +174,7 @@ limitations under the License.
               </properties>
               <members/>
             </collection>
-            <collection name="localusers" tag="principals">
+            <collection name="localusers" tag="principals" account="yes">
               <pytype>twistedcaldav.static.CalendarPrincipalCollectionFile</pytype>
                 <properties>
                   <acl>

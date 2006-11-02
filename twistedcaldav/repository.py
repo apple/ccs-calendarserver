@@ -88,6 +88,8 @@ ATTRIBUTE_AUTO_PCS = "auto-principal-collection-set"
 
 ATTRIBUTE_NAME = "name"
 ATTRIBUTE_TAG = "tag"
+ATTRIBUTE_ACCOUNT = "account"
+ATTRIBUTE_INITIALIZE = "initialize"
 
 ATTRVALUE_NONE = "none"
 ATTRVALUE_PRINCIPALS = "principals"
@@ -293,7 +295,12 @@ class RepositoryBuilder (object):
         
         self.docRoot.build()
         if self.doAccounts:
-            self.accounts.provision(self.docRoot.principalCollection, self.docRoot.calendarHome, self.resetACLs)
+            self.accounts.provision(
+                self.docRoot.principalCollections,
+                self.docRoot.accountCollection,
+                self.docRoot.initCollections,
+                self.docRoot.calendarHome,
+                self.resetACLs)
             
         # Handle global quota value
         CalendarHomeFile.quotaLimit = self.quota
@@ -322,7 +329,9 @@ class DocRoot (object):
         """
         self.collection = None
         self.path = docroot
-        self.principalCollection = None
+        self.principalCollections = []
+        self.accountCollection = None
+        self.initCollections = []
         self.calendarHome = None
         self.autoPrincipalCollectionSet = True
         
@@ -349,12 +358,15 @@ class DocRoot (object):
         # Setup the principal-collection-set property if required
         if self.autoPrincipalCollectionSet:
             # Check that a principal collection was actually created and 'tagged'
-            if self.principalCollection is None:
+            if not self.principalCollections:
                 log.msg("Cannot create a DAV:principal-collection-set property on the root resource because there are no principal collections.")
                 return
             
             # Create the private property
-            pcs = davxml.PrincipalCollectionSet(davxml.HRef.fromString(self.principalCollection.uri))
+            hrefs = []
+            for collection in self.principalCollections:
+                hrefs.append(davxml.HRef.fromString(collection.uri))
+            pcs = davxml.PrincipalCollectionSet(*hrefs)
             self.collection.resource.writeDeadProperty(pcs)
 
 class Collection (object):
@@ -382,9 +394,13 @@ class Collection (object):
         if node.hasAttribute(ATTRIBUTE_TAG):
             tag = node.getAttribute(ATTRIBUTE_TAG)
             if tag == ATTRVALUE_PRINCIPALS:
-                builder.principalCollection = self
+                builder.principalCollections.append(self)
             elif tag == ATTRVALUE_CALENDARS:
                 builder.calendarHome = self
+        if node.hasAttribute(ATTRIBUTE_ACCOUNT) and node.getAttribute(ATTRIBUTE_ACCOUNT) == ATTRIBUTE_VALUE_YES:
+            builder.accountCollection = self
+        if node.hasAttribute(ATTRIBUTE_INITIALIZE) and node.getAttribute(ATTRIBUTE_INITIALIZE) == ATTRIBUTE_VALUE_YES:
+            builder.initCollections.append(self)
         
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_PYTYPE:
@@ -635,7 +651,9 @@ class Provisioner (object):
 
     def __init__(self):
         self.items = []
-        self.principalCollection = None
+        self.principalCollections = None
+        self.accountCollection = None
+        self.initCollections = None
         self.calendarHome = None
         
     def parseXML( self, node ):
@@ -654,23 +672,33 @@ class Provisioner (object):
                 principal.parseXML( child )
                 self.items.append((repeat, principal))
     
-    def provision(self, principalCollection, calendarHome, resetACLs):
+    def provision(self, principalCollections, accountCollection, initCollections, calendarHome, resetACLs):
         """
         Carry out provisioning operation.
-        @param principalCollection: the L{Collection} of the principal collection in which to
+        @param principalCollections: a C{list} of L{Collection}'s for the principal collections.
+        @param accountCollection: the L{Collection} of the principal collection in which to
             create user principals.
-        @param calendarHome:        the L{Collection} for the calendar home of principals.
-        @param resetACLs:           if True, ACL privileges on all resources related to the
+        @param initCollections: a C{list} of L{Collection}'s for the principal collections to be initialized.
+        @param calendarHome:  the L{Collection} for the calendar home of principals.
+        @param resetACLs: if True, ACL privileges on all resources related to the
             accounts being created are reset, if False no ACL privileges are changed.
         """
-        self.principalCollection = principalCollection
+        self.principalCollections = principalCollections
+        self.accountCollection = accountCollection
+        self.initCollections = initCollections
         self.calendarHome = calendarHome
 
-        if self.calendarHome is not None:
-            self.principalCollection.resource.initialize(
-                self.calendarHome.uri,
-                self.calendarHome.resource,
-            )
+        if self.initCollections and self.calendarHome is not None:
+            for collection in self.initCollections:
+                collection.resource.initialize(
+                    self.calendarHome.uri,
+                    self.calendarHome.resource,
+                )
+
+        # Check for proper account home
+        if not self.accountCollection:
+            log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
+            raise ValueError, "Accounts cannot be created."
 
         # Provision each user
         for repeat, principal in self.items:
@@ -687,10 +715,10 @@ class Provisioner (object):
         @param resetACLs: if True, ACL privileges on all resources related to the
             accounts being created are reset, if False no ACL privileges are changed.
         """
-        principalURL = joinURL(self.principalCollection.uri, item.uid)
+        principalURL = joinURL(self.accountCollection.uri, item.uid)
 
         # Create principal resource
-        principal = FilePath(os.path.join(self.principalCollection.resource.fp.path, item.uid))
+        principal = FilePath(os.path.join(self.accountCollection.resource.fp.path, item.uid))
         principal_exists = principal.exists()
         if not principal_exists:
             principal.open("w").close()
