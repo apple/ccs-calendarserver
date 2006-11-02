@@ -28,7 +28,7 @@ __all__ = [
     "DirectoryPrincipalProvisioningResource",
 ]
 
-from zope.interface import implements
+from zope.interface import implements, Attribute, Interface
 
 from twisted.cred import checkers, credentials, error
 from twisted.cred.credentials import UsernamePassword
@@ -57,6 +57,122 @@ import dsattributes
 import opendirectory
 import os
 import unicodedata
+
+class IDirectoryService(Interface):
+    """
+    Directory Service
+    """
+    def recordTypes():
+        """
+        @return: a sequence of strings denoting the record types that are kept
+            in the directory.  For example: C{["users", "groups", "resources"]}.
+        """
+
+    def listRecords(type):
+        """
+        @param type: the type of records to retrieve.
+        @return: an iterable of records of the given type.
+        """
+
+class IDirectoryRecord(Interface):
+    """
+    Directory Record
+    """
+    directory             = Attribute("The L{IDirectoryService} this record exists in.")
+    recordType            = Attribute("The type of this record.")
+    guid                  = Attribute("The GUID of this record.")
+    shortName             = Attribute("The name of this record.")
+    fullName              = Attribute("The full name of this record.")
+    calendarUserAddresses = Attribute("A sequence of calendar user addresses of this record.")
+
+    def authenticate(credentials):
+        """
+        Verify that the given credentials can authenticate the principal
+        represented by this record.
+        @param credentials: the credentials to authenticate with.
+        @return: C{True} if the given credentials match this record,
+            C{False} otherwise.
+        """
+
+class DirectoryRecord(object):
+    implements(IDirectoryRecord)
+
+    def __init__(self, directory, recordType, guid, shortName, fullName=None, calendarUserAddresses=()):
+        self.directory             = directory
+        self.recordType            = recordType
+        self.guid                  = guid
+        self.shortName             = shortName
+        self.fullName              = fullName
+        self.calendarUserAddresses = calendarUserAddresses
+
+    def authenticate(credentials):
+        return False
+
+class OpenDirectoryService(object):
+    """
+    Open Directory implementation of L{IDirectoryService}.
+    """
+    implements(IDirectoryService)
+
+    def __init__(self, node="/Search"):
+        directory = opendirectory.odInit(node)
+        if directory is None:
+            raise ValueError("Failed to open Open Directory Node: %s" % (node,))
+
+        self._directory = directory
+
+    def recordTypes(self):
+        return ("users", "groups", "resources")
+
+    def listRecords(self, recordType):
+        def makeRecord(shortName, guid, lastModified, principalURI):
+            if not guid:
+                return None
+
+            ##
+            # FIXME: Also verify that principalURI is on this server
+            # Which probably means that the host information needs to be on
+            # the site object, and that we need the site object passed to
+            # __init__() here.
+            ##
+
+            return OpenDirectoryRecord(
+                directory = self,
+                recordType = recordType,
+                guid = guid,
+                shortName = shortName,
+                fullName = None,
+                calendarUserAddresses = (),
+            )
+
+        if recordType == "users":
+            for data in opendirectory.listUsers(self._directory):
+                yield makeRecord(*data)
+            return
+
+        if recordType == "groups":
+            for data in opendirectory.listGroups(self._directory):
+                yield makeRecord(*data)
+            return
+
+        if recordType == "resources":
+            for data in opendirectory.listResources(self._directory):
+                yield makeRecord(*data)
+            return
+
+        raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
+
+class OpenDirectoryRecord(DirectoryRecord):
+    """
+    Open Directory implementation of L{IDirectoryRecord}.
+    """
+    def authenticate(self, credentials):
+        if isinstance(credentials, credentials.UsernamePassword):
+            return opendirectory.authenticateUser(self.directory, self.shortName, credentials.password)
+
+        return False
+
+######################
 
 class DirectoryCredentialsChecker (TwistedPropertyChecker):
 
@@ -173,10 +289,6 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
         return self.getPropertyValue(customxml.TwistedGUIDProperty)
     
     def readProperty(self, property, request):
-        """
-        Override inherited behavior to make calendar-user-address-set property 'protected'/'live'
-        """
-
         if type(property) is tuple:
             qname = property
         else:
@@ -184,34 +296,20 @@ class DirectoryPrincipalFile (CalendarPrincipalFile):
 
         namespace, name = qname
 
-        # Only return the calendar prinicpal URI when calendar-user-address-set is requested.
         if namespace == caldavxml.caldav_namespace:
             if name == "calendar-user-address-set":
-                return succeed(caldavxml.CalendarUserAddressSet(davxml.HRef().fromString(self.getPropertyValue(customxml.TwistedCalendarPrincipalURI))))
+                return succeed(caldavxml.CalendarUserAddressSet(
+                    *[davxml.HRef().fromString(uri) for uri in self.calendarUserAddresses()]
+                ))
 
         return super(DirectoryPrincipalFile, self).readProperty(qname, request)
 
     def writeProperty(self, property, request):
-        """
-        Override inherited behavior to make calendar-user-address-set property 'protected'/'live'
-        """
-
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        namespace, name = qname
-
-        # Don't allow changes to the calendar-user-address set as the value comes from the directory.
-        if namespace == caldavxml.caldav_namespace:
-            if name == "calendar-user-address-set":
-                raise HTTPError(StatusResponse(
-                    responsecode.FORBIDDEN,
-                    "Protected property %s may not be set." % (property.sname(),)
-                ))
-
-        return super(DirectoryPrincipalFile, self).readProperty(qname, request)
+        # This resource is read-only.
+        raise HTTPError(StatusResponse(
+            responsecode.FORBIDDEN,
+            "Protected property %s may not be set." % (property.sname(),)
+        ))
 
     def calendarUserAddresses(self):
         # Must have a valid calendar principal uri
