@@ -137,11 +137,11 @@ class Notification(davxml.WebDAVElement):
     allowed_children = {
         (twisted_dav_namespace, "action"     ): (1, 1),
         (twisted_dav_namespace, "time-stamp" ): (1, 1),
-        (twisted_dav_namespace, "auth-id"    ): (1, 1),
-        (twisted_dav_namespace, "old-etag"   ): (1, 1),
-        (twisted_dav_namespace, "new-etag"   ): (1, 1),
-        (twisted_dav_namespace, "old-uri"    ): (1, 1),
-        (twisted_dav_namespace, "new_uri"    ): (1, 1),
+        (twisted_dav_namespace, "auth-id"    ): (0, 1),
+        (twisted_dav_namespace, "old-etag"   ): (0, 1),
+        (twisted_dav_namespace, "new-etag"   ): (0, 1),
+        (twisted_dav_namespace, "old-uri"    ): (0, 1),
+        (twisted_dav_namespace, "new_uri"    ): (0, 1),
     }
 
 class Action (davxml.WebDAVElement):

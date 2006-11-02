@@ -25,6 +25,7 @@ __all__ = ["http_PUT"]
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
@@ -34,6 +35,7 @@ from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.dropbox import DropBox
 from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.notifications import Notification
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_PUT(self, request):
@@ -74,6 +76,7 @@ def http_PUT(self, request):
             yield d
             yield d.getResult()
             return
+
         except ValueError, e:
             log.err("Error while handling (calendar) PUT: %s" % (e,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
@@ -81,6 +84,48 @@ def http_PUT(self, request):
     elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBoxHome):
         # Cannot create resources in a drop box home collection
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (twisted_dav_namespace, "valid-drop-box")))
+
+    elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
+        # We need to handle notificiations
+        
+        # We need the current etag
+        if self.exists() and self.etag() is not None:
+            oldETag = self.etag().generate()
+        else:
+            oldETag = None
+        
+        # Do the normal http_PUT behavior
+        d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
+        yield d
+        response = d.getResult()
+        
+        if response.code in (responsecode.OK, responsecode.CREATED, responsecode.NO_CONTENT):
+
+            authid = None
+            if isinstance(request.authnUser.children[0], davxml.HRef):
+                authid = str(request.authnUser.children[0])
+
+            if self.exists() and self.etag() is not None:
+                newETag = self.etag().generate()
+            else:
+                newETag = None
+            
+            principals = waitForDeferred(self.principalsWithReadPrivilege(request))
+            yield principals
+            principals = principals.getResult()
+
+            notification = Notification(action={
+                responsecode.OK         : Notification.ACTION_MODIFIED,
+                responsecode.CREATED    : Notification.ACTION_CREATED,
+                responsecode.NO_CONTENT : Notification.ACTION_MODIFIED,
+            }[response.code], authid=authid, oldETag=oldETag, newETag=newETag, oldURI=request.uri)
+            d = waitForDeferred(notification.doNotification(request, principals))
+            yield d
+            d.getResult()
+        
+        yield response
+        return
+
     else:
         d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
         yield d

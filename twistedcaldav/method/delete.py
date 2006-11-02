@@ -22,10 +22,15 @@ CalDAV DELETE method.
 
 __all__ = ["http_DELETE"]
 
-from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
+from twisted.web2.dav.util import parentForURL
 from twisted.web2.iweb import IResponse
 
+from twistedcaldav import customxml
+from twistedcaldav.dropbox import DropBox
+from twistedcaldav.notifications import Notification
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_DELETE(self, request):
@@ -33,24 +38,43 @@ def http_DELETE(self, request):
     # Override base DELETE request handling to ensure that the calendar
     # index file has the entry for the deleted calendar component removed.
     #
-    def deleteFromIndex(response):
-        response = IResponse(response)
+    # Also handle notifications in a drop box collection.
+    #
 
-        if response.code == responsecode.NO_CONTENT:
-            def deleteFromParent(parent):
-                if isPseudoCalendarCollectionResource(parent):
-                    index = parent.index()
-                    index.deleteResource(self.fp.basename())
+    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    yield parent
+    parent = parent.getResult()
 
-                return response
-            
-            # Remove index entry if we are a child of a calendar collection
-            d = self.locateParent(request, request.uri)
-            d.addCallback(deleteFromParent)
-            return d
+    # May need old etag for notification
+    if DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
+        if self.exists() and self.etag() is not None:
+            oldETag = self.etag().generate()
+        else:
+            oldETag = None
 
-        return response
+    d = waitForDeferred(super(CalDAVFile, self).http_DELETE(request))
+    yield d
+    response = d.getResult()
 
-    d = maybeDeferred(super(CalDAVFile, self).http_DELETE, request)
-    d.addCallback(deleteFromIndex)
-    return d
+    if response == responsecode.NO_CONTENT:
+        if isPseudoCalendarCollectionResource(parent):
+            index = parent.index()
+            index.deleteResource(self.fp.basename())
+        elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
+            # We need to handle notificiations
+            authid = None
+            if isinstance(request.authnUser.children[0], davxml.HRef):
+                authid = str(request.authnUser.children[0])
+
+            principals = waitForDeferred(self.principalsWithReadPrivilege(request))
+            yield principals
+            principals = principals.getResult()
+
+            notification = Notification(action=Notification.ACTION_DELETED, authid=authid, oldETag=oldETag, oldURI=request.uri)
+            d = waitForDeferred(notification.doNotification(request, principals))
+            yield d
+            d.getResult()
+
+    yield response
+
+http_DELETE = deferredGenerator(http_DELETE)

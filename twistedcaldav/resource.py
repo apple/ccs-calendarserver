@@ -286,6 +286,73 @@ class CalDAVResource (DAVResource):
 
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
+    def principalsWithReadPrivilege(self, request):
+        """
+        Return a list of principals that have read privilege to this resource.
+        
+        """
+        
+        # Procedure:
+        #
+        # 1. Get list of all principals referenced in the ACL for the resource.
+        # 2. Expand groups in the principal list to their user principals.
+        # 3. For each user principal see if it has read privilege and if so add to the list.
+    
+        # Step 1. Get ACL principals.
+        acl = waitForDeferred(self.accessControlList(request))
+        yield acl
+        acl = acl.getResult()
+    
+        # Check disabled
+        if acl is None:
+            yield []
+            return
+    
+        principals = set()
+        
+        for ace in acl.children:
+            # First see if the ace's principal affects the principal being tested.
+            # FIXME: support the DAV:invert operation
+    
+            principal = ace.principal
+            
+            principal = waitForDeferred(self.resolvePrincipal(principal.children[0], request))
+            yield principal
+            principal = principal.getResult()
+            if principal is None:
+                continue
+    
+            presource = waitForDeferred(request.locateResource(str(principal)))
+            yield presource
+            presource = presource.getResult()
+    
+            if not isinstance(presource, DAVPrincipalResource):
+                continue
+            
+            # Step 2. Expand groups.
+            members = presource.groupMembers()
+            
+            if members:
+                for member in members:
+                    principals.add(davxml.Principal(davxml.HRef.fromString(member)))
+            else:
+                principals.add(davxml.Principal(principal))
+                
+        # Step 3. Check privileges
+        result = []
+        for principal in principals:
+            try:
+                d = waitForDeferred(self.checkPrivileges(request, (davxml.Read,), principal=principal))
+                yield d
+                test = d.getResult()
+                if test is not None:
+                    result.append(principal)
+            except:
+                pass
+        yield result
+    
+    principalsWithReadPrivilege = deferredGenerator(principalsWithReadPrivilege)
+    
     ##
     # CalDAV
     ##
@@ -670,23 +737,20 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
 
             elif namespace == twisted_dav_namespace:
-                from twistedcaldav.dropbox import DropBox
                 if name == "dropbox-home-URL":
-                    # Use the first calendar home only
-                    home = ""
-                    for url in self.calendarHomeURLs():
-                        home = joinURL(url, DropBox.dropboxName) + "/"
-                        break
-                    return customxml.DropBoxHomeURL(davxml.HRef(home))
+                    url = self.dropboxURL()
+                    if url is None:
+                        return None
+                    else:
+                        return customxml.DropBoxHomeURL(davxml.HRef(url))
 
                 if name == "notifications-URL":
                     # Use the first calendar home only
-                    home = ""
-                    for url in self.calendarHomeURLs():
-                        home = joinURL(url, DropBox.notifcationName) + "/"
-                        break
-                    return customxml.NotificationsURL(davxml.HRef(home))
-
+                    url = self.notificationsURL()
+                    if url is None:
+                        return None
+                    else:
+                        return customxml.NotificationsURL(davxml.HRef(url))
 
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 
@@ -762,6 +826,30 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         else:
             return None
         
+    def dropboxURL(self):
+        """
+        @return: the drop box home collection URL for this principal.
+        """
+        # Use the first calendar home only
+        from twistedcaldav.dropbox import DropBox
+        url = None
+        for home in self.calendarHomeURLs():
+            url = joinURL(home, DropBox.dropboxName) + "/"
+            break
+        return url
+        
+    def notificationsURL(self):
+        """
+        @return: the notifications collection URL for this principal.
+        """
+        # Use the first calendar home only
+        from twistedcaldav.dropbox import DropBox
+        url = None
+        for home in self.calendarHomeURLs():
+            url = joinURL(home, DropBox.notifcationName) + "/"
+            break
+        return url
+
     def matchesCalendarUserAddress(self, request, address):
         """
         Determine whether this principal matches the supplied calendar user
