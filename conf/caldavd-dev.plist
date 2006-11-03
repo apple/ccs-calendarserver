@@ -27,7 +27,7 @@ limitations under the License.
   <true/>
 
   <key>DocumentRoot</key>
-  <string>twistedcaldav/test/data/</string>
+  <string>/Library/CalendarServer/Documents</string>
 
   <key>Port</key>
   <integer>8008</integer>
@@ -42,25 +42,22 @@ limitations under the License.
   <integer>8443</integer>
 
   <key>SSLPrivateKey</key>
-  <string>conf/server.pem</string>
+  <string>/etc/certificates/Default.key</string>
 
   <key>SSLCertificate</key>
-  <string>conf/server.pem</string>
-
-  <key>ManholePort</key>
-  <integer>8000</integer>
+  <string>/etc/certificates/Default.crt</string>
 
   <key>ServerLogFile</key>
-  <string>bin/server.log</string>
+  <string>/var/log/caldavd/server.log</string>
 
   <key>ErrorLogFile</key>
-  <string>bin/error.log</string>
+  <string>/var/log/caldavd/error.log</string>
 
   <key>PIDFile</key>
-  <string>bin/twistd-caldavd.pid</string>
+  <string>/var/log/caldavd/caldavd.pid</string>
 
   <key>Repository</key>
-  <string>conf/repository-dev.xml</string>
+  <string>/etc/caldavd/repository.xml</string>
 
   <key>CreateAccounts</key>
   <true/>
@@ -69,10 +66,7 @@ limitations under the License.
   <true/>
 
   <key>twistdLocation</key>
-  <string>../Twisted/bin/twistd</string>
-
-  <key>EventExpirationDays</key>
-  <integer>0</integer>
+  <string>/usr/share/caldavd/bin/twistd</string>
 
   <key>MaximumAttachmentSizeBytes</key>
   <integer>1048576</integer><!-- 1Mb -->

@@ -28,18 +28,13 @@ __all__ = [
     "DirectoryPrincipalProvisioningResource",
 ]
 
-from zope.interface import implements, Attribute, Interface
-
-from twisted.cred import checkers, credentials, error
-from twisted.cred.credentials import UsernamePassword
+from twisted.python import log
 from twisted.internet import reactor
 from twisted.internet import task
 from twisted.internet.defer import succeed
-from twisted.python import log
+from twisted.cred import credentials
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.auth import IPrincipalCredentials
-from twisted.web2.dav.auth import TwistedPropertyChecker
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
@@ -57,141 +52,6 @@ import dsattributes
 import opendirectory
 import os
 import unicodedata
-
-class IDirectoryService(Interface):
-    """
-    Directory Service
-    """
-    def recordTypes():
-        """
-        @return: a sequence of strings denoting the record types that are kept
-            in the directory.  For example: C{["users", "groups", "resources"]}.
-        """
-
-    def listRecords(type):
-        """
-        @param type: the type of records to retrieve.
-        @return: an iterable of records of the given type.
-        """
-
-class IDirectoryRecord(Interface):
-    """
-    Directory Record
-    """
-    directory             = Attribute("The L{IDirectoryService} this record exists in.")
-    recordType            = Attribute("The type of this record.")
-    guid                  = Attribute("The GUID of this record.")
-    shortName             = Attribute("The name of this record.")
-    fullName              = Attribute("The full name of this record.")
-    calendarUserAddresses = Attribute("A sequence of calendar user addresses of this record.")
-
-    def authenticate(credentials):
-        """
-        Verify that the given credentials can authenticate the principal
-        represented by this record.
-        @param credentials: the credentials to authenticate with.
-        @return: C{True} if the given credentials match this record,
-            C{False} otherwise.
-        """
-
-class DirectoryRecord(object):
-    implements(IDirectoryRecord)
-
-    def __init__(self, directory, recordType, guid, shortName, fullName=None, calendarUserAddresses=()):
-        self.directory             = directory
-        self.recordType            = recordType
-        self.guid                  = guid
-        self.shortName             = shortName
-        self.fullName              = fullName
-        self.calendarUserAddresses = calendarUserAddresses
-
-    def authenticate(credentials):
-        return False
-
-class OpenDirectoryService(object):
-    """
-    Open Directory implementation of L{IDirectoryService}.
-    """
-    implements(IDirectoryService)
-
-    def __init__(self, node="/Search"):
-        directory = opendirectory.odInit(node)
-        if directory is None:
-            raise ValueError("Failed to open Open Directory Node: %s" % (node,))
-
-        self._directory = directory
-
-    def recordTypes(self):
-        return ("users", "groups", "resources")
-
-    def listRecords(self, recordType):
-        def makeRecord(shortName, guid, lastModified, principalURI):
-            if not guid:
-                return None
-
-            ##
-            # FIXME: Also verify that principalURI is on this server
-            # Which probably means that the host information needs to be on
-            # the site object, and that we need the site object passed to
-            # __init__() here.
-            ##
-
-            return OpenDirectoryRecord(
-                directory = self,
-                recordType = recordType,
-                guid = guid,
-                shortName = shortName,
-                fullName = None,
-                calendarUserAddresses = (),
-            )
-
-        if recordType == "users":
-            for data in opendirectory.listUsers(self._directory):
-                yield makeRecord(*data)
-            return
-
-        if recordType == "groups":
-            for data in opendirectory.listGroups(self._directory):
-                yield makeRecord(*data)
-            return
-
-        if recordType == "resources":
-            for data in opendirectory.listResources(self._directory):
-                yield makeRecord(*data)
-            return
-
-        raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
-
-class OpenDirectoryRecord(DirectoryRecord):
-    """
-    Open Directory implementation of L{IDirectoryRecord}.
-    """
-    def authenticate(self, credentials):
-        if isinstance(credentials, credentials.UsernamePassword):
-            return opendirectory.authenticateUser(self.directory, self.shortName, credentials.password)
-
-        return False
-
-######################
-
-class DirectoryCredentialsChecker (TwistedPropertyChecker):
-
-    def requestAvatarId(self, credentials):
-
-        # If there is no calendar principal URI then the calendar user is disabled.
-        pcreds = IPrincipalCredentials(credentials)
-        if not pcreds.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
-            # Try regular password check
-            return TwistedPropertyChecker.requestAvatarId(self, credentials)
-
-        creds = pcreds.credentials
-        if isinstance(creds, UsernamePassword):
-            user = creds.username
-            pswd = creds.password
-            if opendirectory.authenticateUser(pcreds.authnPrincipal.directory(), user, pswd):
-                return succeed((pcreds.authnURI, pcreds.authzURI,))
-        
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
 class DirectoryPrincipalFile (CalendarPrincipalFile):
     """

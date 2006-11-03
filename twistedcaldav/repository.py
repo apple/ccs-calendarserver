@@ -42,10 +42,11 @@ from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
-from twistedcaldav import authkerb, directory
+from twistedcaldav.directory.cred import DirectoryCredentialsChecker
 
 import os
 
@@ -191,7 +192,7 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
         portal.registerChecker(auth.TwistedPropertyChecker())
         print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
-        portal.registerChecker(directory.DirectoryCredentialsChecker())
+        portal.registerChecker(DirectoryCredentialsChecker())
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
         if authenticator.type == "basic":
