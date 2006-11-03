@@ -68,9 +68,6 @@ limitations under the License.
   <key>twistdLocation</key>
   <string>/usr/share/caldavd/bin/twistd</string>
 
-  <key>EventExpirationDays</key>
-  <integer>0</integer>
-
   <key>MaximumAttachmentSizeBytes</key>
   <integer>1048576</integer><!-- 1Mb -->
 
