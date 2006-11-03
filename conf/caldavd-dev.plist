@@ -48,13 +48,13 @@ limitations under the License.
   <string>conf/server.pem</string>
 
   <key>ServerLogFile</key>
-  <string>bin/server.log</string>
+  <string>server.log</string>
 
   <key>ErrorLogFile</key>
-  <string>bin/error.log</string>
+  <string>error.log</string>
 
   <key>PIDFile</key>
-  <string>bin/twistd-caldavd.pid</string>
+  <string>caldavd.pid</string>
 
   <key>Repository</key>
   <string>conf/repository-dev.xml</string>
