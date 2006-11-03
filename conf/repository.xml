@@ -135,7 +135,7 @@ limitations under the License.
             </acl>
           </properties>
           <members>
-            <collection name="users" tag="principals">
+            <collection name="users" tag="principals" account="yes">
               <pytype>twistedcaldav.directory.resource.DirectoryUserPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
