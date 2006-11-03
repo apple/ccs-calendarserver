@@ -21,8 +21,9 @@ Calendar server directory service module.
 """
 
 __all__ = [
+    "appleopendirectory",
+    "cred",
     "directory",
     "idirectory",
-    "opendirectory",
     "resource",
 ]
