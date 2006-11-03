@@ -37,22 +37,28 @@ class IDirectoryService(Interface):
             in the directory.  For example: C{["users", "groups", "resources"]}.
         """
 
-    def listRecords(type):
+    def listRecords(recordType):
         """
         @param type: the type of records to retrieve.
         @return: an iterable of records of the given type.
+        """
+
+    def userWithShortName(shortName):
+        """
+        @param short_name: the short name of the user to look up.
+        @return: an L{IDirectoryRecord} provider with the given short name, or
+            C{None} of no such user exists.
         """
 
 class IDirectoryRecord(Interface):
     """
     Directory Record
     """
-    directory             = Attribute("The L{IDirectoryService} this record exists in.")
-    recordType            = Attribute("The type of this record.")
-    guid                  = Attribute("The GUID of this record.")
-    shortName             = Attribute("The name of this record.")
-    fullName              = Attribute("The full name of this record.")
-    calendarUserAddresses = Attribute("A sequence of calendar user addresses of this record.")
+    directory  Attribute("The L{IDirectoryService} this record exists in.")
+    recordType Attribute("The type of this record.")
+    guid       Attribute("The GUID of this record.")
+    shortName  Attribute("The name of this record.")
+    fullName   Attribute("The full name of this record.")
 
     def authenticate(credentials):
         """

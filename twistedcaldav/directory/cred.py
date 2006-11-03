@@ -45,7 +45,7 @@ class DirectoryCredentialsChecker (TwistedPropertyChecker):
             # Try regular password check
             return TwistedPropertyChecker.requestAvatarId(self, credentials)
 
-        user = self.service.findUserWithShortName(credentials.credentials.username)
+        user = self.service.userWithShortName(credentials.credentials.username)
         raise UnauthorizedLogin("Unknown credentials type for principal: %s" % (credentials.authnURI,))
 
         if not user:

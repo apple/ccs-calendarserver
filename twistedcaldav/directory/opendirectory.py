@@ -61,7 +61,6 @@ class OpenDirectoryService(DirectoryService):
                 guid = guid,
                 shortName = shortName,
                 fullName = None,
-                calendarUserAddresses = (),
             )
 
         if recordType == "users":
@@ -80,6 +79,20 @@ class OpenDirectoryService(DirectoryService):
             return
 
         raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
+
+    def userWithShortName(shortName):
+        result = opendirectory.listUsersWithAttributes(self._directory, [shortName])
+        if shortName not in result:
+            return None
+        result = result[shortName]
+
+        return OpenDirectoryRecord(
+            directory = self,
+            recordType = "user",
+            guid = result[dsattributes.attrGUID],
+            shortName = shortName,
+            fullName = result[dsattributes.attrRealName],
+        )
 
 class OpenDirectoryRecord(DirectoryRecord):
     """

@@ -34,13 +34,12 @@ class DirectoryService(object):
 class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
-    def __init__(self, directory, recordType, guid, shortName, fullName=None, calendarUserAddresses=()):
-        self.directory             = directory
-        self.recordType            = recordType
-        self.guid                  = guid
-        self.shortName             = shortName
-        self.fullName              = fullName
-        self.calendarUserAddresses = calendarUserAddresses
+    def __init__(self, directory, recordType, guid, shortName, fullName=None):
+        self.directory  = directory
+        self.recordType = recordType
+        self.guid       = guid
+        self.shortName  = shortName
+        self.fullName   = fullName
 
     def authenticate(credentials):
         return False
