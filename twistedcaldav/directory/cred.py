@@ -24,10 +24,12 @@ __all__ = [
     "DirectoryCredentialsChecker",
 ]
 
-from twisted.internet.defer import succeed
+from twisted.cred.credentials import UsernamePassword
 from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import succeed
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.web2.dav.auth import TwistedPropertyChecker
+import opendirectory
 
 from twistedcaldav import customxml
 
@@ -48,7 +50,7 @@ class DirectoryCredentialsChecker (TwistedPropertyChecker):
             if opendirectory.authenticateUser(pcreds.authnPrincipal.directory(), user, pswd):
                 return succeed((pcreds.authnURI, pcreds.authzURI,))
         
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
+        raise UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
 #class DirectoryCredentialsChecker (TwistedPropertyChecker):
 #    def __init__(self, service):
