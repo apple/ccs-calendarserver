@@ -112,24 +112,17 @@ class Notification(object):
         _expandPrincipals = deferredGenerator(_expandPrincipals)
 
         # For drop box we look at the parent collection of the target resource and get the
-        # set of auto-subscribed principals, then subtract the set of unsubscribed principals.
-        if not parent.hasDeadProperty(customxml.AutoSubscribed):
+        # set of subscribed principals.
+        if not parent.hasDeadProperty(customxml.Subscribed):
             yield None
             return
 
         principals = set()
-        autosubs = parent.readDeadProperty(customxml.AutoSubscribed).children
+        autosubs = parent.readDeadProperty(customxml.Subscribed).children
         d = waitForDeferred(_expandPrincipals(autosubs))
         yield d
         autosubs = d.getResult()
         principals.update(autosubs)
-        
-        if parent.hasDeadProperty(customxml.Unsubscribed):
-            unsubs = parent.readDeadProperty(customxml.Unsubscribed).children
-            d = waitForDeferred(_expandPrincipals(unsubs))
-            yield d
-            unsubs = d.getResult()
-            principals.difference_update(unsubs)
         
         for principal in principals:
             if not isinstance(principal.children[0], davxml.HRef):
@@ -152,7 +145,7 @@ class Notification(object):
             # Create new resource in the collection
             child = NotificationFile(path=path)
             collection.putChild(name, child)
-            d = waitForDeferred(request.locateChildResource(collection, name))    # This ensure the URI for the resource is mapped
+            d = waitForDeferred(request.locateChildResource(collection, name))    # This ensures the URI for the resource is mapped
             yield d
             child = d.getResult()
 
@@ -172,10 +165,10 @@ class NotificationResource(DAVResource):
         (twisted_dav_namespace, "action"      ),
         (twisted_dav_namespace, "time-stamp"  ),
         (twisted_dav_namespace, "auth-id"     ),
-        (twisted_dav_namespace, "old-etag"    ),
-        (twisted_dav_namespace, "new-etag"    ),
         (twisted_dav_namespace, "old-uri"     ),
         (twisted_dav_namespace, "new-uri"     ),
+        (twisted_dav_namespace, "old-etag"    ),
+        (twisted_dav_namespace, "new-etag"    ),
     )
 
 class NotificationFile(DAVResource, DAVFile):
@@ -205,14 +198,14 @@ class NotificationFile(DAVResource, DAVFile):
         elements.append(customxml.TimeStamp.fromString(notification.timestamp))
         if notification.authid:
             elements.append(customxml.AuthID.fromString(notification.authid))
-        if notification.oldETag:
-            elements.append(customxml.OldETag.fromString(notification.oldETag))
-        if notification.newETag:
-            elements.append(customxml.NewETag.fromString(notification.newETag))
         if notification.oldURI:
             elements.append(customxml.OldURI(davxml.HRef.fromString(notification.oldURI)))
         if notification.newURI:
             elements.append(customxml.NewURI(davxml.HRef.fromString(notification.newURI)))
+        if notification.oldETag:
+            elements.append(customxml.OldETag.fromString(notification.oldETag))
+        if notification.newETag:
+            elements.append(customxml.NewETag.fromString(notification.newETag))
                           
         xml = customxml.Notification(*elements)
         

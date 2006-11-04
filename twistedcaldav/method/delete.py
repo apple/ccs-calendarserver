@@ -66,7 +66,7 @@ def http_DELETE(self, request):
             if isinstance(request.authnUser.children[0], davxml.HRef):
                 authid = str(request.authnUser.children[0])
 
-            notification = Notification(action=Notification.ACTION_DELETED, authid=authid, oldETag=oldETag, oldURI=request.uri)
+            notification = Notification(action=Notification.ACTION_DELETED, authid=authid, oldURI=request.uri, oldETag=oldETag)
             d = waitForDeferred(notification.doNotification(request, parent, self))
             yield d
             d.getResult()

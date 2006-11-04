@@ -138,10 +138,10 @@ class Notification(davxml.WebDAVElement):
         (twisted_dav_namespace, "action"     ): (1, 1),
         (twisted_dav_namespace, "time-stamp" ): (1, 1),
         (twisted_dav_namespace, "auth-id"    ): (0, 1),
+        (twisted_dav_namespace, "old-uri"    ): (0, 1),
+        (twisted_dav_namespace, "new-uri"    ): (0, 1),
         (twisted_dav_namespace, "old-etag"   ): (0, 1),
         (twisted_dav_namespace, "new-etag"   ): (0, 1),
-        (twisted_dav_namespace, "old-uri"    ): (0, 1),
-        (twisted_dav_namespace, "new_uri"    ): (0, 1),
     }
 
 class Action (davxml.WebDAVElement):
@@ -240,26 +240,6 @@ class AuthID (davxml.WebDAVTextElement):
     hidden = True
     protected = True
 
-class OldETag (davxml.WebDAVTextElement):
-    """
-    A property to indicate the old ETag of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = twisted_dav_namespace
-    name = "old-etag"
-    hidden = True
-    protected = True
-
-class NewETag (davxml.WebDAVTextElement):
-    """
-    A property to indicate the new ETag of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = twisted_dav_namespace
-    name = "new-etag"
-    hidden = True
-    protected = True
-
 class OldURI (davxml.WebDAVElement):
     """
     A property to indicate the old URI of a notification resource.
@@ -284,25 +264,35 @@ class NewURI (davxml.WebDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class AutoSubscribed (davxml.WebDAVElement):
+class OldETag (davxml.WebDAVTextElement):
+    """
+    A property to indicate the old ETag of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "old-etag"
+    hidden = True
+    protected = True
+
+class NewETag (davxml.WebDAVTextElement):
+    """
+    A property to indicate the new ETag of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = twisted_dav_namespace
+    name = "new-etag"
+    hidden = True
+    protected = True
+
+class Subscribed (davxml.WebDAVElement):
     """
     A property to indicate which principals will receive notifications.
     (Apple Extension to CalDAV)
     """
     namespace = twisted_dav_namespace
-    name = "auto-subscribed"
+    name = "subscribed"
     hidden = True
-
-    allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
-
-class Unsubscribed (davxml.WebDAVElement):
-    """
-    A property to indicate which auto-subscribed principals will not receive notifications.
-    (Apple Extension to CalDAV)
-    """
-    namespace = twisted_dav_namespace
-    name = "unsubscribed"
-    hidden = True
+    protected = True
 
     allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
 

@@ -705,9 +705,9 @@ class Provisioner (object):
                 )
 
         # Check for proper account home
-        if not self.accountCollection:
-            log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
-            raise ValueError, "Accounts cannot be created."
+        #if not self.accountCollection:
+        #    log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
+        #    raise ValueError, "Accounts cannot be created."
 
         # Provision each user
         for repeat, principal in self.items:

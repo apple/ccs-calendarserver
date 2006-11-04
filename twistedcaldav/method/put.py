@@ -110,11 +110,18 @@ def http_PUT(self, request):
             else:
                 newETag = None
             
+            if response.code == responsecode.CREATED:
+                oldURI = None
+                newURI = request.uri
+            else:
+                oldURI = request.uri
+                newURI = None
+
             notification = Notification(action={
                 responsecode.OK         : Notification.ACTION_MODIFIED,
                 responsecode.CREATED    : Notification.ACTION_CREATED,
                 responsecode.NO_CONTENT : Notification.ACTION_MODIFIED,
-            }[response.code], authid=authid, oldETag=oldETag, newETag=newETag, oldURI=request.uri)
+            }[response.code], authid=authid, oldURI=oldURI, newURI=newURI, oldETag=oldETag, newETag=newETag)
             d = waitForDeferred(notification.doNotification(request, parent, self))
             yield d
             d.getResult()
