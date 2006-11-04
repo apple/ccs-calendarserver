@@ -15,14 +15,16 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twistedcaldav.extensions import DAVFile
+
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import waitForDeferred
 from twisted.web2.dav.method import put_common
 from twisted.web2.dav.resource import DAVPrincipalResource
 from twisted.web2.dav import davxml
+
 from twistedcaldav import customxml
-from twisted.web2.dav.element.base import twisted_dav_namespace
+from twistedcaldav.customxml import apple_namespace
+from twistedcaldav.extensions import DAVFile
 from twistedcaldav.extensions import DAVResource
 
 import datetime
@@ -162,13 +164,13 @@ class NotificationResource(DAVResource):
     """
 
     liveProperties = DAVResource.liveProperties + (
-        (twisted_dav_namespace, "action"      ),
-        (twisted_dav_namespace, "time-stamp"  ),
-        (twisted_dav_namespace, "auth-id"     ),
-        (twisted_dav_namespace, "old-uri"     ),
-        (twisted_dav_namespace, "new-uri"     ),
-        (twisted_dav_namespace, "old-etag"    ),
-        (twisted_dav_namespace, "new-etag"    ),
+        (apple_namespace, "action"      ),
+        (apple_namespace, "time-stamp"  ),
+        (apple_namespace, "auth-id"     ),
+        (apple_namespace, "old-uri"     ),
+        (apple_namespace, "new-uri"     ),
+        (apple_namespace, "old-etag"    ),
+        (apple_namespace, "new-etag"    ),
     )
 
 class NotificationFile(DAVResource, DAVFile):

@@ -25,9 +25,7 @@ __all__ = [
     "DropBox",
 ]
 
-from twisted.web2.dav.resource import twisted_dav_namespace
-
-from twistedcaldav.customxml import davxml
+from twistedcaldav.customxml import davxml, apple_namespace
 
 import os
 
@@ -69,12 +67,12 @@ class DropBox(object):
 
             # Need to setup live properties
             from twistedcaldav.resource import CalendarPrincipalResource
-            assert (twisted_dav_namespace, "dropbox-home-URL") not in CalendarPrincipalResource.liveProperties, \
+            assert (apple_namespace, "dropbox-home-URL") not in CalendarPrincipalResource.liveProperties, \
                 "DropBox.enable must only be called once"
 
             CalendarPrincipalResource.liveProperties += (
-                (twisted_dav_namespace, "dropbox-home-URL"  ),
-                (twisted_dav_namespace, "notifications-URL" ),
+                (apple_namespace, "dropbox-home-URL"  ),
+                (apple_namespace, "notifications-URL" ),
             )
 
     @classmethod
