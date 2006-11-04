@@ -84,7 +84,7 @@ setup(
     author_email     = None,
     license          = None,
     platforms        = [ "all" ],
-    packages         = [ "twistedcaldav", "twistedcaldav.method", "twistedcaldav.query" ],
+    packages         = [ "twistedcaldav", "twistedcaldav.directory", "twistedcaldav.method", "twistedcaldav.query" ],
     scripts          = [ "bin/caldavd" ],
     data_files       = [("caldavd", ["conf/repository.xml", "conf/caldavd.plist"]),],
 )
