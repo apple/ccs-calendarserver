@@ -24,11 +24,12 @@ __all__ = [
     "DirectoryCredentialsChecker",
 ]
 
+from twisted.internet.defer import succeed
 from twisted.cred.credentials import UsernamePassword
 from twisted.cred.error import UnauthorizedLogin
-from twisted.internet.defer import succeed
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.web2.dav.auth import TwistedPropertyChecker
+
 import opendirectory
 
 from twistedcaldav import customxml
