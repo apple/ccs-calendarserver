@@ -26,6 +26,7 @@ __all__ = [
 ]
 
 import opendirectory
+import dsattributes
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
@@ -41,7 +42,7 @@ class OpenDirectoryService(DirectoryService):
         self._directory = directory
 
     def recordTypes(self):
-        return ("users", "groups", "resources")
+        return ("user", "group", "resource")
 
     def listRecords(self, recordType):
         def makeRecord(shortName, guid, lastModified, principalURI):
@@ -63,32 +64,39 @@ class OpenDirectoryService(DirectoryService):
                 fullName = None,
             )
 
-        if recordType == "users":
+        if recordType == "user":
             for data in opendirectory.listUsers(self._directory):
                 yield makeRecord(*data)
             return
 
-        if recordType == "groups":
+        if recordType == "group":
             for data in opendirectory.listGroups(self._directory):
                 yield makeRecord(*data)
             return
 
-        if recordType == "resources":
+        if recordType == "resource":
             for data in opendirectory.listResources(self._directory):
                 yield makeRecord(*data)
             return
 
         raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
 
-    def userWithShortName(shortName):
-        result = opendirectory.listUsersWithAttributes(self._directory, [shortName])
-        if shortName not in result:
-            return None
-        result = result[shortName]
+    def recordWithShortName(self, recordType, shortName):
+        if recordType == "user":
+            result = opendirectory.listUsersWithAttributes(self._directory, [shortName])
+            if shortName not in result:
+                return None
+            result = result[shortName]
+        elif recordType == "group":
+            result = opendirectory.groupAttributes(self._directory, shortName)
+        elif recordType == "resource":
+            result = opendirectory.resourceAttributes(self._directory, shortName)
+        else:
+            raise ValueError("Unknown record type: %s" % (recordType,))
 
         return OpenDirectoryRecord(
             directory = self,
-            recordType = "user",
+            recordType = recordType,
             guid = result[dsattributes.attrGUID],
             shortName = shortName,
             fullName = result[dsattributes.attrRealName],

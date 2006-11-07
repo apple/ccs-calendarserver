@@ -43,11 +43,12 @@ class IDirectoryService(Interface):
         @return: an iterable of records of the given type.
         """
 
-    def userWithShortName(shortName):
+    def recordWithShortName(recordType, shortName):
         """
-        @param short_name: the short name of the user to look up.
+        @param recordType: the type of the record to look up.
+        @param shortName: the short name of the record to look up.
         @return: an L{IDirectoryRecord} provider with the given short name, or
-            C{None} of no such user exists.
+            C{None} of no such record exists.
         """
 
 class IDirectoryRecord(Interface):
