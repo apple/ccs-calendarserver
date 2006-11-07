@@ -29,7 +29,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.method.schedule_common import processScheduleRequest
 
 def http_POST(self, request):
-
     """
     The CalDAV POST method.
     
@@ -38,21 +37,9 @@ def http_POST(self, request):
     L{Deferred} callbacks. The logic is easier to follow this way plus we don't run into deep nesting
     issues which the other approach would have with large numbers of recipients.
     """
-
-    #
+    d = request.locateResource(parentForURL(request.uri))
     # Check authentication and access controls
-    #
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-    yield parent
-    parent = parent.getResult()
-
-    d = waitForDeferred(parent.authorize(request, (caldavxml.Schedule(),)))
-    yield d
-    d.getResult()
-        
-    # Initiate deferred generator
-    d = waitForDeferred(processScheduleRequest(self, "POST", request))
-    yield d
-    yield d.getResult()
-
-http_POST = deferredGenerator(http_POST)
+    d.addCallback(lambda parent: parent.authorize(request, (caldavxml.Schedule(),)))
+    # Do the work
+    d.addCallback(lambda _: processScheduleRequest(self, "POST", request))
+    return d
