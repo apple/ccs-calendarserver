@@ -23,7 +23,11 @@ Extensions to web2.dav
 __all__ = [
     "DAVResource",
     "DAVFile",
+    "ReadOnlyResourceMixIn",
 ]
+
+from twisted.web2 import responsecode
+from twisted.web2.dav.http import StatusResponse
 
 import twisted.web2.dav.resource
 import twisted.web2.dav.static
@@ -37,3 +41,23 @@ class DAVFile (twisted.web2.dav.static.DAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
+
+class ReadOnlyResourceMixIn (object):
+    """
+    Read only resource.
+    """
+    readOnlyResponse = StatusResponse(
+        responsecode.FORBIDDEN,
+        "Resource is read only."
+    )
+
+    def _forbidden(self, request):
+        return readOnlyResponse
+
+    http_DELETE    = _forbidden
+    http_MOVE      = _forbidden
+    http_PROPPATCH = _forbidden
+    http_PUT       = _forbidden
+
+    def writeProperty(self, property, request):
+        raise HTTPError(readOnlyResponse)
