@@ -573,17 +573,17 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
 
         log.msg("Directory: Delete %s from %s" % (name, self.getTitle()))
     
-    @classmethod
-    def findAnyGUID(clazz, guid):
+    @staticmethod
+    def findAnyGUID(guid):
         """
         Find the principal associated with the specified GUID.
 
         @param guid: the C{str} containing the GUID to match.
         @return: C{str} with matching principal URI, or C{None}
         """
-        for url in clazz._principleCollectionSet.keys():
+        for url in CalendarPrincipalCollectionResource.principleCollectionSet.keys():
             try:
-                pcollection = clazz._principleCollectionSet[url]
+                pcollection = CalendarPrincipalCollectionResource.principleCollectionSet[url]
                 if isinstance(pcollection, DirectoryTypePrincipalProvisioningResource):
                     principal = pcollection.findGUID(guid)
                     if principal is not None:
@@ -607,7 +607,7 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         else:
             return None
 
-    @classmethod
+    @staticmethod
     def findAnyGroupGUID(clazz, guid):
         """
         Find the principals containing the specified GUID as a group member.
@@ -617,9 +617,9 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         """
         
         result = []
-        for url in clazz._principleCollectionSet.keys():
+        for url in CalendarPrincipalCollectionResource.principleCollectionSet.keys():
             try:
-                pcollection = clazz._principleCollectionSet[url]
+                pcollection = CalendarPrincipalCollectionResource.principleCollectionSet[url]
                 if isinstance(pcollection, DirectoryTypePrincipalProvisioningResource):
                     result.extend(pcollection.findGroupGUID(guid))
             except ReferenceError:
