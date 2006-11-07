@@ -25,33 +25,55 @@ __all__ = [
 ]
 
 from twisted.internet.defer import succeed
+from twisted.cred.credentials import UsernamePassword
 from twisted.cred.error import UnauthorizedLogin
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.web2.dav.auth import TwistedPropertyChecker
 
+import opendirectory
+
 from twistedcaldav import customxml
 
 class DirectoryCredentialsChecker (TwistedPropertyChecker):
-    def __init__(self, service):
-        """
-        @param service: an L{IDirectoryService} provider.
-        """
-        self.service = service
 
     def requestAvatarId(self, credentials):
+
         # If there is no calendar principal URI then the calendar user is disabled.
-        credentials = IPrincipalCredentials(credentials)
-        if not credentials.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
+        pcreds = IPrincipalCredentials(credentials)
+        if not pcreds.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
             # Try regular password check
             return TwistedPropertyChecker.requestAvatarId(self, credentials)
 
-        user = self.service.userWithShortName(credentials.credentials.username)
-        raise UnauthorizedLogin("Unknown credentials type for principal: %s" % (credentials.authnURI,))
+        creds = pcreds.credentials
+        if isinstance(creds, UsernamePassword):
+            user = creds.username
+            pswd = creds.password
+            if opendirectory.authenticateUser(pcreds.authnPrincipal.directory(), user, pswd):
+                return succeed((pcreds.authnURI, pcreds.authzURI,))
+        
+        raise UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
-        if not user:
-            raise UnauthorizedLogin("No such user: %s" % (user,))
-
-        if user.authenticate(credentials.credentials):
-            return succeed((credentials.authnURI, credentials.authzURI))
-        else:
-            raise UnauthorizedLogin("Incorrect credentials for user: %s" % (user,)) 
+#class DirectoryCredentialsChecker (TwistedPropertyChecker):
+#    def __init__(self, service):
+#        """
+#        @param service: an L{IDirectoryService} provider.
+#        """
+#        self.service = service
+#
+#    def requestAvatarId(self, credentials):
+#        # If there is no calendar principal URI then the calendar user is disabled.
+#        credentials = IPrincipalCredentials(credentials)
+#        if not credentials.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
+#            # Try regular password check
+#            return TwistedPropertyChecker.requestAvatarId(self, credentials)
+#
+#        user = self.service.userWithShortName(credentials.credentials.username)
+#        raise UnauthorizedLogin("Unknown credentials type for principal: %s" % (credentials.authnURI,))
+#
+#        if not user:
+#            raise UnauthorizedLogin("No such user: %s" % (user,))
+#
+#        if user.authenticate(credentials.credentials):
+#            return succeed((credentials.authnURI, credentials.authzURI))
+#        else:
+#            raise UnauthorizedLogin("Incorrect credentials for user: %s" % (user,)) 
