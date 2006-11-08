@@ -92,6 +92,7 @@ limitations under the License.
               <members/>
             </collection>
             <collection name="shared">
+              <pytype>twistedcaldav.static.CalDAVFile</pytype>
               <properties>
                 <acl>
                   <ace>
