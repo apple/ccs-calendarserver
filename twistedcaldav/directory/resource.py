@@ -109,7 +109,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         return DirectoryPrincipalResource(child_fp.path, self, name)
 
     def listChildren(self):
-        return self.directory.listRecords(self.recordType)
+        return [record.shortName for record in self.directory.listRecords(self.recordType)]
 
 class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """
