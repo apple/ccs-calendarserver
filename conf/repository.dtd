@@ -54,7 +54,8 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   	<!ELEMENT basic (realm, service?)>
 	  <!ATTLIST basic enable  (yes|no) "yes"
 	                  onlyssl (yes|no) "yes"
-	                  credentials (property|directory|kerberos) "property">
+	                  credentials (property|directory|kerberos) "property"
+	                  node CDATA "">
   	<!ELEMENT digest (realm)>
 	  <!ATTLIST digest enable  (yes|no) "no"
 	                   onlyssl (yes|no) "no"
