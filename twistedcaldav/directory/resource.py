@@ -27,6 +27,8 @@ __all__ = [
 ]
 
 from twisted.python import log
+from twisted.web2 import responsecode
+from twisted.web2.http import HTTPError
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 
@@ -52,7 +54,7 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         self.directory = IDirectoryService(directory)
 
     def createSimilarFile(self, path):
-        raise AssertionError("createSimilarFile() not allowed in DirectoryPrincipalProvisioningResource.")
+        raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
         if name == "":
@@ -87,7 +89,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         self.recordType = name
 
     def createSimilarFile(self, path):
-        raise AssertionError("createSimilarFile() not allowed in DirectoryPrincipalTypeResource.")
+        raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
         if name == "":

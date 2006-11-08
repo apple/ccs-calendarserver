@@ -67,7 +67,7 @@ class OpenDirectoryService(DirectoryService):
     def recordWithShortName(self, recordType, shortName):
         if recordType == "user":
             result = opendirectory.listUsersWithAttributes(self._directory, [shortName])
-            if shortName not in result:
+            if result is None or shortName not in result:
                 return None
             result = result[shortName]
         elif recordType == "group":
