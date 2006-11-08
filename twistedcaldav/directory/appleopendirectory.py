@@ -45,41 +45,24 @@ class OpenDirectoryService(DirectoryService):
         return ("user", "group", "resource")
 
     def listRecords(self, recordType):
-        def makeRecord(shortName, guid, lastModified, principalURI):
-            if not guid:
-                return None
-
-            ##
-            # FIXME: Also verify that principalURI is on this server
-            # Which probably means that the host information needs to be on
-            # the site object, and that we need the site object passed to
-            # __init__() here.
-            ##
-
-            return OpenDirectoryRecord(
-                directory = self,
-                recordType = recordType,
-                guid = guid,
-                shortName = shortName,
-                fullName = None,
-            )
-
         if recordType == "user":
-            for data in opendirectory.listUsers(self._directory):
-                yield makeRecord(*data)
-            return
+            listRecords = opendirectory.listUsers
+        elif recordType == "group":
+            listRecords = opendirectory.listGroups
+        elif recordType == "resource":
+            listRecords = opendirectory.listResources
+        else:
+            raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
 
-        if recordType == "group":
-            for data in opendirectory.listGroups(self._directory):
-                yield makeRecord(*data)
-            return
-
-        if recordType == "resource":
-            for data in opendirectory.listResources(self._directory):
-                yield makeRecord(*data)
-            return
-
-        raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
+        for shortName, guid, lastModified, principalURI in opendirectory.listUsers(self._directory):
+            if guid:
+                yield OpenDirectoryRecord(
+                    directory = self,
+                    recordType = recordType,
+                    guid = guid,
+                    shortName = shortName,
+                    fullName = None,
+                )
 
     def recordWithShortName(self, recordType, shortName):
         if recordType == "user":
