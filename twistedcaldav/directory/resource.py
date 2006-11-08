@@ -35,7 +35,7 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource
 from twistedcaldav.static import CalendarPrincipalFile
 from twistedcaldav.directory.idirectory import IDirectoryService
 
-# FIXME: These should be tied to DAVFile
+# FIXME: These should not be tied to DAVFile
 
 class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
@@ -52,11 +52,7 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         self.directory = IDirectoryService(directory)
 
     def createSimilarFile(self, path):
-        raise AssertionError("Not allowed.")
-
-    # FIXME: Remove
-    def initialize(self, homeuri, home):
-        log.msg("*** Get rid of initialize() ***")
+        raise AssertionError("createSimilarFile() not allowed in DirectoryPrincipalProvisioningResource.")
 
     def getChild(self, name):
         if name == "":
@@ -91,7 +87,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         self.recordType = name
 
     def createSimilarFile(self, path):
-        raise AssertionError("Not allowed.")
+        raise AssertionError("createSimilarFile() not allowed in DirectoryPrincipalTypeResource.")
 
     def getChild(self, name):
         if name == "":

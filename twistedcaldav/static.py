@@ -673,7 +673,7 @@ class CalendarHomeProvisioningFile (CalDAVFile):
         return self.calendarHomeClass(child_fp.path)
 
     def createSimilarFile(self, path):
-        raise NotImplementedError("Not allowed")
+        raise NotImplementedError("createSimilarFile() not allowed in CalendarHomeProvisioningFile.")
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
