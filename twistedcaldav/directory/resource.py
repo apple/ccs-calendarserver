@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from twisted.python import log
+from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav.static import DAVFile
@@ -77,6 +78,9 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
     def listChildren(self):
         return self.directory.recordTypes()
 
+    def principalForUser(self, user):
+        return self.getChild("user").getChild(user)
+
 class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
     Collection resource which provisions directory principals of a specific type as its children.
@@ -87,6 +91,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
 
         self.directory = parent.directory
         self.recordType = name
+        self._parent = parent
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -113,6 +118,9 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     def listChildren(self):
         return [record.shortName for record in self.directory.listRecords(self.recordType)]
 
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
+
 class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """
     Directory principal resource.
@@ -123,6 +131,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         self.directory = parent.directory
         self.recordType = parent.recordType
         self.shortName = name
+        self._parent = parent
 
     ##
     # ACL
@@ -136,6 +145,9 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def groupMemberships(self):
         raise NotImplementedError()
+
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
 
     ##
     # CalDAV
