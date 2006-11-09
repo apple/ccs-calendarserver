@@ -97,13 +97,17 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-    def getChild(self, name):
+    def getChild(self, name, record=None):
         if name == "":
             return self
 
-        record = self.directory.recordWithShortName(self.recordType, name)
         if record is None:
-            return None
+            record = self.directory.recordWithShortName(self.recordType, name)
+            if record is None:
+                return None
+        else:
+            assert name is None
+            name = record.shortName
 
         child_fp = self.fp.child(name)
         if child_fp.exists():
@@ -114,7 +118,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
 
             child_fp.open("w").close()
 
-        return DirectoryPrincipalResource(child_fp.path, self, name)
+        return DirectoryPrincipalResource(child_fp.path, self, record)
 
     def listChildren(self):
         return [record.shortName for record in self.directory.listRecords(self.recordType)]
@@ -126,12 +130,10 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """
     Directory principal resource.
     """
-    def __init__(self, path, parent, name):
+    def __init__(self, path, parent, record):
         super(DirectoryPrincipalResource, self).__init__(path, parent.principalCollectionURL())
 
-        self.directory = parent.directory
-        self.recordType = parent.recordType
-        self.shortName = name
+        self.record = record
         self._parent = parent
 
     ##
@@ -139,10 +141,15 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     ##
 
     def alternateURIs(self):
+        # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return ()
 
     def groupMembers(self):
-        raise NotImplementedError("DirectoryPrincipalResource.groupMembers()")
+        for member in self.record.members():
+            if member.recordType == self.record.recordType: 
+                yield self._parent.getChild(None, record=member)
+            else:
+                yield self._parent._parent.getChild(member.recordType).getChild(None, record)
 
     def groupMemberships(self):
         raise NotImplementedError("DirectoryPrincipalResource.groupMemberships()")
@@ -155,7 +162,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     ##
 
     def principalUID(self):
-        return self.shortName
+        return self.record.shortName
 
     def calendarHomeURLs(self):
         raise NotImplementedError("DirectoryPrincipalResource.calendarHomeURLs()")
