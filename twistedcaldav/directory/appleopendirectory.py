@@ -97,6 +97,15 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
+    def members(self):
+        if self.recordType != "group":
+            return ()
+
+        raise NotImplementedError("OpenDirectoryRecord.members() for groups")
+
+    def groups(self):
+        raise NotImplementedError("OpenDirectoryRecord.groups()")
+
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
             return opendirectory.authenticateUser(self.service.directory, self.shortName, credentials.password)

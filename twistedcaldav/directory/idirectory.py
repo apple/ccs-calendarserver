@@ -61,6 +61,18 @@ class IDirectoryRecord(Interface):
     shortName  = Attribute("The name of this record.")
     fullName   = Attribute("The full name of this record.")
 
+    def members(self):
+        """
+        @return: an iterable of L{IDirectoryRecord}s for the members of this
+            (group) record.
+        """
+
+    def group(self):
+        """
+        @return: an iterable of L{IDirectoryRecord}s for the groups this
+            record is a member of.
+        """
+
     def authenticate(credentials):
         """
         Verify that the given credentials can authenticate the principal

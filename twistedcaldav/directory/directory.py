@@ -48,6 +48,12 @@ class DirectoryRecord(object):
         self.shortName  = shortName
         self.fullName   = fullName
 
+    def members(self):
+        return ()
+
+    def groups(self):
+        return ()
+
     def verifyCredentials(credentials):
         return False
 
