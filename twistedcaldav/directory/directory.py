@@ -21,7 +21,11 @@ Generic directory service classes.
 """
 
 __all__ = [
+    "DirectoryService",
     "DirectoryRecord",
+    "DirectoryError",
+    "UnknownRecordError",
+    "UnknownRecordTypeError",
 ]
 
 from zope.interface import implements
@@ -34,12 +38,30 @@ class DirectoryService(object):
 class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
-    def __init__(self, directory, recordType, guid, shortName, fullName=None):
-        self.directory  = directory
+    def __repr__(self):
+        return "<%s[%s@%s] %s(%s) %r>" % (self.__class__.__name__, self.recordType, self.service, self.guid, self.shortName, self.fullName)
+
+    def __init__(self, service, recordType, guid, shortName, fullName=None):
+        self.service    = service
         self.recordType = recordType
         self.guid       = guid
         self.shortName  = shortName
         self.fullName   = fullName
 
-    def authenticate(credentials):
+    def verifyCredentials(credentials):
         return False
+
+class DirectoryError(RuntimeError):
+    """
+    Generic directory error.
+    """
+
+class UnknownRecordTypeError(DirectoryError):
+    """
+    Unknown directory record type.
+    """
+
+class UnknownRecordError(DirectoryError):
+    """
+    Unknown directory record.
+    """

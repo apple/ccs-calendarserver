@@ -23,6 +23,7 @@ Apple Open Directory implementation.
 __all__ = [
     "OpenDirectoryService",
     "OpenDirectoryRecord",
+    "OpenDirectoryInitError",
 ]
 
 import opendirectory
@@ -31,17 +32,22 @@ import dsattributes
 from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError, UnknownRecordError
 
 class OpenDirectoryService(DirectoryService):
     """
     Open Directory implementation of L{IDirectoryService}.
     """
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, self.node)
+
     def __init__(self, node="/Search"):
         directory = opendirectory.odInit(node)
         if directory is None:
-            raise ValueError("Failed to open Open Directory Node: %s" % (node,))
+            raise OpenDirectoryInitError("Failed to open Open Directory Node: %s" % (node,))
 
-        self._directory = directory
+        self.directory = directory
+        self.node = node
 
     def recordTypes(self):
         return ("user", "group", "resource")
@@ -54,9 +60,9 @@ class OpenDirectoryService(DirectoryService):
         elif recordType == "resource":
             listRecords = opendirectory.listResources
         else:
-            raise AssertionError("Unknown Open Directory record type: %s" % (recordType,))
+            raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
 
-        for shortName, guid, lastModified, principalURI in opendirectory.listUsers(self._directory):
+        for shortName, guid, lastModified, principalURI in opendirectory.listUsers(self.directory):
             if guid:
                 yield OpenDirectoryRecord(
                     directory = self,
@@ -68,19 +74,19 @@ class OpenDirectoryService(DirectoryService):
 
     def recordWithShortName(self, recordType, shortName):
         if recordType == "user":
-            result = opendirectory.listUsersWithAttributes(self._directory, [shortName])
+            result = opendirectory.listUsersWithAttributes(self.directory, [shortName])
             if result is None or shortName not in result:
                 return None
             result = result[shortName]
         elif recordType == "group":
-            result = opendirectory.groupAttributes(self._directory, shortName)
+            result = opendirectory.groupAttributes(self.directory, shortName)
         elif recordType == "resource":
-            result = opendirectory.resourceAttributes(self._directory, shortName)
+            result = opendirectory.resourceAttributes(self.directory, shortName)
         else:
-            raise ValueError("Unknown record type: %s" % (recordType,))
+            raise UnknownRecordError("Unknown record type: %s" % (recordType,))
 
         return OpenDirectoryRecord(
-            directory = self,
+            service = self,
             recordType = recordType,
             guid = result[dsattributes.attrGUID],
             shortName = shortName,
@@ -93,6 +99,11 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
-            return opendirectory.authenticateUser(self.directory, self.shortName, credentials.password)
+            return opendirectory.authenticateUser(self.service.directory, self.shortName, credentials.password)
 
-        return False
+        return super(OpenDirectoryInitError, self).verifyCredentials(credentials)
+
+class OpenDirectoryInitError(DirectoryError):
+    """
+    OpenDirectory initialization error.
+    """
