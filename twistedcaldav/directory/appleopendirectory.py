@@ -28,6 +28,8 @@ __all__ = [
 import opendirectory
 import dsattributes
 
+from twisted.cred.credentials import UsernamePassword
+
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
 class OpenDirectoryService(DirectoryService):
@@ -89,8 +91,8 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
-    def authenticate(self, credentials):
-        if isinstance(credentials, credentials.UsernamePassword):
+    def verifyCredentials(self, credentials):
+        if isinstance(credentials, UsernamePassword):
             return opendirectory.authenticateUser(self.directory, self.shortName, credentials.password)
 
         return False
