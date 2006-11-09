@@ -24,14 +24,21 @@ __all__ = [
     "DirectoryCredentialsChecker",
 ]
 
+from zope.interface import implements
+
 from twisted.internet.defer import succeed
 from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.web2.dav.auth import TwistedPropertyChecker
 
 from twistedcaldav import customxml
 
-class DirectoryCredentialsChecker (TwistedPropertyChecker):
+class DirectoryCredentialsChecker (object):
+    implements(ICredentialsChecker)
+
+    credentialInterfaces = (IPrincipalCredentials,)
+
     def __init__(self, service):
         """
         @param service: an L{IDirectoryService} provider.
@@ -39,19 +46,20 @@ class DirectoryCredentialsChecker (TwistedPropertyChecker):
         self.service = service
 
     def requestAvatarId(self, credentials):
-        # If there is no calendar principal URI then the calendar user is disabled.
         credentials = IPrincipalCredentials(credentials)
-        if not credentials.authnPrincipal.hasDeadProperty(customxml.TwistedCalendarPrincipalURI):
-            # Try regular password check
-            return TwistedPropertyChecker.requestAvatarId(self, credentials)
 
-        user = self.service.userWithShortName(credentials.credentials.username)
-        raise UnauthorizedLogin("Unknown credentials type for principal: %s" % (credentials.authnURI,))
+        # FIXME:
+        # Were checking if principal is enabled; seems unnecessary in current
+        # implementation because you shouldn't have a principal object for a
+        # disabled directory principal.
 
-        if not user:
+        print "*"*10, repr(credentials)
+
+        user = self.service.recordWithShortName("user", credentials.credentials.username)
+        if user is None:
             raise UnauthorizedLogin("No such user: %s" % (user,))
 
-        if user.authenticate(credentials.credentials):
-            return succeed((credentials.authnURI, credentials.authzURI))
+        if user.verifyCredentials(credentials.credentials):
+            return succeed((credentials.authnPrincipal.principalURL(), credentials.authzPrincipal.principalURL()))
         else:
             raise UnauthorizedLogin("Incorrect credentials for user: %s" % (user,)) 

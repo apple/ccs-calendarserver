@@ -232,7 +232,7 @@ class CalDAVResource (DAVResource):
 
         return super(CalDAVResource, self).accessControlList(*args, **kwargs)
 
-    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):
+    def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
         Determine the authorization principal for the given request and authentication principal.
         This implementation looks for an X-Authorize-As header value to use as the authoization principal.
@@ -241,10 +241,10 @@ class CalDAVResource (DAVResource):
         @param authid: a string containing the uthentication/authorization identifier
             for the principal to lookup.
         @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-        @param authnURI: a C{str} containing the URI of the authenticated principal
         @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
             resource and URI respectively.
         """
+        # FIXME: Unroll defgen
 
         # Look for X-Authorize-As Header
         authz = request.headers.getRawHeaders("x-authorize-as")
@@ -259,15 +259,13 @@ class CalDAVResource (DAVResource):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.UNAUTHORIZED)
                 else:
-                    d = waitForDeferred(self.findPrincipalForAuthID(request, authz))
-                    yield d
-                    result = d.getResult()
+                    authzPrincipal = waitForDeferred(self.findPrincipalForAuthID(request, authz))
+                    yield authzPrincipal
+                    authzPrincipal = authzPrincipal.getResult()
 
-                    if result is not None:
+                    if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
-                        authzPrincipal = result[0]
-                        authzURI = result[1]
-                        yield authzPrincipal, authzURI
+                        yield authzPrincipal
                         return
                     else:
                         log.msg("Could not find proxy user id: '%s'" % authid)
@@ -280,7 +278,7 @@ class CalDAVResource (DAVResource):
             raise HTTPError(responsecode.UNAUTHORIZED)
         else:
             # No proxy - do default behavior
-            d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal, authnURI))
+            d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal))
             yield d
             yield d.getResult()
             return
@@ -576,13 +574,15 @@ def findAnyCalendarUser(request, address):
     """
     for url in CalendarPrincipalCollectionResource._principleCollectionSet:
         try:
-            pcollection = waitForDeferred(request.locateResource(url))
-            yield pcollection
-            pcollection = pcollection.getResult()
-            if isinstance(pcollection, CalendarPrincipalCollectionResource):
-                principal = waitForDeferred(pcollection.findCalendarUser(request, address))
+            collection = waitForDeferred(request.locateResource(url))
+            yield collection
+            collection = collection.getResult()
+
+            if isinstance(collection, CalendarPrincipalCollectionResource):
+                principal = waitForDeferred(collection.findCalendarUser(request, address))
                 yield principal
                 principal = principal.getResult()
+
                 if principal is not None:
                     yield principal
                     return
