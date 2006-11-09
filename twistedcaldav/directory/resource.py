@@ -48,6 +48,7 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         """
         @param path: the path to the file which will back the resource.
         @param url: the canonical URL for the resource.
+        @param directory: an L{IDirectoryService} to provision principals from.
         """
         CalendarPrincipalCollectionResource.__init__(self, url)
         DAVFile.__init__(self, path)
@@ -141,10 +142,10 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         return ()
 
     def groupMembers(self):
-        raise NotImplementedError()
+        raise NotImplementedError("DirectoryPrincipalResource.groupMembers()")
 
     def groupMemberships(self):
-        raise NotImplementedError()
+        raise NotImplementedError("DirectoryPrincipalResource.groupMemberships()")
 
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
@@ -157,7 +158,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         return self.shortName
 
     def calendarHomeURLs(self):
-        raise NotImplementedError()
+        raise NotImplementedError("DirectoryPrincipalResource.calendarHomeURLs()")
 
     def calendarUserAddresses(self):
-        raise NotImplementedError()
+        raise NotImplementedError("DirectoryPrincipalResource.calendarUserAddresses()")
