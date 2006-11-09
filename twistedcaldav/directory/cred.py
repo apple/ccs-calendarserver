@@ -48,12 +48,10 @@ class DirectoryCredentialsChecker (object):
     def requestAvatarId(self, credentials):
         credentials = IPrincipalCredentials(credentials)
 
-        # FIXME:
-        # Were checking if principal is enabled; seems unnecessary in current
+        # FIXME: ?
+        # We were checking if principal is enabled; seems unnecessary in current
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
-
-        print "*"*10, repr(credentials)
 
         user = self.service.recordWithShortName("user", credentials.credentials.username)
         if user is None:
