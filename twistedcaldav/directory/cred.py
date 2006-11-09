@@ -62,4 +62,4 @@ class DirectoryCredentialsChecker (object):
         if user.verifyCredentials(credentials.credentials):
             return succeed((credentials.authnPrincipal.principalURL(), credentials.authzPrincipal.principalURL()))
         else:
-            raise UnauthorizedLogin("Incorrect credentials for user: %s" % (user,)) 
+            raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
