@@ -29,10 +29,14 @@ __all__ = [
 import opendirectory
 import dsattributes
 
+from twisted.python import log
+from twisted.internet import reactor
 from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
+
+recordListCacheTimeout = 60 * 5 # 5 minutes
 
 class OpenDirectoryService(DirectoryService):
     """
@@ -48,64 +52,84 @@ class OpenDirectoryService(DirectoryService):
 
         self.directory = directory
         self.node = node
+        self.records = {}
 
     def recordTypes(self):
         return ("user", "group", "resource")
 
-    def listRecords(self, recordType):
-        if recordType == "user":
-            listRecords = opendirectory.listUsers
-        elif recordType == "group":
-            listRecords = opendirectory.listGroups
-        elif recordType == "resource":
-            listRecords = opendirectory.listResources
-        else:
-            raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
+    def _cacheRecords(self, recordType):
+        if recordType not in self.records:
+            log.msg("Reloading %s record cache" % (recordType,))
 
-        for shortName, guid, lastModified, principalURI in listRecords(self.directory):
-            if guid:
-                yield OpenDirectoryRecord(
-                    service = self,
-                    recordType = recordType,
-                    guid = guid,
-                    shortName = shortName,
-                    fullName = None,
-                )
+            if recordType == "user":
+                listRecords = opendirectory.listUsers
+            elif recordType == "group":
+                listRecords = opendirectory.listGroups
+            elif recordType == "resource":
+                listRecords = opendirectory.listResources
+            else:
+                raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
+
+            records = {}
+
+            for shortName, guid, lastModified, principalURI in listRecords(self.directory):
+                if guid:
+                    records[shortName] = OpenDirectoryRecord(
+                        service = self,
+                        recordType = recordType,
+                        guid = guid,
+                        shortName = shortName,
+                        fullName = None,
+                    )
+
+            self.records[recordType] = records
+
+            def flushCache():
+                del(records[recordType])
+            reactor.callLater(recordListCacheTimeout, lambda: flushCache)
+
+        return self.records[recordType]
+
+    def listRecords(self, recordType):
+        return self._cacheRecords(recordType).values()
 
     def recordWithShortName(self, recordType, shortName):
-        if recordType == "user":
-            listRecords = opendirectory.listUsersWithAttributes
-        elif recordType == "group":
-            listRecords = opendirectory.listGroupsWithAttributes
-        elif recordType == "resource":
-            listRecords = opendirectory.listResourcesWithAttributes
-        else:
-            raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
+        return self._cacheRecords(recordType).get(shortName, None)
 
-        result = listRecords(self.directory, [shortName])
-        if result is None or shortName not in result:
-            return None
-        else:
-            result = result[shortName]
-
-        if dsattributes.attrGUID in result:
-            guid = result[dsattributes.attrGUID]
-        else:
-            raise DirectoryError("Found OpenDirectory record %s of type %s with no GUID attribute"
-                                 % (shortName, recordType))
-
-        if dsattributes.attrRealName in result:
-            fullName = result[dsattributes.attrRealName]
-        else:
-            fullName = None
-
-        return OpenDirectoryRecord(
-            service = self,
-            recordType = recordType,
-            guid = guid,
-            shortName = shortName,
-            fullName = fullName,
-        )
+#    def recordWithShortName(self, recordType, shortName):
+#        if recordType == "user":
+#            listRecords = opendirectory.listUsersWithAttributes
+#        elif recordType == "group":
+#            listRecords = opendirectory.listGroupsWithAttributes
+#        elif recordType == "resource":
+#            listRecords = opendirectory.listResourcesWithAttributes
+#        else:
+#            raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
+#
+#        result = listRecords(self.directory, [shortName])
+#        if result is None or shortName not in result:
+#            return None
+#        else:
+#            result = result[shortName]
+#
+#        if dsattributes.attrGUID in result:
+#            guid = result[dsattributes.attrGUID]
+#        else:
+#            raise DirectoryError("Found OpenDirectory record %s of type %s with no GUID attribute"
+#                                 % (shortName, recordType))
+#
+#        if dsattributes.attrRealName in result:
+#            fullName = result[dsattributes.attrRealName]
+#        else:
+#            fullName = None
+#
+#        return OpenDirectoryRecord(
+#            service = self,
+#            recordType = recordType,
+#            guid = guid,
+#            shortName = shortName,
+#            fullName = fullName,
+#        )
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
@@ -115,9 +139,15 @@ class OpenDirectoryRecord(DirectoryRecord):
         if self.recordType != "group":
             return ()
 
+        # FIXME:
+        # Need an API here from opendirectory which finds all members of a group
+
         raise NotImplementedError("OpenDirectoryRecord.members() for groups")
 
     def groups(self):
+        # FIXME:
+        # Need an API here from opendirectory which finds all groups containing this member
+
         raise NotImplementedError("OpenDirectoryRecord.groups()")
 
     def verifyCredentials(self, credentials):
