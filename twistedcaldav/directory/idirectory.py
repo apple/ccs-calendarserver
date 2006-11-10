@@ -55,7 +55,7 @@ class IDirectoryRecord(Interface):
     """
     Directory Record
     """
-    directory  = Attribute("The L{IDirectoryService} this record exists in.")
+    service    = Attribute("The L{IDirectoryService} this record exists in.")
     recordType = Attribute("The type of this record.")
     guid       = Attribute("The GUID of this record.")
     shortName  = Attribute("The name of this record.")
