@@ -203,65 +203,13 @@ class CalDAVFile (CalDAVResource, DAVFile):
         return caldavxml.CalendarData.fromCalendarData(self.iCalendarText(name))
 
     def supportedPrivileges(self, request):
-        if not hasattr(CalDAVFile, "_supportedCalendarPrivilegeSet"):
-            CalDAVFile._supportedCalendarPrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(caldavxml.ReadFreeBusy()),
-                            davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
-            return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+            return succeed(calendarPrivilegeSet)
         else:
             def _callback(parent):
                 if parent and isCalendarCollectionResource(parent):
-                    return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+                    return succeed(calendarPrivilegeSet)
                 else:
                     return super(CalDAVFile, self).supportedPrivileges(request)
 
@@ -825,25 +773,72 @@ def locateExistingChild(resource, request, segments):
     return (None, ())
 
 def _schedulePrivilegeSet():
+    edited = False
+
+    top_supported_privileges = []
+
     for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
         all_privilege = supported_privilege.childOfType(davxml.Privilege)
-        all_description = supported_privilege.childOfType(davxml.Description)
         if isinstance(all_privilege.children[0], davxml.All):
+            all_description = supported_privilege.childOfType(davxml.Description)
             all_supported_privileges = list(supported_privilege.childrenOfType(davxml.SupportedPrivilege))
-            break
+            all_supported_privileges.append(
+                davxml.SupportedPrivilege(
+                    davxml.Privilege(caldavxml.Schedule()),
+                    davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
+                ),
+            )
+            top_supported_privileges.append(
+                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+            )
+            edited = True
+        else:
+            top_supported_privileges.append(supported_privilege)
 
-    all_supported_privileges.append(
-        davxml.SupportedPrivilege(
-            davxml.Privilege(caldavxml.Schedule()),
-            davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
-        ),
-    )
+    assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for schedulePrivilegeSet"
 
-    return davxml.SupportedPrivilegeSet(
-        davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
-    )
+    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
 
 schedulePrivilegeSet = _schedulePrivilegeSet()
+
+def _calendarPrivilegeSet ():
+    edited = False
+
+    top_supported_privileges = []
+
+    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(davxml.Privilege)
+        if isinstance(all_privilege.children[0], davxml.All):
+            all_description = supported_privilege.childOfType(davxml.Description)
+            all_supported_privileges = []
+            for all_supported_privilege in supported_privilege.childrenOfType(davxml.SupportedPrivilege):
+                read_privilege = all_supported_privilege.childOfType(davxml.Privilege)
+                if isinstance(read_privilege.children[0], davxml.Read):
+                    read_description = all_supported_privilege.childOfType(davxml.Description)
+                    read_supported_privileges = list(all_supported_privilege.childrenOfType(davxml.SupportedPrivilege))
+                    read_supported_privileges.append(
+                        davxml.SupportedPrivilege(
+                            davxml.Privilege(caldavxml.ReadFreeBusy()),
+                            davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
+                        ),
+                    )
+                    all_supported_privileges.append(
+                        davxml.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
+                    )
+                    edited = True
+                else:
+                    all_supported_privileges.append(all_supported_privilege)
+            top_supported_privileges.append(
+                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+            )
+        else:
+            top_supported_privileges.append(supported_privilege)
+
+    assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for calendarPrivilegeSet"
+
+    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
+
+calendarPrivilegeSet = _calendarPrivilegeSet()
 
 ##
 # Attach methods
