@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from twisted.python import log
+from twisted.python.failure import Failure
 from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import Response, HTTPError
@@ -165,11 +166,14 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         def format_list(method, *args):
             def genlist():
                 try:
+                    item = None
                     for item in method(*args):
                         yield " -> %s\n" % (item,)
-                    else:
+                    if item is None:
                         yield " '()\n"
                 except Exception, e:
+                    log.err("Exception while rendering: %s" % (e,))
+                    Failure().printTraceback()
                     yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
             return "".join(genlist())
 
@@ -187,7 +191,6 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             "\nAlternate URIs:\n"         , format_list(self.alternateURIs),
             "\nGroup members:\n"          , format_list(self.groupMembers),
             "\nGroup memberships:\n"      , format_list(self.groupMemberships),
-            "\nPrincipal collections:\n"  , format_list(self.principalCollections, request),
             "\nCalendar homes:\n"         , format_list(self.calendarHomeURLs),
             "\nCalendar user addresses:\n", format_list(self.calendarUserAddresses),
         )))
@@ -235,7 +238,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         # FIXME: self.directory.calendarHomesCollection smells like a hack
         # See CalendarHomeProvisioningFile.__init__()
         return (
-            self.directory.calendarHomesCollection.url(),
+            self.record.service.calendarHomesCollection.url(),
         )
 
     def calendarUserAddresses(self):
