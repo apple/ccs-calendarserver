@@ -29,7 +29,8 @@ __all__ = [
 from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError
+from twisted.web2.http import Response, HTTPError
+from twisted.web2.http_headers import MimeType
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 
@@ -138,6 +139,34 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
         self.record = record
         self._parent = parent
+
+    ##
+    # HTTP
+    ##
+
+    def render(self, request):
+        output = (
+            "Principal resource\n"
+            "------------------\n"
+            "\n"
+            "Directory service: %(service)s\n"
+            "Record type: %(recordType)s\n"
+            "GUID: %(guid)s\n"
+            "Short name: %(shortName)s\n"
+            "Full name: %(fullName)s\n"
+            % self.record.__dict__
+        )
+
+        if type(output) == unicode:
+            output = output.encode("utf-8")
+            mime_params = {"charset": "utf-8"}
+        else:
+            mime_params = {}
+
+        response = Response(code=responsecode.OK, stream=output)
+        response.headers.setHeader("content-type", MimeType("text", "plain", mime_params))
+
+        return response
 
     ##
     # ACL
