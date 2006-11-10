@@ -59,29 +59,38 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
+    # FIXME: Move this to __init__ after we remove the directory proxy hack from repository.py.
+    def _initChildren(self):
+        if len(self.putChildren) > 0:
+            return
+
+        # Create children
+        for name in self.directory.recordTypes():
+            child_fp = self.fp.child(name)
+            if child_fp.exists():
+                assert child_fp.isdir()
+            else:
+                assert self.exists()
+                assert self.isCollection()
+
+                child_fp.makedirs()
+
+            self.putChild(name, DirectoryPrincipalTypeResource(child_fp.path, self, name))
+
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        if name == "":
-            return self
-
-        if name not in self.listChildren():
+        self._initChildren()
+        # This avoids finding case variants of put children on case-insensitive filesystems.
+        if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
 
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isdir()
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.makedirs()
-
-        return DirectoryPrincipalTypeResource(child_fp.path, self, name)
+        return super(DirectoryPrincipalProvisioningResource, self).getChild(name)
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        self._initChildren()
+        return self.putChildren.keys()
 
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
@@ -133,7 +142,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         return DirectoryPrincipalResource(child_fp.path, self, record)
 
     def listChildren(self):
-        return [record.shortName for record in self.directory.listRecords(self.recordType)]
+        return (record.shortName for record in self.directory.listRecords(self.recordType))
 
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
@@ -223,7 +232,13 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         return self.record.shortName
 
     def calendarHomeURLs(self):
-        raise NotImplementedError("DirectoryPrincipalResource.calendarHomeURLs()")
+        # FIXME: self.directory.calendarHomesCollection smells like a hack
+        # See CalendarHomeProvisioningFile.__init__()
+        return (
+            self.directory.calendarHomesCollection.url(),
+        )
 
     def calendarUserAddresses(self):
-        raise NotImplementedError("DirectoryPrincipalResource.calendarUserAddresses()")
+        return (
+            self.principalUID(),
+        )
