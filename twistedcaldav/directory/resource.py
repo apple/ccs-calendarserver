@@ -82,6 +82,9 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
 
+    def principalCollections(self, request):
+        return succeed((self.principalCollectionURL(),))
+
 class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
     Collection resource which provisions directory principals of a specific type as its children.
