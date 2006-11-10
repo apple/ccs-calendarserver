@@ -66,8 +66,3 @@ class UnknownRecordTypeError(DirectoryError):
     """
     Unknown directory record type.
     """
-
-class UnknownRecordError(DirectoryError):
-    """
-    Unknown directory record.
-    """

@@ -32,7 +32,7 @@ import dsattributes
 from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError, UnknownRecordError
+from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 
 class OpenDirectoryService(DirectoryService):
     """
@@ -62,10 +62,10 @@ class OpenDirectoryService(DirectoryService):
         else:
             raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
 
-        for shortName, guid, lastModified, principalURI in opendirectory.listUsers(self.directory):
+        for shortName, guid, lastModified, principalURI in listRecords(self.directory):
             if guid:
                 yield OpenDirectoryRecord(
-                    directory = self,
+                    service = self,
                     recordType = recordType,
                     guid = guid,
                     shortName = shortName,
@@ -74,23 +74,37 @@ class OpenDirectoryService(DirectoryService):
 
     def recordWithShortName(self, recordType, shortName):
         if recordType == "user":
-            result = opendirectory.listUsersWithAttributes(self.directory, [shortName])
-            if result is None or shortName not in result:
-                return None
-            result = result[shortName]
+            listRecords = opendirectory.listUsersWithAttributes
         elif recordType == "group":
-            result = opendirectory.groupAttributes(self.directory, shortName)
+            listRecords = opendirectory.listGroupsWithAttributes
         elif recordType == "resource":
-            result = opendirectory.resourceAttributes(self.directory, shortName)
+            listRecords = opendirectory.listResourcesWithAttributes
         else:
-            raise UnknownRecordError("Unknown record type: %s" % (recordType,))
+            raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
+
+        result = listRecords(self.directory, [shortName])
+        if result is None or shortName not in result:
+            return None
+        else:
+            result = result[shortName]
+
+        if dsattributes.attrGUID in result:
+            guid = result[dsattributes.attrGUID]
+        else:
+            raise DirectoryError("Found OpenDirectory record %s of type %s with no GUID attribute"
+                                 % (shortName, recordType))
+
+        if dsattributes.attrRealName in result:
+            fullName = result[dsattributes.attrRealName]
+        else:
+            fullName = None
 
         return OpenDirectoryRecord(
             service = self,
             recordType = recordType,
-            guid = result[dsattributes.attrGUID],
+            guid = guid,
             shortName = shortName,
-            fullName = result[dsattributes.attrRealName],
+            fullName = fullName,
         )
 
 class OpenDirectoryRecord(DirectoryRecord):
