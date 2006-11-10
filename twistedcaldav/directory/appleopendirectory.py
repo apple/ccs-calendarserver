@@ -84,7 +84,10 @@ class OpenDirectoryService(DirectoryService):
 
             if records:
                 self.records[recordType] = records
-                reactor.callLater(recordListCacheTimeout, lambda: records.remove(recordType))
+
+                def flush():
+                    del records[recordType]
+                reactor.callLater(recordListCacheTimeout, flush)
             else:
                 # records is empty.  This may mean the directory went down.
                 # Don't cache this result, so that we keep checking the directory.
