@@ -153,7 +153,16 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     ##
 
     def render(self, request):
-        output = (
+        def format_list(method, *args):
+            try:
+                for item in method(*args):
+                    yield " -> %s\n" % (item,)
+                else:
+                    yield " '()\n"
+            except Exception, e:
+                yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+
+        output = ("".join((
             "Principal resource\n"
             "------------------\n"
             "\n"
@@ -162,8 +171,15 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             "GUID: %(guid)s\n"
             "Short name: %(shortName)s\n"
             "Full name: %(fullName)s\n"
-            % self.record.__dict__
-        )
+            % self.record.__dict__,
+            "Principal UID: %s\n" % self.principalUID(),
+            "\nAlternate URIs:\n"         , "".join(format_list(self.alternateURIs)),
+            "\nGroup members:\n"          , "".join(format_list(self.groupMembers)),
+            "\nGroup memberships:\n"      , "".join(format_list(self.groupMemberships)),
+            "\nPrincipal collections:\n"  , "".join(format_list(self.principalCollections, request)),
+            "\nCalendar homes:\n"         , "".join(format_list(self.calendarHomeURLs)),
+            "\nCalendar user addresses:\n", "".join(format_list(self.calendarUserAddresses)),
+        )))
 
         if type(output) == unicode:
             output = output.encode("utf-8")
