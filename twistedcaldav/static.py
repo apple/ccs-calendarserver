@@ -419,7 +419,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
     L{CalDAVFile} resource which provisions calendar home collections as needed.    
     """
-    def __init__(self, path, directory):
+    def __init__(self, path, directory, url):
         """
         @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision calendars from.
@@ -427,6 +427,13 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         super(CalendarHomeProvisioningFile, self).__init__(path)
 
         self.directory = IDirectoryService(directory)
+        self._url = url
+
+        # FIXME: Smells like a hack
+        directory.calendarHomesCollection = self
+
+    def url(self):
+        return self._url
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -501,7 +508,7 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         return CalendarHomeFile(child_fp.path, self, record)
 
     def listChildren(self):
-        return [record.shortName for record in self.directory.listRecords(self.recordType)]
+        return (record.shortName for record in self.directory.listRecords(self.recordType))
 
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
