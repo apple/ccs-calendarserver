@@ -62,7 +62,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
-
     def __repr__(self):
         if self.isCalendarCollection():
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -271,7 +270,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return d
         
         return super(CalDAVFile, self).supportedPrivileges(request)
-
 
     ##
     # Public additions
@@ -827,14 +825,14 @@ def locateExistingChild(resource, request, segments):
     return (None, ())
 
 def _schedulePrivilegeSet():
-    all_privileges = None
-
-    for privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
-        if isinstance(privilege.childOfType(davxml.Privilege).children[0], davxml.All):
-            all_privileges = list(privilege.childrenOfType(davxml.SupportedPrivilege))
+    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(davxml.Privilege)
+        all_description = supported_privilege.childOfType(davxml.Description)
+        if isinstance(all_privilege.children[0], davxml.All):
+            all_supported_privileges = list(supported_privilege.childrenOfType(davxml.SupportedPrivilege))
             break
 
-    all_privileges.append(
+    all_supported_privileges.append(
         davxml.SupportedPrivilege(
             davxml.Privilege(caldavxml.Schedule()),
             davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
@@ -842,11 +840,7 @@ def _schedulePrivilegeSet():
     )
 
     return davxml.SupportedPrivilegeSet(
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.All()),
-            davxml.Description("all privileges", **{"xml:lang": "en"}),
-            *all_privileges
-        )
+        davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
     )
 
 schedulePrivilegeSet = _schedulePrivilegeSet()
