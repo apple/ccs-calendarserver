@@ -50,6 +50,7 @@ from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
+from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, db_basename
@@ -57,6 +58,7 @@ from twistedcaldav.resource import CalDAVResource, isPseudoCalendarCollectionRes
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
+from twistedcaldav.directory.idirectory import IDirectoryService
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
@@ -413,32 +415,122 @@ class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     def supportedPrivileges(self, request):
         return succeed(schedulePrivilegeSet)
 
+class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
+    """
+    L{CalDAVFile} resource which provisions calendar home collections as needed.    
+    """
+    def __init__(self, path, directory):
+        """
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision calendars from.
+        """
+        super(CalendarHomeProvisioningFile, self).__init__(path)
+
+        self.directory = IDirectoryService(directory)
+
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name):
+        if name == "":
+            return self
+
+        if name not in self.listChildren():
+            return None
+
+        child_fp = self.fp.child(name)
+        if child_fp.exists():
+            assert child_fp.isdir()
+        else:
+            assert self.exists()
+            assert self.isCollection()
+
+            child_fp.makedirs()
+
+        return CalendarHomeTypeProvisioningFile(child_fp.path, self, name)
+
+    def listChildren(self):
+        return self.directory.recordTypes()
+
+    def principalCollections(self, request):
+        # FIXME: self.directory.principalCollection smells like a hack
+        # See DirectoryPrincipalProvisioningResource.__init__()
+        return self.directory.principalCollection.principalCollections(request)
+
+class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
+    """
+    L{CalDAVFile} resource which provisions calendar home collections of a specific
+    record type as needed.
+    """
+    def __init__(self, path, parent, recordType):
+        """
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision calendars from.
+        @param recordType: the directory record type to provision.
+        """
+        super(CalendarHomeTypeProvisioningFile, self).__init__(path)
+
+        self.directory = parent.directory
+        self.recordType = recordType
+        self._parent = parent
+
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name, record=None):
+        if name == "":
+            return self
+
+        if record is None:
+            record = self.directory.recordWithShortName(self.recordType, name)
+            if record is None:
+                return None
+        else:
+            assert name is None
+            name = record.shortName
+
+        child_fp = self.fp.child(name)
+        if child_fp.exists():
+            assert child_fp.isdir()
+        else:
+            assert self.exists()
+            assert self.isCollection()
+
+            child_fp.makedirs()
+
+        return CalendarHomeFile(child_fp.path, self, record)
+
+    def listChildren(self):
+        return [record.shortName for record in self.directory.listRecords(self.recordType)]
+
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
+
 class CalendarHomeFile (CalDAVFile):
     """
     L{CalDAVFile} calendar home collection resource.
     """
-    
     # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
     # quota to that size, or C{None} for no limit.
     quotaLimit = None
 
-    def __init__(self, path):
+    def __init__(self, path, parent, record):
         """
         @param path: the path to the file which will back the resource.
         """
         super(CalendarHomeFile, self).__init__(path)
 
-        assert self.exists(), "%s should exist" % (self,)
-        assert self.isCollection(), "%s should be a collection" % (self,)
+        self.record = record
+        self._parent = parent
 
         # Create children
-        for name, clazz in (
+        for name, cls in (
             ("inbox" , ScheduleInboxFile),
             ("outbox", ScheduleOutboxFile),
         ):
             child_fp = self.fp.child(name)
             if not child_fp.exists(): child_fp.makedirs()
-            self.putChild(name, clazz(child_fp.path))
+            self.putChild(name, cls(child_fp.path))
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
@@ -473,48 +565,65 @@ class CalendarHomeFile (CalDAVFile):
         else:
             return CalendarHomeFile.quotaLimit
 
-class CalendarHomeProvisioningFile (CalDAVFile):
+class CalendarPrincipalCollectionFile (CalendarPrincipalCollectionResource, DAVFile):
     """
-    L{CalDAVFile} resource which provisions calendar home collections as needed.
+    L{DAVFile} resource which provisions user L{CalendarPrincipalFile} resources
+    as needed.
     """
-    calendarHomeClass = CalendarHomeFile
-
-    def __init__(self, path):
+    def __init__(self, path, url):
         """
         @param path: the path to the file which will back the resource.
+        @param url: the primary URL for the resource.  Provisioned child
+            resources will use a URL based on C{url} as their primary URLs.
         """
-        super(CalendarHomeProvisioningFile, self).__init__(path)
+        CalendarPrincipalCollectionResource.__init__(self, url)
+        DAVFile.__init__(self, path)
 
-    def hasChild(self, name):
+    def initialize(self, homeuri, home):
         """
-        @return: C{True} if this resource has a child with the given name,
-            C{False} otherwise.
+        May be called during repository account initialization.
+        This implementation does nothing.
+        
+        @param homeuri: C{str} uri of the calendar home root.
+        @param home: L{DAVFile} of the calendar home root.
         """
-        return name in self.listChildren()
-
-    def locateChild(self, request, segments):
-        return locateExistingChild(self, request, segments)
-
-    def getChild(self, name):
-        if name == "": return self
-
-        # Avoid case variants when allocating resources
-        if not self.hasChild(name):
-            return None
-
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isdir()
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.makedirs()
-
-        return self.calendarHomeClass(child_fp.path)
-
+        pass
+    
     def createSimilarFile(self, path):
-        raise NotImplementedError("createSimilarFile() not allowed in CalendarHomeProvisioningFile.")
+        if path == self.fp.path:
+            return self
+        else:
+            # TODO: Fix this - not sure how to get URI for second argument of __init__
+            return CalendarPrincipalFile(path, joinURL(self.principalCollectionURL(), basename(path)))
+
+    def principalSearchPropertySet(self):
+        """
+        See L{IDAVResource.principalSearchPropertySet}.
+        
+        This implementation returns None. Principal collection resources MUST override
+        and return their own suitable response.
+        
+        """
+        return davxml.PrincipalSearchPropertySet(
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    davxml.DisplayName()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Display Name"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    caldavxml.CalendarUserAddressSet()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Calendar User Addresses"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+        )
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
@@ -689,71 +798,6 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
             fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
             inbox.writeDeadProperty(fbset)
-
-
-class CalendarPrincipalCollectionFile (CalendarPrincipalCollectionResource, DAVFile):
-    """
-    L{DAVFile} resource which provisions user L{CalendarPrincipalFile} resources
-    as needed.
-    """
-    def __init__(self, path, url):
-        """
-        @param path: the path to the file which will back the resource.
-        @param url: the primary URL for the resource.  Provisioned child
-            resources will use a URL based on C{url} as their primary URLs.
-        """
-        CalendarPrincipalCollectionResource.__init__(self, url)
-        DAVFile.__init__(self, path)
-
-    def initialize(self, homeuri, home):
-        """
-        May be called during repository account initialization.
-        This implementation does nothing.
-        
-        @param homeuri: C{str} uri of the calendar home root.
-        @param home: L{DAVFile} of the calendar home root.
-        """
-        pass
-    
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            # TODO: Fix this - not sure how to get URI for second argument of __init__
-            return CalendarPrincipalFile(path, joinURL(self.principalCollectionURL(), basename(path)))
-
-    def principalSearchPropertySet(self):
-        """
-        See L{IDAVResource.principalSearchPropertySet}.
-        
-        This implementation returns None. Principal collection resources MUST override
-        and return their own suitable response.
-        
-        """
-        return davxml.PrincipalSearchPropertySet(
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
-                    davxml.DisplayName()
-                ),
-                davxml.Description(
-                    davxml.PCDATAElement("Display Name"),
-                    **{"xml:lang":"en"}
-                ),
-            ),
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
-                    caldavxml.CalendarUserAddressSet()
-                ),
-                davxml.Description(
-                    davxml.PCDATAElement("Calendar User Addresses"),
-                    **{"xml:lang":"en"}
-                ),
-            ),
-        )
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
 
 ##
 # Utilities

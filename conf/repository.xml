@@ -38,27 +38,6 @@ limitations under the License.
         </acl>
       </properties>
       <members>
-        <!--
-          We must define the calendar home location before the
-          principals as auto-provisioning of accounts occurs when the
-          principal collections are created and we need to have the
-          calendar home path setup by then.
-         -->
-<!--
-        <collection name="calendars" tag="calendars">
-          <pytype>twistedcaldav.static.CalDAVFile</pytype>
-          <properties>
-            <acl>
-              <ace>
-                <principal><authenticated/></principal>
-                <grant><privilege><read/></privilege></grant>
-				<inheritable/>
-                <protected/>
-              </ace>
-            </acl>
-          </properties>
-        </collection>
- -->
         <collection name="principals">
           <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
           <properties>
@@ -70,7 +49,19 @@ limitations under the License.
               </ace>
             </acl>
           </properties>
-          <members/>
+        </collection>
+        <collection name="calendars">
+          <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
+          <properties>
+            <acl>
+              <ace>
+                <principal><authenticated/></principal>
+                <grant><privilege><read/></privilege></grant>
+				<inheritable/>
+                <protected/>
+              </ace>
+            </acl>
+          </properties>
         </collection>
       </members>
     </collection>

@@ -56,6 +56,9 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
 
         self.directory = IDirectoryService(directory)
 
+        # FIXME: Smells like a hack
+        directory.principalCollection = self
+
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
@@ -90,12 +93,17 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     """
     Collection resource which provisions directory principals of a specific type as its children.
     """
-    def __init__(self, path, parent, name):
-        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.principalCollectionURL(), name))
+    def __init__(self, path, parent, recordType):
+        """
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision calendars from.
+        @param recordType: the directory record type to provision.
+        """
+        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.principalCollectionURL(), recordType))
         DAVFile.__init__(self, path)
 
         self.directory = parent.directory
-        self.recordType = name
+        self.recordType = recordType
         self._parent = parent
 
     def createSimilarFile(self, path):
