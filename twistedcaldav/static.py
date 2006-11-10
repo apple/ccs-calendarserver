@@ -45,8 +45,7 @@ from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
-from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedQuotaRootProperty
+from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty, davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 
 from twistedcaldav import caldavxml
@@ -435,59 +434,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
 
     def supportedPrivileges(self, request):
-        if not hasattr(ScheduleInboxFile, "_supportedSchedulePrivilegeSet"):
-            ScheduleInboxFile._supportedSchedulePrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(caldavxml.Schedule()),
-                        davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
-        return succeed(ScheduleInboxFile._supportedSchedulePrivilegeSet)
+        return succeed(schedulePrivilegeSet)
 
 class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     """
@@ -518,59 +465,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
 
     def supportedPrivileges(self, request):
-        if not hasattr(ScheduleOutboxFile, "_supportedSchedulePrivilegeSet"):
-            ScheduleOutboxFile._supportedSchedulePrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(caldavxml.Schedule()),
-                        davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
-        return succeed(ScheduleOutboxFile._supportedSchedulePrivilegeSet)
+        return succeed(schedulePrivilegeSet)
 
 class CalendarHomeFile (CalDAVFile):
     """
@@ -930,6 +825,31 @@ def locateExistingChild(resource, request, segments):
 
     # Otherwise, there is no child
     return (None, ())
+
+def _schedulePrivilegeSet():
+    all_privileges = None
+
+    for privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        if isinstance(privilege.childOfType(davxml.Privilege).children[0], davxml.All):
+            all_privileges = list(privilege.childrenOfType(davxml.SupportedPrivilege))
+            break
+
+    all_privileges.append(
+        davxml.SupportedPrivilege(
+            davxml.Privilege(caldavxml.Schedule()),
+            davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
+        ),
+    )
+
+    return davxml.SupportedPrivilegeSet(
+        davxml.SupportedPrivilege(
+            davxml.Privilege(davxml.All()),
+            davxml.Description("all privileges", **{"xml:lang": "en"}),
+            *all_privileges
+        )
+    )
+
+schedulePrivilegeSet = _schedulePrivilegeSet()
 
 ##
 # Attach methods
