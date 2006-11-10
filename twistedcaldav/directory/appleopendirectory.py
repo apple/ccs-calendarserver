@@ -86,7 +86,8 @@ class OpenDirectoryService(DirectoryService):
                 self.records[recordType] = records
 
                 def flush():
-                    del records[recordType]
+                    log.msg("Flushing %s record cache" % (recordType,))
+                    del self.records[recordType]
                 reactor.callLater(recordListCacheTimeout, flush)
             else:
                 # records is empty.  This may mean the directory went down.
