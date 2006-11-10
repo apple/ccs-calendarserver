@@ -178,7 +178,25 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
         # FIXME: This is a hack to make this config work for now
         implements(IDirectoryService)
 
-        service = None
+        _service = None
+        _attrs = {}
+
+        def getService(self):
+            return self._service
+        def setService(self, service):
+            if self._service is not None:
+                raise AssertionError("bleargh")
+            for attr, value in self._attrs.items():
+                setattr(service, attr, value)
+            def set(name, value):
+                object.__setattr__(service, name, value)
+            def get(name):
+                object.__getattr__(service, name)
+            object.__setattr__(self, "_service", service)
+            object.__setattr__(self, "__setattr__", set)
+            object.__setattr__(self, "__getattr__", get)
+
+        service = property(getService, setService)
 
         def __getattr__(self, name):
             attr = getattr(self.service, name)
@@ -194,7 +212,7 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
             if name == "service":
                 object.__setattr__(self, name, value)
             else:
-                raise AttributeError("Attributes are read-only")
+                self._attrs[name] = value
 
     directory = DirectoryServiceProxy()
 
