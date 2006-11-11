@@ -86,8 +86,8 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
-
-        return super(DirectoryPrincipalProvisioningResource, self).getChild(name)
+        else:
+            return self.putChildren.get(name, None)
 
     def listChildren(self):
         self._initChildren()
@@ -214,15 +214,32 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return ()
 
+    def _getRelatives(self, method, record=None, relatives=None, records=None):
+        if record is None:
+            record = self.record
+        if relatives is None:
+            relatives = set()
+        if records is None:
+            records = set()
+
+        if record not in records:
+            records.add(record)
+            myRecordType = self.record.recordType
+            for relative in getattr(record, method)():
+                if relative not in records:
+                    if relative.recordType == myRecordType: 
+                        relatives.add(self._parent.getChild(None, record=relative))
+                    else:
+                        relatives.add(self._parent._parent.getChild(relative.recordType).getChild(None, record=relative))
+                    self._getRelatives(method, relative, relatives, records)
+
+        return relatives
+
     def groupMembers(self):
-        for member in self.record.members():
-            if member.recordType == self.record.recordType: 
-                yield self._parent.getChild(None, record=member)
-            else:
-                yield self._parent._parent.getChild(member.recordType).getChild(None, record)
+        return self._getRelatives("members")
 
     def groupMemberships(self):
-        raise NotImplementedError("DirectoryPrincipalResource.groupMemberships()")
+        return self._getRelatives("groups")
 
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
