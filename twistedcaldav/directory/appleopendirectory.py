@@ -26,6 +26,8 @@ __all__ = [
     "OpenDirectoryInitError",
 ]
 
+import sys
+
 import opendirectory
 import dsattributes
 
@@ -52,13 +54,29 @@ class OpenDirectoryService(DirectoryService):
 
         self.directory = directory
         self.node = node
-        self.records = {}
+        self._records = {}
+
+    def __cmp__(self, other):
+        if not isinstance(other, DirectoryRecord):
+            return super(DirectoryRecord, self).__eq__(other)
+
+        for attr in ("directory", "node"):
+            diff = cmp(getattr(self, attr), getattr(other, attr))
+            if diff != 0:
+                return diff
+        return 0
+
+    def __hash__(self):
+        h = hash(self.__class__)
+        for attr in ("directory", "node"):
+            h = (h + hash(getattr(self, attr))) & sys.maxint
+        return h
 
     def recordTypes(self):
         return ("user", "group", "resource")
 
     def _cacheRecords(self, recordType):
-        if recordType not in self.records:
+        if recordType not in self._records:
             log.msg("Reloading %s record cache" % (recordType,))
 
             if recordType == "user":
@@ -83,18 +101,18 @@ class OpenDirectoryService(DirectoryService):
                     )
 
             if records:
-                self.records[recordType] = records
+                self._records[recordType] = records
 
                 def flush():
                     log.msg("Flushing %s record cache" % (recordType,))
-                    del self.records[recordType]
+                    del self._records[recordType]
                 reactor.callLater(recordListCacheTimeout, flush)
             else:
                 # records is empty.  This may mean the directory went down.
                 # Don't cache this result, so that we keep checking the directory.
                 return records
 
-        return self.records[recordType]
+        return self._records[recordType]
 
     def listRecords(self, recordType):
         return self._cacheRecords(recordType).values()
@@ -147,13 +165,11 @@ class OpenDirectoryRecord(DirectoryRecord):
 
         # FIXME:
         # Need an API here from opendirectory which finds all members of a group
-
         raise NotImplementedError("OpenDirectoryRecord.members() for groups")
 
     def groups(self):
         # FIXME:
         # Need an API here from opendirectory which finds all groups containing this member
-
         raise NotImplementedError("OpenDirectoryRecord.groups()")
 
     def verifyCredentials(self, credentials):

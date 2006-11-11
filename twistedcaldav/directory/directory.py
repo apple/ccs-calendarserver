@@ -28,6 +28,8 @@ __all__ = [
     "UnknownRecordTypeError",
 ]
 
+import sys
+
 from zope.interface import implements
 
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
@@ -47,6 +49,22 @@ class DirectoryRecord(object):
         self.guid       = guid
         self.shortName  = shortName
         self.fullName   = fullName
+
+    def __cmp__(self, other):
+        if not isinstance(other, DirectoryRecord):
+            return super(DirectoryRecord, self).__eq__(other)
+
+        for attr in ("service", "recordType", "shortName", "guid"):
+            diff = cmp(getattr(self, attr), getattr(other, attr))
+            if diff != 0:
+                return diff
+        return 0
+
+    def __hash__(self):
+        h = hash(self.__class__)
+        for attr in ("service", "recordType", "shortName", "guid"):
+            h = (h + hash(getattr(self, attr))) & sys.maxint
+        return h
 
     def members(self):
         return ()
