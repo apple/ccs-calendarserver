@@ -118,7 +118,7 @@ limitations under the License.
           </members>
         </collection>
         <collection name="principals" initialize="yes">
-          <pytype>twistedcaldav.directory.DirectoryPrincipalProvisioningResource</pytype>
+          <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
           <params>
             <param>
               <key>DirectoryNode</key>
@@ -136,7 +136,7 @@ limitations under the License.
           </properties>
           <members>
             <collection name="users" tag="principals">
-              <pytype>twistedcaldav.directory.DirectoryUserPrincipalProvisioningResource</pytype>
+              <pytype>twistedcaldav.directory.resource.DirectoryUserPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
                   <ace>
@@ -149,7 +149,7 @@ limitations under the License.
               <members/>
             </collection>
             <collection name="groups" tag="principals">
-              <pytype>twistedcaldav.directory.DirectoryGroupPrincipalProvisioningResource</pytype>
+              <pytype>twistedcaldav.directory.resource.DirectoryGroupPrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
                   <ace>
@@ -162,7 +162,7 @@ limitations under the License.
               <members/>
             </collection>
             <collection name="resources" tag="principals">
-              <pytype>twistedcaldav.directory.DirectoryResourcePrincipalProvisioningResource</pytype>
+              <pytype>twistedcaldav.directory.resource.DirectoryResourcePrincipalProvisioningResource</pytype>
               <properties>
                 <acl>
                   <ace>
