@@ -46,7 +46,6 @@ from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
-from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.iweb import IResponse
@@ -57,6 +56,7 @@ import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import apple_namespace
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.extensions import DAVResource
 
@@ -669,7 +669,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
 
-            elif namespace == twisted_dav_namespace:
+            elif namespace == apple_namespace:
                 if name == "dropbox-home-URL":
                     url = self.dropboxURL()
                     if url is None:
