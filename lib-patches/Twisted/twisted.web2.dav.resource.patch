@@ -258,7 +258,7 @@ Index: twisted/web2/dav/resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -666,32 +735,26 @@
+@@ -666,32 +735,27 @@
          present on this resource, it tries to get it from the parent, unless it
          is the root or has no parent.
          """
@@ -275,6 +275,7 @@ Index: twisted/web2/dav/resource.py
  
 -            principalCollections = []
 +        myURL = request.urlForResource(self)
++        assert myURL is not None, "Resource %s was not looked up via request" % (self,)
 +        if myURL == "/":
 +            return succeed(())
  
@@ -307,7 +308,7 @@ Index: twisted/web2/dav/resource.py
      def defaultAccessControlList(self):
          """
          @return: the L{davxml.ACL} element containing the default access control
-@@ -1146,49 +1209,96 @@
+@@ -1146,49 +1210,97 @@
  
          This implementation returns an empty set.
          """
@@ -381,8 +382,9 @@ Index: twisted/web2/dav/resource.py
 +            collection = collection.getResult()
  
 -            principal = waitForDeferred(request.locateResource(principalURI))
-+            # FIXME: collection = IPrincipalCollectionResource(collection)
++            assert collection is not None, "Unable to locate principal collection %s" % (collectionURI,)
 +
++            # FIXME: collection = IPrincipalCollectionResource(collection)
 +            principal = collection.principalForUser(authid)
 +
 +            # FIXME: Why return a tuple?
@@ -426,7 +428,7 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1511,6 +1621,265 @@
+@@ -1511,6 +1623,265 @@
          return None
  
      ##
@@ -692,7 +694,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1927,7 @@
+@@ -1558,7 +1929,7 @@
      """
      DAV resource with no children.
      """
@@ -701,7 +703,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2081,37 @@
+@@ -1712,6 +2083,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
