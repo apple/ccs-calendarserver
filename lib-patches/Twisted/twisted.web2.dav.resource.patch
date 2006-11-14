@@ -1,8 +1,17 @@
-Index: resource.py
+Index: twisted/web2/dav/resource.py
 ===================================================================
---- resource.py	(revision 18545)
-+++ resource.py	(working copy)
-@@ -130,6 +130,8 @@
+--- twisted/web2/dav/resource.py	(revision 18545)
++++ twisted/web2/dav/resource.py	(working copy)
+@@ -44,6 +44,8 @@
+ 
+ from zope.interface import implements
+ from twisted.python import log
++from twisted.python.failure import Failure
++from twisted.cred.error import UnauthorizedLogin
+ from twisted.internet.defer import Deferred, maybeDeferred, succeed
+ from twisted.internet.defer import waitForDeferred, deferredGenerator
+ from twisted.internet import reactor
+@@ -130,6 +132,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
          (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
          (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
@@ -11,7 +20,7 @@ Index: resource.py
  
          (twisted_dav_namespace, "resource-class"),
      )
-@@ -166,6 +168,14 @@
+@@ -166,6 +170,14 @@
          if qname[0] == twisted_private_namespace:
              return succeed(False)
  
@@ -26,7 +35,7 @@ Index: resource.py
          return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
  
      def readProperty(self, property, request):
-@@ -286,7 +296,33 @@
+@@ -286,7 +298,33 @@
                          d.addCallback(gotACL)
                          return d
                      return ifAllowed((davxml.ReadACL(),), callback)
@@ -60,7 +69,7 @@ Index: resource.py
              elif namespace == twisted_dav_namespace:
                  if name == "resource-class":
                      class ResourceClass (davxml.WebDAVTextElement):
-@@ -366,12 +402,26 @@
+@@ -366,12 +404,26 @@
          # FIXME: A set would be better here, that that's a python 2.4+ feature.
          qnames = list(self.liveProperties)
  
@@ -88,7 +97,7 @@ Index: resource.py
      def listAllprop(self, request):
          """
          Some DAV properties should not be returned to a C{DAV:allprop} query.
-@@ -509,6 +559,9 @@
+@@ -509,6 +561,9 @@
              reactor.callLater(0, getChild)
  
          def checkPrivileges(child):
@@ -98,7 +107,7 @@ Index: resource.py
              if privileges is None:
                  return child
     
-@@ -517,14 +570,17 @@
+@@ -517,14 +572,17 @@
              return d
  
          def gotChild(child, childpath):
@@ -123,7 +132,7 @@ Index: resource.py
  
              reactor.callLater(0, getChild)
  
-@@ -535,10 +591,10 @@
+@@ -535,10 +593,10 @@
                  completionDeferred.callback(None)
              else:
                  childpath = joinURL(basepath, childname)
@@ -138,16 +147,22 @@ Index: resource.py
  
          getChild()
  
-@@ -564,7 +620,7 @@
+@@ -564,19 +622,21 @@
          See L{IDAVResource.authorize}.
          """
          def onError(failure):
 -            log.err("Invalid authentication details: %s" % (request,))
-+            log.err("Invalid authentication details: %s" % (failure,))
-             raise HTTPError(UnauthorizedResponse(
+-            raise HTTPError(UnauthorizedResponse(
++            failure.trap(UnauthorizedLogin)
++
++            log.err("Authentication failed: %s" % (failure.value,))
++            return Failure(HTTPError(UnauthorizedResponse(
                  request.credentialFactories,
                  request.remoteAddr
-@@ -574,9 +630,9 @@
+-            ))
++            )))
+ 
+         def onAuth(result):
              def onErrors(failure):
                  failure.trap(AccessDeniedError)
                  
@@ -159,7 +174,16 @@ Index: resource.py
                      response = UnauthorizedResponse(request.credentialFactories,
                                                      request.remoteAddr)
                  else:
-@@ -600,16 +656,22 @@
+@@ -587,7 +647,7 @@
+                 # class is supposed to be a FORBIDDEN status code and
+                 # "Authorization will not help" according to RFC2616
+                 #
+-                raise HTTPError(response)
++                return Failure(HTTPError(response))
+ 
+             d = self.checkPrivileges(request, privileges, recurse)
+             d.addErrback(onErrors)
+@@ -600,16 +660,22 @@
  
      def authenticate(self, request):
          def loginSuccess(result):
@@ -186,28 +210,29 @@ Index: resource.py
  
          authHeader = request.headers.getHeader('authorization')
  
-@@ -625,9 +687,11 @@
+@@ -625,9 +691,10 @@
  
                  # Try to match principals in each principal collection on the resource
                  def gotDetails(details):
 -                    principal = IDAVPrincipalResource(details[0])
 -                    principalURI = details[1]
 -                    return PrincipalCredentials(principal, principalURI, creds)
-+                    authnPrincipal = IDAVPrincipalResource(details[0][0])
-+                    authnURI = details[0][1]
-+                    authzPrincipal = IDAVPrincipalResource(details[1][0])
-+                    authzURI = details[1][1]
-+                    return PrincipalCredentials(authnPrincipal, authnURI, authzPrincipal, authzURI, creds)
++                    authnPrincipal, authzPrincipal = details
++                    authnPrincipal = IDAVPrincipalResource(authnPrincipal)
++                    authzPrincipal = IDAVPrincipalResource(authzPrincipal)
++                    return PrincipalCredentials(authnPrincipal, authzPrincipal, creds)
  
                  def login(pcreds):
                      d = request.portal.login(pcreds, None, *request.loginInterfaces)
-@@ -635,13 +699,14 @@
+@@ -635,13 +702,15 @@
  
                      return d
  
 -                d = self.findPrincipalForAuthID(request, creds.username)
+-                d.addCallback(gotDetails).addCallback(login)
 +                d = self.principalsForAuthID(request, creds.username)
-                 d.addCallback(gotDetails).addCallback(login)
++                d.addCallback(gotDetails)
++                d.addCallback(login)
  
                  return d
          else:
@@ -219,7 +244,7 @@ Index: resource.py
  
      ##
      # ACL
-@@ -650,10 +715,10 @@
+@@ -650,10 +719,10 @@
      def currentPrincipal(self, request):
          """
          @param request: the request being processed.
@@ -233,7 +258,7 @@ Index: resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -666,32 +731,26 @@
+@@ -666,32 +735,27 @@
          present on this resource, it tries to get it from the parent, unless it
          is the root or has no parent.
          """
@@ -250,6 +275,7 @@ Index: resource.py
  
 -            principalCollections = []
 +        myURL = request.urlForResource(self)
++        assert myURL is not None, "Resource %s was not looked up via request" % (self,)
 +        if myURL == "/":
 +            return succeed(())
  
@@ -282,7 +308,7 @@ Index: resource.py
      def defaultAccessControlList(self):
          """
          @return: the L{davxml.ACL} element containing the default access control
-@@ -1146,49 +1205,95 @@
+@@ -1146,49 +1210,96 @@
  
          This implementation returns an empty set.
          """
@@ -311,18 +337,15 @@ Index: resource.py
              It will errback with an HTTPError(responsecode.FORBIDDEN) if
              the principal isn't found.
          """
-+        def gotAuthn(principal):
-+            if principal is None:
-+                log.msg("Could not find principal matching user id: %s" % (authid,))
++        def gotAuthn(authnPrincipal):
++            if authnPrincipal is None:
++                log.msg("Could not find the principal resource for user id: %s" % (authid,))
 +                raise HTTPError(responsecode.FORBIDDEN)
 +
-+            authnPrincipal, authnURI = principal
++            def gotAuthz(authzPrincipal):
++                return (authnPrincipal, authzPrincipal)
 +
-+            def gotAuthz(principal):
-+                authzPrincipal, authzURI = principal
-+                return ((authnPrincipal, authnURI), (authzPrincipal, authzURI))
-+
-+            d = self.authorizationPrincipal(request, authid, authnPrincipal, authnURI)
++            d = self.authorizationPrincipal(request, authid, authnPrincipal)
 +            d.addCallback(gotAuthz)
 +            return d
 +
@@ -344,24 +367,34 @@ Index: resource.py
 +            that is found; {principalURI} is the C{str} URI of the principal.
 +            If not found return None.
 +        """
++        # FIXME: should self.principalCollections() return resources instead of URIs?
++
          # Try to match principals in each principal collection on the resource
          collections = waitForDeferred(self.principalCollections(request))
          yield collections
          collections = collections.getResult()
  
-         for collection in collections:
+-        for collection in collections:
 -            principalURI = joinURL(str(collection), authid)
-+            principalURI = joinURL(collection, authid)
++        for collectionURI in collections:
++            collection = waitForDeferred(request.locateResource(collectionURI))
++            yield collection
++            collection = collection.getResult()
  
-             principal = waitForDeferred(request.locateResource(principalURI))
+-            principal = waitForDeferred(request.locateResource(principalURI))
++            # FIXME: collection = IPrincipalCollectionResource(collection)
++
++            principal = collection.principalForUser(authid)
++
++            # FIXME: Why return a tuple?
++
              yield principal
-             principal = principal.getResult()
- 
+-            principal = principal.getResult()
+-
 -            if isPrincipalResource(principal):
 -                yield (principal, principalURI)
-+            if isPrincipalResource(principal) and principal.exists():
-+                yield principal, principalURI
-                 return
+-                return
++            return
          else:
 -            principalCollections = waitForDeferred(self.principalCollections(request))
 -            yield principalCollections
@@ -377,7 +410,7 @@ Index: resource.py
 -
      findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
  
-+    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):
++    def authorizationPrincipal(self, request, authid, authnPrincipal):
 +        """
 +        Determine the authorization principal for the given request and authentication principal.
 +        This implementation simply uses aht authentication principalk as the authoization principal.
@@ -386,16 +419,15 @@ Index: resource.py
 +        @param authid: a string containing the uthentication/authorization identifier
 +            for the principal to lookup.
 +        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-+        @param authnURI: a C{str} containing the URI of the authenticated principal
 +        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
 +            resource and URI respectively.
 +        """
-+        return succeed((authnPrincipal, authnURI,))
++        return succeed(authnPrincipal)
 +        
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1511,6 +1616,265 @@
+@@ -1511,6 +1622,265 @@
          return None
  
      ##
@@ -661,7 +693,7 @@ Index: resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1922,7 @@
+@@ -1558,7 +1928,7 @@
      """
      DAV resource with no children.
      """
@@ -670,7 +702,7 @@ Index: resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2076,37 @@
+@@ -1712,6 +2082,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
