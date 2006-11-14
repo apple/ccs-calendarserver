@@ -25,7 +25,6 @@ __all__ = ["http_PUT"]
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
@@ -40,7 +39,8 @@ from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_PUT(self, request):
 
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    parentURL = parentForURL(request.uri)
+    parent = waitForDeferred(request.locateResource(parentURL))
     yield parent
     parent = parent.getResult()
 
@@ -88,41 +88,14 @@ def http_PUT(self, request):
     elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
         # We need to handle notificiations
         
-        # We need the current etag
-        if self.exists() and self.etag() is not None:
-            oldETag = self.etag().generate()
-        else:
-            oldETag = None
-        
         # Do the normal http_PUT behavior
         d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
         yield d
         response = d.getResult()
         
         if response.code in (responsecode.OK, responsecode.CREATED, responsecode.NO_CONTENT):
-
-            authid = None
-            if isinstance(request.authnUser.children[0], davxml.HRef):
-                authid = str(request.authnUser.children[0])
-
-            if self.exists() and self.etag() is not None:
-                newETag = self.etag().generate()
-            else:
-                newETag = None
-            
-            if response.code == responsecode.CREATED:
-                oldURI = None
-                newURI = request.uri
-            else:
-                oldURI = request.uri
-                newURI = None
-
-            notification = Notification(action={
-                responsecode.OK         : Notification.ACTION_MODIFIED,
-                responsecode.CREATED    : Notification.ACTION_CREATED,
-                responsecode.NO_CONTENT : Notification.ACTION_MODIFIED,
-            }[response.code], authid=authid, oldURI=oldURI, newURI=newURI, oldETag=oldETag, newETag=newETag)
-            d = waitForDeferred(notification.doNotification(request, parent, self))
+            notification = Notification(parentURL=parentURL)
+            d = waitForDeferred(notification.doNotification(request, parent))
             yield d
             d.getResult()
         

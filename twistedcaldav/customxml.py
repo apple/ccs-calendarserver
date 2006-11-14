@@ -137,90 +137,9 @@ class Notification(davxml.WebDAVElement):
     name = "notification"
 
     allowed_children = {
-        (apple_namespace, "action"     ): (1, 1),
         (apple_namespace, "time-stamp" ): (1, 1),
-        (apple_namespace, "auth-id"    ): (0, 1),
-        (apple_namespace, "old-uri"    ): (0, 1),
-        (apple_namespace, "new-uri"    ): (0, 1),
-        (apple_namespace, "old-etag"   ): (0, 1),
-        (apple_namespace, "new-etag"   ): (0, 1),
+        (apple_namespace, "changed"    ): (1, 1),
     }
-
-class Action (davxml.WebDAVElement):
-    """
-    A property to indicate the action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "action"
-    hidden = True
-    protected = True
-
-    allowed_children = {
-        (apple_namespace, "created"    ): (0, 1),
-        (apple_namespace, "modified"   ): (0, 1),
-        (apple_namespace, "deleted"    ): (0, 1),
-        (apple_namespace, "copiedto"   ): (0, 1),
-        (apple_namespace, "copiedfrom" ): (0, 1),
-        (apple_namespace, "movedout"   ): (0, 1),
-        (apple_namespace, "movedin"    ): (0, 1),
-    }
-
-class Created (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the created action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "created"
-
-class Modified (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the modified action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "modified"
-
-class Deleted (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the deleted action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "deleted"
-
-class CopiedTo (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the copied to action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "copiedto"
-
-class CopiedFrom (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the copied from action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "copiedfrom"
-
-class MovedTo (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the moved to action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "movedto"
-
-class MovedFrom (davxml.WebDAVEmptyElement):
-    """
-    A property value to indicate the moved from action of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "movedfrom"
 
 class TimeStamp (davxml.WebDAVTextElement):
     """
@@ -232,59 +151,18 @@ class TimeStamp (davxml.WebDAVTextElement):
     hidden = True
     protected = True
 
-class AuthID (davxml.WebDAVTextElement):
+class Changed (davxml.WebDAVElement):
     """
-    A property to indicate the authorization identitifer of a notification resource.
+    A property to indicate the URI of the drop box that generated
+    notification resource.
     (Apple Extension to CalDAV)
     """
     namespace = apple_namespace
-    name = "auth-id"
-    hidden = True
-    protected = True
-
-class OldURI (davxml.WebDAVElement):
-    """
-    A property to indicate the old URI of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "old-uri"
+    name = "changed"
     hidden = True
     protected = True
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
-
-class NewURI (davxml.WebDAVElement):
-    """
-    A property to indicate the new URI of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "new-uri"
-    hidden = True
-    protected = True
-
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
-
-class OldETag (davxml.WebDAVTextElement):
-    """
-    A property to indicate the old ETag of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "old-etag"
-    hidden = True
-    protected = True
-
-class NewETag (davxml.WebDAVTextElement):
-    """
-    A property to indicate the new ETag of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = apple_namespace
-    name = "new-etag"
-    hidden = True
-    protected = True
 
 class Subscribed (davxml.WebDAVElement):
     """

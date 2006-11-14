@@ -41,16 +41,10 @@ def http_DELETE(self, request):
     # Also handle notifications in a drop box collection.
     #
 
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    parentURL = parentForURL(request.uri)
+    parent = waitForDeferred(request.locateResource(parentURL))
     yield parent
     parent = parent.getResult()
-
-    # May need old etag for notification
-    if DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
-        if self.exists() and self.etag() is not None:
-            oldETag = self.etag().generate()
-        else:
-            oldETag = None
 
     d = waitForDeferred(super(CalDAVFile, self).http_DELETE(request))
     yield d
@@ -62,12 +56,8 @@ def http_DELETE(self, request):
             index.deleteResource(self.fp.basename())
         elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
             # We need to handle notificiations
-            authid = None
-            if isinstance(request.authnUser.children[0], davxml.HRef):
-                authid = str(request.authnUser.children[0])
-
-            notification = Notification(action=Notification.ACTION_DELETED, authid=authid, oldURI=request.uri, oldETag=oldETag)
-            d = waitForDeferred(notification.doNotification(request, parent, self))
+            notification = Notification(parentURL=parentURL)
+            d = waitForDeferred(notification.doNotification(request, parent))
             yield d
             d.getResult()
 

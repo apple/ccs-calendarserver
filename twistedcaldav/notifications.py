@@ -48,30 +48,16 @@ class Notification(object):
     Encapsulates a notification message.
     """
     
-    ACTION_NONE        = 0
-    ACTION_CREATED     = 1
-    ACTION_MODIFIED    = 2
-    ACTION_DELETED     = 3
-    ACTION_COPIED_TO   = 4
-    ACTION_COPIED_FROM = 5
-    ACTION_MOVED_TO    = 6
-    ACTION_MOVED_FROM  = 7
-
-    def __init__(self, action, authid=None, oldETag=None, newETag=None, oldURI=None, newURI=None):
-        self.action = action
+    def __init__(self, parentURL):
         self.timestamp = datetime.datetime.utcnow()
-        self.authid = authid
-        self.oldETag = oldETag
-        self.newETag = newETag
-        self.oldURI = oldURI
-        self.newURI = newURI
+        self.parentURL = parentURL
 
-    def doNotification(self, request, parent, resource):
+    def doNotification(self, request, parent):
         """
         Put the supplied noitification into the notification collection of the specified principal.
         
         @param request: L{Request} for request in progress.
-        @param resource: L{DAVResource}trigerring the notification.
+        @param parent: L{DAVResource} for parent of resource trigerring the notification.
         """
         
         # First determine which principals should get notified
@@ -164,13 +150,8 @@ class NotificationResource(DAVResource):
     """
 
     liveProperties = DAVResource.liveProperties + (
-        (apple_namespace, "action"      ),
         (apple_namespace, "time-stamp"  ),
-        (apple_namespace, "auth-id"     ),
-        (apple_namespace, "old-uri"     ),
-        (apple_namespace, "new-uri"     ),
-        (apple_namespace, "old-etag"    ),
-        (apple_namespace, "new-etag"    ),
+        (apple_namespace, "changed"     ),
     )
 
 class NotificationFile(DAVResource, DAVFile):
@@ -185,29 +166,8 @@ class NotificationFile(DAVResource, DAVFile):
         
         # Create body XML
         elements = []
-        elements.append(customxml.Action(
-            {
-                Notification.ACTION_CREATED:     customxml.Created(),
-                Notification.ACTION_MODIFIED:    customxml.Modified(),
-                Notification.ACTION_DELETED:     customxml.Deleted(),
-                Notification.ACTION_COPIED_TO:   customxml.CopiedTo(),
-                Notification.ACTION_COPIED_FROM: customxml.CopiedFrom(),
-                Notification.ACTION_MOVED_TO:    customxml.MovedTo(),
-                Notification.ACTION_MOVED_FROM:  customxml.MovedFrom(),
-            }[notification.action]
-            ))
-
         elements.append(customxml.TimeStamp.fromString(notification.timestamp))
-        if notification.authid:
-            elements.append(customxml.AuthID.fromString(notification.authid))
-        if notification.oldURI:
-            elements.append(customxml.OldURI(davxml.HRef.fromString(notification.oldURI)))
-        if notification.newURI:
-            elements.append(customxml.NewURI(davxml.HRef.fromString(notification.newURI)))
-        if notification.oldETag:
-            elements.append(customxml.OldETag.fromString(notification.oldETag))
-        if notification.newETag:
-            elements.append(customxml.NewETag.fromString(notification.newETag))
+        elements.append(customxml.Changed(davxml.HRef.fromString(notification.parentURL)))
                           
         xml = customxml.Notification(*elements)
         
