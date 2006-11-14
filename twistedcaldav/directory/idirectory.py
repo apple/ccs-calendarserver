@@ -48,7 +48,14 @@ class IDirectoryService(Interface):
         @param recordType: the type of the record to look up.
         @param shortName: the short name of the record to look up.
         @return: an L{IDirectoryRecord} provider with the given short name, or
-            C{None} of no such record exists.
+            C{None} if no such record exists.
+        """
+
+    def recordWithGUID(guid):
+        """
+        @param shortName: the GUID of the record to look up.
+        @return: an L{IDirectoryRecord} provider with the given GUID, or C{None}
+            if no such record exists.
         """
 
 class IDirectoryRecord(Interface):
@@ -61,13 +68,13 @@ class IDirectoryRecord(Interface):
     shortName  = Attribute("The name of this record.")
     fullName   = Attribute("The full name of this record.")
 
-    def members(self):
+    def members():
         """
         @return: an iterable of L{IDirectoryRecord}s for the members of this
             (group) record.
         """
 
-    def group(self):
+    def group():
         """
         @return: an iterable of L{IDirectoryRecord}s for the groups this
             record is a member of.

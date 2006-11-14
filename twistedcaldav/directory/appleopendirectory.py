@@ -120,6 +120,12 @@ class OpenDirectoryService(DirectoryService):
     def recordWithShortName(self, recordType, shortName):
         return self._cacheRecords(recordType).get(shortName, None)
 
+    def recordWithGUID(self, guid):
+        for cache in self._cacheRecords.values():
+            if guid in cache:
+                return cache[guid]
+        return None
+
 #    def recordWithShortName(self, recordType, shortName):
 #        if recordType == "user":
 #            listRecords = opendirectory.listUsersWithAttributes

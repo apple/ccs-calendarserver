@@ -261,9 +261,10 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def calendarUserAddresses(self):
         return (
+            # Principal URL
             self.principalURL(),
 
-            # Need to implement GUID->record lookup first
+            # Need to implement GUID->record->principal resource lookup first
             #"urn:uuid:%s" % (self.record.guid,)
 
             # Need to add email attribute to records if we want this
