@@ -626,9 +626,9 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     )
 
                 if name == "calendar-user-address-set":
-                    return caldavxml.CalendarUserAddressSet(
-                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
-                    )
+                    return succeed(caldavxml.CalendarUserAddressSet(
+                        *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                    ))
 
                 if name == "schedule-inbox-URL":
                     url = self.scheduleInboxURL()
