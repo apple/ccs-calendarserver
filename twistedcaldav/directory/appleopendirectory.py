@@ -48,6 +48,9 @@ class OpenDirectoryService(DirectoryService):
         return "<%s %s>" % (self.__class__.__name__, self.node)
 
     def __init__(self, node="/Search"):
+        """
+        @param node: an OpenDirectory node name to bind to.
+        """
         directory = opendirectory.odInit(node)
         if directory is None:
             raise OpenDirectoryInitError("Failed to open Open Directory Node: %s" % (node,))
@@ -91,14 +94,33 @@ class OpenDirectoryService(DirectoryService):
             records = {}
 
             for shortName, guid, lastModified, principalURI in listRecords(self.directory):
-                if guid:
-                    records[shortName] = OpenDirectoryRecord(
-                        service = self,
-                        recordType = recordType,
-                        guid = guid,
-                        shortName = shortName,
-                        fullName = None,
-                    )
+                if not guid:
+                    continue
+
+                # FIXME: This is a second directory lookup; we should have gotten everything in one pass...
+                if recordType == "group":
+                    result = opendirectory.listGroupsWithAttributes(self.directory, [shortName])
+                    if result is None or shortName not in result:
+                        log.err("Group %s exists and then doesn't." % (shortName,))
+                        continue
+                    result = result[shortName]
+
+                    memberGUIDs = result.get(dsattributes.attrGroupMembers, None)
+                    if memberGUIDs is None:
+                        memberGUIDs = ()
+                    elif type(memberGUIDs) is str:
+                        memberGUIDs = (memberGUIDs,)
+                else:
+                    memberGUIDs = ()
+
+                records[shortName] = OpenDirectoryRecord(
+                    service = self,
+                    recordType = recordType,
+                    guid = guid,
+                    shortName = shortName,
+                    fullName = None, # FIXME: Need to get this attribute
+                    memberGUIDs = memberGUIDs,
+                )
 
             if records:
                 self._records[recordType] = records
@@ -121,9 +143,10 @@ class OpenDirectoryService(DirectoryService):
         return self._cacheRecords(recordType).get(shortName, None)
 
     def recordWithGUID(self, guid):
-        for cache in self._cacheRecords.values():
-            if guid in cache:
-                return cache[guid]
+        for recordType in self.recordTypes():
+            for record in self._cacheRecords(recordType).values():
+                if record.guid == guid:
+                    return record
         return None
 
 #    def recordWithShortName(self, recordType, shortName):
@@ -165,13 +188,20 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
+    def __init__(self, service, recordType, guid, shortName, fullName, memberGUIDs):
+        super(OpenDirectoryRecord, self).__init__(service, recordType, guid, shortName, fullName)
+        self._memberGUIDs = tuple(memberGUIDs)
+
     def members(self):
         if self.recordType != "group":
-            return ()
+            return
 
-        # FIXME:
-        # Need an API here from opendirectory which finds all members of a group
-        raise NotImplementedError("OpenDirectoryRecord.members() for groups")
+        for guid in self._memberGUIDs:
+            record = self.service.recordWithGUID(guid)
+            if record is None:
+                log.err("No record for member of group %s with GUID %s" % (self.shortName, guid))
+            else:
+                yield record
 
     def groups(self):
         # FIXME:
