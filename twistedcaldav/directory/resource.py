@@ -256,7 +256,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         # FIXME: self.directory.calendarHomesCollection smells like a hack
         # See CalendarHomeProvisioningFile.__init__()
         return (
-            self.record.service.calendarHomesCollection.url(),
+            self.record.service.calendarHomesCollection.homeForDirectoryRecord(self.record).url(),
         )
 
     def calendarUserAddresses(self):

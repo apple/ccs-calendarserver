@@ -464,6 +464,9 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections(request)
 
+    def homeForDirectoryRecord(self, record):
+        return self.getChild(record.recordType).getChild(record.shortName)
+
 class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
     L{CalDAVFile} resource which provisions calendar home collections of a specific
@@ -480,6 +483,9 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         self.directory = parent.directory
         self.recordType = recordType
         self._parent = parent
+
+    def url(self):
+        return joinURL(self._parent.url(), self.recordType)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -538,6 +544,9 @@ class CalendarHomeFile (CalDAVFile):
             child_fp = self.fp.child(name)
             if not child_fp.exists(): child_fp.makedirs()
             self.putChild(name, cls(child_fp.path))
+
+    def url(self):
+        return joinURL(self._parent.url(), self.record.shortName)
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
