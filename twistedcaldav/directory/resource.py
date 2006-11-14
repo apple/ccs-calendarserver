@@ -153,7 +153,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     Directory principal resource.
     """
     def __init__(self, path, parent, record):
-        super(DirectoryPrincipalResource, self).__init__(path, parent.principalCollectionURL())
+        super(DirectoryPrincipalResource, self).__init__(path, joinURL(parent.principalCollectionURL(), record.shortName))
 
         self.record = record
         self._parent = parent
@@ -188,6 +188,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             "Full name: %(fullName)s\n"
             % self.record.__dict__,
             "Principal UID: %s\n" % self.principalUID(),
+            "Principal URL: %s\n" % self.principalURL(),
             "\nAlternate URIs:\n"         , format_list(self.alternateURIs),
             "\nGroup members:\n"          , format_list(self.groupMembers),
             "\nGroup memberships:\n"      , format_list(self.groupMemberships),
@@ -260,5 +261,14 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def calendarUserAddresses(self):
         return (
-            self.principalUID(),
+            self.principalURL(),
+
+            # Need to implement GUID->record lookup first
+            #"urn:uuid:%s" % (self.record.guid,)
+
+            # Need to add email attribute to records if we want this
+            #"mailto:%s" % (self.record.emailAddress)
+
+            # This one needs a valid scheme.  If we make up our own, need to check the RFC for character rules.
+            #"urn:calendarserver.macosforge.org:webdav:principal:%s:%s" % (self.record.recordType, self.record.shortName),
         )
