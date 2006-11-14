@@ -38,7 +38,7 @@ limitations under the License.
         </acl>
       </properties>
       <members>
-        <collection name="principals">
+        <collection name="principals" tag="principals">
           <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
           <properties>
             <acl>
