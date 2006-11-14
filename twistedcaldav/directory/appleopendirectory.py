@@ -137,14 +137,14 @@ class OpenDirectoryService(DirectoryService):
         return self._records[recordType]
 
     def listRecords(self, recordType):
-        return self._cacheRecords(recordType).values()
+        return self._cacheRecords(recordType).itervalues()
 
     def recordWithShortName(self, recordType, shortName):
         return self._cacheRecords(recordType).get(shortName, None)
 
     def recordWithGUID(self, guid):
         for recordType in self.recordTypes():
-            for record in self._cacheRecords(recordType).values():
+            for record in self._cacheRecords(recordType).itervalues():
                 if record.guid == guid:
                     return record
         return None
@@ -204,9 +204,9 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield record
 
     def groups(self):
-        # FIXME:
-        # Need an API here from opendirectory which finds all groups containing this member
-        raise NotImplementedError("OpenDirectoryRecord.groups()")
+        for group in self.service._cacheRecords("group").itervalues():
+            if self.guid in group._memberGUIDs:
+                yield group
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
