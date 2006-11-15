@@ -734,7 +734,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         Provision the principal and a calendar account for it.
         
         @param name: C{str} name (uid) of principal.
-        @param pswd: C{str} password for BASIC authentication, of C{None}.
+        @param pswd: C{str} password for BASIC authentication, or C{None}.
         @param resetacl: C{True} if ACLs on the principal resource should be reset.
         @param cuaddrs: C{list} list of calendar user addresses, or C{None}
         @param cuhome: C{tuple} of (C{str} - URI of calendar home root, L{DAVResource} - resource of home root)
