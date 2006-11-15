@@ -30,6 +30,7 @@ __all__ = [
     "dateops",
     "db",
     "directory",
+    "dropbox",
     "ical",
     "index",
     "instance",
@@ -48,5 +49,7 @@ File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.t
 
 import twisted.web2.dav.davxml
 import twistedcaldav.caldavxml
+import twistedcaldav.customxml
 
 twisted.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
+twisted.web2.dav.davxml.registerElements(twistedcaldav.customxml)

@@ -35,7 +35,7 @@ Index: twisted/web2/dav/resource.py
                      return d
  
                  def ifAllowed(privileges, callback):
-@@ -286,6 +296,32 @@
+@@ -286,7 +296,33 @@
                          d.addCallback(gotACL)
                          return d
                      return ifAllowed((davxml.ReadACL(),), callback)
@@ -52,7 +52,7 @@ Index: twisted/web2/dav/resource.py
 +                    d = self.quota(request)
 +                    d.addCallback(callback)
 +                    return d
-+
+ 
 +                if name == "quota-used-bytes":
 +                    def callback(qvalue):
 +                        if qvalue is None:
@@ -65,10 +65,11 @@ Index: twisted/web2/dav/resource.py
 +                    d = self.quota(request)
 +                    d.addCallback(callback)
 +                    return d
- 
++
              elif namespace == twisted_dav_namespace:
                  if name == "resource-class":
-@@ -366,6 +402,18 @@
+                     class ResourceClass (davxml.WebDAVTextElement):
+@@ -366,12 +402,26 @@
          # FIXME: A set would be better here, that that's a python 2.4+ feature.
          qnames = list(self.liveProperties)
  
@@ -87,17 +88,15 @@ Index: twisted/web2/dav/resource.py
          for qname in self.deadProperties().list():
              if (qname not in qnames) and (qname[0] != twisted_private_namespace):
                  qnames.append(qname)
-@@ -370,7 +418,9 @@
-             if (qname not in qnames) and (qname[0] != twisted_private_namespace):
-                 qnames.append(qname)
  
 -        return succeed(qnames)
 +        yield qnames
-+
-+    listProperties = deferredGenerator(listProperties)
  
++    listProperties = deferredGenerator(listProperties)
++
      def listAllprop(self, request):
          """
+         Some DAV properties should not be returned to a C{DAV:allprop} query.
 @@ -509,6 +559,9 @@
              reactor.callLater(0, getChild)
  
@@ -169,7 +168,7 @@ Index: twisted/web2/dav/resource.py
                      response = UnauthorizedResponse(request.credentialFactories,
                                                      request.remoteAddr)
                  else:
-@@ -600,8 +656,13 @@
+@@ -600,16 +656,22 @@
  
      def authenticate(self, request):
          def loginSuccess(result):
@@ -185,7 +184,6 @@ Index: twisted/web2/dav/resource.py
  
          if not (
              hasattr(request, 'portal') and 
-@@ -608,8 +669,9 @@
              hasattr(request, 'credentialFactories') and
              hasattr(request, 'loginInterfaces')
          ):
@@ -212,16 +210,13 @@ Index: twisted/web2/dav/resource.py
  
                  def login(pcreds):
                      d = request.portal.login(pcreds, None, *request.loginInterfaces)
-@@ -635,7 +699,7 @@
+@@ -635,13 +699,14 @@
  
                      return d
  
 -                d = self.findPrincipalForAuthID(request, creds.username)
 +                d = self.principalsForAuthID(request, creds.username)
                  d.addCallback(gotDetails).addCallback(login)
- 
-                 return d
-@@ -640,8 +704,9 @@
  
                  return d
          else:
@@ -247,7 +242,7 @@ Index: twisted/web2/dav/resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -666,31 +731,25 @@
+@@ -666,32 +731,26 @@
          present on this resource, it tries to get it from the parent, unless it
          is the root or has no parent.
          """
@@ -271,15 +266,18 @@ Index: twisted/web2/dav/resource.py
 -            myURL = request.urlForResource(self)
 -            if myURL != "/":
 -                parentURL = parentForURL(myURL)
--
--                parent = waitForDeferred(request.locateResource(parentURL))
--                yield parent
--                parent = parent.getResult()
 +        def gotParent(parent):
 +            if parent is None:
 +                return ()
 +            else:
 +                return parent.principalCollections(request)
+ 
+-                parent = waitForDeferred(request.locateResource(parentURL))
+-                yield parent
+-                parent = parent.getResult()
++        d = request.locateResource(parentForURL(myURL))
++        d.addCallback(gotParent)
++        return d
  
 -                if parent:
 -                    principalCollections = waitForDeferred(parent.principalCollections(request))
@@ -289,13 +287,11 @@ Index: twisted/web2/dav/resource.py
 -        yield principalCollections
 -
 -    principalCollections = deferredGenerator(principalCollections)
-+        d = request.locateResource(parentForURL(myURL))
-+        d.addCallback(gotParent)
-+        return d
- 
+-
      def defaultAccessControlList(self):
          """
-@@ -1146,11 +1205,14 @@
+         @return: the L{davxml.ACL} element containing the default access control
+@@ -1146,49 +1205,95 @@
  
          This implementation returns an empty set.
          """
@@ -310,9 +306,6 @@ Index: twisted/web2/dav/resource.py
 +        principals are the same.
 +
          @param request: the L{IRequest} for the request in progress.
-         @param authid: a string containing the
-             authentication/authorization identifier for the principal
-@@ -1155,12 +1217,47 @@
          @param authid: a string containing the
              authentication/authorization identifier for the principal
              to lookup.
@@ -363,7 +356,6 @@ Index: twisted/web2/dav/resource.py
          # Try to match principals in each principal collection on the resource
          collections = waitForDeferred(self.principalCollections(request))
          yield collections
-@@ -1167,7 +1264,7 @@
          collections = collections.getResult()
  
          for collection in collections:
@@ -371,8 +363,6 @@ Index: twisted/web2/dav/resource.py
 +            principalURI = joinURL(collection, authid)
  
              principal = waitForDeferred(request.locateResource(principalURI))
-             yield principal
-@@ -1173,22 +1270,30 @@
              yield principal
              principal = principal.getResult()
  
@@ -385,15 +375,15 @@ Index: twisted/web2/dav/resource.py
 -            principalCollections = waitForDeferred(self.principalCollections(request))
 -            yield principalCollections
 -            principalCollections = principalCollections.getResult()
--
++            yield None
++            return
+ 
 -            if len(principalCollections) == 0:
 -                log.msg("DAV:principal-collection-set property cannot be found on the resource being authorized: %s" % self)
 -            else:
 -                log.msg("Could not find principal matching user id: %s" % authid)
 -            raise HTTPError(responsecode.FORBIDDEN)
-+            yield None
-+            return
- 
+-
      findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
  
 +    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):

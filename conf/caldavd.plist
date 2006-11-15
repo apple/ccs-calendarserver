@@ -65,6 +65,21 @@ limitations under the License.
   <key>ResetAccountACLs</key>
   <true/>
 
+  <key>DropBoxEnabled</key>
+  <true/>
+
+  <key>DropBoxName</key>
+  <string>dropbox</string>
+
+  <key>DropBoxInheritedACLs</key>
+  <true/>
+
+  <key>NotificationsEnabled</key>
+  <true/>
+
+  <key>NotificationCollectionName</key>
+  <string>notifications</string>
+
   <key>twistdLocation</key>
   <string>/usr/share/caldavd/bin/twistd</string>
 

@@ -55,9 +55,10 @@ from twisted.web2.stream import MemoryStream
 import twisted.web2.server
 
 import twistedcaldav
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, customxml
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import apple_namespace
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.extensions import DAVResource
 
@@ -295,11 +296,17 @@ class CalDAVResource (DAVResource):
         """
         See L{ICalDAVResource.isCalendarCollection}.
         """
+        return self.isSpecialCollection(caldavxml.Calendar)
+
+    def isSpecialCollection(self, collectiontype):
+        """
+        See L{ICalDAVResource.isSpecialCollection}.
+        """
         if not self.isCollection(): return False
 
         try:
             resourcetype = self.readDeadProperty((dav_namespace, "resourcetype"))
-            return resourcetype.isCalendar()
+            return bool(resourcetype.childrenOfType(collectiontype))
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND
             return False
@@ -309,6 +316,22 @@ class CalDAVResource (DAVResource):
         See L{ICalDAVResource.isPseudoCalendarCollection}.
         """
         return self.isCalendarCollection()
+
+    def isNonCalendarCollectionParent(self):
+        """
+        See L{ICalDAVResource.isNonCalendarCollectionParent}.
+        """
+        
+        # Cannot create calendars inside other calendars or a drop box home
+        return self.isPseudoCalendarCollection() or self.isSpecialCollection(customxml.DropBoxHome)
+
+    def isNonCollectionParent(self):
+        """
+        See L{ICalDAVResource.isNonCalendarCollectionParent}.
+        """
+        
+        # Cannot create collections inside a drop box
+        return self.isPseudoCalendarCollection() or self.isSpecialCollection(customxml.DropBox)
 
     def findCalendarCollections(self, depth, request, callback, privileges=None):
         """
@@ -435,13 +458,17 @@ class CalDAVResource (DAVResource):
         """
         Write a new ACL to the resource's property store. We override this for calendar collections
         and force all the ACEs to be inheritable so that all calendar object resources within the
-        calendar collection have the same privileges unless explicitly overridden.
+        calendar collection have the same privileges unless explicitly overridden. The same applies
+        to drop box collections as we want all resources (attachments) to have the same privileges as
+        the drop box collection.
         
         @param newaces: C{list} of L{ACE} for ACL being set.
         """
         
         # Do this only for regular calendar collections and Inbox/Outbox
-        if self.isPseudoCalendarCollection():
+        from twistedcaldav.dropbox import DropBox
+        if self.isPseudoCalendarCollection() or \
+            DropBox.enabled and self.isSpecialCollection(customxml.DropBox):
             # Add inheritable option to each ACE in the list
             for ace in newaces:
                 if TwistedACLInheritable() not in ace.children:
@@ -646,6 +673,22 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
 
+            elif namespace == apple_namespace:
+                if name == "dropbox-home-URL":
+                    url = self.dropboxURL()
+                    if url is None:
+                        return None
+                    else:
+                        return customxml.DropBoxHomeURL(davxml.HRef(url))
+
+                if name == "notifications-URL":
+                    # Use the first calendar home only
+                    url = self.notificationsURL()
+                    if url is None:
+                        return None
+                    else:
+                        return customxml.NotificationsURL(davxml.HRef(url))
+
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 
         return maybeDeferred(defer)
@@ -720,6 +763,30 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         else:
             return None
         
+    def dropboxURL(self):
+        """
+        @return: the drop box home collection URL for this principal.
+        """
+        # Use the first calendar home only
+        from twistedcaldav.dropbox import DropBox
+        url = None
+        for home in self.calendarHomeURLs():
+            url = joinURL(home, DropBox.dropboxName) + "/"
+            break
+        return url
+        
+    def notificationsURL(self):
+        """
+        @return: the notifications collection URL for this principal.
+        """
+        # Use the first calendar home only
+        from twistedcaldav.dropbox import DropBox
+        url = None
+        for home in self.calendarHomeURLs():
+            url = joinURL(home, DropBox.notifcationName) + "/"
+            break
+        return url
+
     def matchesCalendarUserAddress(self, request, address):
         """
         Determine whether this principal matches the supplied calendar user
@@ -840,6 +907,22 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
+
+def isNonCalendarCollectionParentResource(resource):
+    try:
+        resource = ICalDAVResource(resource)
+    except TypeError:
+        return False
+    else:
+        return resource.isNonCalendarCollectionParent()
+
+def isNonCollectionParentResource(resource):
+    try:
+        resource = ICalDAVResource(resource)
+    except TypeError:
+        return False
+    else:
+        return resource.isNonCollectionParent()
 
 def isScheduleInboxResource(resource):
     try:

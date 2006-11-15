@@ -25,9 +25,10 @@ This API is considered private to static.py and is therefore subject to
 change.
 """
 
-from twisted.web2.dav.element import parser
 from twisted.web2.dav.resource import twisted_dav_namespace
 from twisted.web2.dav import davxml
+
+apple_namespace = "http://apple.com/ns/calendarserver/"
 
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
@@ -40,8 +41,6 @@ class TwistedGUIDProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
-parser.registerElement(TwistedGUIDProperty)
-
 class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
     """
     Contains the Last-Modified value for a directory record corresponding to a principal.
@@ -52,8 +51,6 @@ class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
 
     def getValue(self):
         return str(self)
-
-parser.registerElement(TwistedLastModifiedProperty)
 
 class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
     """
@@ -66,8 +63,6 @@ class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
-parser.registerElement(TwistedCalendarPrincipalURI)
-
 class TwistedGroupMemberGUIDs(davxml.WebDAVElement):
     """
     Contains a list of GUIDs (TwistedGUIDProperty) for members of a group. Only used on group principals.
@@ -78,8 +73,6 @@ class TwistedGroupMemberGUIDs(davxml.WebDAVElement):
 
     allowed_children = { (twisted_dav_namespace, "guid"): (0, None) }
 
-parser.registerElement(TwistedGroupMemberGUIDs)
-
 class TwistedScheduleAutoRespond(davxml.WebDAVEmptyElement):
     """
     When set on an Inbox, scheduling requests are automatically handled.
@@ -88,4 +81,105 @@ class TwistedScheduleAutoRespond(davxml.WebDAVEmptyElement):
     name = "schedule-auto-respond"
     hidden = True
 
-parser.registerElement(TwistedScheduleAutoRespond)
+class DropBoxHome (davxml.WebDAVEmptyElement):
+    """
+    Denotes a drop box home collection (a collection that will contain drop boxes).
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "dropbox-home"
+
+class DropBox (davxml.WebDAVEmptyElement):
+    """
+    Denotes a drop box collection.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "dropbox"
+
+class Notifications (davxml.WebDAVEmptyElement):
+    """
+    Denotes a notifications collection.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "notifications"
+
+class DropBoxHomeURL (davxml.WebDAVElement):
+    """
+    A principal property to indicate the location of the drop box home.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "dropbox-home-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class NotificationsURL (davxml.WebDAVElement):
+    """
+    A principal property to indicate the location of the notification collection.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "notifications-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class Notification(davxml.WebDAVElement):
+    """
+    Root element for XML data in a notification resource.
+    """
+    namespace = apple_namespace
+    name = "notification"
+
+    allowed_children = {
+        (apple_namespace, "time-stamp" ): (1, 1),
+        (apple_namespace, "changed"    ): (1, 1),
+    }
+
+class TimeStamp (davxml.WebDAVTextElement):
+    """
+    A property to indicate the timestamp of a notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "time-stamp"
+    hidden = True
+    protected = True
+
+class Changed (davxml.WebDAVElement):
+    """
+    A property to indicate the URI of the drop box that generated
+    notification resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "changed"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class Subscribed (davxml.WebDAVElement):
+    """
+    A property to indicate which principals will receive notifications.
+    (Apple Extension to CalDAV)
+    """
+    namespace = apple_namespace
+    name = "subscribed"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
+
+##
+# Extensions to davxml.ResourceType
+##
+
+davxml.ResourceType.dropboxhome = davxml.ResourceType(davxml.Collection(), DropBoxHome())
+davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
+davxml.ResourceType.notifications = davxml.ResourceType(davxml.Collection(), Notifications())

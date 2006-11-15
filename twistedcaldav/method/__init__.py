@@ -36,4 +36,6 @@ __all__ = [
     "report_multiget",
     "report_freebusy",
     "schedule_common",
+    "x_apple_subscribe",
+    "x_apple_unsubscribe",
 ]

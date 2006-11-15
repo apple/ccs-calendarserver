@@ -10,7 +10,7 @@ Index: twisted/web2/dav/davxml.py
  
  #
  # Register all XML elements with the parser
-@@ -56,6 +57,7 @@
+@@ -56,11 +57,13 @@
  import twisted.web2.dav.element.rfc2518
  import twisted.web2.dav.element.rfc3253
  import twisted.web2.dav.element.rfc3744
@@ -18,7 +18,6 @@ Index: twisted/web2/dav/davxml.py
  
  __all__ = (
      registerElements(twisted.web2.dav.element.base   ) +
-@@ -62,5 +64,6 @@
      registerElements(twisted.web2.dav.element.parser ) +
      registerElements(twisted.web2.dav.element.rfc2518) +
      registerElements(twisted.web2.dav.element.rfc3253) +

@@ -54,7 +54,7 @@ from twistedcaldav import customxml
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, db_basename
-from twistedcaldav.resource import CalDAVResource, isPseudoCalendarCollectionResource, CalendarPrincipalResource
+from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParentResource, CalendarPrincipalResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
@@ -103,7 +103,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
             return self.createCalendarCollection()
             
-        parent = self._checkParents(request, isPseudoCalendarCollectionResource)
+        parent = self._checkParents(request, isNonCalendarCollectionParentResource)
         parent.addCallback(_defer)
         return parent
 
@@ -111,22 +111,29 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         # Create the collection once we know it is safe to do so
         #
+        return self.createSpecialCollection(davxml.ResourceType.calendar)
+    
+    def createSpecialCollection(self, resourceType=None):
+        #
+        # Create the collection once we know it is safe to do so
+        #
         def onCollection(status):
             if status != responsecode.CREATED:
                 raise HTTPError(status)
     
-            self.writeDeadProperty(davxml.ResourceType.calendar)
+            self.writeDeadProperty(resourceType)
             return status
         
         def onError(f):
             try:
                 rmdir(self.fp)
             except Exception, e:
-                log.err("Unable to clean up after failed MKCALENDAR: %s" % e)
+                log.err("Unable to clean up after failed MKCOL (special resource type: %s): %s" % (e, resourceType,))
             return f
 
         d = mkcollection(self.fp)
-        d.addCallback(onCollection)
+        if resourceType is not None:
+            d.addCallback(onCollection)
         d.addErrback(onError)
         return d
  
@@ -722,7 +729,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         """
         return self.fp.basename()
 
-    def provisionCalendarAccount(self, name, pswd, resetacl, cuaddrs, cuhome, cuhomeacls, cals, autorespond):
+    def provisionCalendarAccount(self, name, pswd, resetacl, cuaddrs, cuhome, cuhomeacls, quota, cals, autorespond, allowdropbox):
         """
         Provision the principal and a calendar account for it.
         
@@ -734,6 +741,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         @param cuhomeacls: L{ACL} acls to use on calendar home when resetting ACLs, or C{None} to use default set.
         @param cals: C{list} list of calendar names to create in the calendar home for this prinicpal.
         @param autorespond: C{True} if iTIP auto-response is required, C{False} otherwise.
+        @param allowdropbox: C{True} if drop box should be enabled for this user is drop box is supproted, C{False} otherwise.
         """
         
         if pswd:
@@ -765,89 +773,101 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         if not cuaddrs and not cals:
             return
 
-        # Create calendar home
-        homeURL = joinURL(cuhome[0], self.principalUID())
-        home = FilePath(os.path.join(cuhome[1].fp.path, self.principalUID()))
-        home_exists = home.exists()
-        if not home_exists:
-            home.createDirectory()
-        home = CalendarHomeFile(home.path)
-
-        if resetacl or not home_exists:
-            if cuhomeacls:
-                home.setAccessControlList(cuhomeacls.acl)
-            else:
-                home.setAccessControlList(
+        # Create calendar home if we already have the resource, otherwise simply record
+        # the URL as the calendar-home-set
+        if cuhome[1] is None:
+            self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(cuhome[0])))
+        else:
+            homeURL = joinURL(cuhome[0], self.principalUID())
+            home = FilePath(os.path.join(cuhome[1].fp.path, self.principalUID()))
+            home_exists = home.exists()
+            if not home_exists:
+                home.createDirectory()
+            home = CalendarHomeFile(home.path)
+    
+            if resetacl or not home_exists:
+                if cuhomeacls:
+                    home.setAccessControlList(cuhomeacls.acl)
+                else:
+                    home.setAccessControlList(
+                        davxml.ACL(
+                            davxml.ACE(
+                                davxml.Principal(davxml.Authenticated()),
+                                davxml.Grant(
+                                    davxml.Privilege(davxml.Read()),
+                                ),
+                            ),
+                            davxml.ACE(
+                                davxml.Principal(davxml.HRef.fromString(self._url)),
+                                davxml.Grant(
+                                    davxml.Privilege(davxml.All()),
+                                ),
+                                TwistedACLInheritable(),
+                            ),
+                        )
+                    )
+            
+            # Handle quota on calendar home
+            home.setQuotaRoot(None, quota)
+        
+            # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
+            self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
+            self.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
+            self.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
+            
+            # Set ACLs on inbox and outbox
+            if resetacl or not home_exists:
+                inbox = home.getChild("inbox")
+                inbox.setAccessControlList(
                     davxml.ACL(
                         davxml.ACE(
                             davxml.Principal(davxml.Authenticated()),
                             davxml.Grant(
-                                davxml.Privilege(davxml.Read()),
+                                davxml.Privilege(caldavxml.Schedule()),
                             ),
-                        ),
-                        davxml.ACE(
-                            davxml.Principal(davxml.HRef.fromString(self._url)),
-                            davxml.Grant(
-                                davxml.Privilege(davxml.All()),
-                            ),
-                            TwistedACLInheritable(),
                         ),
                     )
                 )
-        
-        # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
-        self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
-        self.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
-        self.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
-        
-        # Set ACLs on inbox and outbox
-        if resetacl or not home_exists:
+                if autorespond:
+                    inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+    
+                outbox = home.getChild("outbox")
+                if outbox.hasDeadProperty(davxml.ACL()):
+                    outbox.removeDeadProperty(davxml.ACL())
+    
+            calendars = []
+            for calendar in cals:
+                childURL = joinURL(homeURL, calendar)
+                child = CalDAVFile(os.path.join(home.fp.path, calendar))
+                child_exists = child.exists()
+                if not child_exists:
+                    c = child.createCalendarCollection()
+                    assert c.called
+                    c = c.result
+                calendars.append(childURL)
+                if (resetacl or not child_exists):
+                    child.setAccessControlList(
+                        davxml.ACL(
+                            davxml.ACE(
+                                davxml.Principal(davxml.Authenticated()),
+                                davxml.Grant(
+                                    davxml.Privilege(caldavxml.ReadFreeBusy()),
+                                ),
+                                TwistedACLInheritable(),
+                            ),
+                        )
+                    )
+            
+            # Set calendar-free-busy-set on Inbox if not already present
             inbox = home.getChild("inbox")
-            inbox.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.Authenticated()),
-                        davxml.Grant(
-                            davxml.Privilege(caldavxml.Schedule()),
-                        ),
-                    ),
-                )
-            )
-            if autorespond:
-                inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-
-            outbox = home.getChild("outbox")
-            if outbox.hasDeadProperty(davxml.ACL()):
-                outbox.removeDeadProperty(davxml.ACL())
-
-        calendars = []
-        for calendar in cals:
-            childURL = joinURL(homeURL, calendar)
-            child = CalDAVFile(os.path.join(home.fp.path, calendar))
-            child_exists = child.exists()
-            if not child_exists:
-                c = child.createCalendarCollection()
-                assert c.called
-                c = c.result
-            calendars.append(childURL)
-            if (resetacl or not child_exists):
-                child.setAccessControlList(
-                    davxml.ACL(
-                        davxml.ACE(
-                            davxml.Principal(davxml.Authenticated()),
-                            davxml.Grant(
-                                davxml.Privilege(caldavxml.ReadFreeBusy()),
-                            ),
-                            TwistedACLInheritable(),
-                        ),
-                    )
-                )
-        
-        # Set calendar-free-busy-set on Inbox if not already present
-        inbox = home.getChild("inbox")
-        if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
-            inbox.writeDeadProperty(fbset)
+            if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
+                fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
+                inbox.writeDeadProperty(fbset)
+                
+            # Do drop box if requested
+            if allowdropbox:
+                from twistedcaldav.dropbox import DropBox
+                DropBox.provision(self, (homeURL, home))
 
 
 class CalendarPrincipalCollectionFile (CalendarPrincipalCollectionResource, DAVFile):

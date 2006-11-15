@@ -22,10 +22,13 @@ CalDAV DELETE method.
 
 __all__ = ["http_DELETE"]
 
-from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
-from twisted.web2.iweb import IResponse
+from twisted.web2.dav.util import parentForURL
 
+from twistedcaldav import customxml
+from twistedcaldav.dropbox import DropBox
+from twistedcaldav.notifications import Notification
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_DELETE(self, request):
@@ -33,24 +36,31 @@ def http_DELETE(self, request):
     # Override base DELETE request handling to ensure that the calendar
     # index file has the entry for the deleted calendar component removed.
     #
-    def deleteFromIndex(response):
-        response = IResponse(response)
+    # Also handle notifications in a drop box collection.
+    #
 
-        if response.code == responsecode.NO_CONTENT:
-            def deleteFromParent(parent):
-                if isPseudoCalendarCollectionResource(parent):
-                    index = parent.index()
-                    index.deleteResource(self.fp.basename())
+    parentURL = parentForURL(request.uri)
+    parent = waitForDeferred(request.locateResource(parentURL))
+    yield parent
+    parent = parent.getResult()
 
-                return response
-            
-            # Remove index entry if we are a child of a calendar collection
-            d = self.locateParent(request, request.uri)
-            d.addCallback(deleteFromParent)
-            return d
+    d = waitForDeferred(super(CalDAVFile, self).http_DELETE(request))
+    yield d
+    response = d.getResult()
 
-        return response
+    if response == responsecode.NO_CONTENT:
 
-    d = maybeDeferred(super(CalDAVFile, self).http_DELETE, request)
-    d.addCallback(deleteFromIndex)
-    return d
+        if isPseudoCalendarCollectionResource(parent):
+            index = parent.index()
+            index.deleteResource(self.fp.basename())
+
+        elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
+            # We need to handle notificiations
+            notification = Notification(parentURL=parentURL)
+            d = waitForDeferred(notification.doNotification(request, parent))
+            yield d
+            d.getResult()
+
+    yield response
+
+http_DELETE = deferredGenerator(http_DELETE)

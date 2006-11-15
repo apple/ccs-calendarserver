@@ -22,7 +22,7 @@ Index: twisted/web2/dav/method/delete.py
      yield x
 -    yield x.getResult()
 +    result = x.getResult()
-+
+ 
 +    # Adjust quota
 +    if myquota is not None:
 +        d = waitForDeferred(self.quotaSizeAdjust(request, -old_size))
@@ -30,5 +30,5 @@ Index: twisted/web2/dav/method/delete.py
 +        d.getResult()
 +    
 +    yield result
- 
++
  http_DELETE = deferredGenerator(http_DELETE)

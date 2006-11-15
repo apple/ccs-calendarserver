@@ -25,17 +25,22 @@ __all__ = ["http_PUT"]
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
+from twisted.web2.dav.element.base import twisted_dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.notifications import Notification
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_PUT(self, request):
 
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+    parentURL = parentForURL(request.uri)
+    parent = waitForDeferred(request.locateResource(parentURL))
     yield parent
     parent = parent.getResult()
 
@@ -71,9 +76,31 @@ def http_PUT(self, request):
             yield d
             yield d.getResult()
             return
+
         except ValueError, e:
             log.err("Error while handling (calendar) PUT: %s" % (e,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
+
+    elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBoxHome):
+        # Cannot create resources in a drop box home collection
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (twisted_dav_namespace, "valid-drop-box")))
+
+    elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
+        # We need to handle notificiations
+        
+        # Do the normal http_PUT behavior
+        d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
+        yield d
+        response = d.getResult()
+        
+        if response.code in (responsecode.OK, responsecode.CREATED, responsecode.NO_CONTENT):
+            notification = Notification(parentURL=parentURL)
+            d = waitForDeferred(notification.doNotification(request, parent))
+            yield d
+            d.getResult()
+        
+        yield response
+        return
 
     else:
         d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))

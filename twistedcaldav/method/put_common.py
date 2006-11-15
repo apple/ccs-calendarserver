@@ -72,7 +72,7 @@ def storeCalendarObjectResource(
     @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
     @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
     @param isiTIP:            True if relaxed calendar data validation is to be done, False otherwise.
-    @return:                  status response.
+    @return:                  a Deferred with a status response result.
     """
     
     try:

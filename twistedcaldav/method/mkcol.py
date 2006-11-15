@@ -24,15 +24,18 @@ __all__ = ["http_MKCOL"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
+from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav import customxml
+from twistedcaldav.resource import isNonCollectionParentResource
 
 def http_MKCOL(self, request):
     #
     # Don't allow DAV collections in a calendar collection for now
     #
-    parent = waitForDeferred(self._checkParents(request, isPseudoCalendarCollectionResource))
+    parent = waitForDeferred(self._checkParents(request, isNonCollectionParentResource))
     yield parent
     parent = parent.getResult()
     if parent is not None:
@@ -43,6 +46,17 @@ def http_MKCOL(self, request):
 
     d = waitForDeferred(super(CalDAVFile, self).http_MKCOL(request))
     yield d
-    yield d.getResult()
+    result = d.getResult()
+    
+    # Check for drop box creation and give it a special resource type
+    from twistedcaldav.dropbox import DropBox
+    if result == responsecode.CREATED and DropBox.enabled:
+        parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
+        yield parent
+        parent = parent.getResult()
+        if parent.isSpecialCollection(customxml.DropBoxHome):
+             self.writeDeadProperty(davxml.ResourceType.dropbox)
+    
+    yield result
 
 http_MKCOL = deferredGenerator(http_MKCOL)

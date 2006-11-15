@@ -25,7 +25,7 @@ Index: twisted/web2/dav/element/base.py
 +    def writeToStream(self, output, ns, level, pretty):
 +        """
 +        Fast XML output.
-+
+ 
 +        @param output: C{stream} to write to.
 +        @param ns: C{str} containing the namespace of the enclosing element.
 +        @param level: C{int} containing the element nesting level (starts at 0).
@@ -84,7 +84,7 @@ Index: twisted/web2/dav/element/base.py
 +
 +        if pretty and level:
 +            output.write("\r\n")
- 
++
 +    def writeAttributeToStream(self, output, name, value):
 +        
 +        # Quote any single quotes. We do not need to be any smarter than this.

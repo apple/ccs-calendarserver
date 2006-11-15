@@ -41,11 +41,11 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav import caldavxml, customxml
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
+from twistedcaldav.static import CalendarHomeFile, CalendarPrincipalFile
 from twistedcaldav.directory.cred import DirectoryCredentialsChecker
 
 import os
@@ -124,7 +124,12 @@ ELEMENT_AUTORESPOND = "autorespond"
 ELEMENT_CANPROXY = "canproxy"
 ATTRIBUTE_REPEAT = "repeat"
 
-def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl, port, sslport, maxsize, quota, serverlogfile, manhole):
+def startServer(docroot, repo, doacct, doacl, dossl,
+                keyfile, certfile, onlyssl, port, sslport, maxsize,
+                quota, serverlogfile,
+                dropbox, dropboxName, dropboxACLs,
+                notifications, notifcationName,
+                manhole):
     """
     Start the server using XML-based configuration details and supplied .plist based options.
     """
@@ -169,6 +174,9 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
             MultiService.stopService(self)
             self.logObserver.stop()
     
+    # Turn on drop box support before building the repository
+    DropBox.enable(dropbox, dropboxName, dropboxACLs, notifications, notifcationName)
+
     # Build the server
     builder = RepositoryBuilder(docroot,
                                 doAccounts=doacct,
@@ -725,126 +733,27 @@ class Provisioner (object):
             principal.open("w").close()
             log.msg("Created principal: %s" % principalURL)
         principal = CalendarPrincipalFile(principal.path, principalURL)
-        if len(item.pswd):
-            principal.writeDeadProperty(auth.TwistedPasswordProperty.fromString(item.pswd))
-        else:
-            principal.removeDeadProperty(auth.TwistedPasswordProperty())
-        if len(item.name):
-            principal.writeDeadProperty(davxml.DisplayName.fromString(item.name))
-        else:
-            principal.removeDeadProperty(davxml.DisplayName())
-        if len(item.cuaddrs):
-            principal.writeDeadProperty(caldavxml.CalendarUserAddressSet(*[davxml.HRef(addr) for addr in item.cuaddrs]))
-        else:
-            principal.removeDeadProperty(caldavxml.CalendarUserAddressSet())
-
-        if resetACLs or not principal_exists:
-            principal.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef.fromString(principalURL)),
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Read()),
-                        ),
-                    ),
-                )
-            )
-
-        # If the user does not have any calendar user addresses we do not create a calendar home for them
-        if not item.cuaddrs and not item.calendars:
-            return
-
+        
+        # Special case: if we have an explicit cuhome URL, we will use that,
+        # otherwise we fall back to the inferred home and resource
         if item.cuhome:
-            principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(item.cuhome)))
+            cuhome = (item.cuhome, None)
         else:
-            # Create calendar home
-            homeURL = joinURL(self.calendarHome.uri, item.uid)
-            home = FilePath(os.path.join(self.calendarHome.resource.fp.path, item.uid))
-            home_exists = home.exists()
-            if not home_exists:
-                home.createDirectory()
-            home = CalendarHomeFile(home.path)
-    
-            # Handle ACLs on calendar home
-            if resetACLs or not home_exists:
-                if item.acl:
-                    home.setAccessControlList(item.acl.acl)
-                else:
-                    home.setAccessControlList(
-                        davxml.ACL(
-                            davxml.ACE(
-                                davxml.Principal(davxml.Authenticated()),
-                                davxml.Grant(
-                                    davxml.Privilege(davxml.Read()),
-                                ),
-                            ),
-                            davxml.ACE(
-                                davxml.Principal(davxml.HRef.fromString(principalURL)),
-                                davxml.Grant(
-                                    davxml.Privilege(davxml.All()),
-                                ),
-                                TwistedACLInheritable(),
-                            ),
-                        )
-                    )
+            cuhome = (self.calendarHome.uri, self.calendarHome.resource)
             
-            # Handle quota on calendar home
-            home.setQuotaRoot(None, item.quota)
-    
-            # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
-            principal.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
-            principal.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
-            principal.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
-            
-            # Set ACLs on inbox and outbox
-            if resetACLs or not home_exists:
-                inbox = home.getChild("inbox")
-                inbox.setAccessControlList(
-                    davxml.ACL(
-                        davxml.ACE(
-                            davxml.Principal(davxml.Authenticated()),
-                            davxml.Grant(
-                                davxml.Privilege(caldavxml.Schedule()),
-                            ),
-                        ),
-                    )
-                )
-                if item.autorespond:
-                    inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-    
-                outbox = home.getChild("outbox")
-                if outbox.hasDeadProperty(davxml.ACL()):
-                    outbox.removeDeadProperty(davxml.ACL())
-    
-            calendars = []
-            for calendar in item.calendars:
-                childURL = joinURL(homeURL, calendar)
-                child = CalDAVFile(os.path.join(home.fp.path, calendar))
-                child_exists = child.exists()
-                if not child_exists:
-                    c = child.createCalendarCollection()
-                    assert c.called
-                    c = c.result
-                    
-                calendars.append(childURL)
-                if (resetACLs or not child_exists):
-                    child.setAccessControlList(
-                        davxml.ACL(
-                            davxml.ACE(
-                                davxml.Principal(davxml.Authenticated()),
-                                davxml.Grant(
-                                    davxml.Privilege(caldavxml.ReadFreeBusy()),
-                                ),
-                                TwistedACLInheritable(),
-                            ),
-                        )
-                    )
-            
-            # Set calendar-free-busy-set on Inbox if not already present
-            inbox = home.getChild("inbox")
-            if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-                fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
-                inbox.writeDeadProperty(fbset)
+        # Principal knows how to provision itself in the appropriate manner
+        principal.provisionCalendarAccount(
+            item.name,
+            item.pswd,
+            resetACLs or not principal_exists,
+            item.cuaddrs,
+            cuhome,
+            item.acl,
+            item.quota,
+            item.calendars,
+            item.autorespond,
+            True
+            )
 
 class ProvisionPrincipal (object):
     """
