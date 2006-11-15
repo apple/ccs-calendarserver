@@ -576,7 +576,11 @@ def findAnyCalendarUser(request, address):
     """
     for url in CalendarPrincipalCollectionResource.principleCollectionSet.keys():
         try:
-            pcollection = CalendarPrincipalCollectionResource.principleCollectionSet[url]
+            # Explicitly locate the prinicpal collection resource to force URL caching in request
+            pcollection = waitForDeferred(request.locateResource(url))
+            yield pcollection
+            pcollection = pcollection.getResult()
+
             if isinstance(pcollection, CalendarPrincipalCollectionResource):
                 principal = waitForDeferred(pcollection.findCalendarUser(request, address))
                 yield principal
