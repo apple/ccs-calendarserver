@@ -460,7 +460,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         return self.directory.recordTypes()
 
     def principalCollections(self, request):
-        # FIXME: self.directory.principalCollection smells like a hack
+        # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections(request)
 
@@ -560,6 +560,30 @@ class CalendarHomeFile (CalDAVFile):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        # FIXME: directory.principalCollection smells like a hack
+        # See DirectoryPrincipalProvisioningResource.__init__()
+        myPrincipal = self._parent._parent.directory.principalCollection.principalForRecord(self.record)
+
+        return davxml.ACL(
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+            ),
+            # Inheritable all access to resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
 
     ##
     # Quota
