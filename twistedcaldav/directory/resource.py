@@ -96,6 +96,12 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
 
+    def principalForRecord(self, record):
+        typeResource = self.getChild(record.recordType)
+        if typeResource is None:
+            return None
+        return typeResource.getChild(record.shortName)
+
     def principalCollections(self, request):
         return succeed((self.principalCollectionURL(),))
 
