@@ -1,7 +1,7 @@
-Index: resource.py
+Index: twisted/web2/dav/resource.py
 ===================================================================
---- resource.py	(revision 18545)
-+++ resource.py	(working copy)
+--- twisted/web2/dav/resource.py	(revision 18545)
++++ twisted/web2/dav/resource.py	(working copy)
 @@ -130,6 +130,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
          (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
