@@ -489,6 +489,7 @@ if ! "${disable_setup}"; then
   esac;
   svn_uri="${base}/vobject/trunk";
   svn_get "vObject" "${vobject}" "${svn_uri}" 160;
+  cp "${caldav}/support/setuptools-0.6c1-py2.4.egg" "${vobject}/";
 fi;
 py_install "vObject" "${vobject}";
 
