@@ -124,8 +124,9 @@ Index: twisted/web2/server.py
  
          def notFound(f):
              f.trap(http.HTTPError)
-             if f.response.code != responsecode.NOT_FOUND:
+-            if f.response.code != responsecode.NOT_FOUND:
 -                raise f
++            if f.value.response.code != responsecode.NOT_FOUND:
 +                return f
              return None
  
@@ -171,7 +172,7 @@ Index: twisted/web2/server.py
 +
 +        def notFound(f):
 +            f.trap(http.HTTPError)
-+            if f.response.code != responsecode.NOT_FOUND:
++            if f.value.response.code != responsecode.NOT_FOUND:
 +                return f
 +            return None
 +
