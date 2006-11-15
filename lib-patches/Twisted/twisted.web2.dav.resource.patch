@@ -258,7 +258,7 @@ Index: twisted/web2/dav/resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -666,32 +735,27 @@
+@@ -666,33 +735,28 @@
          present on this resource, it tries to get it from the parent, unless it
          is the root or has no parent.
          """
@@ -305,10 +305,42 @@ Index: twisted/web2/dav/resource.py
 -
 -    principalCollections = deferredGenerator(principalCollections)
 -
-     def defaultAccessControlList(self):
+-    def defaultAccessControlList(self):
++    def defaultRootAccessControlList(self):
          """
          @return: the L{davxml.ACL} element containing the default access control
-@@ -1146,49 +1210,97 @@
+             list for this resource.
+@@ -704,6 +768,17 @@
+         #
+         return readonlyACL
+ 
++    def defaultAccessControlList(self):
++        """
++        @return: the L{davxml.ACL} element containing the default access control
++            list for this resource.
++        """
++        #
++        # The default behaviour is no ACL; we should inherrit from the parent
++        # collection.
++        #
++        return davxml.ACL()
++
+     def setAccessControlList(self, acl):
+         """
+         See L{IDAVResource.setAccessControlList}.
+@@ -1032,9 +1107,9 @@
+ 
+             if myURL == "/":
+                 # If we get to the root without any ACLs, then use the default.
++                acl = self.defaultRootAccessControlList()
++            else:
+                 acl = self.defaultAccessControlList()
+-            else:
+-                acl = davxml.ACL()
+ 
+         # Dynamically update privileges for those ace's that are inherited.
+         if inheritance:
+@@ -1146,49 +1221,97 @@
  
          This implementation returns an empty set.
          """
@@ -428,7 +460,7 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1511,6 +1623,265 @@
+@@ -1511,6 +1634,265 @@
          return None
  
      ##
@@ -694,7 +726,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1929,7 @@
+@@ -1558,7 +1940,7 @@
      """
      DAV resource with no children.
      """
@@ -703,7 +735,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2083,37 @@
+@@ -1712,6 +2094,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
