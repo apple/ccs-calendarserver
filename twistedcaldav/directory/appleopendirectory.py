@@ -197,16 +197,16 @@ class OpenDirectoryRecord(DirectoryRecord):
             return
 
         for guid in self._memberGUIDs:
-            record = self.service.recordWithGUID(guid)
-            if record is None:
+            userRecord = self.service.recordWithGUID(guid)
+            if userRecord is None:
                 log.err("No record for member of group %s with GUID %s" % (self.shortName, guid))
             else:
-                yield record
+                yield userRecord
 
     def groups(self):
-        for group in self.service._cacheRecords("group").itervalues():
-            if self.guid in group._memberGUIDs:
-                yield group
+        for groupRecord in self.service._cacheRecords("group").itervalues():
+            if self.guid in groupRecord._memberGUIDs:
+                yield groupRecord
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
