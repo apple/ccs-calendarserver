@@ -80,7 +80,7 @@ class IDirectoryRecord(Interface):
             record is a member of.
         """
 
-    def authenticate(credentials):
+    def verifyCredentials(credentials):
         """
         Verify that the given credentials can authenticate the principal
         represented by this record.
