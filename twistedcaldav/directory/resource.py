@@ -426,7 +426,7 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         """
         # This will create it
         child_fp = self.fp.child(name)
-        assert not child_fp.exists()
+        #assert not child_fp.exists()
 
         assert self.exists()
         assert self.isCollection()
