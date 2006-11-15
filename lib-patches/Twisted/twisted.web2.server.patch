@@ -112,7 +112,7 @@ Index: twisted/web2/server.py
          #
          # Parse the URL
          #
-@@ -406,19 +422,66 @@
+@@ -406,18 +422,65 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
@@ -124,17 +124,15 @@ Index: twisted/web2/server.py
  
          def notFound(f):
              f.trap(http.HTTPError)
-             if f.response.code != responsecode.NOT_FOUND:
--                raise f
++            if f.value.response.code != responsecode.NOT_FOUND:
 +                return f
-             return None
- 
--        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
++            return None
++
 +        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
 +        d.addCallback(self._rememberResource, path)
 +        d.addErrback(notFound)
 +        return d
- 
++
 +    def locateChildResource(self, parent, child_name):
 +        """
 +        Looks up the child resource with the given name given the parent
@@ -171,15 +169,16 @@ Index: twisted/web2/server.py
 +
 +        def notFound(f):
 +            f.trap(http.HTTPError)
-+            if f.response.code != responsecode.NOT_FOUND:
+             if f.response.code != responsecode.NOT_FOUND:
+-                raise f
 +                return f
-+            return None
-+
+             return None
+ 
+-        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
 +        d = defer.maybeDeferred(self._getChild, None, parent, [segment], updatepaths=False)
 +        d.addCallback(self._rememberResource, url)
 +        d.addErrback(notFound)
 +        return d
-+
+ 
      def _processingFailed(self, reason):
          if reason.check(http.HTTPError) is not None:
-             # If the exception was an HTTPError, leave it alone
