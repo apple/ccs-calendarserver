@@ -393,10 +393,11 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
         # Get all the directory entries for the new ones in one go for better performance
         if new_names:
             new_entries = self.listCommonAttributes(new_names)
-            new_names = [n for n in new_entries.iterkeys()]
-            new_names.sort()
-            for name in new_names:
-                self.addPrincipal(name, attrs=new_entries[name], fast=True)
+            if new_entries is not None:
+                new_names = [n for n in new_entries.iterkeys()]
+                new_names.sort()
+                for name in new_names:
+                    self.addPrincipal(name, attrs=new_entries[name], fast=True)
             
         # Look for changes in entries
         common_entries = list(remoteguidset.intersection(localguidset))
