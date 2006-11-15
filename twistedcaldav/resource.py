@@ -563,6 +563,28 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         result.append(davxml.Report(davxml.PrincipalSearchPropertySet(),))
         return result
 
+    def principalSearchPropertySet(self):
+        return davxml.PrincipalSearchPropertySet(
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    davxml.DisplayName()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Display Name"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    caldavxml.CalendarUserAddressSet()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Calendar User Addresses"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+        )
+
 def findAnyCalendarUser(request, address):
     """
     Find the calendar user principal associated with the specified calendar
