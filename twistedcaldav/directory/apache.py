@@ -111,7 +111,8 @@ class FileDirectoryRecord(DirectoryRecord):
         self._members       = members
 
     def members(self):
-        return self._members
+        for shortName in self._members:
+            yield self.service.recordWithShortName("user", shortName)
 
     def group(self):
         raise NotImplementedError()
