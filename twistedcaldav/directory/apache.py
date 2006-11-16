@@ -28,6 +28,7 @@ __all__ = [
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import UnknownRecordTypeError
 
 class FileDirectoryService(DirectoryService):
     """
@@ -52,7 +53,15 @@ class FileDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
-        raise NotImplementedError()
+        if recordType == "user":
+            for entry in self.userFile.open():
+                if entry and entry[0] != "#":
+                    user, password = entry.split(":")
+                    yield user
+        elif recordType == "group":
+            raise NotImplementedError()
+        else:
+            raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
 
     def recordWithShortName(self, recordType, shortName):
         raise NotImplementedError()

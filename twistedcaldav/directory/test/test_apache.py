@@ -70,8 +70,6 @@ class Basic (twisted.trial.unittest.TestCase):
         service = FileDirectoryService(basicUserFile)
         self.assertEquals(set(service.listRecords("user")), set(users.keys()))
 
-    test_listRecords_user.todo = "unimplemented"
-
     def test_listRecords_group(self):
         """
         FileDirectoryService.listRecords("group")
