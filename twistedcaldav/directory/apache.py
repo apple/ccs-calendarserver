@@ -21,8 +21,8 @@ Apache UserFile/GroupFile compatible directory service implementation.
 """
 
 __all__ = [
-    "FileDirectoryService",
-    "FileDirectoryRecord",
+    "BasicDirectoryService",
+    "DigestDirectoryService",
 ]
 
 from crypt import crypt
@@ -33,9 +33,9 @@ from twisted.cred.credentials import UsernamePassword
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 
-class FileDirectoryService(DirectoryService):
+class AbstractDirectoryService(DirectoryService):
     """
-    Apache UserFile/GroupFile implementation of L{IDirectoryService}.
+    Abstract Apache-compatible implementation of L{IDirectoryService}.
     """
     def __repr__(self):
         return "<%s %r %r>" % (self.__class__.__name__, self.userFile, self.groupFile)
@@ -56,35 +56,38 @@ class FileDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
-        for entryShortName, entryData in self._entriesForRecordType(recordType):
+        for entryShortName, entryData in self.entriesForRecordType(recordType):
             yield entryShortName
 
     def recordWithShortName(self, recordType, shortName):
-        for entryShortName, entryData in self._entriesForRecordType(recordType):
+        for entryShortName, entryData in self.entriesForRecordType(recordType):
             if entryShortName == shortName:
                 if recordType == "user":
-                    return FileDirectoryRecord(
+                    return self.userRecordClass(
                         service       = self,
                         recordType    = recordType,
                         shortName     = entryShortName,
                         cryptPassword = entryData,
                     )
-                elif recordType == "group":
-                    return FileDirectoryRecord(
+
+                if recordType == "group":
+                    return GroupRecord(
                         service    = self,
                         recordType = recordType,
                         shortName  = entryShortName,
                         members    = entryData,
                     )
-                else:
-                    raise AssertionError("We shouldn't be here.")
+
+                # Subclass should cover the remaining record types
+                raise AssertionError("Subclass should have handled record type: %r"
+                                     % (recordType,))
 
         return None
 
     def recordWithGUID(self, guid):
         raise NotImplementedError()
 
-    def _entriesForRecordType(self, recordType):
+    def entriesForRecordType(self, recordType):
         if recordType == "user":
             recordFile = self.userFile
         elif recordType == "group":
@@ -100,27 +103,24 @@ class FileDirectoryService(DirectoryService):
                 shortName, rest = entry.rstrip("\n").split(":", 1)
                 yield shortName, rest
 
-class FileDirectoryRecord(DirectoryRecord):
+class AbstractDirectoryRecord(DirectoryRecord):
     """
-    Apache UserFile/GroupFile implementation of L{IDirectoryRecord}.
+    Abstract Apache-compatible implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, shortName, cryptPassword=None, members=()):
-        if type(members) is str:
-            members = tuple(m.strip() for m in members.split(","))
+    def __init__(self, service, recordType, shortName):
+        super(AbstractDirectoryRecord, self).__init__(
+            service        = service,
+            recordType     = recordType,
+            guid           = None,
+            shortName      = shortName,
+            fullName       = None,
+        )
 
-        assert recordType == "group" or not members, "Only group records may have members."
+class AbstractUserRecord(AbstractDirectoryRecord):
+    def __init__(self, service, recordType, shortName, cryptPassword=None):
+        super(AbstractUserRecord, self).__init__(service, recordType, shortName)
 
-        self.service        = service
-        self.recordType     = recordType
-        self.guid           = None
-        self.shortName      = shortName
-        self.fullName       = None
         self._cryptPassword = cryptPassword
-        self._members       = members
-
-    def members(self):
-        for shortName in self._members:
-            yield self.service.recordWithShortName("user", shortName)
 
     def groups(self):
         for groupName in self.service.listRecords("group"):
@@ -130,6 +130,10 @@ class FileDirectoryRecord(DirectoryRecord):
                     yield group
                     continue
 
+class BasicUserRecord(AbstractUserRecord):
+    """
+    Apache UserFile implementation of L{IDirectoryRecord}.
+    """
     def verifyCredentials(self, credentials):
         if self._cryptPassword in ("", "*", "x"):
             return False
@@ -137,4 +141,39 @@ class FileDirectoryRecord(DirectoryRecord):
         if isinstance(credentials, UsernamePassword):
             return crypt(credentials.password, self._cryptPassword) == self._cryptPassword
 
-        return super(FileDirectoryRecord, self).verifyCredentials(credentials)
+        return super(BasicUserRecord, self).verifyCredentials(credentials)
+
+class BasicDirectoryService(AbstractDirectoryService):
+    """
+    Apache UserFile/GroupFile implementation of L{IDirectoryService}.
+    """
+    userRecordClass = BasicUserRecord
+
+class DigestUserRecord(AbstractUserRecord):
+    """
+    Apache DigestUserFile implementation of L{IDirectoryRecord}.
+    """
+    def verifyCredentials(self, credentials):
+        raise NotImplementedError()
+
+class DigestDirectoryService(AbstractDirectoryService):
+    """
+    Apache DigestUserFile/GroupFile implementation of L{IDirectoryService}.
+    """
+    userRecordClass = DigestUserRecord
+
+class GroupRecord(AbstractDirectoryRecord):
+    """
+    Apache GroupFile implementation of L{IDirectoryRecord}.
+    """
+    def __init__(self, service, recordType, shortName, members=()):
+        super(GroupRecord, self).__init__(service, recordType, shortName)
+
+        if type(members) is str:
+            members = tuple(m.strip() for m in members.split(","))
+
+        self._members = members
+
+    def members(self):
+        for shortName in self._members:
+            yield self.service.recordWithShortName("user", shortName)

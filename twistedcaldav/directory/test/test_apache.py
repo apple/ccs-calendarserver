@@ -21,7 +21,7 @@ import os
 import twisted.trial.unittest
 from twisted.cred.credentials import UsernamePassword
 
-from twistedcaldav.directory.apache import FileDirectoryService, FileDirectoryRecord
+from twistedcaldav.directory.apache import BasicDirectoryService
 
 users = {
     "wsanchez": "foo" ,
@@ -51,37 +51,37 @@ class Basic (twisted.trial.unittest.TestCase):
     """
     def test_recordTypes_user(self):
         """
-        FileDirectoryService.recordTypes(userFile)
+        BasicDirectoryService.recordTypes(userFile)
         """
-        service = FileDirectoryService(basicUserFile)
+        service = BasicDirectoryService(basicUserFile)
         self.assertEquals(set(service.recordTypes()), set(("user",)))
 
     def test_recordTypes_group(self):
         """
-        FileDirectoryService.recordTypes(userFile, groupFile)
+        BasicDirectoryService.recordTypes(userFile, groupFile)
         """
-        service = FileDirectoryService(basicUserFile, groupFile)
+        service = BasicDirectoryService(basicUserFile, groupFile)
         self.assertEquals(set(service.recordTypes()), set(("user", "group")))
 
     def test_listRecords_user(self):
         """
-        FileDirectoryService.listRecords("user")
+        BasicDirectoryService.listRecords("user")
         """
-        service = FileDirectoryService(basicUserFile)
+        service = BasicDirectoryService(basicUserFile)
         self.assertEquals(set(service.listRecords("user")), set(users.keys()))
 
     def test_listRecords_group(self):
         """
-        FileDirectoryService.listRecords("group")
+        BasicDirectoryService.listRecords("group")
         """
-        service = FileDirectoryService(basicUserFile, groupFile)
+        service = BasicDirectoryService(basicUserFile, groupFile)
         self.assertEquals(set(service.listRecords("group")), set(groups.keys()))
 
     def test_recordWithShortName_user(self):
         """
-        FileDirectoryService.recordWithShortName("user")
+        BasicDirectoryService.recordWithShortName("user")
         """
-        service = FileDirectoryService(basicUserFile)
+        service = BasicDirectoryService(basicUserFile)
         for user in users:
             record = service.recordWithShortName("user", user)
             self.assertEquals(record.shortName, user)
@@ -89,9 +89,9 @@ class Basic (twisted.trial.unittest.TestCase):
 
     def test_recordWithShortName_group(self):
         """
-        FileDirectoryService.recordWithShortName("group")
+        BasicDirectoryService.recordWithShortName("group")
         """
-        service = FileDirectoryService(basicUserFile, groupFile)
+        service = BasicDirectoryService(basicUserFile, groupFile)
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(groupRecord.shortName, group)
@@ -99,27 +99,27 @@ class Basic (twisted.trial.unittest.TestCase):
 
     def test_groupMembers(self):
         """
-        FileDirectoryRecord.members()
+        BasicDirectoryRecord.members()
         """
-        service = FileDirectoryService(basicUserFile, groupFile)
+        service = BasicDirectoryService(basicUserFile, groupFile)
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(set(m.shortName for m in groupRecord.members()), set(groups[group]))
 
     def test_groupMemberships(self):
         """
-        FileDirectoryRecord.groups()
+        BasicDirectoryRecord.groups()
         """
-        service = FileDirectoryService(basicUserFile, groupFile)
+        service = BasicDirectoryService(basicUserFile, groupFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
             self.assertEquals(set(g.shortName for g in userRecord.groups()), set(g for g in groups if user in groups[g]))
 
     def test_verifyCredentials(self):
         """
-        FileDirectoryRecord.verifyCredentials()
+        BasicDirectoryRecord.verifyCredentials()
         """
-        service = FileDirectoryService(basicUserFile)
+        service = BasicDirectoryService(basicUserFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
             self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, users[user])))
