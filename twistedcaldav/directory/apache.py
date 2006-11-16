@@ -54,14 +54,16 @@ class FileDirectoryService(DirectoryService):
 
     def listRecords(self, recordType):
         if recordType == "user":
-            for entry in self.userFile.open():
-                if entry and entry[0] != "#":
-                    user, password = entry.split(":")
-                    yield user
+            recordFile = self.userFile
         elif recordType == "group":
-            raise NotImplementedError()
+            recordFile = self.groupFile
         else:
             raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
+
+        for entry in recordFile.open():
+            if entry and entry[0] != "#":
+                shortName, rest = entry.split(":")
+                yield shortName
 
     def recordWithShortName(self, recordType, shortName):
         raise NotImplementedError()

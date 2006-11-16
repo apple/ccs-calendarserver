@@ -77,8 +77,6 @@ class Basic (twisted.trial.unittest.TestCase):
         service = FileDirectoryService(basicUserFile, groupFile)
         self.assertEquals(set(service.listRecords("group")), set(groups.keys()))
 
-    test_listRecords_group.todo = "unimplemented"
-
     def test_recordWithShortName_user(self):
         """
         FileDirectoryService.recordWithShortName("user")
