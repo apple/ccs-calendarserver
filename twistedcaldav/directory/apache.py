@@ -53,6 +53,35 @@ class FileDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
+        for entryShortName, entryData in self._entriesForRecordType(recordType):
+            yield entryShortName
+
+    def recordWithShortName(self, recordType, shortName):
+        for entryShortName, entryData in self._entriesForRecordType(recordType):
+            if entryShortName == shortName:
+                if recordType == "user":
+                    return FileDirectoryRecord(
+                        service       = self,
+                        recordType    = recordType,
+                        shortName     = entryShortName,
+                        cryptPassword = entryData,
+                    )
+                elif recordType == "group":
+                    return FileDirectoryRecord(
+                        service    = self,
+                        recordType = recordType,
+                        shortName  = entryShortName,
+                        members    = entryData,
+                    )
+                else:
+                    raise AssertionError("We shouldn't be here.")
+
+        raise NotImplementedError()
+
+    def recordWithGUID(self, guid):
+        raise NotImplementedError()
+
+    def _entriesForRecordType(self, recordType):
         if recordType == "user":
             recordFile = self.userFile
         elif recordType == "group":
@@ -62,28 +91,27 @@ class FileDirectoryService(DirectoryService):
 
         for entry in recordFile.open():
             if entry and entry[0] != "#":
-                shortName, rest = entry.split(":")
-                yield shortName
-
-    def recordWithShortName(self, recordType, shortName):
-        raise NotImplementedError()
-
-    def recordWithGUID(self, guid):
-        raise NotImplementedError()
+                shortName, rest = entry.split(":", 1)
+                yield shortName, rest
 
 class FileDirectoryRecord(DirectoryRecord):
     """
     Apache UserFile/GroupFile implementation of L{IDirectoryRecord}.
     """
-    def __init__(self):
-        service    = None
-        recordType = None
-        guid       = None
-        shortName  = None
-        fullName   = None
+    def __init__(self, service, recordType, shortName, cryptPassword=None, members=()):
+        if type(members) is str:
+            members = tuple(m.strip() for m in members.split(","))
+
+        self.service        = service
+        self.recordType     = recordType
+        self.guid           = None
+        self.shortName      = shortName
+        self.fullName       = None
+        self._cryptPassword = cryptPassword
+        self._members       = members
 
     def members(self):
-        raise NotImplementedError()
+        return self._members
 
     def group(self):
         raise NotImplementedError()

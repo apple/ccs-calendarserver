@@ -86,8 +86,6 @@ class Basic (twisted.trial.unittest.TestCase):
             record = service.recordWithShortName("user", user)
             self.assertEquals(record.shortName, user)
 
-    test_recordWithShortName_user.todo = "unimplemented"
-
     def test_recordWithShortName_group(self):
         """
         FileDirectoryService.recordWithShortName("group")
@@ -96,8 +94,6 @@ class Basic (twisted.trial.unittest.TestCase):
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(groupRecord.shortName, group)
-
-    test_recordWithShortName_group.todo = "unimplemented"
 
     def test_groupMembers(self):
         """
