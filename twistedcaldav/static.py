@@ -542,8 +542,14 @@ class CalendarHomeFile (CalDAVFile):
             ("outbox", ScheduleOutboxFile),
         ):
             child_fp = self.fp.child(name)
-            if not child_fp.exists(): child_fp.makedirs()
-            self.putChild(name, cls(child_fp.path))
+            child = cls(child_fp.path)
+            if not child_fp.exists():
+                child_fp.makedirs()
+                if record.recordType == "resource" and child == "inbox":
+                    # Resources should have autorespond turned on by default,
+                    # since they typically don't have someone responding for them.
+                    child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+            self.putChild(name, child)
 
     def url(self):
         return joinURL(self._parent.url(), self.record.shortName)
