@@ -45,8 +45,6 @@ ELEMENT_NAME        = "name"
 ELEMENT_MEMBERS     = "members"
 ELEMENT_CUADDR      = "cuaddr"
 ELEMENT_CALENDAR    = "calendar"
-ELEMENT_QUOTA       = "quota"
-ELEMENT_AUTORESPOND = "autorespond"
 ELEMENT_CANPROXY    = "canproxy"
 
 ATTRIBUTE_REPEAT    = "repeat"
@@ -64,6 +62,18 @@ class XMLFileService(DirectoryService):
 
         self.xmlFile = xmlFile
         self.items = {}
+
+        # Read in XML
+        fd = open(self.xmlFile.path, "r")
+        doc = xml.dom.minidom.parse( fd )
+        fd.close()
+
+        # Verify that top-level element is correct
+        accounts_node = doc._get_documentElement()
+        if accounts_node._get_localName() != ELEMENT_ACCOUNTS:
+            self.log("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
+            return
+        self._parseXML(accounts_node)
 
     def recordTypes(self):
         recordTypes = ("user", "group", "resource")
@@ -89,30 +99,15 @@ class XMLFileService(DirectoryService):
         raise NotImplementedError()
 
     def _entriesForRecordType(self, recordType):
-        # Read in XML
-        fd = open(self.xmlFile.path, "r")
-        doc = xml.dom.minidom.parse( fd )
-        fd.close()
-
-        # Verify that top-level element is correct
-        accounts_node = doc._get_documentElement()
-        if accounts_node._get_localName() != ELEMENT_ACCOUNTS:
-            self.log("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
-            return
-        self._parseXML(accounts_node)
-        
         for entry in self.items.itervalues():
             if entry.recordType == recordType:
                  yield entry.uid, entry
-             
-        self.items = {}
 
     def _parseXML(self, node):
         """
         Parse the XML root node from the accounts configuration document.
         @param node: the L{Node} to parse.
         """
-        self.items = {}
         for child in node._get_childNodes():
             if child._get_localName() in (ELEMENT_USER, ELEMENT_GROUP, ELEMENT_RESOURCE):
                 if child.hasAttribute( ATTRIBUTE_REPEAT ):
@@ -161,8 +156,6 @@ class XMLPrincipal (object):
         self.groups = []
         self.cuaddrs = []
         self.calendars = []
-        self.quota = None
-        self.autorespond = None
 
     def repeat(self, ctr):
         """
@@ -197,8 +190,6 @@ class XMLPrincipal (object):
         result.members = self.members
         result.cuaddrs = cuaddrs
         result.calendars = self.calendars
-        result.quota = self.quota
-        result.autorespond = self.autorespond
         return result
 
     def parseXML( self, node ):
@@ -221,11 +212,6 @@ class XMLPrincipal (object):
             elif child._get_localName() == ELEMENT_CALENDAR:
                 if child.firstChild is not None:
                    self.calendars.append(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_QUOTA:
-                if child.firstChild is not None:
-                   self.quota = int(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_AUTORESPOND:
-                self.autorespond = True
             elif child._get_localName() == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.uid)
 
