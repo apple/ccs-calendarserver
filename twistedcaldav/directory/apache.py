@@ -89,6 +89,9 @@ class FileDirectoryService(DirectoryService):
         else:
             raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
 
+        if recordFile is None:
+            return
+
         for entry in recordFile.open():
             if entry and entry[0] != "#":
                 shortName, rest = entry.split(":", 1)
@@ -102,6 +105,8 @@ class FileDirectoryRecord(DirectoryRecord):
         if type(members) is str:
             members = tuple(m.strip() for m in members.split(","))
 
+        assert recordType == "group" or not members, "Only group records may have members."
+
         self.service        = service
         self.recordType     = recordType
         self.guid           = None
@@ -114,8 +119,13 @@ class FileDirectoryRecord(DirectoryRecord):
         for shortName in self._members:
             yield self.service.recordWithShortName("user", shortName)
 
-    def group(self):
-        raise NotImplementedError()
+    def groups(self):
+        for groupName in self.service.listRecords("group"):
+            group = self.service.recordWithShortName("group", groupName)
+            for member in group.members():
+                if member == self:
+                    yield group
+                    continue
 
     def verifyCredentials(self, credentials):
         raise NotImplementedError()

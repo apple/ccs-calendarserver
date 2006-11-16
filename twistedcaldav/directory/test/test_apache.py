@@ -108,12 +108,10 @@ class Basic (twisted.trial.unittest.TestCase):
         """
         FileDirectoryRecord.groups()
         """
-        service = FileDirectoryService(basicUserFile)
+        service = FileDirectoryService(basicUserFile, groupFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
             self.assertEquals(set(g.shortName for g in userRecord.groups()), set(g for g in groups if user in groups[g]))
-
-    test_groupMemberships.todo = "unimplemented"
 
     def test_verifyCredentials(self):
         """
