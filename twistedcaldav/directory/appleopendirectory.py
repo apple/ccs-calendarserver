@@ -212,7 +212,7 @@ class OpenDirectoryRecord(DirectoryRecord):
         if isinstance(credentials, UsernamePassword):
             return opendirectory.authenticateUser(self.service.directory, self.shortName, credentials.password)
 
-        return super(OpenDirectoryInitError, self).verifyCredentials(credentials)
+        return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
 
 class OpenDirectoryInitError(DirectoryError):
     """
