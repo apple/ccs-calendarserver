@@ -85,6 +85,7 @@ class Basic (twisted.trial.unittest.TestCase):
         for user in users:
             record = service.recordWithShortName("user", user)
             self.assertEquals(record.shortName, user)
+        self.assertEquals(service.recordWithShortName("user", "IDunnoWhoThisIsIReallyDont"), None)
 
     def test_recordWithShortName_group(self):
         """
@@ -94,6 +95,7 @@ class Basic (twisted.trial.unittest.TestCase):
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(groupRecord.shortName, group)
+        self.assertEquals(service.recordWithShortName("group", "IDunnoWhoThisIsIReallyDont"), None)
 
     def test_groupMembers(self):
         """
@@ -120,6 +122,4 @@ class Basic (twisted.trial.unittest.TestCase):
         service = FileDirectoryService(basicUserFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
-            self.assertUnless(userRecord.verifyCredentials(UsernamePassword(user, users[user])))
-
-    test_verifyCredentials.todo = "unimplemented"
+            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, users[user])))

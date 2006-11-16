@@ -25,7 +25,10 @@ __all__ = [
     "FileDirectoryRecord",
 ]
 
+from crypt import crypt
+
 from twisted.python.filepath import FilePath
+from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import UnknownRecordTypeError
@@ -76,7 +79,7 @@ class FileDirectoryService(DirectoryService):
                 else:
                     raise AssertionError("We shouldn't be here.")
 
-        raise NotImplementedError()
+        return None
 
     def recordWithGUID(self, guid):
         raise NotImplementedError()
@@ -94,7 +97,7 @@ class FileDirectoryService(DirectoryService):
 
         for entry in recordFile.open():
             if entry and entry[0] != "#":
-                shortName, rest = entry.split(":", 1)
+                shortName, rest = entry.rstrip("\n").split(":", 1)
                 yield shortName, rest
 
 class FileDirectoryRecord(DirectoryRecord):
@@ -128,4 +131,10 @@ class FileDirectoryRecord(DirectoryRecord):
                     continue
 
     def verifyCredentials(self, credentials):
-        raise NotImplementedError()
+        if self._cryptPassword in ("", "*", "x"):
+            return False
+
+        if isinstance(credentials, UsernamePassword):
+            return crypt(credentials.password, self._cryptPassword) == self._cryptPassword
+
+        return super(FileDirectoryRecord, self).verifyCredentials(credentials)
