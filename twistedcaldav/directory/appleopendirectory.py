@@ -22,7 +22,6 @@ Apple Open Directory directory service implementation.
 
 __all__ = [
     "OpenDirectoryService",
-    "OpenDirectoryRecord",
     "OpenDirectoryInitError",
 ]
 
