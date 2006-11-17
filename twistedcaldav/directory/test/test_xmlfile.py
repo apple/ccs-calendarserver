@@ -18,10 +18,12 @@
 
 import os
 
+from twisted.python.filepath import FilePath
+
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
-xmlFile = os.path.join(os.path.dirname(__file__), "accounts.xml")
+xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -55,5 +57,28 @@ class Basic (twistedcaldav.directory.test.util.BasicTestCase):
         "apollo",
     ))
 
+    def xmlFile(self):
+        if not hasattr(self, "_xmlFile"):
+            self._xmlFile = FilePath(self.mktemp())
+            xmlFile.copyTo(self._xmlFile)
+        return self._xmlFile
+
     def service(self):
-        return XMLDirectoryService(xmlFile)
+        return XMLDirectoryService(self.xmlFile())
+
+    def test_changedXML(self):
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts>
+  <user>
+    <uid>admin</uid>
+    <pswd>nimda</pswd>
+    <name>Super User</name>
+  </user>
+</accounts>
+"""
+        )
+        self.assertEquals(set(self.service().listRecords("user")), set(("admin",)))
+        self.assertEquals(set(self.service().listRecords("group")), set())
+        self.assertEquals(set(self.service().listRecords("resource")), set())
