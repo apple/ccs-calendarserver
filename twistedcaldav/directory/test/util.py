@@ -63,6 +63,13 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         self.assertEquals(set(self.service().listRecords("group")), set(self.groups.keys()))
 
+    def test_listRecords_resources(self):
+        """
+        IDirectoryService.listRecords("resources")
+        """
+        if len(self.resources):
+            self.assertEquals(set(self.service().listRecords("resource")), self.resources)
+
     def test_recordWithShortName_user(self):
         """
         IDirectoryService.recordWithShortName("user")
