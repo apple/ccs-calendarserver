@@ -21,48 +21,43 @@ limitations under the License.
 <accounts>
   <user>
     <uid>admin</uid>
-    <pswd>admin</pswd>
+    <pswd>nimda</pswd>
     <name>Super User</name>
   </user>
   <user>
     <uid>proxy</uid>
-    <pswd>proxy</pswd>
+    <pswd>yxorp</pswd>
     <name>User who can authorize as someone else</name>
-    <canproxy/>
+    <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
   <user>
     <uid>wsanchez</uid>
-    <pswd>wsanchez</pswd>
+    <pswd>zehcnasw</pswd>
     <name>Wilfredo Sanchez</name>
     <cuaddr>mailto:wsanchez@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </user>
   <user>
     <uid>cdaboo</uid>
-    <pswd>cdaboo</pswd>
+    <pswd>oobadc</pswd>
     <name>Cyrus Daboo</name>
     <cuaddr>mailto:cdaboo@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </user>
   <user>
     <uid>lecroy</uid>
-    <pswd>lecroy</pswd>
+    <pswd>yorcel</pswd>
     <name>Chris Lecroy</name>
     <cuaddr>mailto:lecroy@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </user>
   <user>
     <uid>dreid</uid>
-    <pswd>dreid</pswd>
+    <pswd>dierd</pswd>
     <name>David Reid</name>
     <cuaddr>mailto:dreid@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </user>
-  <user repeat='2'>
+  <user repeat="2">
     <uid>user%02d</uid>
-    <pswd>user%02d</pswd>
+    <pswd>%02duser</pswd>
     <name>User %02d</name>
-    <calendar>calendar</calendar>
   </user>
   <group>
     <uid>managers</uid>
@@ -105,20 +100,17 @@ limitations under the License.
     <pswd>mercury</pswd>
     <name>Mecury Seven</name>
     <cuaddr>mailto:mercury@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </resource>
   <resource>
     <uid>gemini</uid>
     <pswd>gemini</pswd>
     <name>Gemini Twelve</name>
     <cuaddr>mailto:gemini@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </resource>
   <resource>
     <uid>apollo</uid>
     <pswd>apollo</pswd>
     <name>Apollo Eleven</name>
     <cuaddr>mailto:apollo@example.com</cuaddr>
-    <calendar>calendar</calendar>
   </resource>
 </accounts>

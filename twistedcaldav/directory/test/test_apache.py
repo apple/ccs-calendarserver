@@ -24,9 +24,9 @@ from twisted.cred.credentials import UsernamePassword
 from twistedcaldav.directory.apache import BasicDirectoryService
 
 users = {
-    "wsanchez": "foo" ,
-    "cdaboo"  : "bar" ,
-    "dreid"   : "baz" ,
+    "wsanchez": "foo",
+    "cdaboo"  : "bar",
+    "dreid"   : "baz",
     "lecroy"  : "quux",
 }
 

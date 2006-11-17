@@ -21,18 +21,18 @@ import os
 import twisted.trial.unittest
 from twisted.cred.credentials import UsernamePassword
 
-from twistedcaldav.directory.xmlfile import XMLFileService
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
-users = set(
-     ("admin"   ,
-      "proxy"   ,
-      "wsanchez",
-      "cdaboo"  ,
-      "lecroy"  ,
-      "dreid"   ,
-      "user01"  ,
-      "user02"  ,)
-)
+users = {
+    "admin"   : "nimda",
+    "proxy"   : "yxorp",
+    "wsanchez": "zehcnasw",
+    "cdaboo"  : "oobadc",
+    "lecroy"  : "yorcel",
+    "dreid"   : "dierd",
+    "user01"  : "01user",
+    "user02"  : "02user",
+}
 
 groups = {
     "managers"   : ("lecroy",),
@@ -41,13 +41,13 @@ groups = {
     "left_coast" : ("wsanchez", "dreid", "lecroy"),
 }
 
-resources = set(
-    ("mercury",
-     "gemini" ,
-     "apollo" ,)
-)
+resources = set((
+    "mercury",
+    "gemini",
+    "apollo",
+))
 
-xmlFile  = os.path.join(os.path.dirname(__file__), "accounts.xml")
+xmlFile = os.path.join(os.path.dirname(__file__), "accounts.xml")
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -57,55 +57,55 @@ class Basic (twisted.trial.unittest.TestCase):
     """
     def test_recordTypes(self):
         """
-        XMLFileService.recordTypes(xmlFile)
+        XMLDirectoryService.recordTypes(xmlFile)
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         self.assertEquals(set(service.recordTypes()), set(("user", "group", "resource")))
 
     def test_listRecords_user(self):
         """
-        XMLFileService.listRecords("user")
+        XMLDirectoryService.listRecords("user")
         """
-        service = XMLFileService(xmlFile)
-        self.assertEquals(set(service.listRecords("user")), users)
+        service = XMLDirectoryService(xmlFile)
+        self.assertEquals(set(service.listRecords("user")), set(users.keys()))
 
     def test_listRecords_group(self):
         """
-        XMLFileService.listRecords("group")
+        XMLDirectoryService.listRecords("group")
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         self.assertEquals(set(service.listRecords("group")), set(groups.keys()))
 
     def test_listRecords_resources(self):
         """
-        XMLFileService.listRecords("resource")
+        XMLDirectoryService.listRecords("resource")
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         self.assertEquals(set(service.listRecords("resource")), resources)
 
     def test_recordWithShortName_user(self):
         """
-        XMLFileService.recordWithShortName("user")
+        XMLDirectoryService.recordWithShortName("user")
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for user in users:
             record = service.recordWithShortName("user", user)
             self.assertEquals(record.shortName, user)
 
     def test_recordWithShortName_group(self):
         """
-        XMLFileService.recordWithShortName("group")
+        XMLDirectoryService.recordWithShortName("group")
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(groupRecord.shortName, group)
 
     def test_recordWithShortName_resource(self):
         """
-        XMLFileService.recordWithShortName("resource")
+        XMLDirectoryService.recordWithShortName("resource")
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for resource in resources:
             resourceRecord = service.recordWithShortName("resource", resource)
             self.assertEquals(resourceRecord.shortName, resource)
@@ -114,7 +114,7 @@ class Basic (twisted.trial.unittest.TestCase):
         """
         FileDirectoryRecord.members()
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for group in groups:
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(set(m.shortName for m in groupRecord.members()), set(groups[group]))
@@ -123,7 +123,7 @@ class Basic (twisted.trial.unittest.TestCase):
         """
         FileDirectoryRecord.groups()
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
             self.assertEquals(set(g.shortName for g in userRecord.groups()), set(g for g in groups if user in groups[g]))
@@ -132,7 +132,7 @@ class Basic (twisted.trial.unittest.TestCase):
         """
         FileDirectoryRecord.verifyCredentials()
         """
-        service = XMLFileService(xmlFile)
+        service = XMLDirectoryService(xmlFile)
         for user in users:
             userRecord = service.recordWithShortName("user", user)
-            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, user)))
+            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, users[user])))

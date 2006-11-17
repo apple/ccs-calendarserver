@@ -41,6 +41,8 @@ class AbstractDirectoryService(DirectoryService):
         return "<%s %r %r>" % (self.__class__.__name__, self.userFile, self.groupFile)
 
     def __init__(self, userFile, groupFile=None):
+        super(AbstractDirectoryService, self).__init__()
+
         if type(userFile) is str:
             userFile = FilePath(userFile)
         if type(groupFile) is str:

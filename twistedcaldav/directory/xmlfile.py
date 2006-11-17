@@ -17,14 +17,12 @@
 ##
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 
-
 """
 XML based user/group/resource directory service implementation.
 """
 
 __all__ = [
-    "XMLFileService",
-    "XMLFileRecord",
+    "XMLDirectoryService",
 ]
 
 from twisted.cred.credentials import UsernamePassword
@@ -32,7 +30,7 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
-class XMLFileService(DirectoryService):
+class XMLDirectoryService(DirectoryService):
     """
     XML based implementation of L{IDirectoryService}.
     """
@@ -40,6 +38,8 @@ class XMLFileService(DirectoryService):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
     def __init__(self, xmlFile):
+        super(XMLDirectoryService, self).__init__()
+
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
 
@@ -56,7 +56,7 @@ class XMLFileService(DirectoryService):
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, xmlprincipal in self._entriesForRecordType(recordType):
             if entryShortName == shortName:
-                return XMLFileRecord(
+                return XMLDirectoryRecord(
                     service       = self,
                     recordType    = recordType,
                     shortName     = entryShortName,
@@ -73,20 +73,22 @@ class XMLFileService(DirectoryService):
             if entry.recordType == recordType:
                  yield entry.uid, entry
 
-class XMLFileRecord(DirectoryRecord):
+class XMLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
     def __init__(self, service, recordType, shortName, xmlPrincipal):
+        super(XMLDirectoryRecord, self).__init__(
+            service    = service,
+            recordType = recordType,
+            guid       = None,
+            shortName  = shortName,
+            fullName   = xmlPrincipal.name,
+        )
 
-        self.service        = service
-        self.recordType     = recordType
-        self.guid           = None
-        self.shortName      = shortName
-        self.fullName       = xmlPrincipal.name
-        self.clearPassword  = xmlPrincipal.pswd
-        self._members       = xmlPrincipal.members
-        self._groups        = xmlPrincipal.groups
+        self.password = xmlPrincipal.pswd
+        self._members = xmlPrincipal.members
+        self._groups  = xmlPrincipal.groups
 
     def members(self):
         for shortName in self._members:
@@ -98,6 +100,6 @@ class XMLFileRecord(DirectoryRecord):
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
-            return credentials.password == self.clearPassword
+            return credentials.password == self.password
 
-        return super(XMLFileRecord, self).verifyCredentials(credentials)
+        return super(XMLDirectoryRecord, self).verifyCredentials(credentials)
