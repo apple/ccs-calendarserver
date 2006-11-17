@@ -63,7 +63,7 @@ class XMLDirectoryService(DirectoryService):
                     xmlPrincipal  = xmlprincipal,
                 )
 
-        raise NotImplementedError()
+        return None
 
     def recordWithGUID(self, guid):
         raise NotImplementedError()
