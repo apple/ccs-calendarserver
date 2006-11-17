@@ -18,14 +18,16 @@
 
 import os
 
+from twisted.python.filepath import FilePath
+
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.apache import BasicDirectoryService
 
 digestRealm = "Test"
 
-basicUserFile  = os.path.join(os.path.dirname(__file__), "basic")
-digestUserFile = os.path.join(os.path.dirname(__file__), "digest")
-groupFile      = os.path.join(os.path.dirname(__file__), "groups")
+basicUserFile  = FilePath(os.path.join(os.path.dirname(__file__), "basic"))
+digestUserFile = FilePath(os.path.join(os.path.dirname(__file__), "digest"))
+groupFile      = FilePath(os.path.join(os.path.dirname(__file__), "groups"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -49,11 +51,31 @@ class Basic (twistedcaldav.directory.test.util.BasicTestCase):
         "left_coast" : ("wsanchez", "dreid", "lecroy"),
     }
 
+    def basicUserFile(self):
+        if not hasattr(self, "_basicUserFile"):
+            self._basicUserFile = FilePath(self.mktemp())
+            basicUserFile.copyTo(self._basicUserFile)
+        return self._basicUserFile
+
+    def groupFile(self):
+        if not hasattr(self, "_groupFile"):
+            self._groupFile = FilePath(self.mktemp())
+            groupFile.copyTo(self._groupFile)
+        return self._groupFile
+
     def service(self):
-        return BasicDirectoryService(basicUserFile, groupFile)
+        return BasicDirectoryService(self.basicUserFile(), self.groupFile())
 
     def test_recordTypes_user(self):
         """
         IDirectoryService.recordTypes(userFile)
         """
         self.assertEquals(set(BasicDirectoryService(basicUserFile).recordTypes()), set(("user",)))
+
+    def test_changedUserFile(self):
+        self.basicUserFile().open("w").write("wsanchez:Cytm0Bwm7CPJs\n")
+        self.assertEquals(set(self.service().listRecords("user")), set(("wsanchez",)))
+
+    def test_changedGroupFile(self):
+        self.groupFile().open("w").write("grunts: wsanchez\n")
+        self.assertEquals(set(self.service().listRecords("group")), set(("grunts",)))
