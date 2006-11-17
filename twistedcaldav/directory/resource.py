@@ -502,7 +502,9 @@ class DirectoryTypePrincipalProvisioningResource (CalendarPrincipalCollectionRes
 
         if (new):
             principal.provisionCalendarAccount(name, None, True, None, self.calendarhomeroot,
-                                               None, None, ["calendar"], self.type == DirectoryTypePrincipalProvisioningResource.typeResource, False)
+                                               None, None, ["calendar"],
+                                               self.type == DirectoryTypePrincipalProvisioningResource.typeResource, 
+                                               self.type == DirectoryTypePrincipalProvisioningResource.typeUser)
         
         # Add directory specific attributes to principal
         principal.setPropertyValue(realname, davxml.DisplayName)
