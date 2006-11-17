@@ -97,7 +97,7 @@ Index: twisted/web2/server.py
  
      def locateResource(self, url):
          """
-@@ -385,8 +396,13 @@
+@@ -385,7 +396,8 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -105,18 +105,18 @@ Index: twisted/web2/server.py
 +        if url is None:
 +            return defer.succeed(None)
  
-+        cached = self._urlsByResource.get(url, None)
-+        if cached is not None:
-+            return defer.succeed(cached)
-+
          #
          # Parse the URL
-         #
-@@ -406,18 +422,65 @@
+@@ -406,18 +418,70 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
 -        segments = path.split("/")
++        # Looked for cached value
++        cached = self._urlsByResource.get(path, None)
++        if cached is not None:
++            return defer.succeed(cached)
++
 +        segments = unquote(path).split("/")
          assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
          segments = segments[1:]
