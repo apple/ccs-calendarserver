@@ -54,7 +54,6 @@ from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarPrincipalFile
-from twistedcaldav.directory.cred import DirectoryCredentialsChecker
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 
@@ -239,9 +238,9 @@ def startServer(docroot, repo, doacct, doacl, dossl, keyfile, certfile, onlyssl,
         portal.registerChecker(auth.TwistedPropertyChecker())
         print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
-        opendirectory = OpenDirectoryService(authenticator.directoryNode)
-        directory.service = opendirectory
-        portal.registerChecker(DirectoryCredentialsChecker(opendirectory))
+        service = OpenDirectoryService(authenticator.directoryNode)
+        directory.service = service
+        portal.registerChecker(service)
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
         if authenticator.type == "basic":
