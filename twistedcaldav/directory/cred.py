@@ -26,13 +26,9 @@ __all__ = [
 
 from zope.interface import implements
 
-from twisted.internet.defer import succeed
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
-from twisted.web2.dav.auth import TwistedPropertyChecker
-
-from twistedcaldav import customxml
 
 class DirectoryCredentialsChecker (object):
     implements(ICredentialsChecker)

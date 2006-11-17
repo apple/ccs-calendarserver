@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from twisted.web2 import responsecode
+from twisted.web2.http import HTTPError
 from twisted.web2.dav.http import StatusResponse
 
 import twisted.web2.dav.resource
@@ -52,7 +53,7 @@ class ReadOnlyResourceMixIn (object):
     )
 
     def _forbidden(self, request):
-        return readOnlyResponse
+        return self.readOnlyResponse
 
     http_DELETE    = _forbidden
     http_MOVE      = _forbidden
@@ -60,4 +61,4 @@ class ReadOnlyResourceMixIn (object):
     http_PUT       = _forbidden
 
     def writeProperty(self, property, request):
-        raise HTTPError(readOnlyResponse)
+        raise HTTPError(self.readOnlyResponse)
