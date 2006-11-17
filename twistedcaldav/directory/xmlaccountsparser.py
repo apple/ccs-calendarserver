@@ -123,6 +123,7 @@ class XMLAccountRecord (object):
         self.members = []
         self.groups = []
         self.cuaddrs = []
+        self.canproxy = False
 
     def repeat(self, ctr):
         """
@@ -156,6 +157,7 @@ class XMLAccountRecord (object):
         result.name = name
         result.members = self.members
         result.cuaddrs = cuaddrs
+        result.canproxy = self.canproxy
         return result
 
     def parseXML( self, node ):
@@ -177,6 +179,7 @@ class XMLAccountRecord (object):
                    self.cuaddrs.append(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.uid)
+                self.canproxy = True
 
     def _parseMembers( self, node ):
 
