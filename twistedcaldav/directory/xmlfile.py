@@ -43,7 +43,8 @@ class XMLDirectoryService(DirectoryService):
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
 
-        self.xmlAccounts = XMLAccountsParser(xmlFile)
+        self.xmlFile = xmlFile
+        self._fileInfo = None
 
     def recordTypes(self):
         recordTypes = ("user", "group", "resource")
@@ -69,9 +70,16 @@ class XMLDirectoryService(DirectoryService):
         raise NotImplementedError()
 
     def _entriesForRecordType(self, recordType):
-        for entry in self.xmlAccounts.items.itervalues():
+        for entry in self._accounts().itervalues():
             if entry.recordType == recordType:
                  yield entry.uid, entry
+
+    def _accounts(self):
+        fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
+        if fileInfo != self._fileInfo:
+            self._parsedAccounts = XMLAccountsParser(self.xmlFile).items
+            self._fileInfo = fileInfo
+        return self._parsedAccounts
 
 class XMLDirectoryRecord(DirectoryRecord):
     """
