@@ -18,35 +18,8 @@
 
 import os
 
-import twisted.trial.unittest
-from twisted.cred.credentials import UsernamePassword
-
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-
-users = {
-    "admin"   : "nimda",
-    "proxy"   : "yxorp",
-    "wsanchez": "zehcnasw",
-    "cdaboo"  : "oobadc",
-    "lecroy"  : "yorcel",
-    "dreid"   : "dierd",
-    "user01"  : "01user",
-    "user02"  : "02user",
-}
-
-groups = {
-    "managers"   : ("lecroy",),
-    "grunts"     : ("wsanchez", "cdaboo", "dreid"),
-    "right_coast": ("cdaboo",),
-    "left_coast" : ("wsanchez", "dreid", "lecroy"),
-}
-
-resources = set((
-    "mercury",
-    "gemini",
-    "apollo",
-))
 
 xmlFile = os.path.join(os.path.dirname(__file__), "accounts.xml")
 
