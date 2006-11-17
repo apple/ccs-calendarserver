@@ -26,17 +26,22 @@ import sys
 #
 
 #projects = ("Twisted", "vobject", "dateutil", "xattr")
-projects = ("Twisted",)
+projects = ("Twisted", "vobject",)
 cwd = os.getcwd()
 libpatches = os.path.join(cwd, "lib-patches")
 
 svn = "/usr/local/subversion/bin/svn"
 
+# Stuff we have to manually ignore because our ignore logic cannot cope
+ignores = set((
+    "twisted.plugins.dropin.patch",
+))
+
 def makepatches(project):
     
     # First delete existing patch files.
     path = os.path.join(libpatches, project)
-    print "Removing patches from directory: %s" % (path,)
+    print "Removing patches from directory: %s" % (path[len(cwd) + 1:],)
     for file in os.listdir(path):
         fpath = os.path.join(path, file)
         if os.path.isfile(fpath):
@@ -64,22 +69,35 @@ def makepatches(project):
         if os.path.basename(line)[0] == ".":
             continue
         
+        # Ignore build directories at the top-level
+        if line[3 + len(project) + 1:].startswith("build%s" % (os.path.sep,)):
+            continue
+        
+        # Ignore modified directories - we will patch the files in them
+        if not new and os.path.isdir(line):
+            continue
+        
         # Generate the name of the patch file we want to create.
         patch = line[:line.rfind(".")]
         patch = patch[3 + len(project) + 1:]
         patch = patch.replace(os.sep, ".") + ".patch"
+        
+        # Check whether this is a patch we want to ignore
+        if patch in ignores:
+            continue
+
         patch = os.path.join(path, patch)
 
-        print ("Creating diff file %s for existing file %s", "Creating diff file %s for new file %s")[new] % (patch, line)
+        print ("Creating diff file %s for existing file %s", "Creating diff file %s for new file %s")[new] % (patch[len(cwd) + 1:], line)
         
         # Generate an svn diff.
         # NB For new files we have to first add them then do the diff, then revert,
         # otherwise svn diff complains about an unversioned resource.
         if new:
-            os.system("%s add %s" % (svn, line))
+            os.system("%s add -q %s" % (svn, line))
         os.system("%s diff %s > tempdiff" % (svn, line))
         if new:
-            os.system("%s revert %s" % (svn, line))
+            os.system("%s revert -q %s" % (svn, line))
         
         # Now replace the directory prefix in the diff output and write to the actual patch file.
         repl = "../%s/" % (project,)
