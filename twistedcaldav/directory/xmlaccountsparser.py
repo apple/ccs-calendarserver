@@ -43,6 +43,7 @@ ELEMENT_MEMBERS     = "members"
 ELEMENT_CUADDR      = "cuaddr"
 ELEMENT_CANPROXY    = "canproxy"
 
+ATTRIBUTE_REALM     = "realm"
 ATTRIBUTE_REPEAT    = "repeat"
 
 class XMLAccountsParser(object):
@@ -57,6 +58,7 @@ class XMLAccountsParser(object):
             xmlFile = FilePath(xmlFile)
 
         self.xmlFile = xmlFile
+        self.realm = None
         self.items = {}
 
         # Read in XML
@@ -76,10 +78,13 @@ class XMLAccountsParser(object):
         Parse the XML root node from the accounts configuration document.
         @param node: the L{Node} to parse.
         """
+        if node.hasAttribute(ATTRIBUTE_REALM):
+            self.realm = node.getAttribute(ATTRIBUTE_REALM)
+
         for child in node._get_childNodes():
             if child._get_localName() in (ELEMENT_USER, ELEMENT_GROUP, ELEMENT_RESOURCE):
-                if child.hasAttribute( ATTRIBUTE_REPEAT ):
-                    repeat = int(child.getAttribute( ATTRIBUTE_REPEAT ))
+                if child.hasAttribute(ATTRIBUTE_REPEAT):
+                    repeat = int(child.getAttribute(ATTRIBUTE_REPEAT))
                 else:
                     repeat = 1
 

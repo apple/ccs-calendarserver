@@ -26,6 +26,7 @@ __all__ = [
 ]
 
 from twisted.cred.credentials import UsernamePassword
+from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -77,7 +78,9 @@ class XMLDirectoryService(DirectoryService):
     def _accounts(self):
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
         if fileInfo != self._fileInfo:
-            self._parsedAccounts = XMLAccountsParser(self.xmlFile).items
+            parser = XMLAccountsParser(self.xmlFile)
+            self._parsedAccounts = parser.items
+            self.realmName = parser.realm
             self._fileInfo = fileInfo
         return self._parsedAccounts
 
@@ -109,5 +112,7 @@ class XMLDirectoryRecord(DirectoryRecord):
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
             return credentials.password == self.password
+        if isinstance(credentials, DigestedCredentials):
+            return credentials.checkPassword(self.password)
 
         return super(XMLDirectoryRecord, self).verifyCredentials(credentials)

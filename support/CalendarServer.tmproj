@@ -63,6 +63,8 @@
 			<string>../bin</string>
 		</dict>
 		<dict>
+			<key>expanded</key>
+			<true/>
 			<key>name</key>
 			<string>doc</string>
 			<key>regexFolderFilter</key>
@@ -72,7 +74,7 @@
 		</dict>
 	</array>
 	<key>fileHierarchyDrawerWidth</key>
-	<integer>200</integer>
+	<integer>325</integer>
 	<key>metaData</key>
 	<dict>
 		<key>../../Twisted/twisted/web2/dav/element/base.py</key>

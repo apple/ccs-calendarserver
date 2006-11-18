@@ -18,7 +18,7 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<accounts>
+<accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
     <pswd>nimda</pswd>

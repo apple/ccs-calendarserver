@@ -18,6 +18,7 @@
 
 import twisted.trial.unittest
 from twisted.cred.credentials import UsernamePassword
+from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -121,11 +122,69 @@ class BasicTestCase (DirectoryTestCase):
     """
     Tests a directory implementation with basic auth.
     """
-    def test_verifyCredentials(self):
+    def test_verifyCredentials_basic(self):
         """
-        IDirectoryRecord.verifyCredentials()
+        IDirectoryRecord.verifyCredentials() with basic
         """
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
             self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user])))
+
+# authRequest = {
+#    username="username",
+#    realm="test realm",
+#    nonce="178288758716122392881254770685",
+#    uri="/write/",
+#    response="62f388be1cf678fbdfce87910871bcc5",
+#    opaque="1041524039",
+#    algorithm="md5",
+#    cnonce="29fc54aa1641c6fa0e151419361c8f23",
+#    nc=00000001,
+#    qop="auth",
+# }
+
+class DigestTestCase (DirectoryTestCase):
+    """
+    Tests a directory implementation with digest auth.
+    """
+    def test_verifyCredentials_digest(self):
+        """
+        IDirectoryRecord.verifyCredentials() with digest
+        """
+        service = self.service()
+        for user in self.users:
+            userRecord = service.recordWithShortName("user", user)
+
+            # I'm glad this is so simple...
+            response = calcResponse(
+                calcHA1(
+                    "md5",
+                    user,
+                    service.realmName,
+                    userRecord.password,
+                    "booger",
+                    "phlegm",
+                ),
+                "md5",
+                "booger",
+                None,
+                "phlegm",
+                "auth",
+                "GET",
+                "/",
+                None,
+            )
+
+            self.failUnless(userRecord.verifyCredentials(DigestedCredentials(
+                user,
+                "GET",
+                service.realmName,
+                {
+                    "response": response,
+                    "uri": "/",
+                    "nonce": "booger",
+                    "cnonce": "phlegm",
+                    "nc": None,
+                },
+            )))

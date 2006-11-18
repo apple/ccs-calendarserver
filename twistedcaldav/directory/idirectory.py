@@ -31,6 +31,8 @@ class IDirectoryService(Interface):
     """
     Directory Service
     """
+    realmName = Attribute("The name of the authentication realm this service represents.")
+
     def recordTypes():
         """
         @return: a sequence of strings denoting the record types that are kept

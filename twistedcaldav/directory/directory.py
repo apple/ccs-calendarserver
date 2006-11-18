@@ -41,6 +41,15 @@ from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryReco
 class DirectoryService(object):
     implements(IDirectoryService, ICredentialsChecker)
 
+    ##
+    # IDirectoryService
+    ##
+    realmName = None
+
+    ##
+    # ICredentialsChecker
+    ##
+
     # For ICredentialsChecker
     credentialInterfaces = (IPrincipalCredentials,)
 
