@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+
+<accounts realm="Test Realm">
+  <user>
+    <uid>admin</uid>
+    <pswd>nimda</pswd>
+    <name>Super User</name>
+  </user>
+  <user>
+    <uid>proxy</uid>
+    <pswd>yxorp</pswd>
+    <name>User who can authorize as someone else</name>
+    <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
+  </user>
+  <user>
+    <uid>wsanchez</uid>
+    <pswd>zehcnasw</pswd>
+    <name>Wilfredo Sanchez</name>
+    <cuaddr>mailto:wsanchez@example.com</cuaddr>
+  </user>
+  <user>
+    <uid>cdaboo</uid>
+    <pswd>oobadc</pswd>
+    <name>Cyrus Daboo</name>
+    <cuaddr>mailto:cdaboo@example.com</cuaddr>
+  </user>
+  <user>
+    <uid>lecroy</uid>
+    <pswd>yorcel</pswd>
+    <name>Chris Lecroy</name>
+    <cuaddr>mailto:lecroy@example.com</cuaddr>
+  </user>
+  <user>
+    <uid>dreid</uid>
+    <pswd>dierd</pswd>
+    <name>David Reid</name>
+    <cuaddr>mailto:dreid@example.com</cuaddr>
+  </user>
+  <user repeat="2">
+    <uid>user%02d</uid>
+    <pswd>%02duser</pswd>
+    <name>User %02d</name>
+  </user>
+  <group>
+    <uid>managers</uid>
+    <pswd>managers</pswd>
+    <name>Managers</name>
+    <members>
+      <uid>lecroy</uid>
+    </members>
+  </group>
+  <group>
+    <uid>grunts</uid>
+    <pswd>grunts</pswd>
+    <name>We do all the work</name>
+    <members>
+      <uid>wsanchez</uid>
+      <uid>cdaboo</uid>
+      <uid>dreid</uid>
+    </members>
+  </group>
+  <group>
+    <uid>right_coast</uid>
+    <pswd>right_coast</pswd>
+    <name>East Coast</name>
+    <members>
+      <uid>cdaboo</uid>
+    </members>
+  </group>
+  <group>
+    <uid>left_coast</uid>
+    <pswd>left_coast</pswd>
+    <name>West Coast</name>
+    <members>
+      <uid>wsanchez</uid>
+      <uid>lecroy</uid>
+      <uid>dreid</uid>
+    </members>
+  </group>
+  <resource>
+    <uid>mercury</uid>
+    <pswd>mercury</pswd>
+    <name>Mecury Seven</name>
+    <cuaddr>mailto:mercury@example.com</cuaddr>
+  </resource>
+  <resource>
+    <uid>gemini</uid>
+    <pswd>gemini</pswd>
+    <name>Gemini Twelve</name>
+    <cuaddr>mailto:gemini@example.com</cuaddr>
+  </resource>
+  <resource>
+    <uid>apollo</uid>
+    <pswd>apollo</pswd>
+    <name>Apollo Eleven</name>
+    <cuaddr>mailto:apollo@example.com</cuaddr>
+  </resource>
+</accounts>
