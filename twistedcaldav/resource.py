@@ -33,6 +33,7 @@ __all__ = [
     "isScheduleOutboxResource",
 ]
 
+from weakref import WeakValueDictionary
 from zope.interface import implements
 
 from twisted.internet import reactor
