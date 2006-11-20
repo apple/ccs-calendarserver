@@ -37,12 +37,12 @@ from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalendarPrincipalCollectionResource
-from twistedcaldav.static import CalendarPrincipalFile
+from twistedcaldav.static import CalDAVFile, CalendarPrincipalFile
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
 
-class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
+class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile):
     """
     Collection resource which provisions directory principals as its children.
     """
@@ -52,9 +52,9 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
         @param url: the canonical URL for the resource.
         @param directory: an L{IDirectoryService} to provision principals from.
         """
-        CalendarPrincipalCollectionResource.__init__(self, url)
-        DAVFile.__init__(self, path)
+        CalDAVFile.__init__(self, path)
 
+        self._url = url
         self.directory = IDirectoryService(directory)
 
         # FIXME: Smells like a hack
@@ -102,8 +102,8 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
             return None
         return typeResource.getChild(record.shortName)
 
-    def principalCollections(self, request):
-        return succeed((self.principalCollectionURL(),))
+    def collectionURL(self):
+        return self._url
 
 class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
@@ -115,7 +115,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param recordType: the directory record type to provision.
         """
-        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.principalCollectionURL(), recordType))
+        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.collectionURL(), recordType))
         DAVFile.__init__(self, path)
 
         self.directory = parent.directory
@@ -151,8 +151,8 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
 
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
+    def principalForUser(self, user):
+        return self._parent.principalForUser(user)
 
 class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """
@@ -247,9 +247,6 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def groupMemberships(self):
         return self._getRelatives("groups")
-
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
 
     ##
     # CalDAV

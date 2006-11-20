@@ -285,6 +285,12 @@ class CalDAVResource (DAVResource):
 
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
+    def principalCollections(self, request):
+        """
+        Get the values cached in CalendarPrincipalCollectionResource.
+        """
+        return succeed(CalendarPrincipalCollectionResource.principleCollectionSet.keys())
+
     ##
     # CalDAV
     ##
