@@ -35,6 +35,15 @@ Index: twisted/web2/dav/resource.py
          return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
  
      def readProperty(self, property, request):
+@@ -253,7 +265,7 @@
+ 
+                 if name == "principal-collection-set":
+                     d = self.principalCollections(request)
+-                    d.addCallback(lambda collections: davxml.PrincipalCollectionSet(*collections))
++                    d.addCallback(lambda collections: davxml.PrincipalCollectionSet(*[davxml.HRef.fromString(uri) for uri in collections]))
+                     return d
+ 
+                 def ifAllowed(privileges, callback):
 @@ -286,7 +298,33 @@
                          d.addCallback(gotACL)
                          return d
@@ -340,7 +349,7 @@ Index: twisted/web2/dav/resource.py
  
          # Dynamically update privileges for those ace's that are inherited.
          if inheritance:
-@@ -1146,49 +1221,95 @@
+@@ -1146,49 +1221,96 @@
  
          This implementation returns an empty set.
          """
@@ -419,13 +428,14 @@ Index: twisted/web2/dav/resource.py
 +            # FIXME: collection = IPrincipalCollectionResource(collection)
 +            principal = collection.principalForUser(authid)
 +
++            # FIXME: Why return a tuple?
++
              yield principal
 -            principal = principal.getResult()
 -
 -            if isPrincipalResource(principal):
 -                yield (principal, principalURI)
 -                return
-+            return
          else:
 -            principalCollections = waitForDeferred(self.principalCollections(request))
 -            yield principalCollections
@@ -450,7 +460,7 @@ Index: twisted/web2/dav/resource.py
 +        @param authid: a string containing the uthentication/authorization identifier
 +            for the principal to lookup.
 +        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-+        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
++         @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
 +            resource and URI respectively.
 +        """
 +        return succeed(authnPrincipal)
@@ -458,7 +468,7 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1511,6 +1632,265 @@
+@@ -1511,6 +1633,265 @@
          return None
  
      ##
@@ -724,7 +734,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1938,7 @@
+@@ -1558,7 +1939,7 @@
      """
      DAV resource with no children.
      """
@@ -733,7 +743,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2092,37 @@
+@@ -1712,6 +2093,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  

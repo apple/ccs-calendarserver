@@ -8,10 +8,10 @@ Index: twisted/web2/dav/static.py
  
 -import os
 -
-+from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
- from twisted.python import log
--from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+-from twisted.python import log
+ from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 -from twisted.web2.static import File
++from twisted.python import log
 +from twisted.web2 import http_headers
  from twisted.web2 import responsecode, dirlist
 -from twisted.web2.http import RedirectResponse
@@ -96,7 +96,7 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -134,61 +183,58 @@
+@@ -134,61 +183,6 @@
      def createSimilarFile(self, path):
          return self.__class__(path, defaultType=self.defaultType, indexNames=self.indexNames[:])
  
@@ -110,58 +110,7 @@ Index: twisted/web2/dav/static.py
 -        if not self.fp.exists():
 -            yield responsecode.NOT_FOUND
 -            return
-+    # def render(self, request):
-+    #     """
-+    #     This is a direct copy of web2.static.render with the
-+    #     listChildren behavior replaced with findChildren to ensure
-+    #     that the current authenticated principal can only list
-+    #     directory contents that they have read permissions for.
-+    #     """
-+    #     if not self.fp.exists():
-+    #         return responsecode.NOT_FOUND
-+    # 
-+    #     if not self.fp.isdir():
-+    #         # Do regular resource behavior from superclass
-+    #         return super(DAVFile, self).render(request)
-+    # 
-+    #     #
-+    #     # Do custom rendering of directory so that we can enforce ACLs.
-+    #     #
-+    # 
-+    #     if request.uri[-1] != "/":
-+    #         # Redirect to include trailing '/' in URI
-+    #         return RedirectResponse(request.unparseURL(path=request.path+'/'))
-+    # 
-+    #     # Render from the index file, if we have one
-+    #     index_fp = self.fp.childSearchPreauth(*self.indexNames)
-+    #     if index_fp:
-+    #         return self.createSimilarFile(index_fp.path).render(request)
-+    # 
-+    #     # Render from a DirectoryLister
-+    #     def findChildren(filtered_aces):
-+    #         children = []
-+    # 
-+    #         def found(request, uri):
-+    #             children.append(uri.rstrip("/").split("/")[-1])
-+    # 
-+    #         d = self.findChildren("1", request, found,
-+    #                               (davxml.Read(),), inherited_aces=filtered_aces)
-+    #         d.addCallback(render, children)
-+    #         return d
-+    # 
-+    #     def render(_, children):
-+    #         return dirlist.DirectoryLister(
-+    #             self.fp.path,
-+    #             children,
-+    #             self.contentTypes,
-+    #             self.contentEncodings,
-+    #             self.defaultType
-+    #         ).render(request)
-+    # 
-+    #     d = self.inheritedACEsforChildren(request)
-+    #     d.addCallback(findChildren)
-+    #     return d
- 
+-
 -        if self.fp.isdir():
 -            if request.uri[-1] != "/":
 -                # Redirect to include trailing '/' in URI
