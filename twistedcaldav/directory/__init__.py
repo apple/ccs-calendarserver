@@ -26,4 +26,7 @@ __all__ = [
     "directory",
     "idirectory",
     "resource",
+    "sqldb",
+    "xmlaccounrsparser",
+    "xmlfile",
 ]

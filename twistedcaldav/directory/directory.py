@@ -105,7 +105,7 @@ class DirectoryRecord(object):
     def groups(self):
         return ()
 
-    def verifyCredentials(credentials):
+    def verifyCredentials(self, credentials):
         return False
 
 class DirectoryError(RuntimeError):

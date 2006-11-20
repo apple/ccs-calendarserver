@@ -15,7 +15,6 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twistedcaldav.sql import AbstractSQLDatabase
 
 
 """
@@ -48,6 +47,7 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
+from twistedcaldav.sql import AbstractSQLDatabase
 
 import os
 

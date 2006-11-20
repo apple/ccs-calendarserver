@@ -15,7 +15,6 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 
 """
 XML based user/group/resource directory service implementation.
@@ -30,6 +29,7 @@ from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 
 class XMLDirectoryService(DirectoryService):
     """
