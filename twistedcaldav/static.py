@@ -387,8 +387,24 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
 
+    ##
+    # ACL
+    ##
+
     def supportedPrivileges(self, request):
         return succeed(schedulePrivilegeSet)
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Allow any authenticated user to schedule
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(caldavxml.Schedule()),
+                ),
+            ),
+        )
+
 
 class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     """
@@ -580,6 +596,15 @@ class CalendarHomeFile (CalDAVFile):
         self.record = record
         self._parent = parent
 
+        # Cache children which must be of a specific type
+        for name, cls in (
+            ("inbox" , ScheduleInboxFile),
+            ("outbox", ScheduleOutboxFile),
+        ):
+            child_fp = self.fp.child(name)
+            child = cls(child_fp.path)
+            self.putChild(name, child)
+
     def provisionOnCreate(self):
         """
         Create all the child collections we need when the resource
@@ -596,16 +621,8 @@ class CalendarHomeFile (CalDAVFile):
             if not child_fp.exists():
                 child_fp.makedirs()
                 if name == "inbox":
-                    child.setAccessControlList(
-                        davxml.ACL(
-                            davxml.ACE(
-                                davxml.Principal(davxml.Authenticated()),
-                                davxml.Grant(
-                                    davxml.Privilege(caldavxml.Schedule()),
-                                ),
-                            ),
-                        )
-                    )
+                    # FIXME: This should probably be a directory record option that maps to the property value
+                    # directly without the need to store one.
                     if self.record.recordType == "resource":
                         # Resources should have autorespond turned on by default,
                         # since they typically don't have someone responding for them.
