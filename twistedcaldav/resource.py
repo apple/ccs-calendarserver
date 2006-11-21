@@ -547,6 +547,8 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
 
         # Register self with class
         if url not in CalendarPrincipalCollectionResource.principleCollectionSet:
+            if not url.endswith("/"):
+                url += "/"
             CalendarPrincipalCollectionResource.principleCollectionSet[url] = self
 
     def isCollection(self):
