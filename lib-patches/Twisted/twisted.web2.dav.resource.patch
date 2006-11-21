@@ -423,19 +423,18 @@ Index: twisted/web2/dav/resource.py
 +            collection = collection.getResult()
  
 -            principal = waitForDeferred(request.locateResource(principalURI))
+-            yield principal
+-            principal = principal.getResult()
 +            assert collection is not None, "Unable to locate principal collection %s" % (collectionURI,)
-+
+ 
+-            if isPrincipalResource(principal):
+-                yield (principal, principalURI)
 +            # FIXME: collection = IPrincipalCollectionResource(collection)
 +            principal = collection.principalForUser(authid)
 +
-+            # FIXME: Why return a tuple?
-+
-             yield principal
--            principal = principal.getResult()
--
--            if isPrincipalResource(principal):
--                yield (principal, principalURI)
--                return
++            if principal:
++                yield principal
+                 return
          else:
 -            principalCollections = waitForDeferred(self.principalCollections(request))
 -            yield principalCollections
