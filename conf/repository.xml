@@ -38,7 +38,7 @@ limitations under the License.
         </acl>
       </properties>
       <members>
-        <collection name="principals" tag="principals">
+        <collection name="principals">
           <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
           <properties>
             <acl>
@@ -49,6 +49,7 @@ limitations under the License.
               </ace>
             </acl>
           </properties>
+          <members/>
         </collection>
         <collection name="calendars">
           <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
@@ -57,11 +58,12 @@ limitations under the License.
               <ace>
                 <principal><authenticated/></principal>
                 <grant><privilege><read/></privilege></grant>
-				<inheritable/>
                 <protected/>
+				<inheritable/>
               </ace>
             </acl>
           </properties>
+          <members/>
         </collection>
       </members>
     </collection>
