@@ -65,6 +65,51 @@ limitations under the License.
   <key>ResetAccountACLs</key>
   <true/>
 
+  <!--  Open Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>OpenDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>node</key>
+	  <string>/Search</string>
+	</dict>
+  </dict>
+  -->
+  
+  <!--  XML File Directory Service -->
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>XMLDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>xmlFile</key>
+	  <string>conf/accounts.xml</string>
+	</dict>
+  </dict>
+  
+  <!--  SQL Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>SQLDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>dbParentPath</key>
+	  <string>/Library/CalendarServer/Documents</string>
+	  <key>xmlFile</key>
+	  <string>conf/accounts.xml</string>
+	</dict>
+  </dict>
+  -->
+  
   <key>DropBoxEnabled</key>
   <true/>
 

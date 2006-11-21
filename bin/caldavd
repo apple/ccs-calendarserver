@@ -65,6 +65,8 @@ class caldavd(object):
         self.certfile = "/etc/certificates/Default.crt"
         self.manhole = 0
 
+        self.directoryservice = {"type":"OpenDirectoryService", "params":{"node":"/Search"},}
+
         self.dropbox = True
         self.dropboxName = "dropbox"
         self.dropboxACLs = True
@@ -102,6 +104,8 @@ class caldavd(object):
         print "Only Use SSL:                     %s" % (self.onlyssl,)
         print "SSL Private Key File:             %s" % (self.keyfile,)
         print "SSL Certificate File:             %s" % (self.certfile,)
+        print "Directory Service:                %s" % (self.directoryservice["type"],)
+        print "Directory Service Parameters:     %r" % (self.directoryservice["params"],)
         print "Drop Box Enabled:                 %s" % (self.dropbox,)
         print "Drop Box Name:                    %s" % (self.dropboxName,)
         print "Drop Box ACLs are Inherited       %s" % (self.dropboxACLs,)
@@ -270,7 +274,7 @@ class caldavd(object):
         self.action = args[0]
     
     def parsePlist(self):
-    	print "Reading configuration file %s." % (self.plistfile,)
+        print "Reading configuration file %s." % (self.plistfile,)
 
         root = readPlist(self.plistfile)
         
@@ -286,6 +290,7 @@ class caldavd(object):
                    "SSLPrivateKey":              "keyfile",
                    "SSLCertificate":             "certfile",
                    "ManholePort":                "manhole",
+                   "DirectoryService":           "directoryservice",
                    "DropBoxEnabled":             "dropbox",
                    "DropBoxName":                "dropboxName",
                    "DropBoxInheritedACLs":       "dropboxACLs",
@@ -355,24 +360,25 @@ Options:
     def generateTAC(self):
         return """
 docroot         = "%(docroot)s"
-repo            = "%(repo)s"
-doacct          =  %(doacct)s
-doacl           =  %(doacl)s
-dossl           =  %(dossl)s
-keyfile         = "%(keyfile)s"
-certfile        = "%(certfile)s"
-onlyssl         =  %(onlyssl)s
-port            =  %(port)d
-sslport         =  %(sslport)d
-maxsize         =  %(maxsize)d
-quota           =  %(quota)d
-serverlogfile   = "%(serverlogfile)s"
-dropbox         = "%(dropbox)s"
-dropboxName     = "%(dropboxName)s"
-dropboxACLs     = "%(dropboxACLs)s"
-notifications   = "%(notifications)s"
-notifcationName = "%(notifcationName)s"
-manhole         =  %(manhole)d
+repo             = "%(repo)s"
+doacct           =  %(doacct)s
+doacl            =  %(doacl)s
+dossl            =  %(dossl)s
+keyfile          = "%(keyfile)s"
+certfile         = "%(certfile)s"
+onlyssl          =  %(onlyssl)s
+port             =  %(port)d
+sslport          =  %(sslport)d
+maxsize          =  %(maxsize)d
+quota            =  %(quota)d
+serverlogfile    = "%(serverlogfile)s"
+directoryService = "%(directoryservice)s"
+dropbox          = "%(dropbox)s"
+dropboxName      = "%(dropboxName)s"
+dropboxACLs      = "%(dropboxACLs)s"
+notifications    = "%(notifications)s"
+notifcationName  = "%(notifcationName)s"
+manhole          =  %(manhole)d
 
 from twistedcaldav.repository import startServer
 
@@ -389,6 +395,7 @@ application, site = startServer(docroot,
                                 maxsize,
                                 quota,
                                 serverlogfile,
+                                directoryservice,
                                 dropbox,
                                 dropboxName,
                                 dropboxACLs,
@@ -410,6 +417,7 @@ application, site = startServer(docroot,
     "maxsize":         self.maxsize,
     "quota":           self.quota,
     "serverlogfile":   self.serverlogfile,
+    "directoryservice":self.directoryservice,
     "dropbox":         self.dropbox,
     "dropboxName":     self.dropboxName,
     "dropboxACLs":     self.dropboxACLs,

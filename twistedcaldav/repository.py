@@ -55,7 +55,6 @@ from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalendarHomeFile, CalendarPrincipalFile
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 
 ELEMENT_REPOSITORY = "repository"
 
@@ -109,7 +108,6 @@ ELEMENT_SERVICE = "service"
 ATTRIBUTE_ENABLE = "enable"
 ATTRIBUTE_ONLYSSL = "onlyssl"
 ATTRIBUTE_CREDENTIALS = "credentials"
-ATTRIBUTE_DIRECTORY_NODE = "node"
 
 ATTRIBUTE_VALUE_PROPERTY = "property"
 ATTRIBUTE_VALUE_DIRECTORY = "directory"
@@ -131,6 +129,7 @@ ATTRIBUTE_REPEAT = "repeat"
 def startServer(docroot, repo, doacct, doacl, dossl,
                 keyfile, certfile, onlyssl, port, sslport, maxsize,
                 quota, serverlogfile,
+                directoryservice,
                 dropbox, dropboxName, dropboxACLs,
                 notifications, notifcationName,
                 manhole):
@@ -223,6 +222,20 @@ def startServer(docroot, repo, doacct, doacl, dossl,
 
     directory = DirectoryServiceProxy()
 
+    dirname = directoryservice["type"]
+    dirparams = directoryservice["params"]
+    try:
+        resource_class = namedObject(dirname)
+    except:
+        log.err("Unable to locate Python class %r" % (dirname,))
+        raise
+    try:
+        service = resource_class(**dirparams)
+    except Exception:
+        log.err("Unable to instantiate Python class %r with arguments %r" % (resource_class, dirparams))
+        raise
+    directory.service=service
+
     # Build the server
     builder = RepositoryBuilder(docroot,
                                 doAccounts=doacct,
@@ -246,8 +259,6 @@ def startServer(docroot, repo, doacct, doacl, dossl,
         portal.registerChecker(auth.TwistedPropertyChecker())
         print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
-        service = OpenDirectoryService(authenticator.directoryNode)
-        directory.service = service
         portal.registerChecker(service)
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
@@ -548,7 +559,7 @@ class Collection (object):
             kwargs["params"] = self.params
         try:
             self.resource = resource_class(**kwargs)
-        except Exception, e:
+        except Exception:
             log.err("Unable to instantiate Python class %r with arguments %r" % (resource_class, kwargs))
             raise
 
@@ -926,8 +937,6 @@ class Authentication:
                 self.onlyssl = node.getAttribute(ATTRIBUTE_ONLYSSL) == ATTRIBUTE_VALUE_YES
             if node.hasAttribute(ATTRIBUTE_CREDENTIALS):
                 self.credentials = node.getAttribute(ATTRIBUTE_CREDENTIALS)
-            if node.hasAttribute(ATTRIBUTE_DIRECTORY_NODE):
-                self.directoryNode = node.getAttribute(ATTRIBUTE_DIRECTORY_NODE)
             for child in node._get_childNodes():
                 if child._get_localName() == ELEMENT_REALM:
                     if child.firstChild is not None:
