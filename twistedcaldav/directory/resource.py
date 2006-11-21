@@ -109,7 +109,6 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
                 davxml.Principal(davxml.Authenticated()),
                 davxml.Grant(davxml.Privilege(davxml.Read())),
                 davxml.Protected(),
-                TwistedACLInheritable()
             ),
         )
 
@@ -161,6 +160,20 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
 
     def principalForUser(self, user):
         return self._parent.principalForUser(user)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        )
 
 class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """

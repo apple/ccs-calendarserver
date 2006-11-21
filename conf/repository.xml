@@ -40,28 +40,12 @@ limitations under the License.
       <members>
         <collection name="principals">
           <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
-          <properties>
-            <acl>
-              <ace>
-                <principal><authenticated/></principal>
-                <grant><privilege><read/></privilege></grant>
-				<inheritable/>
-              </ace>
-            </acl>
-          </properties>
+          <properties/>
           <members/>
         </collection>
         <collection name="calendars">
           <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
-          <properties>
-            <acl>
-              <ace>
-                <principal><authenticated/></principal>
-                <grant><privilege><read/></privilege></grant>
-                <protected/>
-              </ace>
-            </acl>
-          </properties>
+          <properties/>
           <members/>
         </collection>
       </members>

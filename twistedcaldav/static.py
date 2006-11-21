@@ -753,6 +753,15 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     def groupMemberships(self):
         return ()
 
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Read access for this principal only.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(self.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        )
     ##
     # CalDAV
     ##
