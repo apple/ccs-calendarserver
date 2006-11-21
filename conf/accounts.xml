@@ -32,7 +32,7 @@ limitations under the License.
   </user>
   <user repeat="100">
     <uid>user%02d</uid>
-    <pswd>%02duser</pswd>
+    <pswd>user%02d</pswd>
     <name>User %02d</name>
   </user>
   <resource repeat="10">
