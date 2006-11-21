@@ -90,3 +90,10 @@ class IDirectoryRecord(Interface):
         @return: C{True} if the given credentials match this record,
             C{False} otherwise.
         """
+
+    def principalResource():
+        """
+        Return the principal resource that was provisioned from
+        this directory record.
+        @return: L{CalendarPrincipalResource}
+        """

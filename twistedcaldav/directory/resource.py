@@ -56,14 +56,7 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
 
         self._url = url
         self.directory = IDirectoryService(directory)
-
-        # FIXME: Smells like a hack
-        directory.principalCollection = self
-
-    # FIXME: Move this to __init__ after we remove the directory proxy hack from repository.py.
-    def _initChildren(self):
-        if len(self.putChildren) > 0:
-            return
+        self.directory.setProvisioningResource(self)
 
         # Create children
         for name in self.directory.recordTypes():
@@ -82,7 +75,6 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self._initChildren()
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
@@ -90,7 +82,6 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
             return self.putChildren.get(name, None)
 
     def listChildren(self):
-        self._initChildren()
         return self.putChildren.keys()
 
     def principalForUser(self, user):

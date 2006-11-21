@@ -465,11 +465,6 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     def listChildren(self):
         return self.directory.recordTypes()
 
-    def principalCollections(self, request):
-        # FIXME: directory.principalCollection smells like a hack
-        # See DirectoryPrincipalProvisioningResource.__init__()
-        return self.directory.principalCollection.principalCollections(request)
-
     def homeForDirectoryRecord(self, record):
         return self.getChild(record.recordType).getChild(record.shortName)
 
@@ -521,9 +516,6 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
 
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
-
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
 
 class CalendarHomeFile (CalDAVFile):
     """
@@ -578,9 +570,9 @@ class CalendarHomeFile (CalDAVFile):
     ##
 
     def defaultAccessControlList(self):
-        # FIXME: directory.principalCollection smells like a hack
-        # See DirectoryPrincipalProvisioningResource.__init__()
-        myPrincipal = self._parent._parent.directory.principalCollection.principalForRecord(self.record)
+        # Map from the record to the directory service, then to the principal
+        # provisioning resource then to the principal.
+        myPrincipal = self.record.principalResource()
 
         return davxml.ACL(
             # Read access for authenticated users.
