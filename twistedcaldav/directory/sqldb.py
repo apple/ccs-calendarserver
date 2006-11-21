@@ -82,6 +82,27 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def listRecords(self, recordType):
         return self._db_values_for_sql("select UID from ACCOUNTS where TYPE = :1", recordType)
+        # Get each account record
+        rowiter = self._db_execute("select UID, PSWD, NAME from ACCOUNTS where TYPE = :1", recordType)
+        for row in rowiter:
+            uid = row[0]
+            pswd = row[1]
+            name = row[2]
+            members = []
+            groups = []
+    
+            # See if we have a group
+            if recordType == "group":
+                rowiter = self._db_execute("select UID from GROUPS where GRPUID = :1", uid)
+                for row in rowiter:
+                    members.append(row[0])
+                
+            # See if we are a member of a group
+            rowiter = self._db_execute("select GRPUID from GROUPS where UID = :1", uid)
+            for row in rowiter:
+                groups.append(row[0])
+                
+            yield uid, pswd, name, members, groups
 
     def getRecord(self, recordType, uid):
         # Get individual account record
@@ -231,8 +252,16 @@ class SQLDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
-        for name in self.manager.listRecords(recordType):
-            yield name
+        for result in self.manager.listRecords(recordType):
+            yield SQLDirectoryRecord(
+                service       = self,
+                recordType    = recordType,
+                shortName     = result[0],
+                pswd          = result[1],
+                name          = result[2],
+                members       = result[3],
+                groups        = result[4],
+            )
 
     def recordWithShortName(self, recordType, shortName):
         result = self.manager.getRecord(recordType, shortName)

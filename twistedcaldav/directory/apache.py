@@ -59,7 +59,25 @@ class AbstractDirectoryService(DirectoryService):
 
     def listRecords(self, recordType):
         for entryShortName, entryData in self.entriesForRecordType(recordType):
-            yield entryShortName
+            if recordType == "user":
+                yield self.userRecordClass(
+                    service       = self,
+                    recordType    = recordType,
+                    shortName     = entryShortName,
+                    cryptPassword = entryData,
+                )
+
+            if recordType == "group":
+                yield GroupRecord(
+                    service    = self,
+                    recordType = recordType,
+                    shortName  = entryShortName,
+                    members    = entryData,
+                )
+
+            # Subclass should cover the remaining record types
+            raise AssertionError("Subclass should have handled record type: %r"
+                                 % (recordType,))
 
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, entryData in self.entriesForRecordType(recordType):

@@ -53,7 +53,12 @@ class XMLDirectoryService(DirectoryService):
 
     def listRecords(self, recordType):
         for entryShortName, xmlprincipal in self._entriesForRecordType(recordType):
-            yield entryShortName
+            yield XMLDirectoryRecord(
+                service       = self,
+                recordType    = recordType,
+                shortName     = entryShortName,
+                xmlPrincipal  = xmlprincipal,
+            )
 
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, xmlprincipal in self._entriesForRecordType(recordType):
