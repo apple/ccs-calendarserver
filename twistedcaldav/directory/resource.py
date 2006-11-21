@@ -32,6 +32,8 @@ from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
+from twisted.web2.dav import davxml
+from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 
@@ -95,6 +97,21 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
 
     def collectionURL(self):
         return self._url
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+                TwistedACLInheritable()
+            ),
+        )
 
 class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """

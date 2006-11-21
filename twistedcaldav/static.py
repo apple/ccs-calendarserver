@@ -438,6 +438,19 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         # FIXME: Smells like a hack
         directory.calendarHomesCollection = self
 
+        # Create children
+        for name in self.directory.recordTypes():
+            child_fp = self.fp.child(name)
+            if child_fp.exists():
+                assert child_fp.isdir()
+            else:
+                assert self.exists()
+                assert self.isCollection()
+
+                child_fp.makedirs()
+
+            self.putChild(name, CalendarHomeTypeProvisioningFile(child_fp.path, self, name))
+
     def url(self):
         return self._url
 
@@ -467,6 +480,20 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
 
     def homeForDirectoryRecord(self, record):
         return self.getChild(record.recordType).getChild(record.shortName)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        )
 
 class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
@@ -503,19 +530,38 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
             assert name is None
             name = record.shortName
 
+        exists = False
         child_fp = self.fp.child(name)
         if child_fp.exists():
             assert child_fp.isdir()
+            exists = True
         else:
             assert self.exists()
             assert self.isCollection()
 
             child_fp.makedirs()
 
-        return CalendarHomeFile(child_fp.path, self, record)
+        home = CalendarHomeFile(child_fp.path, self, record)
+        if not exists:
+            home.provisionOnCreate()
+        return home
 
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        )
 
 class CalendarHomeFile (CalDAVFile):
     """
@@ -534,7 +580,13 @@ class CalendarHomeFile (CalDAVFile):
         self.record = record
         self._parent = parent
 
-        # Create children
+    def provisionOnCreate(self):
+        """
+        Create all the child collections we need when the resource
+        is first created.
+        """
+
+        # Create inbox & outbox
         for name, cls in (
             ("inbox" , ScheduleInboxFile),
             ("outbox", ScheduleOutboxFile),
@@ -543,12 +595,54 @@ class CalendarHomeFile (CalDAVFile):
             child = cls(child_fp.path)
             if not child_fp.exists():
                 child_fp.makedirs()
-                if record.recordType == "resource" and child == "inbox":
-                    # Resources should have autorespond turned on by default,
-                    # since they typically don't have someone responding for them.
-                    child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+                if name == "inbox":
+                    child.setAccessControlList(
+                        davxml.ACL(
+                            davxml.ACE(
+                                davxml.Principal(davxml.Authenticated()),
+                                davxml.Grant(
+                                    davxml.Privilege(caldavxml.Schedule()),
+                                ),
+                            ),
+                        )
+                    )
+                    if self.record.recordType == "resource":
+                        # Resources should have autorespond turned on by default,
+                        # since they typically don't have someone responding for them.
+                        child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
             self.putChild(name, child)
 
+        calendars = []
+        for calendar in ("calendar",):
+            childURL = joinURL(self.url(), calendar)
+            child = CalDAVFile(os.path.join(self.fp.path, calendar))
+            c = child.createCalendarCollection()
+            assert c.called
+            c = c.result
+            calendars.append(childURL)
+            child.setAccessControlList(
+                davxml.ACL(
+                    davxml.ACE(
+                        davxml.Principal(davxml.Authenticated()),
+                        davxml.Grant(
+                            davxml.Privilege(caldavxml.ReadFreeBusy()),
+                        ),
+                        TwistedACLInheritable(),
+                    ),
+                )
+            )
+        
+        # Set calendar-free-busy-set on Inbox if not already present
+        inbox = self.getChild("inbox")
+        if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
+            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
+            inbox.writeDeadProperty(fbset)
+            
+        # Do drop box if requested
+        if self.record.recordType == "user":
+            from twistedcaldav.dropbox import DropBox
+            DropBox.provision(self)
+        
     def url(self):
         return joinURL(self._parent.url(), self.record.shortName)
 
