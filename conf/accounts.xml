@@ -30,10 +30,15 @@ limitations under the License.
     <name>User who can authorize as someone else</name>
     <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
-  <user repeat="100">
+  <user repeat="99">
     <uid>user%02d</uid>
     <pswd>user%02d</pswd>
     <name>User %02d</name>
+  </user>
+  <user repeat="10">
+    <uid>public%02d</uid>
+    <pswd>public%02d</pswd>
+    <name>Public %02d</name>
   </user>
   <resource repeat="10">
     <uid>resource%02d</uid>
