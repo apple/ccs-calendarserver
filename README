@@ -2,7 +2,7 @@ This is the core code base for a CalDAV/WebDAV/HTTP server.
 
 For general information about the server, see:
 
-    http://trac.macosforge.org/projects/calendarserver/
+    http://calendarserver.macosforge.org/
 
 
 QUICK START
