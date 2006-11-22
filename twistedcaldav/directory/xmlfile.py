@@ -100,6 +100,7 @@ class XMLDirectoryRecord(DirectoryRecord):
             guid       = None,
             shortName  = shortName,
             fullName   = xmlPrincipal.name,
+            cuaddrs    = xmlPrincipal.cuaddrs
         )
 
         self.password = xmlPrincipal.pswd

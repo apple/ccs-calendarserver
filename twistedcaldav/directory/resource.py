@@ -286,17 +286,26 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             self.record.service.calendarHomesCollection.homeForDirectoryRecord(self.record).url(),
         )
 
+    def scheduleInboxURL(self):
+        """
+        @return: the schedule INBOX URL for this principal.
+        """
+        return joinURL(self.calendarHomeURLs()[0], "inbox/")
+
+    def scheduleOutboxURL(self):
+        """
+        @return: the schedule OUTBOX URL for this principal.
+        """
+        return joinURL(self.calendarHomeURLs()[0], "outbox/")
+        
     def calendarUserAddresses(self):
-        return (
-            # Principal URL
-            self.principalURL(),
-
-            # Need to implement GUID->record->principal resource lookup first
-            #"urn:uuid:%s" % (self.record.guid,)
-
-            # Need to add email attribute to records if we want this
-            #"mailto:%s" % (self.record.emailAddress)
-
-            # This one needs a valid scheme.  If we make up our own, need to check the RFC for character rules.
-            #"urn:calendarserver.macosforge.org:webdav:principal:%s:%s" % (self.record.recordType, self.record.shortName),
-        )
+        # Each directory service record must define the set of calendar user addresses itself.
+        # This may vary with the directory service actually being used.
+        # All we do here is ensure that the principalURL is always in the set.
+        if self.record.cuaddrs:
+            if self.principalURL() not in self.record.cuaddrs:
+                return tuple(self.record.cuaddrs) + (self.principalURL(),)
+            else:
+                return tuple(self.record.cuaddrs)
+        else:
+            return (self.principalURL(),)

@@ -69,6 +69,7 @@ class IDirectoryRecord(Interface):
     guid       = Attribute("The GUID of this record.")
     shortName  = Attribute("The name of this record.")
     fullName   = Attribute("The full name of this record.")
+    cuaddrs    = Attribute("The list of calendar user addresses for this record.")
 
     def members():
         """
