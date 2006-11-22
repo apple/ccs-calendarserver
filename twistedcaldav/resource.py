@@ -286,14 +286,13 @@ class CalDAVResource (DAVResource):
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
     def principalCollections(self, request):
-        """
-        Get the values cached in CalendarPrincipalCollectionResource.
-        """
+        # Get the values cached in CalendarPrincipalCollectionResource.
         collections = CalendarPrincipalCollectionResource.principleCollectionSet.keys()
         if collections:
-            return succeed(CalendarPrincipalCollectionResource.principleCollectionSet.keys())
-        else:
-            return super(CalDAVResource, self).principalCollections(request)
+            return succeed(collections)
+
+        # Fall back to super's implementation.
+        return super(CalDAVResource, self).principalCollections(request)
 
     ##
     # CalDAV
