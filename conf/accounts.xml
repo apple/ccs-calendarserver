@@ -34,11 +34,13 @@ limitations under the License.
     <uid>user%02d</uid>
     <pswd>user%02d</pswd>
     <name>User %02d</name>
+    <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
     <pswd>public%02d</pswd>
     <name>Public %02d</name>
+    <cuaddr>mailto:public%02d@example.com</cuaddr>
   </user>
   <resource repeat="10">
     <uid>resource%02d</uid>
