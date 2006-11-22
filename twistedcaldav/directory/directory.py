@@ -112,14 +112,6 @@ class DirectoryRecord(object):
     def verifyCredentials(self, credentials):
         return False
 
-    def principalResource(self):
-        """
-        Return the principal resource that was provisioned from
-        this directory record.
-        @return: L{CalendarPrincipalResource}
-        """
-        return self.service.provisioner.principalForRecord(self)
-
 class DirectoryError(RuntimeError):
     """
     Generic directory error.
