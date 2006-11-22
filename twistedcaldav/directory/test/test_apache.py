@@ -74,8 +74,8 @@ class Basic (twistedcaldav.directory.test.util.BasicTestCase):
 
     def test_changedUserFile(self):
         self.basicUserFile().open("w").write("wsanchez:Cytm0Bwm7CPJs\n")
-        self.assertEquals(set(self.service().listRecords("user")), set(("wsanchez",)))
+        self.assertEquals(self.recordNames("user"), set(("wsanchez",)))
 
     def test_changedGroupFile(self):
         self.groupFile().open("w").write("grunts: wsanchez\n")
-        self.assertEquals(set(self.service().listRecords("group")), set(("grunts",)))
+        self.assertEquals(self.recordNames("group"), set(("grunts",)))

@@ -56,20 +56,20 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         IDirectoryService.listRecords("user")
         """
-        self.assertEquals(set(self.service().listRecords("user")), set(self.users.keys()))
+        self.assertEquals(self.recordNames("user"), set(self.users.keys()))
 
     def test_listRecords_group(self):
         """
         IDirectoryService.listRecords("group")
         """
-        self.assertEquals(set(self.service().listRecords("group")), set(self.groups.keys()))
+        self.assertEquals(self.recordNames("group"), set(self.groups.keys()))
 
     def test_listRecords_resources(self):
         """
         IDirectoryService.listRecords("resources")
         """
         if len(self.resources):
-            self.assertEquals(set(self.service().listRecords("resource")), self.resources)
+            self.assertEquals(self.recordNames("resource"), self.resources)
 
     def test_recordWithShortName_user(self):
         """
@@ -107,7 +107,10 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         service = self.service()
         for group in self.groups:
             groupRecord = service.recordWithShortName("group", group)
-            self.assertEquals(set(m.shortName for m in groupRecord.members()), set(self.groups[group]))
+            self.assertEquals(
+                set(m.shortName for m in groupRecord.members()),
+                set(self.groups[group])
+            )
 
     def test_groupMemberships(self):
         """
@@ -116,7 +119,13 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
-            self.assertEquals(set(g.shortName for g in userRecord.groups()), set(g for g in self.groups if user in self.groups[g]))
+            self.assertEquals(
+                set(g.shortName for g in userRecord.groups()),
+                set(g for g in self.groups if user in self.groups[g])
+            )
+
+    def recordNames(self, recordType):
+        return set(r.shortName for r in self.service().listRecords(recordType))
 
 class BasicTestCase (DirectoryTestCase):
     """

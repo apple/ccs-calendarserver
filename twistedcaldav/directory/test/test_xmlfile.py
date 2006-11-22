@@ -79,6 +79,12 @@ class XMLFile (twistedcaldav.directory.test.util.BasicTestCase, twistedcaldav.di
 </accounts>
 """
         )
-        self.assertEquals(set(self.service().listRecords("user")), set(("admin",)))
-        self.assertEquals(set(self.service().listRecords("group")), set())
-        self.assertEquals(set(self.service().listRecords("resource")), set())
+        for recordType, expectedRecords in (
+            ( "user"     , ("admin",) ),
+            ( "group"    , ()         ),
+            ( "resource" , ()         ),
+        ):
+            self.assertEquals(
+                set(r.shortName for r in self.service().listRecords(recordType)),
+                set(expectedRecords)
+            )
