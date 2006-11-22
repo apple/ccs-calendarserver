@@ -71,9 +71,6 @@ class DirectoryService(object):
         else:
             raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
-    def setProvisioningResource(self, provisioner):
-        self.provisioner = provisioner
-
 class DirectoryRecord(object):
     implements(IDirectoryRecord)
 

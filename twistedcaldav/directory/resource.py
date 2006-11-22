@@ -58,7 +58,6 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
 
         self._url = url
         self.directory = IDirectoryService(directory)
-        self.directory.setProvisioningResource(self)
 
         # Create children
         for name in self.directory.recordTypes():
