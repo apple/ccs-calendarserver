@@ -89,7 +89,7 @@ class DirectoryRecord(object):
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
-            return super(DirectoryRecord, self).__eq__(other)
+            return NotImplemented
 
         for attr in ("service", "recordType", "shortName", "guid"):
             diff = cmp(getattr(self, attr), getattr(other, attr))
