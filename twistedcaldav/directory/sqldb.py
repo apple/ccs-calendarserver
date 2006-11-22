@@ -81,7 +81,6 @@ class SQLDirectoryManager(AbstractSQLDatabase):
        self._db_commit()
 
     def listRecords(self, recordType):
-        return self._db_values_for_sql("select UID from ACCOUNTS where TYPE = :1", recordType)
         # Get each account record
         rowiter = self._db_execute("select UID, PSWD, NAME from ACCOUNTS where TYPE = :1", recordType)
         for row in rowiter:
@@ -90,6 +89,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             name = row[2]
             members = []
             groups = []
+            cuaddrs = []
     
             # See if we have a group
             if recordType == "group":
@@ -102,7 +102,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             for row in rowiter:
                 groups.append(row[0])
                 
-            yield uid, pswd, name, members, groups
+            # Get calendar user addresses
+            rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
+            for row in rowiter:
+                cuaddrs.append(row[0])
+                
+            yield uid, pswd, name, members, groups, cuaddrs
 
     def getRecord(self, recordType, uid):
         # Get individual account record
@@ -122,6 +127,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         name = result[2]
         members = []
         groups = []
+        cuaddrs = []
 
         # See if we have a group
         if recordType == "group":
@@ -134,7 +140,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         for row in rowiter:
             groups.append(row[0])
             
-        return uid, pswd, name, members, groups
+        # Get calendar user addresses
+        rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
+        for row in rowiter:
+            cuaddrs.append(row[0])
+            
+        return uid, pswd, name, members, groups, cuaddrs
             
     def _add_to_db(self, record):
         # Do regular account entry
@@ -261,6 +272,7 @@ class SQLDirectoryService(DirectoryService):
                 name          = result[2],
                 members       = result[3],
                 groups        = result[4],
+                cuaddrs       = result[5],
             )
 
     def recordWithShortName(self, recordType, shortName):
@@ -274,6 +286,7 @@ class SQLDirectoryService(DirectoryService):
                 name          = result[2],
                 members       = result[3],
                 groups        = result[4],
+                cuaddrs       = result[5],
             )
 
         return None
@@ -285,13 +298,14 @@ class SQLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, shortName, pswd, name, members, groups):
+    def __init__(self, service, recordType, shortName, pswd, name, members, groups, cuaddrs):
         super(SQLDirectoryRecord, self).__init__(
             service    = service,
             recordType = recordType,
             guid       = None,
             shortName  = shortName,
             fullName   = name,
+            cuaddrs    = cuaddrs,
         )
 
         self.password = pswd
