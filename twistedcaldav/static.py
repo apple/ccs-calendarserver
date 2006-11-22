@@ -396,7 +396,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
 
     def defaultAccessControlList(self):
         return davxml.ACL(
-            # Allow any authenticated user to schedule
+            # CalDAV:schedule for any authenticated user
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
                 davxml.Grant(
@@ -502,14 +502,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     ##
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # Read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
-            ),
-        )
+        return readOnlyACL
 
 class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
@@ -570,14 +563,7 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     ##
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # Read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
-            ),
-        )
+        return readOnlyACL
 
 class CalendarHomeFile (CalDAVFile):
     """
@@ -686,12 +672,12 @@ class CalendarHomeFile (CalDAVFile):
         myPrincipal = self.record.principalResource()
 
         return davxml.ACL(
-            # Read access for authenticated users.
+            # DAV:read access for authenticated users.
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
                 davxml.Grant(davxml.Privilege(davxml.Read())),
             ),
-            # Inheritable all access to resource's associated principal.
+            # Inheritable DAV:all access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
                 davxml.Grant(davxml.Privilege(davxml.All())),
@@ -755,13 +741,14 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
 
     def defaultAccessControlList(self):
         return davxml.ACL(
-            # Read access for this principal only.
+            # DAV:read access for this principal only.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(self.principalURL())),
                 davxml.Grant(davxml.Privilege(davxml.Read())),
                 davxml.Protected(),
             ),
         )
+
     ##
     # CalDAV
     ##
@@ -928,6 +915,15 @@ def locateExistingChild(resource, request, segments):
 
     # Otherwise, there is no child
     return (None, ())
+
+# DAV:read access for authenticated users.
+readOnlyACL = davxml.ACL(
+    readOnlyACE = davxml.ACE(
+        davxml.Principal(davxml.Authenticated()),
+        davxml.Grant(davxml.Privilege(davxml.Read())),
+        davxml.Protected(),
+    ),
+)
 
 def _schedulePrivilegeSet():
     edited = False
