@@ -235,6 +235,16 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         return response
 
     ##
+    # DAV
+    ##
+
+    def displayName(self):
+        if self.record.fullName:
+            return self.record.fullName
+        else:
+            return self.record.shortName
+
+    ##
     # ACL
     ##
 
@@ -268,9 +278,6 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def groupMemberships(self):
         return self._getRelatives("groups")
-
-    def displayName(self):
-        return self.record.fullName
 
     ##
     # CalDAV
