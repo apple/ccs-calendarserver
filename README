@@ -2,7 +2,7 @@ This is the core code base for a CalDAV/WebDAV/HTTP server.
 
 For general information about the server, see:
 
-    http://collaboration.apple.com/
+    http://trac.macosforge.org/projects/calendarserver/
 
 
 QUICK START
@@ -72,6 +72,18 @@ If you are interested in getting involed with development, see the
 above web site for a list of available resources.
 
 You can chat with other users and developers on IRC on channel
-#collaboration on the irc.freenode.net server network.
+#calendarserver on the irc.freenode.net server network.
 
-We hope to have some mailing lists available soon.
+You can subscribe to our mailinglists at
+http://lists.macosforge.org/mailman/listinfo/
+
+ * calendarserver-users is for users of the Calendar Server. It's the
+   main forum for asking questions about installing, configuring and
+   administering a Calendar Server.
+ 
+ * calendarserver-dev is for developers. It's for engineering
+   discussions, including design directions, ways of extending the
+   server, and reviewing code.
+
+ * calendarserver-changes is for change notifications to the source
+   repository.
