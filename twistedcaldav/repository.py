@@ -180,48 +180,6 @@ def startServer(docroot, repo, doacct, doacl, dossl,
     # Turn on drop box support before building the repository
     DropBox.enable(dropbox, dropboxName, dropboxACLs, notifications, notifcationName)
 
-    class DirectoryServiceProxy(object):
-        # FIXME: This is a hack to make this config work for now
-        implements(IDirectoryService)
-
-        _service = None
-        _attrs = {}
-
-        def getService(self):
-            return self._service
-        def setService(self, service):
-            if self._service is not None:
-                raise AssertionError("bleargh")
-            for attr, value in self._attrs.items():
-                setattr(service, attr, value)
-            def set(name, value):
-                object.__setattr__(service, name, value)
-            def get(name):
-                object.__getattr__(service, name)
-            object.__setattr__(self, "_service", service)
-            object.__setattr__(self, "__setattr__", set)
-            object.__setattr__(self, "__getattr__", get)
-
-        service = property(getService, setService)
-
-        def __getattr__(self, name):
-            attr = getattr(self.service, name)
-
-            if type(attr) is type(self.__getattr__):
-                def m(*args, **kwargs):
-                    return attr(*args, **kwargs)
-                return m
-            else:
-                return attr
-
-        def __setattr__(self, name, value):
-            if name == "service":
-                object.__setattr__(self, name, value)
-            else:
-                self._attrs[name] = value
-
-    directory = DirectoryServiceProxy()
-
     dirname = directoryservice["type"]
     dirparams = directoryservice["params"]
     try:
@@ -230,11 +188,10 @@ def startServer(docroot, repo, doacct, doacl, dossl,
         log.err("Unable to locate Python class %r" % (dirname,))
         raise
     try:
-        service = resource_class(**dirparams)
+        directory = resource_class(**dirparams)
     except Exception:
         log.err("Unable to instantiate Python class %r with arguments %r" % (resource_class, dirparams))
         raise
-    directory.service=service
 
     # Build the server
     builder = RepositoryBuilder(docroot,
@@ -259,7 +216,7 @@ def startServer(docroot, repo, doacct, doacl, dossl,
         portal.registerChecker(auth.TwistedPropertyChecker())
         print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
-        portal.registerChecker(service)
+        portal.registerChecker(directory)
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
         if authenticator.type == "basic":
