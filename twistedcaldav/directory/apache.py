@@ -67,7 +67,7 @@ class AbstractDirectoryService(DirectoryService):
                     cryptPassword = entryData,
                 )
 
-            if recordType == "group":
+            elif recordType == "group":
                 yield GroupRecord(
                     service    = self,
                     recordType = recordType,
@@ -75,9 +75,9 @@ class AbstractDirectoryService(DirectoryService):
                     members    = entryData,
                 )
 
-            # Subclass should cover the remaining record types
-            raise AssertionError("Subclass should have handled record type: %r"
-                                 % (recordType,))
+            else:
+                # Subclass should cover the remaining record types
+                raise AssertionError("Unknown record type: %r" % (recordType,))
 
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, entryData in self.entriesForRecordType(recordType):
@@ -99,8 +99,7 @@ class AbstractDirectoryService(DirectoryService):
                     )
 
                 # Subclass should cover the remaining record types
-                raise AssertionError("Subclass should have handled record type: %r"
-                                     % (recordType,))
+                raise AssertionError("Unknown record type: %r" % (recordType,))
 
         return None
 
