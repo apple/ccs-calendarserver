@@ -142,8 +142,7 @@ class AbstractUserRecord(AbstractDirectoryRecord):
         self._cryptPassword = cryptPassword
 
     def groups(self):
-        for groupName in self.service.listRecords("group"):
-            group = self.service.recordWithShortName("group", groupName)
+        for group in self.service.listRecords("group"):
             for member in group.members():
                 if member == self:
                     yield group
