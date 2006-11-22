@@ -289,7 +289,11 @@ class CalDAVResource (DAVResource):
         """
         Get the values cached in CalendarPrincipalCollectionResource.
         """
-        return succeed(CalendarPrincipalCollectionResource.principleCollectionSet.keys())
+        collections = CalendarPrincipalCollectionResource.principleCollectionSet.keys()
+        if collections:
+            return succeed(CalendarPrincipalCollectionResource.principleCollectionSet.keys())
+        else:
+            return super(CalDAVResource, self).principalCollections(request)
 
     ##
     # CalDAV
