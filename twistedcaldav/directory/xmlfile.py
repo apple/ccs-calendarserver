@@ -95,15 +95,15 @@ class XMLDirectoryRecord(DirectoryRecord):
     """
     def __init__(self, service, recordType, shortName, xmlPrincipal):
         super(XMLDirectoryRecord, self).__init__(
-            service    = service,
-            recordType = recordType,
-            guid       = None,
-            shortName  = shortName,
-            fullName   = xmlPrincipal.name,
-            cuaddrs    = xmlPrincipal.cuaddrs
+            service               = service,
+            recordType            = recordType,
+            guid                  = None,
+            shortName             = shortName,
+            fullName              = xmlPrincipal.name,
+            calendarUserAddresses = xmlPrincipal.calendarUserAddresses
         )
 
-        self.password = xmlPrincipal.pswd
+        self.password = xmlPrincipal.password
         self._members = xmlPrincipal.members
         self._groups  = xmlPrincipal.groups
 

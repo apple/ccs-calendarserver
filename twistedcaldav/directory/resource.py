@@ -285,6 +285,11 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def principalUID(self):
         return self.record.shortName
+        
+    def calendarUserAddresses(self):
+        # Add the principal URL to whatever calendar user addresses
+        # the directory record provides.
+        return (self.principalURL(),) + tuple(self.record.calendarUserAddresses)
 
     def calendarHomeURLs(self):
         # FIXME: self.directory.calendarHomesCollection smells like a hack
@@ -294,25 +299,7 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         )
 
     def scheduleInboxURL(self):
-        """
-        @return: the schedule INBOX URL for this principal.
-        """
         return joinURL(self.calendarHomeURLs()[0], "inbox/")
 
     def scheduleOutboxURL(self):
-        """
-        @return: the schedule OUTBOX URL for this principal.
-        """
         return joinURL(self.calendarHomeURLs()[0], "outbox/")
-        
-    def calendarUserAddresses(self):
-        # Each directory service record must define the set of calendar user addresses itself.
-        # This may vary with the directory service actually being used.
-        # All we do here is ensure that the principalURL is always in the set.
-        if self.record.cuaddrs:
-            if self.principalURL() not in self.record.cuaddrs:
-                return tuple(self.record.cuaddrs) + (self.principalURL(),)
-            else:
-                return tuple(self.record.cuaddrs)
-        else:
-            return (self.principalURL(),)

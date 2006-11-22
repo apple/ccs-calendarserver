@@ -123,11 +123,11 @@ class XMLAccountRecord (object):
         
         self.recordType = recordType
         self.uid = None
-        self.pswd = None
+        self.password = None
         self.name = None
         self.members = []
         self.groups = []
-        self.cuaddrs = []
+        self.calendarUserAddresses = []
         self.canproxy = False
 
     def repeat(self, ctr):
@@ -141,27 +141,27 @@ class XMLAccountRecord (object):
             uid = self.uid % ctr
         else:
             uid = self.uid
-        if self.pswd.find("%") != -1:
-            pswd = self.pswd % ctr
+        if self.password.find("%") != -1:
+            password = self.password % ctr
         else:
-            pswd = self.pswd
+            password = self.password
         if self.name.find("%") != -1:
             name = self.name % ctr
         else:
             name = self.name
-        cuaddrs = []
-        for cuaddr in self.cuaddrs:
+        calendarUserAddresses = []
+        for cuaddr in self.calendarUserAddresses:
             if cuaddr.find("%") != -1:
-                cuaddrs.append(cuaddr % ctr)
+                calendarUserAddresses.append(cuaddr % ctr)
             else:
-                cuaddrs.append(cuaddr)
+                calendarUserAddresses.append(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
         result.uid = uid
-        result.pswd = pswd
+        result.password = password
         result.name = name
         result.members = self.members
-        result.cuaddrs = cuaddrs
+        result.calendarUserAddresses = calendarUserAddresses
         result.canproxy = self.canproxy
         return result
 
@@ -173,7 +173,7 @@ class XMLAccountRecord (object):
                    self.uid = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
-                    self.pswd = child.firstChild.data.encode("utf-8")
+                    self.password = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_NAME:
                 if child.firstChild is not None:
                    self.name = child.firstChild.data.encode("utf-8")
@@ -181,7 +181,7 @@ class XMLAccountRecord (object):
                 self._parseMembers(child)
             elif child._get_localName() == ELEMENT_CUADDR:
                 if child.firstChild is not None:
-                   self.cuaddrs.append(child.firstChild.data.encode("utf-8"))
+                   self.calendarUserAddresses.append(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.uid)
                 self.canproxy = True

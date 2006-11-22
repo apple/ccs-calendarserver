@@ -44,6 +44,7 @@ class DirectoryService(object):
     ##
     # IDirectoryService
     ##
+
     realmName = None
 
     ##
@@ -79,13 +80,13 @@ class DirectoryRecord(object):
     def __repr__(self):
         return "<%s[%s@%s] %s(%s) %r>" % (self.__class__.__name__, self.recordType, self.service, self.guid, self.shortName, self.fullName)
 
-    def __init__(self, service, recordType, guid, shortName, fullName=None, cuaddrs=None):
-        self.service    = service
-        self.recordType = recordType
-        self.guid       = guid
-        self.shortName  = shortName
-        self.fullName   = fullName
-        self.cuaddrs    = cuaddrs
+    def __init__(self, service, recordType, guid, shortName, fullName=None, calendarUserAddresses=None):
+        self.service               = service
+        self.recordType            = recordType
+        self.guid                  = guid
+        self.shortName             = shortName
+        self.fullName              = fullName
+        self.calendarUserAddresses = calendarUserAddresses
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):

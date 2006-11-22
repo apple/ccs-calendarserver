@@ -64,12 +64,12 @@ class IDirectoryRecord(Interface):
     """
     Directory Record
     """
-    service    = Attribute("The L{IDirectoryService} this record exists in.")
-    recordType = Attribute("The type of this record.")
-    guid       = Attribute("The GUID of this record.")
-    shortName  = Attribute("The name of this record.")
-    fullName   = Attribute("The full name of this record.")
-    cuaddrs    = Attribute("The list of calendar user addresses for this record.")
+    service               = Attribute("The L{IDirectoryService} this record exists in.")
+    recordType            = Attribute("The type of this record.")
+    guid                  = Attribute("The GUID of this record.")
+    shortName             = Attribute("The name of this record.")
+    fullName              = Attribute("The full name of this record.")
+    calendarUserAddresses = Attribute("The list of calendar user addresses for this record.")
 
     def members():
         """
