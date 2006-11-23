@@ -54,6 +54,8 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
         @param url: the canonical URL for the resource.
         @param directory: an L{IDirectoryService} to provision principals from.
         """
+        assert url.endswith("/"), "Collection URL must end in '/'"
+
         CalDAVFile.__init__(self, path)
 
         self._url = url

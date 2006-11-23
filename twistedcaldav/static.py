@@ -446,6 +446,8 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision calendars from.
         """
+        assert url.endswith("/"), "Collection URL must end in '/'"
+
         super(CalendarHomeProvisioningFile, self).__init__(path)
 
         self.directory = IDirectoryService(directory)
@@ -724,6 +726,8 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
         @param url: the primary URL for the resource.  This is the url which
             will be returned by L{principalURL}.
         """
+        assert not url.endswith("/"), "Non-collection URL must not end in '/'"
+
         super(CalendarPrincipalFile, self).__init__(path)
 
         self._url = url

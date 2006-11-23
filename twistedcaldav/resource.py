@@ -546,12 +546,14 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         return d
 
     def __init__(self, url):
+        assert url.endswith("/"), "Collection URL must end in '/'"
+
+        super(CalendarPrincipalCollectionResource, self).__init__()
+
         self._url = url
 
         # Register self with class
         if url not in CalendarPrincipalCollectionResource.principleCollectionSet:
-            if not url.endswith("/"):
-                url += "/"
             CalendarPrincipalCollectionResource.principleCollectionSet[url] = self
 
     def isCollection(self):
