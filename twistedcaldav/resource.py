@@ -548,7 +548,8 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
     def __init__(self, url):
         assert url.endswith("/"), "Collection URL must end in '/'"
 
-        super(CalendarPrincipalCollectionResource, self).__init__()
+        # FIXME: there is no super implementation of __init__
+        #super(CalendarPrincipalCollectionResource, self).__init__()
 
         self._url = url
 
