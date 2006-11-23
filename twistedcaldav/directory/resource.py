@@ -126,7 +126,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param recordType: the directory record type to provision.
         """
-        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.collectionURL(), recordType))
+        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.collectionURL(), recordType) + "/")
         DAVFile.__init__(self, path)
 
         self.directory = parent.directory
