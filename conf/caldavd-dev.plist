@@ -66,7 +66,7 @@ limitations under the License.
   <key>DirectoryService</key>
   <dict>
     <key>type</key>
-    <string>XMLDirectoryService</string>
+    <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
   
     <key>params</key>
 	<dict>
@@ -77,7 +77,7 @@ limitations under the License.
   
   <!--  SQL Directory Service -->
   <!--
-  <key>DirectoryService</key>
+  <key>twistedcaldav.directory.sqldb.DirectoryService</key>
   <dict>
     <key>type</key>
     <string>SQLDirectoryService</string>
@@ -85,7 +85,7 @@ limitations under the License.
     <key>params</key>
 	<dict>
 	  <key>dbParentPath</key>
-	  <string>/Library/CalendarServer/Documents</string>
+	  <string>twistedcaldav/test/data/</string>
 	  <key>xmlFile</key>
 	  <string>conf/accounts.xml</string>
 	</dict>
@@ -97,7 +97,7 @@ limitations under the License.
   <key>DirectoryService</key>
   <dict>
     <key>type</key>
-    <string>OpenDirectoryService</string>
+    <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
   
     <key>params</key>
 	<dict>
