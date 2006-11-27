@@ -166,6 +166,7 @@ run () {
         -f "${config}"                                    \
         -T "${twisted}/bin/twistd"                        \
         start;
+    cd /;
   fi;
 }
 
@@ -183,10 +184,13 @@ apply_patches () {
         -name '*.patch'                        \
         -print                                 \
         -exec patch -p0 --forward -i '{}' ';';
+    cd /;
   fi;
 }
 
 www_get () {
+  if "${disable_setup}"; then return 0; fi;
+
   local name="$1"; shift;
   local path="$1"; shift;
   local  url="$1"; shift;
@@ -209,12 +213,14 @@ www_get () {
     rm -rf "${path}";
     cd "$(dirname "${path}")";
     curl "${url}" | ${decompress} | tar xvf -;
-
     apply_patches "${name}" "${path}";
+    cd /;
   fi;
 }
 
 svn_get () {
+  if "${disable_setup}"; then return 0; fi;
+
   local     name="$1"; shift;
   local     path="$1"; shift;
   local      uri="$1"; shift;
@@ -272,6 +278,29 @@ svn_get () {
   fi;
 }
 
+py_build () {
+    local     name="$1"; shift;
+    local     path="$1"; shift;
+    local optional="$1"; shift;
+
+    if ! "${disable_setup}" && (
+        "${force_setup}" || [ ! -d "${path}/build/${py_platform_libdir}" ]
+    ); then
+      echo "";
+      echo "Building ${name}...";
+      cd "${path}";
+      if ! "${python}" ./setup.py build --build-lib "build/${py_platform_libdir}" "$@"; then
+          if "${optional}"; then
+              echo "WARNING: ${name} failed to build.";
+              echo "WARNING: ${name} is not required to run the server; continuing without it.";
+          else
+              return $?;
+          fi;
+      fi;
+      cd /;
+    fi;
+}
+
 py_install () {
   local name="$1"; shift;
   local path="$1"; shift;
@@ -281,6 +310,7 @@ py_install () {
     echo "Installing ${name}...";
     cd "${path}";
     "${python}" ./setup.py install "${install_flag}${install}";
+    cd /;
   fi;
 }
 
@@ -297,16 +327,8 @@ py_have_module () {
 if ! py_have_module zope.interface; then
   zope="${top}/ZopeInterface-3.1.0c1";
 
-  if ! "${disable_setup}"; then
-    www_get "Zope Interface" "${zope}" http://www.zope.org/Products/ZopeInterface/3.1.0c1/ZopeInterface-3.1.0c1.tgz;
-
-    if "${force_setup}" || [ ! -d "${zope}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building Zope Interface...";
-      cd "${zope}";
-      "${python}" ./setup.py build;
-    fi;
-  fi;
+  www_get "Zope Interface" "${zope}" http://www.zope.org/Products/ZopeInterface/3.1.0c1/ZopeInterface-3.1.0c1.tgz;
+  py_build "Zope Interface" "${zope}" false;
   py_install "Zope Interface" "${zope}";
 
   export PYTHONPATH="${PYTHONPATH}:${zope}/build/${py_platform_libdir}";
@@ -319,16 +341,8 @@ fi;
 if ! py_have_module xml.dom.ext; then
   xml="${top}/PyXML-0.8.4";
 
-  if ! "${disable_setup}"; then
-    www_get "PyXML" "${xml}" http://easynews.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
-
-    if "${force_setup}" || [ ! -d "${xml}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building PyXML...";
-      cd "${xml}";
-      "${python}" ./setup.py build;
-    fi;
-  fi;
+  www_get "PyXML" "${xml}" http://easynews.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+  py_build "PyXML" "${xml}" false;
   py_install "PyXML" "${xml}";
 
   export PYTHONPATH="${PYTHONPATH}:${xml}/build/${py_platform_libdir}";
@@ -341,17 +355,8 @@ fi;
 if ! py_have_module OpenSSL; then
   ssl="${top}/pyOpenSSL-0.6";
 
-  if ! "${disable_setup}"; then
-    www_get "PyOpenSSL" "${ssl}" http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
-
-    if "${force_setup}" || [ ! -d "${ssl}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building PyOpenSSL...";
-      cd "${ssl}";
-      "${python}" ./setup.py build_ext -I/usr/kerberos/include;
-      "${python}" ./setup.py build;
-    fi;
-  fi;
+  www_get "PyOpenSSL" "${ssl}" http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
+  py_build "PyOpenSSL" "${ssl}" false;
   py_install "PyOpenSSL" "${ssl}";
 
   export PYTHONPATH="${PYTHONPATH}:${ssl}/build/${py_platform_libdir}";
@@ -370,16 +375,8 @@ fi;
 if ! py_have_module kerberos; then
   kerberos="${top}/PyKerberos";
 
-  if ! "${disable_setup}"; then
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 202;
-
-    if "${force_setup}" || [ ! -d "${kerberos}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building PyKerberos...";
-      cd "${kerberos}";
-      "${python}" ./setup.py build --build-lib build/${py_platform_libdir};
-    fi;
-  fi;
+  svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 202;
+  py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
   py_install "PyKerberos" "${kerberos}";
 
   export PYTHONPATH="${PYTHONPATH}:${kerberos}/build/${py_platform_libdir}";
@@ -392,16 +389,8 @@ fi;
 if ! py_have_module opendirectory; then
   opendirectory="${top}/PyOpenDirectory";
 
-  if ! "${disable_setup}"; then
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 31;
-
-    if "${force_setup}" || [ ! -d "${opendirectory}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building PyOpenDirectory...";
-      cd "${opendirectory}";
-      "${python}" ./setup.py build --build-lib build/${py_platform_libdir};
-    fi;
-  fi;
+  svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 31;
+  py_build "PyOpenDirectory" "${opendirectory}" false; # FIXME: make optional
   py_install "PyOpenDirectory" "${opendirectory}";
 
   export PYTHONPATH="${PYTHONPATH}:${opendirectory}/build/${py_platform_libdir}";
@@ -414,16 +403,8 @@ fi;
 if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
-  if ! "${disable_setup}"; then
-    svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.2 545;
-
-    if "${force_setup}" || [ ! -d "${xattr}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building xattr...";
-      cd "${xattr}";
-      "${python}" ./setup.py build;
-    fi;
-  fi;
+  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.2 545;
+  py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
 
   export PYTHONPATH="${PYTHONPATH}:${xattr}/build/${py_platform_libdir}";
@@ -433,18 +414,17 @@ fi;
 # Twisted
 #
 
-if ! "${disable_setup}"; then
-  case "${USER}" in
-    wsanchez)
-      proto="svn+ssh";
-      ;;
-    *)
-      proto="svn";
-      ;;
-  esac;
-  svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-2";
-  svn_get "Twisted" "${twisted}" "${svn_uri}" 18545;
-fi;
+case "${USER}" in
+  wsanchez)
+    proto="svn+ssh";
+    ;;
+  *)
+    proto="svn";
+    ;;
+esac;
+svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-2";
+svn_get "Twisted" "${twisted}" "${svn_uri}" 18545;
+
 py_install "Twisted" "${twisted}";
  
 export PYTHONPATH="${PYTHONPATH}:${twisted}";
@@ -455,6 +435,7 @@ if [ -n "${install}" ]; then
   echo "Installing Twisted.web2...";
   cd "${twisted}";
   "${python}" ./twisted/web2/topfiles/setup.py install "${install_flag}${install}";
+  cd /;
 fi;
 
 #
@@ -464,9 +445,7 @@ fi;
 if ! py_have_module dateutil; then
   dateutil="${top}/python-dateutil-1.0";
 
-  if ! "${disable_setup}"; then
-    www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.0.tar.bz2;
-  fi;
+  www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.0.tar.bz2;
   py_install "dateutil" "${dateutil}";
 
   export PYTHONPATH="${PYTHONPATH}:${dateutil}";
@@ -478,19 +457,22 @@ fi;
 
 vobject="${top}/vobject";
 
+case "${USER}" in
+  cyrusdaboo)
+    base="svn+ssh://cdaboo@svn.osafoundation.org/svn";
+    ;;
+  *)
+    base="http://svn.osafoundation.org";
+    ;;
+esac;
+svn_uri="${base}/vobject/trunk";
+svn_get "vObject" "${vobject}" "${svn_uri}" 160;
+
 if ! "${disable_setup}"; then
-  case "${USER}" in
-    cyrusdaboo)
-      base="svn+ssh://cdaboo@svn.osafoundation.org/svn";
-      ;;
-    *)
-      base="http://svn.osafoundation.org";
-      ;;
-  esac;
-  svn_uri="${base}/vobject/trunk";
-  svn_get "vObject" "${vobject}" "${svn_uri}" 160;
+  # Avoid having to download setuptools to build vobject
   cp "${caldav}/support/setuptools-0.6c1-py2.4.egg" "${vobject}/";
 fi;
+
 py_install "vObject" "${vobject}";
 
 export PYTHONPATH="${PYTHONPATH}:${vobject}/src";
@@ -502,16 +484,8 @@ export PYTHONPATH="${PYTHONPATH}:${vobject}/src";
 if ! py_have_module pysqlite2; then
   pysqlite="${top}/pysqlite-2.2.2";
 
-  if ! "${disable_setup}"; then
-    www_get "PySQLite" "${pysqlite}" http://initd.org/pub/software/pysqlite/releases/2.2/2.2.2/pysqlite-2.2.2.tar.gz;
-
-    if "${force_setup}" || [ ! -d "${pysqlite}/build/${py_platform_libdir}" ]; then
-      echo "";
-      echo "Building PySQLite...";
-      cd "${pysqlite}";
-      "${python}" ./setup.py build;
-    fi;
-  fi;
+  www_get "PySQLite" "${pysqlite}" http://initd.org/pub/software/pysqlite/releases/2.2/2.2.2/pysqlite-2.2.2.tar.gz;
+  py_build "PySQLite" "${pysqlite}" false;
   py_install "PySQLite" "${pysqlite}";
 
   export PYTHONPATH="${PYTHONPATH}:${pysqlite}/build/${py_platform_libdir}";
