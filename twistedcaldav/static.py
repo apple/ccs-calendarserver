@@ -930,7 +930,7 @@ def locateExistingChild(resource, request, segments):
 
 # DAV:read access for authenticated users.
 readOnlyACL = davxml.ACL(
-    readOnlyACE = davxml.ACE(
+    davxml.ACE(
         davxml.Principal(davxml.Authenticated()),
         davxml.Grant(davxml.Privilege(davxml.Read())),
         davxml.Protected(),
