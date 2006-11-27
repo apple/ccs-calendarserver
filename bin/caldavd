@@ -386,7 +386,6 @@ application, site = startServer(
     %(notificationName)r,
     %(manhole)d,
 )
-
 """ % {
     "docroot":          self.docroot,
     "repo":             self.repo,
@@ -408,11 +407,9 @@ application, site = startServer(
     "notifications":    self.notifications,
     "notificationName": self.notificationName,
     "manhole":          self.manhole,
-    
 }
 
 if __name__ == "__main__":
-
     try:
         caldavd().run()
     except Exception, e:
