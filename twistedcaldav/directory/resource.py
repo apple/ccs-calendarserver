@@ -212,19 +212,18 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             "Principal resource\n"
             "------------------\n"
             "\n"
-            "Directory service: %(service)s\n"
-            "Record type: %(recordType)s\n"
-            "GUID: %(guid)s\n"
-            "Short name: %(shortName)s\n"
-            "Full name: %(fullName)s\n"
-            % self.record.__dict__,
-            "Principal UID: %s\n" % self.principalUID(),
-            "Principal URL: %s\n" % self.principalURL(),
-            "\nAlternate URIs:\n"         , format_list(self.alternateURIs),
-            "\nGroup members:\n"          , format_list(self.groupMembers),
-            "\nGroup memberships:\n"      , format_list(self.groupMemberships),
-            "\nCalendar homes:\n"         , format_list(self.calendarHomeURLs),
-            "\nCalendar user addresses:\n", format_list(self.calendarUserAddresses),
+           #"Directory service: %s\n"      % (self.record.service,),
+            "Record type: %s\n"            % (self.record.recordType,),
+            "GUID: %s\n"                   % (self.record.guid,),
+            "Short name: %s\n"             % (self.record.shortName,),
+            "Full name: %s\n"              % (self.record.fullName,),
+            "Principal UID: %s\n"          % (self.principalUID(),),
+            "Principal URL: %s\n"          % (self.principalURL(),),
+            "\nAlternate URIs:\n"          , format_list(self.alternateURIs),
+            "\nGroup members:\n"           , format_list(self.groupMembers),
+            "\nGroup memberships:\n"       , format_list(self.groupMemberships),
+            "\nCalendar homes:\n"          , format_list(self.calendarHomeURLs),
+            "\nCalendar user addresses:\n" , format_list(self.calendarUserAddresses),
         )))
 
         if type(output) == unicode:
