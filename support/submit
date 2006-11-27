@@ -19,7 +19,7 @@
 ##
 
 ##
-# Submit project to B&I (Apple Internal Build)
+# Submit project to B&I (Apple internal build)
 ##
 
 set -e
@@ -34,6 +34,8 @@ src="$(cd "${wd}/.." && pwd)";
 # Command line
 ##
 
+build=false;
+
 usage ()
 {
   program="$(basename "$0")";
@@ -41,22 +43,28 @@ usage ()
   if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
 
   echo "Usage: ${program} release";
+  echo "       ${program} -b";
+  echo "";
+  echo "Options:";
+  echo "	-b Run buildit";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'h' option; do
+while getopts 'hb' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
+    'b') build=true; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
 
-if [ $# == 0 ]; then usage "No release specified"; fi;
-
-release="$1"; shift;
+if ! "${build}"; then
+    if [ $# == 0 ]; then usage "No release specified"; fi;
+    release="$1"; shift;
+fi;
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
@@ -123,8 +131,15 @@ echo "";
 echo "Preparing sources for ${project_version}...";
 make -C "${wc}" prep;
 
-echo "";
-echo "Submitting sources for ${project_version}...";
-~rc/bin/submitproject "${wc}" "${release}";
+if "${build}"; then
+    echo "";
+    echo "Building ${project_version}...";
+    sudo ~rc/bin/buildit "${wc}" -arch ppc -arch i386;
+else
+    echo "";
+    echo "Submitting sources for ${project_version}...";
+    ~rc/bin/submitproject "${wc}" "${release}";
+fi;
+
 
 rm -rf "${tmp}";
