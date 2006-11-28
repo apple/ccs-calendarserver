@@ -29,7 +29,7 @@ ulimit -S -n 2048;
 if [ $# -gt 0 ]; then
     test_modules="$@";
 else
-    test_modules="twistedcaldav.test";
+    test_modules="twistedcaldav";
 fi;
 
 cd "${wd}" && "${twisted}/bin/trial" ${test_modules};
