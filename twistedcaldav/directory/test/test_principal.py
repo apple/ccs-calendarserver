@@ -48,7 +48,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     Directory service provisioned principals.
     """
     def setUp(self):
-        super(Principals, self).setUp()
+        super(ProvisionedPrincipals, self).setUp()
         
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
