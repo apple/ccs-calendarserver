@@ -39,7 +39,7 @@ limitations under the License.
       </properties>
       <members>
         <collection name="principals">
-          <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
+          <pytype>twistedcaldav.directory.principal.DirectoryPrincipalProvisioningResource</pytype>
           <properties/>
           <members/>
         </collection>
