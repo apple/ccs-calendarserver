@@ -66,11 +66,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_hierarchy(self):
         """
-        listChildren(), getChildren()
+        listChildren(), getChildren(), principalCollectionURL()
         """
         for directory in directoryServices:
             #print "\n -> %s" % (directory.__class__.__name__,)
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
+
+            provisioningURL = "/" + directory.__class__.__name__ + "/"
+            self.assertEquals(provisioningURL, provisioningResource.principalCollectionURL())
 
             recordTypes = set(provisioningResource.listChildren())
             self.assertEquals(recordTypes, set(directory.recordTypes()))
@@ -80,6 +83,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 typeResource = provisioningResource.getChild(recordType)
                 self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeResource))
 
+                typeURL = provisioningURL + recordType + "/"
+                self.assertEquals(typeURL, typeResource.principalCollectionURL())
+
                 shortNames = set(typeResource.listChildren())
                 self.assertEquals(shortNames, set(r.shortName for r in directory.listRecords(recordType)))
                 
@@ -87,3 +93,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     #print "     -> %s" % (shortName,)
                     recordResource = typeResource.getChild(shortName)
                     self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
+
+                    recordURL = typeURL + shortName
+                    self.assertEquals(recordURL, recordResource.principalURL())

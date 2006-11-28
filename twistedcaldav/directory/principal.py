@@ -44,7 +44,7 @@ from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
 
-class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile):
+class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
     Collection resource which provisions directory principals as its children.
     """
@@ -56,9 +56,9 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
         """
         assert url.endswith("/"), "Collection URL must end in '/'"
 
-        CalDAVFile.__init__(self, path)
+        CalendarPrincipalCollectionResource.__init__(self, url)
+        DAVFile.__init__(self, path)
 
-        self._url = url
         self.directory = IDirectoryService(directory)
 
         # FIXME: Smells like a hack
@@ -99,8 +99,8 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalDAVFile)
             return None
         return typeResource.getChild(record.shortName)
 
-    def collectionURL(self):
-        return self._url
+    def principalCollections(self, request):
+        return succeed((self.principalCollectionURL(),))
 
     ##
     # ACL
@@ -126,7 +126,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param recordType: the directory record type to provision.
         """
-        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.collectionURL(), recordType) + "/")
+        CalendarPrincipalCollectionResource.__init__(self, joinURL(parent.principalCollectionURL(), recordType) + "/")
         DAVFile.__init__(self, path)
 
         self.directory = parent.directory
@@ -164,6 +164,12 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
 
     def principalForUser(self, user):
         return self._parent.principalForUser(user)
+
+    def principalForRecord(self, record):
+        return self._parent.principalForRecord(record)
+
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
 
     ##
     # ACL
@@ -281,6 +287,9 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def groupMemberships(self):
         return self._getRelatives("groups")
+
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
 
     ##
     # CalDAV
