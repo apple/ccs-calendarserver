@@ -118,8 +118,8 @@ class OpenDirectoryService(DirectoryService):
                     guid                  = guid,
                     shortName             = shortName,
                     fullName              = None, # FIXME: Need to get this attribute
-                    memberGUIDs           = memberGUIDs,
                     calendarUserAddresses = (), # FIXME: Should be able to look up email, etc.
+                    memberGUIDs           = memberGUIDs,
                 )
 
             if records:
@@ -188,8 +188,15 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, guid, shortName, fullName, memberGUIDs):
-        super(OpenDirectoryRecord, self).__init__(service, recordType, guid, shortName, fullName)
+    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, memberGUIDs):
+        super(OpenDirectoryRecord, self).__init__(
+            service               = service,
+            recordType            = recordType,
+            guid                  = guid,
+            shortName             = shortName,
+            fullName              = fullName,
+            calendarUserAddresses = calendarUserAddresses,
+        )
         self._memberGUIDs = tuple(memberGUIDs)
 
     def members(self):
