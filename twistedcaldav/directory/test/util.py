@@ -17,6 +17,7 @@
 ##
 
 import twisted.trial.unittest
+from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
@@ -50,31 +51,45 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         IDirectoryService.recordTypes()
         """
+        if not self.recordTypes:
+            raise SkipTest("No record types")
+
         self.assertEquals(set(self.service().recordTypes()), self.recordTypes)
 
     def test_listRecords_user(self):
         """
         IDirectoryService.listRecords("user")
         """
+        if not self.users:
+            raise SkipTest("No users")
+
         self.assertEquals(self.recordNames("user"), set(self.users.keys()))
 
     def test_listRecords_group(self):
         """
         IDirectoryService.listRecords("group")
         """
+        if not self.groups:
+            raise SkipTest("No groups")
+
         self.assertEquals(self.recordNames("group"), set(self.groups.keys()))
 
     def test_listRecords_resources(self):
         """
         IDirectoryService.listRecords("resources")
         """
-        if len(self.resources):
-            self.assertEquals(self.recordNames("resource"), self.resources)
+        if not self.resources:
+            raise SkipTest("No resources")
+
+        self.assertEquals(self.recordNames("resource"), self.resources)
 
     def test_recordWithShortName_user(self):
         """
         IDirectoryService.recordWithShortName("user")
         """
+        if not self.users:
+            raise SkipTest("No users")
+
         service = self.service()
         for user in self.users:
             record = service.recordWithShortName("user", user)
@@ -85,6 +100,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         IDirectoryService.recordWithShortName("group")
         """
+        if not self.groups:
+            raise SkipTest("No groups")
+
         service = self.service()
         for group in self.groups:
             groupRecord = service.recordWithShortName("group", group)
@@ -95,6 +113,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         XMLDirectoryService.recordWithShortName("resource")
         """
+        if not self.resources:
+            raise SkipTest("No resources")
+
         service = self.service()
         for resource in self.resources:
             resourceRecord = service.recordWithShortName("resource", resource)
@@ -104,6 +125,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         IDirectoryRecord.members()
         """
+        if not self.groups:
+            raise SkipTest("No groups")
+
         service = self.service()
         for group in self.groups:
             groupRecord = service.recordWithShortName("group", group)
@@ -116,6 +140,11 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         """
         IDirectoryRecord.groups()
         """
+        if not self.users:
+            raise SkipTest("No users")
+        if not self.groups:
+            raise SkipTest("No groups")
+
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
