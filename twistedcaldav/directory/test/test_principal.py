@@ -28,6 +28,7 @@ import os
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2.dav.fileop import rmdir
 
+from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
 from twistedcaldav.directory.test.test_apache import basicUserFile, digestUserFile, groupFile
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -68,7 +69,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     @deferredGenerator
     def test_hierarchy(self):
         """
-        listChildren(), getChildren(), principalCollectionURL(), principalURL(), principalCollections()
+        DirectoryPrincipalProvisioningResource.listChildren(),
+        DirectoryPrincipalProvisioningResource.getChildren(),
+        DirectoryPrincipalProvisioningResource.principalCollectionURL(),
+        DirectoryPrincipalProvisioningResource.principalCollections()
+
+        DirectoryPrincipalTypeResource.listChildren(),
+        DirectoryPrincipalTypeResource.getChildren(),
+        DirectoryPrincipalTypeResource.principalCollectionURL(),
+        DirectoryPrincipalTypeResource.principalCollections()
+
+        DirectoryPrincipalResource.principalURL(),
         """
         for directory in directoryServices:
             #print "\n -> %s" % (directory.__class__.__name__,)
@@ -113,3 +124,126 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     yield principalCollections
                     principalCollections = principalCollections.getResult()
                     self.assertEquals(set((provisioningURL,)), set(principalCollections))
+
+    def test_principalForUser(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForUser()
+        """
+        for directory in directoryServices:
+            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+
+            for user in directory.listRecords("user"):
+                userResource = provisioningResource.principalForUser(user.shortName)
+                self.failIf(userResource is None)
+                self.assertEquals(user, userResource.record)
+
+    def test_principalForRecord(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForRecord()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.assertEquals(recordResource.record, record)
+                    
+    def test_displayName(self):
+        """
+        DirectoryPrincipalResource.displayName()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(recordResource.displayName())
+
+    def test_groupMembers(self):
+        """
+        DirectoryPrincipalResource.groupMembers()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(set(record.members()).issubset(set(r.record for r in recordResource.groupMembers())))
+
+    def test_groupMemberships(self):
+        """
+        DirectoryPrincipalResource.groupMemberships()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(set(record.groups()).issubset(set(r.record for r in recordResource.groupMemberships())))
+
+    def test_principalUID(self):
+        """
+        DirectoryPrincipalResource.principalUID()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.assertEquals(record.shortName, recordResource.principalUID())
+
+    def test_calendarUserAddresses(self):
+        """
+        DirectoryPrincipalResource.calendarUserAddresses()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(
+                (
+                    set((recordResource.principalURL(),)) |
+                    set(record.calendarUserAddresses)
+                ).issubset(set(recordResource.calendarUserAddresses()))
+            )
+
+    def test_calendarHomeURLs(self):
+        """
+        DirectoryPrincipalResource.calendarHomeURLs(),
+        DirectoryPrincipalResource.scheduleInboxURL(),
+        DirectoryPrincipalResource.scheduleOutboxURL()
+        """
+        # No calendar home provisioner should result in no calendar homes.
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failIf(tuple(recordResource.calendarHomeURLs()))
+            self.failIf(recordResource.scheduleInboxURL())
+            self.failIf(recordResource.scheduleOutboxURL())
+
+        # Need to create a calendar home provisioner for each service.
+        calendarRootResources = {}
+
+        for directory in directoryServices:
+            url = "/homes_" + directory.__class__.__name__ + "/"
+            path = os.path.join(self.docroot, url[1:])
+
+            if os.path.exists(path):
+                rmdir(path)
+            os.mkdir(path)
+
+            provisioningResource = CalendarHomeProvisioningFile(path, directory, url)
+
+            calendarRootResources[directory.__class__.__name__] = provisioningResource
+        
+        # Calendar home provisioners should result in calendar homes.
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            homeURLs = tuple(recordResource.calendarHomeURLs())
+            self.failUnless(homeURLs)
+
+            calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
+
+            inboxURL = recordResource.scheduleInboxURL()
+            outboxURL = recordResource.scheduleOutboxURL()
+
+            self.failUnless(inboxURL)
+            self.failUnless(outboxURL)
+
+            for homeURL in homeURLs:
+                self.failUnless(homeURL.startswith(calendarRootURL))
+
+                if inboxURL and inboxURL.startswith(homeURL):
+                    self.failUnless(len(inboxURL) > len(homeURL))
+                    self.failUnless(inboxURL.endswith("/"))
+                    inboxURL = None
+
+                if outboxURL and outboxURL.startswith(homeURL):
+                    self.failUnless(len(outboxURL) > len(homeURL))
+                    self.failUnless(outboxURL.endswith("/"))
+                    outboxURL = None
+
+            self.failIf(inboxURL)
+            self.failIf(outboxURL)
+
+    def _allRecords(self):
+        for directory in directoryServices:
+            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+            for recordType in directory.recordTypes():
+                for record in directory.listRecords(recordType):
+                    recordResource = provisioningResource.principalForRecord(record)
+                    yield provisioningResource, recordType, recordResource, record
