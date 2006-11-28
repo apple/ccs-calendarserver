@@ -247,3 +247,20 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 for record in directory.listRecords(recordType):
                     recordResource = provisioningResource.principalForRecord(record)
                     yield provisioningResource, recordType, recordResource, record
+
+    def test_defaultAccessControlList(self):
+        """
+        Default access controls.
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            # We should have no access for unauthenticated users, and read access for
+            # authenticated users.
+            
+            # Check that DAV:unauthenticated can not read
+            # Check that DAV:unauthenticated can not write
+            # Check that DAV:authenticated can read
+            # Check that DAV:authenticated can not write
+
+            raise NotImplementedError()
+
+    test_defaultAccessControlList.todo = "test unimplemented"
