@@ -25,6 +25,7 @@
 
 import os
 
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2.dav.fileop import rmdir
 
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
@@ -64,9 +65,10 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             self.principalRootResources[directory.__class__.__name__] = provisioningResource
 
+    @deferredGenerator
     def test_hierarchy(self):
         """
-        listChildren(), getChildren(), principalCollectionURL()
+        listChildren(), getChildren(), principalCollectionURL(), principalURL(), principalCollections()
         """
         for directory in directoryServices:
             #print "\n -> %s" % (directory.__class__.__name__,)
@@ -74,6 +76,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             provisioningURL = "/" + directory.__class__.__name__ + "/"
             self.assertEquals(provisioningURL, provisioningResource.principalCollectionURL())
+
+            principalCollections = waitForDeferred(provisioningResource.principalCollections(None))
+            yield principalCollections
+            principalCollections = principalCollections.getResult()
+            self.assertEquals(set((provisioningURL,)), set(principalCollections))
 
             recordTypes = set(provisioningResource.listChildren())
             self.assertEquals(recordTypes, set(directory.recordTypes()))
@@ -86,6 +93,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 typeURL = provisioningURL + recordType + "/"
                 self.assertEquals(typeURL, typeResource.principalCollectionURL())
 
+                principalCollections = waitForDeferred(typeResource.principalCollections(None))
+                yield principalCollections
+                principalCollections = principalCollections.getResult()
+                self.assertEquals(set((provisioningURL,)), set(principalCollections))
+
                 shortNames = set(typeResource.listChildren())
                 self.assertEquals(shortNames, set(r.shortName for r in directory.listRecords(recordType)))
                 
@@ -96,3 +108,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
                     recordURL = typeURL + shortName
                     self.assertEquals(recordURL, recordResource.principalURL())
+
+                    principalCollections = waitForDeferred(recordResource.principalCollections(None))
+                    yield principalCollections
+                    principalCollections = principalCollections.getResult()
+                    self.assertEquals(set((provisioningURL,)), set(principalCollections))
