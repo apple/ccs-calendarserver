@@ -128,11 +128,12 @@ class AbstractDirectoryRecord(DirectoryRecord):
     """
     def __init__(self, service, recordType, shortName):
         super(AbstractDirectoryRecord, self).__init__(
-            service        = service,
-            recordType     = recordType,
-            guid           = None,
-            shortName      = shortName,
-            fullName       = None,
+            service               = service,
+            recordType            = recordType,
+            guid                  = None,
+            shortName             = shortName,
+            fullName              = None,
+            calendarUserAddresses = (),
         )
 
 class AbstractUserRecord(AbstractDirectoryRecord):

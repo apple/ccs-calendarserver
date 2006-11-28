@@ -21,7 +21,7 @@ import os
 from twisted.python.filepath import FilePath
 
 import twistedcaldav.directory.test.util
-from twistedcaldav.directory.apache import BasicDirectoryService
+from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
 
 digestRealm = "Test"
 
@@ -31,10 +31,7 @@ groupFile      = FilePath(os.path.join(os.path.dirname(__file__), "groups"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
-class Basic (twistedcaldav.directory.test.util.BasicTestCase):
-    """
-    Test Apache-Compatible UserFile/GroupFile directory implementation.
-    """
+class Apache (object):
     recordTypes = set(("user", "group"))
 
     users = {
@@ -51,11 +48,20 @@ class Basic (twistedcaldav.directory.test.util.BasicTestCase):
         "left_coast" : ("wsanchez", "dreid", "lecroy"),
     }
 
-    def basicUserFile(self):
-        if not hasattr(self, "_basicUserFile"):
-            self._basicUserFile = FilePath(self.mktemp())
-            basicUserFile.copyTo(self._basicUserFile)
-        return self._basicUserFile
+    serviceClass = BasicDirectoryService
+
+    def service(self):
+        return self.serviceClass(self.userFile(), self.groupFile())
+
+    userFileName = None
+
+    def userFile(self):
+        if not hasattr(self, "_userFile"):
+            if self.userFileName is None:
+                raise NotImplementedError("Test subclass needs to specify userFileName.")
+            self._userFile = FilePath(self.mktemp())
+            basicUserFile.copyTo(self._userFile)
+        return self._userFile
 
     def groupFile(self):
         if not hasattr(self, "_groupFile"):
@@ -63,19 +69,38 @@ class Basic (twistedcaldav.directory.test.util.BasicTestCase):
             groupFile.copyTo(self._groupFile)
         return self._groupFile
 
-    def service(self):
-        return BasicDirectoryService(self.basicUserFile(), self.groupFile())
+    def test_changedGroupFile(self):
+        self.groupFile().open("w").write("grunts: wsanchez\n")
+        self.assertEquals(self.recordNames("group"), set(("grunts",)))
 
     def test_recordTypes_user(self):
         """
         IDirectoryService.recordTypes(userFile)
         """
-        self.assertEquals(set(BasicDirectoryService(basicUserFile).recordTypes()), set(("user",)))
+        self.assertEquals(set(self.serviceClass(self.userFile()).recordTypes()), set(("user",)))
+
+    userEntry = None
 
     def test_changedUserFile(self):
-        self.basicUserFile().open("w").write("wsanchez:Cytm0Bwm7CPJs\n")
-        self.assertEquals(self.recordNames("user"), set(("wsanchez",)))
+        if self.userEntry is None:
+            raise NotImplementedError("Test subclass needs to specify userEntry.")
+        self.userFile().open("w").write(self.userEntry[1])
+        self.assertEquals(self.recordNames("user"), set((self.userEntry[0],)))
 
-    def test_changedGroupFile(self):
-        self.groupFile().open("w").write("grunts: wsanchez\n")
-        self.assertEquals(self.recordNames("group"), set(("grunts",)))
+class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase):
+    """
+    Test Apache-Compatible UserFile/GroupFile directory implementation.
+    """
+    userFileName = basicUserFile
+    userEntry = ("wsanchez", "wsanchez:Cytm0Bwm7CPJs\n")
+
+class Digest (Apache, twistedcaldav.directory.test.util.DigestTestCase):
+    """
+    Test Apache-Compatible DigestFile/GroupFile directory implementation.
+    """
+    userFileName = digestUserFile
+    userEntry = ("wsanchez", "wsanchez:Test:decbe233ab3d997cacc2fc058b19db8c\n")
+
+    def test_verifyCredentials_digest(self):
+        raise NotImplementedError() # Use super's implementation
+    test_verifyCredentials_digest.todo = "unimplemented"

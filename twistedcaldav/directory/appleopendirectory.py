@@ -113,12 +113,13 @@ class OpenDirectoryService(DirectoryService):
                     memberGUIDs = ()
 
                 records[shortName] = OpenDirectoryRecord(
-                    service = self,
-                    recordType = recordType,
-                    guid = guid,
-                    shortName = shortName,
-                    fullName = None, # FIXME: Need to get this attribute
-                    memberGUIDs = memberGUIDs,
+                    service               = self,
+                    recordType            = recordType,
+                    guid                  = guid,
+                    shortName             = shortName,
+                    fullName              = None, # FIXME: Need to get this attribute
+                    memberGUIDs           = memberGUIDs,
+                    calendarUserAddresses = (), # FIXME: Should be able to look up email, etc.
                 )
 
             if records:

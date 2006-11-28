@@ -75,9 +75,16 @@ class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s] %s(%s) %r>" % (self.__class__.__name__, self.recordType, self.service, self.guid, self.shortName, self.fullName)
+        return "<%s[%s@%s] %s(%s) %r>" % (
+            self.__class__.__name__,
+            self.recordType,
+            self.service,
+            self.guid,
+            self.shortName,
+            self.fullName
+        )
 
-    def __init__(self, service, recordType, guid, shortName, fullName=None, calendarUserAddresses=None):
+    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses):
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
