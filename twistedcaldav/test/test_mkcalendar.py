@@ -46,7 +46,8 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         uri  = "/calendar_make"
         path = os.path.join(self.docroot, uri[1:])
 
-        if os.path.exists(path): rmdir(path)
+        if os.path.exists(path):
+            rmdir(path)
 
         def do_test(response):
             response = IResponse(response)
@@ -72,7 +73,8 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         uri  = "/calendar_prop"
         path = os.path.join(self.docroot, uri[1:])
 
-        if os.path.exists(path): rmdir(path)
+        if os.path.exists(path):
+            rmdir(path)
 
         def do_test(response):
             response = IResponse(response)
