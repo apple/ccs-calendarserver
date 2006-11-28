@@ -161,6 +161,12 @@ run () {
   fi;
 
   if ! "${setup_only}"; then
+    if [ ! -f "${config}" ]; then
+        echo "Missing config file: ${config}";
+        echo "You might want to copy conf/caldavd-test.plist to conf/caldavd-dev.plist and start from there.";
+        exit 1;
+    fi;
+
     cd "${wd}";
     exec "${python}" "${caldav}/bin/caldavd" ${daemonize} \
         -f "${config}"                                    \
