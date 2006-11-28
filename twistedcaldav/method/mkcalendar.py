@@ -22,8 +22,7 @@ CalDAV MKCALENDAR method.
 
 __all__ = ["http_MKCALENDAR"]
 
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
