@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>currentDocument</key>
+	<string>../run</string>
 	<key>documents</key>
 	<array>
 		<dict>
@@ -10,7 +12,7 @@
 			<key>name</key>
 			<string>twistedcaldav</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../twistedcaldav</string>
 		</dict>
@@ -18,7 +20,7 @@
 			<key>name</key>
 			<string>web2</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../../Twisted/twisted/web2</string>
 		</dict>
@@ -26,7 +28,7 @@
 			<key>name</key>
 			<string>twisted</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../../Twisted/twisted</string>
 		</dict>
@@ -34,7 +36,7 @@
 			<key>name</key>
 			<string>PyOpenDirectory</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../../PyOpenDirectory</string>
 		</dict>
@@ -42,7 +44,7 @@
 			<key>name</key>
 			<string>PyKerberos</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../../PyKerberos</string>
 		</dict>
@@ -50,7 +52,7 @@
 			<key>name</key>
 			<string>conf</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../conf</string>
 		</dict>
@@ -58,7 +60,7 @@
 			<key>name</key>
 			<string>bin</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../bin</string>
 		</dict>
@@ -66,7 +68,7 @@
 			<key>name</key>
 			<string>doc</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*)$</string>
 			<key>sourceDirectory</key>
 			<string>../doc</string>
 		</dict>
@@ -74,7 +76,9 @@
 			<key>name</key>
 			<string>support</string>
 			<key>regexFolderFilter</key>
-			<string>!.*/(\.[^/]*|CVS|_darcs|_MTN|\{arch\}|blib|.*~\.nib|.*\.(framework|app|pbproj|pbxproj|xcode(proj)?|bundle))$</string>
+			<string>!.*/(\.[^/]*|.*\.xcodeproj)$</string>
+			<key>selected</key>
+			<true/>
 			<key>sourceDirectory</key>
 			<string></string>
 		</dict>
@@ -85,7 +89,7 @@
 					<key>filename</key>
 					<string>../run</string>
 					<key>lastUsed</key>
-					<date>2006-11-28T01:28:29Z</date>
+					<date>2006-11-28T19:30:10Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
