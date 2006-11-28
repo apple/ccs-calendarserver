@@ -304,14 +304,23 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
         return (self.principalURL(),) + tuple(self.record.calendarUserAddresses)
 
     def calendarHomeURLs(self):
-        # FIXME: self.directory.calendarHomesCollection smells like a hack
+        # FIXME: self.record.service.calendarHomesCollection smells like a hack
         # See CalendarHomeProvisioningFile.__init__()
-        return (
-            self.record.service.calendarHomesCollection.homeForDirectoryRecord(self.record).url(),
-        )
+        service = self.record.service
+        if hasattr(service, "calendarHomesCollection"):
+            return (service.calendarHomesCollection.homeForDirectoryRecord(self.record).url(),)
+        else:
+            return ()
 
     def scheduleInboxURL(self):
-        return joinURL(self.calendarHomeURLs()[0], "inbox/")
+        return self._homeChildURL("inbox/")
 
     def scheduleOutboxURL(self):
-        return joinURL(self.calendarHomeURLs()[0], "outbox/")
+        return self._homeChildURL("outbox/")
+
+    def _homeChildURL(self, name):
+        homes = self.calendarHomeURLs()
+        if homes:
+            return joinURL(homes[0], name)
+        else:
+            return None
