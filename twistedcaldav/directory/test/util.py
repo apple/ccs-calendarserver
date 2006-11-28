@@ -164,6 +164,9 @@ class BasicTestCase (DirectoryTestCase):
         """
         IDirectoryRecord.verifyCredentials() with basic
         """
+        if not self.users:
+            raise SkipTest("No users")
+
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
@@ -190,6 +193,9 @@ class DigestTestCase (DirectoryTestCase):
         """
         IDirectoryRecord.verifyCredentials() with digest
         """
+        if not self.users:
+            raise SkipTest("No users")
+
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
