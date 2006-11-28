@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>currentDocument</key>
-	<string>../run</string>
 	<key>documents</key>
 	<array>
 		<dict>
@@ -89,7 +87,7 @@
 					<key>filename</key>
 					<string>../run</string>
 					<key>lastUsed</key>
-					<date>2006-11-28T19:30:10Z</date>
+					<date>2006-11-28T19:36:50Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
@@ -131,6 +129,6 @@
 	<key>showFileHierarchyDrawer</key>
 	<true/>
 	<key>windowFrame</key>
-	<string>{{613, 44}, {1019, 1050}}</string>
+	<string>{{591, 84}, {1019, 1050}}</string>
 </dict>
 </plist>
