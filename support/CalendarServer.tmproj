@@ -75,8 +75,6 @@
 			<string>support</string>
 			<key>regexFolderFilter</key>
 			<string>!.*/(\.[^/]*|.*\.xcodeproj)$</string>
-			<key>selected</key>
-			<true/>
 			<key>sourceDirectory</key>
 			<string></string>
 		</dict>
