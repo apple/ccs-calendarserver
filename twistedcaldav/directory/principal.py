@@ -44,7 +44,15 @@ from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
 
-class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
+class PermissionsMixIn (ReadOnlyResourceMixIn):
+    def defaultAccessControlList(self):
+        return authReadACL
+
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        # Permissions here are fixed, and are not subject to inherritance rules, etc.
+        return succeed(self.defaultAccessControlList())
+
+class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
     Collection resource which provisions directory principals as its children.
     """
@@ -110,10 +118,7 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
     def principalCollections(self, request):
         return succeed((self.principalCollectionURL(),))
 
-    def defaultAccessControlList(self):
-        return authReadACL
-
-class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
+class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
     Collection resource which provisions directory principals of a specific type as its children.
     """
@@ -176,10 +181,7 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
 
-    def defaultAccessControlList(self):
-        return authReadACL
-
-class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
+class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
     """
     Directory principal resource.
     """
@@ -284,9 +286,6 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
 
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
-
-    def defaultAccessControlList(self):
-        return authReadACL
 
     ##
     # CalDAV
