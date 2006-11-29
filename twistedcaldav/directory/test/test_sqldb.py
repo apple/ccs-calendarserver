@@ -21,47 +21,24 @@ import os
 from twisted.python.filepath import FilePath
 
 import twistedcaldav.directory.test.util
+import twistedcaldav.directory.test.test_xmlfile
 from twistedcaldav.directory.sqldb import SQLDirectoryService
 
 xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
-class Basic (twistedcaldav.directory.test.util.BasicTestCase):
+class SQLDB (
+    twistedcaldav.directory.test.test_xmlfile.XMLFileBase,
+    twistedcaldav.directory.test.util.BasicTestCase,
+    twistedcaldav.directory.test.util.DigestTestCase
+):
     """
     Test SQL directory implementation.
     """
-    recordTypes = set(("user", "group", "resource"))
-
-    users = {
-        "admin"   : "nimda",
-        "proxy"   : "yxorp",
-        "wsanchez": "zehcnasw",
-        "cdaboo"  : "oobadc",
-        "lecroy"  : "yorcel",
-        "dreid"   : "dierd",
-        "user01"  : "01user",
-        "user02"  : "02user",
-    }
-
-    groups = {
-        "managers"   : ("lecroy",),
-        "grunts"     : ("wsanchez", "cdaboo", "dreid"),
-        "right_coast": ("cdaboo",),
-        "left_coast" : ("wsanchez", "dreid", "lecroy"),
-    }
-
-    resources = set((
-        "mercury",
-        "gemini",
-        "apollo",
-    ))
-
-    def xmlFile(self):
-        if not hasattr(self, "_xmlFile"):
-            self._xmlFile = FilePath(self.mktemp())
-            xmlFile.copyTo(self._xmlFile)
-        return self._xmlFile
-
     def service(self):
         return SQLDirectoryService(os.getcwd(), self.xmlFile())
+
+    def test_verifyCredentials_digest(self):
+        raise NotImplementedError("Use super's implementation")
+    test_verifyCredentials_digest.todo = "FIXME: SQLDirectoryService.realmName is None"

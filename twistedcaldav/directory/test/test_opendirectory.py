@@ -31,7 +31,10 @@ else:
     import twistedcaldav.directory.appleopendirectory
     twistedcaldav.directory.appleopendirectory.reactor = DummyReactor
 
-    class OpenDirectory (twistedcaldav.directory.test.util.BasicTestCase, twistedcaldav.directory.test.util.DigestTestCase):
+    class OpenDirectory (
+        twistedcaldav.directory.test.util.BasicTestCase,
+        twistedcaldav.directory.test.util.DigestTestCase
+    ):
         """
         Test Open Directory directory implementation.
         """

@@ -27,10 +27,7 @@ xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
-class XMLFile (twistedcaldav.directory.test.util.BasicTestCase, twistedcaldav.directory.test.util.DigestTestCase):
-    """
-    Test XML file based directory implementation.
-    """
+class XMLFileBase(object):
     recordTypes = set(("user", "group", "resource"))
 
     users = {
@@ -63,6 +60,14 @@ class XMLFile (twistedcaldav.directory.test.util.BasicTestCase, twistedcaldav.di
             xmlFile.copyTo(self._xmlFile)
         return self._xmlFile
 
+class XMLFile (
+    XMLFileBase,
+    twistedcaldav.directory.test.util.BasicTestCase,
+    twistedcaldav.directory.test.util.DigestTestCase
+):
+    """
+    Test XML file based directory implementation.
+    """
     def service(self):
         return XMLDirectoryService(self.xmlFile())
 
