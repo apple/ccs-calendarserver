@@ -26,7 +26,11 @@
 import os
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
+from twisted.web2.dav.resource import AccessDeniedError
+from twisted.web2.test.test_server import SimpleRequest
+from twisted.web2.dav.test.util import serialize
 
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
@@ -52,10 +56,13 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
         
+        self.site.resource.setAccessControlList(self.grant(davxml.All()))
+
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
         for directory in directoryServices:
-            url = "/" + directory.__class__.__name__ + "/"
+            name = directory.__class__.__name__
+            url = "/" + name + "/"
             path = os.path.join(self.docroot, url[1:])
 
             if os.path.exists(path):
@@ -63,6 +70,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             os.mkdir(path)
 
             provisioningResource = DirectoryPrincipalProvisioningResource(path, url, directory)
+
+            self.site.resource.putChild(name, provisioningResource)
 
             self.principalRootResources[directory.__class__.__name__] = provisioningResource
 
@@ -240,7 +249,48 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.failIf(inboxURL)
             self.failIf(outboxURL)
 
+    def test_defaultAccessControlList_principals(self):
+        """
+        Default access controls for principals.
+        """
+        def work():
+            for provisioningResource, recordType, recordResource, record in self._allRecords():
+                for args in _authReadOnlyPrivileges(recordResource, recordResource.principalURL()):
+                    yield args
+
+        return serialize(self._checkPrivileges, work())
+
+    def test_defaultAccessControlList_provisioners(self):
+        """
+        Default access controls for principal provisioning resources.
+        """
+        def work():
+            for directory in directoryServices:
+                #print "\n -> %s" % (directory.__class__.__name__,)
+                provisioningResource = self.principalRootResources[directory.__class__.__name__]
+
+                for args in _authReadOnlyPrivileges(provisioningResource, provisioningResource.principalCollectionURL()):
+                    yield args
+
+                for recordType in provisioningResource.listChildren():
+                    #print "   -> %s" % (recordType,)
+                    typeResource = provisioningResource.getChild(recordType)
+
+                    for args in _authReadOnlyPrivileges(typeResource, typeResource.principalCollectionURL()):
+                        yield args
+
+        return serialize(self._checkPrivileges, work())
+
     def _allRecords(self):
+        """
+        @return: an iterable of tuples
+            C{(provisioningResource, recordType, recordResource, record)}, where
+            C{provisioningResource} is the root provisioning resource,
+            C{recordType} is the record type,
+            C{recordResource} is the principal resource and
+            C{record} is the directory service record
+            for each record in each directory in C{directoryServices}.
+        """
         for directory in directoryServices:
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
             for recordType in directory.recordTypes():
@@ -248,19 +298,38 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     recordResource = provisioningResource.principalForRecord(record)
                     yield provisioningResource, recordType, recordResource, record
 
-    def test_defaultAccessControlList(self):
-        """
-        Default access controls.
-        """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            # We should have no access for unauthenticated users, and read access for
-            # authenticated users.
-            
-            # Check that DAV:unauthenticated can not read
-            # Check that DAV:unauthenticated can not write
-            # Check that DAV:authenticated can read
-            # Check that DAV:authenticated can not write
+    def _checkPrivileges(self, resource, url, principal, privilege, allowed):
+        request = SimpleRequest(self.site, "GET", "/")
 
-            raise NotImplementedError()
+        def gotResource(resource):
+            d = resource.checkPrivileges(request, (privilege,), principal=davxml.Principal(principal))
+            if allowed:
+                def onError(f):
+                    f.trap(AccessDeniedError)
+                    #print resource.readDeadProperty(davxml.ACL)
+                    self.fail("%s should have %s privilege" % (principal.sname(), privilege.sname()))
+                d.addErrback(onError)
+            else:
+                def onError(f):
+                    f.trap(AccessDeniedError)
+                def onSuccess(_):
+                    #print resource.readDeadProperty(davxml.ACL)
+                    self.fail("%s should not have %s privilege" % (principal.sname(), privilege.sname()))
+                d.addCallback(onSuccess)
+                d.addErrback(onError)
+            return d
 
-    test_defaultAccessControlList.todo = "test unimplemented"
+        d = request.locateResource(url)
+        d.addCallback(gotResource)
+        return d
+
+def _authReadOnlyPrivileges(resource, url):
+    for principal, privilege, allowed in (
+        ( davxml.All()             , davxml.Read()  , False ),
+        ( davxml.All()             , davxml.Write() , False ),
+        ( davxml.Unauthenticated() , davxml.Read()  , False ),
+        ( davxml.Unauthenticated() , davxml.Write() , False ),
+        ( davxml.Authenticated()   , davxml.Read()  , True  ),
+        ( davxml.Authenticated()   , davxml.Write() , False ),
+    ):
+        yield resource, url, principal, privilege, allowed
