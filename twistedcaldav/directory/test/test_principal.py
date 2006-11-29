@@ -56,8 +56,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
         
-        self.site.resource.setAccessControlList(self.grant(davxml.All()))
-
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
         for directory in directoryServices:
