@@ -467,7 +467,33 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1511,6 +1633,265 @@
+@@ -1213,7 +1335,6 @@
+             return False
+                 
+     def matchPrincipal(self, principal1, principal2, request):
+-
+         """
+         Check whether the principal1 is a principal in the set defined by
+         principal2.
+@@ -1238,6 +1359,9 @@
+             if isinstance(principal1, davxml.Unauthenticated):
+                 yield False
+                 return
++            elif isinstance(principal1, davxml.All):
++                yield False
++                return
+             else:
+                 yield True
+                 return
+@@ -1265,7 +1389,6 @@
+ 
+         assert principal2 is not None, "principal2 is None"
+ 
+-
+         # Compare two HRefs and do group membership test as well
+         if principal1 == principal2:
+             yield True
+@@ -1511,6 +1634,265 @@
          return None
  
      ##
@@ -733,7 +759,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1939,7 @@
+@@ -1558,7 +1940,7 @@
      """
      DAV resource with no children.
      """
@@ -742,7 +768,7 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2093,37 @@
+@@ -1712,6 +2094,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
