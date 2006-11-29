@@ -77,6 +77,19 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
 
             self.putChild(name, DirectoryPrincipalTypeResource(child_fp.path, self, name))
 
+    def principalForUser(self, user):
+        return self.getChild("user").getChild(user)
+
+    def principalForRecord(self, record):
+        typeResource = self.getChild(record.recordType)
+        if typeResource is None:
+            return None
+        return typeResource.getChild(record.shortName)
+
+    ##
+    # Static
+    ##
+
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
@@ -90,31 +103,15 @@ class DirectoryPrincipalProvisioningResource (ReadOnlyResourceMixIn, CalendarPri
     def listChildren(self):
         return self.putChildren.keys()
 
-    def principalForUser(self, user):
-        return self.getChild("user").getChild(user)
-
-    def principalForRecord(self, record):
-        typeResource = self.getChild(record.recordType)
-        if typeResource is None:
-            return None
-        return typeResource.getChild(record.shortName)
-
-    def principalCollections(self, request):
-        return succeed((self.principalCollectionURL(),))
-
     ##
     # ACL
     ##
 
+    def principalCollections(self, request):
+        return succeed((self.principalCollectionURL(),))
+
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # Read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
-            ),
-        )
+        return authReadACL
 
 class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
@@ -132,6 +129,16 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
         self.directory = parent.directory
         self.recordType = recordType
         self._parent = parent
+
+    def principalForUser(self, user):
+        return self._parent.principalForUser(user)
+
+    def principalForRecord(self, record):
+        return self._parent.principalForRecord(record)
+
+    ##
+    # Static
+    ##
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -162,28 +169,15 @@ class DirectoryPrincipalTypeResource (ReadOnlyResourceMixIn, CalendarPrincipalCo
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
 
-    def principalForUser(self, user):
-        return self._parent.principalForUser(user)
-
-    def principalForRecord(self, record):
-        return self._parent.principalForRecord(record)
-
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
-
     ##
     # ACL
     ##
 
+    def principalCollections(self, request):
+        return self._parent.principalCollections(request)
+
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # Read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
-            ),
-        )
+        return authReadACL
 
 class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     """
@@ -291,6 +285,9 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
     def principalCollections(self, request):
         return self._parent.principalCollections(request)
 
+    def defaultAccessControlList(self):
+        return authReadACL
+
     ##
     # CalDAV
     ##
@@ -324,3 +321,12 @@ class DirectoryPrincipalResource (ReadOnlyResourceMixIn, CalendarPrincipalFile):
             return joinURL(homes[0], name)
         else:
             return None
+
+authReadACL = davxml.ACL(
+    # Read access for authenticated users.
+    davxml.ACE(
+        davxml.Principal(davxml.Authenticated()),
+        davxml.Grant(davxml.Privilege(davxml.Read())),
+        davxml.Protected(),
+    ),
+)
