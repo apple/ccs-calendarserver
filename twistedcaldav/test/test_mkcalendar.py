@@ -122,10 +122,10 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         mk = caldavxml.MakeCalendar(
             davxml.Set(
                 davxml.PropertyContainer(
-                    davxml.DisplayName.fromString("Lisa's Events"),
-                    caldavxml.CalendarDescription.fromString("Calendar restricted to events."), # FIXME: lang=en
+                    davxml.DisplayName("Lisa's Events"),
+                    caldavxml.CalendarDescription("Calendar restricted to events."), # FIXME: lang=en
                     caldavxml.SupportedCalendarComponentSet(caldavxml.CalendarComponent(name="VEVENT")),
-                    caldavxml.CalendarTimeZone.fromString(
+                    caldavxml.CalendarTimeZone(
 """BEGIN:VCALENDAR
 PRODID:-//Example Corp.//CalDAV Client//EN
 VERSION:2.0

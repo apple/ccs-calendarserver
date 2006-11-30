@@ -115,8 +115,8 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
     # ACL
     ##
 
-    def principalCollections(self, request):
-        return succeed((self.principalCollectionURL(),))
+    def principalCollections(self):
+        return (self,)
 
 class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollectionResource, DAVFile):
     """
@@ -178,8 +178,8 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
     # ACL
     ##
 
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
+    def principalCollections(self):
+        return self._parent.principalCollections()
 
 class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
     """
@@ -284,8 +284,8 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
     def groupMemberships(self):
         return self._getRelatives("groups")
 
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
+    def principalCollections(self):
+        return self._parent.principalCollections()
 
     ##
     # CalDAV

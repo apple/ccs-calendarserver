@@ -496,10 +496,10 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     def listChildren(self):
         return self.directory.recordTypes()
 
-    def principalCollections(self, request):
+    def principalCollections(self):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
-        return self.directory.principalCollection.principalCollections(request)
+        return self.directory.principalCollection.principalCollections()
 
     def homeForDirectoryRecord(self, record):
         return self.getChild(record.recordType).getChild(record.shortName)
@@ -572,8 +572,8 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     def defaultAccessControlList(self):
         return readOnlyACL
 
-    def principalCollections(self, request):
-        return self._parent.principalCollections(request)
+    def principalCollections(self):
+        return self._parent.principalCollections()
 
 class CalendarHomeFile (CalDAVFile):
     """

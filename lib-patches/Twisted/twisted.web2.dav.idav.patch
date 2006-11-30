@@ -20,7 +20,26 @@ Index: twisted/web2/dav/idav.py
          @return: An L{Deferred} that fires when all the children have been found
          """
  
-@@ -180,6 +182,80 @@
+@@ -125,15 +127,10 @@
+             L{responsecode.UNAUTHORIZED}) if not authorized.
+         """
+ 
+-    def principalCollections(request):
++    def principalCollections():
+         """
+-        Provides the DAV:HRef's of collection resources which contain principal
+-        resources which may be used in access control entries on this resource.
+-        (RFC 3744, section 5.8)
+-        @param request: the request being processed.
+-        @return: a deferred sequence of L{davxml.HRef}s referring to
+-            collection resources which implement the
+-            C{DAV:principal-property-search} C{REPORT}.
++        @return: an interable of L{IDAVPrincipalCollectionResource}s which
++            contain principals used in ACLs for this resource.
+         """
+ 
+     def setAccessControlList(acl):
+@@ -180,6 +177,80 @@
              the specified principal.
          """
  
@@ -101,3 +120,18 @@ Index: twisted/web2/dav/idav.py
  class IDAVPrincipalResource (IDAVResource):
      """
      WebDAV principal resource.  (RFC 3744, section 2)
+@@ -212,3 +283,14 @@
+         directly a member.  (RFC 3744, section 4.4)
+         @return: a iterable of group principal URLs.
+         """
++
++class IDAVPrincipalCollectionResource (IDAVResource):
++    """
++    WebDAV principal collection resource.  (RFC 3744, section 5.8)
++    """
++    def principalCollectionURL():
++        """
++        Provides a URL for this resource which may be used to identify this
++        resource in ACL requests.  (RFC 3744, section 5.8)
++        @return: a URL.
++        """

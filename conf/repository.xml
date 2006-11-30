@@ -26,7 +26,7 @@ limitations under the License.
       <properties>
         <acl>
           <ace>
-            <principal><authenticated/></principal>
+            <principal><all/></principal>
             <grant><privilege><read/></privilege></grant>
           </ace>
           <ace>

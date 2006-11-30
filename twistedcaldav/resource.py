@@ -33,7 +33,6 @@ __all__ = [
     "isScheduleOutboxResource",
 ]
 
-from weakref import WeakValueDictionary
 from zope.interface import implements
 
 from twisted.internet import reactor
@@ -42,7 +41,8 @@ from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource
+from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource, DAVPrincipalCollectionResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -285,15 +285,6 @@ class CalDAVResource (DAVResource):
 
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
-    def principalCollections(self, request):
-        # Get the values cached in CalendarPrincipalCollectionResource.
-        collections = CalendarPrincipalCollectionResource.principleCollectionSet.keys()
-        if collections:
-            return succeed(collections)
-
-        # Fall back to super's implementation.
-        return super(CalDAVResource, self).principalCollections(request)
-
     ##
     # CalDAV
     ##
@@ -497,13 +488,11 @@ class CalDAVResource (DAVResource):
         """
         return request.locateResource(parentForURL(uri))
 
-class CalendarPrincipalCollectionResource (CalDAVResource):
+class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
     CalDAV principal collection.
     """
-    # Use a WeakKeyDictionary to keep track of all instances.
-    # A WeakKeySet would be more appropriate, but there is no such class yet.
-    principleCollectionSet = WeakValueDictionary()
+    implements(IDAVPrincipalCollectionResource)
 
     @classmethod
     def outboxForCalendarUser(clazz, request, address):
@@ -545,18 +534,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         d.addCallback(_defer)
         return d
 
-    def __init__(self, url):
-        assert url.endswith("/"), "Collection URL must end in '/'"
-
-        # FIXME: there is no super implementation of __init__
-        #super(CalendarPrincipalCollectionResource, self).__init__()
-
-        self._url = url
-
-        # Register self with class
-        if url not in CalendarPrincipalCollectionResource.principleCollectionSet:
-            CalendarPrincipalCollectionResource.principleCollectionSet[url] = self
-
     def isCollection(self):
         return True
 
@@ -591,9 +568,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
 
     findCalendarUser = deferredGenerator(findCalendarUser)
 
-    def principalCollectionURL(self):
-        return self._url
-
     def supportedReports(self):
         """
         Principal collections are the only resources supporting the
@@ -625,6 +599,7 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
             ),
         )
 
+# FIXME: Replace this
 def findAnyCalendarUser(request, address):
     """
     Find the calendar user principal associated with the specified calendar
@@ -634,25 +609,17 @@ def findAnyCalendarUser(request, address):
     @return: the L{CalendarPrincipalResource} for the specified calendar
         user, or C{None} if the user is not found.
     """
-    for url in CalendarPrincipalCollectionResource.principleCollectionSet.keys():
-        try:
-            # Explicitly locate the prinicpal collection resource to force URL caching in request
-            collection = waitForDeferred(request.locateResource(url))
-            yield collection
-            collection = collection.getResult()
+    for collection in self.principalCollections():
+        if isinstance(collection, CalendarPrincipalCollectionResource):
+            principal = waitForDeferred(collection.findCalendarUser(request, address))
+            yield principal
+            principal = principal.getResult()
 
-            if isinstance(collection, CalendarPrincipalCollectionResource):
-                principal = waitForDeferred(collection.findCalendarUser(request, address))
+            if principal is not None:
                 yield principal
-                principal = principal.getResult()
-
-                if principal is not None:
-                    yield principal
-                    return
-        except ReferenceError:
-            pass
-
-    yield None
+                return
+    else:
+        yield None
 
 findAnyCalendarUser = deferredGenerator(findAnyCalendarUser)
 

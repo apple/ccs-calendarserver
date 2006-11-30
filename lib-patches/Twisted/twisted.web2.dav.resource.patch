@@ -2,7 +2,17 @@ Index: twisted/web2/dav/resource.py
 ===================================================================
 --- twisted/web2/dav/resource.py	(revision 18545)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -44,6 +44,8 @@
+@@ -40,10 +40,18 @@
+     "unauthenticatedPrincipal",
+ ]
+ 
++import __builtin__
++if not hasattr(__builtin__, "set"):
++    import sets.Set as set
++if not hasattr(__builtin__, "frozenset"):
++    import sets.ImmutableSet as frozenset
++
+ import urllib
  
  from zope.interface import implements
  from twisted.python import log
@@ -11,7 +21,16 @@ Index: twisted/web2/dav/resource.py
  from twisted.internet.defer import Deferred, maybeDeferred, succeed
  from twisted.internet.defer import waitForDeferred, deferredGenerator
  from twisted.internet import reactor
-@@ -130,6 +132,8 @@
+@@ -57,7 +65,7 @@
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.davxml import dav_namespace, lookupElement
+ from twisted.web2.dav.davxml import twisted_dav_namespace, twisted_private_namespace
+-from twisted.web2.dav.idav import IDAVResource, IDAVPrincipalResource
++from twisted.web2.dav.idav import IDAVResource, IDAVPrincipalResource, IDAVPrincipalCollectionResource
+ from twisted.web2.dav.http import NeedPrivilegesResponse
+ from twisted.web2.dav.noneprops import NonePropertyStore
+ from twisted.web2.dav.util import unimplemented, parentForURL, joinURL
+@@ -130,6 +138,8 @@
          (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
          (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
          (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
@@ -20,7 +39,7 @@ Index: twisted/web2/dav/resource.py
  
          (twisted_dav_namespace, "resource-class"),
      )
-@@ -166,6 +170,14 @@
+@@ -166,6 +176,14 @@
          if qname[0] == twisted_private_namespace:
              return succeed(False)
  
@@ -35,16 +54,34 @@ Index: twisted/web2/dav/resource.py
          return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
  
      def readProperty(self, property, request):
-@@ -253,7 +265,7 @@
+@@ -239,8 +257,10 @@
+                     )
+ 
+                 if name == "supported-report-set":
+-                    supported = [davxml.SupportedReport(report,) for report in self.supportedReports()]
+-                    return davxml.SupportedReportSet(*supported)
++                    return davxml.SupportedReportSet(*[
++                        davxml.SupportedReport(report,)
++                        for report in self.supportedReports()
++                    ])
+ 
+                 if name == "supported-privilege-set":
+                     return self.supportedPrivileges(request)
+@@ -252,9 +272,10 @@
+                     return davxml.InheritedACLSet(*self.inheritedACLSet())
  
                  if name == "principal-collection-set":
-                     d = self.principalCollections(request)
+-                    d = self.principalCollections(request)
 -                    d.addCallback(lambda collections: davxml.PrincipalCollectionSet(*collections))
-+                    d.addCallback(lambda collections: davxml.PrincipalCollectionSet(*[davxml.HRef.fromString(uri) for uri in collections]))
-                     return d
+-                    return d
++                    return davxml.PrincipalCollectionSet(*[
++                        davxml.HRef(principalCollection.principalCollectionURI())
++                        for principalCollection in self.principalCollections()
++                    ])
  
                  def ifAllowed(privileges, callback):
-@@ -286,7 +298,33 @@
+                     def onError(failure):
+@@ -286,7 +307,33 @@
                          d.addCallback(gotACL)
                          return d
                      return ifAllowed((davxml.ReadACL(),), callback)
@@ -78,9 +115,13 @@ Index: twisted/web2/dav/resource.py
              elif namespace == twisted_dav_namespace:
                  if name == "resource-class":
                      class ResourceClass (davxml.WebDAVTextElement):
-@@ -366,12 +404,26 @@
-         # FIXME: A set would be better here, that that's a python 2.4+ feature.
-         qnames = list(self.liveProperties)
+@@ -363,15 +410,28 @@
+         """
+         See L{IDAVResource.listProperties}.
+         """
+-        # FIXME: A set would be better here, that that's a python 2.4+ feature.
+-        qnames = list(self.liveProperties)
++        qnames = set(self.liveProperties)
  
 +        # Add dynamic live properties that exist
 +        dynamicLiveProperties = (
@@ -106,7 +147,30 @@ Index: twisted/web2/dav/resource.py
      def listAllprop(self, request):
          """
          Some DAV properties should not be returned to a C{DAV:allprop} query.
-@@ -509,6 +561,9 @@
+@@ -465,8 +525,22 @@
+             return super(DAVPropertyMixIn, self).displayName()
+ 
+ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
++    """
++    WebDAV resource.
++    """
+     implements(IDAVResource)
+ 
++    def __init__(self, principalCollections=None):
++        """
++        @param principalCollections: an iterable of L{IDAVPrincipalCollectionResource}s
++            which contain principals to be used in ACLs for this resource.
++        """
++        if principalCollections is not None:
++            self._principalCollections = frozenset([
++                IDAVPrincipalCollectionResource(principalCollection)
++                for principalCollection in principalCollections
++            ])
++
+     ##
+     # DAV
+     ##
+@@ -509,6 +583,9 @@
              reactor.callLater(0, getChild)
  
          def checkPrivileges(child):
@@ -116,7 +180,7 @@ Index: twisted/web2/dav/resource.py
              if privileges is None:
                  return child
     
-@@ -517,14 +572,17 @@
+@@ -517,14 +594,17 @@
              return d
  
          def gotChild(child, childpath):
@@ -141,7 +205,7 @@ Index: twisted/web2/dav/resource.py
  
              reactor.callLater(0, getChild)
  
-@@ -535,10 +593,10 @@
+@@ -535,10 +615,10 @@
                  completionDeferred.callback(None)
              else:
                  childpath = joinURL(basepath, childname)
@@ -156,7 +220,7 @@ Index: twisted/web2/dav/resource.py
  
          getChild()
  
-@@ -564,19 +622,21 @@
+@@ -564,19 +644,21 @@
          See L{IDAVResource.authorize}.
          """
          def onError(failure):
@@ -183,7 +247,7 @@ Index: twisted/web2/dav/resource.py
                      response = UnauthorizedResponse(request.credentialFactories,
                                                      request.remoteAddr)
                  else:
-@@ -587,7 +647,7 @@
+@@ -587,7 +669,7 @@
                  # class is supposed to be a FORBIDDEN status code and
                  # "Authorization will not help" according to RFC2616
                  #
@@ -192,7 +256,7 @@ Index: twisted/web2/dav/resource.py
  
              d = self.checkPrivileges(request, privileges, recurse)
              d.addErrback(onErrors)
-@@ -600,16 +660,22 @@
+@@ -600,16 +682,21 @@
  
      def authenticate(self, request):
          def loginSuccess(result):
@@ -201,7 +265,6 @@ Index: twisted/web2/dav/resource.py
 +            """
 +            @param result: returned tuple from auth.DAVRealm.requestAvatar.
 +            """
-+            
 +            request.authnUser = result[1]
 +            request.authzUser = result[2]
 +            return (request.authnUser, request.authzUser,)
@@ -219,7 +282,7 @@ Index: twisted/web2/dav/resource.py
  
          authHeader = request.headers.getHeader('authorization')
  
-@@ -625,9 +691,10 @@
+@@ -625,9 +712,10 @@
  
                  # Try to match principals in each principal collection on the resource
                  def gotDetails(details):
@@ -233,7 +296,7 @@ Index: twisted/web2/dav/resource.py
  
                  def login(pcreds):
                      d = request.portal.login(pcreds, None, *request.loginInterfaces)
-@@ -635,13 +702,15 @@
+@@ -635,13 +723,15 @@
  
                      return d
  
@@ -253,7 +316,7 @@ Index: twisted/web2/dav/resource.py
  
      ##
      # ACL
-@@ -650,10 +719,10 @@
+@@ -650,49 +740,23 @@
      def currentPrincipal(self, request):
          """
          @param request: the request being processed.
@@ -267,44 +330,37 @@ Index: twisted/web2/dav/resource.py
          else:
              return unauthenticatedPrincipal
  
-@@ -666,33 +735,28 @@
-         present on this resource, it tries to get it from the parent, unless it
-         is the root or has no parent.
+-    def principalCollections(self, request):
++    def principalCollections(self):
+         """
+         See L{IDAVResource.accessControlList}.
+-
+-        This implementation tries to read the L{davxml.PrincipalCollectionSet}
+-        from the dead property store of this resource and uses that. If not
+-        present on this resource, it tries to get it from the parent, unless it
+-        is the root or has no parent.
          """
 -        try:
 -            principalCollections = self.readDeadProperty(davxml.PrincipalCollectionSet).childrenOfType(davxml.HRef)
 -        except HTTPError, e:
 -            if e.response.code != responsecode.NOT_FOUND:
 -                raise
-+        if self.hasDeadProperty(davxml.PrincipalCollectionSet):
-+            return succeed([
-+                str(href) for href in
-+                self.readDeadProperty(davxml.PrincipalCollectionSet).childrenOfType(davxml.HRef)
-+            ])
++        if hasattr(self, "_principalCollections"):
++            return self._principalCollections
++        else:
++            return ()
  
 -            principalCollections = []
-+        myURL = request.urlForResource(self)
-+        assert myURL is not None, "Resource %s was not looked up via request" % (self,)
-+        if myURL == "/":
-+            return succeed(())
- 
+-
 -            # Try the parent
 -            myURL = request.urlForResource(self)
 -            if myURL != "/":
 -                parentURL = parentForURL(myURL)
-+        def gotParent(parent):
-+            if parent is None:
-+                return ()
-+            else:
-+                return parent.principalCollections(request)
- 
+-
 -                parent = waitForDeferred(request.locateResource(parentURL))
 -                yield parent
 -                parent = parent.getResult()
-+        d = request.locateResource(parentForURL(myURL))
-+        d.addCallback(gotParent)
-+        return d
- 
+-
 -                if parent:
 -                    principalCollections = waitForDeferred(parent.principalCollections(request))
 -                    yield principalCollections
@@ -349,7 +405,25 @@ Index: twisted/web2/dav/resource.py
  
          # Dynamically update privileges for those ace's that are inherited.
          if inheritance:
-@@ -1146,49 +1221,96 @@
+@@ -1070,7 +1145,7 @@
+                                 # Adjust ACE for inherit on this resource
+                                 children = list(ace.children)
+                                 children.remove(TwistedACLInheritable())
+-                                children.append(davxml.Inherited(davxml.HRef.fromString(parentURL)))
++                                children.append(davxml.Inherited(davxml.HRef(parentURL)))
+                                 aces.append(davxml.ACE(*children))
+             else:
+                 aces.extend(inherited_aces)
+@@ -1122,7 +1197,7 @@
+                 # Adjust ACE for inherit on this resource
+                 children = list(ace.children)
+                 children.remove(TwistedACLInheritable())
+-                children.append(davxml.Inherited(davxml.HRef.fromString(request.urlForResource(self))))
++                children.append(davxml.Inherited(davxml.HRef(request.urlForResource(self))))
+                 aces.append(davxml.ACE(*children))
+                 
+         # Filter out those that do not have a principal match with the current principal
+@@ -1146,49 +1221,69 @@
  
          This implementation returns an empty set.
          """
@@ -378,29 +452,43 @@ Index: twisted/web2/dav/resource.py
              It will errback with an HTTPError(responsecode.FORBIDDEN) if
              the principal isn't found.
          """
-+        def gotAuthn(authnPrincipal):
-+            if authnPrincipal is None:
-+                log.msg("Could not find the principal resource for user id: %s" % (authid,))
-+                raise HTTPError(responsecode.FORBIDDEN)
-+
-+            def gotAuthz(authzPrincipal):
-+                return (authnPrincipal, authzPrincipal)
-+
-+            d = self.authorizationPrincipal(request, authid, authnPrincipal)
-+            d.addCallback(gotAuthz)
-+            return d
-+
-+        d = self.findPrincipalForAuthID(request, authid)
-+        d.addCallback(gotAuthn)
+-        # Try to match principals in each principal collection on the resource
+-        collections = waitForDeferred(self.principalCollections(request))
+-        yield collections
+-        collections = collections.getResult()
++        authnPrincipal = self.findPrincipalForAuthID(authid)
+ 
+-        for collection in collections:
+-            principalURI = joinURL(str(collection), authid)
++        if authnPrincipal is None:
++            log.msg("Could not find the principal resource for user id: %s" % (authid,))
++            raise HTTPError(responsecode.FORBIDDEN)
+ 
+-            principal = waitForDeferred(request.locateResource(principalURI))
+-            yield principal
+-            principal = principal.getResult()
++        d = self.authorizationPrincipal(request, authid, authnPrincipal)
++        d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
 +        return d
-+
-+    def findPrincipalForAuthID(self, request, authid):
+ 
+-            if isPrincipalResource(principal):
+-                yield (principal, principalURI)
+-                return
+-        else:
+-            principalCollections = waitForDeferred(self.principalCollections(request))
+-            yield principalCollections
+-            principalCollections = principalCollections.getResult()
++    def findPrincipalForAuthID(self, authid):
 +        """
 +        Return authentication and authoirization prinicipal identifiers for the
 +        authentication identifer passed in. In this implementation authn and authz
 +        principals are the same.
-+
-+        @param request: the L{IRequest} for the request in progress.
+ 
+-            if len(principalCollections) == 0:
+-                log.msg("DAV:principal-collection-set property cannot be found on the resource being authorized: %s" % self)
+-            else:
+-                log.msg("Could not find principal matching user id: %s" % authid)
+-            raise HTTPError(responsecode.FORBIDDEN)
 +        @param authid: a string containing the
 +            authentication/authorization identifier for the principal
 +            to lookup.
@@ -408,48 +496,14 @@ Index: twisted/web2/dav/resource.py
 +            that is found; {principalURI} is the C{str} URI of the principal.
 +            If not found return None.
 +        """
-+        # FIXME: should self.principalCollections() return resources instead of URIs?
-+
-         # Try to match principals in each principal collection on the resource
-         collections = waitForDeferred(self.principalCollections(request))
-         yield collections
-         collections = collections.getResult()
- 
--        for collection in collections:
--            principalURI = joinURL(str(collection), authid)
-+        for collectionURI in collections:
-+            collection = waitForDeferred(request.locateResource(collectionURI))
-+            yield collection
-+            collection = collection.getResult()
- 
--            principal = waitForDeferred(request.locateResource(principalURI))
--            yield principal
--            principal = principal.getResult()
-+            assert collection is not None, "Unable to locate principal collection %s" % (collectionURI,)
- 
--            if isPrincipalResource(principal):
--                yield (principal, principalURI)
-+            # FIXME: collection = IPrincipalCollectionResource(collection)
++        for collection in self.principalCollections():
 +            principal = collection.principalForUser(authid)
-+
-+            if principal:
-+                yield principal
-                 return
-         else:
--            principalCollections = waitForDeferred(self.principalCollections(request))
--            yield principalCollections
--            principalCollections = principalCollections.getResult()
-+            yield None
-+            return
++            if principal is not None:
++                return principal
++        return None
  
--            if len(principalCollections) == 0:
--                log.msg("DAV:principal-collection-set property cannot be found on the resource being authorized: %s" % self)
--            else:
--                log.msg("Could not find principal matching user id: %s" % authid)
--            raise HTTPError(responsecode.FORBIDDEN)
+-    findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
 -
-     findPrincipalForAuthID = deferredGenerator(findPrincipalForAuthID)
- 
 +    def authorizationPrincipal(self, request, authid, authnPrincipal):
 +        """
 +        Determine the authorization principal for the given request and authentication principal.
@@ -467,7 +521,7 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1213,7 +1335,6 @@
+@@ -1213,7 +1308,6 @@
              return False
                  
      def matchPrincipal(self, principal1, principal2, request):
@@ -475,7 +529,7 @@ Index: twisted/web2/dav/resource.py
          """
          Check whether the principal1 is a principal in the set defined by
          principal2.
-@@ -1238,6 +1359,9 @@
+@@ -1238,6 +1332,9 @@
              if isinstance(principal1, davxml.Unauthenticated):
                  yield False
                  return
@@ -485,7 +539,7 @@ Index: twisted/web2/dav/resource.py
              else:
                  yield True
                  return
-@@ -1265,7 +1389,6 @@
+@@ -1265,7 +1362,6 @@
  
          assert principal2 is not None, "principal2 is None"
  
@@ -493,7 +547,16 @@ Index: twisted/web2/dav/resource.py
          # Compare two HRefs and do group membership test as well
          if principal1 == principal2:
              yield True
-@@ -1511,6 +1634,265 @@
+@@ -1426,7 +1522,7 @@
+                 log.err("DAV:self ACE is set on non-principal resource %r" % (self,))
+                 yield None
+                 return
+-            principal = davxml.HRef.fromString(self.principalURL())
++            principal = davxml.HRef(self.principalURL())
+ 
+         if isinstance(principal, davxml.HRef):
+             yield principal
+@@ -1511,6 +1607,265 @@
          return None
  
      ##
@@ -639,7 +702,7 @@ Index: twisted/web2/dav/resource.py
 +        assert maxsize is None or isinstance(maxsize, int), "maxsize must be an int or None"
 +        
 +        if maxsize is not None:
-+            self.writeDeadProperty(TwistedQuotaRootProperty.fromString(str(maxsize)))
++            self.writeDeadProperty(TwistedQuotaRootProperty(str(maxsize)))
 +        else:
 +            # Remove both the root and the cached used value
 +            self.removeDeadProperty(TwistedQuotaRootProperty)
@@ -729,7 +792,7 @@ Index: twisted/web2/dav/resource.py
 +        else:
 +            # Do brute force size determination and cache the result in the private property
 +            def _defer(result):
-+                self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(result)))
++                self.writeDeadProperty(TwistedQuotaUsedProperty(str(result)))
 +                return result
 +            d = self.quotaSize(request)
 +            d.addCallback(_defer)
@@ -749,7 +812,7 @@ Index: twisted/web2/dav/resource.py
 +        # Get current value
 +        def _defer(size):
 +            size += adjust
-+            self.writeDeadProperty(TwistedQuotaUsedProperty.fromString(str(size)))
++            self.writeDeadProperty(TwistedQuotaUsedProperty(str(size)))
 +
 +        d = self.currentQuotaUse(request)
 +        d.addCallback(_defer)
@@ -759,7 +822,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1940,7 @@
+@@ -1558,7 +1913,7 @@
      """
      DAV resource with no children.
      """
@@ -768,7 +831,32 @@ Index: twisted/web2/dav/resource.py
          return succeed(None)
  
  class DAVPrincipalResource (DAVLeafResource):
-@@ -1712,6 +2094,37 @@
+@@ -1673,6 +2028,24 @@
+         else:
+             return uri in self.groupMembers()
+ 
++class DAVPrincipalCollectionResource (DAVResource):
++    """
++    WebDAV principal collection resource.  (RFC 3744, section 5.8)
++    """
++    implements(IDAVPrincipalCollectionResource)
++
++    def __init__(self, url, principalCollections=()):
++        """
++        @param url: This resource's URL.
++        """
++        DAVResource.__init__(self, principalCollections=principalCollections)
++
++        assert url.endswith("/"), "Collection URL must end in '/'"
++        self._url = url
++
++    def principalCollectionURL(self):
++        return self._url
++
+ class AccessDeniedError(Exception):
+     def __init__(self, errors):
+         """ 
+@@ -1712,6 +2085,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
