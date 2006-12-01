@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>currentDocument</key>
-	<string>../../Twisted/twisted/web2/dav/resource.py</string>
 	<key>documents</key>
 	<array>
 		<dict>
@@ -17,8 +15,6 @@
 			<string>../twistedcaldav</string>
 		</dict>
 		<dict>
-			<key>expanded</key>
-			<true/>
 			<key>name</key>
 			<string>web2</string>
 			<key>regexFolderFilter</key>
@@ -88,32 +84,22 @@
 				<dict>
 					<key>filename</key>
 					<string>../run</string>
-					<key>lastUsed</key>
-					<date>2006-11-28T19:36:50Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
 					<string>../test</string>
-					<key>lastUsed</key>
-					<date>2006-11-27T23:16:03Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
 					<string>../testcaldav</string>
-					<key>lastUsed</key>
-					<date>2006-11-27T23:16:01Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
 					<string>../setup.py</string>
-					<key>lastUsed</key>
-					<date>2006-11-27T23:18:10Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
 					<string>../LICENSE</string>
-					<key>lastUsed</key>
-					<date>2006-11-27T23:18:09Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
@@ -125,62 +111,12 @@
 		</dict>
 	</array>
 	<key>fileHierarchyDrawerWidth</key>
-	<integer>325</integer>
+	<integer>249</integer>
 	<key>metaData</key>
-	<dict>
-		<key>../../Twisted/twisted/web2/dav/resource.py</key>
-		<dict>
-			<key>caret</key>
-			<dict>
-				<key>column</key>
-				<integer>56</integer>
-				<key>line</key>
-				<integer>1265</integer>
-			</dict>
-			<key>firstVisibleColumn</key>
-			<integer>0</integer>
-			<key>firstVisibleLine</key>
-			<integer>1246</integer>
-		</dict>
-		<key>../twistedcaldav/resource.py</key>
-		<dict>
-			<key>caret</key>
-			<dict>
-				<key>column</key>
-				<integer>80</integer>
-				<key>line</key>
-				<integer>261</integer>
-			</dict>
-			<key>columnSelection</key>
-			<false/>
-			<key>firstVisibleColumn</key>
-			<integer>0</integer>
-			<key>firstVisibleLine</key>
-			<integer>231</integer>
-			<key>selectFrom</key>
-			<dict>
-				<key>column</key>
-				<integer>58</integer>
-				<key>line</key>
-				<integer>261</integer>
-			</dict>
-			<key>selectTo</key>
-			<dict>
-				<key>column</key>
-				<integer>80</integer>
-				<key>line</key>
-				<integer>261</integer>
-			</dict>
-		</dict>
-	</dict>
-	<key>openDocuments</key>
-	<array>
-		<string>../../Twisted/twisted/web2/dav/resource.py</string>
-		<string>../twistedcaldav/resource.py</string>
-	</array>
+	<dict/>
 	<key>showFileHierarchyDrawer</key>
 	<true/>
 	<key>windowFrame</key>
-	<string>{{705, 64}, {1019, 1050}}</string>
+	<string>{{378, 125}, {944, 985}}</string>
 </dict>
 </plist>
