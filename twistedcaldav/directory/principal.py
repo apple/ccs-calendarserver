@@ -102,12 +102,6 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
 
     def getChild(self, name):
         self.provision()
-
-        ## This avoids finding case variants of put children on case-insensitive filesystems.
-        #children = self.putChildren
-        #if name not in children and name.lower() in (x.lower() for x in children):
-        #    return None
-
         return self.putChildren.get(name, None)
 
     def listChildren(self):
