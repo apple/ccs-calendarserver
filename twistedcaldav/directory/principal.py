@@ -72,18 +72,17 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
+        self.provision()
+
         # Create children
-        for name in self.directory.recordTypes():
-            child_fp = self.fp.child(name)
-            if child_fp.exists():
-                assert child_fp.isdir()
-            else:
-                assert self.exists()
-                assert self.isCollection()
+        for recordType in self.directory.recordTypes():
+            self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
 
-                child_fp.makedirs()
-
-            self.putChild(name, DirectoryPrincipalTypeResource(child_fp.path, self, name))
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            self.fp.makedirs()
+            self.fp.restat(False)
 
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
@@ -102,11 +101,14 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        # This avoids finding case variants of put children on case-insensitive filesystems.
-        if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
+        self.provision()
+
+        children = self.putChildren
+        if name not in children and name.lower() in (x.lower() for x in children):
+            # This avoids finding case variants of put children on case-insensitive filesystems.
             return None
         else:
-            return self.putChildren.get(name, None)
+            return children.get(name, None)
 
     def listChildren(self):
         return self.putChildren.keys()
@@ -135,6 +137,16 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         self.recordType = recordType
         self._parent = parent
 
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
     def principalForUser(self, user):
         return self._parent.principalForUser(user)
 
@@ -149,6 +161,8 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
+        self.provision()
+
         if name == "":
             return self
 
@@ -160,16 +174,7 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
             assert name is None
             name = record.shortName
 
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isfile()
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.open("w").close()
-
-        return DirectoryPrincipalResource(child_fp.path, self, record)
+        return DirectoryPrincipalResource(self.fp.child(name).path, self, record)
 
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
@@ -190,6 +195,16 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
 
         self.record = record
         self._parent = parent
+
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.open("w").close()
+            self.fp.restat(False)
 
     ##
     # HTTP
