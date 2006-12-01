@@ -359,12 +359,20 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
     _checkParents = deferredGenerator(_checkParents)
 
-class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
-    """
-    L{CalDAVFile} calendar inbox collection resource.
-    """
-    def __repr__(self):
-        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+class ScheduleFile (CalDAVFile):
+    def __init__(self, path, parent):
+        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
+        self._parent = parent
+        
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
 
     def index(self):
         """
@@ -376,6 +384,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
         return IndexSchedule(self)
 
     def createSimilarFile(self, path):
+        self.provision()
         if path == self.fp.path:
             return self
         else:
@@ -394,6 +403,32 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     def supportedPrivileges(self, request):
         return succeed(schedulePrivilegeSet)
 
+class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
+    """
+    L{CalDAVFile} calendar inbox collection resource.
+    """
+    def __repr__(self):
+        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
+            # FIXME: This should probably be a directory record option that
+            # maps to the property value directly without the need to store one.
+            if self._parent.record.recordType == "resource":
+                # Resources should have autorespond turned on by default,
+                # since they typically don't have someone responding for them.
+                child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+
+    ##
+    # ACL
+    ##
+
     def defaultAccessControlList(self):
         return davxml.ACL(
             # CalDAV:schedule for any authenticated user
@@ -405,36 +440,12 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
             ),
         )
 
-class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
+class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
     L{CalDAVFile} calendar outbox collection resource.
     """
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
-
-    def index(self):
-        """
-        Obtains the index for an iTIP collection resource.
-        @return: the index object for this resource.
-        @raise AssertionError: if this resource is not a calendar collection
-            resource.
-        """
-        return IndexSchedule(self)
-
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            return CalDAVFile(path)
-
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
-    def supportedPrivileges(self, request):
-        return succeed(schedulePrivilegeSet)
 
 class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
@@ -455,18 +466,17 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         # FIXME: Smells like a hack
         directory.calendarHomesCollection = self
 
+        # self.provision()
+
         # Create children
-        for name in self.directory.recordTypes():
-            child_fp = self.fp.child(name)
-            if child_fp.exists():
-                assert child_fp.isdir()
-            else:
-                assert self.exists()
-                assert self.isCollection()
+        for recordType in self.directory.recordTypes():
+            self.putChild(recordType, CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType))
 
-                child_fp.makedirs()
-
-            self.putChild(name, CalendarHomeTypeProvisioningFile(child_fp.path, self, name))
+    # def provision(self):
+    #     self.fp.restat(False)
+    #     if not self.fp.exists():
+    #         self.fp.makedirs()
+    #         self.fp.restat(False)
 
     def url(self):
         return self._url
@@ -475,22 +485,14 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        if name == "":
-            return self
+        # self.provision()
 
-        if name not in self.listChildren():
+        children = self.putChildren
+        if name not in children and name.lower() in (x.lower() for x in children):
+            # This avoids finding case variants of put children on case-insensitive filesystems.
             return None
-
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isdir()
         else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.makedirs()
-
-        return CalendarHomeTypeProvisioningFile(child_fp.path, self, name)
+            return children.get(name, None)
 
     def listChildren(self):
         return self.directory.recordTypes()
@@ -527,6 +529,16 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         self.recordType = recordType
         self._parent = parent
 
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
 
@@ -534,6 +546,8 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
+        self.provision()
+
         if name == "":
             return self
 
@@ -545,21 +559,7 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
             assert name is None
             name = record.shortName
 
-        exists = False
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isdir()
-            exists = True
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.makedirs()
-
-        home = CalendarHomeFile(child_fp.path, self, record)
-        if not exists:
-            home.provisionOnCreate()
-        return home
+        return CalendarHomeFile(self.fp.child(name).path, self, record)
 
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
@@ -591,59 +591,50 @@ class CalendarHomeFile (CalDAVFile):
         self.record = record
         self._parent = parent
 
+        self.provision()
+
         # Cache children which must be of a specific type
         for name, cls in (
             ("inbox" , ScheduleInboxFile),
             ("outbox", ScheduleOutboxFile),
         ):
-            child_fp = self.fp.child(name)
-            child = cls(child_fp.path, principalCollections=parent.principalCollections())
-            if not child_fp.exists():
-                child_fp.makedirs()
-                if name == "inbox":
-                    # FIXME: This should probably be a directory record option that
-                    # maps to the property value directly without the need to store one.
-                    if self.record.recordType == "resource":
-                        # Resources should have autorespond turned on by default,
-                        # since they typically don't have someone responding for them.
-                        child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-            self.putChild(name, child)
+            self.putChild(name, cls(self.fp.child(name).path, self))
 
-    def provisionOnCreate(self):
-        """
-        Create all the child collections we need when the resource
-        is first created.
-        """
-        calendars = []
-        for calendar in ("calendar",):
-            childURL = joinURL(self.url(), calendar)
-            child = CalDAVFile(os.path.join(self.fp.path, calendar))
-            c = child.createCalendarCollection()
-            assert c.called # FIXME: (!)
-            c = c.result
-            calendars.append(childURL)
-            child.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.Authenticated()),
-                        davxml.Grant(
-                            davxml.Privilege(caldavxml.ReadFreeBusy()),
-                        ),
-                        TwistedACLInheritable(),
-                    ),
-                )
-            )
-        
-        # Set calendar-free-busy-set on Inbox if not already present
-        inbox = self.getChild("inbox")
-        if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
-            inbox.writeDeadProperty(fbset)
-            
-        # Do drop box if requested
-        if self.record.recordType == "user":
-            from twistedcaldav.dropbox import DropBox
-            DropBox.provision(self)
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
+            # # Create a calendar collection
+            # calendarURLs = []
+            # for calendar in ("calendar",):
+            #     childURL = joinURL(self.url(), calendar)
+            #     child = CalDAVFile(os.path.join(self.fp.path, calendar))
+            #     c = child.createCalendarCollection()
+            #     assert c.called # FIXME: (This is not valid!)
+            #     c = c.result
+            #     calendarURLs.append(childURL)
+            #     child.setAccessControlList(
+            #         davxml.ACL(
+            #             davxml.ACE(
+            #                 davxml.Principal(davxml.Authenticated()),
+            #                 davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+            #                 TwistedACLInheritable(),
+            #             ),
+            #         )
+            #     )
+            # 
+            # # Set calendar-free-busy-set on inbox
+            # inbox = self.getChild("inbox")
+            # inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in calendarURLs]))
+
+            # Do drop box
+            if self.record.recordType == "user":
+                from twistedcaldav.dropbox import DropBox
+                DropBox.provision(self)
         
     def url(self):
         return joinURL(self._parent.url(), self.record.shortName)
@@ -652,9 +643,11 @@ class CalendarHomeFile (CalDAVFile):
         if path == self.fp.path:
             return self
         else:
-            return CalDAVFile(path, principalCollections=self._parent.principalCollections())
+            return CalDAVFile(path, principalCollections=self.principalCollections())
 
     def getChild(self, name):
+        self.provision()
+
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
