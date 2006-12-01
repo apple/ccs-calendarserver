@@ -696,6 +696,9 @@ class CalendarHomeFile (CalDAVFile):
             ),
         )
 
+    def principalCollections(self):
+        return self._parent.principalCollections()
+
     ##
     # Quota
     ##
