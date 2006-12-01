@@ -38,11 +38,12 @@ from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
-from twistedcaldav.resource import CalendarPrincipalCollectionResource
-from twistedcaldav.static import CalDAVFile, CalendarPrincipalFile
+from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
+# The reason that they is that web2.dav only implements DAV methods on
+# DAVFile instead of DAVResource.  That should change.
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
@@ -72,13 +73,13 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
-        self.provision()
+        self._provision()
 
         # Create children
         for recordType in self.directory.recordTypes():
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
 
-    def provision(self):
+    def _provision(self):
         self.fp.restat(False)
         if not self.fp.exists():
             self.fp.makedirs()
@@ -101,7 +102,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self.provision()
+        self._provision()
         return self.putChildren.get(name, None)
 
     def listChildren(self):
@@ -131,9 +132,9 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         self.recordType = recordType
         self._parent = parent
 
-        self.provision()
+        self._provision()
 
-    def provision(self):
+    def _provision(self):
         self.fp.restat(False)
         if not self.fp.exists():
             assert self._parent.exists()
@@ -155,7 +156,7 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
-        self.provision()
+        self._provision()
 
         if name == "":
             return self
@@ -180,19 +181,25 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
     def principalCollections(self):
         return self._parent.principalCollections()
 
-class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
+class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """
     def __init__(self, path, parent, record):
+        """
+        @param path: them path to the file which will back this resource.
+        @param parent: the parent of this resource.
+        @param record: the L{IDirectoryRecord} that this resource represents.
+        """
         super(DirectoryPrincipalResource, self).__init__(path, joinURL(parent.principalCollectionURL(), record.shortName))
 
         self.record = record
         self._parent = parent
+        self._url = joinURL(parent.principalCollectionURL(), record.shortName)
 
-        self.provision()
+        self._provision()
 
-    def provision(self):
+    def _provision(self):
         self.fp.restat(False)
         if not self.fp.exists():
             assert self._parent.exists()
@@ -266,6 +273,9 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return ()
 
+    def principalURL(self):
+        return self._url
+
     def _getRelatives(self, method, record=None, relatives=None, records=None):
         if record is None:
             record = self.record
@@ -295,6 +305,16 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalFile):
 
     def principalCollections(self):
         return self._parent.principalCollections()
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # DAV:read access for this principal only.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(self.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        )
 
     ##
     # CalDAV

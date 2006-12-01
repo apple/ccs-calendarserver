@@ -298,14 +298,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 def onError(f):
                     f.trap(AccessDeniedError)
                     #print resource.readDeadProperty(davxml.ACL)
-                    self.fail("%s should have %s privilege" % (principal.sname(), privilege.sname()))
+                    self.fail("%s should have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
                 d.addErrback(onError)
             else:
                 def onError(f):
                     f.trap(AccessDeniedError)
                 def onSuccess(_):
                     #print resource.readDeadProperty(davxml.ACL)
-                    self.fail("%s should not have %s privilege" % (principal.sname(), privilege.sname()))
+                    self.fail("%s should not have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
                 d.addCallback(onSuccess)
                 d.addErrback(onError)
             return d

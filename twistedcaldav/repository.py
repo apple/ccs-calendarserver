@@ -53,7 +53,7 @@ from twistedcaldav.dropbox import DropBox
 from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.static import CalendarHomeFile, CalendarPrincipalFile
+from twistedcaldav.static import CalendarHomeFile
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 ELEMENT_REPOSITORY = "repository"
