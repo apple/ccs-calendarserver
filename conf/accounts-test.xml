@@ -30,23 +30,21 @@ limitations under the License.
     <name>User who can authorize as someone else</name>
     <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
-  <user>
-    <uid>test</uid>
-    <pswd>test</pswd>
-    <name>Test User</name>
-    <cuaddr>mailto:testuser@example.com</cuaddr>
+  <user repeat="99">
+    <uid>user%02d</uid>
+    <pswd>user%02d</pswd>
+    <name>User %02d</name>
+    <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
-  <group>
-    <uid>users</uid>
-    <pswd>users</pswd>
-    <name>Users Group</name>
-    <members>
-      <uid>test</uid>
-    </members>
-  </group>
-  <resource>
-    <uid>mercury</uid>
-    <pswd>mercury</pswd>
-    <name>Mecury Conference Room, Building 1, 2nd Floor</name>
+  <user repeat="10">
+    <uid>public%02d</uid>
+    <pswd>public%02d</pswd>
+    <name>Public %02d</name>
+    <cuaddr>mailto:public%02d@example.com</cuaddr>
+  </user>
+  <resource repeat="10">
+    <uid>resource%02d</uid>
+    <pswd>resource%02d</pswd>
+    <name>Room %02d</name>
   </resource>
 </accounts>

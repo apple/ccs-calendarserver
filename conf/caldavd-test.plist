@@ -71,27 +71,10 @@ limitations under the License.
     <key>params</key>
 	<dict>
 	  <key>xmlFile</key>
-	  <string>conf/accounts.xml</string>
+	  <string>conf/accounts-test.xml</string>
 	</dict>
   </dict>
-  
-  <!--  SQL Directory Service -->
-  <!--
-  <key>twistedcaldav.directory.sqldb.DirectoryService</key>
-  <dict>
-    <key>type</key>
-    <string>SQLDirectoryService</string>
-  
-    <key>params</key>
-	<dict>
-	  <key>dbParentPath</key>
-	  <string>twistedcaldav/test/data/</string>
-	  <key>xmlFile</key>
-	  <string>conf/accounts.xml</string>
-	</dict>
-  </dict>
-  -->
-  
+
   <!--  Open Directory Service -->
   <!--
   <key>DirectoryService</key>
@@ -103,6 +86,57 @@ limitations under the License.
 	<dict>
 	  <key>node</key>
 	  <string>/Search</string>
+	</dict>
+  </dict>
+  -->
+  
+  <!--  Apache-style Basic Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.apache.BasicDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>userFile</key>
+	  <string>conf/basic</string>
+	  <key>groupFile</key>
+	  <string>conf/group</string>
+	</dict>
+  </dict>
+  -->
+
+  <!--  Apache-style Digest Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.apache.DigestDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>userFile</key>
+	  <string>conf/digest</string>
+	  <key>groupFile</key>
+	  <string>conf/group</string>
+	</dict>
+  </dict>
+  -->
+
+  <!--  SQL Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.sqldb.SQLDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>dbParentPath</key>
+	  <string>twistedcaldav/test/data/</string>
+	  <key>xmlFile</key>
+	  <string>conf/accounts-test.xml</string>
 	</dict>
   </dict>
   -->

@@ -77,23 +77,6 @@ limitations under the License.
   </dict>
   -->
   
-  <!--  SQL Directory Service -->
-  <!--
-  <key>twistedcaldav.directory.sqldb.DirectoryService</key>
-  <dict>
-    <key>type</key>
-    <string>SQLDirectoryService</string>
-  
-    <key>params</key>
-	<dict>
-	  <key>dbParentPath</key>
-	  <string>/Library/CalendarServer/Documents</string>
-	  <key>xmlFile</key>
-	  <string>/etc/caldavd/accounts.xml</string>
-	</dict>
-  </dict>
-  -->
-  
   <!--  Open Directory Service -->
   <key>DirectoryService</key>
   <dict>
