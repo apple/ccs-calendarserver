@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<!DOCTYPE accounts SYSTEM "../../../conf/accounts.dtd">
 
 <accounts realm="Test Realm">
   <user>
