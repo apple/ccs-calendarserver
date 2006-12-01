@@ -9,7 +9,7 @@ QUICK START
 ===========
 
 Place this source directory into an empty development directory, such
-as ~/Developer/Collaboration/CalendarServer/.  The server requires a
+as '~/Developer/Collaboration/CalendarServer/'.  The server requires a
 number of libraries in order to operate.  The "run" script in the
 sources will automatically download or check out the appropriate
 libraries and build them for you:
@@ -17,65 +17,131 @@ libraries and build them for you:
     ./run -s
 
 Before you can run the server, you need to set up a configuration file
-for development.  Start by deciding whether you want to populate you
-server's users, groups, and resources from data obtained via
-OpenDirectory (LDAP, etc.), or use a static configuration.  The latter
-requires less set up, so you probably want to try that first; you can
-copy the example respository-static.xml file:
+for development.  There is a provided test configuration that you can
+use to start with:
 
-    cp ./conf/repository-static.xml ./conf/repository-dev.xml
+    cp ./conf/caldavd-test.plist ./conf/caldavd-dev.plist
 
-This file contains one user account ("principal"), named "admin", with
-password "admin".  This principal is also set up with "all"
-permissions on the server.
+You will need to choose a "directory service" to use to populate your
+server's principals (users, groups and resources).  A directory service
+provides the calendar server with information about these principals.
+Some of the directory services which are supported by the calendar
+server include:
+
+   - XMLDirectoryService: this service is configurable via an XML file
+	 that contains principal information.  The file 'conf/accounts.xml'
+	 provides an example principals configuration.
+
+   - OpenDirectoryService: this service uses OpenDirectory (which in
+	 turn uses ADAP, Active Directory, etc.) to obtain principal
+	 information.
+
+   - BasicDirectoryService and DigestDirectoryService: these services
+     are configurable using configuration files in the same formats as
+	 used by the Apache HTTP server, allowing you to use the same
+	 user/group setup as a separately-running Apache server.
+
+     Note that the current implementation does not allow for
+	 configuring resources, since Apache doesn't have resource
+	 principals.
+
+The 'caldavd-test.plist' configuration uses XMLDirectoryService by
+default, set up to use 'conf/accounts-test.xml'.
+
+This file contains a user principal, named "admin", with password
+"admin", which is set up with administrative permissions on the server.
 
 You can then run the server thusly:
 
-    ~/Developer/Collaboration/CalendarServer/run
+	./run
 
 This should start up and bind to port 8008 for HTTP and 8443 for
 HTTPS.  You should then be able to connect to the server using your
 web browser (eg. Safari, Firefox) or with a CalDAV client (eg. iCal,
 Chandler).
 
+
+DAV Functionality
+====================
+
+The server implements the following specifications:
+
+ - HTTP/1.1, RFC 2616
+ - HTTP Authentication, RFC 2617
+ - WebDAV level 1, RFC 2518
+ - WebDAV Access Control Protocol, RFC 3744
+ - WebDAV Quota and Size Properties, RFC 4331
+ - CalDAV, draft-dusseault-caldav-15
+ - CalDAV Scheduling Extensions, draft-desruisseaux-caldav-sched-02
+
 Note that while the server does support WebDAV, it does not support
 WebDAV level 2, which means it does not implement the LOCK and UNLOCK
-methods.  It therefore is may not be mountable as a file system.
-Speficially, Mac OS X's Finder will not be able to connect to the
-server as a remote data volume.
+methods.
 
 
 PORTABILITY
 ===========
 
-Portability is fairly limited in this release.
+Portability may be limited in this release.
 
-The server has only been tested to date on Mac OS X 10.5 developer
-preview, which is only available to Apple developers.  (See
-http://developer.apple.com/.)
+The server requires:
+ - Python 2.4
+ - Zope Interface 3.1.0c1
+ - PyXML 0.8.4
+ - pyOpenSSL 0.6
+ - python-dateutil-1.0
+ - xattr 0.2 (Bob Ippolito's implementation)
+ - pysqlite-2.2.2
+ - Twisted
+ - vObject
+ - PyKerberos
+ - PyOpenDirectory
 
-If you are using Tiger (OS X 10.4), you will at least need to install
-Python 2.4.
+It also requires, naturally, anything these components depend on.  For
+example, pyOpenSSL requires the OpenSSL library.
 
-If you are using other operating systems, there is probably additional
-coding work required before you can get started.  For starters,
-twisted.web2.dav requires Bob Ippolito's xattr library to access file
-system extended attributes.  File system extended attributes are
-available on all file systems in Mac OS X, and on some file systems on
-Linux and FreeBSD.
+The server is most actively developed on Mac OS 10.5 Leopard, which is
+presently only available to Apple developers in a preview release.  (See
+http://developer.apple.com/ for more information.)  However, it is not
+intended to run solely on that platform; that just happens to be what
+the current developers are using (because we work at Apple, and are
+building it as a feature of Mac OS X Server).
+
+If you are using Tiger (Mac OS 10.4), you will need to install Python
+2.4.  See http://pythonmac.org/packages/ for installable packages.
+
+If you are using other operating systems, there may be additional
+coding work required before you can get started.
+
+For starters, twisted.web2.dav requires Bob Ippolito's xattr library
+to access file system extended attributes, which are used to store
+WebDAV properties.  File system extended attributes are available
+on all file systems in Mac OS X, and on some file systems on Linux
+and FreeBSD.
+
+Linux and FreeBSD users have has some success running our calendar
+server.  Check our bug tracker for status:
+
+	http://trac.macosforge.org/projects/calendarserver/report/1
 
 
 GETTING INVOLVED
 ================
 
-If you are interested in getting involed with development, see the
-above web site for a list of available resources.
+If you are interested in getting involved with development, be sure to
+visit our home page for more information:
+
+    http://calendarserver.macosforge.org/
+
+Bug reports are welcome, and contributions such as code patches and
+documentation are appreciated.  Visit our bug tracker:
+
+	http://trac.macosforge.org/projects/calendarserver/report/
 
 You can chat with other users and developers on IRC on channel
 #calendarserver on the irc.freenode.net server network.
 
-You can subscribe to our mailinglists at
-http://lists.macosforge.org/mailman/listinfo/
+You can also subscribe to our mailing lists for users and developers:
 
  * calendarserver-users is for users of the Calendar Server. It's the
    main forum for asking questions about installing, configuring and
@@ -87,3 +153,7 @@ http://lists.macosforge.org/mailman/listinfo/
 
  * calendarserver-changes is for change notifications to the source
    repository.
+
+Register for mailing lists on our mailing lists page:
+
+	http://lists.macosforge.org/mailman/listinfo/
