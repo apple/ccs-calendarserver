@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,17 +15,3 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
-
-"""
-Calendar server directory service module.
-"""
-
-__all__ = [
-    "appleopendirectory",
-    "cred",
-    "directory",
-    "idirectory",
-    "resource",
-    "sqldb",
-    "xmlfile",
-]

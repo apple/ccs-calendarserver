@@ -6,23 +6,6 @@
 	objectVersion = 42;
 	objects = {
 
-/* Begin PBXBuildStyle section */
-		3506A2F60922BD6500389D48 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-			};
-			name = Development;
-		};
-		3506A2F70922BD6500389D48 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXFileReference section */
 		35069C170922B96300389D48 /* __init__.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
 		35069C190922B96300389D48 /* caldavxml.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = caldavxml.py; sourceTree = "<group>"; };
@@ -301,16 +284,13 @@
 /* Begin PBXProject section */
 		35069C0B0922B94100389D48 /* Project object */ = {
 			isa = PBXProject;
-			buildConfigurationList = 35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalDAV" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				3506A2F60922BD6500389D48 /* Development */,
-				3506A2F70922BD6500389D48 /* Deployment */,
-			);
+			buildConfigurationList = 35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalendarServer" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 0;
 			mainGroup = 35069C090922B94100389D48;
 			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
 			targets = (
 			);
 		};
@@ -334,7 +314,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalDAV" */ = {
+		35069C0C0922B94100389D48 /* Build configuration list for PBXProject "CalendarServer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				35069C0D0922B94100389D48 /* Debug */,

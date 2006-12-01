@@ -46,7 +46,8 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         uri  = "/calendar_make"
         path = os.path.join(self.docroot, uri[1:])
 
-        if os.path.exists(path): rmdir(path)
+        if os.path.exists(path):
+            rmdir(path)
 
         def do_test(response):
             response = IResponse(response)
@@ -72,7 +73,8 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         uri  = "/calendar_prop"
         path = os.path.join(self.docroot, uri[1:])
 
-        if os.path.exists(path): rmdir(path)
+        if os.path.exists(path):
+            rmdir(path)
 
         def do_test(response):
             response = IResponse(response)
@@ -120,10 +122,10 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         mk = caldavxml.MakeCalendar(
             davxml.Set(
                 davxml.PropertyContainer(
-                    davxml.DisplayName.fromString("Lisa's Events"),
-                    caldavxml.CalendarDescription.fromString("Calendar restricted to events."), # FIXME: lang=en
+                    davxml.DisplayName("Lisa's Events"),
+                    caldavxml.CalendarDescription("Calendar restricted to events."), # FIXME: lang=en
                     caldavxml.SupportedCalendarComponentSet(caldavxml.CalendarComponent(name="VEVENT")),
-                    caldavxml.CalendarTimeZone.fromString(
+                    caldavxml.CalendarTimeZone(
 """BEGIN:VCALENDAR
 PRODID:-//Example Corp.//CalDAV Client//EN
 VERSION:2.0

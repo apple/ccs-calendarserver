@@ -24,6 +24,14 @@ properties, access control etc setup.
 
 __all__ = ["RepositoryBuilder"]
 
+import os
+
+from xml.dom.minidom import Element
+from xml.dom.minidom import Text
+import xml.dom.minidom
+
+from zope.interface import implements
+
 from twisted.application.internet import SSLServer, TCPServer
 from twisted.application.service import Application, IServiceCollection, MultiService
 from twisted.cred.portal import Portal
@@ -45,14 +53,8 @@ from twistedcaldav.dropbox import DropBox
 from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.static import CalendarHomeFile, CalendarPrincipalFile
-from twistedcaldav.directory.cred import DirectoryCredentialsChecker
-
-import os
-
-from xml.dom.minidom import Element
-from xml.dom.minidom import Text
-import xml.dom.minidom
+from twistedcaldav.static import CalendarHomeFile
+from twistedcaldav.directory.idirectory import IDirectoryService
 
 ELEMENT_REPOSITORY = "repository"
 
@@ -127,6 +129,7 @@ ATTRIBUTE_REPEAT = "repeat"
 def startServer(docroot, repo, doacct, doacl, dossl,
                 keyfile, certfile, onlyssl, port, sslport, maxsize,
                 quota, serverlogfile,
+                directoryservice,
                 dropbox, dropboxName, dropboxACLs,
                 notifications, notifcationName,
                 manhole):
@@ -177,13 +180,26 @@ def startServer(docroot, repo, doacct, doacl, dossl,
     # Turn on drop box support before building the repository
     DropBox.enable(dropbox, dropboxName, dropboxACLs, notifications, notifcationName)
 
+    dirname = directoryservice["type"]
+    dirparams = directoryservice["params"]
+    try:
+        resource_class = namedObject(dirname)
+    except:
+        log.err("Unable to locate Python class %r" % (dirname,))
+        raise
+    try:
+        directory = resource_class(**dirparams)
+    except Exception:
+        log.err("Unable to instantiate Python class %r with arguments %r" % (resource_class, dirparams))
+        raise
+
     # Build the server
     builder = RepositoryBuilder(docroot,
                                 doAccounts=doacct,
                                 resetACLs=doacl,
                                 maxsize=maxsize,
                                 quota=quota)
-    builder.buildFromFile(repo)
+    builder.buildFromFile(repo, directory)
     rootresource = builder.docRoot.collection.resource
     
     application = Application("CalDAVServer")
@@ -200,7 +216,7 @@ def startServer(docroot, repo, doacct, doacl, dossl,
         portal.registerChecker(auth.TwistedPropertyChecker())
         print "Using property-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
-        portal.registerChecker(DirectoryCredentialsChecker())
+        portal.registerChecker(directory)
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
         if authenticator.type == "basic":
@@ -285,24 +301,24 @@ class RepositoryBuilder (object):
         if self.quota <= 0:
             self.quota = None
         
-    def buildFromFile(self, file):
+    def buildFromFile(self, filename, directory):
         """
         Parse the required information from an XML file.
         @param file: the path of the XML file to parse.
         """
         # Read in XML
-        fd = open(file, "r")
+        fd = open(filename, "r")
         doc = xml.dom.minidom.parse( fd )
         fd.close()
 
         # Verify that top-level element is correct
         repository_node = doc._get_documentElement()
         if repository_node._get_localName() != ELEMENT_REPOSITORY:
-            self.log("Ignoring file \"%s\" because it is not a repository builder file" % (file,))
+            self.log("Ignoring file %r because it is not a repository builder file" % (filename,))
             return
         self.parseXML(repository_node)
         
-        self.docRoot.build()
+        self.docRoot.build(directory)
         if self.doAccounts:
             self.accounts.provision(
                 self.docRoot.principalCollections,
@@ -358,11 +374,11 @@ class DocRoot (object):
                 self.collection.parseXML(child, self)
                 break
 
-    def build(self):
+    def build(self, directory):
         """
         Build the entire repository starting at the root resource.
         """
-        self.collection.build(self.path, "/")
+        self.collection.build(self.path, "/", directory)
         
         # Setup the principal-collection-set property if required
         if self.autoPrincipalCollectionSet:
@@ -384,7 +400,7 @@ class Collection (object):
     """
     def __init__(self):
         self.name = None
-        self.pytype = "twistedcaldav.static.CalDAVFile" # FIXME: Why not None?
+        self.pytype = None
         self.params = {}
         self.properties = []
         self.acl = None
@@ -466,7 +482,7 @@ class Collection (object):
                 self.properties.append(Prop())
                 self.properties[-1].parseXML(child)
 
-    def build(self, docroot, urlroot):
+    def build(self, docroot, urlroot, directory):
         """
         Create this collection, initialising any properties and then create any child
         collections.
@@ -490,14 +506,19 @@ class Collection (object):
         kwargs = {}
         argnames = resource_class.__init__.func_code.co_varnames
         for name, value in (
-            ("path", mypath),
-            ("url" , myurl ),
+            ("path"     , mypath   ),
+            ("url"      , myurl    ),
+            ("directory", directory),
         ):
             if name in argnames:
                 kwargs[name] = value
         if self.params:
             kwargs["params"] = self.params
-        self.resource = resource_class(**kwargs)
+        try:
+            self.resource = resource_class(**kwargs)
+        except Exception:
+            log.err("Unable to instantiate Python class %r with arguments %r" % (resource_class, kwargs))
+            raise
 
         self.uri = myurl
         
@@ -510,7 +531,7 @@ class Collection (object):
             self.resource.setAccessControlList(self.acl.acl)
 
         for member in self.members:
-            child = member.build(mypath, myurl)
+            child = member.build(mypath, myurl, directory)
             # Only putChild if one does not already exists
             if self.resource.putChildren.get(member.name, None) is None:
                 self.resource.putChild(member.name, child)
@@ -704,10 +725,10 @@ class Provisioner (object):
                     self.calendarHome.resource,
                 )
 
-        # Check for proper account home
-        if not self.accountCollection:
-            log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
-            raise ValueError, "Accounts cannot be created."
+#        # Check for proper account home
+#        if not self.accountCollection:
+#            log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
+#            raise ValueError, "Accounts cannot be created."
 
         # Provision each user
         for repeat, principal in self.items:
@@ -717,44 +738,6 @@ class Provisioner (object):
                 for ctr in range(1, repeat+1):
                     self.provisionOne(principal.repeat(ctr), resetACLs)
     
-    def provisionOne(self, item, resetACLs):
-        """
-        Provision one user account/
-        @param item:      The account to provision.
-        @param resetACLs: if True, ACL privileges on all resources related to the
-            accounts being created are reset, if False no ACL privileges are changed.
-        """
-        principalURL = joinURL(self.accountCollection.uri, item.uid)
-
-        # Create principal resource
-        principal = FilePath(os.path.join(self.accountCollection.resource.fp.path, item.uid))
-        principal_exists = principal.exists()
-        if not principal_exists:
-            principal.open("w").close()
-            log.msg("Created principal: %s" % principalURL)
-        principal = CalendarPrincipalFile(principal.path, principalURL)
-        
-        # Special case: if we have an explicit cuhome URL, we will use that,
-        # otherwise we fall back to the inferred home and resource
-        if item.cuhome:
-            cuhome = (item.cuhome, None)
-        else:
-            cuhome = (self.calendarHome.uri, self.calendarHome.resource)
-            
-        # Principal knows how to provision itself in the appropriate manner
-        principal.provisionCalendarAccount(
-            item.name,
-            item.pswd,
-            resetACLs or not principal_exists,
-            item.cuaddrs,
-            cuhome,
-            item.acl,
-            item.quota,
-            item.calendars,
-            item.autorespond,
-            True
-            )
-
 class ProvisionPrincipal (object):
     """
     Contains provision information for one user.

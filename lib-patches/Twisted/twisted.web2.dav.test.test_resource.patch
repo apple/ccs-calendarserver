@@ -2,7 +2,23 @@ Index: twisted/web2/dav/test/test_resource.py
 ===================================================================
 --- twisted/web2/dav/test/test_resource.py	(revision 18545)
 +++ twisted/web2/dav/test/test_resource.py	(working copy)
-@@ -282,7 +282,8 @@
+@@ -192,13 +192,10 @@
+ class AccessTests(TestCase):
+     def setUp(self):
+         gooduser = TestDAVPrincipalResource('/users/gooduser')
++        gooduser.writeDeadProperty(TwistedPasswordProperty('goodpass'))
+ 
+-        gooduser.writeDeadProperty(
+-            TwistedPasswordProperty.fromString('goodpass'))
+-
+         baduser = TestDAVPrincipalResource('/users/baduser')
+-        baduser.writeDeadProperty(
+-            TwistedPasswordProperty.fromString('badpass'))
++        baduser.writeDeadProperty(TwistedPasswordProperty('badpass'))
+ 
+         protected = TestResource('/protected')
+         protected.setAccessControlList(davxml.ACL(
+@@ -282,7 +279,8 @@
          # Has auth; should allow
  
          request = SimpleRequest(site, "GET", "/")
@@ -12,7 +28,22 @@ Index: twisted/web2/dav/test/test_resource.py
          d = request.locateResource('/')
          d.addCallback(_checkPrivileges)
          d.addCallback(expectOK)
-@@ -380,8 +381,8 @@
+@@ -348,12 +346,12 @@
+             davxml.Grant(davxml.Privilege(davxml.All())),
+             davxml.Protected()))
+ 
+-    def __init__(self, uri=None, children=None):
++    def __init__(self, uri=None, children=None, principalCollections=()):
+         """
+         @param uri: A string respresenting the URI of the given resource
+         @param children: a dictionary of names to Resources
+         """
+-
++        DAVResource.__init__(self, principalCollections=principalCollections)
+         self.children = children
+         self.uri = uri
+ 
+@@ -380,8 +378,8 @@
          return succeed(davPrivilegeSet)
  
      def currentPrincipal(self, request):
@@ -23,3 +54,32 @@ Index: twisted/web2/dav/test/test_resource.py
          else:
              return davxml.Principal(davxml.Unauthenticated())
  
+@@ -400,17 +398,23 @@
+     def accessControlList(self, request, **kwargs):
+         return succeed(self.acl)
+     
++    def principalForUser(self, user):
++        return self.children[user]
+ 
+ class AuthAllResource (TestResource):
+-    """Give Authenticated principals all privileges deny everything else
+     """
++    Give Authenticated principals all privileges and deny everyone else.
++    """
+     acl = davxml.ACL(
+         davxml.ACE(
+             davxml.Principal(davxml.Authenticated()),
+             davxml.Grant(davxml.Privilege(davxml.All())),
+-            davxml.Protected()))
+-
++            davxml.Protected()
++        )
++    )
+     
+ class TestDAVPrincipalResource(DAVPrincipalResource, TestResource):
+-    """Get deadProperties from TestResource
+-    """
++    # Get dead properties from TestResource
++
++    def principalURL(self):
++        return self.uri

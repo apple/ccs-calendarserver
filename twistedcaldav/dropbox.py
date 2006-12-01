@@ -76,13 +76,13 @@ class DropBox(object):
             )
 
     @classmethod
-    def provision(clzz, principal, cuhome):
+    def provision(clzz, cuhome):
         """
         Provision user account with appropriate collections for drop box
         and notifications.
         
         @param principal: the L{CalendarPrincipalResource} for the principal to provision
-        @param cuhome: C{tuple} of (C{str} - URI of user calendar home, L{DAVResource} - resource of user calendar home)
+        @param cuhome: L{DAVResource} - resource of user calendar home
         """
         
         # Only if enabled
@@ -92,7 +92,7 @@ class DropBox(object):
         # Create drop box collection in calendar-home collection resource if not already present.
         
         from twistedcaldav.static import CalDAVFile
-        child = CalDAVFile(os.path.join(cuhome[1].fp.path, DropBox.dropboxName))
+        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.dropboxName))
         child_exists = child.exists()
         if not child_exists:
             c = child.createSpecialCollection(davxml.ResourceType.dropboxhome)
@@ -102,7 +102,7 @@ class DropBox(object):
         if not DropBox.notifications:
             return
         
-        child = CalDAVFile(os.path.join(cuhome[1].fp.path, DropBox.notifcationName))
+        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.notifcationName))
         child_exists = child.exists()
         if not child_exists:
             c = child.createSpecialCollection(davxml.ResourceType.notifications)

@@ -1,0 +1,20 @@
+Index: twisted/web2/dav/method/report_principal_property_search.py
+===================================================================
+--- twisted/web2/dav/method/report_principal_property_search.py	(revision 18545)
++++ twisted/web2/dav/method/report_principal_property_search.py	(working copy)
+@@ -127,13 +127,8 @@
+         matchcount = 0
+ 
+         if applyTo:
+-            # Get the principal collection set
+-            pset = waitForDeferred(self.principalCollections(request))
+-            yield pset
+-            pset = pset.getResult()
+-
+-            for phref in pset:
+-                uri = str(phref)
++            for principalCollection in self.principalCollections():
++                uri = principalCollection.principalCollectionURL()
+                 resource = waitForDeferred(request.locateResource(uri))
+                 yield resource
+                 resource = resource.getResult()

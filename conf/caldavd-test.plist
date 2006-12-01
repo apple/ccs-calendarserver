@@ -32,14 +32,14 @@ limitations under the License.
   <key>Port</key>
   <integer>8008</integer>
 
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
   <key>SSLEnable</key>
   <true/>
 
   <key>SSLOnly</key>
   <false/>
-
-  <key>SSLPort</key>
-  <integer>8443</integer>
 
   <key>SSLPrivateKey</key>
   <string>conf/server.pem</string>
@@ -56,14 +56,62 @@ limitations under the License.
   <key>PIDFile</key>
   <string>caldavd.pid</string>
 
-  <key>Repository</key>
-  <string>conf/repository-dev.xml</string>
-
   <key>CreateAccounts</key>
   <true/>
 
   <key>ResetAccountACLs</key>
   <true/>
+
+  <!--  XML File Directory Service -->
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>xmlFile</key>
+	  <string>conf/accounts.xml</string>
+	</dict>
+  </dict>
+  
+  <!--  SQL Directory Service -->
+  <!--
+  <key>twistedcaldav.directory.sqldb.DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>SQLDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>dbParentPath</key>
+	  <string>twistedcaldav/test/data/</string>
+	  <key>xmlFile</key>
+	  <string>conf/accounts.xml</string>
+	</dict>
+  </dict>
+  -->
+  
+  <!--  Open Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
+  
+    <key>params</key>
+	<dict>
+	  <key>node</key>
+	  <string>/Search</string>
+	</dict>
+  </dict>
+  -->
+  
+  <key>MaximumAttachmentSizeBytes</key>
+  <integer>1048576</integer><!-- 1Mb -->
+
+  <key>UserQuotaBytes</key>
+  <integer>104857600</integer><!-- 100Mb -->
 
   <key>DropBoxEnabled</key>
   <true/>
@@ -80,14 +128,11 @@ limitations under the License.
   <key>NotificationCollectionName</key>
   <string>notifications</string>
 
+  <key>Repository</key>
+  <string>conf/repository.xml</string>
+
   <key>twistdLocation</key>
   <string>../Twisted/bin/twistd</string>
-
-  <key>MaximumAttachmentSizeBytes</key>
-  <integer>1048576</integer><!-- 1Mb -->
-
-  <key>UserQuotaBytes</key>
-  <integer>104857600</integer><!-- 100Mb -->
 
 </dict>
 </plist>

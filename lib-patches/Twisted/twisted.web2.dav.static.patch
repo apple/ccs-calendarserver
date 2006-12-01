@@ -24,7 +24,42 @@ Index: twisted/web2/dav/static.py
  
  try:
      from twisted.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
-@@ -75,6 +75,12 @@
+@@ -52,9 +52,11 @@
+ 
+     Extends twisted.web2.static.File to handle WebDAV methods.
+     """
+-    def __init__(self, path,
+-                 defaultType="text/plain",
+-                 indexNames=None):
++    def __init__(
++        self, path,
++        defaultType="text/plain", indexNames=None,
++        principalCollections=()
++    ):
+         """
+         @param path: the path of the file backing this resource.
+         @param defaultType: the default mime type (as a string) for this
+@@ -62,11 +64,14 @@
+         @param indexNames: a sequence of index file names.
+         @param acl: an L{IDAVAccessControlList} with the .
+         """
+-        super(DAVFile, self).__init__(path,
+-                                      defaultType = defaultType,
+-                                      ignoredExts = (),
+-                                      processors  = None,
+-                                      indexNames  = indexNames)
++        File.__init__(
++            self, path,
++            defaultType = defaultType,
++            ignoredExts = (),
++            processors = None,
++            indexNames = indexNames,
++        )
++        DAVResource.__init__(self, principalCollections=principalCollections)
+ 
+     def __repr__(self):
+         return "<%s: %s>" % (self.__class__.__name__, self.fp.path)
+@@ -75,6 +80,12 @@
      # WebDAV
      ##
  
@@ -37,7 +72,7 @@ Index: twisted/web2/dav/static.py
      def davComplianceClasses(self):
          return ("1", "access-control") # Add "2" when we have locking
  
-@@ -87,7 +93,6 @@
+@@ -87,7 +98,6 @@
          """
          See L{IDAVResource.isCollection}.
          """
@@ -45,7 +80,7 @@ Index: twisted/web2/dav/static.py
          return self.fp.isdir()
  
      ##
-@@ -98,6 +103,50 @@
+@@ -98,6 +108,50 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -96,14 +131,27 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -142,53 +191,50 @@
-         directory contents that they have read permissions for.
-         """
-         if not self.fp.exists():
+@@ -132,63 +186,11 @@
+         return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
+ 
+     def createSimilarFile(self, path):
+-        return self.__class__(path, defaultType=self.defaultType, indexNames=self.indexNames[:])
++        return self.__class__(
++            path, self.defaultType, self.indexNames[:],
++            principalCollections=self.principalCollections()
++        )
+ 
+-    def render(self, request):
+-        """
+-        This is a direct copy of web2.static.render with the
+-        listChildren behavior replaced with findChildren to ensure
+-        that the current authenticated principal can only list
+-        directory contents that they have read permissions for.
+-        """
+-        if not self.fp.exists():
 -            yield responsecode.NOT_FOUND
 -            return
-+            return responsecode.NOT_FOUND
- 
+-
 -        if self.fp.isdir():
 -            if request.uri[-1] != "/":
 -                # Redirect to include trailing '/' in URI
@@ -119,32 +167,19 @@ Index: twisted/web2/dav/static.py
 -                    filtered_aces = waitForDeferred(self.inheritedACEsforChildren(request))
 -                    yield filtered_aces
 -                    filtered_aces = filtered_aces.getResult()
-+        if not self.fp.isdir():
-+            # Do regular resource behavior from superclass
-+            return super(DAVFile, self).render(request)
- 
+-
 -                    children = []
-+        #
-+        # Do custom rendering of directory so that we can enforce ACLs.
-+        #
- 
+-
 -                    def found(request, uri):
 -                        children.append(uri.split("/")[-1].rstrip("/"))
-+        if request.uri[-1] != "/":
-+            # Redirect to include trailing '/' in URI
-+            return RedirectResponse(request.unparseURL(path=request.path+'/'))
- 
+-
 -                    x = waitForDeferred(
 -                        self.findChildren("1", request, found, (davxml.Read(),),
 -                                          inherited_aces=filtered_aces)
 -                    )
 -                    yield x
 -                    x = x.getResult()
-+        # Render from the index file, if we have one
-+        index_fp = self.fp.childSearchPreauth(*self.indexNames)
-+        if index_fp:
-+            return self.createSimilarFile(index_fp.path).render(request)
- 
+-
 -                    # Render from a DirectoryLister
 -                    standin = dirlist.DirectoryLister(
 -                        self.fp.path,
@@ -155,35 +190,12 @@ Index: twisted/web2/dav/static.py
 -                    )
 -                yield standin.render(request)
 -                return
-+        # Render from a DirectoryLister
-+        def findChildren(filtered_aces):
-+            children = []
- 
+-
 -        # Do regular resource behavior from superclass
 -        yield super(DAVFile, self).render(request)
 -    
 -    render = deferredGenerator(render)
-+            def found(request, uri):
-+                children.append(uri.rstrip("/").split("/")[-1])
- 
-+            d = self.findChildren("1", request, found,
-+                                  (davxml.Read(),), inherited_aces=filtered_aces)
-+            d.addCallback(render, children)
-+            return d
-+
-+        def render(_, children):
-+            return dirlist.DirectoryLister(
-+                self.fp.path,
-+                children,
-+                self.contentTypes,
-+                self.contentEncodings,
-+                self.defaultType
-+            ).render(request)
-+
-+        d = self.inheritedACEsforChildren(request)
-+        d.addCallback(findChildren)
-+        return d
-+
+-
  #
  # Attach method handlers to DAVFile
  #

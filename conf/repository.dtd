@@ -21,7 +21,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT docroot (collection) >
 	<!ATTLIST docroot auto-principal-collection-set (yes|no) "yes">
 
-    <!ELEMENT collection (pytype?, params?, properties, members)>
+    <!ELEMENT collection (pytype, params?, properties, members)>
       <!ATTLIST collection name CDATA ""
                              tag (none|principals|calendars) "none"
                              account (yes|no) "no"
@@ -54,7 +54,8 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   	<!ELEMENT basic (realm, service?)>
 	  <!ATTLIST basic enable  (yes|no) "yes"
 	                  onlyssl (yes|no) "yes"
-	                  credentials (property|directory|kerberos) "property">
+	                  credentials (property|directory|kerberos) "property"
+	                  node CDATA "">
   	<!ELEMENT digest (realm)>
 	  <!ATTLIST digest enable  (yes|no) "no"
 	                   onlyssl (yes|no) "no"

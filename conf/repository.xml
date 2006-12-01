@@ -26,12 +26,11 @@ limitations under the License.
       <properties>
         <acl>
           <ace>
-            <principal><authenticated/></principal>
+            <principal><all/></principal>
             <grant><privilege><read/></privilege></grant>
-            <protected/>
           </ace>
           <ace>
-            <principal><href>/principals/users/admin</href></principal>
+            <principal><href>/principals/user/admin</href></principal>
             <grant><privilege><all/></privilege></grant>
             <protected/>
             <inheritable/>
@@ -39,157 +38,30 @@ limitations under the License.
         </acl>
       </properties>
       <members>
-        <!--
-          We must define the calendar home location before the
-          principals as auto-provisioning of accounts occurs when the
-          principal collections are created and we need to have the
-          calendar home path setup by then.
-         -->
-        <collection name="calendars" tag="calendars">
-          <pytype>twistedcaldav.static.CalDAVFile</pytype>
-          <properties>
-            <acl>
-              <ace>
-                <principal><authenticated/></principal>
-                <grant><privilege><read/></privilege></grant>
-                <protected/>
-              </ace>
-            </acl>
-          </properties>
-          <members>
-            <collection name="users">
-              <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-            <collection name="groups">
-              <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-            <collection name="resources">
-              <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-            <collection name="public">
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><unauthenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                    <inheritable/>
-                  </ace>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                    <inheritable/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-          </members>
+        <collection name="principals">
+          <pytype>twistedcaldav.directory.principal.DirectoryPrincipalProvisioningResource</pytype>
+          <properties/>
+          <members/>
         </collection>
-        <collection name="principals" initialize="yes">
-          <pytype>twistedcaldav.directory.resource.DirectoryPrincipalProvisioningResource</pytype>
-          <params>
-            <param>
-              <key>DirectoryNode</key>
-              <value>/Search</value>
-            </param>
-          </params>
-          <properties>
-            <acl>
-              <ace>
-                <principal><authenticated/></principal>
-                <grant><privilege><read/></privilege></grant>
-                <protected/>
-              </ace>
-            </acl>
-          </properties>
-          <members>
-            <collection name="users" tag="principals" account="yes">
-              <pytype>twistedcaldav.directory.resource.DirectoryUserPrincipalProvisioningResource</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-            <collection name="groups" tag="principals">
-              <pytype>twistedcaldav.directory.resource.DirectoryGroupPrincipalProvisioningResource</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-            <collection name="resources" tag="principals">
-              <pytype>twistedcaldav.directory.resource.DirectoryResourcePrincipalProvisioningResource</pytype>
-              <properties>
-                <acl>
-                  <ace>
-                    <principal><authenticated/></principal>
-                    <grant><privilege><read/></privilege></grant>
-                    <protected/>
-                  </ace>
-                </acl>
-              </properties>
-              <members/>
-            </collection>
-          </members>
+        <collection name="calendars">
+          <pytype>twistedcaldav.static.CalendarHomeProvisioningFile</pytype>
+          <properties/>
+          <members/>
         </collection>
       </members>
     </collection>
   </docroot>
 
   <authentication>
-  	<basic enable="yes" onlyssl="yes" credentials="directory">
-  	  <realm></realm>
-  	</basic>
-  	<digest enable="no" onlyssl="no" credentials="property">
-  	  <realm></realm>
-  	</digest>
-  	<kerberos enable="no" onlyssl="no">
-  	  <service></service>
-  	</kerberos>
+    <basic enable="yes" onlyssl="yes" credentials="directory" node="/Search">
+      <realm></realm>
+    </basic>
+    <digest enable="no" onlyssl="no" credentials="property">
+      <realm></realm>
+    </digest>
+    <kerberos enable="no" onlyssl="no">
+      <service></service>
+    </kerberos>
   </authentication>
 
   <accounts/>

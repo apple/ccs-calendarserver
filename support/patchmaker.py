@@ -30,7 +30,7 @@ projects = ("Twisted", "vobject",)
 cwd = os.getcwd()
 libpatches = os.path.join(cwd, "lib-patches")
 
-svn = "/usr/local/subversion/bin/svn"
+svn = "/usr/bin/svn"
 
 # Stuff we have to manually ignore because our ignore logic cannot cope
 ignores = set((

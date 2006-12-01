@@ -33,8 +33,6 @@ __all__ = [
     "isScheduleOutboxResource",
 ]
 
-from weakref import WeakValueDictionary
-
 from zope.interface import implements
 
 from twisted.internet import reactor
@@ -43,7 +41,8 @@ from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource
+from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource, DAVPrincipalCollectionResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -233,7 +232,7 @@ class CalDAVResource (DAVResource):
 
         return super(CalDAVResource, self).accessControlList(*args, **kwargs)
 
-    def authorizationPrincipal(self, request, authid, authnPrincipal, authnURI):
+    def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
         Determine the authorization principal for the given request and authentication principal.
         This implementation looks for an X-Authorize-As header value to use as the authoization principal.
@@ -242,10 +241,10 @@ class CalDAVResource (DAVResource):
         @param authid: a string containing the uthentication/authorization identifier
             for the principal to lookup.
         @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-        @param authnURI: a C{str} containing the URI of the authenticated principal
         @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
             resource and URI respectively.
         """
+        # FIXME: Unroll defgen
 
         # Look for X-Authorize-As Header
         authz = request.headers.getRawHeaders("x-authorize-as")
@@ -260,15 +259,13 @@ class CalDAVResource (DAVResource):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.UNAUTHORIZED)
                 else:
-                    d = waitForDeferred(self.findPrincipalForAuthID(request, authz))
-                    yield d
-                    result = d.getResult()
+                    authzPrincipal = waitForDeferred(self.findPrincipalForAuthID(request, authz))
+                    yield authzPrincipal
+                    authzPrincipal = authzPrincipal.getResult()
 
-                    if result is not None:
+                    if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
-                        authzPrincipal = result[0]
-                        authzURI = result[1]
-                        yield authzPrincipal, authzURI
+                        yield authzPrincipal
                         return
                     else:
                         log.msg("Could not find proxy user id: '%s'" % authid)
@@ -281,7 +278,7 @@ class CalDAVResource (DAVResource):
             raise HTTPError(responsecode.UNAUTHORIZED)
         else:
             # No proxy - do default behavior
-            d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal, authnURI))
+            d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal))
             yield d
             yield d.getResult()
             return
@@ -491,13 +488,11 @@ class CalDAVResource (DAVResource):
         """
         return request.locateResource(parentForURL(uri))
 
-class CalendarPrincipalCollectionResource (CalDAVResource):
+class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
     CalDAV principal collection.
     """
-    # Use a WeakKeyDictionary to keep track of all instances.
-    # A WeakKeySet would be more appropriate, but there is no such class yet.
-    principleCollectionSet = WeakValueDictionary()
+    implements(IDAVPrincipalCollectionResource)
 
     @classmethod
     def outboxForCalendarUser(clazz, request, address):
@@ -539,13 +534,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         d.addCallback(_defer)
         return d
 
-    def __init__(self, url):
-        self._url = url
-
-        # Register self with class
-        if url not in CalendarPrincipalCollectionResource.principleCollectionSet:
-            CalendarPrincipalCollectionResource.principleCollectionSet[url] = self
-
     def isCollection(self):
         return True
 
@@ -580,9 +568,6 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
 
     findCalendarUser = deferredGenerator(findCalendarUser)
 
-    def principalCollectionURL(self):
-        return self._url
-
     def supportedReports(self):
         """
         Principal collections are the only resources supporting the
@@ -592,6 +577,29 @@ class CalendarPrincipalCollectionResource (CalDAVResource):
         result.append(davxml.Report(davxml.PrincipalSearchPropertySet(),))
         return result
 
+    def principalSearchPropertySet(self):
+        return davxml.PrincipalSearchPropertySet(
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    davxml.DisplayName()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Display Name"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+            davxml.PrincipalSearchProperty(
+                davxml.PropertyContainer(
+                    caldavxml.CalendarUserAddressSet()
+                ),
+                davxml.Description(
+                    davxml.PCDATAElement("Calendar User Addresses"),
+                    **{"xml:lang":"en"}
+                ),
+            ),
+        )
+
+# FIXME: Replace this
 def findAnyCalendarUser(request, address):
     """
     Find the calendar user principal associated with the specified calendar
@@ -601,24 +609,17 @@ def findAnyCalendarUser(request, address):
     @return: the L{CalendarPrincipalResource} for the specified calendar
         user, or C{None} if the user is not found.
     """
-    for url in CalendarPrincipalCollectionResource.principleCollectionSet.keys():
-        try:
-            # Explicitly locate the prinicpal collection resource to force URL caching in request
-            pcollection = waitForDeferred(request.locateResource(url))
-            yield pcollection
-            pcollection = pcollection.getResult()
+    for collection in self.principalCollections():
+        if isinstance(collection, CalendarPrincipalCollectionResource):
+            principal = waitForDeferred(collection.findCalendarUser(request, address))
+            yield principal
+            principal = principal.getResult()
 
-            if isinstance(pcollection, CalendarPrincipalCollectionResource):
-                principal = waitForDeferred(pcollection.findCalendarUser(request, address))
+            if principal is not None:
                 yield principal
-                principal = principal.getResult()
-                if principal is not None:
-                    yield principal
-                    return
-        except ReferenceError:
-            pass
-
-    yield None
+                return
+    else:
+        yield None
 
 findAnyCalendarUser = deferredGenerator(findAnyCalendarUser)
 
@@ -655,9 +656,9 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     )
 
                 if name == "calendar-user-address-set":
-                    return caldavxml.CalendarUserAddressSet(
-                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
-                    )
+                    return succeed(caldavxml.CalendarUserAddressSet(
+                        *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                    ))
 
                 if name == "schedule-inbox-URL":
                     url = self.scheduleInboxURL()

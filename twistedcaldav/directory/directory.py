@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# DRI: Cyrus Daboo, cdaboo@apple.com
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -21,25 +21,108 @@ Generic directory service classes.
 """
 
 __all__ = [
+    "DirectoryService",
     "DirectoryRecord",
+    "DirectoryError",
+    "UnknownRecordError",
+    "UnknownRecordTypeError",
 ]
 
+import sys
+
 from zope.interface import implements
+
+from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.web2.dav.auth import IPrincipalCredentials
 
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 
 class DirectoryService(object):
-    implements(IDirectoryService)
+    implements(IDirectoryService, ICredentialsChecker)
+
+    ##
+    # IDirectoryService
+    ##
+
+    realmName = None
+
+    ##
+    # ICredentialsChecker
+    ##
+
+    # For ICredentialsChecker
+    credentialInterfaces = (IPrincipalCredentials,)
+
+    def requestAvatarId(self, credentials):
+        credentials = IPrincipalCredentials(credentials)
+
+        # FIXME: ?
+        # We were checking if principal is enabled; seems unnecessary in current
+        # implementation because you shouldn't have a principal object for a
+        # disabled directory principal.
+
+        user = self.recordWithShortName("user", credentials.credentials.username)
+        if user is None:
+            raise UnauthorizedLogin("No such user: %s" % (user,))
+
+        if user.verifyCredentials(credentials.credentials):
+            return (credentials.authnPrincipal.principalURL(), credentials.authzPrincipal.principalURL())
+        else:
+            raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
 class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
-    def __init__(self, directory, recordType, guid, shortName, fullName=None):
-        self.directory  = directory
-        self.recordType = recordType
-        self.guid       = guid
-        self.shortName  = shortName
-        self.fullName   = fullName
+    def __repr__(self):
+        return "<%s[%s@%s] %s(%s) %r>" % (
+            self.__class__.__name__,
+            self.recordType,
+            self.service,
+            self.guid,
+            self.shortName,
+            self.fullName
+        )
 
-    def authenticate(credentials):
+    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses):
+        self.service               = service
+        self.recordType            = recordType
+        self.guid                  = guid
+        self.shortName             = shortName
+        self.fullName              = fullName
+        self.calendarUserAddresses = calendarUserAddresses
+
+    def __cmp__(self, other):
+        if not isinstance(other, DirectoryRecord):
+            return NotImplemented
+
+        for attr in ("service", "recordType", "shortName", "guid"):
+            diff = cmp(getattr(self, attr), getattr(other, attr))
+            if diff != 0:
+                return diff
+        return 0
+
+    def __hash__(self):
+        h = hash(self.__class__)
+        for attr in ("service", "recordType", "shortName", "guid"):
+            h = (h + hash(getattr(self, attr))) & sys.maxint
+        return h
+
+    def members(self):
+        return ()
+
+    def groups(self):
+        return ()
+
+    def verifyCredentials(self, credentials):
         return False
+
+class DirectoryError(RuntimeError):
+    """
+    Generic directory error.
+    """
+
+class UnknownRecordTypeError(DirectoryError):
+    """
+    Unknown directory record type.
+    """

@@ -31,6 +31,8 @@ class IDirectoryService(Interface):
     """
     Directory Service
     """
+    realmName = Attribute("The name of the authentication realm this service represents.")
+
     def recordTypes():
         """
         @return: a sequence of strings denoting the record types that are kept
@@ -48,20 +50,40 @@ class IDirectoryService(Interface):
         @param recordType: the type of the record to look up.
         @param shortName: the short name of the record to look up.
         @return: an L{IDirectoryRecord} provider with the given short name, or
-            C{None} of no such record exists.
+            C{None} if no such record exists.
+        """
+
+    def recordWithGUID(guid):
+        """
+        @param shortName: the GUID of the record to look up.
+        @return: an L{IDirectoryRecord} provider with the given GUID, or C{None}
+            if no such record exists.
         """
 
 class IDirectoryRecord(Interface):
     """
     Directory Record
     """
-    directory  = Attribute("The L{IDirectoryService} this record exists in.")
-    recordType = Attribute("The type of this record.")
-    guid       = Attribute("The GUID of this record.")
-    shortName  = Attribute("The name of this record.")
-    fullName   = Attribute("The full name of this record.")
+    service               = Attribute("The L{IDirectoryService} this record exists in.")
+    recordType            = Attribute("The type of this record.")
+    guid                  = Attribute("The GUID of this record.")
+    shortName             = Attribute("The name of this record.")
+    fullName              = Attribute("The full name of this record.")
+    calendarUserAddresses = Attribute("The list of calendar user addresses for this record.")
 
-    def authenticate(credentials):
+    def members():
+        """
+        @return: an iterable of L{IDirectoryRecord}s for the members of this
+            (group) record.
+        """
+
+    def group():
+        """
+        @return: an iterable of L{IDirectoryRecord}s for the groups this
+            record is a member of.
+        """
+
+    def verifyCredentials(credentials):
         """
         Verify that the given credentials can authenticate the principal
         represented by this record.

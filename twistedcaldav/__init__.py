@@ -36,6 +36,7 @@ __all__ = [
     "instance",
     "principalindex",
     "resource",
+    "sql",
     "static",
 ]
 

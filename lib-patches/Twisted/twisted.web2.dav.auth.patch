@@ -11,14 +11,14 @@ Index: twisted/web2/dav/auth.py
          
          raise NotImplementedError("Only IPrincipal interface is supported")
  
-@@ -52,9 +52,23 @@
+@@ -52,33 +52,44 @@
  class PrincipalCredentials(object):
      implements(IPrincipalCredentials)
  
 -    def __init__(self, principal, principalURI, credentials):
 -        self.principal = principal
 -        self.principalURI = principalURI
-+    def __init__(self, authnPrincipal, authnURI, authzPrincipal, authzURI, credentials):
++    def __init__(self, authnPrincipal, authzPrincipal, credentials):
 +        """
 +        Initialize with both authentication and authorization values. Note that in most cases theses will be the same
 +        since HTTP auth makes no distinction between the two - but we may be layering some addition auth on top of this
@@ -28,17 +28,19 @@ Index: twisted/web2/dav/auth.py
 +        @param authnURI: C{str} containing the URI of the authenticated principal.
 +        @param authzPrincipal: L{IDAVPrincipalResource} for the authorized principal.
 +        @param authzURI: C{str} containing the URI of the authorized principal.
-+        @param credentials: L{IPrincipalCredentials} for the authentication credentials.
++        @param credentials: L{ICredentials} for the authentication credentials.
 +        """
-+        
 +        self.authnPrincipal = authnPrincipal
-+        self.authnURI = authnURI
 +        self.authzPrincipal = authzPrincipal
-+        self.authzURI = authzURI
          self.credentials = credentials
  
      def checkPassword(self, password):
-@@ -66,19 +80,20 @@
+         return self.credentials.checkPassword(password)
+ 
+ 
+-class TwistedPropertyChecker:
++class TwistedPropertyChecker(object):
+     implements(checkers.ICredentialsChecker)
  
      credentialInterfaces = (IPrincipalCredentials,)
  
@@ -49,9 +51,9 @@ Index: twisted/web2/dav/auth.py
 +            # We return both URIs
 +            return principalURIs
          else:
-             raise error.UnauthorizedLogin(
+-            raise error.UnauthorizedLogin(
 -                "Bad credentials for: %s" % (principalURI,))
-+                "Bad credentials for: %s" % (principalURIs[0],))
++            raise error.UnauthorizedLogin("Bad credentials for: %s" % (principalURIs[0],))
  
      def requestAvatarId(self, credentials):
          pcreds = IPrincipalCredentials(credentials)
@@ -60,7 +62,7 @@ Index: twisted/web2/dav/auth.py
  
          d = defer.maybeDeferred(credentials.checkPassword, pswd)
 -        d.addCallback(self._cbPasswordMatch, pcreds.principalURI)
-+        d.addCallback(self._cbPasswordMatch, (pcreds.authnURI, pcreds.authzURI,))
++        d.addCallback(self._cbPasswordMatch, (pcreds.authnPrincipal.principalURL(), pcreds.authzPrincipal.principalURL()))
          return d
  
  ##

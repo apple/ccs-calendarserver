@@ -26,13 +26,11 @@ __all__ = [
     "ScheduleOutboxFile",
     "CalendarHomeFile",
     "CalendarHomeProvisioningFile",
-    "CalendarPrincipalFile",
     "CalendarPrincipalCollectionFile",
 ]
 
 import os
 import errno
-from posixpath import basename
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
@@ -45,25 +43,25 @@ from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
-from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.resource import TwistedQuotaRootProperty
+from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty, davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, joinURL, bindMethods
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
+from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, db_basename
 from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParentResource, CalendarPrincipalResource
-from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource, CalendarPrincipalCollectionResource
+from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
+from twistedcaldav.directory.idirectory import IDirectoryService
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
-
     def __repr__(self):
         if self.isCalendarCollection():
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -212,65 +210,13 @@ class CalDAVFile (CalDAVResource, DAVFile):
         return caldavxml.CalendarData.fromCalendarData(self.iCalendarText(name))
 
     def supportedPrivileges(self, request):
-        if not hasattr(CalDAVFile, "_supportedCalendarPrivilegeSet"):
-            CalDAVFile._supportedCalendarPrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(caldavxml.ReadFreeBusy()),
-                            davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
-            return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+            return succeed(calendarPrivilegeSet)
         else:
             def _callback(parent):
                 if parent and isCalendarCollectionResource(parent):
-                    return succeed(CalDAVFile._supportedCalendarPrivilegeSet)
+                    return succeed(calendarPrivilegeSet)
                 else:
                     return super(CalDAVFile, self).supportedPrivileges(request)
 
@@ -279,7 +225,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return d
         
         return super(CalDAVFile, self).supportedPrivileges(request)
-
 
     ##
     # Public additions
@@ -413,12 +358,20 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
     _checkParents = deferredGenerator(_checkParents)
 
-class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
-    """
-    L{CalDAVFile} calendar inbox collection resource.
-    """
-    def __repr__(self):
-        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+class ScheduleFile (CalDAVFile):
+    def __init__(self, path, parent):
+        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
+        self._parent = parent
+        
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
 
     def index(self):
         """
@@ -430,6 +383,7 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
         return IndexSchedule(self)
 
     def createSimilarFile(self, path):
+        self.provision()
         if path == self.fp.path:
             return self
         else:
@@ -441,183 +395,290 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
     def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
 
-    def supportedPrivileges(self, request):
-        if not hasattr(ScheduleInboxFile, "_supportedSchedulePrivilegeSet"):
-            ScheduleInboxFile._supportedSchedulePrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(caldavxml.Schedule()),
-                        davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
-        return succeed(ScheduleInboxFile._supportedSchedulePrivilegeSet)
+    ##
+    # ACL
+    ##
 
-class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
+    def supportedPrivileges(self, request):
+        return succeed(schedulePrivilegeSet)
+
+class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
+    """
+    L{CalDAVFile} calendar inbox collection resource.
+    """
+    def __repr__(self):
+        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
+            # FIXME: This should probably be a directory record option that
+            # maps to the property value directly without the need to store one.
+            if self._parent.record.recordType == "resource":
+                # Resources should have autorespond turned on by default,
+                # since they typically don't have someone responding for them.
+                self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # CalDAV:schedule for any authenticated user
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(caldavxml.Schedule()),
+                ),
+            ),
+        )
+
+class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
     L{CalDAVFile} calendar outbox collection resource.
     """
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-    def index(self):
+class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
+    """
+    L{CalDAVFile} resource which provisions calendar home collections as needed.    
+    """
+    def __init__(self, path, directory, url):
         """
-        Obtains the index for an iTIP collection resource.
-        @return: the index object for this resource.
-        @raise AssertionError: if this resource is not a calendar collection
-            resource.
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision calendars from.
         """
-        return IndexSchedule(self)
+        assert url.endswith("/"), "Collection URL must end in '/'"
+
+        super(CalendarHomeProvisioningFile, self).__init__(path)
+
+        self.directory = IDirectoryService(directory)
+        self._url = url
+
+        # FIXME: Smells like a hack
+        directory.calendarHomesCollection = self
+
+        # self.provision()
+
+        # Create children
+        for recordType in self.directory.recordTypes():
+            self.putChild(recordType, CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType))
+
+    # def provision(self):
+    #     self.fp.restat(False)
+    #     if not self.fp.exists():
+    #         self.fp.makedirs()
+    #         self.fp.restat(False)
+
+    def url(self):
+        return self._url
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name):
+        # self.provision()
+
+        children = self.putChildren
+        if name not in children and name.lower() in (x.lower() for x in children):
+            # This avoids finding case variants of put children on case-insensitive filesystems.
+            return None
         else:
-            return CalDAVFile(path)
+            return children.get(name, None)
 
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
+    def listChildren(self):
+        return self.directory.recordTypes()
 
-    def supportedPrivileges(self, request):
-        if not hasattr(ScheduleOutboxFile, "_supportedSchedulePrivilegeSet"):
-            ScheduleOutboxFile._supportedSchedulePrivilegeSet = davxml.SupportedPrivilegeSet(
-                davxml.SupportedPrivilege(
-                    davxml.Privilege(davxml.All()),
-                    davxml.Description("all privileges", **{"xml:lang": "en"}),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Description("read resource", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Write()),
-                        davxml.Description("write resource", **{"xml:lang": "en"}),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteProperties()),
-                            davxml.Description("write resource properties", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.WriteContent()),
-                            davxml.Description("write resource content", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Bind()),
-                            davxml.Description("add child resource", **{"xml:lang": "en"}),
-                        ),
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(davxml.Unbind()),
-                            davxml.Description("remove child resource", **{"xml:lang": "en"}),
-                        ),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.Unlock()),
-                        davxml.Description("unlock resource without ownership", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadACL()),
-                        davxml.Description("read resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.WriteACL()),
-                        davxml.Description("write resource access control list", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                    davxml.SupportedPrivilege(
-                        davxml.Privilege(caldavxml.Schedule()),
-                        davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
-                    ),
-                ),
-            )
-            
-        return succeed(ScheduleOutboxFile._supportedSchedulePrivilegeSet)
+    def principalCollections(self):
+        # FIXME: directory.principalCollection smells like a hack
+        # See DirectoryPrincipalProvisioningResource.__init__()
+        return self.directory.principalCollection.principalCollections()
+
+    def homeForDirectoryRecord(self, record):
+        return self.getChild(record.recordType).getChild(record.shortName)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return readOnlyACL
+
+class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
+    """
+    L{CalDAVFile} resource which provisions calendar home collections of a specific
+    record type as needed.
+    """
+    def __init__(self, path, parent, recordType):
+        """
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision calendars from.
+        @param recordType: the directory record type to provision.
+        """
+        super(CalendarHomeTypeProvisioningFile, self).__init__(path)
+
+        self.directory = parent.directory
+        self.recordType = recordType
+        self._parent = parent
+
+        self.provision()
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
+    def url(self):
+        return joinURL(self._parent.url(), self.recordType)
+
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name, record=None):
+        self.provision()
+
+        if name == "":
+            return self
+
+        if record is None:
+            record = self.directory.recordWithShortName(self.recordType, name)
+            if record is None:
+                return None
+        else:
+            assert name is None
+            name = record.shortName
+
+        return CalendarHomeFile(self.fp.child(name).path, self, record)
+
+    def listChildren(self):
+        return (record.shortName for record in self.directory.listRecords(self.recordType))
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return readOnlyACL
+
+    def principalCollections(self):
+        return self._parent.principalCollections()
 
 class CalendarHomeFile (CalDAVFile):
     """
     L{CalDAVFile} calendar home collection resource.
     """
-    
     # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
     # quota to that size, or C{None} for no limit.
     quotaLimit = None
 
-    def __init__(self, path):
+    def __init__(self, path, parent, record):
         """
         @param path: the path to the file which will back the resource.
         """
         super(CalendarHomeFile, self).__init__(path)
 
-        assert self.exists(), "%s should exist" % (self,)
-        assert self.isCollection(), "%s should be a collection" % (self,)
+        self.record = record
+        self._parent = parent
 
-        # Create children
-        for name, clazz in (
+        self.provision()
+
+        # Cache children which must be of a specific type
+        for name, cls in (
             ("inbox" , ScheduleInboxFile),
             ("outbox", ScheduleOutboxFile),
         ):
-            child_fp = self.fp.child(name)
-            if not child_fp.exists(): child_fp.makedirs()
-            self.putChild(name, clazz(child_fp.path))
+            self.putChild(name, cls(self.fp.child(name).path, self))
+
+    def provision(self):
+        self.fp.restat(False)
+        if not self.fp.exists():
+            assert self._parent.exists()
+            assert self._parent.isCollection()
+            self.fp.makedirs()
+            self.fp.restat(False)
+
+            # # Create a calendar collection
+            # calendarURLs = []
+            # for calendar in ("calendar",):
+            #     childURL = joinURL(self.url(), calendar)
+            #     child = CalDAVFile(os.path.join(self.fp.path, calendar))
+            #     c = child.createCalendarCollection()
+            #     assert c.called # FIXME: (This is not valid!)
+            #     c = c.result
+            #     calendarURLs.append(childURL)
+            #     child.setAccessControlList(
+            #         davxml.ACL(
+            #             davxml.ACE(
+            #                 davxml.Principal(davxml.Authenticated()),
+            #                 davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+            #                 TwistedACLInheritable(),
+            #             ),
+            #         )
+            #     )
+            # 
+            # # Set calendar-free-busy-set on inbox
+            # inbox = self.getChild("inbox")
+            # inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in calendarURLs]))
+
+            # Do drop box
+            if self.record.recordType == "user":
+                from twistedcaldav.dropbox import DropBox
+                DropBox.provision(self)
+        
+    def url(self):
+        return joinURL(self._parent.url(), self.record.shortName)
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
             return self
         else:
-            return CalDAVFile(path)
+            return CalDAVFile(path, principalCollections=self.principalCollections())
 
     def getChild(self, name):
+        self.provision()
+
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        # FIXME: directory.principalCollection smells like a hack
+        # See DirectoryPrincipalProvisioningResource.__init__()
+        myPrincipal = self._parent._parent.directory.principalCollection.principalForRecord(self.record)
+
+        return davxml.ACL(
+            # DAV:read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+            ),
+            # Inheritable DAV:all access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
+
+    def principalCollections(self):
+        return self._parent.principalCollections()
 
     ##
     # Quota
@@ -639,301 +700,6 @@ class CalendarHomeFile (CalDAVFile):
         else:
             return CalendarHomeFile.quotaLimit
 
-class CalendarHomeProvisioningFile (CalDAVFile):
-    """
-    L{CalDAVFile} resource which provisions calendar home collections as needed.
-    """
-    calendarHomeClass = CalendarHomeFile
-
-    def __init__(self, path):
-        """
-        @param path: the path to the file which will back the resource.
-        """
-        super(CalendarHomeProvisioningFile, self).__init__(path)
-
-    def hasChild(self, name):
-        """
-        @return: C{True} if this resource has a child with the given name,
-            C{False} otherwise.
-        """
-        return name in self.listChildren()
-
-    def locateChild(self, request, segments):
-        return locateExistingChild(self, request, segments)
-
-    def getChild(self, name):
-        if name == "": return self
-
-        # Avoid case variants when allocating resources
-        if not self.hasChild(name):
-            return None
-
-        child_fp = self.fp.child(name)
-        if child_fp.exists():
-            assert child_fp.isdir()
-        else:
-            assert self.exists()
-            assert self.isCollection()
-
-            child_fp.makedirs()
-
-        return self.calendarHomeClass(child_fp.path)
-
-    def createSimilarFile(self, path):
-        raise NotImplementedError("Not allowed")
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
-class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
-    """
-    Calendar principal resource.
-    """
-    def __init__(self, path, url):
-        """
-        @param path: the path to the file which will back the resource.
-        @param url: the primary URL for the resource.  This is the url which
-            will be returned by L{principalURL}.
-        """
-        super(CalendarPrincipalFile, self).__init__(path)
-
-        self._url = url
-
-    def createSimilarFile(self, path):
-        return self.__class__(path, self._url)
-
-    ##
-    # ACL
-    ##
-
-    def alternateURIs(self):
-        return ()
-
-    def principalURL(self):
-        return self._url
-
-    def groupMembers(self):
-        return ()
-
-    def groupMemberships(self):
-        return ()
-
-    ##
-    # CalDAV
-    ##
-
-    def principalUID(self):
-        """
-        @return: the user id for this principal.
-        """
-        return self.fp.basename()
-
-    def provisionCalendarAccount(self, name, pswd, resetacl, cuaddrs, cuhome, cuhomeacls, quota, cals, autorespond, allowdropbox):
-        """
-        Provision the principal and a calendar account for it.
-        
-        @param name: C{str} name (uid) of principal.
-        @param pswd: C{str} password for BASIC authentication, or C{None}.
-        @param resetacl: C{True} if ACLs on the principal resource should be reset.
-        @param cuaddrs: C{list} list of calendar user addresses, or C{None}
-        @param cuhome: C{tuple} of (C{str} - URI of calendar home root, L{DAVResource} - resource of home root)
-        @param cuhomeacls: L{ACL} acls to use on calendar home when resetting ACLs, or C{None} to use default set.
-        @param cals: C{list} list of calendar names to create in the calendar home for this prinicpal.
-        @param autorespond: C{True} if iTIP auto-response is required, C{False} otherwise.
-        @param allowdropbox: C{True} if drop box should be enabled for this user is drop box is supproted, C{False} otherwise.
-        """
-        
-        if pswd:
-            self.writeDeadProperty(TwistedPasswordProperty.fromString(pswd))
-        else:
-            self.removeDeadProperty(TwistedPasswordProperty())
-        if name:
-            self.writeDeadProperty(davxml.DisplayName.fromString(name))
-        else:
-            self.removeDeadProperty(davxml.DisplayName())
-        if cuaddrs:
-            self.writeDeadProperty(caldavxml.CalendarUserAddressSet(*[davxml.HRef(addr) for addr in cuaddrs]))
-        else:
-            self.removeDeadProperty(caldavxml.CalendarUserAddressSet())
-
-        if resetacl:
-            self.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef.fromString(self._url)),
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Read()),
-                        ),
-                    ),
-                )
-            )
-
-        # If the user does not have any calendar user addresses we do not create a calendar home for them
-        if not cuaddrs and not cals:
-            return
-
-        # Create calendar home if we already have the resource, otherwise simply record
-        # the URL as the calendar-home-set
-        if cuhome[1] is None:
-            self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(cuhome[0])))
-        else:
-            homeURL = joinURL(cuhome[0], self.principalUID())
-            home = FilePath(os.path.join(cuhome[1].fp.path, self.principalUID()))
-            home_exists = home.exists()
-            if not home_exists:
-                home.createDirectory()
-            home = CalendarHomeFile(home.path)
-    
-            if resetacl or not home_exists:
-                if cuhomeacls:
-                    home.setAccessControlList(cuhomeacls.acl)
-                else:
-                    home.setAccessControlList(
-                        davxml.ACL(
-                            davxml.ACE(
-                                davxml.Principal(davxml.Authenticated()),
-                                davxml.Grant(
-                                    davxml.Privilege(davxml.Read()),
-                                ),
-                            ),
-                            davxml.ACE(
-                                davxml.Principal(davxml.HRef.fromString(self._url)),
-                                davxml.Grant(
-                                    davxml.Privilege(davxml.All()),
-                                ),
-                                TwistedACLInheritable(),
-                            ),
-                        )
-                    )
-            
-            # Handle quota on calendar home
-            home.setQuotaRoot(None, quota)
-        
-            # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
-            self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
-            self.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
-            self.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
-            
-            # Set ACLs on inbox and outbox
-            if resetacl or not home_exists:
-                inbox = home.getChild("inbox")
-                inbox.setAccessControlList(
-                    davxml.ACL(
-                        davxml.ACE(
-                            davxml.Principal(davxml.Authenticated()),
-                            davxml.Grant(
-                                davxml.Privilege(caldavxml.Schedule()),
-                            ),
-                        ),
-                    )
-                )
-                if autorespond:
-                    inbox.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-    
-                outbox = home.getChild("outbox")
-                if outbox.hasDeadProperty(davxml.ACL()):
-                    outbox.removeDeadProperty(davxml.ACL())
-    
-            calendars = []
-            for calendar in cals:
-                childURL = joinURL(homeURL, calendar)
-                child = CalDAVFile(os.path.join(home.fp.path, calendar))
-                child_exists = child.exists()
-                if not child_exists:
-                    c = child.createCalendarCollection()
-                    assert c.called
-                    c = c.result
-                calendars.append(childURL)
-                if (resetacl or not child_exists):
-                    child.setAccessControlList(
-                        davxml.ACL(
-                            davxml.ACE(
-                                davxml.Principal(davxml.Authenticated()),
-                                davxml.Grant(
-                                    davxml.Privilege(caldavxml.ReadFreeBusy()),
-                                ),
-                                TwistedACLInheritable(),
-                            ),
-                        )
-                    )
-            
-            # Set calendar-free-busy-set on Inbox if not already present
-            inbox = home.getChild("inbox")
-            if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-                fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
-                inbox.writeDeadProperty(fbset)
-                
-            # Do drop box if requested
-            if allowdropbox:
-                from twistedcaldav.dropbox import DropBox
-                DropBox.provision(self, (homeURL, home))
-
-
-class CalendarPrincipalCollectionFile (CalendarPrincipalCollectionResource, DAVFile):
-    """
-    L{DAVFile} resource which provisions user L{CalendarPrincipalFile} resources
-    as needed.
-    """
-    def __init__(self, path, url):
-        """
-        @param path: the path to the file which will back the resource.
-        @param url: the primary URL for the resource.  Provisioned child
-            resources will use a URL based on C{url} as their primary URLs.
-        """
-        CalendarPrincipalCollectionResource.__init__(self, url)
-        DAVFile.__init__(self, path)
-
-    def initialize(self, homeuri, home):
-        """
-        May be called during repository account initialization.
-        This implementation does nothing.
-        
-        @param homeuri: C{str} uri of the calendar home root.
-        @param home: L{DAVFile} of the calendar home root.
-        """
-        pass
-    
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            # TODO: Fix this - not sure how to get URI for second argument of __init__
-            return CalendarPrincipalFile(path, joinURL(self.principalCollectionURL(), basename(path)))
-
-    def principalSearchPropertySet(self):
-        """
-        See L{IDAVResource.principalSearchPropertySet}.
-        
-        This implementation returns None. Principal collection resources MUST override
-        and return their own suitable response.
-        
-        """
-        return davxml.PrincipalSearchPropertySet(
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
-                    davxml.DisplayName()
-                ),
-                davxml.Description(
-                    davxml.PCDATAElement("Display Name"),
-                    **{"xml:lang":"en"}
-                ),
-            ),
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
-                    caldavxml.CalendarUserAddressSet()
-                ),
-                davxml.Description(
-                    davxml.PCDATAElement("Calendar User Addresses"),
-                    **{"xml:lang":"en"}
-                ),
-            ),
-        )
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
 ##
 # Utilities
 ##
@@ -950,6 +716,83 @@ def locateExistingChild(resource, request, segments):
 
     # Otherwise, there is no child
     return (None, ())
+
+# DAV:read access for authenticated users.
+readOnlyACL = davxml.ACL(
+    davxml.ACE(
+        davxml.Principal(davxml.Authenticated()),
+        davxml.Grant(davxml.Privilege(davxml.Read())),
+        davxml.Protected(),
+    ),
+)
+
+def _schedulePrivilegeSet():
+    edited = False
+
+    top_supported_privileges = []
+
+    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(davxml.Privilege)
+        if isinstance(all_privilege.children[0], davxml.All):
+            all_description = supported_privilege.childOfType(davxml.Description)
+            all_supported_privileges = list(supported_privilege.childrenOfType(davxml.SupportedPrivilege))
+            all_supported_privileges.append(
+                davxml.SupportedPrivilege(
+                    davxml.Privilege(caldavxml.Schedule()),
+                    davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
+                ),
+            )
+            top_supported_privileges.append(
+                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+            )
+            edited = True
+        else:
+            top_supported_privileges.append(supported_privilege)
+
+    assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for schedulePrivilegeSet"
+
+    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
+
+schedulePrivilegeSet = _schedulePrivilegeSet()
+
+def _calendarPrivilegeSet ():
+    edited = False
+
+    top_supported_privileges = []
+
+    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(davxml.Privilege)
+        if isinstance(all_privilege.children[0], davxml.All):
+            all_description = supported_privilege.childOfType(davxml.Description)
+            all_supported_privileges = []
+            for all_supported_privilege in supported_privilege.childrenOfType(davxml.SupportedPrivilege):
+                read_privilege = all_supported_privilege.childOfType(davxml.Privilege)
+                if isinstance(read_privilege.children[0], davxml.Read):
+                    read_description = all_supported_privilege.childOfType(davxml.Description)
+                    read_supported_privileges = list(all_supported_privilege.childrenOfType(davxml.SupportedPrivilege))
+                    read_supported_privileges.append(
+                        davxml.SupportedPrivilege(
+                            davxml.Privilege(caldavxml.ReadFreeBusy()),
+                            davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
+                        ),
+                    )
+                    all_supported_privileges.append(
+                        davxml.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
+                    )
+                    edited = True
+                else:
+                    all_supported_privileges.append(all_supported_privilege)
+            top_supported_privileges.append(
+                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+            )
+        else:
+            top_supported_privileges.append(supported_privilege)
+
+    assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for calendarPrivilegeSet"
+
+    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
+
+calendarPrivilegeSet = _calendarPrivilegeSet()
 
 ##
 # Attach methods
