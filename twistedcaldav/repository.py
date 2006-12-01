@@ -738,44 +738,6 @@ class Provisioner (object):
                 for ctr in range(1, repeat+1):
                     self.provisionOne(principal.repeat(ctr), resetACLs)
     
-    def provisionOne(self, item, resetACLs):
-        """
-        Provision one user account/
-        @param item:      The account to provision.
-        @param resetACLs: if True, ACL privileges on all resources related to the
-            accounts being created are reset, if False no ACL privileges are changed.
-        """
-        principalURL = joinURL(self.accountCollection.uri, item.uid)
-
-        # Create principal resource
-        principal = FilePath(os.path.join(self.accountCollection.resource.fp.path, item.uid))
-        principal_exists = principal.exists()
-        if not principal_exists:
-            principal.open("w").close()
-            log.msg("Created principal: %s" % principalURL)
-        principal = CalendarPrincipalFile(principal.path, principalURL)
-        
-        # Special case: if we have an explicit cuhome URL, we will use that,
-        # otherwise we fall back to the inferred home and resource
-        if item.cuhome:
-            cuhome = (item.cuhome, None)
-        else:
-            cuhome = (self.calendarHome.uri, self.calendarHome.resource)
-            
-        # Principal knows how to provision itself in the appropriate manner
-        principal.provisionCalendarAccount(
-            item.name,
-            item.pswd,
-            resetACLs or not principal_exists,
-            item.cuaddrs,
-            cuhome,
-            item.acl,
-            item.quota,
-            item.calendars,
-            item.autorespond,
-            True
-            )
-
 class ProvisionPrincipal (object):
     """
     Contains provision information for one user.
