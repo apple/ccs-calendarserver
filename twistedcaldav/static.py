@@ -652,7 +652,7 @@ class CalendarHomeFile (CalDAVFile):
         if path == self.fp.path:
             return self
         else:
-            return CalDAVFile(path)
+            return CalDAVFile(path, principalCollections=self._parent.principalCollections())
 
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.
