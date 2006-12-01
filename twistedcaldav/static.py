@@ -405,7 +405,6 @@ class ScheduleInboxFile (ScheduleInboxResource, CalDAVFile):
             ),
         )
 
-
 class ScheduleOutboxFile (ScheduleOutboxResource, CalDAVFile):
     """
     L{CalDAVFile} calendar outbox collection resource.
@@ -598,7 +597,16 @@ class CalendarHomeFile (CalDAVFile):
             ("outbox", ScheduleOutboxFile),
         ):
             child_fp = self.fp.child(name)
-            child = cls(child_fp.path)
+            child = cls(child_fp.path, principalCollections=parent.principalCollections())
+            if not child_fp.exists():
+                child_fp.makedirs()
+                if name == "inbox":
+                    # FIXME: This should probably be a directory record option that
+                    # maps to the property value directly without the need to store one.
+                    if self.record.recordType == "resource":
+                        # Resources should have autorespond turned on by default,
+                        # since they typically don't have someone responding for them.
+                        child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
             self.putChild(name, child)
 
     def provisionOnCreate(self):
@@ -606,31 +614,12 @@ class CalendarHomeFile (CalDAVFile):
         Create all the child collections we need when the resource
         is first created.
         """
-
-        # Create inbox & outbox
-        for name, cls in (
-            ("inbox" , ScheduleInboxFile),
-            ("outbox", ScheduleOutboxFile),
-        ):
-            child_fp = self.fp.child(name)
-            child = cls(child_fp.path)
-            if not child_fp.exists():
-                child_fp.makedirs()
-                if name == "inbox":
-                    # FIXME: This should probably be a directory record option that maps to the property value
-                    # directly without the need to store one.
-                    if self.record.recordType == "resource":
-                        # Resources should have autorespond turned on by default,
-                        # since they typically don't have someone responding for them.
-                        child.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-            self.putChild(name, child)
-
         calendars = []
         for calendar in ("calendar",):
             childURL = joinURL(self.url(), calendar)
             child = CalDAVFile(os.path.join(self.fp.path, calendar))
             c = child.createCalendarCollection()
-            assert c.called
+            assert c.called # FIXME: (!)
             c = c.result
             calendars.append(childURL)
             child.setAccessControlList(
@@ -648,7 +637,7 @@ class CalendarHomeFile (CalDAVFile):
         # Set calendar-free-busy-set on Inbox if not already present
         inbox = self.getChild("inbox")
         if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(uri) for uri in calendars])
+            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
             inbox.writeDeadProperty(fbset)
             
         # Do drop box if requested
