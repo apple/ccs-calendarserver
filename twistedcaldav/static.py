@@ -648,7 +648,7 @@ class CalendarHomeFile (CalDAVFile):
         # Set calendar-free-busy-set on Inbox if not already present
         inbox = self.getChild("inbox")
         if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
+            fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(uri) for uri in calendars])
             inbox.writeDeadProperty(fbset)
             
         # Do drop box if requested
@@ -790,11 +790,11 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #     """
     #     
     #     if pswd:
-    #         self.writeDeadProperty(TwistedPasswordProperty.fromString(pswd))
+    #         self.writeDeadProperty(TwistedPasswordProperty(pswd))
     #     else:
     #         self.removeDeadProperty(TwistedPasswordProperty())
     #     if name:
-    #         self.writeDeadProperty(davxml.DisplayName.fromString(name))
+    #         self.writeDeadProperty(davxml.DisplayName(name))
     #     else:
     #         self.removeDeadProperty(davxml.DisplayName())
     #     if cuaddrs:
@@ -806,7 +806,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #         self.setAccessControlList(
     #             davxml.ACL(
     #                 davxml.ACE(
-    #                     davxml.Principal(davxml.HRef.fromString(self._url)),
+    #                     davxml.Principal(davxml.HRef(self._url)),
     #                     davxml.Grant(
     #                         davxml.Privilege(davxml.Read()),
     #                     ),
@@ -821,7 +821,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #     # Create calendar home if we already have the resource, otherwise simply record
     #     # the URL as the calendar-home-set
     #     if cuhome[1] is None:
-    #         self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(cuhome[0])))
+    #         self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef(cuhome[0])))
     #     else:
     #         homeURL = joinURL(cuhome[0], self.principalUID())
     #         home = FilePath(os.path.join(cuhome[1].fp.path, self.principalUID()))
@@ -843,7 +843,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #                             ),
     #                         ),
     #                         davxml.ACE(
-    #                             davxml.Principal(davxml.HRef.fromString(self._url)),
+    #                             davxml.Principal(davxml.HRef(self._url)),
     #                             davxml.Grant(
     #                                 davxml.Privilege(davxml.All()),
     #                             ),
@@ -856,9 +856,9 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #         home.setQuotaRoot(None, quota)
     #     
     #         # Save the calendar-home-set, schedule-inbox and schedule-outbox properties
-    #         self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef.fromString(homeURL + "/")))
-    #         self.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef.fromString(joinURL(homeURL, "inbox/"))))
-    #         self.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef.fromString(joinURL(homeURL, "outbox/"))))
+    #         self.writeDeadProperty(caldavxml.CalendarHomeSet(davxml.HRef(homeURL + "/")))
+    #         self.writeDeadProperty(caldavxml.ScheduleInboxURL(davxml.HRef(joinURL(homeURL, "inbox/"))))
+    #         self.writeDeadProperty(caldavxml.ScheduleOutboxURL(davxml.HRef(joinURL(homeURL, "outbox/"))))
     #         
     #         # Set ACLs on inbox and outbox
     #         if resetacl or not home_exists:
@@ -906,7 +906,7 @@ class CalendarPrincipalFile (CalendarPrincipalResource, CalDAVFile):
     #         # Set calendar-free-busy-set on Inbox if not already present
     #         inbox = home.getChild("inbox")
     #         if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet()):
-    #             fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef.fromString(uri) for uri in calendars])
+    #             fbset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(uri) for uri in calendars])
     #             inbox.writeDeadProperty(fbset)
     #             
     #         # Do drop box if requested
