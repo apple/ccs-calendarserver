@@ -75,7 +75,7 @@ Index: twisted/web2/dav/resource.py
 -                    d.addCallback(lambda collections: davxml.PrincipalCollectionSet(*collections))
 -                    return d
 +                    return davxml.PrincipalCollectionSet(*[
-+                        davxml.HRef(principalCollection.principalCollectionURI())
++                        davxml.HRef(principalCollection.principalCollectionURL())
 +                        for principalCollection in self.principalCollections()
 +                    ])
  
