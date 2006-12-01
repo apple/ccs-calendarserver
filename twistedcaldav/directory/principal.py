@@ -306,16 +306,6 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
     def principalCollections(self):
         return self._parent.principalCollections()
 
-    def defaultAccessControlList(self):
-        return davxml.ACL(
-            # DAV:read access for this principal only.
-            davxml.ACE(
-                davxml.Principal(davxml.HRef(self.principalURL())),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
-            ),
-        )
-
     ##
     # CalDAV
     ##
