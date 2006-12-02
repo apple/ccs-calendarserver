@@ -50,6 +50,9 @@ limitations under the License.
   <key>ServerLogFile</key>
   <string>/var/log/caldavd/server.log</string>
 
+  <key>ServerStatsFile</key>
+  <string>/Library/CalendarServer/Documents/stats.plist</string>
+
   <key>ErrorLogFile</key>
   <string>/var/log/caldavd/error.log</string>
 

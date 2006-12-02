@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
 ##
-# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# DRI: Cyrus Daboo, cdaboo@apple.com
+# DRI: David Reid, dreid@apple.com
 ##
-
-
-if __name__ == "__main__":     
-    from twistedcaldav.caldavd import caldavd
-
-    import sys
-
-    try:
-        caldavd().run()
-    except Exception, e:
-        sys.exit(str(e))
