@@ -73,10 +73,10 @@ limitations under the License.
     <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
   
     <key>params</key>
-	<dict>
-	  <key>xmlFile</key>
-	  <string>/etc/caldavd/accounts.xml</string>
-	</dict>
+    <dict>
+      <key>xmlFile</key>
+      <string>/etc/caldavd/accounts.xml</string>
+    </dict>
   </dict>
   -->
   
@@ -87,10 +87,10 @@ limitations under the License.
     <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
   
     <key>params</key>
-	<dict>
-	  <key>node</key>
-	  <string>/Search</string>
-	</dict>
+    <dict>
+      <key>node</key>
+      <string>/Search</string>
+    </dict>
   </dict>
   
   <key>MaximumAttachmentSizeBytes</key>
