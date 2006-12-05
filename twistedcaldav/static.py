@@ -373,7 +373,7 @@ class ScheduleFile (CalDAVFile):
         if path == self.fp.path:
             return self
         else:
-            return CalDAVFile(path)
+            return CalDAVFile(path, principalCollections=self.principalCollections())
 
     def index(self):
         """
