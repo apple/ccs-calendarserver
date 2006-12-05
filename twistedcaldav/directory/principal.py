@@ -93,7 +93,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
             return None
         return typeResource.getChild(record.shortName)
 
-    def principalForURI(self, uri):
+    def _principalForURI(self, uri):
         if uri.startswith(self._url):
             path = uri[len(self._url) - 1:]
         else:
@@ -118,7 +118,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
 
     def principalForCalendarUserAddress(self, address):
         # First see if the address is a principal URI
-        principal = self.principalForURI(address)
+        principal = self._principalForURI(address)
         if principal:
             return principal
 
