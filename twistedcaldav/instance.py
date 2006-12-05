@@ -25,7 +25,7 @@ from twistedcaldav.dateops import normalizeForIndex, compareDateTime, difference
 
 # The maximum number of instances we will ezpand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
-max_allowed_instances = 500
+max_allowed_instances = 1000
 
 class TooManyInstancesError(Exception):
     def __init__(self):
