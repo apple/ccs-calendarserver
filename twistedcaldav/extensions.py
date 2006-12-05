@@ -30,7 +30,7 @@ import urllib
 import time
 
 from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError, Response
+from twisted.web2.http import HTTPError, Response, RedirectResponse
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import FileStream
 from twisted.web2.static import MetaDataMixin
@@ -55,7 +55,7 @@ class DAVFile (SuperDAVFile):
         if self.fp.isdir():
             if req.uri[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return http.RedirectResponse(req.unparseURL(path=req.path+'/'))
+                return RedirectResponse(req.unparseURL(path=req.path+'/'))
             else:
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:

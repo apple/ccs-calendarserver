@@ -48,8 +48,6 @@ class Apache (object):
         "left_coast" : ("wsanchez", "dreid", "lecroy"),
     }
 
-    serviceClass = BasicDirectoryService
-
     def service(self):
         return self.serviceClass(self.userFile(), self.groupFile())
 
@@ -91,6 +89,8 @@ class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase):
     """
     Test Apache-Compatible UserFile/GroupFile directory implementation.
     """
+    serviceClass = BasicDirectoryService
+
     userFileName = basicUserFile
     userEntry = ("wsanchez", "wsanchez:Cytm0Bwm7CPJs\n")
 
@@ -98,6 +98,8 @@ class Digest (Apache, twistedcaldav.directory.test.util.DigestTestCase):
     """
     Test Apache-Compatible DigestFile/GroupFile directory implementation.
     """
+    serviceClass = DigestDirectoryService
+
     userFileName = digestUserFile
     userEntry = ("wsanchez", "wsanchez:Test:decbe233ab3d997cacc2fc058b19db8c\n")
 

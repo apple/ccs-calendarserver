@@ -25,7 +25,6 @@
 
 import os
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav.resource import AccessDeniedError

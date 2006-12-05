@@ -33,7 +33,6 @@ from twisted.web2 import responsecode
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile

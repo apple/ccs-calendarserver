@@ -35,11 +35,9 @@ from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
 from twisted.python import log
-from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
-from twisted.web2.dav.auth import TwistedPasswordProperty
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
@@ -52,7 +50,7 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, db_basename
-from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParentResource, CalendarPrincipalResource
+from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParentResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile

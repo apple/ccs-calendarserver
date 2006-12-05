@@ -30,14 +30,11 @@ from xml.dom.minidom import Element
 from xml.dom.minidom import Text
 import xml.dom.minidom
 
-from zope.interface import implements
-
 from twisted.application.internet import SSLServer, TCPServer
 from twisted.application.service import Application, IServiceCollection, MultiService
 from twisted.cred.portal import Portal
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.python import log
-from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedObject
 from twisted.web2.auth import basic, digest
 from twisted.web2.channel.http import HTTPFactory
@@ -54,7 +51,6 @@ from twistedcaldav import authkerb
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.static import CalendarHomeFile
-from twistedcaldav.directory.idirectory import IDirectoryService
 
 ELEMENT_REPOSITORY = "repository"
 

@@ -22,7 +22,6 @@ CalDAV POST method.
 
 __all__ = ["http_POST"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2.dav.util import parentForURL
 
 from twistedcaldav import caldavxml
