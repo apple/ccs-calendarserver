@@ -26,6 +26,8 @@ __all__ = [
     "DirectoryPrincipalResource",
 ]
 
+from urllib import unquote
+
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed
@@ -91,7 +93,35 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
             return None
         return typeResource.getChild(record.shortName)
 
+    def principalForURI(self, uri):
+        if uri.startswith(self._url):
+            path = uri[len(self._url) - 1:]
+        else:
+            #TODO: figure out absolute URIs
+            #absuri = request.unparseURL(path=self._url)
+            #if uri.startswith(absuri):
+            #    path = uri[len(absuri) - 1:]
+            #else:
+            #    path = None
+            path = None
+        
+        if path:
+            segments = unquote(path).split("/")
+            if segments[0] == "" and len(segments) == 3:
+                typeResource = self.getChild(segments[1])
+                if typeResource is not None:
+                    principalResource = typeResource.getChild(segments[2])
+                    if principalResource:
+                        return principalResource
+            
+        return None
+
     def principalForCalendarUserAddress(self, address):
+        # First see if the address is a principal URI
+        principal = self.principalForURI(address)
+        if principal:
+            return principal
+
         record = self.directory.recordWithCalendarUserAddress(address)
         if record is None:
             return None
