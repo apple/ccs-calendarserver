@@ -315,7 +315,7 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         # the directory record provides.
         return (self.principalURL(),) + tuple(self.record.calendarUserAddresses)
 
-    def scheduleInbox(self):
+    def scheduleInbox(self, request):
         home = self._calendarHome()
         if home is None:
             return succeed(None)

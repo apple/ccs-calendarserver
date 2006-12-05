@@ -633,32 +633,30 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             if inbox is None:
                 return ()
 
+            def getFreeBusy(has):
+                if not has:
+                    return ()
+    
+                def parseFreeBusy(freeBusySet):
+                    return (str(href) for href in freeBusySet.children)
+        
+                d = inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request)
+                d.addCallback(parseFreeBusy)
+                return d
+    
             d = inbox.hasProperty((caldav_namespace, "calendar-free-busy-set"), request)
             d.addCallback(getFreeBusy)
             return d
 
-        def getFreeBusy(has):
-            if not has:
-                return ()
-
-            d = inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request)
-            d.addCallback(parseFreeBusy)
-            return d
-
-        def parseFreeBusy(freeBusySet):
-            return (str(href) for href in freeBusySet.children)
-
-        d = self.scheduleInbox()
+        d = self.scheduleInbox(request)
         d.addCallback(gotInbox)
         return d
 
-    def scheduleInbox(self):
+    def scheduleInbox(self, request):
         """
         @return: the deferred schedule inbox for this principal.
         """
-        d = request.locateResource(self.scheduleInboxURL())
-        d.addCallback(gotInbox)
-        return d
+        return request.locateResource(self.scheduleInboxURL())
 
     def scheduleInboxURL(self):
         if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
