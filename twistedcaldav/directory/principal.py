@@ -34,10 +34,9 @@ from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.static import DAVFile
 from twisted.web2.dav.util import joinURL
 
-from twistedcaldav.extensions import ReadOnlyResourceMixIn
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 
