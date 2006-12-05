@@ -685,7 +685,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         # Use the first calendar home only
         for home in self.calendarHomeURLs():
-            return joinURL(home, Dropbox.dropboxName)
+            return joinURL(home, DropBox.dropboxName)
         return None
         
     def notificationsURL(self):
@@ -694,7 +694,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         # Use the first calendar home only
         for home in self.calendarHomeURLs():
-            return joinURL(home, Dropbox.notificationName)
+            return joinURL(home, DropBox.notificationName)
         return None
 
 class CalendarSchedulingCollectionResource (CalDAVResource):

@@ -340,10 +340,10 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         return self._homeChildURL("outbox/")
 
     def dropboxURL(self):
-        return self._homeChildURL(Dropbox.dropboxName + "/")
+        return self._homeChildURL(DropBox.dropboxName + "/")
 
     def notificationsURL(self):
-        return self._homeChildURL(Dropbox.notificationName + "/")
+        return self._homeChildURL(DropBox.notificationName + "/")
 
     def _homeChildURL(self, name):
         home = self._calendarHome()
