@@ -50,7 +50,7 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, db_basename
-from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParentResource
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
@@ -100,6 +100,14 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
             return self.createCalendarCollection()
             
+        def isNonCalendarCollectionParentResource(resource):
+            try:
+                resource = ICalDAVResource(resource)
+            except TypeError:
+                return False
+            else:
+                return resource.isPseudoCalendarCollection() or resource.isSpecialCollection(customxml.DropBoxHome)
+
         parent = self._checkParents(request, isNonCalendarCollectionParentResource)
         parent.addCallback(_defer)
         return parent

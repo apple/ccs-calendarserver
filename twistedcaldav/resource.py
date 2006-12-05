@@ -313,22 +313,6 @@ class CalDAVResource (DAVResource):
         """
         return self.isCalendarCollection()
 
-    def isNonCalendarCollectionParent(self):
-        """
-        See L{ICalDAVResource.isNonCalendarCollectionParent}.
-        """
-        
-        # Cannot create calendars inside other calendars or a drop box home
-        return self.isPseudoCalendarCollection() or self.isSpecialCollection(customxml.DropBoxHome)
-
-    def isNonCollectionParent(self):
-        """
-        See L{ICalDAVResource.isNonCalendarCollectionParent}.
-        """
-        
-        # Cannot create collections inside a drop box
-        return self.isPseudoCalendarCollection() or self.isSpecialCollection(customxml.DropBox)
-
     def findCalendarCollections(self, depth, request, callback, privileges=None):
         """
         See L{ICalDAVResource.findCalendarCollections}.
@@ -787,22 +771,6 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
-
-def isNonCalendarCollectionParentResource(resource):
-    try:
-        resource = ICalDAVResource(resource)
-    except TypeError:
-        return False
-    else:
-        return resource.isNonCalendarCollectionParent()
-
-def isNonCollectionParentResource(resource):
-    try:
-        resource = ICalDAVResource(resource)
-    except TypeError:
-        return False
-    else:
-        return resource.isNonCollectionParent()
 
 def isScheduleInboxResource(resource):
     try:

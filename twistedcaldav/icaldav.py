@@ -50,20 +50,6 @@ class ICalDAVResource(IDAVResource):
             otherwise.
         """
 
-    def isNonCalendarCollectionParent():
-        """
-        @return: True if this resource is a collection that does not allow
-            calendar collections to be created inside of it anywhere, False
-            otherwise.
-        """
-
-    def isNonCollectionParent():
-        """
-        @return: True if this resource is a collection that does not allow
-            collections to be created inside of it anywhere, False
-            otherwise.
-        """
-
     def findCalendarCollections(depth):
         """
         Returns an iterable of child calendar collection resources for the given
