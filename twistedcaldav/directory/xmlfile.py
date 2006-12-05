@@ -72,9 +72,6 @@ class XMLDirectoryService(DirectoryService):
 
         return None
 
-    def recordWithGUID(self, guid):
-        raise NotImplementedError()
-
     def _entriesForRecordType(self, recordType):
         for entry in self._accounts().itervalues():
             if entry.recordType == recordType:

@@ -103,9 +103,6 @@ class AbstractDirectoryService(DirectoryService):
 
         return None
 
-    def recordWithGUID(self, guid):
-        raise NotImplementedError()
-
     def entriesForRecordType(self, recordType):
         if recordType == "user":
             recordFile = self.userFile

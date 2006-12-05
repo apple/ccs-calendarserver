@@ -71,6 +71,33 @@ class DirectoryService(object):
         else:
             raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
+    def recordTypes(self):
+        raise NotImplementedError("Subclass must implement recordTypes()")
+
+    def listRecords(self, recordType):
+        raise NotImplementedError("Subclass must implement listRecords()")
+
+    def recordWithShortName(self, recordType, shortName):
+        raise NotImplementedError("Subclass must implement recordWithShortName()")
+
+    def recordWithGUID(self, guid):
+        for record in self.allRecords():
+            if record.guid == guid:
+                return record
+        return None
+
+    def recordWithCalendarUserAddress(self, address):
+        for record in self.allRecords():
+            if address in record.calendarUserAddresses:
+                return record
+        return None
+
+    def allRecords(self):
+        for recordType in self.recordTypes():
+            for record in self.listRecords(recordType):
+                yield record
+
+
 class DirectoryRecord(object):
     implements(IDirectoryRecord)
 

@@ -38,7 +38,7 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import provisionFile
-from twistedcaldav.dropbox import Dropbox
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
@@ -91,6 +91,13 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
             return None
         return typeResource.getChild(record.shortName)
 
+    def principalForCalendarUserAddress(self, address):
+        record = self.directory.recordWithCalendarUserAddress(address)
+        if record is None:
+            return None
+        else:
+            return self.principalForRecord(record)
+
     ##
     # Static
     ##
@@ -139,6 +146,9 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
 
     def principalForRecord(self, record):
         return self._parent.principalForRecord(record)
+
+    def principalForCalendarUserAddress(self, address):
+        return self._parent.principalForCalendarUserAddress(address)
 
     ##
     # Static

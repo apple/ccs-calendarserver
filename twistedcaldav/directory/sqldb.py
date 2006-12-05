@@ -291,9 +291,6 @@ class SQLDirectoryService(DirectoryService):
 
         return None
 
-    def recordWithGUID(self, guid):
-        raise NotImplementedError()
-
 class SQLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.

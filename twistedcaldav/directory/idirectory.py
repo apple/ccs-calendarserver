@@ -60,6 +60,13 @@ class IDirectoryService(Interface):
             if no such record exists.
         """
 
+    def recordWithCalendarUserAddress(address):
+        """
+        @param address: the calendar user address of the record to look up.
+        @return: an L{IDirectoryRecord} provider with the given calendar user
+            address, or C{None} if no such record exists.
+        """
+
 class IDirectoryRecord(Interface):
     """
     Directory Record

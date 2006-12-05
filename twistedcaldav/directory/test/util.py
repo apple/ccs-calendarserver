@@ -121,6 +121,31 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             record = service.recordWithShortName("resource", shortName)
             self.compare(record, shortName, self.resources[shortName])
 
+    def test_recordWithGUID(self):
+        service = self.service()
+        record = None
+
+        for shortName, what in self.allEntries():
+            guid = what["guid"]
+            if guid is not None:
+                record = service.recordWithGUID(guid)
+                self.compare(record, shortName, what)
+
+        if record is None:
+            raise SkipTest("No GUIDs provided to test")
+
+    def test_recordWithCalendarUserAddress(self):
+        service = self.service()
+        record = None
+
+        for shortName, what in self.allEntries():
+            for address in what["addresses"]:
+                record = service.recordWithCalendarUserAddress(address)
+                self.compare(record, shortName, what)
+
+        if record is None:
+            raise SkipTest("No calendar user addresses provided to test")
+
     def test_groupMembers(self):
         """
         IDirectoryRecord.members()
@@ -155,6 +180,15 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
     def recordNames(self, recordType):
         return set(r.shortName for r in self.service().listRecords(recordType))
+
+    def allEntries(self):
+        for data, recordType in (
+            (self.users,     "user"    ),
+            (self.groups,    "group"   ),
+            (self.resources, "resource"),
+        ):
+            for item in data.iteritems():
+                yield item
 
     def compare(self, record, shortName, data):
         def value(key):
