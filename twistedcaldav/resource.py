@@ -443,6 +443,13 @@ class CalDAVResource (DAVResource):
         """
         return caldavxml.CalendarData.fromCalendar(self.iCalendar(name))
 
+    def principalForCalendarUserAddress(self, address):
+        for principalCollection in self.principalCollections():
+            principal = principalCollection.principalForCalendarUserAddress(address)
+            if principal is not None:
+                return principal
+        return None
+
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
         result.append(davxml.Report(caldavxml.CalendarQuery(),))
@@ -494,46 +501,6 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
     """
     implements(IDAVPrincipalCollectionResource)
 
-    @classmethod
-    def outboxForCalendarUser(clazz, request, address):
-        """
-        Find the URL of the calendar outbox for the specified calendar user
-        address.
-        @param request: an L{IRequest} object for the request being processed.
-        @param address: the calendar user address to look up.
-        @return: the URI of the calendar outbox, or C{None} if no outbox for
-            exists for the user.
-        """
-        def _defer(principal):
-            if principal:
-                return principal.scheduleOutboxURL()
-            else:
-                return None
-
-        d = findAnyCalendarUser(request, address)
-        d.addCallback(_defer)
-        return d
-
-    @classmethod
-    def inboxForCalendarUser(clazz, request, address):
-        """
-        Find the URL of the calendar inbox for the specified calendar user
-        address.
-        @param request: an L{IRequest} object for the request being processed.
-        @param address: the calendar user address to look up.
-        @return: the URI of the calendar inbox, or C{None} if no inbox exists
-            for the user
-        """
-        def _defer(principal):
-            if principal:
-                return principal.scheduleInboxURL()
-            else:
-                return None
-
-        d = findAnyCalendarUser(request, address)
-        d.addCallback(_defer)
-        return d
-
     def isCollection(self):
         return True
 
@@ -542,31 +509,6 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
 
     def isPseudoCalendarCollection(self):
         return False
-
-    def findCalendarUser(self, request, address):
-        """
-        Find the calendar user principal associated with the specified calendar
-        user address.
-        @param request: an L{IRequest} object for the request being processed.
-        @param address: the calendar user address to lookup.
-        @return: the L{CalendarPrincipalResource} for the specified calendar
-            user, or C{None} if the user is not found.
-        """
-        
-        # Look at cuaddress property on each child and do attempt a match
-        for childname in self.listChildren():
-            child = waitForDeferred(request.locateChildResource(self, childname))
-            yield child
-            child = child.getResult()
-            if not isinstance(child, CalendarPrincipalResource):
-                continue
-            if address in child.calendarUserAddresses():
-                yield child
-                return
-        
-        yield None
-
-    findCalendarUser = deferredGenerator(findCalendarUser)
 
     def principalForCalendarUserAddress(self, address):
         return None
@@ -601,30 +543,6 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
                 ),
             ),
         )
-
-# FIXME: Replace this
-def findAnyCalendarUser(request, address):
-    """
-    Find the calendar user principal associated with the specified calendar
-    user address in any of the currently defined principal collections.
-    @param request: an L{IRequest} object for the request being processed.
-    @param address: the calendar user address to look up.
-    @return: the L{CalendarPrincipalResource} for the specified calendar
-        user, or C{None} if the user is not found.
-    """
-    for collection in self.principalCollections():
-        if isinstance(collection, CalendarPrincipalCollectionResource):
-            principal = waitForDeferred(collection.findCalendarUser(request, address))
-            yield principal
-            principal = principal.getResult()
-
-            if principal is not None:
-                yield principal
-                return
-    else:
-        yield None
-
-findAnyCalendarUser = deferredGenerator(findAnyCalendarUser)
 
 class CalendarPrincipalResource (DAVPrincipalResource):
     """

@@ -30,7 +30,6 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
-from twistedcaldav.resource import findAnyCalendarUser
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
@@ -74,9 +73,10 @@ def processScheduleRequest(self, method, request):
         originator = originator[0]
     
     # Verify that Originator is a valid calendar user (has an INBOX)
-    inboxURL = waitForDeferred(CalendarPrincipalCollectionResource.inboxForCalendarUser(request, originator))
-    yield inboxURL
-    inboxURL = inboxURL.getResult()
+    inboxURL = None
+    oprincipal = self.principalForCalendarUserAddress(originator)
+    if oprincipal is not None:
+        inboxURL = oprincipal.scheduleInboxURL()
     if inboxURL is None:
         log.err("Could not find Inbox for originator: %s" % (originator,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
@@ -125,12 +125,13 @@ def processScheduleRequest(self, method, request):
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
     
     # Verify that the ORGANIZER's cu address maps to the request.uri
+    outboxURL = None
     organizer = calendar.getOrganizer()
-    if organizer:
-        outboxURL = waitForDeferred(CalendarPrincipalCollectionResource.outboxForCalendarUser(request, organizer))
-        yield outboxURL
-        outboxURL = outboxURL.getResult()
-    if (organizer is None) or (outboxURL is None):
+    if organizer is not None:
+        oprincipal = self.principalForCalendarUserAddress(organizer)
+        if oprincipal is not None:
+            outboxURL = oprincipal.scheduleOutboxURL()
+    if outboxURL is None:
         log.err("ORGANIZER in calendar data is not valid: %s" % (calendar,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
@@ -138,9 +139,6 @@ def processScheduleRequest(self, method, request):
     if (calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER")) and (outboxURL != request.uri):
         log.err("ORGANIZER in calendar data does not match owner of Outbox: %s" % (calendar,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
-    oprincipal = waitForDeferred(findAnyCalendarUser(request, organizer))
-    yield oprincipal
-    oprincipal = oprincipal.getResult()
 
     # Prevent spoofing when doing reply-like METHODs
     if calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
@@ -154,10 +152,11 @@ def processScheduleRequest(self, method, request):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
             
         # Attendee's Outbox MUST be the request URI
-        aoutboxURL = waitForDeferred(CalendarPrincipalCollectionResource.outboxForCalendarUser(request, attendees[0]))
-        yield aoutboxURL
-        aoutboxURL = aoutboxURL.getResult()
-        if (aoutboxURL is None) or (aoutboxURL != request.uri):
+        aoutboxURL = None
+        aprincipal = self.principalForCalendarUserAddress(attendees[0])
+        if aprincipal is not None:
+            aoutboxURL = aprincipal.scheduleOutboxURL()
+        if aoutboxURL is None or aoutboxURL != request.uri:
             log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
 
@@ -197,22 +196,21 @@ def processScheduleRequest(self, method, request):
         child = child.getResult()
         responses.setLocation(childURL)
         
-        d = waitForDeferred(
-                maybeDeferred(
-                    storeCalendarObjectResource,
-                    request=request,
-                    sourcecal = False,
-                    destination = child,
-                    destination_uri = childURL,
-                    calendardata = str(calendar),
-                    destinationparent = self,
-                    destinationcal = True,
-                    isiTIP = True
-                )
-            )
-        yield d
-
         try:
+            d = waitForDeferred(
+                    maybeDeferred(
+                        storeCalendarObjectResource,
+                        request=request,
+                        sourcecal = False,
+                        destination = child,
+                        destination_uri = childURL,
+                        calendardata = str(calendar),
+                        destinationparent = self,
+                        destinationcal = True,
+                        isiTIP = True
+                    )
+                )
+            yield d
             d.getResult()
         except:
             log.err("Error while handling %s: %s" % (method, failure.Failure(),))
@@ -232,18 +230,17 @@ def processScheduleRequest(self, method, request):
     autoresponses = []
     for recipient in recipients:
         # Get the principal resource for this recipient
-        principal = waitForDeferred(findAnyCalendarUser(request, recipient))
-        yield principal
-        principal = principal.getResult()
+        principal = self.principalForCalendarUserAddress(recipient)
 
         # Map recipient to their inbox
+        inbox = None
         if principal is not None:
             inboxURL = principal.scheduleInboxURL()
             if inboxURL:
                 inbox = waitForDeferred(request.locateResource(inboxURL))
                 yield inbox
                 inbox = inbox.getResult()
-        if principal is None or inboxURL is None or inbox is None:
+        if inbox is None:
             log.err("Could not find Inbox for recipient: %s" % (recipient,))
             err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
             responses.add(recipient, failure.Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")

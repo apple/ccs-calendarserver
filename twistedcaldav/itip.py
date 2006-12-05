@@ -553,9 +553,7 @@ def writeReply(request, principal, replycal, ainbox):
     # Get the Inbox of the ORGANIZER
     organizer = replycal.getOrganizer()
     assert organizer is not None
-    inboxURL = waitForDeferred(CalendarPrincipalCollectionResource.inboxForCalendarUser(request, organizer))
-    yield inboxURL
-    inboxURL = inboxURL.getResult()
+    inboxURL = principal.principalForCalendarUserAddress(organizer).scheduleInboxURL()
     assert inboxURL
     
     # Determine whether current principal has CALDAV:schedule right on that Inbox
