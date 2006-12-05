@@ -30,15 +30,14 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
     # Subclass should init this to a set of recordtypes.
     recordTypes = set()
 
-    # Subclass should init this to a dict of username keys and password values.
+    # Subclass should init this to a dict of username keys and dict values.
     users = {}
 
-    # Subclass should init this to a dict of groupname keys and
-    # sequence-of-members values.
+    # Subclass should init this to a dict of groupname keys and dict values.
     groups = {}
 
-    # Subclass should init this to a set of resourcenames.
-    resources = set()
+    # Subclass should init this to a dict of resourcenames keys and dict values.
+    resources = {}
 
     # Subclass should init this to an IDirectoryService implementation class.
     def service(self):
