@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>currentDocument</key>
-	<string>../twistedcaldav/static.py</string>
 	<key>documents</key>
 	<array>
 		<dict>
@@ -17,8 +15,6 @@
 			<string>../twistedcaldav</string>
 		</dict>
 		<dict>
-			<key>expanded</key>
-			<true/>
 			<key>name</key>
 			<string>web2</string>
 			<key>regexFolderFilter</key>
@@ -88,8 +84,6 @@
 				<dict>
 					<key>filename</key>
 					<string>../run</string>
-					<key>lastUsed</key>
-					<date>2006-12-04T22:06:50Z</date>
 				</dict>
 				<dict>
 					<key>filename</key>
@@ -119,43 +113,10 @@
 	<key>fileHierarchyDrawerWidth</key>
 	<integer>249</integer>
 	<key>metaData</key>
-	<dict>
-		<key>../../Twisted/twisted/web2/static.py</key>
-		<dict>
-			<key>caret</key>
-			<dict>
-				<key>column</key>
-				<integer>75</integer>
-				<key>line</key>
-				<integer>137</integer>
-			</dict>
-			<key>firstVisibleColumn</key>
-			<integer>0</integer>
-			<key>firstVisibleLine</key>
-			<integer>115</integer>
-		</dict>
-		<key>../twistedcaldav/static.py</key>
-		<dict>
-			<key>caret</key>
-			<dict>
-				<key>column</key>
-				<integer>47</integer>
-				<key>line</key>
-				<integer>617</integer>
-			</dict>
-			<key>firstVisibleColumn</key>
-			<integer>0</integer>
-			<key>firstVisibleLine</key>
-			<integer>592</integer>
-		</dict>
-	</dict>
-	<key>openDocuments</key>
-	<array>
-		<string>../twistedcaldav/static.py</string>
-	</array>
+	<dict/>
 	<key>showFileHierarchyDrawer</key>
 	<true/>
 	<key>windowFrame</key>
-	<string>{{590, 105}, {944, 985}}</string>
+	<string>{{414, 114}, {987, 1030}}</string>
 </dict>
 </plist>
