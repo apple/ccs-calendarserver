@@ -106,7 +106,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
             path = None
         
         if path:
-            segments = unquote(path).split("/")
+            segments = [unquote(s) for s in path.split("/")]
             if segments[0] == "" and len(segments) == 3:
                 typeResource = self.getChild(segments[1])
                 if typeResource is not None:
