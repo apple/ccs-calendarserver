@@ -132,7 +132,8 @@ class caldavd(object):
         # Dispatch action
         {"start":   self.start,
          "stop":    self.stop,
-         "restart": self.restart}[self.action]()
+         "restart": self.restart,
+         "debug":   self.debug,  }[self.action]()
 
     def start(self):
         """
@@ -205,6 +206,54 @@ class caldavd(object):
         self.stop()
         self.start()
         
+    def debug(self):
+        """
+        Debug the caldavd server. This is the same as starting it except we do not
+        spawn a seperate process - we run twistd directly so a debugger stays 'attached'.
+        """
+        
+        print "Starting CalDAV Server",
+        try:
+            fd, tac = mkstemp(prefix="caldav")
+            os.write(fd, self.generateTAC())
+            os.close(fd)
+        except Exception, e:
+            print "        [Failed]"
+            print "Unable to create temporary file for server configuration."
+            print e
+            sys.exit(1)
+        
+        # Create arguments for twistd
+        args = []
+        args.append(self.config['twistdLocation'])
+        if not self.config['RunStandalone']:
+            args.append("-n")
+        args.append("--logfile=%s" % (self.config['ErrorLogFile'],))
+        args.append("--pidfile=%s" % (self.config['PIDFile'],))
+        args.append("-y")
+        args.append(tac)
+
+        # Create environment for twistd
+        environment = dict(os.environ)
+        environment["PYTHONPATH"] = ":".join(sys.path)
+
+        # run the twistd python process directly
+        try:
+            sys.argv = args
+            os.environ = environment
+            from twisted.scripts.twistd import run
+            run()
+        except OSError, why:
+            print "        [Failed]"
+            print "Error: %s" % (why[1],)
+        
+        # Get rid of temp file
+        try:
+            os.unlink(tac)
+        except:
+            pass
+        print "        [Done]"
+    
     def commandLine(self):
         """
         Parse the command line options into the config object.
@@ -254,14 +303,14 @@ class caldavd(object):
     
         # Process arguments
         if len(args) == 0:
-            print "No arguments given. One of start, stop or restart must be present."
+            print "No arguments given. One of start, stop, restart or debug must be present."
             self.usage()
             raise ValueError
         elif len(args) > 1:
-            print "Too many arguments given. Only one of start, stop or restart must be present."
+            print "Too many arguments given. Only one of start, stop, restart or debug must be present."
             self.usage()
             raise ValueError
-        elif args[0] not in ("start", "stop", "restart"):
+        elif args[0] not in ("start", "stop", "restart", "debug",):
             print "Wrong arguments given: %s" % (args[0],)
             self.usage()
             raise ValueError
@@ -317,7 +366,7 @@ class caldavd(object):
 
     def usage(self):
         default = caldavd()
-        print """Usage: caldavd [options] start|stop|restart
+        print """Usage: caldavd [options] start|stop|restart|debug
 Options:
     -h          Print this help and exit
     -v          Be verbose
