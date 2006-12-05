@@ -54,7 +54,7 @@ from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParent
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
-from twistedcaldav.dropbox import Dropbox
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 class CalDAVFile (CalDAVResource, DAVFile):

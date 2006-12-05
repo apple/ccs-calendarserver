@@ -60,7 +60,7 @@ from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, I
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import apple_namespace
 from twistedcaldav.ical import Component as iComponent
-from twistedcaldav.dropbox import Dropbox
+from twistedcaldav.dropbox import DropBox
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -567,6 +567,9 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
         yield None
 
     findCalendarUser = deferredGenerator(findCalendarUser)
+
+    def principalForCalendarUserAddress(self, address):
+        return None
 
     def supportedReports(self):
         """
