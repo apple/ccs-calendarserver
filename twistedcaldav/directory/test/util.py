@@ -81,7 +81,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         if not self.resources:
             raise SkipTest("No resources")
 
-        self.assertEquals(self.recordNames("resource"), self.resources)
+        self.assertEquals(self.recordNames("resource"), set(self.resources.keys()))
 
     def test_recordWithShortName_user(self):
         """
@@ -133,7 +133,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             groupRecord = service.recordWithShortName("group", group)
             self.assertEquals(
                 set(m.shortName for m in groupRecord.members()),
-                set(self.groups[group])
+                set(self.groups[group]["members"])
             )
 
     def test_groupMemberships(self):
@@ -150,7 +150,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             userRecord = service.recordWithShortName("user", user)
             self.assertEquals(
                 set(g.shortName for g in userRecord.groups()),
-                set(g for g in self.groups if user in self.groups[g])
+                set(g for g in self.groups if user in self.groups[g]["members"])
             )
 
     def recordNames(self, recordType):
@@ -170,7 +170,7 @@ class BasicTestCase (DirectoryTestCase):
         service = self.service()
         for user in self.users:
             userRecord = service.recordWithShortName("user", user)
-            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user])))
+            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user]["password"])))
 
 # authRequest = {
 #    username="username",
@@ -206,7 +206,7 @@ class DigestTestCase (DirectoryTestCase):
                     "md5",
                     user,
                     service.realmName,
-                    userRecord.password,
+                    self.users[user]["password"],
                     "booger",
                     "phlegm",
                 ),

@@ -31,28 +31,28 @@ class XMLFileBase(object):
     recordTypes = set(("user", "group", "resource"))
 
     users = {
-        "admin"   : "nimda",
-        "proxy"   : "yxorp",
-        "wsanchez": "zehcnasw",
-        "cdaboo"  : "oobadc",
-        "lecroy"  : "yorcel",
-        "dreid"   : "dierd",
-        "user01"  : "01user",
-        "user02"  : "02user",
+        "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
+        "proxy"   : { "password": "yxorp",    "guid": None, "addresses": () },
+        "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": () },
+        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": () },
+        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": () },
+        "dreid"   : { "password": "dierd",    "guid": None, "addresses": () },
+        "user01"  : { "password": "01user",   "guid": None, "addresses": () },
+        "user02"  : { "password": "02user",   "guid": None, "addresses": () },
     }
 
     groups = {
-        "managers"   : ("lecroy",),
-        "grunts"     : ("wsanchez", "cdaboo", "dreid"),
-        "right_coast": ("cdaboo",),
-        "left_coast" : ("wsanchez", "dreid", "lecroy"),
+        "managers"   : { "password": "managers",    "members": ("lecroy",),                     "guid": None, "addresses": () },
+        "grunts"     : { "password": "grunts",      "members": ("wsanchez", "cdaboo", "dreid"), "guid": None, "addresses": () },
+        "right_coast": { "password": "right_coast", "members": ("cdaboo",),                     "guid": None, "addresses": () },
+        "left_coast" : { "password": "left_coast",  "members": ("wsanchez", "dreid", "lecroy"), "guid": None, "addresses": () },
     }
 
-    resources = set((
-        "mercury",
-        "gemini",
-        "apollo",
-    ))
+    resources = {
+        "mercury": { "password": "mercury", "guid": None, "addresses": () },
+        "gemini" : { "password": "gemini",  "guid": None, "addresses": () },
+        "apollo" : { "password": "apollo",  "guid": None, "addresses": () },
+    }
 
     def xmlFile(self):
         if not hasattr(self, "_xmlFile"):

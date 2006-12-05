@@ -35,17 +35,20 @@ class Apache (object):
     recordTypes = set(("user", "group"))
 
     users = {
-        "wsanchez": "foo",
-        "cdaboo"  : "bar",
-        "dreid"   : "baz",
-        "lecroy"  : "quux",
+        "wsanchez": { "password": "foo",  "guid": None, "addresses": () },
+        "cdaboo"  : { "password": "bar",  "guid": None, "addresses": () },
+        "dreid"   : { "password": "baz",  "guid": None, "addresses": () },
+        "lecroy"  : { "password": "quux", "guid": None, "addresses": () },
     }
 
     groups = {
-        "managers"   : ("lecroy",),
-        "grunts"     : ("wsanchez", "cdaboo", "dreid"),
-        "right_coast": ("cdaboo",),
-        "left_coast" : ("wsanchez", "dreid", "lecroy"),
+        "managers"   : { "members": ("lecroy",),                     "guid": None, "addresses": () },
+        "grunts"     : { "members": ("wsanchez", "cdaboo", "dreid"), "guid": None, "addresses": () },
+        "right_coast": { "members": ("cdaboo",),                     "guid": None, "addresses": () },
+        "left_coast" : { "members": ("wsanchez", "dreid", "lecroy"), "guid": None, "addresses": () },
+    }
+
+    resources = {
     }
 
     def service(self):
