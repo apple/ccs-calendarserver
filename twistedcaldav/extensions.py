@@ -32,6 +32,7 @@ import time
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response
 from twisted.web2.http_headers import MimeType
+from twisted.web2.stream import FileStream
 from twisted.web2.static import MetaDataMixin
 from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
@@ -74,8 +75,8 @@ class DAVFile (SuperDAVFile):
             else:
                 raise
 
-        response = http.Response()
-        response.stream = stream.FileStream(f, 0, self.fp.getsize())
+        response = Response()
+        response.stream = FileStream(f, 0, self.fp.getsize())
 
         for (header, value) in (
             ("content-type", self.contentType()),
