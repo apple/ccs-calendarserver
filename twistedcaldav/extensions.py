@@ -118,7 +118,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
 <table>
 
 <tr><th>Filename</th> <th>Size</th> <th>Last Modified</th> <th>File Type</th></tr>
-""" % { "title": "Directory listing for %s" % urllib.unquote(request.path) }
+""" % { "title": urllib.unquote(request.uri) }
 
         even = False
         for name in self.listChildren():
