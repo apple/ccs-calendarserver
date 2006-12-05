@@ -260,9 +260,7 @@ class CalDAVResource (DAVResource):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.UNAUTHORIZED)
                 else:
-                    authzPrincipal = waitForDeferred(self.findPrincipalForAuthID(request, authz))
-                    yield authzPrincipal
-                    authzPrincipal = authzPrincipal.getResult()
+                    authzPrincipal = self.findPrincipalForAuthID(authz)
 
                     if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
