@@ -54,7 +54,7 @@ limitations under the License.
   <string>error.log</string>
 
   <key>ServerStatsFile</key>
-  <string>stats.plist</key>
+  <string>stats.plist</string>
 
   <key>PIDFile</key>
   <string>caldavd.pid</string>
