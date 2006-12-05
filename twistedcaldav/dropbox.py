@@ -39,7 +39,7 @@ class DropBox(object):
                                   # inherited by child resources.
                                   
     notifications = True          # Whether to post notification messages into per-user notification collection.
-    notifcationName = "notify"    # Name of the collection in which notifications will be stored.
+    notificationName = "notify"    # Name of the collection in which notifications will be stored.
     
     @classmethod
     def enable(clzz, enabled, dropboxName=None, inheritedACLs=None, notifications=None, notificationName=None):
@@ -61,7 +61,7 @@ class DropBox(object):
         if notifications:
             DropBox.notifications = notifications
         if notificationName:
-            DropBox.notifcationName = notificationName
+            DropBox.notificationName = notificationName
 
         if DropBox.enabled:
 
@@ -102,7 +102,7 @@ class DropBox(object):
         if not DropBox.notifications:
             return
         
-        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.notifcationName))
+        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.notificationName))
         child_exists = child.exists()
         if not child_exists:
             c = child.createSpecialCollection(davxml.ResourceType.notifications)

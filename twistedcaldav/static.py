@@ -54,6 +54,7 @@ from twistedcaldav.resource import CalDAVResource, isNonCalendarCollectionParent
 from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.extensions import DAVFile
+from twistedcaldav.dropbox import Dropbox
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 class CalDAVFile (CalDAVResource, DAVFile):
@@ -625,7 +626,6 @@ class CalendarHomeFile (CalDAVFile):
         # FIXME: This should provision itself also
         # Provision a drop box
         if self.record.recordType == "user":
-            from twistedcaldav.dropbox import DropBox
             DropBox.provision(self)
 
         return d

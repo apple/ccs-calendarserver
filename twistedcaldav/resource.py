@@ -55,11 +55,12 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.extensions import DAVResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import apple_namespace
 from twistedcaldav.ical import Component as iComponent
-from twistedcaldav.extensions import DAVResource
+from twistedcaldav.dropbox import Dropbox
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -463,7 +464,6 @@ class CalDAVResource (DAVResource):
         """
         
         # Do this only for regular calendar collections and Inbox/Outbox
-        from twistedcaldav.dropbox import DropBox
         if self.isPseudoCalendarCollection() or \
             DropBox.enabled and self.isSpecialCollection(customxml.DropBox):
             # Add inheritable option to each ACE in the list
@@ -560,7 +560,7 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
             child = child.getResult()
             if not isinstance(child, CalendarPrincipalResource):
                 continue
-            if child.matchesCalendarUserAddress(request, address):
+            if address in child.calendarUserAddresses():
                 yield child
                 return
         
@@ -695,21 +695,13 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         return maybeDeferred(defer)
 
     def calendarHomeURLs(self):
-        """
-        See L{ICalendarPrincipalResource.calendarHomeURLs}.
-        This implementation raises L{NotImplementedError} if the dead property
-        C{(caldav_namespace, "calendar-home-set")} is not set.
-        """
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
             home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))
             return [str(h) for h in home_set.children]
         else:
-            raise NotImplementedError()
+            return ()
 
     def calendarUserAddresses(self):
-        """
-        See L{ICalendarPrincipalResource.calendarUserAddresses}.
-        """
         if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
             addresses = self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
             return [str(h) for h in addresses.children]
@@ -717,37 +709,39 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             # Must have a valid address of some kind so use the principal uri
             return (self.principalURL(),)
 
-    @deferredGenerator
     def calendarFreeBusyURIs(self, request):
+        def gotInbox(inbox):
+            if inbox is None:
+                return ()
+
+            d = inbox.hasProperty((caldav_namespace, "calendar-free-busy-set"), request)
+            d.addCallback(getFreeBusy)
+            return d
+
+        def getFreeBusy(has):
+            if not has:
+                return ()
+
+            d = inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request)
+            d.addCallback(parseFreeBusy)
+            return d
+
+        def parseFreeBusy(freeBusySet):
+            return (str(href) for href in freeBusySet.children)
+
+        d = self.scheduleInbox()
+        d.addCallback(gotInbox)
+        return d
+
+    def scheduleInbox(self):
         """
-        See L{ICalendarPrincipalResource.calendarFreeBusyURIs}.
+        @return: the deferred schedule inbox for this principal.
         """
-        inbox = waitForDeferred(maybeDeferred(request.locateResource, self.scheduleInboxURL()))
-        yield inbox
-        inbox = inbox.getResult()
-
-        if inbox is None:
-            yield ()
-            return
-
-        has = waitForDeferred(inbox.hasProperty((caldav_namespace, "calendar-free-busy-set"), request))
-        yield has
-        has = has.getResult()
-        
-        if not has:
-            yield ()
-            return
-
-        fbset = waitForDeferred(inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request))
-        yield fbset
-        fbset = fbset.getResult()
-
-        yield [str(h) for h in fbset.children]
+        d = request.locateResource(self.scheduleInboxURL())
+        d.addCallback(gotInbox)
+        return d
 
     def scheduleInboxURL(self):
-        """
-        @return: the schedule INBOX URL for this principal.
-        """
         if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
             inbox = self.readDeadProperty((caldav_namespace, "schedule-inbox-URL"))
             return str(inbox.children[0])
@@ -756,7 +750,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
 
     def scheduleOutboxURL(self):
         """
-        @return: the schedule OUTBOX URL for this principal.
+        @return: the schedule outbox URL for this principal.
         """
         if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
             outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
@@ -769,50 +763,18 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         @return: the drop box home collection URL for this principal.
         """
         # Use the first calendar home only
-        from twistedcaldav.dropbox import DropBox
-        url = None
         for home in self.calendarHomeURLs():
-            url = joinURL(home, DropBox.dropboxName) + "/"
-            break
-        return url
+            return joinURL(home, Dropbox.dropboxName)
+        return None
         
     def notificationsURL(self):
         """
         @return: the notifications collection URL for this principal.
         """
         # Use the first calendar home only
-        from twistedcaldav.dropbox import DropBox
-        url = None
         for home in self.calendarHomeURLs():
-            url = joinURL(home, DropBox.notifcationName) + "/"
-            break
-        return url
-
-    def matchesCalendarUserAddress(self, request, address):
-        """
-        Determine whether this principal matches the supplied calendar user
-        address.
-        @param address: the calendar user address to match.
-        @return: C{True} if the principal matches, C{False} otherwise.
-        """
-        # By default we will always allow either a relative or absolute URI to the principal to
-        # be supplied as a valid calendar user address.
-
-        # Try relative URI
-        if self._url == address:
-            return True
-        
-        # Try absolute URI
-        absurl = request.unparseURL(path=self._url)
-        if absurl == address:
-            return True
-
-        # Look at the property if URI lookup does not work
-        for cua in self.calendarUserAddresses():
-            if cua == address:
-                return True
-        
-        return False
+            return joinURL(home, Dropbox.notificationName)
+        return None
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """

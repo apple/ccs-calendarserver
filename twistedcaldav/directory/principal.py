@@ -38,6 +38,7 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import provisionFile
+from twistedcaldav.dropbox import Dropbox
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
@@ -304,14 +305,23 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         # the directory record provides.
         return (self.principalURL(),) + tuple(self.record.calendarUserAddresses)
 
+    def scheduleInbox(self):
+        home = self._calendarHome()
+        if home is None:
+            return succeed(None)
+
+        inbox = home.getChild("inbox")
+        if inbox is None:
+            return succeed(None)
+
+        return succeed(inbox)
+
     def calendarHomeURLs(self):
-        # FIXME: self.record.service.calendarHomesCollection smells like a hack
-        # See CalendarHomeProvisioningFile.__init__()
-        service = self.record.service
-        if hasattr(service, "calendarHomesCollection"):
-            return (service.calendarHomesCollection.homeForDirectoryRecord(self.record).url(),)
-        else:
+        home = self._calendarHome()
+        if home is None:
             return ()
+        else:
+            return (home.url(),)
 
     def scheduleInboxURL(self):
         return self._homeChildURL("inbox/")
@@ -319,10 +329,25 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
     def scheduleOutboxURL(self):
         return self._homeChildURL("outbox/")
 
+    def dropboxURL(self):
+        return self._homeChildURL(Dropbox.dropboxName + "/")
+
+    def notificationsURL(self):
+        return self._homeChildURL(Dropbox.notificationName + "/")
+
     def _homeChildURL(self, name):
-        homes = self.calendarHomeURLs()
-        if homes:
-            return joinURL(homes[0], name)
+        home = self._calendarHome()
+        if home is None:
+            return None
+        else:
+            return joinURL(home.url(), name)
+
+    def _calendarHome(self):
+        # FIXME: self.record.service.calendarHomesCollection smells like a hack
+        # See CalendarHomeProvisioningFile.__init__()
+        service = self.record.service
+        if hasattr(service, "calendarHomesCollection"):
+            return service.calendarHomesCollection.homeForDirectoryRecord(self.record)
         else:
             return None
 

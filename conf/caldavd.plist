@@ -102,17 +102,8 @@ limitations under the License.
   <key>DropBoxEnabled</key>
   <true/>
 
-  <key>DropBoxName</key>
-  <string>dropbox</string>
-
-  <key>DropBoxInheritedACLs</key>
-  <true/>
-
   <key>NotificationsEnabled</key>
   <true/>
-
-  <key>NotificationCollectionName</key>
-  <string>notifications</string>
 
   <key>Repository</key>
   <string>/etc/caldavd/repository.xml</string>
