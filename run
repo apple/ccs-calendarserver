@@ -150,6 +150,12 @@ if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
   install="$(pwd)/${install}";
 fi;
 
+svn_uri_base="$(svn info "${caldav}" --xml 2>/dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
+
+if [ -z "${svn_uri_base}" ]; then
+  svn_uri_base="http://svn.macosforge.org/repository/calendarserver";
+fi;
+
 ##
 # Download and set up dependancies
 ##
@@ -372,34 +378,48 @@ fi;
 # PyKerberos
 #
 
-svn_uri_base="$(svn info "${caldav}" --xml 2>/dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
+if type krb5-config > /dev/null; then
+  if ! py_have_module kerberos; then
+    kerberos="${top}/PyKerberos";
 
-if [ -z "${svn_uri_base}" ]; then
-  svn_uri_base="http://svn.macosforge.org/repository/calendarserver";
-fi;
+    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 202;
+    py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
+    py_install "PyKerberos" "${kerberos}";
 
-if ! py_have_module kerberos; then
-  kerberos="${top}/PyKerberos";
-
-  svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 202;
-  py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
-  py_install "PyKerberos" "${kerberos}";
-
-  export PYTHONPATH="${PYTHONPATH}:${kerberos}/build/${py_platform_libdir}";
+    export PYTHONPATH="${PYTHONPATH}:${kerberos}/build/${py_platform_libdir}";
+  fi;
 fi;
 
 #
 # PyOpenDirectory
 #
 
-if ! py_have_module opendirectory; then
-  opendirectory="${top}/PyOpenDirectory";
+if [ "$(uname -s)" == "Darwin" ]; then
+  if ! py_have_module opendirectory; then
+    opendirectory="${top}/PyOpenDirectory";
 
-  svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 31;
-  py_build "PyOpenDirectory" "${opendirectory}" false; # FIXME: make optional
-  py_install "PyOpenDirectory" "${opendirectory}";
+    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 31;
+    py_build "PyOpenDirectory" "${opendirectory}" false;
+    py_install "PyOpenDirectory" "${opendirectory}";
 
-  export PYTHONPATH="${PYTHONPATH}:${opendirectory}/build/${py_platform_libdir}";
+    export PYTHONPATH="${PYTHONPATH}:${opendirectory}/build/${py_platform_libdir}";
+  fi;
+fi;
+
+#
+# PyAppleAuth
+#
+
+if [ "$(uname -s)" == "Darwin" ]; then
+  if ! py_have_module appleauth; then
+    appleauth="${top}/PyAppleAuth";
+
+    svn_get "PyAppleAuth" "${appleauth}" "${svn_uri_base}/PyAppleAuth/trunk" 656;
+    py_build "PyAppleAuth" "${appleauth}" false;
+    py_install "PyAppleAuth" "${appleauth}"
+
+    export PYTHONPATH="${PYTHONPATH}:${appleauth}/build/${py_platform_libdir}";
+  fi;
 fi;
 
 #

@@ -43,6 +43,7 @@ from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.element.parser import lookupElement
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.dav.util import joinURL
+from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
@@ -374,22 +375,11 @@ class DocRoot (object):
         """
         Build the entire repository starting at the root resource.
         """
-        self.collection.build(self.path, "/", directory)
+        self.collection.build(self, self.path, "/", directory)
         
-        # Setup the principal-collection-set property if required
-        if self.autoPrincipalCollectionSet:
-            # Check that a principal collection was actually created and 'tagged'
-            if not self.principalCollections:
-                log.msg("Cannot create a DAV:principal-collection-set property on the root resource because there are no principal collections.")
-                return
+        # Cheat        
+        self.collection.resource._principalCollections = self.principalCollections
             
-            # Create the private property
-            hrefs = []
-            for collection in self.principalCollections:
-                hrefs.append(davxml.HRef.fromString(collection.uri))
-            pcs = davxml.PrincipalCollectionSet(*hrefs)
-            self.collection.resource.writeDeadProperty(pcs)
-
 class Collection (object):
     """
     Contains information about a collection in the repository.
@@ -478,14 +468,13 @@ class Collection (object):
                 self.properties.append(Prop())
                 self.properties[-1].parseXML(child)
 
-    def build(self, docroot, urlroot, directory):
+    def build(self, docroot, mypath, urlroot, directory):
         """
         Create this collection, initialising any properties and then create any child
         collections.
         @param docroot: the file system path to create the collection in.
         @param urlroot: the URI path root to create the collection resource in.
         """
-        mypath = docroot
         myurl = urlroot
         if self.name is not None:
             mypath = os.path.join(mypath, self.name)
@@ -525,13 +514,16 @@ class Collection (object):
         # Set ACL now
         if self.acl is not None:
             self.resource.setAccessControlList(self.acl.acl)
-
+        
         for member in self.members:
-            child = member.build(mypath, myurl, directory)
+            child = member.build(docroot, mypath, myurl, directory)
             # Only putChild if one does not already exists
             if self.resource.putChildren.get(member.name, None) is None:
                 self.resource.putChild(member.name, child)
 
+            if IDAVPrincipalCollectionResource.providedBy(child):
+                docroot.principalCollections.append(child)
+                
         return self.resource
 
 class Prop (object):

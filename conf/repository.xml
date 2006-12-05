@@ -22,7 +22,7 @@ limitations under the License.
 
   <docroot auto-principal-collection-set="yes">
     <collection>
-      <pytype>twisted.web2.dav.static.DAVFile</pytype>
+      <pytype>twistedcaldav.root.RootResource</pytype>
       <properties>
         <acl>
           <ace>

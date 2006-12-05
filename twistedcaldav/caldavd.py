@@ -67,7 +67,14 @@ DEFAULTS = {
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
-    'twistdLocation': '/usr/share/caldavd/bin/twistd'}
+    'twistdLocation': '/usr/share/caldavd/bin/twistd',
+    'SACLEnable': True,
+    }
+
+# FIXME: This doesn't actually work because the webserver runs in a different
+# python process from the commandline util caldavd that actually parses the 
+# plists the twistd plugin will fix this.
+CONFIG = DEFAULTS.copy()
 
 
 class caldavd(object):
@@ -79,7 +86,7 @@ class caldavd(object):
         # Option defaults
         self.plistfile = "/etc/caldavd/caldavd.plist"
 
-        self.config = DEFAULTS.copy()
+        self.config = CONFIG
 
         self.action = None
     
@@ -331,6 +338,8 @@ class caldavd(object):
                 self.config[k] = v
             else:
                 print "Unknown option: %s" % (k,)
+
+        CONFIG = self.config
 
     def validate(self):
         
