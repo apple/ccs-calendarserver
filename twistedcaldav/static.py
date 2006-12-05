@@ -364,7 +364,7 @@ class ScheduleFile (CalDAVFile):
         self._parent = parent
 
     def provision(self):
-        provisionDirectory(self, self._parent)
+        provisionFile(self, self._parent)
 
     def locateChild(self, path, segments):
         self.provision()
@@ -403,7 +403,7 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     Calendar scheduling inbox collection resource.
     """
     def provision(self):
-        if provisionDirectory(self, self._parent):
+        if provisionFile(self, self._parent):
             # FIXME: This should probably be a directory record option that
             # maps to the property value directly without the need to store one.
             if self._parent.record.recordType == "resource":
@@ -456,7 +456,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         directory.calendarHomesCollection = self
 
     def provision(self):
-        provisionDirectory(self)
+        provisionFile(self)
 
         if not self.putChildren:
             # Create children
@@ -526,7 +526,7 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         self._parent = parent
 
     def provision(self):
-        provisionDirectory(self, self._parent)
+        provisionFile(self, self._parent)
 
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
@@ -595,7 +595,7 @@ class CalendarHomeFile (CalDAVFile):
             self.putChild(name, cls(self.fp.child(name).path, self))
 
     def provision(self):
-        if not provisionDirectory(self, self._parent):
+        if not provisionFile(self, self._parent):
             return succeed(None)
 
         # Create a calendar collection
@@ -711,17 +711,23 @@ class CalendarHomeFile (CalDAVFile):
 # Utilities
 ##
 
-def provisionDirectory(resource, parent=None):
-    resource.fp.restat(False)
-    if resource.fp.exists():
+def provisionFile(resource, parent=None, isFile=False):
+    fp = resource.fp
+
+    fp.restat(False)
+    if fp.exists():
         return False
 
     if parent is not None:
         assert parent.exists()
         assert parent.isCollection()
 
-    resource.fp.makedirs()
-    resource.fp.restat(False)
+    if isFile:
+        fp.open("w").close()
+        fp.restat(False)
+    else:
+        fp.makedirs()
+        fp.restat(False)
 
     return True
 

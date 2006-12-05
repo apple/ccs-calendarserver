@@ -38,6 +38,7 @@ from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
+from twistedcaldav.static import provisionFile
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
@@ -72,17 +73,14 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
-        self._provision()
+        self.provision()
 
         # Create children
         for recordType in self.directory.recordTypes():
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
 
-    def _provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            self.fp.makedirs()
-            self.fp.restat(False)
+    def provision(self):
+        provisionFile(self)
 
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
@@ -101,7 +99,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self._provision()
+        self.provision()
         return self.putChildren.get(name, None)
 
     def listChildren(self):
@@ -131,15 +129,10 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         self.recordType = recordType
         self._parent = parent
 
-        self._provision()
+        self.provision()
 
-    def _provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.makedirs()
-            self.fp.restat(False)
+    def provision(self):
+        provisionFile(self, self._parent)
 
     def principalForUser(self, user):
         return self._parent.principalForUser(user)
@@ -155,7 +148,7 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
-        self._provision()
+        self.provision()
 
         if name == "":
             return self
@@ -196,15 +189,10 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         self._parent = parent
         self._url = joinURL(parent.principalCollectionURL(), record.shortName)
 
-        self._provision()
+        self.provision()
 
-    def _provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.open("w").close()
-            self.fp.restat(False)
+    def provision(self):
+        provisionFile(self, self._parent, True)
 
     ##
     # HTTP
@@ -338,6 +326,10 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
             return joinURL(homes[0], name)
         else:
             return None
+
+##
+# Utilities
+##
 
 authReadACL = davxml.ACL(
     # Read access for authenticated users.
