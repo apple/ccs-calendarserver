@@ -362,16 +362,19 @@ class ScheduleFile (CalDAVFile):
     def __init__(self, path, parent):
         super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
         self._parent = parent
-        
-        self.provision()
 
     def provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.makedirs()
-            self.fp.restat(False)
+        provisionDirectory(self, self._parent)
+
+    def locateChild(self, path, segments):
+        self.provision()
+        return super(ScheduleFile, self).locateChild(path, segments)
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return CalDAVFile(path)
 
     def index(self):
         """
@@ -381,13 +384,6 @@ class ScheduleFile (CalDAVFile):
             resource.
         """
         return IndexSchedule(self)
-
-    def createSimilarFile(self, path):
-        self.provision()
-        if path == self.fp.path:
-            return self
-        else:
-            return CalDAVFile(path)
 
     def http_COPY       (self, request): return responsecode.FORBIDDEN
     def http_MOVE       (self, request): return responsecode.FORBIDDEN
@@ -404,25 +400,19 @@ class ScheduleFile (CalDAVFile):
 
 class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     """
-    L{CalDAVFile} calendar inbox collection resource.
+    Calendar scheduling inbox collection resource.
     """
-    def __repr__(self):
-        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
-
     def provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.makedirs()
-            self.fp.restat(False)
-
+        if provisionDirectory(self, self._parent):
             # FIXME: This should probably be a directory record option that
             # maps to the property value directly without the need to store one.
             if self._parent.record.recordType == "resource":
                 # Resources should have autorespond turned on by default,
                 # since they typically don't have someone responding for them.
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+
+    def __repr__(self):
+        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
     ##
     # ACL
@@ -441,14 +431,14 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
 
 class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
-    L{CalDAVFile} calendar outbox collection resource.
+    Calendar scheduling outbox collection resource.
     """
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
 class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
-    L{CalDAVFile} resource which provisions calendar home collections as needed.    
+    Resource which provisions calendar home collections as needed.    
     """
     def __init__(self, path, directory, url):
         """
@@ -465,17 +455,13 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         # FIXME: Smells like a hack
         directory.calendarHomesCollection = self
 
-        # self.provision()
+    def provision(self):
+        provisionDirectory(self)
 
-        # Create children
-        for recordType in self.directory.recordTypes():
-            self.putChild(recordType, CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType))
-
-    # def provision(self):
-    #     self.fp.restat(False)
-    #     if not self.fp.exists():
-    #         self.fp.makedirs()
-    #         self.fp.restat(False)
+        if not self.putChildren:
+            # Create children
+            for recordType in self.directory.recordTypes():
+                self.putChild(recordType, CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType))
 
     def url(self):
         return self._url
@@ -484,7 +470,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        # self.provision()
+        self.provision()
 
         children = self.putChildren
         if name not in children and name.lower() in (x.lower() for x in children):
@@ -502,7 +488,18 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         return self.directory.principalCollection.principalCollections()
 
     def homeForDirectoryRecord(self, record):
-        return self.getChild(record.recordType).getChild(record.shortName)
+        typeResource = self.getChild(record.recordType)
+        if typeResource is None:
+            return None
+        else:
+            return typeResource.getChild(record.shortName)
+
+    ##
+    # DAV
+    ##
+    
+    def isCollection(self):
+        return True
 
     ##
     # ACL
@@ -513,7 +510,7 @@ class CalendarHomeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
 
 class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
     """
-    L{CalDAVFile} resource which provisions calendar home collections of a specific
+    Resource which provisions calendar home collections of a specific
     record type as needed.
     """
     def __init__(self, path, parent, recordType):
@@ -528,15 +525,8 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         self.recordType = recordType
         self._parent = parent
 
-        self.provision()
-
     def provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.makedirs()
-            self.fp.restat(False)
+        provisionDirectory(self, self._parent)
 
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
@@ -564,6 +554,13 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
 
     ##
+    # DAV
+    ##
+    
+    def isCollection(self):
+        return True
+
+    ##
     # ACL
     ##
 
@@ -575,7 +572,7 @@ class CalendarHomeTypeProvisioningFile (ReadOnlyResourceMixIn, DAVFile):
 
 class CalendarHomeFile (CalDAVFile):
     """
-    L{CalDAVFile} calendar home collection resource.
+    Calendar home collection resource.
     """
     # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
     # quota to that size, or C{None} for no limit.
@@ -590,8 +587,6 @@ class CalendarHomeFile (CalDAVFile):
         self.record = record
         self._parent = parent
 
-        self.provision()
-
         # Cache children which must be of a specific type
         for name, cls in (
             ("inbox" , ScheduleInboxFile),
@@ -600,41 +595,43 @@ class CalendarHomeFile (CalDAVFile):
             self.putChild(name, cls(self.fp.child(name).path, self))
 
     def provision(self):
-        self.fp.restat(False)
-        if not self.fp.exists():
-            assert self._parent.exists()
-            assert self._parent.isCollection()
-            self.fp.makedirs()
-            self.fp.restat(False)
+        if not provisionDirectory(self, self._parent):
+            return succeed(None)
 
-            # # Create a calendar collection
-            # calendarURLs = []
-            # for calendar in ("calendar",):
-            #     childURL = joinURL(self.url(), calendar)
-            #     child = CalDAVFile(os.path.join(self.fp.path, calendar))
-            #     c = child.createCalendarCollection()
-            #     assert c.called # FIXME: (This is not valid!)
-            #     c = c.result
-            #     calendarURLs.append(childURL)
-            #     child.setAccessControlList(
-            #         davxml.ACL(
-            #             davxml.ACE(
-            #                 davxml.Principal(davxml.Authenticated()),
-            #                 davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
-            #                 TwistedACLInheritable(),
-            #             ),
-            #         )
-            #     )
-            # 
-            # # Set calendar-free-busy-set on inbox
-            # inbox = self.getChild("inbox")
-            # inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in calendarURLs]))
+        # Create a calendar collection
 
-            # Do drop box
-            if self.record.recordType == "user":
-                from twistedcaldav.dropbox import DropBox
-                DropBox.provision(self)
-        
+        child_name = "calendar"
+        childURL = joinURL(self.url(), child_name)
+        child = CalDAVFile(os.path.join(self.fp.path, child_name))
+
+        def setupChild(_):
+            # Grant read-free-busy access to authenticated users
+            child.setAccessControlList(
+                davxml.ACL(
+                    davxml.ACE(
+                        davxml.Principal(davxml.Authenticated()),
+                        davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+                        TwistedACLInheritable(),
+                    ),
+                )
+            )
+
+            # Set calendar-free-busy-set on inbox
+            inbox = self.getChild("inbox")
+            inbox.provision()
+            inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
+
+        d = child.createCalendarCollection()
+        d.addCallback(setupChild)
+
+        # FIXME: This should provision itself also
+        # Provision a drop box
+        if self.record.recordType == "user":
+            from twistedcaldav.dropbox import DropBox
+            DropBox.provision(self)
+
+        return d
+
     def url(self):
         return joinURL(self._parent.url(), self.record.shortName)
 
@@ -645,13 +642,23 @@ class CalendarHomeFile (CalDAVFile):
             return CalDAVFile(path, principalCollections=self.principalCollections())
 
     def getChild(self, name):
-        self.provision()
-
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
+    def locateChild(self, path, segments):
+        d = self.provision()
+        d.addCallback(lambda _: super(CalendarHomeFile, self).locateChild(path, segments))
+        return d
+
+    ##
+    # DAV
+    ##
+    
+    def isCollection(self):
+        return True
 
     ##
     # ACL
@@ -703,6 +710,20 @@ class CalendarHomeFile (CalDAVFile):
 ##
 # Utilities
 ##
+
+def provisionDirectory(resource, parent=None):
+    resource.fp.restat(False)
+    if resource.fp.exists():
+        return False
+
+    if parent is not None:
+        assert parent.exists()
+        assert parent.isCollection()
+
+    resource.fp.makedirs()
+    resource.fp.restat(False)
+
+    return True
 
 def locateExistingChild(resource, request, segments):
     """
