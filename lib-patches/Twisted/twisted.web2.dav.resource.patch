@@ -137,7 +137,8 @@ Index: twisted/web2/dav/resource.py
 +
          for qname in self.deadProperties().list():
              if (qname not in qnames) and (qname[0] != twisted_private_namespace):
-                 qnames.append(qname)
+-                qnames.append(qname)
++                qnames.add(qname)
  
 -        return succeed(qnames)
 +        yield qnames
