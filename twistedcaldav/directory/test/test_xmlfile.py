@@ -33,10 +33,10 @@ class XMLFileBase(object):
     users = {
         "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
         "proxy"   : { "password": "yxorp",    "guid": None, "addresses": () },
-        "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": () },
-        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": () },
-        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": () },
-        "dreid"   : { "password": "dierd",    "guid": None, "addresses": () },
+        "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": ("mailto:wsanchez@example.com",) },
+        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": ("mailto:cdaboo@example.com",) },
+        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": ("mailto:lecroy@example.com",) },
+        "dreid"   : { "password": "dierd",    "guid": None, "addresses": ("mailto:dreid@example.com",) },
         "user01"  : { "password": "01user",   "guid": None, "addresses": () },
         "user02"  : { "password": "02user",   "guid": None, "addresses": () },
     }
@@ -49,9 +49,9 @@ class XMLFileBase(object):
     }
 
     resources = {
-        "mercury": { "password": "mercury", "guid": None, "addresses": () },
-        "gemini" : { "password": "gemini",  "guid": None, "addresses": () },
-        "apollo" : { "password": "apollo",  "guid": None, "addresses": () },
+        "mercury": { "password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",) },
+        "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",) },
+        "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",) },
     }
 
     def xmlFile(self):

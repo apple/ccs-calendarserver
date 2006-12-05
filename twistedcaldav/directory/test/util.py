@@ -91,9 +91,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             raise SkipTest("No users")
 
         service = self.service()
-        for user in self.users:
-            record = service.recordWithShortName("user", user)
-            self.assertEquals(record.shortName, user)
+        for shortName in self.users:
+            record = service.recordWithShortName("user", shortName)
+            self.compare(record, shortName, self.users[shortName])
         self.assertEquals(service.recordWithShortName("user", "IDunnoWhoThisIsIReallyDont"), None)
 
     def test_recordWithShortName_group(self):
@@ -104,9 +104,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             raise SkipTest("No groups")
 
         service = self.service()
-        for group in self.groups:
-            groupRecord = service.recordWithShortName("group", group)
-            self.assertEquals(groupRecord.shortName, group)
+        for shortName in self.groups:
+            record = service.recordWithShortName("group", shortName)
+            self.compare(record, shortName, self.groups[shortName])
         self.assertEquals(service.recordWithShortName("group", "IDunnoWhoThisIsIReallyDont"), None)
 
     def test_recordWithShortName_resource(self):
@@ -117,9 +117,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             raise SkipTest("No resources")
 
         service = self.service()
-        for resource in self.resources:
-            resourceRecord = service.recordWithShortName("resource", resource)
-            self.assertEquals(resourceRecord.shortName, resource)
+        for shortName in self.resources:
+            record = service.recordWithShortName("resource", shortName)
+            self.compare(record, shortName, self.resources[shortName])
 
     def test_groupMembers(self):
         """
@@ -155,6 +155,18 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
     def recordNames(self, recordType):
         return set(r.shortName for r in self.service().listRecords(recordType))
+
+    def compare(self, record, shortName, data):
+        def value(key):
+            if key in data:
+                return data[key]
+            else:
+                return None
+
+        self.assertEquals(record.shortName, shortName)
+        self.assertEquals(record.guid, value("guid"))
+        self.assertEquals(set(record.calendarUserAddresses), set(value("addresses")))
+        #self.assertEquals(record.fullName, value("name")) # FIXME
 
 class BasicTestCase (DirectoryTestCase):
     """
