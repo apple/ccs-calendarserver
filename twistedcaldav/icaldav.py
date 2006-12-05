@@ -61,19 +61,6 @@ class ICalDAVResource(IDAVResource):
         @return: an iterable of tuples C{(resource, uri)}.
         """
 
-    def findCalendarCollectionsWithPrivileges(depth, privileges, request):
-        """
-        Returns an iterable of child calendar collection resources for the given
-        depth.
-        Because resources do not know their request URIs, chidren are returned
-        as tuples C{(resource, uri)}, where C{resource} is the child resource
-        and C{uri} is a URL path relative to this resource.
-        @param depth: the search depth (one of "0", "1", or "infinity")
-        @param privileges: the privileges that must exist on any returned calendar collections.
-        @param request: L{twisted.web2.server.Request} for the current request.
-        @return: an iterable of tuples C{(resource, uri)}.
-        """
-
     def createCalendar(request):
         """
         Create a calendar collection for this resource.
