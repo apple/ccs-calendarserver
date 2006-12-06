@@ -116,6 +116,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         yield parent
         parent = parent.getResult()
         x = waitForDeferred(parent.authorize(request, (caldavxml.Schedule(),)))
+        yield x
+        x.getResult()
 
         # Must be content-type text/calendar
         content_type = request.headers.getHeader("content-type")
