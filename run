@@ -488,7 +488,7 @@ case "${USER}" in
     ;;
 esac;
 svn_uri="${base}/vobject/trunk";
-svn_get "vObject" "${vobject}" "${svn_uri}" 160;
+svn_get "vObject" "${vobject}" "${svn_uri}" 164;
 
 if ! "${disable_setup}"; then
   # Avoid having to download setuptools to build vobject
