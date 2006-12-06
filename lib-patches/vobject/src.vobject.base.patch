@@ -1,0 +1,13 @@
+Index: src/vobject/base.py
+===================================================================
+--- src/vobject/base.py	(revision 164)
++++ src/vobject/base.py	(working copy)
+@@ -1023,7 +1023,7 @@
+     else:
+         obj = ContentLine(name, [], '')
+     obj.behavior = behavior
+-    obj.isNative = True
++    obj.isNative = False
+     return obj
+ 
+ 
