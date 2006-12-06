@@ -504,9 +504,9 @@ export PYTHONPATH="${PYTHONPATH}:${vobject}/src";
 #
 
 if ! py_have_module pysqlite2; then
-  pysqlite="${top}/pysqlite-2.2.2";
+  pysqlite="${top}/pysqlite-2.3.2";
 
-  www_get "PySQLite" "${pysqlite}" http://initd.org/pub/software/pysqlite/releases/2.2/2.2.2/pysqlite-2.2.2.tar.gz;
+  www_get "PySQLite" "${pysqlite}" http://initd.org/pub/software/pysqlite/releases/2.3/2.3.2/pysqlite-2.3.2.tar.gz;
   py_build "PySQLite" "${pysqlite}" false;
   py_install "PySQLite" "${pysqlite}";
 
