@@ -136,11 +136,7 @@ if [ -z "${config:-}" ]; then
   config="${wd}/conf/caldavd-dev.plist";
 fi;
 
-if [ -z "${PYTHONPATH:-}" ]; then
-  export PYTHONPATH="${caldav}";
-else
-  export PYTHONPATH="${PYTHONPATH}:${caldav}";
-fi;
+export PYTHONPATH="${caldav}";
 
        py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
         py_version="$(py_version "${python}")";

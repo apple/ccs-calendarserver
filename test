@@ -21,7 +21,6 @@
      wd="$(cd "$(dirname "$0")" && pwd -L)";
 twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
 
-
 export PYTHONPATH="$("${wd}/run" -p)";
 
 ulimit -S -n 2048;
