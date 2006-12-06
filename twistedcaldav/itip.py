@@ -553,7 +553,7 @@ def writeReply(request, principal, replycal, ainbox):
     # Get the Inbox of the ORGANIZER
     organizer = replycal.getOrganizer()
     assert organizer is not None
-    inboxURL = principal.principalForCalendarUserAddress(organizer).scheduleInboxURL()
+    inboxURL = ainbox.principalForCalendarUserAddress(organizer).scheduleInboxURL()
     assert inboxURL
     
     # Determine whether current principal has CALDAV:schedule right on that Inbox
