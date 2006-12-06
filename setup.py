@@ -73,6 +73,12 @@ version_file.close()
 
 from distutils.core import setup
 
+data_files = [("caldavd", ["conf/repository.xml", "conf/caldavd.plist"])]
+
+if sys.platform == 'darwin':
+    data_files.append(('sbs_backup', ['conf/85-calendar.plist']))
+    data_files.append(('/usr/libexec/sbs_backup', ['bin/calendar_restore']))
+
 setup(
     name             = "twistedcaldav",
     version          = version,
@@ -86,5 +92,5 @@ setup(
     platforms        = [ "all" ],
     packages         = [ "twistedcaldav", "twistedcaldav.directory", "twistedcaldav.method", "twistedcaldav.query" ],
     scripts          = [ "bin/caldavd" ],
-    data_files       = [("caldavd", ["conf/repository.xml", "conf/caldavd.plist"]),],
+    data_files       = data_files
 )

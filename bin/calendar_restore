@@ -1,0 +1,173 @@
+#!/usr/bin/env python
+##
+# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# DRI: David Reid, dreid@apple.com
+##
+
+import os
+import sys
+import shutil
+import fnmatch
+import plistlib
+import tempfile
+import commands
+
+from twistedcaldav.backup import *
+
+SERVICE = "calendar"
+
+ServiceConf = "85-calendar.plist"
+
+etcPath = "/private/etc/caldavd"
+configFile = "caldavd.plist"
+
+removePatterns = ['.db.sqlite']
+
+@logFuncCall
+def restore_data(src, tmp, dst):
+    debug('restoring data')
+
+    docRoot = readConfig('/'.join((src,
+                                   etcPath,
+                                   configFile)))['DocumentRoot']
+
+    srcDoc = '/'.join((src, docRoot))
+    tmpDoc = '/'.join((tmp, docRoot))
+    dstDoc = '/'.join((dst, docRoot))
+
+    mkroot(tmpDoc)
+
+    copy(srcDoc, tmpDoc)
+
+    purge(tmpDoc, removePatterns)
+
+    wasRunning = isRunning(SERVICE)
+
+    if wasRunning:
+        serveradmin('stop', SERVICE)
+
+    bakDoc = dstDoc.rstrip('/') + '.bak'
+
+    move(dstDoc, bakDoc)
+
+    try:
+        move(tmpDoc, dstDoc)
+
+    except OSError:
+        move(bakDoc, dstDoc)
+
+    else:
+        remove(bakDoc)
+
+    if wasRunning:
+        serveradmin('start', SERVICE)
+
+    debug('restoring data done')
+
+
+@logFuncCall
+def restore_configuration(src, tmp, dst):
+    debug('restoring configuration')
+
+    srcEtc = '/'.join((src, etcPath))
+    tmpEtc = '/'.join((tmp, etcPath))
+    dstEtc = '/'.join((dst, etcPath))
+
+    mkroot(tmpEtc)
+
+    copy(srcEtc, tmpEtc)
+
+    debug('restoring configuration done')
+
+
+@logFuncCall
+def cmd_restore(options):
+    imgPath = options['imgPath']
+    target = options['target']
+    log = options['log']
+    opt = options['opt']
+
+    if opt not in ['all', 'data', 'configuration']:
+        print "Unknown -opt value %s" % (opt,)
+        sys.exit(1)
+
+    sourceRoot = '/'.join(imgPath.split('/')[:-2])
+    tmpRoot = tempfile.mktemp(prefix='calendar_restore-')
+    dstRoot = target
+
+    if opt in ['all', 'configuration']:
+        restore_configuration(sourceRoot, tmpRoot, dstRoot)
+
+    if opt in ['all', 'data']:
+        restore_data(sourceRoot, tmpRoot, dstRoot)
+
+
+@logFuncCall
+def cmd_browse(options):
+    pass
+
+
+@logFuncCall
+def cmd_actions(options):
+    pl = plistlib.readPlist(os.path.join(SBSCONF, ServiceConf))
+    for k,v in pl['RestoreActions'].iteritems():
+        print "%s: %s" % (k,v)
+
+
+@logFuncCall
+def cmd_help(options):
+    print "Usage:"
+    print " -cmd actions :"
+    print "    Print out the supported actions from the config file"
+    print " -cmd browse -imgPath path :"
+    print "    Show browse information for the given path"
+    print " -cmd restore -imgPath path -opt option -target target"
+    print ("    Restore the files specified by option from the given path to "
+           "the target")
+    print " -cmd help : Display usage"
+    print " -cmd version : Display version"
+
+
+@logFuncCall
+def cmd_version(options):
+    pl = plistlib.readConfig(os.path.join(SBSCONF, ServiceConf))
+    print pl['Version']
+
+
+if __name__ == '__main__':
+    debug("calendar_restore was called")
+
+    options = Options({'cmd': None,
+                       'target': None,
+                       'imgPath': None,
+                       'log': None,
+                       'opt': 'all'})
+
+    options.parseOpts(sys.argv[1:])
+
+    debug("parsing options: %s" % (options,))
+    
+    cmd = globals().get('cmd_%s' % (options['cmd'],), None)
+
+    debug("found command: %s" % (cmd,))
+
+    if not cmd:
+        print "Unknown Command: %s" % (options['cmd'],)
+        sys.exit(1)
+
+    cmd(options)
+
+    debug("calendar_restore done")
