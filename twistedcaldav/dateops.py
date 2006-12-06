@@ -259,7 +259,7 @@ def normalizePeriodList(list):
     index = None
     p = None
     pe = None
-    for i in range(len(list)):
+    for i in xrange(len(list)):
         if p is None:
             index = i
             p = list[i]

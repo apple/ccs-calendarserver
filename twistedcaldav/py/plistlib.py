@@ -351,7 +351,7 @@ def _encodeBase64(s, maxlinelength=76):
     # copied from base64.encodestring(), with added maxlinelength argument
     maxbinsize = (maxlinelength//4)*3
     pieces = []
-    for i in range(0, len(s), maxbinsize):
+    for i in xrange(0, len(s), maxbinsize):
         chunk = s[i : i + maxbinsize]
         pieces.append(binascii.b2a_base64(chunk))
     return "".join(pieces)

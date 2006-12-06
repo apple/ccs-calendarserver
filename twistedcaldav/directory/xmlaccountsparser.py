@@ -96,8 +96,8 @@ class XMLAccountsParser(object):
                 principal = XMLAccountRecord(recordType)
                 principal.parseXML( child )
                 if repeat > 1:
-                    for ctr in range(repeat):
-                        newprincipal = principal.repeat(ctr + 1)
+                    for i in xrange(1, repeat+1):
+                        newprincipal = principal.repeat(i)
                         self.items[newprincipal.uid] = newprincipal
                         if recordType == "group":
                             self._updateMembership(newprincipal)

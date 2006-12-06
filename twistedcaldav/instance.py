@@ -80,9 +80,8 @@ class Instance(object):
             
             # Handle repeats
             if repeat > 0:
-                for i in range(repeat): #@UnusedVariable
-                    start += duration
-                    triggers.add(start)
+                for i in xrange(1, repeat+1):
+                    triggers.add(start + (duration * i))
         
         return triggers
     

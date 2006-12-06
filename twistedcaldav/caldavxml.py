@@ -568,8 +568,7 @@ class CalendarData (CalDAVElement):
                 continue
             for property in component.properties("FREEBUSY"):
                 newvalue = []
-                for i in range(len(property.value())):
-                    period = property.value()[i]
+                for period in property.value():
                     clipped = clipPeriod(period, (self.freebusy_set.start, self.freebusy_set.end))
                     if clipped:
                         newvalue.append(clipped)

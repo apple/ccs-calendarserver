@@ -723,7 +723,7 @@ class Provisioner (object):
             if repeat == 1:
                 self.provisionOne(principal, resetACLs)
             else:
-                for ctr in range(1, repeat+1):
+                for ctr in xrange(1, repeat+1):
                     self.provisionOne(principal.repeat(ctr), resetACLs)
     
 class ProvisionPrincipal (object):
