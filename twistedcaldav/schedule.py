@@ -283,7 +283,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             # Store CALDAV:recipient property
             child.writeDeadProperty(caldavxml.Recipient(*map(davxml.HRef, recipients)))
  
-            # Extract the ORGANIZER property and UID value from the calendar data  for use later
+        # Extract the ORGANIZER property and UID value from the calendar data  for use later
         organizerProp = calendar.getOrganizerProperty()
         uid = calendar.resourceUID()
 
