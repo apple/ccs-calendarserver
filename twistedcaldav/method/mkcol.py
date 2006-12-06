@@ -29,6 +29,7 @@ from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import customxml
+from twistedcaldav.icaldav import ICalDAVResource
 
 def http_MKCOL(self, request):
     #

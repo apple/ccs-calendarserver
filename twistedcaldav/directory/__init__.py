@@ -21,11 +21,11 @@ Calendar server directory service module.
 """
 
 __all__ = [
+    "apache",
     "appleopendirectory",
-    "cred",
     "directory",
     "idirectory",
-    "resource",
+    "principal",
     "sqldb",
     "xmlfile",
 ]

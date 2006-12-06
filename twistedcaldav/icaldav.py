@@ -107,20 +107,6 @@ class ICalDAVResource(IDAVResource):
             iCalendar data for the requested resource.
         """
 
-class ICalendarSchedulingCollectionResource(ICalDAVResource):
-    """
-    CalDAV scheduling collection resource type, e.g. schedule INBOX.
-    """
-    def isScheduleInbox():
-        """
-        True if this is a schedule Inbox.
-        """
-
-    def isScheduleOutbox():
-        """
-        True if this is an schedule Outbox.
-        """
-
 class ICalendarPrincipalResource(IDAVResource):
     """
     CalDAV principle resource.

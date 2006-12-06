@@ -47,7 +47,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
-from twistedcaldav.resource import CalendarPrincipalCollectionResource, isCalendarCollectionResource
+from twistedcaldav.resource import isCalendarCollectionResource
 
 __version__ = "0.0"
 

@@ -49,10 +49,11 @@ from twistedcaldav import customxml
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
+from twistedcaldav.icaldav import ICalDAVResource
 from twistedcaldav.index import Index, IndexSchedule, db_basename
 from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.resource import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.dropbox import DropBox
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -420,21 +421,6 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
 
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
-
-    ##
-    # ACL
-    ##
-
-    def defaultAccessControlList(self):
-        return davxml.ACL(
-            # CalDAV:schedule for any authenticated user
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(caldavxml.Schedule()),
-                ),
-            ),
-        )
 
 class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """

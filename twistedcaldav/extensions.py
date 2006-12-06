@@ -29,11 +29,14 @@ __all__ = [
 import urllib
 import time
 
+from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import FileStream
 from twisted.web2.static import MetaDataMixin
+from twisted.web2.dav import davxml
+from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
@@ -47,6 +50,25 @@ class DAVFile (SuperDAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == (dav_namespace, "resourcetype"):
+            return succeed(self.resourceType())
+
+        return super(DAVFile, self).readProperty(property, request)
+
+    def resourceType(self):
+        # Allow live property to be overriden by dead property
+        if self.deadProperties().contains((dav_namespace, "resourcetype")):
+            return self.deadProperties().get((dav_namespace, "resourcetype"))
+        if self.isCollection():
+            return davxml.ResourceType.collection
+        return davxml.ResourceType.empty
+
     def render(self, req):
         """You know what you doing."""
         if not self.fp.exists():

@@ -17,7 +17,7 @@
 ##
 
 """
-CalDAV-aware static resources.
+CalDAV-aware resources.
 """
 
 __all__ = [
@@ -25,12 +25,8 @@ __all__ = [
     "CalendarPrincipalCollectionResource",
     "CalendarPrincipalResource",
     "CalendarSchedulingCollectionResource",
-    "ScheduleInboxResource",
-    "ScheduleOutboxResource",
     "isCalendarCollectionResource",
     "isPseudoCalendarCollectionResource",
-    "isScheduleInboxResource",
-    "isScheduleOutboxResource",
 ]
 
 from zope.interface import implements
@@ -56,7 +52,7 @@ import twisted.web2.server
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.extensions import DAVResource
-from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource, ICalendarSchedulingCollectionResource
+from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import apple_namespace
 from twistedcaldav.ical import Component as iComponent
@@ -677,74 +673,6 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             return joinURL(home, DropBox.notificationName)
         return None
 
-class CalendarSchedulingCollectionResource (CalDAVResource):
-    """
-    CalDAV principal resource.
-
-    Extends L{DAVResource} to provide CalDAV scheduling collection
-    functionality.
-    """
-    implements(ICalendarSchedulingCollectionResource)
-
-    def isCollection(self):
-        return True
-
-    def isCalendarCollection(self):
-        return False
-
-    def isPseudoCalendarCollection(self):
-        return True
-
-    def isScheduleInbox(self):
-        return False
-    
-    def isScheduleOutbox(self):
-        return False
-
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        namespace, name = qname
-
-        if namespace == dav_namespace:
-            if name == "resourcetype":
-                types = [davxml.Collection()]
-
-                if self.isScheduleInbox(): types.append(caldavxml.ScheduleInbox())
-                if self.isScheduleOutbox(): types.append(caldavxml.ScheduleOutbox())
-
-                return succeed(davxml.ResourceType(*types))
-
-        return super(CalendarSchedulingCollectionResource, self).readProperty(property, request)
-
-    def supportedReports(self):
-        result = super(CalDAVResource, self).supportedReports()
-        result.append(davxml.Report(caldavxml.CalendarQuery(),))
-        result.append(davxml.Report(caldavxml.CalendarMultiGet(),))
-        # free-busy report not allowed
-        return result
-
-class ScheduleInboxResource (CalendarSchedulingCollectionResource):
-    """
-    CalDAV schedule Inbox resource.
-
-    Extends L{DAVResource} to provide CalDAV functionality.
-    """
-    def isScheduleInbox(self):
-        return True
-
-class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
-    """
-    CalDAV schedule Outbox resource.
-
-    Extends L{DAVResource} to provide CalDAV functionality.
-    """
-    def isScheduleOutbox(self):
-        return True
-
 ##
 # Utilities
 ##
@@ -771,19 +699,3 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
-
-def isScheduleInboxResource(resource):
-    try:
-        resource = ICalendarSchedulingCollectionResource(resource)
-    except TypeError:
-        return False
-    else:
-        return resource.isScheduleInbox()
-
-def isScheduleOutboxResource(resource):
-    try:
-        resource = ICalendarSchedulingCollectionResource(resource)
-    except TypeError:
-        return False
-    else:
-        return resource.isScheduleOutbox()

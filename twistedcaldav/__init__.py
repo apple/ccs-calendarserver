@@ -25,17 +25,25 @@ See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 from twisted.web2.static import File, loadMimeTypes
 
 __all__ = [
+    "authkerb",
     "caldavxml",
     "customxml",
     "dateops",
     "db",
     "directory",
     "dropbox",
+    "extensions",
     "ical",
+    "icaldav",
     "index",
     "instance",
+    "itip",
+    "logging",
+    "notifications",
     "principalindex",
     "resource",
+    "root",
+    "schedule",
     "sql",
     "static",
 ]
