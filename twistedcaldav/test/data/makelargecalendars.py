@@ -20,7 +20,7 @@
 
 import os
 
-for ctr in xrange(1, 20):
+for ctr in xrange(1, 21):
     path = "calendars/user/user%02d" % (ctr,)
     if not os.path.exists("%s/calendar.1000/" % (path,)):
         print "Expanding to %s" % (path,)
