@@ -47,11 +47,9 @@ DEFAULTS = {
     'DocumentRoot': '/Library/CalendarServer/Documents',
     'DropBoxEnabled': True,
     'DropBoxInheritedACLs': True,
-    'DropBoxName': 'dropbox',
     'ErrorLogFile': '/var/log/caldavd/error.log',
     'ManholePort': 0,
     'MaximumAttachmentSizeBytes': 1048576,
-    'NotificationCollectionName': 'notifications',
     'NotificationsEnabled': False,
     'PIDFile': '/var/run/caldavd.pid',
     'Port': 8008,
@@ -113,10 +111,8 @@ class caldavd(object):
         print "Directory Service:                %s" % (self.config['DirectoryService']["type"],)
         print "Directory Service Parameters:     %r" % (self.config['DirectoryService']["params"],)
         print "Drop Box Enabled:                 %s" % (self.config['DropBoxEnabled'],)
-        print "Drop Box Name:                    %s" % (self.config['DropBoxName'],)
         print "Drop Box ACLs are Inherited       %s" % (self.config['DropBoxInheritedACLs'],)
         print "Notifications Enabled:            %s" % (self.config['NotificationsEnabled'],)
-        print "Notification Collection Name:     %s" % (self.config['NotificationCollectionName'],)
         print "Server Log File:                  %s" % (self.config['ServerLogFile'],)
         print "Error Log File:                   %s" % (self.config['ErrorLogFile'],)
         print "PID File:                         %s" % (self.config['PIDFile'],)
@@ -405,10 +401,8 @@ application, site = startServer(
     %(ServerLogFile)r,
     %(DirectoryService)r,
     %(DropBoxEnabled)r,
-    %(DropBoxName)r,
     %(DropBoxInheritedACLs)r,
     %(NotificationsEnabled)r,
-    %(NotificationCollectionName)r,
     %(ManholePort)d,
 )
 """ % self.config

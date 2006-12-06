@@ -33,16 +33,15 @@ class DropBox(object):
     
     # These are all options that will be set from a .plist configuration file.
 
-    enabled = True                # Whether or not drop box functionaility is enabled.
-    dropboxName = "dropbox"       # Name of the collection in which drop boxes can be created.
-    inheritedACLs = True          # Whether or not ACLs set on a drop box collection are automatically
-                                  # inherited by child resources.
-                                  
-    notifications = True          # Whether to post notification messages into per-user notification collection.
-    notificationName = "notify"    # Name of the collection in which notifications will be stored.
+    enabled = True                     # Whether or not drop box functionaility is enabled.
+    dropboxName = "dropbox"            # Name of the collection in which drop boxes can be created.
+    inheritedACLs = True               # Whether or not ACLs set on a drop box collection are automatically
+                                       # inherited by child resources.
+    notifications = True               # Whether to post notification messages into per-user notification collection.
+    notificationName = "notifications" # Name of the collection in which notifications will be stored.
     
     @classmethod
-    def enable(clzz, enabled, dropboxName=None, inheritedACLs=None, notifications=None, notificationName=None):
+    def enable(clzz, enabled, inheritedACLs=None, notifications=None):
         """
         This method must be used to enable drop box support as it will setup live properties etc,
         and turn on the notification system. It must only be called once
@@ -54,14 +53,10 @@ class DropBox(object):
         @param notificationName: C{str} containing the name of the collection used to store per-user notifications.
         """
         DropBox.enabled = enabled
-        if dropboxName:
-            DropBox.dropboxName = dropboxName
         if inheritedACLs:
             DropBox.inheritedACLs = inheritedACLs
         if notifications:
             DropBox.notifications = notifications
-        if notificationName:
-            DropBox.notificationName = notificationName
 
         if DropBox.enabled:
 

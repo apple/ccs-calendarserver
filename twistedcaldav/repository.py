@@ -127,8 +127,8 @@ def startServer(docroot, repo, doacct, doacl, dossl,
                 keyfile, certfile, onlyssl, port, sslport, maxsize,
                 quota, serverlogfile,
                 directoryservice,
-                dropbox, dropboxName, dropboxACLs,
-                notifications, notificationName,
+                dropbox, dropboxACLs,
+                notifications,
                 manhole):
     """
     Start the server using XML-based configuration details and supplied .plist based options.
@@ -175,7 +175,7 @@ def startServer(docroot, repo, doacct, doacl, dossl,
             self.logObserver.stop()
     
     # Turn on drop box support before building the repository
-    DropBox.enable(dropbox, dropboxName, dropboxACLs, notifications, notificationName)
+    DropBox.enable(dropbox, dropboxACLs, notifications)
 
     dirname = directoryservice["type"]
     dirparams = directoryservice["params"]
