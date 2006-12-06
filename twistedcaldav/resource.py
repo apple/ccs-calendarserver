@@ -618,7 +618,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     return ()
     
                 def parseFreeBusy(freeBusySet):
-                    return (str(href) for href in freeBusySet.children)
+                    return tuple(str(href) for href in freeBusySet.children)
         
                 d = inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request)
                 d.addCallback(parseFreeBusy)
