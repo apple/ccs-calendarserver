@@ -261,7 +261,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 d = waitForDeferred(
                         maybeDeferred(
                             storeCalendarObjectResource,
-                            request=request,
+                            request = request,
                             sourcecal = False,
                             destination = child,
                             destination_uri = childURL,

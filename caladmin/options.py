@@ -30,10 +30,7 @@ def listCommands():
     return COMMANDS.keys()
 
 def genSubCommandsDef():
-    sc = listCommands()
-    sc.sort()
-
-    for name in sc:
+    for name in sorted(listCommands()):
         command = COMMANDS[name]
         yield [command.name, command.shortcut, command, command.help]
 

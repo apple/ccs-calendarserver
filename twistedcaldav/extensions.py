@@ -144,9 +144,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
 """ % { "title": urllib.unquote(request.uri) }]
 
         even = False
-        children = list(self.listChildren())
-        children.sort()
-        for name in children:
+        for name in sorted(self.listChildren()):
             child = self.getChild(name)
 
             url = urllib.quote(name, '/')

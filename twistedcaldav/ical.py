@@ -235,9 +235,7 @@ class Component (object):
     def __repr__(self): return "<%s: %r>" % (self.__class__.__name__, str(self._vobject))
 
     def __hash__(self):
-        properties = list(self.properties())
-        properties.sort()
-        return hash(tuple(properties))
+        return hash(tuple(sorted(self.properties())))
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):

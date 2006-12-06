@@ -203,8 +203,7 @@ class CsvFormatter(BaseFormatter):
 
     def report_stats(self, report):
         if 'fieldnames' not in self.options:
-            self.options['fieldnames'] = report['data'].keys()
-            self.options['fieldnames'].sort()
+            self.options['fieldnames'] = sorted(report['data'].keys())
 
         self.writeList(self.options['fieldnames'],
                        [report['data']])

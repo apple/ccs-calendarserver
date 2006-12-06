@@ -96,10 +96,9 @@ class InstanceList(object):
         
     def __iter__(self):
         # Return keys in sorted order via iterator
-        keys = self.instances.keys()
-        keys.sort()
-        for i in keys: yield i
-    
+        for i in sorted(self.instances.keys()):
+            yield i
+
     def __getitem__(self, key):
         return self.instances[key]
 
@@ -302,9 +301,7 @@ class InstanceList(object):
                 newDuration = end - start
         
             # First get sorted instance keys greater than the current components R-ID
-            keys = [x for x in self.instances.keys() if x > str(rid)]
-            keys.sort()
-            for key in keys:
+            for key in sorted(x for x in self.instances.keys() if x > str(rid)):
                 oldinstance = self.instances[key]
                 
                 # Do not override instance that is alreday overridden

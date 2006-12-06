@@ -98,10 +98,7 @@ class AdminOptions(usage.Options):
         self.calendarCollection = self.root.child('calendars')
         self.principalCollection = self.root.child('principals')
 
-        lf = formatters.listFormatters()
-        lf.sort()
-
-        if self['format'] in lf:
+        if self['format'] in sorted(formatters.listFormatters()):
             self.formatter = formatters.getFormatter(self['format'])
             self.formatter = self.formatter(options=self.format_options)
         else:
@@ -109,18 +106,13 @@ class AdminOptions(usage.Options):
                     ', '.join(lf)))
 
         sc = options.listCommands()
-        sc.sort()
-
-        self.subCommands = options.genSubCommandsDef()
-
-        self.recursing = 1
-
-        self.parseOptions(self.params)
-
         if self.subCommand not in sc:
             raise usage.UsageError("Please select one of: %s" % (
-                    ', '.join(sc)))
+                    ', '.join(sorted(sc))))
 
+        self.subCommands = options.genSubCommandsDef()
+        self.recursing = 1
+        self.parseOptions(self.params)
     
 def run():
     config = AdminOptions()
