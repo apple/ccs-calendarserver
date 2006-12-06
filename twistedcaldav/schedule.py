@@ -315,7 +315,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 # Check access controls
                 #
                 try:
-                    d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(oprincipal))))
+                    d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(oprincipal.principalURL()))))
                     yield d
                     d.getResult()
                 except:
