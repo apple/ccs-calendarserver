@@ -16,7 +16,7 @@ limitations under the License.
 DRI: Cyrus Daboo, cdaboo@apple.com
  -->
 
-<!ELEMENT repository (docroot, authentication, accounts) >
+<!ELEMENT repository (docroot, authentication) >
 
   <!ELEMENT docroot (collection) >
     <!ELEMENT collection (pytype, params?, properties, members)>
@@ -51,8 +51,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT authentication (basic, digest, kerberos) >
     <!ELEMENT basic (realm, service?)>
       <!ATTLIST basic enable  (yes|no) "yes"
-                      onlyssl (yes|no) "yes"
-                      node CDATA "">
+                      onlyssl (yes|no) "yes">
     <!ELEMENT digest (realm)>
       <!ATTLIST digest enable  (yes|no) "no"
                        onlyssl (yes|no) "no">
