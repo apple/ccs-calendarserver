@@ -17,7 +17,7 @@ Index: twisted/web2/dav/resource.py
  from zope.interface import implements
  from twisted.python import log
 +from twisted.python.failure import Failure
-+from twisted.cred.error import UnauthorizedLogin
++from twisted.cred.error import LoginFailed, UnauthorizedLogin
  from twisted.internet.defer import Deferred, maybeDeferred, succeed
  from twisted.internet.defer import waitForDeferred, deferredGenerator
  from twisted.internet import reactor
@@ -227,7 +227,7 @@ Index: twisted/web2/dav/resource.py
          def onError(failure):
 -            log.err("Invalid authentication details: %s" % (request,))
 -            raise HTTPError(UnauthorizedResponse(
-+            failure.trap(UnauthorizedLogin)
++            failure.trap(UnauthorizedLogin, LoginFailed)
 +
 +            log.err("Authentication failed: %s" % (failure.value,))
 +            return Failure(HTTPError(UnauthorizedResponse(
