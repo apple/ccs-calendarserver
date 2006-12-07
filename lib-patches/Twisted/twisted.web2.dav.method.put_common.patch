@@ -216,7 +216,7 @@ Index: twisted/web2/dav/method/put_common.py
 +            md5 = md5.getMD5()
 +            destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
 +
-+        # Update the content-type value on the resource if it is new
++        # Update the content-type value on the resource if it is not been copied or moved
 +        if source is None:
 +            content_type = request.headers.getHeader("content-type")
 +            if content_type is not None:
