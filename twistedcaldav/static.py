@@ -488,13 +488,6 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
-        # Cache children which must be of a specific type
-        for name, cls in (
-            ("inbox" , ScheduleInboxFile),
-            ("outbox", ScheduleOutboxFile),
-        ):
-            self.putChild(name, cls(self.fp.child(name).path, self))
-
     def provision(self):
         if not provisionFile(self, self._parent):
             return succeed(None)
