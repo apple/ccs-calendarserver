@@ -1,0 +1,92 @@
+Index: twisted/web2/auth/digest.py
+===================================================================
+--- twisted/web2/auth/digest.py	(revision 18545)
++++ twisted/web2/auth/digest.py	(working copy)
+@@ -5,6 +5,7 @@
+ 
+ http://www.faqs.org/rfcs/rfc2617.html
+ """
++import time
+ 
+ from twisted.cred import credentials, error
+ from zope.interface import implements
+@@ -118,10 +119,12 @@
+ class DigestCredentialFactory:
+     implements(ICredentialFactory)
+ 
+-    CHALLENGE_LIFETIME = 15
++    CHALLENGE_LIFETIME_SECS = 15 * 60    # 15 minutes
+ 
+     scheme = "digest"
+ 
++    pkey = '%d%d%d' %  tuple([random.randrange(sys.maxint) for _ in range(3)])
++
+     def __init__(self, algorithm, realm):
+         """@type algorithm: C{str}
+            @param algorithm: case insensitive string that specifies
+@@ -132,7 +135,6 @@
+            @param realm: case sensitive string that specifies the realm
+                          portion of the challenge
+         """
+-        self.outstanding = {}
+         self.algorithm = algorithm
+         self.realm = realm
+ 
+@@ -141,13 +143,41 @@
+         c = '%d%d%d' % c
+         return c
+ 
+-    def generateOpaque(self):
+-        return str(random.randrange(sys.maxint))
++    def generateOpaque(self, nonce, clientip):
++        # Now, what we do is encode the nonce, client ip and a timestamp in the opaque value
++        # with a suitable digest
++        key = "%s,%s,%s" % (nonce, clientip, str(int(time.time())))
++        digest = md5.new(key + DigestCredentialFactory.pkey).hexdigest()
++        ekey = key.encode('base64')
++        return "%s-%s" % (digest, ekey.replace('\n', ''),)
+ 
++    def verifyOpaque(self, opaque, nonce, clientip):
++        # First split the digest from the key
++        opaque_parts = opaque.split('-')
++        if len(opaque_parts) != 2:
++            raise error.LoginFailed('Invalid response, invalid opaque value')
++        
++        # Verify the key
++        key = opaque_parts[1].decode('base64')
++        key_parts = key.split(',')
++        if len(key_parts) != 3:
++            raise error.LoginFailed('Invalid response, invalid opaque value')
++        if key_parts[0] != nonce:
++            raise error.LoginFailed('Invalid response, incompatible opaque/nonce values')
++        if key_parts[1] != clientip:
++            raise error.LoginFailed('Invalid response, incompatible opaque/client values')
++        if int(time.time()) - int(key_parts[2]) > DigestCredentialFactory.CHALLENGE_LIFETIME_SECS:
++            raise error.LoginFailed('Invalid response, incompatible opaque/nonce too old')
++
++        # Verify the digest
++        digest = md5.new(key + DigestCredentialFactory.pkey).hexdigest()
++        if digest != opaque_parts[0]:
++            raise error.LoginFailed('Invalid response, invalid opaque value')
++        
+     def getChallenge(self, peer):
+         c = self.generateNonce()
+-        o = self.generateOpaque()
+-        self.outstanding[o] = c
++        o = self.generateOpaque(c, peer.host)
++
+         return {'nonce': c,
+                 'opaque': o,
+                 'qop': 'auth',
+@@ -167,9 +197,7 @@
+         if not username:
+             raise error.LoginFailed('Invalid response, no username given')
+ 
+-        if auth.get('opaque') not in self.outstanding:
+-            raise error.LoginFailed('Invalid response, opaque not outstanding')
+-
+-        del self.outstanding[auth['opaque']]
++        # Now verify the nonce/opaque values for this client
++        self.verifyOpaque(auth.get('opaque'), auth.get('nonce'), request.remoteAddr.host)
+             
+         return DigestedCredentials(username, request.method, self.realm, auth)
