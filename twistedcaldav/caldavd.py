@@ -41,7 +41,6 @@ Parse the command line and read in a configuration file and then launch the serv
 """
 
 DEFAULTS = {
-    'CreateAccounts': False,
     'DirectoryService': {'params': {'node': '/Search'},
                          'type': 'OpenDirectoryService'},
     'DocumentRoot': '/Library/CalendarServer/Documents',
@@ -54,7 +53,6 @@ DEFAULTS = {
     'PIDFile': '/var/run/caldavd.pid',
     'Port': 8008,
     'Repository': '/etc/caldavd/repository.xml',
-    'ResetAccountACLs': False,
     'RunStandalone': True,
     'SSLCertificate': '/etc/certificates/Default.crt',
     'SSLEnable': False,
@@ -100,8 +98,6 @@ class caldavd(object):
         print "Run as daemon:                    %s" % (self.config['RunStandalone'],)
         print "Document Root:                    %s" % (self.config['DocumentRoot'],)
         print "Repository Configuration:         %s" % (self.config['Repository'],)
-        print "Generate Accounts in Repository:  %s" % (self.config['CreateAccounts'],)
-        print "Reset ACLs on Generated Accounts: %s" % (self.config['ResetAccountACLs'],)
         print "Non-ssl Port:                     %s" % (self.config['Port'],)
         print "Use SSL:                          %s" % (self.config['SSLEnable'],)
         print "SSL Port:                         %s" % (self.config['SSLPort'],)
@@ -388,8 +384,6 @@ from twistedcaldav.repository import startServer
 application, site = startServer(
     %(DocumentRoot)r,
     %(Repository)r,
-    %(CreateAccounts)s,
-    %(ResetAccountACLs)s,
     %(SSLEnable)s,
     %(SSLPrivateKey)r,
     %(SSLCertificate)r,

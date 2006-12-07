@@ -84,8 +84,6 @@ ELEMENT_READ = "read"
 ATTRIBUTE_VALUE_YES = "yes"
 ATTRIBUTE_VALUE_NO = "no"
 
-ATTRIBUTE_AUTO_PCS = "auto-principal-collection-set"
-
 ATTRIBUTE_NAME = "name"
 ATTRIBUTE_TAG = "tag"
 ATTRIBUTE_ACCOUNT = "account"
@@ -104,26 +102,11 @@ ELEMENT_SERVICE = "service"
 
 ATTRIBUTE_ENABLE = "enable"
 ATTRIBUTE_ONLYSSL = "onlyssl"
-ATTRIBUTE_CREDENTIALS = "credentials"
 
-ATTRIBUTE_VALUE_PROPERTY = "property"
 ATTRIBUTE_VALUE_DIRECTORY = "directory"
 ATTRIBUTE_VALUE_KERBEROS = "kerberos"
 
-ELEMENT_ACCOUNTS = "accounts"
-ELEMENT_USER = "user"
-ELEMENT_USERID = "uid"
-ELEMENT_PASSWORD = "pswd"
-ELEMENT_NAME = "name"
-ELEMENT_CUADDR = "cuaddr"
-ELEMENT_CUHOME = "cuhome"
-ELEMENT_CALENDAR = "calendar"
-ELEMENT_QUOTA = "quota"
-ELEMENT_AUTORESPOND = "autorespond"
-ELEMENT_CANPROXY = "canproxy"
-ATTRIBUTE_REPEAT = "repeat"
-
-def startServer(docroot, repo, doacct, doacl, dossl,
+def startServer(docroot, repo, dossl,
                 keyfile, certfile, onlyssl, port, sslport, maxsize,
                 quota, serverlogfile,
                 directoryservice,
@@ -192,8 +175,6 @@ def startServer(docroot, repo, doacct, doacl, dossl,
 
     # Build the server
     builder = RepositoryBuilder(docroot,
-                                doAccounts=doacct,
-                                resetACLs=doacl,
                                 maxsize=maxsize,
                                 quota=quota)
     builder.buildFromFile(repo, directory)
@@ -209,10 +190,7 @@ def startServer(docroot, repo, doacct, doacl, dossl,
     authenticator = builder.authentication.getEnabledAuthenticator()
     
     portal = Portal(auth.DavRealm())
-    if authenticator.credentials == ATTRIBUTE_VALUE_PROPERTY:
-        portal.registerChecker(auth.TwistedPropertyChecker())
-        print "Using property-based password checker."
-    elif authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
+    if authenticator.credentials == ATTRIBUTE_VALUE_DIRECTORY:
         portal.registerChecker(directory)
         print "Using directory-based password checker."
     elif authenticator.credentials == ATTRIBUTE_VALUE_KERBEROS:
@@ -269,27 +247,19 @@ def startServer(docroot, repo, doacct, doacl, dossl,
 
 class RepositoryBuilder (object):
     """
-    Builds a repository hierarchy at a supplied document root file system path,
-    and optionally provisions accounts.
+    Builds a repository hierarchy at a supplied document root file system path.
     """
     
-    def __init__(self, docroot, doAccounts, resetACLs = False, maxsize = None, quota = None):
+    def __init__(self, docroot, maxsize=None, quota=None):
         """
         @param docroot:    file system path to use as the root.
-        @param doAccounts: if True accounts will be auto-provisioned, if False
-            no auto-provisioning is done
-        @param resetACLs:  if True, when auto-provisioning access control privileges are initialised
-            in an appropriate fashion for user accounts, if False no privileges are set or changed.
         @param maxsize:    maximum size in bytes for any calendar object resource, C{int} to set size,
             if <= 0, then no limit will be set.
         @param quota:    maximum quota size in bytes for a user's calendar home, C{int} to set size,
             if <= 0, then no limit will be set.
         """
         self.docRoot = DocRoot(docroot)
-        self.doAccounts = doAccounts
         self.authentication = Authentication()
-        self.accounts = Provisioner()
-        self.resetACLs = resetACLs
         self.maxsize = maxsize
         self.quota = quota
         
@@ -316,13 +286,6 @@ class RepositoryBuilder (object):
         self.parseXML(repository_node)
         
         self.docRoot.build(directory)
-        if self.doAccounts:
-            self.accounts.provision(
-                self.docRoot.principalCollections,
-                self.docRoot.accountCollection,
-                self.docRoot.initCollections,
-                self.docRoot.calendarHome,
-                self.resetACLs)
             
         # Handle global quota value
         CalendarHomeFile.quotaLimit = self.quota
@@ -338,8 +301,6 @@ class RepositoryBuilder (object):
                 self.docRoot.parseXML(child)
             elif child._get_localName() == ELEMENT_AUTHENTICATION:
                 self.authentication.parseXML(child)
-            elif child._get_localName() == ELEMENT_ACCOUNTS:
-                self.accounts.parseXML(child)
 
 class DocRoot (object):
     """
@@ -355,16 +316,12 @@ class DocRoot (object):
         self.accountCollection = None
         self.initCollections = []
         self.calendarHome = None
-        self.autoPrincipalCollectionSet = True
         
     def parseXML(self, node):
         """
         Parse the XML collection nodes from the repository configuration document.
         @param node: the L{Node} to parse.
         """
-        if node.hasAttribute(ATTRIBUTE_AUTO_PCS):
-            self.autoPrincipalCollectionSet = (node.getAttribute(ATTRIBUTE_AUTO_PCS) == ATTRIBUTE_VALUE_YES)
-
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_COLLECTION:
                 self.collection = Collection()
@@ -661,160 +618,6 @@ class ACL (object):
                 else:
                    item = davxml.HRef.fromString("")
         return davxml.Inherited(item)
-    
-class Provisioner (object):
-    """
-    Manages account provisioning.
-    """
-
-    def __init__(self):
-        self.items = []
-        self.principalCollections = None
-        self.accountCollection = None
-        self.initCollections = None
-        self.calendarHome = None
-        
-    def parseXML( self, node ):
-        """
-        Parse the XML node for account information.
-        @param node: the L{Node} to parse.
-        """
-        for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_USER:
-                if child.hasAttribute( ATTRIBUTE_REPEAT ):
-                    repeat = int(child.getAttribute( ATTRIBUTE_REPEAT ))
-                else:
-                    repeat = 1
-
-                principal = ProvisionPrincipal("", "", "", [], "", [], None, None, False)
-                principal.parseXML( child )
-                self.items.append((repeat, principal))
-    
-    def provision(self, principalCollections, accountCollection, initCollections, calendarHome, resetACLs):
-        """
-        Carry out provisioning operation.
-        @param principalCollections: a C{list} of L{Collection}'s for the principal collections.
-        @param accountCollection: the L{Collection} of the principal collection in which to
-            create user principals.
-        @param initCollections: a C{list} of L{Collection}'s for the principal collections to be initialized.
-        @param calendarHome:  the L{Collection} for the calendar home of principals.
-        @param resetACLs: if True, ACL privileges on all resources related to the
-            accounts being created are reset, if False no ACL privileges are changed.
-        """
-        self.principalCollections = principalCollections
-        self.accountCollection = accountCollection
-        self.initCollections = initCollections
-        self.calendarHome = calendarHome
-
-        if self.initCollections and self.calendarHome is not None:
-            for collection in self.initCollections:
-                collection.resource.initialize(
-                    self.calendarHome.uri,
-                    self.calendarHome.resource,
-                )
-
-#        # Check for proper account home
-#        if not self.accountCollection:
-#            log.err("Accounts cannot be created: no principal collection was marked with an account attribute.")
-#            raise ValueError, "Accounts cannot be created."
-
-        # Provision each user
-        for repeat, principal in self.items:
-            if repeat == 1:
-                self.provisionOne(principal, resetACLs)
-            else:
-                for ctr in xrange(1, repeat+1):
-                    self.provisionOne(principal.repeat(ctr), resetACLs)
-    
-class ProvisionPrincipal (object):
-    """
-    Contains provision information for one user.
-    """
-    def __init__(self, uid, pswd, name, cuaddrs, cuhome, calendars, acl, quota, autorespond):
-        """
-        @param uid:           user id.
-        @param pswd:          clear-text password for this user.
-        @param name:          common name of user.
-        @param cuaddr:        list of calendar user addresses.
-        @param calendars:     list of calendars to auto-create.
-        @param acl:           ACL to apply to calendar home
-        @param quota:         quota allowed on user's calendar home C{int} size in bytes
-            or C{None} if no quota
-        @param autorespond    auto-respond to scheduling requests
-        """
-        
-        self.uid = uid
-        self.pswd = pswd
-        self.name = name
-        self.cuaddrs = cuaddrs
-        self.cuhome = cuhome
-        self.calendars = calendars
-        self.acl = acl
-        self.quota = quota
-        self.autorespond = autorespond
-
-    def repeat(self, ctr):
-        """
-        Create another object like this but with all text items having % substitution
-        done on them with the numeric value provided.
-        @param ctr: an integer to substitute into text.
-        """
-        
-        if self.uid.find("%") != -1:
-            uid = self.uid % ctr
-        else:
-            uid = self.uid
-        if self.pswd.find("%") != -1:
-            pswd = self.pswd % ctr
-        else:
-            pswd = self.pswd
-        if self.name.find("%") != -1:
-            name = self.name % ctr
-        else:
-            name = self.name
-        cuaddrs = []
-        for cuaddr in self.cuaddrs:
-            if cuaddr.find("%") != -1:
-                cuaddrs.append(cuaddr % ctr)
-            else:
-                cuaddrs.append(cuaddr)
-        if self.cuhome.find("%") != -1:
-            cuhome = self.cuhome % ctr
-        else:
-            cuhome = self.cuhome
-        
-        return ProvisionPrincipal(uid, pswd, name, cuaddrs, cuhome, self.calendars, self.acl, self.quota, self.autorespond)
-
-    def parseXML( self, node ):
-        for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_USERID:
-                if child.firstChild is not None:
-                   self.uid = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_PASSWORD:
-                if child.firstChild is not None:
-                    self.pswd = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_NAME:
-                if child.firstChild is not None:
-                   self.name = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_CUADDR:
-                if child.firstChild is not None:
-                   self.cuaddrs.append(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_CUHOME:
-                if child.firstChild is not None:
-                   self.cuhome = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_CALENDAR:
-                if child.firstChild is not None:
-                   self.calendars.append(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_QUOTA:
-                if child.firstChild is not None:
-                   self.quota = int(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_ACL:
-                self.acl = ACL()
-                self.acl.parseXML(child)
-            elif child._get_localName() == ELEMENT_AUTORESPOND:
-                self.autorespond = True
-            elif child._get_localName() == ELEMENT_CANPROXY:
-                CalDAVResource.proxyUsers.add(self.uid)
 
 class Authentication:
     """
@@ -833,7 +636,7 @@ class Authentication:
             if type == "kerberos":
                 self.credentials = ATTRIBUTE_VALUE_KERBEROS
             else:
-                self.credentials = ATTRIBUTE_VALUE_PROPERTY
+                self.credentials = ATTRIBUTE_VALUE_DIRECTORY
             self.realm = ""
             self.service = ""
             
@@ -842,8 +645,6 @@ class Authentication:
                 self.enabled = node.getAttribute(ATTRIBUTE_ENABLE) == ATTRIBUTE_VALUE_YES
             if node.hasAttribute(ATTRIBUTE_ONLYSSL):
                 self.onlyssl = node.getAttribute(ATTRIBUTE_ONLYSSL) == ATTRIBUTE_VALUE_YES
-            if node.hasAttribute(ATTRIBUTE_CREDENTIALS):
-                self.credentials = node.getAttribute(ATTRIBUTE_CREDENTIALS)
             for child in node._get_childNodes():
                 if child._get_localName() == ELEMENT_REALM:
                     if child.firstChild is not None:

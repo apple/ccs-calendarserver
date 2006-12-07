@@ -20,7 +20,7 @@ limitations under the License.
 
 <repository>
 
-  <docroot auto-principal-collection-set="yes">
+  <docroot>
     <collection>
       <pytype>twistedcaldav.root.RootResource</pytype>
       <properties>
@@ -53,10 +53,10 @@ limitations under the License.
   </docroot>
 
   <authentication>
-    <basic enable="yes" onlyssl="yes" credentials="directory" node="/Search">
+    <basic enable="yes" onlyssl="yes">
       <realm></realm>
     </basic>
-    <digest enable="no" onlyssl="no" credentials="property">
+    <digest enable="no" onlyssl="no">
       <realm></realm>
     </digest>
     <kerberos enable="no" onlyssl="no">

@@ -59,12 +59,6 @@ limitations under the License.
   <key>PIDFile</key>
   <string>/var/log/caldavd/caldavd.pid</string>
 
-  <key>CreateAccounts</key>
-  <true/>
-
-  <key>ResetAccountACLs</key>
-  <true/>
-
   <!--  XML File Directory Service -->
   <!--
   <key>DirectoryService</key>
@@ -107,9 +101,6 @@ limitations under the License.
 
   <key>Repository</key>
   <string>/etc/caldavd/repository.xml</string>
-
-  <key>twistdLocation</key>
-  <string>/usr/share/caldavd/bin/twistd</string>
 
   <key>SACLEnable</key>
   <true/>

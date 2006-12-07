@@ -19,8 +19,6 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 <!ELEMENT repository (docroot, authentication, accounts) >
 
   <!ELEMENT docroot (collection) >
-    <!ATTLIST docroot auto-principal-collection-set (yes|no) "yes">
-
     <!ELEMENT collection (pytype, params?, properties, members)>
       <!ATTLIST collection name CDATA ""
                              tag (none|principals|calendars) "none"
@@ -37,7 +35,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 
       <!ELEMENT acl                   (ace*) >  
            <!ELEMENT ace              (principal, (grant|deny), protected?, inheritable?)>
-             <!ELEMENT principal      (href | all | authenticated | unauthenticated)>
+            <!ELEMENT principal       (href | all | authenticated | unauthenticated)>
             <!ELEMENT href            (#PCDATA)>
             <!ELEMENT all             EMPTY>
             <!ELEMENT authenticated   EMPTY>
@@ -54,29 +52,13 @@ DRI: Cyrus Daboo, cdaboo@apple.com
     <!ELEMENT basic (realm, service?)>
       <!ATTLIST basic enable  (yes|no) "yes"
                       onlyssl (yes|no) "yes"
-                      credentials (property|directory|kerberos) "property"
                       node CDATA "">
     <!ELEMENT digest (realm)>
       <!ATTLIST digest enable  (yes|no) "no"
-                       onlyssl (yes|no) "no"
-                       credentials (property) "property">
+                       onlyssl (yes|no) "no">
     <!ELEMENT kerberos (service)>
       <!ATTLIST kerberos enable  (yes|no) "no"
                          onlyssl (yes|no) "no">
     
     <!ELEMENT realm         (#PCDATA)>
     <!ELEMENT service       (#PCDATA)>
-    
-  <!ELEMENT accounts (user*) >
-
-    <!ELEMENT user (uid, pswd, name, cuaddr*, calendar*, acl?, quota?, autorespond?, canproxy?)>
-      <!ATTLIST user repeat CDATA "1">
-      <!ELEMENT uid         (#PCDATA)>
-      <!ELEMENT pswd        (#PCDATA)>
-      <!ELEMENT name        (#PCDATA)>
-      <!ELEMENT cuaddr      (#PCDATA)>
-      <!ELEMENT cuhome      (#PCDATA)>
-      <!ELEMENT calendar    (#PCDATA)>
-      <!ELEMENT quota       (#PCDATA)>
-      <!ELEMENT autorespond EMPTY>
-      <!ELEMENT canproxy    EMPTY>
