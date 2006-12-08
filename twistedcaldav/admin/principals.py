@@ -23,7 +23,7 @@
   Last login?
 """
 
-from caladmin import util
+from twistedcaldav.admin import util
 
 class PrincipalAction(object):
     def __init__(self, config, type):

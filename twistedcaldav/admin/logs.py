@@ -26,7 +26,7 @@
 
 import plistlib
 
-from caladmin import util
+from twistedcaldav.admin import util
 
 statsTemplate = plistlib.Dict(
     bytesOut=0, 

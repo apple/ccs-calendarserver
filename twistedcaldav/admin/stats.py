@@ -33,7 +33,7 @@ from twisted.web import microdom
 
 from twistedcaldav import ical
 
-from caladmin import util        
+from twistedcaldav.admin import util        
 
 class StatsAction(object):
     def __init__(self, config):

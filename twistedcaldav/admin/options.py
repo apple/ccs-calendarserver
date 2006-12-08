@@ -66,7 +66,7 @@ class PurgeOptions(SubCommand):
     name = 'purge'
     help = ('Keep your store from becoming unnecessarily large by purging '
             'old events.')
-    action = 'caladmin.purge.PurgeAction'
+    action = 'twistedcaldav.admin.purge.PurgeAction'
 
     optParameters = [
         ['days', 'n', 30, 'Age threshold for purging events.'],
@@ -78,7 +78,7 @@ registerCommand(PurgeOptions)
 class StatsOptions(SubCommand):
     name = 'stats'
     help = ('Overall usage statistics.')
-    action = 'caladmin.stats.StatsAction'
+    action = 'twistedcaldav.admin.stats.StatsAction'
 
     optFlags = [
         PARAM_HUMAN,
@@ -91,12 +91,12 @@ registerCommand(StatsOptions)
 
 
 from twisted.python import filepath
-from twistedcaldav.caldavd import DEFAULTS
+from twistedcaldav import config
 
 class LogOptions(SubCommand):
     name = 'logs'
     help = ('Gather and report useful information from the logfiles.')
-    action = 'caladmin.logs.LogAction'
+    action = 'twistedcaldav.admin.logs.LogAction'
 
     optFlags = [
         ['nooutput', 'n', 'Do not output anything to stdout'],
@@ -127,13 +127,13 @@ class LogOptions(SubCommand):
     def postOptions(self):
         if not self['logfile']:
             self['logfile'] = filepath.FilePath(
-                self.parent.config['ServerLogFile'])
+                config.ServerLogFile)
         else:
             self['logfile'] = filepath.FilePath(self['logfile'])
 
         if not self['statsfile']:
             self['statsfile'] = filepath.FilePath(
-                self.parent.config['ServerStatsFile'])
+                config.ServerStatsFile)
         else:
             self['statsfile'] = filepath.FilePath(self['statsfile'])
 
@@ -145,7 +145,7 @@ registerCommand(LogOptions)
 class PrincipalOptions(SubCommand):
     name = None
     help = ("Gather statistics and act on %s")
-    action = 'caladmin.principals.PrincipalAction'
+    action = 'twistedcaldav.admin.principals.PrincipalAction'
 
     optFlags = [
         ['list', '1', 'List principal names'],

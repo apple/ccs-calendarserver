@@ -35,17 +35,17 @@ from twisted.python import filepath
 
 from plistlib import readPlist
 
-from caladmin import options
-from caladmin import formatters
+from twistedcaldav.admin import options
+from twistedcaldav.admin import formatters
 
-from twistedcaldav.caldavd import DEFAULTS, caldavd
+from twistedcaldav import config
 
 class AdminOptions(usage.Options):
     recursing = 0
     params = ()
 
     optParameters = [
-        ['config', 'c', caldavd().plistfile, "Path to the caldavd.plist"],
+        ['config', 'c', config.DEFAULTPLISTFILE, "Path to the caldavd.plist"],
         ['format', 'f', 'plain', ("Select an appropriate output formatter: "
                                   "%s" % (formatters.listFormatters(),))]
         ]
@@ -84,17 +84,10 @@ class AdminOptions(usage.Options):
 
         if self['config']:
             self['config'] = os.path.abspath(self['config'])
-            try:
-                self.config = readPlist(self['config'])
-            except IOError, err:
-                sys.stderr.write(("Could not open configuration file: %s (%s)\n"
-                                  ) % (err.filename,
-                                       err.strerror))
-                sys.stderr.flush()
+            if os.path.exists(self['config']):
+                config.parseConfig(self['config'])
 
-                self.config = DEFAULTS
-
-        self.root = filepath.FilePath(self.config['DocumentRoot'])
+        self.root = filepath.FilePath(config.DocumentRoot)
         self.calendarCollection = self.root.child('calendars')
         self.principalCollection = self.root.child('principals')
 
@@ -104,24 +97,26 @@ class AdminOptions(usage.Options):
         else:
             raise usage.UsageError("Please specify a valid formatter: %s" % (
                     ', '.join(lf)))
-
+        
+        self.subCommands = options.genSubCommandsDef()
+        self.recursing = 1
+        self.parseOptions(self.params)
+        
         sc = options.listCommands()
+
         if self.subCommand not in sc:
             raise usage.UsageError("Please select one of: %s" % (
                     ', '.join(sorted(sc))))
 
-        self.subCommands = options.genSubCommandsDef()
-        self.recursing = 1
-        self.parseOptions(self.params)
     
 def run():
-    config = AdminOptions()
+    adminOptions = AdminOptions()
 
     try:
-        config.parseOptions(sys.argv[1:])
+        adminOptions.parseOptions(sys.argv[1:])
 
     except usage.UsageError, ue:
-        print config
+        print adminOptions
         if len(sys.argv) > 1:
             cmd = sys.argv[1]
         else:

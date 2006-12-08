@@ -19,10 +19,6 @@
 
 import sys, os
 
-sys.path.insert(0, os.path.join(os.environ['HOME'],
-								'projects', 'CalendarServer',
-								'Twisted'))
-
 if __name__ == '__main__':
-   from caladmin.script import run
+   from twistedcaldav.admin.script import run
    run()
