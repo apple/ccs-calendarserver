@@ -108,11 +108,10 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             groups = set()
             calendarUserAddresses = set()
     
-            # See if we have a group
-            if recordType == "group":
-                rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
-                for row in rowiter:
-                    members.add((row[0], row[1]))
+            # See if we have members
+            rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
+            for row in rowiter:
+                members.add((row[0], row[1]))
                 
             # See if we are a member of a group
             rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
@@ -146,11 +145,10 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         groups = set()
         calendarUserAddresses = set()
 
-        # See if we have a group
-        if recordType == "group":
-            rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
-            for row in rowiter:
-                members.add((row[0], row[1]))
+        # See if we have members
+        rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
+        for row in rowiter:
+            members.add((row[0], row[1]))
             
         # See if we are a member of a group
         rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
@@ -179,15 +177,14 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             """, recordType, uid, password, name, canproxy
         )
         
-        # Check for group
-        if recordType == "group":
-            for memberRecordType, memberShortName in record.members:
-                self._db_execute(
-                    """
-                    insert into GROUPS (GRPUID, MEMBER_RECORD_TYPE, MEMBER_UID)
-                    values (:1, :2, :3)
-                    """, uid, memberRecordType, memberShortName
-                )
+        # Check for members
+        for memberRecordType, memberShortName in record.members:
+            self._db_execute(
+                """
+                insert into GROUPS (GRPUID, MEMBER_RECORD_TYPE, MEMBER_UID)
+                values (:1, :2, :3)
+                """, uid, memberRecordType, memberShortName
+            )
                 
         # CUAddress
         for cuaddr in record.calendarUserAddresses:

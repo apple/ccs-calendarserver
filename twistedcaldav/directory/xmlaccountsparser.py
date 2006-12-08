@@ -83,6 +83,13 @@ class XMLAccountsParser(object):
         if node.hasAttribute(ATTRIBUTE_REALM):
             self.realm = node.getAttribute(ATTRIBUTE_REALM)
 
+        def updateMembership(group):
+            # Update group membership
+            for recordType, shortName in group.members:
+                item = self.items[recordType].get(shortName, None)
+                if item is not None:
+                    item.groups.add(group.uid)
+
         for child in node._get_childNodes():
             if child._get_localName() in (ELEMENT_USER, ELEMENT_GROUP, ELEMENT_RESOURCE):
                 if child.hasAttribute(ATTRIBUTE_REPEAT):
@@ -102,19 +109,10 @@ class XMLAccountsParser(object):
                     for i in xrange(1, repeat+1):
                         newprincipal = principal.repeat(i)
                         self.items[recordType][newprincipal.uid] = newprincipal
-                        if recordType == "group":
-                            self._updateMembership(newprincipal)
+                        updateMembership(newprincipal)
                 else:
                     self.items[recordType][principal.uid] = principal
-                    if recordType == "group":
-                        self._updateMembership(principal)
-
-    def _updateMembership(self, group):
-        # Update group membership
-        for recordType, shortName in group.members:
-            item = self.items[recordType].get(shortName, None)
-            if item is not None:
-                item.groups.add(group.uid)
+                    updateMembership(principal)
         
 class XMLAccountRecord (object):
     """
