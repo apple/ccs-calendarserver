@@ -42,8 +42,8 @@ class DirectoryCalendarHomeProvisioningResource (ReadOnlyResourceMixIn, DAVResou
     """
     def __init__(self, directory, url):
         """
-        @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision calendars from.
+        @param url: the canonical URL for the resource.
         """
         assert url.endswith("/"), "Collection URL must end in '/'"
 

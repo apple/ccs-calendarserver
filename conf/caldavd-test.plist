@@ -51,7 +51,7 @@ limitations under the License.
   <string>server.log</string>
 
   <key>ErrorLogFile</key>
-  <string>error.log</string>
+  <string>-</string>
 
   <key>ServerStatsFile</key>
   <string>stats.plist</string>

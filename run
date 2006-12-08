@@ -176,10 +176,9 @@ run () {
     fi;
 
     cd "${wd}";
-    exec "${python}" "${caldav}/bin/caldavd" ${daemonize} \
-        -f "${config}"                                    \
-        -T "${twisted}/bin/twistd"                        \
-        start;
+    exec /bin/sh "${caldav}/bin/caldavd" ${daemonize} \
+        -f "${config}"                                \
+        -T "${twisted}/bin/twistd";                    
     cd /;
   fi;
 }

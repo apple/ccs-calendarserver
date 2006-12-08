@@ -437,6 +437,7 @@ class CalendarHomeProvisioningFile (DirectoryCalendarHomeProvisioningResource, D
         """
         @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision calendars from.
+        @param url: the canonical URL for the resource.
         """
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeProvisioningResource.__init__(self, directory, url)
