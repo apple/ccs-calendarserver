@@ -118,7 +118,7 @@ class OpenDirectoryService(DirectoryService):
                     guid                  = guid,
                     shortName             = shortName,
                     fullName              = None, # FIXME: Need to get this attribute
-                    calendarUserAddresses = (), # FIXME: Should be able to look up email, etc.
+                    calendarUserAddresses = set(), # FIXME: Should be able to look up email, etc.
                     memberGUIDs           = memberGUIDs,
                 )
 

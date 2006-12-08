@@ -110,7 +110,7 @@ class XMLAccountsParser(object):
         # Update group membership
         for member in group.members:
             if self.items.has_key(member):
-                self.items[member].groups.append(group.uid)
+                self.items[member].groups.add(group.uid)
         
 class XMLAccountRecord (object):
     """
@@ -125,9 +125,9 @@ class XMLAccountRecord (object):
         self.uid = None
         self.password = None
         self.name = None
-        self.members = []
-        self.groups = []
-        self.calendarUserAddresses = []
+        self.members = set()
+        self.groups = set()
+        self.calendarUserAddresses = set()
         self.canproxy = False
 
     def repeat(self, ctr):
@@ -149,12 +149,12 @@ class XMLAccountRecord (object):
             name = self.name % ctr
         else:
             name = self.name
-        calendarUserAddresses = []
+        calendarUserAddresses = set()
         for cuaddr in self.calendarUserAddresses:
             if cuaddr.find("%") != -1:
-                calendarUserAddresses.append(cuaddr % ctr)
+                calendarUserAddresses.add(cuaddr % ctr)
             else:
-                calendarUserAddresses.append(cuaddr)
+                calendarUserAddresses.add(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
         result.uid = uid
@@ -181,7 +181,7 @@ class XMLAccountRecord (object):
                 self._parseMembers(child)
             elif child._get_localName() == ELEMENT_CUADDR:
                 if child.firstChild is not None:
-                   self.calendarUserAddresses.append(child.firstChild.data.encode("utf-8"))
+                   self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.uid)
                 self.canproxy = True
@@ -191,4 +191,4 @@ class XMLAccountRecord (object):
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_USERID:
                 if child.firstChild is not None:
-                   self.members.append(child.firstChild.data.encode("utf-8"))
+                   self.members.add(child.firstChild.data.encode("utf-8"))

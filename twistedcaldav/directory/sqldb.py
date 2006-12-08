@@ -87,25 +87,25 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             uid = row[0]
             password = row[1]
             name = row[2]
-            members = []
-            groups = []
-            calendarUserAddresses = []
+            members = set()
+            groups = set()
+            calendarUserAddresses = set()
     
             # See if we have a group
             if recordType == "group":
                 rowiter = self._db_execute("select UID from GROUPS where GRPUID = :1", uid)
                 for row in rowiter:
-                    members.append(row[0])
+                    members.add(row[0])
                 
             # See if we are a member of a group
             rowiter = self._db_execute("select GRPUID from GROUPS where UID = :1", uid)
             for row in rowiter:
-                groups.append(row[0])
+                groups.add(row[0])
                 
             # Get calendar user addresses
             rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
             for row in rowiter:
-                calendarUserAddresses.append(row[0])
+                calendarUserAddresses.add(row[0])
                 
             yield uid, password, name, members, groups, calendarUserAddresses
 
@@ -125,25 +125,25 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         uid = result[0]
         password = result[1]
         name = result[2]
-        members = []
-        groups = []
-        calendarUserAddresses = []
+        members = set()
+        groups = set()
+        calendarUserAddresses = set()
 
         # See if we have a group
         if recordType == "group":
             rowiter = self._db_execute("select UID from GROUPS where GRPUID = :1", uid)
             for row in rowiter:
-                members.append(row[0])
+                members.add(row[0])
             
         # See if we are a member of a group
         rowiter = self._db_execute("select GRPUID from GROUPS where UID = :1", uid)
         for row in rowiter:
-            groups.append(row[0])
+            groups.add(row[0])
             
         # Get calendar user addresses
         rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
         for row in rowiter:
-            calendarUserAddresses.append(row[0])
+            calendarUserAddresses.add(row[0])
             
         return uid, password, name, members, groups, calendarUserAddresses
             
