@@ -42,10 +42,10 @@ class Apache (object):
     }
 
     groups = {
-        "managers"   : { "members": ("lecroy",),                     "guid": None, "addresses": () },
-        "grunts"     : { "members": ("wsanchez", "cdaboo", "dreid"), "guid": None, "addresses": () },
-        "right_coast": { "members": ("cdaboo",),                     "guid": None, "addresses": () },
-        "left_coast" : { "members": ("wsanchez", "dreid", "lecroy"), "guid": None, "addresses": () },
+        "managers"   : { "guid": None, "addresses": (), "members": (("user", "lecroy"),)                                         },
+        "grunts"     : { "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "cdaboo"), ("user", "dreid")) },
+        "right_coast": { "guid": None, "addresses": (), "members": (("user", "cdaboo"),)                                         },
+        "left_coast" : { "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "dreid"), ("user", "lecroy")) },
     }
 
     resources = {

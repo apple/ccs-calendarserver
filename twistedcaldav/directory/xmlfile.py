@@ -82,9 +82,8 @@ class XMLDirectoryService(DirectoryService):
         return None
 
     def _entriesForRecordType(self, recordType):
-        for entry in self._accounts().itervalues():
-            if entry.recordType == recordType:
-                 yield entry.uid, entry
+        for entry in self._accounts()[recordType].itervalues():
+             yield entry.uid, entry
 
     def _accounts(self):
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
@@ -114,8 +113,8 @@ class XMLDirectoryRecord(DirectoryRecord):
         self._groups  = xmlPrincipal.groups
 
     def members(self):
-        for shortName in self._members:
-            yield self.service.recordWithShortName("user", shortName)
+        for recordType, shortName in self._members:
+            yield self.service.recordWithShortName(recordType, shortName)
 
     def groups(self):
         for shortName in self._groups:

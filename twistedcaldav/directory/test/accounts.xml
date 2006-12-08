@@ -22,7 +22,7 @@ limitations under the License.
   <user>
     <uid>admin</uid>
     <password>nimda</password>
-    <name>Super User</name>
+    <name>Administrators</name>
   </user>
   <user>
     <uid>proxy</uid>
@@ -64,7 +64,15 @@ limitations under the License.
     <password>managers</password>
     <name>Managers</name>
     <members>
-      <uid>lecroy</uid>
+      <member type="user">lecroy</member>
+    </members>
+  </group>
+  <group>
+    <uid>admin</uid>
+    <password>admin</password>
+    <name>Administrators</name>
+    <members>
+      <member type="group">managers</member>
     </members>
   </group>
   <group>
@@ -72,9 +80,9 @@ limitations under the License.
     <password>grunts</password>
     <name>We do all the work</name>
     <members>
-      <uid>wsanchez</uid>
-      <uid>cdaboo</uid>
-      <uid>dreid</uid>
+      <member>wsanchez</member>
+      <member>cdaboo</member>
+      <member>dreid</member>
     </members>
   </group>
   <group>
@@ -82,7 +90,7 @@ limitations under the License.
     <password>right_coast</password>
     <name>East Coast</name>
     <members>
-      <uid>cdaboo</uid>
+      <member>cdaboo</member>
     </members>
   </group>
   <group>
@@ -90,9 +98,18 @@ limitations under the License.
     <password>left_coast</password>
     <name>West Coast</name>
     <members>
-      <uid>wsanchez</uid>
-      <uid>lecroy</uid>
-      <uid>dreid</uid>
+      <member>wsanchez</member>
+      <member>lecroy</member>
+      <member>dreid</member>
+    </members>
+  </group>
+  <group>
+    <uid>both_coasts</uid>
+    <password>both_coasts</password>
+    <name>Both Coasts</name>
+    <members>
+      <member type="group">right_coast</member>
+      <member type="group">left_coast</member>
     </members>
   </group>
   <resource>

@@ -41,7 +41,7 @@ limitations under the License.
     <password>users</password>
     <name>Users Group</name>
     <members>
-      <uid>test</uid>
+      <member type="user">test</member>
     </members>
   </group>
   <resource>

@@ -31,20 +31,22 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.resource import CalDAVResource
 
-ELEMENT_ACCOUNTS    = "accounts"
-ELEMENT_USER        = "user"
-ELEMENT_GROUP       = "group"
-ELEMENT_RESOURCE    = "resource"
+ELEMENT_ACCOUNTS     = "accounts"
+ELEMENT_USER         = "user"
+ELEMENT_GROUP        = "group"
+ELEMENT_RESOURCE     = "resource"
 
-ELEMENT_USERID      = "uid"
-ELEMENT_PASSWORD    = "password"
-ELEMENT_NAME        = "name"
-ELEMENT_MEMBERS     = "members"
-ELEMENT_CUADDR      = "cuaddr"
-ELEMENT_CANPROXY    = "canproxy"
+ELEMENT_USERID       = "uid"
+ELEMENT_PASSWORD     = "password"
+ELEMENT_NAME         = "name"
+ELEMENT_MEMBERS      = "members"
+ELEMENT_MEMBER       = "member"
+ELEMENT_CUADDR       = "cuaddr"
+ELEMENT_CANPROXY     = "canproxy"
 
-ATTRIBUTE_REALM     = "realm"
-ATTRIBUTE_REPEAT    = "repeat"
+ATTRIBUTE_REALM      = "realm"
+ATTRIBUTE_REPEAT     = "repeat"
+ATTRIBUTE_RECORDTYPE = "type"
 
 class XMLAccountsParser(object):
     """
@@ -59,11 +61,11 @@ class XMLAccountsParser(object):
 
         self.xmlFile = xmlFile
         self.realm = None
-        self.items = {}
+        self.items = {"user": {}, "group": {}, "resource": {}}
 
         # Read in XML
         fd = open(self.xmlFile.path, "r")
-        doc = xml.dom.minidom.parse( fd )
+        doc = xml.dom.minidom.parse(fd)
         fd.close()
 
         # Verify that top-level element is correct
@@ -91,26 +93,28 @@ class XMLAccountsParser(object):
                 recordType = {
                     ELEMENT_USER:    "user",
                     ELEMENT_GROUP:   "group",
-                    ELEMENT_RESOURCE:"resource",}[child._get_localName()]
+                    ELEMENT_RESOURCE:"resource",
+                }[child._get_localName()]
                 
                 principal = XMLAccountRecord(recordType)
-                principal.parseXML( child )
+                principal.parseXML(child)
                 if repeat > 1:
                     for i in xrange(1, repeat+1):
                         newprincipal = principal.repeat(i)
-                        self.items[newprincipal.uid] = newprincipal
+                        self.items[recordType][newprincipal.uid] = newprincipal
                         if recordType == "group":
                             self._updateMembership(newprincipal)
                 else:
-                    self.items[principal.uid] = principal
+                    self.items[recordType][principal.uid] = principal
                     if recordType == "group":
                         self._updateMembership(principal)
 
     def _updateMembership(self, group):
         # Update group membership
-        for member in group.members:
-            if self.items.has_key(member):
-                self.items[member].groups.add(group.uid)
+        for recordType, shortName in group.members:
+            item = self.items[recordType].get(shortName, None)
+            if item is not None:
+                item.groups.add(group.uid)
         
 class XMLAccountRecord (object):
     """
@@ -118,9 +122,8 @@ class XMLAccountRecord (object):
     """
     def __init__(self, recordType):
         """
-        @param recordType:    record type for directory entry.
+        @param recordType: record type for directory entry.
         """
-        
         self.recordType = recordType
         self.uid = None
         self.password = None
@@ -136,7 +139,6 @@ class XMLAccountRecord (object):
         done on them with the numeric value provided.
         @param ctr: an integer to substitute into text.
         """
-        
         if self.uid.find("%") != -1:
             uid = self.uid % ctr
         else:
@@ -165,30 +167,32 @@ class XMLAccountRecord (object):
         result.canproxy = self.canproxy
         return result
 
-    def parseXML( self, node ):
-
+    def parseXML(self, node):
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_USERID:
                 if child.firstChild is not None:
-                   self.uid = child.firstChild.data.encode("utf-8")
+                    self.uid = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_NAME:
                 if child.firstChild is not None:
-                   self.name = child.firstChild.data.encode("utf-8")
+                    self.name = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_MEMBERS:
                 self._parseMembers(child)
             elif child._get_localName() == ELEMENT_CUADDR:
                 if child.firstChild is not None:
-                   self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
+                    self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.uid)
                 self.canproxy = True
 
-    def _parseMembers( self, node ):
-
+    def _parseMembers(self, node):
         for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_USERID:
+            if child._get_localName() == ELEMENT_MEMBER:
+                if child.hasAttribute(ATTRIBUTE_RECORDTYPE):
+                    recordType = child.getAttribute(ATTRIBUTE_RECORDTYPE)
+                else:
+                    recordType = "user"
                 if child.firstChild is not None:
-                   self.members.add(child.firstChild.data.encode("utf-8"))
+                    self.members.add((recordType, child.firstChild.data.encode("utf-8")))

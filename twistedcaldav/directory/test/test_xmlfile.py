@@ -42,10 +42,12 @@ class XMLFileBase(object):
     }
 
     groups = {
-        "managers"   : { "password": "managers",    "members": ("lecroy",),                     "guid": None, "addresses": () },
-        "grunts"     : { "password": "grunts",      "members": ("wsanchez", "cdaboo", "dreid"), "guid": None, "addresses": () },
-        "right_coast": { "password": "right_coast", "members": ("cdaboo",),                     "guid": None, "addresses": () },
-        "left_coast" : { "password": "left_coast",  "members": ("wsanchez", "dreid", "lecroy"), "guid": None, "addresses": () },
+        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": (("group", "managers"),)                                      },
+        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": (("user", "lecroy"),)                                         },
+        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "cdaboo"), ("user", "dreid")) },
+        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": (("user", "cdaboo"),)                                         },
+        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "dreid"), ("user", "lecroy")) },
+        "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": (("group", "right_coast"), ("group", "left_coast"))           },
     }
 
     resources = {

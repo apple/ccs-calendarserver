@@ -127,10 +127,11 @@ class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s] %s(%s) %r>" % (
+        return "<%s[%s@%s(%s)] %s(%s) %r>" % (
             self.__class__.__name__,
             self.recordType,
-            self.service,
+            self.service.guid,
+            self.service.realmName,
             self.guid,
             self.shortName,
             self.fullName

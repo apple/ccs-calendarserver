@@ -92,8 +92,9 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         self._db_execute("insert into SERVICE (REALM) values (:1)", parser.realm)
 
         # Now add records to db
-        for item in parser.items.itervalues():
-            self._add_to_db(item)
+        for item in parser.items.values():
+            for entry in item.itervalues():
+                self._add_to_db(entry)
         self._db_commit()
 
     def listRecords(self, recordType):
@@ -109,12 +110,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     
             # See if we have a group
             if recordType == "group":
-                rowiter = self._db_execute("select UID from GROUPS where GRPUID = :1", uid)
+                rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
                 for row in rowiter:
-                    members.add(row[0])
+                    members.add((row[0], row[1]))
                 
             # See if we are a member of a group
-            rowiter = self._db_execute("select GRPUID from GROUPS where UID = :1", uid)
+            rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
             for row in rowiter:
                 groups.add(row[0])
                 
@@ -147,12 +148,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
         # See if we have a group
         if recordType == "group":
-            rowiter = self._db_execute("select UID from GROUPS where GRPUID = :1", uid)
+            rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
             for row in rowiter:
-                members.add(row[0])
+                members.add((row[0], row[1]))
             
         # See if we are a member of a group
-        rowiter = self._db_execute("select GRPUID from GROUPS where UID = :1", uid)
+        rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
         for row in rowiter:
             groups.add(row[0])
             
@@ -165,26 +166,27 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             
     def _add_to_db(self, record):
         # Do regular account entry
-        type = record.recordType
+        recordType = record.recordType
         uid = record.uid
         password = record.password
         name = record.name
         canproxy = ('F', 'T')[record.canproxy]
+
         self._db_execute(
             """
             insert into ACCOUNTS (TYPE, UID, PSWD, NAME, CANPROXY)
             values (:1, :2, :3, :4, :5)
-            """, type, uid, password, name, canproxy
+            """, recordType, uid, password, name, canproxy
         )
         
         # Check for group
-        if type == "group":
-            for member in record.members:
+        if recordType == "group":
+            for memberRecordType, memberShortName in record.members:
                 self._db_execute(
                     """
-                    insert into GROUPS (GRPUID, UID)
-                    values (:1, :2)
-                    """, uid, member
+                    insert into GROUPS (GRPUID, MEMBER_RECORD_TYPE, MEMBER_UID)
+                    values (:1, :2, :3)
+                    """, uid, memberRecordType, memberShortName
                 )
                 
         # CUAddress
@@ -204,7 +206,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         """
         self._db_execute("delete from ACCOUNTS where UID = :1", uid)
         self._db_execute("delete from GROUPS where GRPUID = :1", uid)
-        self._db_execute("delete from GROUPS where UID = :1", uid)
+        self._db_execute("delete from GROUPS where MEMBER_UID = :1", uid)
         self._db_execute("delete from CUADDRS where UID = :1", uid)
     
     def _db_type(self):
@@ -230,7 +232,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             """
             create table ACCOUNTS (
                 TYPE           text,
-                UID            text unique,
+                UID            text,
                 PSWD           text,
                 NAME           text,
                 CANPROXY       text(1)
@@ -244,8 +246,9 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         q.execute(
             """
             create table GROUPS (
-                GRPUID     text,
-                UID        text
+                GRPUID              text,
+                MEMBER_RECORD_TYPE  text,
+                MEMBER_UID          text
             )
             """
         )
@@ -334,8 +337,8 @@ class SQLDirectoryRecord(DirectoryRecord):
         self._groups  = groups
 
     def members(self):
-        for shortName in self._members:
-            yield self.service.recordWithShortName("user", shortName)
+        for recordType, shortName in self._members:
+            yield self.service.recordWithShortName(recordType, shortName)
 
     def groups(self):
         for shortName in self._groups:

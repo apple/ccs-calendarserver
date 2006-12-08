@@ -163,9 +163,11 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         service = self.service()
         for group in self.groups:
             groupRecord = service.recordWithShortName("group", group)
+            result = set((m.recordType, m.shortName) for m in groupRecord.members())
+            expected = set(self.groups[group]["members"])
             self.assertEquals(
-                set(m.shortName for m in groupRecord.members()),
-                set(self.groups[group]["members"])
+                result, expected,
+                "Wrong membership for group %r: %s != %s" % (group, result, expected)
             )
 
     def test_groupMemberships(self):
@@ -177,13 +179,19 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         if not self.groups:
             raise SkipTest("No groups")
 
-        service = self.service()
-        for user in self.users:
-            userRecord = service.recordWithShortName("user", user)
-            self.assertEquals(
-                set(g.shortName for g in userRecord.groups()),
-                set(g for g in self.groups if user in self.groups[g]["members"])
-            )
+        for recordType, data in (
+            ( "user" , self.users  ),
+            ( "group", self.groups ),
+        ):
+            service = self.service()
+            for shortName in data:
+                record = service.recordWithShortName(recordType, shortName)
+                result = set(g.shortName for g in record.groups())
+                expected = set(g for g in self.groups if (record.recordType, shortName) in self.groups[g]["members"])
+                self.assertEquals(
+                    result, expected,
+                    "Wrong groups for %s %r: %s != %s" % (record.recordType, shortName, result, expected)
+                )
 
     def recordNames(self, recordType):
         return set(r.shortName for r in self.service().listRecords(recordType))
