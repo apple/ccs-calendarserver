@@ -1,0 +1,13 @@
+Index: README.txt
+===================================================================
+--- README.txt	(revision 164)
++++ README.txt	(working copy)
+@@ -193,7 +193,7 @@
+ serializing will add any required computable attributes (like 'VERSION')
+ 
+ >>> j.serialize()
+-u'BEGIN:VCARD\r\nVERSION:3.0\r\nEMAIL;TYPE=INTERNET:jeffrey@osafoundation.org\r\nFN:Jeffrey Harris\r\nN:Harris;Jeffrey;;;\r\nEND:VCARD\r\n'
++'BEGIN:VCARD\r\nVERSION:3.0\r\nEMAIL;TYPE=INTERNET:jeffrey@osafoundation.org\r\nFN:Jeffrey Harris\r\nN:Harris;Jeffrey;;;\r\nEND:VCARD\r\n'
+ >>> j.prettyPrint()
+  VCARD
+     VERSION: 3.0
