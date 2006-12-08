@@ -21,47 +21,47 @@ limitations under the License.
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
-    <pswd>nimda</pswd>
+    <password>nimda</password>
     <name>Super User</name>
   </user>
   <user>
     <uid>proxy</uid>
-    <pswd>yxorp</pswd>
+    <password>yxorp</password>
     <name>User who can authorize as someone else</name>
     <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
   <user>
     <uid>wsanchez</uid>
-    <pswd>zehcnasw</pswd>
+    <password>zehcnasw</password>
     <name>Wilfredo Sanchez</name>
     <cuaddr>mailto:wsanchez@example.com</cuaddr>
   </user>
   <user>
     <uid>cdaboo</uid>
-    <pswd>oobadc</pswd>
+    <password>oobadc</password>
     <name>Cyrus Daboo</name>
     <cuaddr>mailto:cdaboo@example.com</cuaddr>
   </user>
   <user>
     <uid>lecroy</uid>
-    <pswd>yorcel</pswd>
+    <password>yorcel</password>
     <name>Chris Lecroy</name>
     <cuaddr>mailto:lecroy@example.com</cuaddr>
   </user>
   <user>
     <uid>dreid</uid>
-    <pswd>dierd</pswd>
+    <password>dierd</password>
     <name>David Reid</name>
     <cuaddr>mailto:dreid@example.com</cuaddr>
   </user>
   <user repeat="2">
     <uid>user%02d</uid>
-    <pswd>%02duser</pswd>
+    <password>%02duser</password>
     <name>User %02d</name>
   </user>
   <group>
     <uid>managers</uid>
-    <pswd>managers</pswd>
+    <password>managers</password>
     <name>Managers</name>
     <members>
       <uid>lecroy</uid>
@@ -69,7 +69,7 @@ limitations under the License.
   </group>
   <group>
     <uid>grunts</uid>
-    <pswd>grunts</pswd>
+    <password>grunts</password>
     <name>We do all the work</name>
     <members>
       <uid>wsanchez</uid>
@@ -79,7 +79,7 @@ limitations under the License.
   </group>
   <group>
     <uid>right_coast</uid>
-    <pswd>right_coast</pswd>
+    <password>right_coast</password>
     <name>East Coast</name>
     <members>
       <uid>cdaboo</uid>
@@ -87,7 +87,7 @@ limitations under the License.
   </group>
   <group>
     <uid>left_coast</uid>
-    <pswd>left_coast</pswd>
+    <password>left_coast</password>
     <name>West Coast</name>
     <members>
       <uid>wsanchez</uid>
@@ -97,19 +97,19 @@ limitations under the License.
   </group>
   <resource>
     <uid>mercury</uid>
-    <pswd>mercury</pswd>
+    <password>mercury</password>
     <name>Mecury Seven</name>
     <cuaddr>mailto:mercury@example.com</cuaddr>
   </resource>
   <resource>
     <uid>gemini</uid>
-    <pswd>gemini</pswd>
+    <password>gemini</password>
     <name>Gemini Twelve</name>
     <cuaddr>mailto:gemini@example.com</cuaddr>
   </resource>
   <resource>
     <uid>apollo</uid>
-    <pswd>apollo</pswd>
+    <password>apollo</password>
     <name>Apollo Eleven</name>
     <cuaddr>mailto:apollo@example.com</cuaddr>
   </resource>

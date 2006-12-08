@@ -37,7 +37,7 @@ ELEMENT_GROUP       = "group"
 ELEMENT_RESOURCE    = "resource"
 
 ELEMENT_USERID      = "uid"
-ELEMENT_PASSWORD    = "pswd"
+ELEMENT_PASSWORD    = "password"
 ELEMENT_NAME        = "name"
 ELEMENT_MEMBERS     = "members"
 ELEMENT_CUADDR      = "cuaddr"

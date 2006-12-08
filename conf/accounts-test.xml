@@ -21,30 +21,30 @@ limitations under the License.
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
-    <pswd>admin</pswd>
+    <password>admin</password>
     <name>Super User</name>
   </user>
   <user>
     <uid>proxy</uid>
-    <pswd>proxy</pswd>
+    <password>proxy</password>
     <name>User who can authorize as someone else</name>
     <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
   <user repeat="99">
     <uid>user%02d</uid>
-    <pswd>user%02d</pswd>
+    <password>user%02d</password>
     <name>User %02d</name>
     <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
-    <pswd>public%02d</pswd>
+    <password>public%02d</password>
     <name>Public %02d</name>
     <cuaddr>mailto:public%02d@example.com</cuaddr>
   </user>
   <resource repeat="10">
     <uid>resource%02d</uid>
-    <pswd>resource%02d</pswd>
+    <password>resource%02d</password>
     <name>Room %02d</name>
   </resource>
 </accounts>

@@ -78,7 +78,7 @@ class XMLFile (
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
-    <pswd>nimda</pswd>
+    <password>nimda</password>
     <name>Super User</name>
   </user>
 </accounts>

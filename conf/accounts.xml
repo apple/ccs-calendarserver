@@ -21,24 +21,24 @@ limitations under the License.
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
-    <pswd>admin</pswd>
+    <password>admin</password>
     <name>Super User</name>
   </user>
   <user>
     <uid>proxy</uid>
-    <pswd>proxy</pswd>
+    <password>proxy</password>
     <name>User who can authorize as someone else</name>
     <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
   </user>
   <user>
     <uid>test</uid>
-    <pswd>test</pswd>
+    <password>test</password>
     <name>Test User</name>
     <cuaddr>mailto:testuser@example.com</cuaddr>
   </user>
   <group>
     <uid>users</uid>
-    <pswd>users</pswd>
+    <password>users</password>
     <name>Users Group</name>
     <members>
       <uid>test</uid>
@@ -46,7 +46,7 @@ limitations under the License.
   </group>
   <resource>
     <uid>mercury</uid>
-    <pswd>mercury</pswd>
+    <password>mercury</password>
     <name>Mecury Conference Room, Building 1, 2nd Floor</name>
   </resource>
 </accounts>
