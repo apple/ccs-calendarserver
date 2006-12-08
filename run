@@ -136,7 +136,11 @@ if [ -z "${config:-}" ]; then
   config="${wd}/conf/caldavd-dev.plist";
 fi;
 
-export PYTHONPATH="${caldav}";
+if [ -z "${PYTHONPATH:-}" ]; then
+  user_python_path="";
+else
+  user_python_path=":${PYTHONPATH}";
+fi;
 
        py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
         py_version="$(py_version "${python}")";
@@ -151,6 +155,8 @@ svn_uri_base="$(svn info "${caldav}" --xml 2>/dev/null | sed -n 's|^.*<root>\(.*
 if [ -z "${svn_uri_base}" ]; then
   svn_uri_base="http://svn.macosforge.org/repository/calendarserver";
 fi;
+
+export PYTHONPATH="${caldav}";
 
 ##
 # Download and set up dependancies
@@ -543,5 +549,7 @@ fi;
 ##
 # Run the server
 ##
+
+export PYTHONPATH="${PYTHONPATH}${user_python_path}";
 
 run;
