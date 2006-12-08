@@ -254,12 +254,15 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
             return "".join(genlist())
 
         output = ("".join((
-            "Principal resource\n"
-            "------------------\n"
+            "Directory Information\n"
+            "---------------------\n"
+            "Directory GUID: %s\n"         % (self.record.service.guid,),
+            "Realm: %s\n"                  % (self.record.service.realmName,),
             "\n"
-           #"Directory service: %s\n"      % (self.record.service,),
-            "Record type: %s\n"            % (self.record.recordType,),
+            "Principal Information\n"
+            "---------------------\n"
             "GUID: %s\n"                   % (self.record.guid,),
+            "Record type: %s\n"            % (self.record.recordType,),
             "Short name: %s\n"             % (self.record.shortName,),
             "Full name: %s\n"              % (self.record.fullName,),
             "Principal UID: %s\n"          % (self.principalUID(),),
