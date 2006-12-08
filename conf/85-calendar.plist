@@ -3,37 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>ServiceName</key>
-    <string>calendar</string>
+    <string>calendarServer</string>
     
     <key>RestoreBinaryPath</key>
-	<string>/usr/libexec/sbs_backup/calendar_restore</string>
-	<key>RestoreLog</key>
-	<string>/private/var/log/sbs_backup/calendar_restore.log</string>
-	<key>RestoreActions</key>
-	<dict>
-		<key>Configuration</key>
-		<string>configuration</string>
-		<key>Data</key>
-		<string>data</string>
-		<key>Default</key>
-		<string>all</string>
-		<key>Browse</key>
-		<string>browse</string>
-	</dict>
-
-	<key>VerifyBinaryPath</key>
-	<string>/usr/libexec/sbs_backup/sharePoints_verify</string>
-	<key>VerifyLog</key>
-	<string>/private/var/log/sbs_backup/sharePoints_verify.log</string>
-	<key>VerifyActions</key>
-	<dict>
-		<key>Configuration</key>
-		<string>configuration</string>
-		<key>Data</key>
-		<string>data</string>
-		<key>Default</key>
-		<string>all</string>
-	</dict>
+    <string>/usr/libexec/sbs_backup/calendar_restore</string>
+    <key>RestoreLog</key>
+    <string>/private/var/log/sbs_backup/calendar_restore.log</string>
+    <key>RestoreActions</key>
+    <dict>
+        <key>Default</key>
+        <string>all</string>
+        <key>Browse</key>
+        <string>browse</string>
+    </dict>
 
     <key>Version</key>
     <string>10.5</string>

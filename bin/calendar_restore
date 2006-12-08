@@ -19,155 +19,74 @@
 
 import os
 import sys
-import shutil
 import fnmatch
 import plistlib
-import tempfile
-import commands
 
-from twistedcaldav.backup import *
+ServiceConf = "85-calendarServer.plist"
 
-SERVICE = "calendar"
+configFile = "/private/etc/caldavd/caldavd.plist"
 
-ServiceConf = "85-calendar.plist"
-
-etcPath = "/private/etc/caldavd"
-configFile = "caldavd.plist"
+documentRoot = "/Library/CalendarServer/Documents/"
 
 removePatterns = ['.db.sqlite']
 
-@logFuncCall
-def restore_data(src, tmp, dst):
-    debug('restoring data')
 
-    docRoot = readConfig('/'.join((src,
-                                   etcPath,
-                                   configFile)))['DocumentRoot']
-
-    srcDoc = '/'.join((src, docRoot))
-    tmpDoc = '/'.join((tmp, docRoot))
-    dstDoc = '/'.join((dst, docRoot))
-
-    mkroot(tmpDoc)
-
-    copy(srcDoc, tmpDoc)
-
-    purge(tmpDoc, removePatterns)
-
-    wasRunning = isRunning(SERVICE)
-
-    if wasRunning:
-        serveradmin('stop', SERVICE)
-
-    bakDoc = dstDoc.rstrip('/') + '.bak'
-
-    move(dstDoc, bakDoc)
-
-    try:
-        move(tmpDoc, dstDoc)
-
-    except OSError:
-        move(bakDoc, dstDoc)
-
-    else:
-        remove(bakDoc)
-
-    if wasRunning:
-        serveradmin('start', SERVICE)
-
-    debug('restoring data done')
+class Options(dict):
+    def parseOpts(self, argv):
+        for x in xrange(0, len(argv)):
+            opt = argv[x]
+            if opt.startswith('-'):
+                self[opt.strip('-')] = argv[x+1]
 
 
-@logFuncCall
-def restore_configuration(src, tmp, dst):
-    debug('restoring configuration')
+def cleanDocRoot():
+    root = None
+    if os.path.exists(configFile):
+        root = plistlib.readPlist(configFile)['DocumentRoot']
+        
+        if not root and os.path.exists(configFile + '.default'):
+            root = plistlib.readPlist(configFile + '.default')['DocumentRoot']
 
-    srcEtc = '/'.join((src, etcPath))
-    tmpEtc = '/'.join((tmp, etcPath))
-    dstEtc = '/'.join((dst, etcPath))
+            if not root: 
+                root = documentRoot
 
-    mkroot(tmpEtc)
-
-    copy(srcEtc, tmpEtc)
-
-    debug('restoring configuration done')
-
-
-@logFuncCall
-def cmd_restore(options):
-    imgPath = options['imgPath']
-    target = options['target']
-    log = options['log']
-    opt = options['opt']
-
-    if opt not in ['all', 'data', 'configuration']:
-        print "Unknown -opt value %s" % (opt,)
+    if not root:
+        print "Could not find document root"
         sys.exit(1)
 
-    sourceRoot = '/'.join(imgPath.split('/')[:-2])
-    tmpRoot = tempfile.mktemp(prefix='calendar_restore-')
-    dstRoot = target
+    removed = []
 
-    if opt in ['all', 'configuration']:
-        restore_configuration(sourceRoot, tmpRoot, dstRoot)
+    for root, dirs, files in os.walk(root):
+        dirs.extend(files)
+        for file in dirs:
+            for pat in removePatterns:
+                if fnmatch.fnmatch(file, pat):
+                    full = os.path.join(root, file)
 
-    if opt in ['all', 'data']:
-        restore_data(sourceRoot, tmpRoot, dstRoot)
+                    os.remove(full)
 
-
-@logFuncCall
-def cmd_browse(options):
-    pass
-
-
-@logFuncCall
-def cmd_actions(options):
-    pl = plistlib.readPlist(os.path.join(SBSCONF, ServiceConf))
-    for k,v in pl['RestoreActions'].iteritems():
-        print "%s: %s" % (k,v)
+                    removed.append(full)
+                  
+    return removed
 
 
-@logFuncCall
-def cmd_help(options):
-    print "Usage:"
-    print " -cmd actions :"
-    print "    Print out the supported actions from the config file"
-    print " -cmd browse -imgPath path :"
-    print "    Show browse information for the given path"
-    print " -cmd restore -imgPath path -opt option -target target"
-    print ("    Restore the files specified by option from the given path to "
-           "the target")
-    print " -cmd help : Display usage"
-    print " -cmd version : Display version"
-
-
-@logFuncCall
-def cmd_version(options):
-    pl = plistlib.readConfig(os.path.join(SBSCONF, ServiceConf))
-    print pl['Version']
+def cmd_restore(options):
+    cleanDocRoot()
 
 
 if __name__ == '__main__':
-    debug("calendar_restore was called")
-
     options = Options({'cmd': None,
                        'target': None,
-                       'imgPath': None,
+                       'path': None,
                        'log': None,
                        'opt': 'all'})
 
     options.parseOpts(sys.argv[1:])
-
-    debug("parsing options: %s" % (options,))
     
     cmd = globals().get('cmd_%s' % (options['cmd'],), None)
-
-    debug("found command: %s" % (cmd,))
 
     if not cmd:
         print "Unknown Command: %s" % (options['cmd'],)
         sys.exit(1)
 
     cmd(options)
-
-    debug("calendar_restore done")
