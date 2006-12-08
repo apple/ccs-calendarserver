@@ -20,9 +20,13 @@
 
 import os
 
-for ctr in xrange(1, 21):
-    path = "calendars/user/user%02d" % (ctr,)
-    if not os.path.exists("%s/calendar.1000/" % (path,)):
-        print "Expanding to %s" % (path,)
-        cmd = "cd %s; tar zxf ../../../calendar.1000.tgz" % (path,)
-        os.system(cmd)
+user_max = 20
+calendars = ("calendar.10", "calendar.100", "calendar.1000",)
+
+for calendar in calendars:
+    for ctr in xrange(1, user_max + 1):
+        path = "calendars/user/user%02d" % (ctr,)
+        if not os.path.exists("%s/%s/" % (path, calendar,)):
+            print "Expanding %s to %s" % (calendar, path,)
+            cmd = "cd %s; tar zxf ../../../%s.tgz" % (path, calendar,)
+            os.system(cmd)
