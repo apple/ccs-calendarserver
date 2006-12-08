@@ -35,8 +35,17 @@ class XMLDirectoryService(DirectoryService):
     """
     XML based implementation of L{IDirectoryService}.
     """
+    baseGUID = "9CA8DEC5-5A17-43A9-84A8-BE77C1FB9172"
+
+    def _getRealmName(self):
+        if not hasattr(self, "_realmName"):
+            self._accounts()
+        return self._realmName
+
+    realmName = property(_getRealmName)
+
     def __repr__(self):
-        return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
+        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
 
     def __init__(self, xmlFile):
         super(XMLDirectoryService, self).__init__()
@@ -82,7 +91,7 @@ class XMLDirectoryService(DirectoryService):
         if fileInfo != self._fileInfo:
             parser = XMLAccountsParser(self.xmlFile)
             self._parsedAccounts = parser.items
-            self.realmName = parser.realm
+            self._realmName = parser.realm
             self._fileInfo = fileInfo
         return self._parsedAccounts
 

@@ -43,6 +43,10 @@ def uuidFromName(namespace, name):
         bytes = chr((namespace >> shift) & 0xff) + bytes
     namespace = bytes
 
+    # We don't want Unicode here; convert to UTF-8
+    if type(name) is unicode:
+        name = name.encode("utf-8")
+
     # Start with a SHA-1 hash of the namespace and name
     uuid = sha(namespace + name).digest()[:16]
 

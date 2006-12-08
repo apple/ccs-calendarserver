@@ -56,29 +56,45 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     House keeping operations on the SQL DB, including loading from XML file,
     and record dumping. This can be used as a standalong DB management tool.
     """
+    dbType = "DIRECTORYSERVICE"
+    dbFilename = ".db.accounts"
+    dbFormatVersion = "1"
 
-    DBTYPE = "DIRECTORYSERVICE"
-    DBNAME = ".db.accounts"
-    DBVERSION = "1"
-    ACCOUNTDB = "ACCOUNTS"
-    GROUPSDB = "GROUPS"
-    CUADDRDB = "CUADDRS"
+    def _getRealmName(self):
+        #
+        # This is used frequently enough that it's worth caching.
+        # Downside is that changing the realm name (with SQL directly) requires
+        # a server restart.
+        #
+        if not hasattr(self, "_realmName"):
+            realmName = None
+            for row in self._db_execute("select REALM from SERVICE"):
+                assert realmName is None
+                realmName = row[0]
+            self._realmName = realmName
+        return self._realmName
+
+    realmName = property(_getRealmName)
 
     def __init__(self, path):
-        path = os.path.join(path, SQLDirectoryManager.DBNAME)
-        super(SQLDirectoryManager, self).__init__(path, SQLDirectoryManager.DBVERSION)
+        path = os.path.join(path, SQLDirectoryManager.dbFilename)
+        super(SQLDirectoryManager, self).__init__(path, SQLDirectoryManager.dbFormatVersion)
 
     def loadFromXML(self, xmlFile):
-       xmlAccounts = XMLAccountsParser(xmlFile)
+        parser = XMLAccountsParser(xmlFile)
        
-       # Totally wipe existing DB and start from scratch
-       if os.path.exists(self.dbpath):
-           os.remove(self.dbpath)
+        # Totally wipe existing DB and start from scratch
+        if os.path.exists(self.dbpath):
+            os.remove(self.dbpath)
 
-       # Now add records to db
-       for item in xmlAccounts.items.itervalues():
-           self._add_to_db(item)
-       self._db_commit()
+        self._realmName = parser.realm
+
+        self._db_execute("insert into SERVICE (REALM) values (:1)", parser.realm)
+
+        # Now add records to db
+        for item in parser.items.itervalues():
+            self._add_to_db(item)
+        self._db_commit()
 
     def listRecords(self, recordType):
         # Get each account record
@@ -195,13 +211,18 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         """
         @return: the collection type assigned to this index.
         """
-        return SQLDirectoryManager.DBTYPE
+        return SQLDirectoryManager.dbType
         
     def _db_init_data_tables(self, q):
         """
         Initialise the underlying database tables.
         @param q:           a database cursor to use.
         """
+        #
+        # SERVICE table
+        #
+        q.execute("create table SERVICE (REALM text)")
+
         #
         # ACCOUNTS table
         #
@@ -245,8 +266,11 @@ class SQLDirectoryService(DirectoryService):
     """
     XML based implementation of L{IDirectoryService}.
     """
+    baseGUID = "8256E464-35E0-4DBB-A99C-F0E30C231675"
+    realmName = property(lambda self: self.manager.realmName)
+
     def __repr__(self):
-        return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
+        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
 
     def __init__(self, dbParentPath, xmlFile = None):
         super(SQLDirectoryService, self).__init__()

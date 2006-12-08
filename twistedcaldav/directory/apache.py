@@ -38,9 +38,9 @@ class AbstractDirectoryService(DirectoryService):
     Abstract Apache-compatible implementation of L{IDirectoryService}.
     """
     def __repr__(self):
-        return "<%s %r %r>" % (self.__class__.__name__, self.userFile, self.groupFile)
+        return "<%s %r: %r %r>" % (self.__class__.__name__, realmName, self.userFile, self.groupFile)
 
-    def __init__(self, userFile, groupFile=None):
+    def __init__(self, realmName, userFile, groupFile=None):
         super(AbstractDirectoryService, self).__init__()
 
         if type(userFile) is str:
@@ -48,6 +48,7 @@ class AbstractDirectoryService(DirectoryService):
         if type(groupFile) is str:
             groupFile = FilePath(groupFile)
 
+        self.realmName = realmName
         self.userFile = userFile
         self.groupFile = groupFile
 
@@ -163,6 +164,7 @@ class BasicDirectoryService(AbstractDirectoryService):
     """
     Apache UserFile/GroupFile implementation of L{IDirectoryService}.
     """
+    baseGUID = "DDF1E45C-CADE-4FCD-8AE6-B4B41D72B325"
     userRecordClass = BasicUserRecord
 
 class DigestUserRecord(AbstractUserRecord):
@@ -176,6 +178,7 @@ class DigestDirectoryService(AbstractDirectoryService):
     """
     Apache DigestUserFile/GroupFile implementation of L{IDirectoryService}.
     """
+    baseGUID = "0C719D1B-0A14-4074-8740-6D96A7D0C787"
     userRecordClass = DigestUserRecord
 
 class GroupRecord(AbstractDirectoryRecord):

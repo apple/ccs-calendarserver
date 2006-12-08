@@ -29,14 +29,17 @@ __all__ = [
 ]
 
 import sys
+from urllib import quote
 
 from zope.interface import implements
 
+from twisted.python import log
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
+from twistedcaldav.directory.util import uuidFromName
 
 class DirectoryService(object):
     implements(IDirectoryService, ICredentialsChecker)
@@ -46,6 +49,25 @@ class DirectoryService(object):
     ##
 
     realmName = None
+
+    def _generatedGUID(self):
+        if not hasattr(self, "_guid"):
+            realmName = self.realmName
+
+            assert self.baseGUID, "Class %s must provide a baseGUID attribute" % (self.__class__.__name__,)
+
+            if realmName is None:
+                log.err("Directory service %s has no realm name or GUID; generated service GUID will not be unique.")
+                realmName = ""
+            else:
+                log.err("Directory service %s has no GUID; generating service GUID from realm name.")
+
+            self._guid = uuidFromName(self.baseGUID, realmName)
+
+        return self._guid
+
+    baseGUID = None
+    guid = property(_generatedGUID)
 
     ##
     # ICredentialsChecker
@@ -67,7 +89,10 @@ class DirectoryService(object):
             raise UnauthorizedLogin("No such user: %s" % (user,))
 
         if user.verifyCredentials(credentials.credentials):
-            return (credentials.authnPrincipal.principalURL(), credentials.authzPrincipal.principalURL())
+            return (
+                credentials.authnPrincipal.principalURL(),
+                credentials.authzPrincipal.principalURL(),
+            )
         else:
             raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
@@ -112,6 +137,15 @@ class DirectoryRecord(object):
         )
 
     def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses):
+        assert service.realmName is not None
+        assert recordType
+        assert shortName
+
+        if not guid:
+            guid = uuidFromName(service.guid, "%s:%s" % (recordType, shortName))
+
+        calendarUserAddresses.add("urn:uuid:%s" % (guid,))
+
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid

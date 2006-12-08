@@ -338,7 +338,7 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
     ##
 
     def principalUID(self):
-        return self.record.shortName
+        return self.record.guid
         
     def calendarUserAddresses(self):
         # Add the principal URL to whatever calendar user addresses

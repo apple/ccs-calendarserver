@@ -52,7 +52,7 @@ class Apache (object):
     }
 
     def service(self):
-        return self.serviceClass(self.userFile(), self.groupFile())
+        return self.serviceClass(digestRealm, self.userFile(), self.groupFile())
 
     userFileName = None
 
@@ -78,7 +78,7 @@ class Apache (object):
         """
         IDirectoryService.recordTypes(userFile)
         """
-        self.assertEquals(set(self.serviceClass(self.userFile()).recordTypes()), set(("user",)))
+        self.assertEquals(set(self.serviceClass(digestRealm, self.userFile()).recordTypes()), set(("user",)))
 
     userEntry = None
 

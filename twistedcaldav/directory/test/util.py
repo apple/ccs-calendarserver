@@ -16,6 +16,8 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
+from urllib import quote
+
 import twisted.trial.unittest
 from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
@@ -45,6 +47,12 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         Returns an IDirectoryService.
         """
         raise NotImplementedError("Subclass needs to implement service()")
+
+    def test_realm(self):
+        """
+        IDirectoryService.realm
+        """
+        self.failUnless(self.service().realmName)
 
     def test_recordTypes(self):
         """
@@ -196,10 +204,21 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             else:
                 return None
 
+        guid = value("guid")
+        if guid is not None:
+            guid = record.guid
+
+        addresses = set(value("addresses"))
+        addresses.add("urn:uuid:%s" % (record.guid,))
+
         self.assertEquals(record.shortName, shortName)
-        self.assertEquals(record.guid, value("guid"))
-        self.assertEquals(set(record.calendarUserAddresses), set(value("addresses")))
-        #self.assertEquals(record.fullName, value("name")) # FIXME
+        self.assertEquals(set(record.calendarUserAddresses), addresses)
+
+        if value("guid"):
+            self.assertEquals(record.guid, value("guid"))
+
+        if value("name"):
+            self.assertEquals(record.fullName, value("name"))
 
 class BasicTestCase (DirectoryTestCase):
     """

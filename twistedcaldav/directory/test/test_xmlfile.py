@@ -75,7 +75,7 @@ class XMLFile (
         self.xmlFile().open("w").write(
 """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
-<accounts>
+<accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
     <pswd>nimda</pswd>

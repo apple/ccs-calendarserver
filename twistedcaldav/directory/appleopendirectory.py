@@ -43,8 +43,10 @@ class OpenDirectoryService(DirectoryService):
     """
     Open Directory implementation of L{IDirectoryService}.
     """
+    baseGUID = "891F8321-ED02-424C-BA72-89C32F215C1E"
+
     def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, self.node)
+        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
     def __init__(self, node="/Search"):
         """
@@ -54,6 +56,7 @@ class OpenDirectoryService(DirectoryService):
         if directory is None:
             raise OpenDirectoryInitError("Failed to open Open Directory Node: %s" % (node,))
 
+        self.realmName = node
         self.directory = directory
         self.node = node
         self._records = {}

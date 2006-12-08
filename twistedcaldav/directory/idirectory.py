@@ -32,6 +32,7 @@ class IDirectoryService(Interface):
     Directory Service
     """
     realmName = Attribute("The name of the authentication realm this service represents.")
+    guid = Attribute("A GUID for this service.")
 
     def recordTypes():
         """
