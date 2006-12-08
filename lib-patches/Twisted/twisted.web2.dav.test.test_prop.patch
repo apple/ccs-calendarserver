@@ -11,7 +11,7 @@ Index: twisted/web2/dav/test/test_prop.py
  
  import random
  
-@@ -37,8 +39,15 @@
+@@ -37,8 +39,14 @@
  from twisted.web2.dav.test.util import serialize
  import twisted.web2.dav.test.util
  
@@ -23,7 +23,6 @@ Index: twisted/web2/dav/test/test_prop.py
 +)
  
 +live_properties = [lookupElement(qname)() for qname in DAVResource.liveProperties if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
-+print live_properties
 +
  #
  # See whether dead properties are available
