@@ -44,11 +44,11 @@ def cleanDocRoot():
     if os.path.exists(configFile):
         root = plistlib.readPlist(configFile)['DocumentRoot']
         
-        if not root and os.path.exists(configFile + '.default'):
-            root = plistlib.readPlist(configFile + '.default')['DocumentRoot']
+    if not root and os.path.exists(configFile + '.default'):
+        root = plistlib.readPlist(configFile + '.default')['DocumentRoot']
 
-            if not root: 
-                root = documentRoot
+        if not root: 
+            root = documentRoot
 
     if not root:
         print "Could not find document root"
