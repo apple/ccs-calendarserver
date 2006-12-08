@@ -2,12 +2,7 @@ Index: tests/tests.py
 ===================================================================
 --- tests/tests.py	(revision 164)
 +++ tests/tests.py	(working copy)
-@@ -1,3 +1,4 @@
-+# -*- coding: latin-1 -*-
- """Long or boring tests for vobjects."""
- 
- # add source directory to front of sys path
-@@ -280,7 +281,7 @@
+@@ -280,7 +280,7 @@
      >>> silly.stuff
      <STUFF{}foldedline>
      >>> original = silly.serialize()
@@ -16,7 +11,7 @@ Index: tests/tests.py
      >>> silly2 = base.readOne(f3)
      >>> silly2.serialize()==original
      True
-@@ -289,7 +290,7 @@
+@@ -289,7 +289,7 @@
      >>> ex1
      <*unnamed*| [<CN{}Babs Jensen>, <CN{}Barbara J Jensen>, <EMAIL{}babs@umich.edu>, <PHONE{}+1 313 747-4454>, <SN{}Jensen>, <X-ID{}1234567890>]>
      >>> ex1.serialize()
@@ -25,7 +20,7 @@ Index: tests/tests.py
      """,
      
      "Import icaltest" :
-@@ -306,7 +307,7 @@
+@@ -306,7 +306,7 @@
      >>> c.vevent.valarm.description.value
      u'Event reminder, with comma\nand line feed'
      >>> c.vevent.valarm.description.serialize()
@@ -34,7 +29,7 @@ Index: tests/tests.py
      >>> vevent = c.vevent.transformFromNative()
      >>> vevent.rrule
      <RRULE{}FREQ=Weekly;COUNT=10>
-@@ -352,6 +353,7 @@
+@@ -352,6 +352,7 @@
      >>> vevent.summary.value
      u'The title \u3053\u3093\u306b\u3061\u306f\u30ad\u30c6\u30a3'
      >>> summary = vevent.summary.value
@@ -42,7 +37,7 @@ Index: tests/tests.py
      """,
      
      # make sure date valued UNTILs in rrules are in a reasonable timezone,
-@@ -690,9 +692,9 @@
+@@ -690,9 +691,9 @@
      u'home'
      >>> card.group = card.tel.group = 'new'
      >>> card.tel.serialize().strip()
