@@ -90,8 +90,8 @@ setup(
     author_email     = None,
     license          = None,
     platforms        = [ "all" ],
-    packages         = [ "twistedcaldav", "twistedcaldav.directory", "twistedcaldav.method", "twistedcaldav.query"],
+    packages         = [ "twistedcaldav", "twistedcaldav.directory", "twistedcaldav.method", "twistedcaldav.query", "twistedcaldav.admin" ],
     package_data     = { "twisted": ["plugins/caldav.py"] },
-    scripts          = [ "bin/caldavd" ],
+    scripts          = [ "bin/caldavd", "bin/caladmin" ],
     data_files       = data_files
 )
