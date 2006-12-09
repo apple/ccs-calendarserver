@@ -36,7 +36,7 @@ from twisted.python import filepath
 from twistedcaldav.admin import options
 from twistedcaldav.admin import formatters
 
-from twistedcaldav.config import config
+from twistedcaldav.config import config, parseConfig
 
 class AdminOptions(usage.Options):
     recursing = 0
@@ -83,7 +83,7 @@ class AdminOptions(usage.Options):
         if self['config']:
             self['config'] = os.path.abspath(self['config'])
             if os.path.exists(self['config']):
-                config.parseConfig(self['config'])
+                parseConfig(self['config'])
 
         self.root = filepath.FilePath(config.DocumentRoot)
         self.calendarCollection = self.root.child('calendars')
