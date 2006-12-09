@@ -57,7 +57,17 @@ defaults = {
     'AdminPrincipals': ['/principal/users/admin']
 }
 
-config = dict(defaults)
+class Config (object):
+    def __init__(self, defaults):
+        self.update(defaults)
+
+    def update(self, items):
+        if type(items) is dict:
+            items = items.iteritems()
+        for key, value in items:
+            setattr(self, key, value)
+
+config = Config(defaults)
 
 def parseConfig(configFile):
     if os.path.exists(configFile):
