@@ -83,7 +83,7 @@ class XMLDirectoryService(DirectoryService):
 
     def _entriesForRecordType(self, recordType):
         for entry in self._accounts()[recordType].itervalues():
-             yield entry.uid, entry
+             yield entry.shortName, entry
 
     def _accounts(self):
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())

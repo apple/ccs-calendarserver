@@ -36,7 +36,7 @@ ELEMENT_USER         = "user"
 ELEMENT_GROUP        = "group"
 ELEMENT_RESOURCE     = "resource"
 
-ELEMENT_USERID       = "uid"
+ELEMENT_SHORTNAME    = "uid"
 ELEMENT_PASSWORD     = "password"
 ELEMENT_NAME         = "name"
 ELEMENT_MEMBERS      = "members"
@@ -88,7 +88,7 @@ class XMLAccountsParser(object):
             for recordType, shortName in group.members:
                 item = self.items[recordType].get(shortName, None)
                 if item is not None:
-                    item.groups.add(group.uid)
+                    item.groups.add(group.shortName)
 
         for child in node._get_childNodes():
             if child._get_localName() in (ELEMENT_USER, ELEMENT_GROUP, ELEMENT_RESOURCE):
@@ -108,10 +108,10 @@ class XMLAccountsParser(object):
                 if repeat > 1:
                     for i in xrange(1, repeat+1):
                         newprincipal = principal.repeat(i)
-                        self.items[recordType][newprincipal.uid] = newprincipal
+                        self.items[recordType][newprincipal.shortName] = newprincipal
                         updateMembership(newprincipal)
                 else:
-                    self.items[recordType][principal.uid] = principal
+                    self.items[recordType][principal.shortName] = principal
                     updateMembership(principal)
         
 class XMLAccountRecord (object):
@@ -123,7 +123,7 @@ class XMLAccountRecord (object):
         @param recordType: record type for directory entry.
         """
         self.recordType = recordType
-        self.uid = None
+        self.shortName = None
         self.password = None
         self.name = None
         self.members = set()
@@ -137,10 +137,10 @@ class XMLAccountRecord (object):
         done on them with the numeric value provided.
         @param ctr: an integer to substitute into text.
         """
-        if self.uid.find("%") != -1:
-            uid = self.uid % ctr
+        if self.shortName.find("%") != -1:
+            shortName = self.shortName % ctr
         else:
-            uid = self.uid
+            shortName = self.shortName
         if self.password.find("%") != -1:
             password = self.password % ctr
         else:
@@ -157,7 +157,7 @@ class XMLAccountRecord (object):
                 calendarUserAddresses.add(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
-        result.uid = uid
+        result.shortName = shortName
         result.password = password
         result.name = name
         result.members = self.members
@@ -167,9 +167,9 @@ class XMLAccountRecord (object):
 
     def parseXML(self, node):
         for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_USERID:
+            if child._get_localName() == ELEMENT_SHORTNAME:
                 if child.firstChild is not None:
-                    self.uid = child.firstChild.data.encode("utf-8")
+                    self.shortName = child.firstChild.data.encode("utf-8")
             elif child._get_localName() == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
@@ -182,7 +182,7 @@ class XMLAccountRecord (object):
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child._get_localName() == ELEMENT_CANPROXY:
-                CalDAVResource.proxyUsers.add(self.uid)
+                CalDAVResource.proxyUsers.add(self.shortName)
                 self.canproxy = True
 
     def _parseMembers(self, node):

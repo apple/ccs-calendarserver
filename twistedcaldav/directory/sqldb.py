@@ -16,7 +16,6 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
-
 """
 SQL (sqlite) based user/group/resource directory service implementation.
 """
@@ -26,15 +25,15 @@ SCHEMA:
 
 User Database:
 
-ROW: TYPE, UID (unique), PSWD, NAME, CANPROXY
+ROW: RECORD_TYPE, SHORT_NAME (unique), PASSWORD, NAME, CAN_PROXY
 
 Group Database:
 
-ROW: GRPUID, UID
+ROW: SHORT_NAME, MEMBER_SHORT_NAME
 
 CUAddress database:
 
-ROW: CUADDR (unqiue), UID
+ROW: ADDRESS (unqiue), SHORT_NAME
 
 """
 
@@ -58,7 +57,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     """
     dbType = "DIRECTORYSERVICE"
     dbFilename = ".db.accounts"
-    dbFormatVersion = "1"
+    dbFormatVersion = "2"
 
     def _getRealmName(self):
         #
@@ -99,9 +98,8 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def listRecords(self, recordType):
         # Get each account record
-        rowiter = self._db_execute("select UID, PSWD, NAME from ACCOUNTS where TYPE = :1", recordType)
-        for row in rowiter:
-            uid = row[0]
+        for row in self._db_execute("select SHORT_NAME, PASSWORD, NAME from ACCOUNTS where RECORD_TYPE = :1", recordType):
+            shortName = row[0]
             password = row[1]
             name = row[2]
             members = set()
@@ -109,27 +107,23 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             calendarUserAddresses = set()
     
             # See if we have members
-            rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
-            for row in rowiter:
+            for row in self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS where SHORT_NAME = :1", shortName):
                 members.add((row[0], row[1]))
                 
             # See if we are a member of a group
-            rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
-            for row in rowiter:
+            for row in self._db_execute("select SHORT_NAME from GROUPS where MEMBER_SHORT_NAME = :1", shortName):
                 groups.add(row[0])
                 
             # Get calendar user addresses
-            rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
-            for row in rowiter:
+            for row in self._db_execute("select ADDRESS from ADDRESSES where SHORT_NAME = :1", shortName):
                 calendarUserAddresses.add(row[0])
                 
-            yield uid, password, name, members, groups, calendarUserAddresses
+            yield shortName, password, name, members, groups, calendarUserAddresses
 
-    def getRecord(self, recordType, uid):
+    def getRecord(self, recordType, shortName):
         # Get individual account record
-        rowiter = self._db_execute("select UID, PSWD, NAME from ACCOUNTS where TYPE = :1 and UID = :2", recordType, uid)
         result = None
-        for row in rowiter:
+        for row in self._db_execute("select SHORT_NAME, PASSWORD, NAME from ACCOUNTS where RECORD_TYPE = :1 and SHORT_NAME = :2", recordType, shortName):
             if result:
                 result = None
                 break
@@ -138,7 +132,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         if result is None:
             return None
         
-        uid = result[0]
+        shortName = result[0]
         password = result[1]
         name = result[2]
         members = set()
@@ -146,65 +140,62 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         calendarUserAddresses = set()
 
         # See if we have members
-        rowiter = self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_UID from GROUPS where GRPUID = :1", uid)
-        for row in rowiter:
+        for row in self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS where SHORT_NAME = :1", shortName):
             members.add((row[0], row[1]))
             
         # See if we are a member of a group
-        rowiter = self._db_execute("select GRPUID from GROUPS where MEMBER_UID = :1", uid)
-        for row in rowiter:
+        for row in self._db_execute("select SHORT_NAME from GROUPS where MEMBER_SHORT_NAME = :1", shortName):
             groups.add(row[0])
             
         # Get calendar user addresses
-        rowiter = self._db_execute("select CUADDR from CUADDRS where UID = :1", uid)
-        for row in rowiter:
+        for row in self._db_execute("select ADDRESS from ADDRESSES where SHORT_NAME = :1", shortName):
             calendarUserAddresses.add(row[0])
             
-        return uid, password, name, members, groups, calendarUserAddresses
+        return shortName, password, name, members, groups, calendarUserAddresses
             
     def _add_to_db(self, record):
         # Do regular account entry
         recordType = record.recordType
-        uid = record.uid
+        shortName = record.shortName
         password = record.password
         name = record.name
         canproxy = ('F', 'T')[record.canproxy]
 
         self._db_execute(
             """
-            insert into ACCOUNTS (TYPE, UID, PSWD, NAME, CANPROXY)
+            insert into ACCOUNTS (RECORD_TYPE, SHORT_NAME, PASSWORD, NAME, CAN_PROXY)
             values (:1, :2, :3, :4, :5)
-            """, recordType, uid, password, name, canproxy
+            """, recordType, shortName, password, name, canproxy
         )
         
         # Check for members
         for memberRecordType, memberShortName in record.members:
             self._db_execute(
                 """
-                insert into GROUPS (GRPUID, MEMBER_RECORD_TYPE, MEMBER_UID)
+                insert into GROUPS (SHORT_NAME, MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME)
                 values (:1, :2, :3)
-                """, uid, memberRecordType, memberShortName
+                """, shortName, memberRecordType, memberShortName
             )
                 
         # CUAddress
         for cuaddr in record.calendarUserAddresses:
             self._db_execute(
                 """
-                insert into CUADDRS (CUADDR, UID)
+                insert into ADDRESSES (ADDRESS, SHORT_NAME)
                 values (:1, :2)
-                """, cuaddr, uid
+                """, cuaddr, shortName
             )
        
-    def _delete_from_db(self, uid):
+    def _delete_from_db(self, shortName):
         """
         Deletes the specified entry from all dbs.
         @param name: the name of the resource to delete.
-        @param uid: the uid of the resource to delete.
+        @param shortName: the short name of the resource to delete.
         """
-        self._db_execute("delete from ACCOUNTS where UID = :1", uid)
-        self._db_execute("delete from GROUPS where GRPUID = :1", uid)
-        self._db_execute("delete from GROUPS where MEMBER_UID = :1", uid)
-        self._db_execute("delete from CUADDRS where UID = :1", uid)
+        self._db_execute("delete from ACCOUNTS where SHORT_NAME = :1", shortName)
+        self._db_execute("delete from GROUPS where SHORT_NAME = :1", shortName)
+        self._db_execute("delete from GROUPS where MEMBER_SHORT_NAME = :1", shortName)
+        self._db_execute("delete from ADDRESSES where SHORT_NAME = :1", shortName)
     
     def _db_type(self):
         """
@@ -228,11 +219,11 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         q.execute(
             """
             create table ACCOUNTS (
-                TYPE           text,
-                UID            text,
-                PSWD           text,
-                NAME           text,
-                CANPROXY       text(1)
+                RECORD_TYPE  text,
+                SHORT_NAME   text,
+                PASSWORD     text,
+                NAME         text,
+                CAN_PROXY    text(1)
             )
             """
         )
@@ -243,21 +234,21 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         q.execute(
             """
             create table GROUPS (
-                GRPUID              text,
+                SHORT_NAME          text,
                 MEMBER_RECORD_TYPE  text,
-                MEMBER_UID          text
+                MEMBER_SHORT_NAME   text
             )
             """
         )
 
         #
-        # CUADDRS table
+        # ADDRESSES table
         #
         q.execute(
             """
-            create table CUADDRS (
-                CUADDR         text unique,
-                UID            text
+            create table ADDRESSES (
+                ADDRESS      text unique,
+                SHORT_NAME  text
             )
             """
         )
