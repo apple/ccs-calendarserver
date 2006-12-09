@@ -38,7 +38,7 @@ class AbstractDirectoryService(DirectoryService):
     Abstract Apache-compatible implementation of L{IDirectoryService}.
     """
     def __repr__(self):
-        return "<%s %r: %r %r>" % (self.__class__.__name__, realmName, self.userFile, self.groupFile)
+        return "<%s %r: %r %r>" % (self.__class__.__name__, self.realmName, self.userFile, self.groupFile)
 
     def __init__(self, realmName, userFile, groupFile=None):
         super(AbstractDirectoryService, self).__init__()
