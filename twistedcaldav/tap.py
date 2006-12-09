@@ -39,7 +39,7 @@ from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav.config import config
+from twistedcaldav.config import config, parseConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -58,7 +58,7 @@ class CaldavOptions(Options):
         if not os.path.exists(self['config']):
             print "Config file %s not found, using defaults" % (self['config'],)
 
-        config.parseConfig(self['config'])
+        parseConfig(self['config'])
 
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
