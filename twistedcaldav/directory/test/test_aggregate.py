@@ -16,8 +16,6 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-from itertools import chain
-
 from twistedcaldav.directory.apache import BasicDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.aggregate import AggregateDirectoryService

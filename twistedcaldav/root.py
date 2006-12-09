@@ -26,6 +26,7 @@ from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.static import DAVFile
 
+from twistedcaldav.config import config
 
 class RootResource(DAVFile):
     """
@@ -38,8 +39,6 @@ class RootResource(DAVFile):
     def __init__(self, path, *args, **kwargs):
         super(RootResource, self).__init__(path, *args, **kwargs)
         
-        from twistedcaldav import config
-
         if config.SACLEnable and RootResource.CheckSACL:
             self.useSacls = True
 

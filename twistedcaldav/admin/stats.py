@@ -25,14 +25,6 @@ Statisitcs Types:
   # of events
 
 """
-import os
-import xattr
-import commands
-
-from twisted.web import microdom
-
-from twistedcaldav import ical
-
 from twistedcaldav.admin import util        
 
 class StatsAction(object):

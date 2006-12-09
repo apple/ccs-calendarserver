@@ -33,22 +33,20 @@ import sys, os
 from twisted.python import usage
 from twisted.python import filepath
 
-from plistlib import readPlist
-
 from twistedcaldav.admin import options
 from twistedcaldav.admin import formatters
 
-from twistedcaldav import config
+from twistedcaldav.config import config
 
 class AdminOptions(usage.Options):
     recursing = 0
     params = ()
 
     optParameters = [
-        ['config', 'c', config.DEFAULTPLISTFILE, "Path to the caldavd.plist"],
+        ['config', 'c', config.defaultConfigFile, "Path to the caldavd.plist"],
         ['format', 'f', 'plain', ("Select an appropriate output formatter: "
                                   "%s" % (formatters.listFormatters(),))]
-        ]
+    ]
 
     def __init__(self):
         usage.Options.__init__(self)
@@ -95,8 +93,7 @@ class AdminOptions(usage.Options):
             self.formatter = formatters.getFormatter(self['format'])
             self.formatter = self.formatter(options=self.format_options)
         else:
-            raise usage.UsageError("Please specify a valid formatter: %s" % (
-                    ', '.join(lf)))
+            raise usage.UsageError("Please specify a valid formatter")
         
         self.subCommands = options.genSubCommandsDef()
         self.recursing = 1
@@ -105,8 +102,7 @@ class AdminOptions(usage.Options):
         sc = options.listCommands()
 
         if self.subCommand not in sc:
-            raise usage.UsageError("Please select one of: %s" % (
-                    ', '.join(sorted(sc))))
+            raise usage.UsageError("Please select one of: %s" % (', '.join(sorted(sc))))
 
     
 def run():

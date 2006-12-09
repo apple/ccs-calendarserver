@@ -20,13 +20,14 @@ import os
 
 from twistedcaldav.py.plistlib import readPlist
 
-DEFAULTPLISTFILE = '/etc/caldavd/caldavd.plist'
+defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
-DEFAULTS = {
+defaults = {
     'CreateAccounts': False,
     'DirectoryService': {
         'params': {'node': '/Search'},
-        'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'},
+        'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
+    },
     'DocumentRoot': '/Library/CalendarServer/Documents',
     'DropBoxEnabled': True,
     'DropBoxInheritedACLs': True,
@@ -56,14 +57,9 @@ DEFAULTS = {
     'AdminPrincipals': ['/principal/users/admin']
 }
 
-globs = globals()
-globs.update(DEFAULTS.copy())
+config = dict(defaults)
 
 def parseConfig(configFile):
-    global globs
     if os.path.exists(configFile):
         plist = readPlist(configFile)
-        globs.update(plist)
-
-
-    
+        config.update(plist)

@@ -27,10 +27,8 @@ __all__ = [
 ]
 
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.directory import UnknownRecordTypeError
-
-import twistedcaldav.directory.test.util
 
 class AggregateDirectoryService(DirectoryService):
     """
@@ -79,7 +77,7 @@ class AggregateDirectoryService(DirectoryService):
         return self._query("recordWithShortName", recordType, shortName)
 
     def recordWithGUID(self, guid):
-        return self._queryAll("recordWithGUID", address)
+        return self._queryAll("recordWithGUID", guid)
 
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)

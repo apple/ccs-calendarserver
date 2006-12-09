@@ -18,7 +18,7 @@
 
 from twisted.trial import unittest
 
-from twistedcaldav import config
+from twistedcaldav.config import config
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -37,7 +37,7 @@ class ConfigTests(unittest.TestCase):
         open(self.testConfig, 'w').write(testConfig)
 
     def testDefaults(self):
-        for key, value in config.DEFAULTS.iteritems():
+        for key, value in config.defaults.iteritems():
             self.failUnless(key in config.__dict__)
             self.assertEquals(config.__dict__[key], value)
 
@@ -50,7 +50,6 @@ class ConfigTests(unittest.TestCase):
     
     def testScoping(self):
         def getVerbose():
-            from twistedcaldav import config
             self.assertEquals(config.Verbose, True)
 
         self.assertEquals(config.Verbose, False)

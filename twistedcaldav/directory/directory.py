@@ -29,7 +29,6 @@ __all__ = [
 ]
 
 import sys
-from urllib import quote
 
 from zope.interface import implements
 

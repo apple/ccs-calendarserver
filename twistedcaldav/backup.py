@@ -24,7 +24,6 @@ import os
 import shutil
 import fnmatch
 import plistlib
-import tempfile
 import commands
 
 VERBOSE = os.environ.get('VERBOSE', False)

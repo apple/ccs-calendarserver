@@ -91,7 +91,7 @@ registerCommand(StatsOptions)
 
 
 from twisted.python import filepath
-from twistedcaldav import config
+from twistedcaldav.config import config
 
 class LogOptions(SubCommand):
     name = 'logs'

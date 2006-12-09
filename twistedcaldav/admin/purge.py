@@ -16,9 +16,7 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
-import os
-
-import datetime, dateutil.tz
+import datetime
 
 def purgeEvents(collection, purgeDate):
     """

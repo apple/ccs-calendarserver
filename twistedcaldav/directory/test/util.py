@@ -16,8 +16,6 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-from urllib import quote
-
 import twisted.trial.unittest
 from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword

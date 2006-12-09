@@ -39,7 +39,7 @@ from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav import config
+from twistedcaldav.config import config
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
