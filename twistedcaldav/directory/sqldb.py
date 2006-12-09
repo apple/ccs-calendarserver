@@ -98,56 +98,70 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def listRecords(self, recordType):
         # Get each account record
-        for row in self._db_execute("select SHORT_NAME, PASSWORD, NAME from ACCOUNTS where RECORD_TYPE = :1", recordType):
-            shortName = row[0]
-            password = row[1]
-            name = row[2]
+        for (shortName, password, name) in self._db_execute(
+            """
+            select SHORT_NAME, PASSWORD, NAME from ACCOUNTS
+            where RECORD_TYPE = :1
+            """, recordType
+        ):
             members = set()
             groups = set()
             calendarUserAddresses = set()
     
             # See if we have members
-            for row in self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS where SHORT_NAME = :1", shortName):
-                members.add((row[0], row[1]))
+            for member in self._db_execute(
+                """
+                select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS
+                where SHORT_NAME = :1
+                """, shortName
+            ):
+                members.add(tuple(member))
                 
             # See if we are a member of a group
-            for row in self._db_execute("select SHORT_NAME from GROUPS where MEMBER_SHORT_NAME = :1", shortName):
-                groups.add(row[0])
+            for (name,) in self._db_execute(
+                """
+                select SHORT_NAME from GROUPS
+                where MEMBER_SHORT_NAME = :1
+                """, shortName
+            ):
+                groups.add(name)
                 
             # Get calendar user addresses
-            for row in self._db_execute("select ADDRESS from ADDRESSES where SHORT_NAME = :1", shortName):
-                calendarUserAddresses.add(row[0])
+            for (address,) in self._db_execute(
+                """
+                select ADDRESS from ADDRESSES
+                where SHORT_NAME = :1
+                """, shortName
+            ):
+                calendarUserAddresses.add(address)
                 
             yield shortName, password, name, members, groups, calendarUserAddresses
 
     def getRecord(self, recordType, shortName):
         # Get individual account record
-        result = None
-        for row in self._db_execute("select SHORT_NAME, PASSWORD, NAME from ACCOUNTS where RECORD_TYPE = :1 and SHORT_NAME = :2", recordType, shortName):
-            if result:
-                result = None
-                break
-            result = row
-
-        if result is None:
+        for shortName, password, name in self._db_execute(
+            """
+            select SHORT_NAME, PASSWORD, NAME from ACCOUNTS
+            where RECORD_TYPE = :1
+              and SHORT_NAME  = :2
+            """, recordType, shortName
+        ):
+            break
+        else:
             return None
         
-        shortName = result[0]
-        password = result[1]
-        name = result[2]
-        members = set()
-        groups = set()
-        calendarUserAddresses = set()
-
         # See if we have members
+        members = set()
         for row in self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS where SHORT_NAME = :1", shortName):
             members.add((row[0], row[1]))
             
         # See if we are a member of a group
+        groups = set()
         for row in self._db_execute("select SHORT_NAME from GROUPS where MEMBER_SHORT_NAME = :1", shortName):
             groups.add(row[0])
             
         # Get calendar user addresses
+        calendarUserAddresses = set()
         for row in self._db_execute("select ADDRESS from ADDRESSES where SHORT_NAME = :1", shortName):
             calendarUserAddresses.add(row[0])
             
@@ -192,10 +206,10 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         @param name: the name of the resource to delete.
         @param shortName: the short name of the resource to delete.
         """
-        self._db_execute("delete from ACCOUNTS where SHORT_NAME = :1", shortName)
-        self._db_execute("delete from GROUPS where SHORT_NAME = :1", shortName)
-        self._db_execute("delete from GROUPS where MEMBER_SHORT_NAME = :1", shortName)
-        self._db_execute("delete from ADDRESSES where SHORT_NAME = :1", shortName)
+        self._db_execute("delete from ACCOUNTS  where SHORT_NAME        = :1", shortName)
+        self._db_execute("delete from GROUPS    where SHORT_NAME        = :1", shortName)
+        self._db_execute("delete from GROUPS    where MEMBER_SHORT_NAME = :1", shortName)
+        self._db_execute("delete from ADDRESSES where SHORT_NAME        = :1", shortName)
     
     def _db_type(self):
         """
@@ -247,7 +261,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         q.execute(
             """
             create table ADDRESSES (
-                ADDRESS      text unique,
+                ADDRESS     text unique,
                 SHORT_NAME  text
             )
             """
