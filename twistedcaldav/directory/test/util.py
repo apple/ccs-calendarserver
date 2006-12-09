@@ -292,7 +292,7 @@ class DigestTestCase (DirectoryTestCase):
                 None,
             )
 
-            self.failUnless(userRecord.verifyCredentials(DigestedCredentials(
+            credentials = DigestedCredentials(
                 user,
                 "GET",
                 service.realmName,
@@ -303,4 +303,6 @@ class DigestTestCase (DirectoryTestCase):
                     "cnonce": "phlegm",
                     "nc": None,
                 },
-            )))
+            )
+
+            self.failUnless(userRecord.verifyCredentials(credentials))
