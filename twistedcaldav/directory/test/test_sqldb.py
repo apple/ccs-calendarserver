@@ -40,5 +40,5 @@ class SQLDB (
         return SQLDirectoryService(os.getcwd(), self.xmlFile())
 
     def test_verifyCredentials_digest(self):
-        raise NotImplementedError("Use super's implementation")
-    test_verifyCredentials_digest.todo = "FIXME: SQLDirectoryService.realmName is None"
+        super(SQLDB, self).test_verifyCredentials_digest()
+    test_verifyCredentials_digest.todo = ""
