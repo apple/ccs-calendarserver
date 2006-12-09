@@ -23,6 +23,8 @@ from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
+from twistedcaldav.directory.directory import UnknownRecordTypeError
+
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
 class DirectoryTestCase (twisted.trial.unittest.TestCase):
@@ -47,6 +49,9 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         Returns an IDirectoryService.
         """
         raise NotImplementedError("Subclass needs to implement service()")
+
+    # For aggregator subclasses
+    recordTypePrefixes = ("",)
 
     def test_realm(self):
         """
@@ -90,43 +95,30 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
         self.assertEquals(self.recordNames("resource"), set(self.resources.keys()))
 
-    def test_recordWithShortName_user(self):
+    def test_recordWithShortName(self):
         """
-        IDirectoryService.recordWithShortName("user")
+        IDirectoryService.recordWithShortName()
         """
-        if not self.users:
-            raise SkipTest("No users")
+        for recordType, data in (
+            ( "user"    , self.users     ),
+            ( "group"   , self.groups    ),
+            ( "resource", self.resources ),
+        ):
+            if not data:
+                raise SkipTest("No %s" % (recordType,))
 
-        service = self.service()
-        for shortName in self.users:
-            record = service.recordWithShortName("user", shortName)
-            self.compare(record, shortName, self.users[shortName])
-        self.assertEquals(service.recordWithShortName("user", "IDunnoWhoThisIsIReallyDont"), None)
+            service = self.service()
+            for shortName, info in data.iteritems():
+                record = service.recordWithShortName(info.get("prefix", "") + recordType, shortName)
+                self.failUnless(record, "No record (%s)%s" % (info.get("prefix", "") + recordType, shortName))
+                self.compare(record, shortName, data[shortName])
 
-    def test_recordWithShortName_group(self):
-        """
-        IDirectoryService.recordWithShortName("group")
-        """
-        if not self.groups:
-            raise SkipTest("No groups")
-
-        service = self.service()
-        for shortName in self.groups:
-            record = service.recordWithShortName("group", shortName)
-            self.compare(record, shortName, self.groups[shortName])
-        self.assertEquals(service.recordWithShortName("group", "IDunnoWhoThisIsIReallyDont"), None)
-
-    def test_recordWithShortName_resource(self):
-        """
-        XMLDirectoryService.recordWithShortName("resource")
-        """
-        if not self.resources:
-            raise SkipTest("No resources")
-
-        service = self.service()
-        for shortName in self.resources:
-            record = service.recordWithShortName("resource", shortName)
-            self.compare(record, shortName, self.resources[shortName])
+            for prefix in self.recordTypePrefixes:
+                try:
+                    record = service.recordWithShortName(prefix + recordType, "IDunnoWhoThisIsIReallyDont")
+                except UnknownRecordTypeError:
+                    continue
+                self.assertEquals(record, None)
 
     def test_recordWithGUID(self):
         service = self.service()
@@ -161,9 +153,10 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             raise SkipTest("No groups")
 
         service = self.service()
-        for group in self.groups:
-            groupRecord = service.recordWithShortName("group", group)
-            result = set((m.recordType, m.shortName) for m in groupRecord.members())
+        for group, info in self.groups.iteritems():
+            prefix = info.get("prefix", "")
+            groupRecord = service.recordWithShortName(prefix + "group", group)
+            result = set((m.recordType, prefix + m.shortName) for m in groupRecord.members())
             expected = set(self.groups[group]["members"])
             self.assertEquals(
                 result, expected,
@@ -184,9 +177,10 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             ( "group", self.groups ),
         ):
             service = self.service()
-            for shortName in data:
-                record = service.recordWithShortName(recordType, shortName)
-                result = set(g.shortName for g in record.groups())
+            for shortName, info in data.iteritems():
+                prefix = info.get("prefix", "")
+                record = service.recordWithShortName(prefix + recordType, shortName)
+                result = set(prefix + g.shortName for g in record.groups())
                 expected = set(g for g in self.groups if (record.recordType, shortName) in self.groups[g]["members"])
                 self.assertEquals(
                     result, expected,
@@ -194,7 +188,17 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
                 )
 
     def recordNames(self, recordType):
-        return set(r.shortName for r in self.service().listRecords(recordType))
+        service = self.service()
+        names = set()
+        for prefix in self.recordTypePrefixes:
+            try:
+                records = service.listRecords(prefix + recordType)
+            except UnknownRecordTypeError:
+                continue
+            for record in records:
+                names.add(prefix + record.shortName)
+
+        return names
 
     def allEntries(self):
         for data, recordType in (
@@ -219,7 +223,12 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         addresses = set(value("addresses"))
         addresses.add("urn:uuid:%s" % (record.guid,))
 
-        self.assertEquals(record.shortName, shortName)
+        if hasattr(record.service, "recordTypePrefix"):
+            prefix = record.service.recordTypePrefix
+        else:
+            prefix = ""
+
+        self.assertEquals(prefix + record.shortName, shortName)
         self.assertEquals(set(record.calendarUserAddresses), addresses)
 
         if value("guid"):
@@ -227,6 +236,13 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
         if value("name"):
             self.assertEquals(record.fullName, value("name"))
+
+    def servicePrefix(self):
+        service = self.service()
+        if hasattr(service, "recordTypePrefix"):
+            return service.recordTypePrefix
+        else:
+            return ""
 
 class BasicTestCase (DirectoryTestCase):
     """
