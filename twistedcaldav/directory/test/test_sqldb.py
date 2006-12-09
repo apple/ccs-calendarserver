@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# DRI: Cyrus Daboo, cdaboo@apple.com
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 import os
