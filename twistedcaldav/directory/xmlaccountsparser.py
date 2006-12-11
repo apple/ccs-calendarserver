@@ -81,7 +81,7 @@ class XMLAccountsParser(object):
         @param node: the L{Node} to parse.
         """
         if node.hasAttribute(ATTRIBUTE_REALM):
-            self.realm = node.getAttribute(ATTRIBUTE_REALM)
+            self.realm = node.getAttribute(ATTRIBUTE_REALM).encode("utf-8")
 
         def updateMembership(group):
             # Update group membership
@@ -189,7 +189,7 @@ class XMLAccountRecord (object):
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_MEMBER:
                 if child.hasAttribute(ATTRIBUTE_RECORDTYPE):
-                    recordType = child.getAttribute(ATTRIBUTE_RECORDTYPE)
+                    recordType = child.getAttribute(ATTRIBUTE_RECORDTYPE).encode("utf-8")
                 else:
                     recordType = "user"
                 if child.firstChild is not None:
