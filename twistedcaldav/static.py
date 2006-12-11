@@ -22,11 +22,11 @@ CalDAV-aware static resources.
 
 __all__ = [
     "CalDAVFile",
-    "ScheduleInboxFile",
-    "ScheduleOutboxFile",
     "CalendarHomeFile",
     "CalendarHomeProvisioningFile",
     "CalendarPrincipalCollectionFile",
+    "ScheduleInboxFile",
+    "ScheduleOutboxFile",
 ]
 
 import os
@@ -406,29 +406,6 @@ class ScheduleFile (CalDAVFile):
     def supportedPrivileges(self, request):
         return succeed(schedulePrivilegeSet)
 
-class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
-    """
-    Calendar scheduling inbox collection resource.
-    """
-    def provision(self):
-        if provisionFile(self, self._parent):
-            # FIXME: This should probably be a directory record option that
-            # maps to the property value directly without the need to store one.
-            if self._parent.record.recordType == "resource":
-                # Resources should have autorespond turned on by default,
-                # since they typically don't have someone responding for them.
-                self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
-
-    def __repr__(self):
-        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
-
-class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
-    """
-    Calendar scheduling outbox collection resource.
-    """
-    def __repr__(self):
-        return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
-
 class CalendarHomeProvisioningFile (DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.    
@@ -525,6 +502,29 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
+class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
+    """
+    Calendar scheduling inbox collection resource.
+    """
+    def provision(self):
+        if provisionFile(self, self._parent):
+            # FIXME: This should probably be a directory record option that
+            # maps to the property value directly without the need to store one.
+            if self._parent.record.recordType == "resource":
+                # Resources should have autorespond turned on by default,
+                # since they typically don't have someone responding for them.
+                self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+
+    def __repr__(self):
+        return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
+    """
+    Calendar scheduling outbox collection resource.
+    """
+    def __repr__(self):
+        return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
 ##
 # Utilities
