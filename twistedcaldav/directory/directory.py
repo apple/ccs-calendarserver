@@ -56,10 +56,10 @@ class DirectoryService(object):
             assert self.baseGUID, "Class %s must provide a baseGUID attribute" % (self.__class__.__name__,)
 
             if realmName is None:
-                log.err("Directory service %s has no realm name or GUID; generated service GUID will not be unique.")
+                log.err("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
                 realmName = ""
             else:
-                log.err("Directory service %s has no GUID; generating service GUID from realm name.")
+                log.err("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
 
             self._guid = uuidFromName(self.baseGUID, realmName)
 
