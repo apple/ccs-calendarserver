@@ -41,6 +41,7 @@ from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
 from twistedcaldav.config import config, parseConfig
+from twistedcaldav.dropbox import DropBox
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -82,6 +83,11 @@ class CaldavServiceMaker(object):
     calendarResourceClass = CalendarHomeProvisioningFile
 
     def makeService(self, options):
+        #
+        # Turn on drop box support before setting up the repository
+        #
+        DropBox.enable(config.DropBoxEnabled, config.NotificationsEnabled)
+        
         #
         # Setup the Directory
         #

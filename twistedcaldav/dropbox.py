@@ -41,20 +41,15 @@ class DropBox(object):
     notificationName = "notifications" # Name of the collection in which notifications will be stored.
     
     @classmethod
-    def enable(clzz, enabled, inheritedACLs=None, notifications=None):
+    def enable(clzz, enabled, notifications=None):
         """
         This method must be used to enable drop box support as it will setup live properties etc,
         and turn on the notification system. It must only be called once
 
         @param enable: C{True} if drop box feature is enabled, C{False} otherwise
-        @param dropboxName: C{str} containing the name of the drop box home collection
-        @param inheritedACLs: C{True} if ACLs on drop boxes should be inherited by their contents, C{False} otehrwise.
         @param notifications: C{True} if automatic notifications are to be sent when a drop box changes, C{False} otherwise.
-        @param notificationName: C{str} containing the name of the collection used to store per-user notifications.
         """
         DropBox.enabled = enabled
-        if inheritedACLs:
-            DropBox.inheritedACLs = inheritedACLs
         if notifications:
             DropBox.notifications = notifications
 
