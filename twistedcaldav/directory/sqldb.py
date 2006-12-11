@@ -59,21 +59,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     dbFilename = ".db.accounts"
     dbFormatVersion = "2"
 
-    def _getRealmName(self):
-        #
-        # This is used frequently enough that it's worth caching.
-        # Downside is that changing the realm name (with SQL directly) requires
-        # a server restart.
-        #
-        if not hasattr(self, "_realmName"):
-            realmName = None
-            for row in self._db_execute("select REALM from SERVICE"):
-                assert realmName is None
-                realmName = row[0]
-            self._realmName = realmName
-        return self._realmName
-
-    realmName = property(_getRealmName)
+    realmName = None
 
     def __init__(self, path):
         path = os.path.join(path, SQLDirectoryManager.dbFilename)
@@ -86,7 +72,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         if os.path.exists(self.dbpath):
             os.remove(self.dbpath)
 
-        self._realmName = parser.realm
+        self.realmName = parser.realm
 
         self._db_execute("insert into SERVICE (REALM) values (:1)", parser.realm)
 
