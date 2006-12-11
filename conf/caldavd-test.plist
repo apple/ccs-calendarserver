@@ -159,5 +159,15 @@ limitations under the License.
   <key>SACLEnable</key>
   <false/>
 
+  <key>AuthSchemes</key>
+  <array>
+    <string>Basic</string>
+  </array>
+
+  <key>AdminPrincipals</key>
+  <array>
+    <string>/principals/user/admin</string>
+  </array>
+
 </dict>
 </plist>

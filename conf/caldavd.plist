@@ -112,7 +112,7 @@ limitations under the License.
 
   <key>AdminPrincipals</key>
   <array>
-    <string>/principals/users/admin</string>
+    <string>/principals/user/admin</string>
   </array>
 
 </dict>

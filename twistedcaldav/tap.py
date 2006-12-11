@@ -31,6 +31,7 @@ from twisted.cred.portal import Portal
 
 from twisted.web2.dav import auth
 from twisted.web2.dav import davxml
+from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.auth import basic
 from twisted.web2.auth import digest
 from twisted.web2.channel import http
@@ -116,13 +117,20 @@ class CaldavServiceMaker(object):
         rootACEs = [
             davxml.ACE(
                 davxml.Principal(davxml.All()),
-                davxml.Grant(davxml.Privilege(davxml.Read()))),]
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        ]
 
         for principal in config.AdminPrincipals:
             rootACEs.append(
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(principal)),
-                    davxml.Grant(davxml.Privilege(davxml.All()))))
+                    davxml.Grant(davxml.Privilege(davxml.All())),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                )
+            )
 
         root.setAccessControlList(davxml.ACL(*rootACEs))
 
