@@ -124,7 +124,6 @@ class CaldavServiceMaker(object):
             davxml.ACE(
                 davxml.Principal(davxml.All()),
                 davxml.Grant(davxml.Privilege(davxml.Read())),
-                davxml.Protected(),
             ),
         ]
 
