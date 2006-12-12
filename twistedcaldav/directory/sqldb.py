@@ -59,8 +59,6 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     dbFilename = ".db.accounts"
     dbFormatVersion = "2"
 
-    realmName = None
-
     def __init__(self, path):
         path = os.path.join(path, SQLDirectoryManager.dbFilename)
         super(SQLDirectoryManager, self).__init__(path, SQLDirectoryManager.dbFormatVersion)
@@ -72,8 +70,6 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         if os.path.exists(self.dbpath):
             os.remove(self.dbpath)
 
-        self.realmName = parser.realm
-
         self._db_execute("insert into SERVICE (REALM) values (:1)", parser.realm)
 
         # Now add records to db
@@ -81,6 +77,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             for entry in item.itervalues():
                 self._add_to_db(entry)
         self._db_commit()
+
+    def getRealm(self):
+        for realm in self._db_execute("select REALM from SERVICE"):
+            return realm[0].decode("utf-8")
+        else:
+            return ""
 
     def listRecords(self, recordType):
         # Get each account record
@@ -258,7 +260,7 @@ class SQLDirectoryService(DirectoryService):
     XML based implementation of L{IDirectoryService}.
     """
     baseGUID = "8256E464-35E0-4DBB-A99C-F0E30C231675"
-    realmName = property(lambda self: self.manager.realmName)
+    realmName = None
 
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.manager.dbpath)
@@ -272,6 +274,7 @@ class SQLDirectoryService(DirectoryService):
         self.manager = SQLDirectoryManager(dbParentPath.path)
         if xmlFile:
             self.manager.loadFromXML(xmlFile)
+        self.realmName = self.manager.getRealm()
 
     def recordTypes(self):
         recordTypes = ("user", "group", "resource")

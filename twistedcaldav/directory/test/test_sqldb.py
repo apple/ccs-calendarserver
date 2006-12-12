@@ -42,3 +42,10 @@ class SQLDB (
     def test_verifyCredentials_digest(self):
         super(SQLDB, self).test_verifyCredentials_digest()
     test_verifyCredentials_digest.todo = ""
+
+    def test_verifyRealmFromDB(self):
+
+        def _service():
+            return SQLDirectoryService(os.getcwd(), None)
+
+        self.assertEquals(_service().realmName, "Test")
