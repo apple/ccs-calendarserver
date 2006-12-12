@@ -36,7 +36,6 @@ defaultConfig = {
     'NotificationsEnabled': False,
     'PIDFile': '/var/run/caldavd.pid',
     'Port': 8008,
-    'Repository': '/etc/caldavd/repository.xml',
     'ResetAccountACLs': False,
     'RunStandalone': True,
     'SSLCertificate': '/etc/certificates/Default.crt',

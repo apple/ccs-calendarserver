@@ -99,9 +99,6 @@ limitations under the License.
   <key>NotificationsEnabled</key>
   <true/>
 
-  <key>Repository</key>
-  <string>/etc/caldavd/repository.xml</string>
-
   <key>SACLEnable</key>
   <true/>
 

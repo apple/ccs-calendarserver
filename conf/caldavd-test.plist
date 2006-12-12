@@ -150,9 +150,6 @@ limitations under the License.
   <key>NotificationsEnabled</key>
   <true/>
 
-  <key>Repository</key>
-  <string>conf/repository.xml</string>
-
   <key>twistdLocation</key>
   <string>../Twisted/bin/twistd</string>
 

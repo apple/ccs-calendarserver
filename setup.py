@@ -73,7 +73,7 @@ version_file.close()
 
 from distutils.core import setup
 
-data_files = [("caldavd", ["conf/repository.xml", "conf/caldavd.plist"])]
+data_files = [("caldavd", ["conf/caldavd.plist",])]
 
 if sys.platform == 'darwin':
     data_files.append(('sbs_backup', ['conf/85-calendar.plist']))
