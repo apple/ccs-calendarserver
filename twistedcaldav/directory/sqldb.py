@@ -261,9 +261,9 @@ class SQLDirectoryService(DirectoryService):
     realmName = property(lambda self: self.manager.realmName)
 
     def __repr__(self):
-        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
+        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.manager.dbpath)
 
-    def __init__(self, dbParentPath, xmlFile = None):
+    def __init__(self, dbParentPath, xmlFile=None):
         super(SQLDirectoryService, self).__init__()
 
         if type(dbParentPath) is str:
