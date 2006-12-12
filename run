@@ -171,8 +171,7 @@ run () {
   if ! "${setup_only}"; then
     if [ ! -f "${config}" ]; then
         echo "Missing config file: ${config}";
-        echo "You might want to start by copying the test configuration:";
-        echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
+        echo "You might want to copy conf/caldavd-test.plist to conf/caldavd-dev.plist and start from there.";
         exit 1;
     fi;
 
