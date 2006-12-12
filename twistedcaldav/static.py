@@ -366,46 +366,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
     _checkParents = deferredGenerator(_checkParents)
 
-class ScheduleFile (CalDAVFile):
-    def __init__(self, path, parent):
-        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
-        self._parent = parent
-
-    def provision(self):
-        provisionFile(self, self._parent)
-
-    def locateChild(self, path, segments):
-        self.provision()
-        return super(ScheduleFile, self).locateChild(path, segments)
-
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            return CalDAVFile(path, principalCollections=self.principalCollections())
-
-    def index(self):
-        """
-        Obtains the index for an schedule collection resource.
-        @return: the index object for this resource.
-        @raise AssertionError: if this resource is not a calendar collection
-            resource.
-        """
-        return IndexSchedule(self)
-
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
-
-    ##
-    # ACL
-    ##
-
-    def supportedPrivileges(self, request):
-        return succeed(schedulePrivilegeSet)
-
 class CalendarHomeProvisioningFile (DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.    
@@ -502,6 +462,46 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
+class ScheduleFile (CalDAVFile):
+    def __init__(self, path, parent):
+        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
+        self._parent = parent
+
+    def provision(self):
+        provisionFile(self, self._parent)
+
+    def locateChild(self, path, segments):
+        self.provision()
+        return super(ScheduleFile, self).locateChild(path, segments)
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return CalDAVFile(path, principalCollections=self.principalCollections())
+
+    def index(self):
+        """
+        Obtains the index for an schedule collection resource.
+        @return: the index object for this resource.
+        @raise AssertionError: if this resource is not a calendar collection
+            resource.
+        """
+        return IndexSchedule(self)
+
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
+    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(schedulePrivilegeSet)
 
 class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     """
