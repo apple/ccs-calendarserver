@@ -19,13 +19,14 @@
 ##
 
 wd="$(cd "$(dirname "$0")" && pwd)";
+cdt="${wd}/../CalDAVTester";
 
 ##
 # Command line handling
 ##
 
 verbose="";
-serverinfo="serverinfo.xml";
+serverinfo="${cdt}/scripts/server/serverinfo.xml";
 documentroot="${wd}/twistedcaldav/test/data";
 
 usage ()
@@ -46,8 +47,8 @@ while getopts 'hvd:s:' option; do
     case "$option" in 
         '?') usage; ;;
         'h') usage -; exit 0; ;;
-        'd') documentroot=${OPTARG}; ;;
-        's')   serverinfo=${OPTARG}; ;;
+        'd') documentroot="${OPTARG}"; ;;
+        's')   serverinfo="${OPTARG}"; ;;
         'v')      verbose="v"; ;;
     esac;
 done;
@@ -62,17 +63,12 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH=$("${wd}/run" -p);
 
-cdt="${wd}/../CalDAVTester";
-
 if [ -d "${cdt}" ]; then
   svn update "${cdt}";
 else
   svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
 fi;
 
-cd "${documentroot}/calendars/users/user01/"
-tar -zx${verbose}f "${cdt}/Resource/errors/calendar.1000.tgz"
+tar -C "${documentroot}/calendars/users/user01/" -x${verbose}zf "${cdt}/Resource/errors/calendar.1000.tgz"
 
-cd "${cdt}";
-
-python testcaldav.py -s "${serverinfo}" --all;
+cd "${cdt}" && python testcaldav.py -s "${serverinfo}" --all;
