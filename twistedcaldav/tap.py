@@ -21,6 +21,8 @@ import sys
 
 from zope.interface import implements
 
+from twisted.python import log
+
 from twisted.python.usage import Options
 from twisted.python.reflect import namedClass
 
@@ -100,20 +102,24 @@ class CaldavServiceMaker(object):
         # Setup Resource hierarchy
         #
 
+        log.msg("Setting up document root: %s" % (config.DocumentRoot,))
+
         principalCollection = self.principalResourceClass(
             os.path.join(config.DocumentRoot, 'principals'),
             '/principals/',
             directory
-            )
+        )
 
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, 'calendars'),
             directory,
-            '/calendars/')
+            '/calendars/'
+        )
         
-        root = self.rootResourceClass(config.DocumentRoot, 
-                            principalCollections=(principalCollection,)
-                            )
+        root = self.rootResourceClass(
+            config.DocumentRoot, 
+            principalCollections=(principalCollection,)
+        )
 
         root.putChild('principals', principalCollection)
         root.putChild('calendars', calendarCollection)
