@@ -110,22 +110,22 @@ class DAVFile (SuperDAVFile):
         return response
 
     def directoryStyleSheet(self):
-        return """
-th, .even td, .odd td { padding-right: 0.5em; font-family: monospace}
-.even-dir { background-color: #efe0ef }
-.even { background-color: #eee }
-.odd-dir {background-color: #f0d0ef }
-.odd { background-color: #dedede }
-.icon { text-align: center }
-.listing {
-  margin-left: auto;
-  margin-right: auto;
-  width: 50%%;
-  padding: 0.1em;
-}
-body { border: 0; padding: 0; margin: 0; background-color: #efefef;}
-h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin white dashed;}
-"""
+        return (
+            "th, .even td, .odd td { padding-right: 0.5em; font-family: monospace}"
+            ".even-dir { background-color: #efe0ef }"
+            ".even { background-color: #eee }"
+            ".odd-dir {background-color: #f0d0ef }"
+            ".odd { background-color: #dedede }"
+            ".icon { text-align: center }"
+            ".listing {"
+              "margin-left: auto;"
+              "margin-right: auto;"
+              "width: 50%%;"
+              "padding: 0.1em;"
+            "}"
+            "body { border: 0; padding: 0; margin: 0; background-color: #efefef;}"
+            "h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin white dashed;}"
+        )
 
     def renderDirectory(self, request):
         """
@@ -134,21 +134,21 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
         title = "Directory listing for %s" % urllib.unquote(request.path)
     
         output = [
-"""<html>
-<head>
-<title>%(title)s</title>
-<style>%(style)s</style>
-</head>
-<body>
-<div class="directory-listing">
-<h1>%(title)s</h1>
-<table>
-
-<tr><th>Filename</th> <th>Size</th> <th>Last Modified</th> <th>File Type</th></tr>
-""" % {
-        "title": urllib.unquote(request.uri),
-        "style": self.directoryStyleSheet(),
-}]
+            """<html>"""
+            """<head>"""
+            """<title>%(title)s</title>"""
+            """<style>%(style)s</style>"""
+            """</head>"""
+            """<body>"""
+            """<div class="directory-listing">"""
+            """<h1>%(title)s</h1>"""
+            """<table>"""
+            """<tr><th>Filename</th> <th>Size</th> <th>Last Modified</th> <th>File Type</th></tr>"""
+            % {
+                "title": urllib.unquote(request.uri),
+                "style": self.directoryStyleSheet(),
+            }
+        ]
 
         even = False
         for name in sorted(self.listChildren()):
@@ -183,7 +183,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
                 """<td align="right">%(size)s</td>"""
                 """<td>%(lastModified)s</td>"""
                 """<td>%(type)s</td>"""
-                """</tr>\n"""
+                """</tr>"""
                 % {
                     "even": even and "even" or "odd",
                     "url": url,
@@ -194,12 +194,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
                 }
             )
             even = not even
-        output.append("""
-</table>
-</div>
-</body>
-</html>
-""")
+        output.append("</table></div></body></html>")
 
         response = Response(200, {}, "".join(output))
         response.headers.setHeader("content-type", MimeType("text", "html"))
