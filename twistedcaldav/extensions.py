@@ -84,7 +84,7 @@ class DAVFile (SuperDAVFile):
                     # Render from the index file
                     return self.createSimilarFile(ifp.path).render(req)
 
-                return self.render_directory(req)
+                return self.renderDirectory(req)
 
         try:
             f = self.fp.open()
@@ -109,16 +109,8 @@ class DAVFile (SuperDAVFile):
 
         return response
 
-    def render_directory(self, request):
-        """
-        Render a directory listing.
-        """
-        title = "Directory listing for %s" % urllib.unquote(request.path)
-    
-        output = ["""<html>
-<head>
-<title>%(title)s</title>
-<style>
+    def directoryStyleSheet(self):
+        return """
 th, .even td, .odd td { padding-right: 0.5em; font-family: monospace}
 .even-dir { background-color: #efe0ef }
 .even { background-color: #eee }
@@ -133,7 +125,19 @@ th, .even td, .odd td { padding-right: 0.5em; font-family: monospace}
 }
 body { border: 0; padding: 0; margin: 0; background-color: #efefef;}
 h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin white dashed;}
-</style>
+"""
+
+    def renderDirectory(self, request):
+        """
+        Render a directory listing.
+        """
+        title = "Directory listing for %s" % urllib.unquote(request.path)
+    
+        output = [
+"""<html>
+<head>
+<title>%(title)s</title>
+<style>%(style)s</style>
 </head>
 <body>
 <div class="directory-listing">
@@ -141,7 +145,10 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
 <table>
 
 <tr><th>Filename</th> <th>Size</th> <th>Last Modified</th> <th>File Type</th></tr>
-""" % { "title": urllib.unquote(request.uri) }]
+""" % {
+        "title": urllib.unquote(request.uri),
+        "style": self.directoryStyleSheet(),
+}]
 
         even = False
         for name in sorted(self.listChildren()):
