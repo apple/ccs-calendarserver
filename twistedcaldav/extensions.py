@@ -120,7 +120,7 @@ class DAVFile (SuperDAVFile):
             ".listing {"
               "margin-left: auto;"
               "margin-right: auto;"
-              "width: 50%%;"
+              "width: 50%;"
               "padding: 0.1em;"
             "}"
             "body { border: 0; padding: 0; margin: 0; background-color: #efefef;}"
