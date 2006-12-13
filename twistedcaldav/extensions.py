@@ -115,7 +115,7 @@ class DAVFile (SuperDAVFile):
         """
         title = "Directory listing for %s" % urllib.unquote(request.path)
     
-        s = ["""<html>
+        output = ["""<html>
 <head>
 <title>%(title)s</title>
 <style>
@@ -170,23 +170,31 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
                     return value
 
             # FIXME: gray out resources that are not readable
-            s.append("""<tr class="%(even)s"><td><a href="%(url)s">%(name)s</a></td> <td align="right">%(size)s</td> <td>%(lastModified)s</td><td>%(type)s</td></tr>\n""" % {
-                "even": even and "even" or "odd",
-                "url": url,
-                "name": name,
-                "size": orNone(size),
-                "lastModified": orNone(lastModified, f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))),
-                "type": orNone(contentType, default="-", f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)),
-            })
+            output.append(
+                """<tr class="%(even)s">"""
+                """<td><a href="%(url)s">%(name)s</a></td>"""
+                """<td align="right">%(size)s</td>"""
+                """<td>%(lastModified)s</td>"""
+                """<td>%(type)s</td>"""
+                """</tr>\n"""
+                % {
+                    "even": even and "even" or "odd",
+                    "url": url,
+                    "name": name,
+                    "size": orNone(size),
+                    "lastModified": orNone(lastModified, f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))),
+                    "type": orNone(contentType, default="-", f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)),
+                }
+            )
             even = not even
-        s.append("""
+        output.append("""
 </table>
 </div>
 </body>
 </html>
 """)
 
-        response = Response(200, {}, "".join(s))
+        response = Response(200, {}, "".join(output))
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
 
