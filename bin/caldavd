@@ -23,6 +23,7 @@ username="";
 groupname="";
 configfile="";
 twistdpath="$(type -p twistd)";
+plugin_name="caldav";
 
 py_version ()
 {
@@ -87,15 +88,16 @@ usage ()
     exit 64;
 }
 
-while getopts 'hXu:g:f:T:' option; do
+while getopts 'hXu:g:f:T:P:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
-        'X') daemonize='-n'; ;;
+        'X') daemonize="-n"; ;;
         'f') configfile="-f ${OPTARG}"; ;;
         'T') twistdpath="${OPTARG}"; ;;
         'u') username="-u ${OPTARG}"; ;;
         'g') grouname="-g ${OPTARG}"; ;;
+        'P') plugin_name="${OPTARG}"; ;;
     esac;
 done;
 
@@ -103,6 +105,4 @@ shift $((${OPTIND} - 1));
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
-exec "${python}" "${twistdpath}" \
-    "${daemonize}" ${username} ${groupname} caldav ${configfile};
-
+exec "${python}" "${twistdpath}" "${daemonize}" ${username} ${groupname} "${plugin_name}" ${configfile};

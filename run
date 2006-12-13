@@ -34,6 +34,7 @@ disable_setup="false";
    print_path="false";
       install="";
     daemonize="-X";
+  plugin_name="caldav";
 
 usage ()
 {
@@ -57,7 +58,7 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvsfnpdi:I:' option; do
+while getopts 'hvsfnpdP:i:I:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -67,6 +68,7 @@ while getopts 'hvsfnpdi:I:' option; do
     'n') disable_setup="true"; ;;
     'p')    print_path="true"; ;;
     'd')     daemonize=""; ;;
+    'P')   plugin_name="${OPTARG}"; ;;
     'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
     'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
   esac;
@@ -179,7 +181,9 @@ run () {
     cd "${wd}";
     exec /bin/sh "${caldav}/bin/caldavd" ${daemonize} \
         -f "${config}"                                \
-        -T "${twisted}/bin/twistd";                    
+        -T "${twisted}/bin/twistd"                    \
+        -P "${plugin_name}"                           \
+        ;
     cd /;
   fi;
 }
