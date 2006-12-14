@@ -22,80 +22,175 @@ for automatic notification of changes to subscribed users.
 """
 
 __all__ = [
-    "DropBox",
+    "DropBoxHomeResource",
 ]
 
-from twistedcaldav.customxml import davxml, apple_namespace
+from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.python import log
+from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
+from twisted.web2.dav.http import HTTPError, ErrorResponse
+from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twisted.web2.dav.util import parentForURL
 
-import os
+from twistedcaldav import customxml
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.notifications import Notification
 
-class DropBox(object):
-    
-    # These are all options that will be set from a .plist configuration file.
+class DropBoxHomeResource (DAVResource):
+    """
+    Drop box collection resource.
+    """
+    def resourceType(self):
+        return davxml.ResourceType(
+            davxml.ResourceType.collection,
+            davxml.ResourceType.dropboxhome,
+        )
 
-    enabled = True                     # Whether or not drop box functionaility is enabled.
-    dropboxName = "dropbox"            # Name of the collection in which drop boxes can be created.
-    inheritedACLs = True               # Whether or not ACLs set on a drop box collection are automatically
-                                       # inherited by child resources.
-    notifications = True               # Whether to post notification messages into per-user notification collection.
-    notificationName = "notifications" # Name of the collection in which notifications will be stored.
-    
-    @classmethod
-    def enable(clzz, enabled, notifications=None):
+    def isCollection(self):
+        return True
+
+class DropBoxCollectionResource (DAVResource):
+    """
+    Drop box resource.
+    """
+    def resourceType(self):
+        return davxml.ResourceType(
+            davxml.ResourceType.collection,
+            davxml.ResourceType.dropbox,
+        )
+
+    def isCollection(self):
+        return True
+
+    def writeNewACEs(self, newaces):
         """
-        This method must be used to enable drop box support as it will setup live properties etc,
-        and turn on the notification system. It must only be called once
-
-        @param enable: C{True} if drop box feature is enabled, C{False} otherwise
-        @param notifications: C{True} if automatic notifications are to be sent when a drop box changes, C{False} otherwise.
+        Write a new ACL to the resource's property store. We override this for calendar collections
+        and force all the ACEs to be inheritable so that all calendar object resources within the
+        calendar collection have the same privileges unless explicitly overridden. The same applies
+        to drop box collections as we want all resources (attachments) to have the same privileges as
+        the drop box collection.
+        
+        @param newaces: C{list} of L{ACE} for ACL being set.
         """
-        DropBox.enabled = enabled
-        if notifications:
-            DropBox.notifications = notifications
+        # Add inheritable option to each ACE in the list
+        edited_aces = []
+        for ace in newaces:
+            if TwistedACLInheritable() not in ace.children:
+                children = list(ace.children)
+                children.append(TwistedACLInheritable())
+                edited_aces.append(davxml.ACE(*children))
+            else:
+                edited_aces.append(ace)
+        
+        # Do inherited with possibly modified set of aces
+        super(DropBoxCollectionResource, self).writeNewACEs(edited_aces)
 
-        if DropBox.enabled:
+    def http_DELETE(self, request):
+        #
+        # Handle notificiations
+        #
+        parentURL=parentForURL(request.uri)
 
-            # Need to setup live properties
-            from twistedcaldav.resource import CalendarPrincipalResource
-            assert (apple_namespace, "dropbox-home-URL") not in CalendarPrincipalResource.liveProperties, \
-                "DropBox.enable must only be called once"
+        def gotParent(parent):
+            def gotResponse(response):
+                notification = Notification(parentURL=parentURL)
+                d = notification.doNotification(request, parent)
+                d.addCallback(lambda _: response)
+                return d
 
-            CalendarPrincipalResource.liveProperties += (
-                (apple_namespace, "dropbox-home-URL"  ),
-                (apple_namespace, "notifications-URL" ),
+            d = super(DropBoxCollectionResource, self).http_DELETE(request)
+            d.addCallback(gotResponse)
+            return d
+
+        d = request.locateResource(parentURL)
+        d.addCallback(gotParent)
+        return d
+        
+    def http_PUT(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (calendarserver_namespace, "valid-drop-box")
+        )
+
+    def http_X_APPLE_SUBSCRIBE(self, request):
+        d = waitForDeferred(self.authorize(request, (davxml.Read(),)))
+        yield d
+        d.getResult()
+        authid = request.authnUser
+    
+        # Get current list of subscribed principals
+        principals = []
+        if self.hasDeadProperty(customxml.Subscribed):
+            subs = self.readDeadProperty(customxml.Subscribed).children
+            principals.extend(subs)
+    
+        # Error if attempt to subscribe more than once
+        if authid in principals:
+            log.err("Cannot x_apple_subscribe to resource %s as principal %s is already subscribed" % (request.uri, repr(authid),))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "principal-must-not-be-subscribed"))
             )
 
-    @classmethod
-    def provision(clzz, cuhome):
-        """
-        Provision user account with appropriate collections for drop box
-        and notifications.
-        
-        @param principal: the L{CalendarPrincipalResource} for the principal to provision
-        @param cuhome: L{DAVResource} - resource of user calendar home
-        """
-        
-        # Only if enabled
-        if not DropBox.enabled:
-            return
-        
-        # Create drop box collection in calendar-home collection resource if not already present.
-        
-        from twistedcaldav.static import CalDAVFile
-        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.dropboxName))
-        child_exists = child.exists()
-        if not child_exists:
-            c = child.createSpecialCollection(davxml.ResourceType.dropboxhome)
-            assert c.called
-            c = c.result
-        
-        if not DropBox.notifications:
-            return
-        
-        child = CalDAVFile(os.path.join(cuhome.fp.path, DropBox.notificationName))
-        child_exists = child.exists()
-        if not child_exists:
-            c = child.createSpecialCollection(davxml.ResourceType.notifications)
-            assert c.called
-            c = c.result
-        
+        principals.append(authid)
+        self.writeDeadProperty(customxml.Subscribed(*principals))
+
+        yield responsecode.OK
+
+    http_X_APPLE_SUBSCRIBE = deferredGenerator(http_X_APPLE_SUBSCRIBE)
+
+    def http_X_APPLE_UNSUBSCRIBE(self, request):
+        # We do not check any privileges. If a principal is subscribed we always allow them to
+        # unsubscribe provided they have at least authenticated.
+        d = waitForDeferred(self.authorize(request, ()))
+        yield d
+        d.getResult()
+        authid = request.authnUser
+    
+        # Get current list of subscribed principals
+        principals = []
+        if self.hasDeadProperty(customxml.Subscribed):
+            subs = self.readDeadProperty(customxml.Subscribed).children
+            principals.extend(subs)
+    
+        # Error if attempt to subscribe more than once
+        if authid not in principals:
+            log.err("Cannot x_apple_unsubscribe from resource %s as principal %s is not currently subscribed" % (request.uri, repr(authid),))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "principal-must-be-subscribed"))
+            )
+
+        principals.remove(authid)
+        self.writeDeadProperty(customxml.Subscribed(*principals))
+
+        yield responsecode.OK
+
+    http_X_APPLE_UNSUBSCRIBE = deferredGenerator(http_X_APPLE_UNSUBSCRIBE)
+
+class DropBoxChildResource (DAVResource):
+    def http_MKCOL(self, request):
+        return responsecode.FORBIDDEN
+
+    def http_PUT(self, request):
+        #
+        # Handle notificiations
+        #
+        parentURL=parentForURL(request.uri)
+
+        def gotParent(parent):
+            def gotResponse(response):
+                if response.code in (responsecode.OK, responsecode.CREATED, responsecode.NO_CONTENT):
+                    notification = Notification(parentURL=parentForURL(request.uri))
+                    d = notification.doNotification(request, parent)
+                    d.addCallback(lambda _: response)
+                    return d
+
+            d = super(DropBoxChildResource, self).http_PUT(request)
+            d.addCallback(gotResponse)
+            return d
+
+        d = request.locateResource(parentURL)
+        d.addCallback(gotParent)
+        return d

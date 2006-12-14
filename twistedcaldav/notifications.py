@@ -23,7 +23,7 @@ from twisted.web2.dav.resource import DAVPrincipalResource
 from twisted.web2.dav import davxml
 
 from twistedcaldav import customxml
-from twistedcaldav.customxml import apple_namespace
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.extensions import DAVResource
 
@@ -54,7 +54,7 @@ class Notification(object):
 
     def doNotification(self, request, parent):
         """
-        Put the supplied noitification into the notification collection of the specified principal.
+        Put the supplied notification into the notification collection of the specified principal.
         
         @param request: L{Request} for request in progress.
         @param parent: L{DAVResource} for parent of resource trigerring the notification.
@@ -143,19 +143,29 @@ class Notification(object):
         
     doNotification = deferredGenerator(doNotification)
 
+class NotificationCollectionResource (DAVResource):
+    def resourceType(self):
+        return davxml.ResourceType(
+            davxml.ResourceType.collection,
+            davxml.ResourceType.notifications,
+        )
+
+    def notify(self):
+        # FIXME: Move doNotification() logic from above class to here
+        pass
+
 class NotificationResource(DAVResource):
     """
     Resource that gets stored in a notification collection and which contains
     the notification details in its content as well as via properties.
     """
-
     liveProperties = DAVResource.liveProperties + (
-        (apple_namespace, "time-stamp"  ),
-        (apple_namespace, "changed"     ),
+        (calendarserver_namespace, "time-stamp"),
+        (calendarserver_namespace, "changed"   ),
     )
 
-class NotificationFile(DAVResource, DAVFile):
-
+# FIXME: This needs to be in static.py, but it's referred to in doNotification() above, which is probably incorrect.
+class NotificationFile(NotificationResource, DAVFile):
     def __init__(self, path):
         super(NotificationFile, self).__init__(path)
 
@@ -163,7 +173,6 @@ class NotificationFile(DAVResource, DAVFile):
         """
         Create the resource, fill out the body, and add properties.
         """
-        
         # Create body XML
         elements = []
         elements.append(customxml.TimeStamp.fromString(notification.timestamp))

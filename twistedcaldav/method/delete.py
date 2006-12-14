@@ -22,13 +22,9 @@ CalDAV DELETE method.
 
 __all__ = ["http_DELETE"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import parentForURL
 
-from twistedcaldav import customxml
-from twistedcaldav.dropbox import DropBox
-from twistedcaldav.notifications import Notification
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_DELETE(self, request):
@@ -36,31 +32,20 @@ def http_DELETE(self, request):
     # Override base DELETE request handling to ensure that the calendar
     # index file has the entry for the deleted calendar component removed.
     #
-    # Also handle notifications in a drop box collection.
-    #
+    def gotParent(parent):
+        def gotResponse(response):
+            if response == responsecode.NO_CONTENT:
+                if isPseudoCalendarCollectionResource(parent):
+                    index = parent.index()
+                    index.deleteResource(self.fp.basename())
+
+            return response
+
+        d = super(CalDAVFile, self).http_DELETE(request)
+        d.addCallback(gotResponse)
+        return d
 
     parentURL = parentForURL(request.uri)
-    parent = waitForDeferred(request.locateResource(parentURL))
-    yield parent
-    parent = parent.getResult()
-
-    d = waitForDeferred(super(CalDAVFile, self).http_DELETE(request))
-    yield d
-    response = d.getResult()
-
-    if response == responsecode.NO_CONTENT:
-
-        if isPseudoCalendarCollectionResource(parent):
-            index = parent.index()
-            index.deleteResource(self.fp.basename())
-
-        elif DropBox.enabled and parent.isSpecialCollection(customxml.DropBox):
-            # We need to handle notificiations
-            notification = Notification(parentURL=parentURL)
-            d = waitForDeferred(notification.doNotification(request, parent))
-            yield d
-            d.getResult()
-
-    yield response
-
-http_DELETE = deferredGenerator(http_DELETE)
+    d = request.locateResource(parentURL)
+    d.addCallback(gotParent)
+    return d

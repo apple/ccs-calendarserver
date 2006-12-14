@@ -23,10 +23,17 @@ import os
 user_max = 20
 calendars = ("calendar.10", "calendar.100", "calendar.1000",)
 
-for calendar in calendars:
-    for ctr in xrange(1, user_max + 1):
-        path = "calendars/user/user%02d" % (ctr,)
-        if not os.path.exists("%s/%s/" % (path, calendar,)):
-            print "Expanding %s to %s" % (calendar, path,)
-            cmd = "cd %s; tar zxf ../../../%s.tgz" % (path, calendar,)
+for ctr in xrange(1, user_max + 1): 
+    path = "calendars/user/user%02d" % (ctr,)
+
+    try: os.makedirs(path)
+    except OSError: pass
+
+    try: os.makedirs(os.path.join(path, "calendar"))
+    except OSError: pass
+
+    for calendar in calendars:
+        if not os.path.isdir(os.path.join(path, calendar)):
+            print "Expanding %s to %s" % (calendar, path)
+            cmd = "tar -C %r -zx -f %r" % (path, calendar + ".tgz")
             os.system(cmd)

@@ -1525,3 +1525,5 @@ class Schedule (CalDAVEmptyElement):
 def _isCalendar(self): return bool(self.childrenOfType(Calendar))
 davxml.ResourceType.isCalendar = _isCalendar
 davxml.ResourceType.calendar = davxml.ResourceType(davxml.Collection(), Calendar())
+davxml.ResourceType.scheduleInbox = davxml.ResourceType(davxml.Collection(), ScheduleInbox())
+davxml.ResourceType.scheduleOutbox = davxml.ResourceType(davxml.Collection(), ScheduleOutbox())

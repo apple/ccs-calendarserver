@@ -190,6 +190,9 @@ class DirectoryCalendarHomeResource (CalDAVResource):
             self.putChild(name, child)
 
     def provision(self):
+        return self.provisionDefaultCalendars()
+
+    def provisionDefaultCalendars(self):
         # Create a calendar collection
 
         childName = "calendar"

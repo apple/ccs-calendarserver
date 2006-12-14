@@ -28,7 +28,7 @@ change.
 from twisted.web2.dav.resource import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
-apple_namespace = "http://apple.com/ns/calendarserver/"
+calendarserver_namespace = "http://org.calendarserver/ns/"
 
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
@@ -86,7 +86,7 @@ class DropBoxHome (davxml.WebDAVEmptyElement):
     Denotes a drop box home collection (a collection that will contain drop boxes).
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "dropbox-home"
 
 class DropBox (davxml.WebDAVEmptyElement):
@@ -94,7 +94,7 @@ class DropBox (davxml.WebDAVEmptyElement):
     Denotes a drop box collection.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "dropbox"
 
 class Notifications (davxml.WebDAVEmptyElement):
@@ -102,7 +102,7 @@ class Notifications (davxml.WebDAVEmptyElement):
     Denotes a notifications collection.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "notifications"
 
 class DropBoxHomeURL (davxml.WebDAVElement):
@@ -110,7 +110,7 @@ class DropBoxHomeURL (davxml.WebDAVElement):
     A principal property to indicate the location of the drop box home.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "dropbox-home-URL"
     hidden = True
     protected = True
@@ -122,7 +122,7 @@ class NotificationsURL (davxml.WebDAVElement):
     A principal property to indicate the location of the notification collection.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "notifications-URL"
     hidden = True
     protected = True
@@ -133,12 +133,12 @@ class Notification(davxml.WebDAVElement):
     """
     Root element for XML data in a notification resource.
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "notification"
 
     allowed_children = {
-        (apple_namespace, "time-stamp" ): (1, 1),
-        (apple_namespace, "changed"    ): (1, 1),
+        (calendarserver_namespace, "time-stamp" ): (1, 1),
+        (calendarserver_namespace, "changed"    ): (1, 1),
     }
 
 class TimeStamp (davxml.WebDAVTextElement):
@@ -146,7 +146,7 @@ class TimeStamp (davxml.WebDAVTextElement):
     A property to indicate the timestamp of a notification resource.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "time-stamp"
     hidden = True
     protected = True
@@ -157,7 +157,7 @@ class Changed (davxml.WebDAVElement):
     notification resource.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "changed"
     hidden = True
     protected = True
@@ -169,7 +169,7 @@ class Subscribed (davxml.WebDAVElement):
     A property to indicate which principals will receive notifications.
     (Apple Extension to CalDAV)
     """
-    namespace = apple_namespace
+    namespace = calendarserver_namespace
     name = "subscribed"
     hidden = True
     protected = True

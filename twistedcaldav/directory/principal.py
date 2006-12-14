@@ -40,7 +40,6 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import provisionFile
-from twistedcaldav.dropbox import DropBox
 from twistedcaldav.directory.idirectory import IDirectoryService
 
 # FIXME: These should not be tied to DAVFile
@@ -373,10 +372,10 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         return self._homeChildURL("outbox/")
 
     def dropboxURL(self):
-        return self._homeChildURL(DropBox.dropboxName + "/")
+        return self._homeChildURL("dropbox/")
 
     def notificationsURL(self):
-        return self._homeChildURL(DropBox.notificationName + "/")
+        return self._homeChildURL("notifications/")
 
     def _homeChildURL(self, name):
         home = self._calendarHome()

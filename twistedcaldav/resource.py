@@ -54,9 +54,8 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.extensions import DAVResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.customxml import apple_namespace
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component as iComponent
-from twistedcaldav.dropbox import DropBox
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -449,17 +448,20 @@ class CalDAVResource (DAVResource):
         """
         
         # Do this only for regular calendar collections and Inbox/Outbox
-        if self.isPseudoCalendarCollection() or \
-            DropBox.enabled and self.isSpecialCollection(customxml.DropBox):
-            # Add inheritable option to each ACE in the list
+        if self.isPseudoCalendarCollection():
+            edited_aces = []
             for ace in newaces:
                 if TwistedACLInheritable() not in ace.children:
                     children = list(ace.children)
                     children.append(TwistedACLInheritable())
-                    ace.children = children
+                    edited_aces.append(davxml.ACE(*children))
+                else:
+                    edited_aces.append(ace)
+        else:
+            edited_aces = newaces
         
         # Do inherited with possibly modified set of aces
-        super(CalDAVResource, self).writeNewACEs(newaces)
+        super(CalDAVResource, self).writeNewACEs(edited_aces)
 
     ##
     # Utilities
@@ -535,6 +537,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         (caldav_namespace, "calendar-user-address-set"),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
+        (calendarserver_namespace, "dropbox-home-URL" ),
+        (calendarserver_namespace, "notifications-URL"),
     )
 
     def readProperty(self, property, request):
@@ -573,7 +577,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
 
-            elif namespace == apple_namespace:
+            elif namespace == calendarserver_namespace:
                 if name == "dropbox-home-URL":
                     url = self.dropboxURL()
                     if url is None:
@@ -659,19 +663,21 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         """
         @return: the drop box home collection URL for this principal.
         """
-        # Use the first calendar home only
-        for home in self.calendarHomeURLs():
-            return joinURL(home, DropBox.dropboxName)
-        return None
+        if self.hasDeadProperty((calendarserver_namespace, "dropbox-home-URL")):
+            inbox = self.readDeadProperty((caldav_namespace, "dropbox-home-URL"))
+            return str(inbox.children[0])
+        else:
+            return None
         
     def notificationsURL(self):
         """
         @return: the notifications collection URL for this principal.
         """
-        # Use the first calendar home only
-        for home in self.calendarHomeURLs():
-            return joinURL(home, DropBox.notificationName)
-        return None
+        if self.hasDeadProperty((calendarserver_namespace, "notifications-URL")):
+            inbox = self.readDeadProperty((caldav_namespace, "notifications-URL"))
+            return str(inbox.children[0])
+        else:
+            return None
 
 ##
 # Utilities

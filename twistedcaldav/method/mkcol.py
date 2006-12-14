@@ -22,49 +22,24 @@ CalDAV MKCOL method.
 
 __all__ = ["http_MKCOL"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import HTTPError, StatusResponse
+from twisted.web2.http import StatusResponse
 
-from twistedcaldav import customxml
-from twistedcaldav.icaldav import ICalDAVResource
+from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_MKCOL(self, request):
     #
-    # Don't allow DAV collections in a calendar collection for now
+    # Don't allow DAV collections in a calendar collection
     #
-    def isNonCollectionParentResource(resource):
-        try:
-            resource = ICalDAVResource(resource)
-        except TypeError:
-            return False
-        else:
-            return resource.isPseudoCalendarCollection() or resource.isSpecialCollection(customxml.DropBox)
+    def gotParent(parent):
+        if parent is not None:
+            return StatusResponse(
+                responsecode.FORBIDDEN,
+                "Cannot create collection within calendar collection %s" % (parent,)
+            )
 
-    parent = waitForDeferred(self._checkParents(request, isNonCollectionParentResource))
-    yield parent
-    parent = parent.getResult()
-    if parent is not None:
-        raise HTTPError(StatusResponse(
-            responsecode.FORBIDDEN,
-            "Cannot create collection within special collection %s" % (parent,))
-        )
+        return super(CalDAVFile, self).http_MKCOL(request)
 
-    d = waitForDeferred(super(CalDAVFile, self).http_MKCOL(request))
-    yield d
-    result = d.getResult()
-    
-    # Check for drop box creation and give it a special resource type
-    from twistedcaldav.dropbox import DropBox
-    if result == responsecode.CREATED and DropBox.enabled:
-        parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-        yield parent
-        parent = parent.getResult()
-        if parent.isSpecialCollection(customxml.DropBoxHome):
-             self.writeDeadProperty(davxml.ResourceType.dropbox)
-    
-    yield result
-
-http_MKCOL = deferredGenerator(http_MKCOL)
+    d = self._checkParents(request, isPseudoCalendarCollectionResource)
+    d.addCallback(gotParent)
+    return d

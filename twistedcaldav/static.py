@@ -22,11 +22,13 @@ CalDAV-aware static resources.
 
 __all__ = [
     "CalDAVFile",
-    "CalendarHomeFile",
     "CalendarHomeProvisioningFile",
-    "CalendarPrincipalCollectionFile",
+    "CalendarHomeFile",
     "ScheduleInboxFile",
     "ScheduleOutboxFile",
+    "DropBoxHomeFile",
+    "DropBoxCollectionFile",
+    "DropBoxChildFile",
 ]
 
 import os
@@ -46,14 +48,14 @@ from twisted.web2.dav.util import parentForURL, bindMethods
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
+from twistedcaldav.config import config
+from twistedcaldav.extensions import DAVFile
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
-from twistedcaldav.icaldav import ICalDAVResource
 from twistedcaldav.index import Index, IndexSchedule, db_basename
-from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource
+from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
-from twistedcaldav.extensions import DAVFile
-from twistedcaldav.dropbox import DropBox
+from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource, DropBoxChildResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
@@ -101,15 +103,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
             return self.createCalendarCollection()
             
-        def isNonCalendarCollectionParentResource(resource):
-            try:
-                resource = ICalDAVResource(resource)
-            except TypeError:
-                return False
-            else:
-                return resource.isPseudoCalendarCollection() or resource.isSpecialCollection(customxml.DropBoxHome)
-
-        parent = self._checkParents(request, isNonCalendarCollectionParentResource)
+        parent = self._checkParents(request, isPseudoCalendarCollectionResource)
         parent.addCallback(_defer)
         return parent
 
@@ -430,19 +424,21 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
         if not provisionFile(self, self._parent):
             return succeed(None)
 
-        d = super(CalendarHomeFile, self).provision()
-
-        # FIXME: This should provision itself also
-        # Provision a drop box
-        if self.record.recordType == "user":
-            DropBox.provision(self)
-
-        return d
+        return super(CalendarHomeFile, self).provision()
 
     def provisionChild(self, name):
+        if config.DropBoxEnabled:
+            DropBoxHomeFileClass = DropBoxHomeFile
+            #NotificationsCollectionFileClass = NotificationsCollectionFile
+        else:
+            DropBoxHomeFileClass = None
+            #NotificationsCollectionFileClass = None
+
         cls = {
-            "inbox" : ScheduleInboxFile,
-            "outbox": ScheduleOutboxFile,
+            "inbox"        : ScheduleInboxFile,
+            "outbox"       : ScheduleOutboxFile,
+            "dropbox"      : DropBoxHomeFileClass,
+            #"notifications": NotificationsCollectionFileClass,
         }.get(name, None)
 
         if cls is not None:
@@ -525,6 +521,45 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+class DropBoxHomeFile (DropBoxHomeResource, CalDAVFile):
+    def __init__(self, path, parent):
+        DropBoxHomeResource.__init__(self)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        self._parent = parent
+
+    def provision(self):
+        provisionFile(self, self._parent)
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return DropBoxCollectionFile(path, self)
+
+class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
+    def __init__(self, path, parent):
+        DropBoxCollectionResource.__init__(self)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return DropBoxChildFile(path, self)
+
+class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
+    def __init__(self, path, parent):
+        DropBoxChildResource.__init__(self)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+
+        assert self.fp.isfile() or not self.fp.exists
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return responsecode.NOT_FOUND
 
 ##
 # Utilities
