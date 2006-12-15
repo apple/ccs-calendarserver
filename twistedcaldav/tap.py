@@ -182,9 +182,8 @@ class CaldavServiceMaker(object):
         
         service = Web2Service(logObserver)
 
-        httpService = internet.TCPServer(
-            int(config.Port),
-            channel)
+        if not config.SSLOnly:
+            httpService = internet.TCPServer(int(config.Port), channel)
 
         httpService.setServiceParent(service)
 

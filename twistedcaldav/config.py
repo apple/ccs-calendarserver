@@ -23,7 +23,6 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
-    'CreateAccounts': False,
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -36,7 +35,6 @@ defaultConfig = {
     'NotificationsEnabled': False,
     'PIDFile': '/var/run/caldavd.pid',
     'Port': 8008,
-    'ResetAccountACLs': False,
     'RunStandalone': True,
     'SSLCertificate': '/etc/certificates/Default.crt',
     'SSLEnable': True,
@@ -50,7 +48,7 @@ defaultConfig = {
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
     'AuthSchemes': ['Basic'],
-    'AdminPrincipals': ['/principal/users/admin']
+    'AdminPrincipals': ['/principals/user/admin']
 }
 
 class Config (object):
