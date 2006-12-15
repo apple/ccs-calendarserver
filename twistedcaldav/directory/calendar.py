@@ -188,9 +188,9 @@ class DirectoryCalendarHomeResource (CalDAVResource):
             ("outbox", ScheduleOutboxResource),
         )
         if config.DropBoxEnabled:
-            childlist = childlist + (
-                ("dropbox",       DropBoxHomeResource),
-                #("notifications": NotificationsHomeResource),
+            childlist += (
+                ("dropbox"      , DropBoxHomeResource      ),
+               #("notifications", NotificationsHomeResource),
             )
         for name, cls in childlist:
             child = self.provisionChild(name)
@@ -198,19 +198,8 @@ class DirectoryCalendarHomeResource (CalDAVResource):
             self.putChild(name, child)
 
     def provision(self):
-        self.provisionSpecialCollections()
+        # FIXME: Make sure we don't do this more than once.
         return self.provisionDefaultCalendars()
-
-    def provisionSpecialCollections(self):
-        childlist = ("inbox" , "outbox",)
-        if config.DropBoxEnabled:
-            childlist = childlist + (
-                "dropbox",
-                #"notifications",
-            )
-        for child in childlist:
-            collection = self.getChild(child)
-            collection.provision()
 
     def provisionDefaultCalendars(self):
         # Create a calendar collection
@@ -234,6 +223,11 @@ class DirectoryCalendarHomeResource (CalDAVResource):
 
             # Set calendar-free-busy-set on inbox
             inbox = self.getChild("inbox")
+            # FIXME: Shouldn't have to call provision() on another resource
+            # We cheat here because while inbox will auto-provision itself when located,
+            # we need to write a dead property to it pre-emptively.
+            # Possible fix: store the free/busy set property on this resource instead.
+            inbox.provision()
             inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
 
         d = child.createCalendarCollection()
