@@ -63,6 +63,7 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
             # Create children
             for recordType in self.directory.recordTypes():
                 self.putChild(recordType, self.provisionChild(recordType))
+            return super(DirectoryCalendarHomeProvisioningResource, self).provision()
 
     def provisionChild(self, recordType):
         raise NotImplementedError("Subclass must implement provisionChild()")
@@ -192,7 +193,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
     def provision(self):
         # FIXME: Make sure we don't do this more than once.
-        return self.provisionDefaultCalendars()
+        d = self.provisionDefaultCalendars()
+        d.addCallback(lambda _: super(DirectoryCalendarHomeResource, self).provision())
+        return d
 
     def provisionDefaultCalendars(self):
         # Create a calendar collection
