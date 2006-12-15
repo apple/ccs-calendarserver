@@ -39,9 +39,8 @@ from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
-from twistedcaldav.static import provisionFile
+from twistedcaldav.static import AutoProvisioningFileMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
 # FIXME: These should not be tied to DAVFile
 # The reason that they is that web2.dav only implements DAV methods on
@@ -56,7 +55,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         return succeed(self.defaultAccessControlList())
 
 class DirectoryPrincipalProvisioningResource (
-    AutoProvisioningResourceMixIn,
+    AutoProvisioningFileMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
@@ -87,9 +86,6 @@ class DirectoryPrincipalProvisioningResource (
         # Create children
         for recordType in self.directory.recordTypes():
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
-
-    def provision(self):
-        provisionFile(self)
 
     def principalForUser(self, user):
         return self.getChild("user").getChild(user)
@@ -157,7 +153,7 @@ class DirectoryPrincipalProvisioningResource (
         return (self,)
 
 class DirectoryPrincipalTypeResource (
-    AutoProvisioningResourceMixIn,
+    AutoProvisioningFileMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
@@ -176,23 +172,20 @@ class DirectoryPrincipalTypeResource (
 
         self.directory = parent.directory
         self.recordType = recordType
-        self._parent = parent
+        self.parent = parent
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
         self.provision()
 
-    def provision(self):
-        provisionFile(self, self._parent)
-
     def principalForUser(self, user):
-        return self._parent.principalForUser(user)
+        return self.parent.principalForUser(user)
 
     def principalForRecord(self, record):
-        return self._parent.principalForRecord(record)
+        return self.parent.principalForRecord(record)
 
     def principalForCalendarUserAddress(self, address):
-        return self._parent.principalForCalendarUserAddress(address)
+        return self.parent.principalForCalendarUserAddress(address)
 
     ##
     # Static
@@ -224,9 +217,9 @@ class DirectoryPrincipalTypeResource (
     ##
 
     def principalCollections(self):
-        return self._parent.principalCollections()
+        return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, CalendarPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """
@@ -239,15 +232,12 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         super(DirectoryPrincipalResource, self).__init__(path, joinURL(parent.principalCollectionURL(), record.shortName))
 
         self.record = record
-        self._parent = parent
+        self.parent = parent
         self._url = joinURL(parent.principalCollectionURL(), record.shortName)
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
         self.provision()
-
-    def provision(self):
-        provisionFile(self, self._parent, True)
 
     ##
     # HTTP
@@ -310,6 +300,9 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         else:
             return self.record.shortName
 
+    def isCollection(self):
+        return False
+
     ##
     # ACL
     ##
@@ -335,9 +328,9 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
             for relative in getattr(record, method)():
                 if relative not in records:
                     if relative.recordType == myRecordType: 
-                        relatives.add(self._parent.getChild(None, record=relative))
+                        relatives.add(self.parent.getChild(None, record=relative))
                     else:
-                        relatives.add(self._parent._parent.getChild(relative.recordType).getChild(None, record=relative))
+                        relatives.add(self.parent.parent.getChild(relative.recordType).getChild(None, record=relative))
                     self._getRelatives(method, relative, relatives, records)
 
         return relatives
@@ -349,7 +342,7 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         return self._getRelatives("groups")
 
     def principalCollections(self):
-        return self._parent.principalCollections()
+        return self.parent.principalCollections()
 
     ##
     # CalDAV

@@ -361,7 +361,33 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
     _checkParents = deferredGenerator(_checkParents)
 
-class CalendarHomeProvisioningFile (DirectoryCalendarHomeProvisioningResource, DAVFile):
+class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
+    def provision(self):
+        if self.provisionFile():
+            return super(AutoProvisioningFileMixIn, self).provision()
+
+    def provisionFile(self):
+        fp = self.fp
+
+        fp.restat(False)
+        if fp.exists():
+            return False
+
+        if hasattr(self, "parent"):
+            parent = self.parent
+            assert parent.exists()
+            assert parent.isCollection()
+
+        if self.isCollection():
+            fp.makedirs()
+            fp.restat(False)
+        else:
+            fp.open("w").close()
+            fp.restat(False)
+
+        return True
+
+class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.    
     """
@@ -374,18 +400,13 @@ class CalendarHomeProvisioningFile (DirectoryCalendarHomeProvisioningResource, D
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeProvisioningResource.__init__(self, directory, url)
 
-    def provision(self):
-        provisionFile(self)
-
-        super(CalendarHomeProvisioningFile, self).provision()
-
     def provisionChild(self, recordType):
         return CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeTypeProvisioningFile (DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
+class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections of a specific
     record type as needed.
@@ -399,18 +420,13 @@ class CalendarHomeTypeProvisioningFile (DirectoryCalendarHomeTypeProvisioningRes
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
-    def provision(self):
-        provisionFile(self, self._parent)
-
-        return super(CalendarHomeTypeProvisioningFile, self).provision()
-
     def provisionChild(self, record):
         return CalendarHomeFile(self.fp.child(record.shortName).path, self, record)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
@@ -420,12 +436,6 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
         """
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
-
-    def provision(self):
-        if not provisionFile(self, self._parent):
-            return succeed(None)
-
-        return super(CalendarHomeFile, self).provision()
 
     def provisionChild(self, name):
         if config.DropBoxEnabled:
@@ -460,13 +470,13 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
 
         return super(CalendarHomeFile, self).getChild(name)
 
-class ScheduleFile (AutoProvisioningResourceMixIn, CalDAVFile):
+class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
     def __init__(self, path, parent):
         super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
-        self._parent = parent
+        self.parent = parent
 
-    def provision(self):
-        provisionFile(self, self._parent)
+    def isCollection(self):
+        return True
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
@@ -501,13 +511,15 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     Calendar scheduling inbox collection resource.
     """
     def provision(self):
-        if provisionFile(self, self._parent):
+        if self.provisionFile():
             # FIXME: This should probably be a directory record option that
             # maps to the property value directly without the need to store one.
-            if self._parent.record.recordType == "resource":
+            if self.parent.record.recordType == "resource":
                 # Resources should have autorespond turned on by default,
                 # since they typically don't have someone responding for them.
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
+
+            return super(ScheduleInboxFile, self).provision()
 
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -519,14 +531,11 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-class DropBoxHomeFile (AutoProvisioningResourceMixIn, DropBoxHomeResource, CalDAVFile):
+class DropBoxHomeFile (AutoProvisioningFileMixIn, DropBoxHomeResource, CalDAVFile):
     def __init__(self, path, parent):
         DropBoxHomeResource.__init__(self)
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
-        self._parent = parent
-
-    def provision(self):
-        provisionFile(self, self._parent)
+        self.parent = parent
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
@@ -571,26 +580,6 @@ class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
 ##
 # Utilities
 ##
-
-def provisionFile(resource, parent=None, isFile=False):
-    fp = resource.fp
-
-    fp.restat(False)
-    if fp.exists():
-        return False
-
-    if parent is not None:
-        assert parent.exists()
-        assert parent.isCollection()
-
-    if isFile:
-        fp.open("w").close()
-        fp.restat(False)
-    else:
-        fp.makedirs()
-        fp.restat(False)
-
-    return True
 
 def locateExistingChild(resource, request, segments):
     """
