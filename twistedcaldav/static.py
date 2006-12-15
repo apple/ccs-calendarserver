@@ -59,6 +59,7 @@ from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
+from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
@@ -459,21 +460,13 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
 
         return super(CalendarHomeFile, self).getChild(name)
 
-class AutoProvisionCalDAVFile(CalDAVFile):
-    """
-    A class that makes a resource auto-provision itself when someone tries to locate it.
-    """
-    def provision(self):
-        provisionFile(self, self._parent)
-
-    def locateChild(self, path, segments):
-        self.provision()
-        return super(AutoProvisionCalDAVFile, self).locateChild(path, segments)
-
-class ScheduleFile (AutoProvisionCalDAVFile):
+class ScheduleFile (AutoProvisioningResourceMixIn, CalDAVFile):
     def __init__(self, path, parent):
         super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
         self._parent = parent
+
+    def provision(self):
+        provisionFile(self, self._parent)
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
@@ -526,10 +519,10 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-class DropBoxHomeFile (DropBoxHomeResource, AutoProvisionCalDAVFile):
+class DropBoxHomeFile (AutoProvisioningResourceMixIn, DropBoxHomeResource, CalDAVFile):
     def __init__(self, path, parent):
         DropBoxHomeResource.__init__(self)
-        AutoProvisionCalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
         self._parent = parent
 
     def provision(self):

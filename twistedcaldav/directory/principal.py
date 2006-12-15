@@ -41,6 +41,7 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import provisionFile
 from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
 # FIXME: These should not be tied to DAVFile
 # The reason that they is that web2.dav only implements DAV methods on
@@ -54,7 +55,12 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipalCollectionResource, DAVFile):
+class DirectoryPrincipalProvisioningResource (
+    AutoProvisioningResourceMixIn,
+    PermissionsMixIn,
+    CalendarPrincipalCollectionResource,
+    DAVFile,
+):
     """
     Collection resource which provisions directory principals as its children.
     """
@@ -74,6 +80,8 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
+        # Provision in __init__() because principals are used prior to request
+        # lookups.
         self.provision()
 
         # Create children
@@ -136,7 +144,6 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self.provision()
         return self.putChildren.get(name, None)
 
     def listChildren(self):
@@ -149,7 +156,12 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
     def principalCollections(self):
         return (self,)
 
-class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollectionResource, DAVFile):
+class DirectoryPrincipalTypeResource (
+    AutoProvisioningResourceMixIn,
+    PermissionsMixIn,
+    CalendarPrincipalCollectionResource,
+    DAVFile,
+):
     """
     Collection resource which provisions directory principals of a specific type as its children.
     """
@@ -166,6 +178,8 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         self.recordType = recordType
         self._parent = parent
 
+        # Provision in __init__() because principals are used prior to request
+        # lookups.
         self.provision()
 
     def provision(self):
@@ -189,8 +203,6 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
-        self.provision()
-
         if name == "":
             return self
 
@@ -230,6 +242,8 @@ class DirectoryPrincipalResource (PermissionsMixIn, CalendarPrincipalResource, D
         self._parent = parent
         self._url = joinURL(parent.principalCollectionURL(), record.shortName)
 
+        # Provision in __init__() because principals are used prior to request
+        # lookups.
         self.provision()
 
     def provision(self):

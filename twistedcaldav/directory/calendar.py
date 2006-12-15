@@ -37,8 +37,9 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
-class DirectoryCalendarHomeProvisioningResource (ReadOnlyResourceMixIn, DAVResource):
+class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
     """
     Resource which provisions calendar home collections as needed.    
     """
@@ -70,8 +71,6 @@ class DirectoryCalendarHomeProvisioningResource (ReadOnlyResourceMixIn, DAVResou
         return self._url
 
     def getChild(self, name):
-        self.provision()
-
         return self.putChildren.get(name, None)
 
     def listChildren(self):
@@ -103,7 +102,7 @@ class DirectoryCalendarHomeProvisioningResource (ReadOnlyResourceMixIn, DAVResou
     def defaultAccessControlList(self):
         return readOnlyACL
 
-class DirectoryCalendarHomeTypeProvisioningResource (ReadOnlyResourceMixIn, DAVResource):
+class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
     """
     Resource which provisions calendar home collections of a specific
     record type as needed.
@@ -119,12 +118,6 @@ class DirectoryCalendarHomeTypeProvisioningResource (ReadOnlyResourceMixIn, DAVR
         self.directory = parent.directory
         self.recordType = recordType
         self._parent = parent
-
-    def provision(self):
-        pass
-
-    def provisionChild(self, record):
-        raise NotImplementedError("Subclass must implement provisionChild()")
 
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
@@ -165,7 +158,7 @@ class DirectoryCalendarHomeTypeProvisioningResource (ReadOnlyResourceMixIn, DAVR
     def principalCollections(self):
         return self._parent.principalCollections()
 
-class DirectoryCalendarHomeResource (CalDAVResource):
+class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResource):
     """
     Calendar home collection resource.
     """
@@ -239,11 +232,6 @@ class DirectoryCalendarHomeResource (CalDAVResource):
 
     def url(self):
         return joinURL(self._parent.url(), self.record.shortName)
-
-    def locateChild(self, path, segments):
-        d = self.provision()
-        d.addCallback(lambda _: super(DirectoryCalendarHomeResource, self).locateChild(path, segments))
-        return d
 
     ##
     # DAV
