@@ -132,6 +132,7 @@ class DirectoryPrincipalProvisioningResource (PermissionsMixIn, CalendarPrincipa
     ##
 
     def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
@@ -184,6 +185,7 @@ class DirectoryPrincipalTypeResource (PermissionsMixIn, CalendarPrincipalCollect
     ##
 
     def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
