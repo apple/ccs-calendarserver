@@ -83,7 +83,17 @@ class CalDAVResource (DAVResource):
     ##
 
     def render(self, request):
-        if self.isPseudoCalendarCollection():
+        # Send listing instead of iCalendar data to HTML agents
+        # This is mostly useful for debugging...
+        # FIXME: Add a self-link to the dirlist with a query string so
+        #     users can still download the actual iCalendar data?
+        agent = request.headers.getHeader("user-agent")
+        if agent.startswith("Mozilla/") and agent.find("Gecko") != -1:
+            html_agent = True
+        else:
+            html_agent = False
+
+        if not html_agent and self.isPseudoCalendarCollection():
             # Render a monolithic iCalendar file
             if request.uri[-1] != "/":
                 # Redirect to include trailing '/' in URI
