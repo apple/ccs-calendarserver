@@ -54,6 +54,9 @@ class DropBoxCollectionResource (DAVResource):
     def resourceType(self):
         return davxml.ResourceType.dropbox
 
+    def isCollection(self):
+        return True
+
     def writeNewACEs(self, newaces):
         """
         Write a new ACL to the resource's property store. We override this for calendar collections
