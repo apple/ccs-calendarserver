@@ -459,17 +459,21 @@ class CalendarHomeFile (DirectoryCalendarHomeResource, CalDAVFile):
 
         return super(CalendarHomeFile, self).getChild(name)
 
-class ScheduleFile (CalDAVFile):
-    def __init__(self, path, parent):
-        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
-        self._parent = parent
-
+class AutoProvisionCalDAVFile(CalDAVFile):
+    """
+    A class that makes a resource auto-provision itself when someone tries to locate it.
+    """
     def provision(self):
         provisionFile(self, self._parent)
 
     def locateChild(self, path, segments):
         self.provision()
-        return super(ScheduleFile, self).locateChild(path, segments)
+        return super(AutoProvisionCalDAVFile, self).locateChild(path, segments)
+
+class ScheduleFile (AutoProvisionCalDAVFile):
+    def __init__(self, path, parent):
+        super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
+        self._parent = parent
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
@@ -522,10 +526,10 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-class DropBoxHomeFile (DropBoxHomeResource, CalDAVFile):
+class DropBoxHomeFile (DropBoxHomeResource, AutoProvisionCalDAVFile):
     def __init__(self, path, parent):
         DropBoxHomeResource.__init__(self)
-        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        AutoProvisionCalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
         self._parent = parent
 
     def provision(self):
