@@ -88,7 +88,7 @@ class CalDAVResource (DAVResource):
         # FIXME: Add a self-link to the dirlist with a query string so
         #     users can still download the actual iCalendar data?
         agent = request.headers.getHeader("user-agent")
-        if agent and agent.startswith("Mozilla/") and agent.find("Gecko") != -1:
+        if agent is not None and agent.startswith("Mozilla/") and agent.find("Gecko") != -1:
             html_agent = True
         else:
             html_agent = False
