@@ -31,6 +31,8 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
 
 from twistedcaldav import caldavxml
+from twistedcaldav.config import config
+from twistedcaldav.dropbox import DropBoxHomeResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
@@ -181,16 +183,34 @@ class DirectoryCalendarHomeResource (CalDAVResource):
         self._parent = parent
 
         # Cache children which must be of a specific type
-        for name, cls in (
+        childlist = (
             ("inbox" , ScheduleInboxResource ),
             ("outbox", ScheduleOutboxResource),
-        ):
+        )
+        if config.DropBoxEnabled:
+            childlist = childlist + (
+                ("dropbox",       DropBoxHomeResource),
+                #("notifications": NotificationsHomeResource),
+            )
+        for name, cls in childlist:
             child = self.provisionChild(name)
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
 
     def provision(self):
+        self.provisionSpecialCollections()
         return self.provisionDefaultCalendars()
+
+    def provisionSpecialCollections(self):
+        childlist = ("inbox" , "outbox",)
+        if config.DropBoxEnabled:
+            childlist = childlist + (
+                "dropbox",
+                #"notifications",
+            )
+        for child in childlist:
+            collection = self.getChild(child)
+            collection.provision()
 
     def provisionDefaultCalendars(self):
         # Create a calendar collection
@@ -214,7 +234,6 @@ class DirectoryCalendarHomeResource (CalDAVResource):
 
             # Set calendar-free-busy-set on inbox
             inbox = self.getChild("inbox")
-            inbox.provision()
             inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
 
         d = child.createCalendarCollection()

@@ -42,10 +42,7 @@ class DropBoxHomeResource (DAVResource):
     Drop box collection resource.
     """
     def resourceType(self):
-        return davxml.ResourceType(
-            davxml.ResourceType.collection,
-            davxml.ResourceType.dropboxhome,
-        )
+        return davxml.ResourceType.dropboxhome
 
     def isCollection(self):
         return True
@@ -55,13 +52,7 @@ class DropBoxCollectionResource (DAVResource):
     Drop box resource.
     """
     def resourceType(self):
-        return davxml.ResourceType(
-            davxml.ResourceType.collection,
-            davxml.ResourceType.dropbox,
-        )
-
-    def isCollection(self):
-        return True
+        return davxml.ResourceType.dropbox
 
     def writeNewACEs(self, newaces):
         """
@@ -108,6 +99,12 @@ class DropBoxCollectionResource (DAVResource):
         return d
         
     def http_PUT(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (calendarserver_namespace, "valid-drop-box")
+        )
+
+    def http_MKCALENDAR (self, request):
         return ErrorResponse(
             responsecode.FORBIDDEN,
             (calendarserver_namespace, "valid-drop-box")
@@ -171,7 +168,15 @@ class DropBoxCollectionResource (DAVResource):
 
 class DropBoxChildResource (DAVResource):
     def http_MKCOL(self, request):
-        return responsecode.FORBIDDEN
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (calendarserver_namespace, "valid-drop-box-resource")
+        )
+    def http_MKCALENDAR (self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (calendarserver_namespace, "valid-drop-box-resource")
+        )
 
     def http_PUT(self, request):
         #

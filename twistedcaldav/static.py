@@ -548,18 +548,28 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
         else:
             return DropBoxChildFile(path, self)
 
+    http_DELETE =              DropBoxCollectionResource.http_DELETE
+    http_PUT =                 DropBoxCollectionResource.http_PUT
+    http_MKCALENDAR =          DropBoxCollectionResource.http_MKCALENDAR
+    http_X_APPLE_SUBSCRIBE =   DropBoxCollectionResource.http_X_APPLE_SUBSCRIBE
+    http_X_APPLE_UNSUBSCRIBE = DropBoxCollectionResource.http_X_APPLE_SUBSCRIBE
+
 class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
     def __init__(self, path, parent):
         DropBoxChildResource.__init__(self)
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
 
-        assert self.fp.isfile() or not self.fp.exists
+        assert self.fp.isfile() or not self.fp.exists()
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
             return self
         else:
             return responsecode.NOT_FOUND
+
+    http_MKCOL =      DropBoxChildResource.http_MKCOL
+    http_MKCALENDAR = DropBoxChildResource.http_MKCALENDAR
+    http_PUT =        DropBoxChildResource.http_PUT
 
 ##
 # Utilities
