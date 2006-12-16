@@ -22,6 +22,8 @@ Implements a directory-backed principal hierarchy.
 
 __all__ = ["AutoProvisioningResourceMixIn"]
 
+from twisted.internet.defer import succeed, maybeDeferred
+
 class AutoProvisioningResourceMixIn (object):
     """
     Adds auto-provisioning to a Resource implementation.
@@ -41,15 +43,19 @@ class AutoProvisioningResourceMixIn (object):
         """
         return None
 
-    def locateChild(self, *args):
+    def provisionChild(self, name):
+        pass
+
+    def locateChild(self, request, segments):
         """
         This implementation calls L{provision}, then super's L{locateChild}, thereby
         ensuring that looked-up resources are provisioned.
         """
-        super_method = super(AutoProvisioningResourceMixIn, self).locateChild
-        d = self.provision()
-        if d is None:
-            return super_method(*args)
+        name = segments[0]
+        if name == "":
+            d = succeed(None)
         else:
-            d.addCallback(lambda _: super_method(*args))
-            return d
+            d = maybeDeferred(self.provisionChild, name)
+        d.addCallback(lambda _: self.provision())
+        d.addCallback(lambda _: super(AutoProvisioningResourceMixIn, self).locateChild(request, segments))
+        return d
