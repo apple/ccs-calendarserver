@@ -26,6 +26,7 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
+from twisted.internet.defer import succeed
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
@@ -63,7 +64,7 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
             # Create children
             for recordType in self.directory.recordTypes():
                 self.putChild(recordType, self.provisionChild(recordType))
-            return super(DirectoryCalendarHomeProvisioningResource, self).provision()
+        return super(DirectoryCalendarHomeProvisioningResource, self).provision()
 
     def provisionChild(self, recordType):
         raise NotImplementedError("Subclass must implement provisionChild()")
@@ -204,6 +205,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         childURL = joinURL(self.url(), childName)
         child = self.provisionChild(childName)
         assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
+
+        if child.exists():
+            return succeed(None)
 
         def setupChild(_):
             # Grant read-free-busy access to authenticated users

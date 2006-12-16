@@ -363,8 +363,8 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
     def provision(self):
-        if self.provisionFile():
-            return super(AutoProvisioningFileMixIn, self).provision()
+        self.provisionFile()
+        return super(AutoProvisioningFileMixIn, self).provision()
 
     def provisionFile(self):
         fp = self.fp
@@ -519,7 +519,7 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
                 # since they typically don't have someone responding for them.
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
-            return super(ScheduleInboxFile, self).provision()
+        return super(ScheduleInboxFile, self).provision()
 
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
