@@ -421,7 +421,10 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
     def provisionChild(self, record):
-        return CalendarHomeFile(self.fp.child(record.shortName).path, self, record)
+        child = CalendarHomeFile(self.fp.child(record.shortName).path, self, record)
+        if not child.exists():
+            return child.provisionDefaultCalendars()
+        return child
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)

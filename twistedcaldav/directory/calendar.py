@@ -192,22 +192,13 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
 
-    def provision(self):
-        # FIXME: Make sure we don't do this more than once.
-        d = self.provisionDefaultCalendars()
-        d.addCallback(lambda _: super(DirectoryCalendarHomeResource, self).provision())
-        return d
-
     def provisionDefaultCalendars(self):
-        # Create a calendar collection
+        self.provision()
 
         childName = "calendar"
         childURL = joinURL(self.url(), childName)
         child = self.provisionChild(childName)
         assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
-
-        if child.exists():
-            return succeed(None)
 
         def setupChild(_):
             # Grant read-free-busy access to authenticated users
@@ -229,6 +220,8 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             # Possible fix: store the free/busy set property on this resource instead.
             inbox.provision()
             inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
+
+            return self
 
         d = child.createCalendarCollection()
         d.addCallback(setupChild)
