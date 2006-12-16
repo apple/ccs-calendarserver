@@ -31,11 +31,8 @@ class AutoProvisioningResourceMixIn (object):
     def provision(self):
         """
         Provision this resource by creating any required backing store, etc. that
-        must be set up before the resource can be accessed normally.
-        FIXME: More description of what that means would be helpful here.  Basically,
-        RenderMixIn methods should work (perhaps returning None) without having to
-        call this first, so that dirlist can happen, but it is expected that this will
-        have been called before anything that involves I/O happens.
+        must be set up before the resource can be accessed normally.  Specifically,
+        this must have been called before anything that involves I/O happens.
         This method may be called multiple times; provisioning code should ensure that
         it handles this properly, typically by returning immediately if the resource is
         already provisioned (eg. the backing store exists).
@@ -44,7 +41,16 @@ class AutoProvisioningResourceMixIn (object):
         return None
 
     def provisionChild(self, name):
-        pass
+        """
+        Creates the child object with the given name.
+        This is basically akin to L{File.createSimilarFile}, but here we know we're
+        creating a child of this resource, and take take certain actions to ensure that
+        it's prepared appropriately.
+        @param name: the name of the child resource.
+        @return: the newly created (optionally deferred) child, or None of no resource
+            is bound as a child of this resource with the given C{name}.
+        """
+        return None
 
     def locateChild(self, request, segments):
         """
