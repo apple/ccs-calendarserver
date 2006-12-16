@@ -400,8 +400,8 @@ class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendar
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeProvisioningResource.__init__(self, directory, url)
 
-    def provisionChild(self, recordType):
-        return CalendarHomeTypeProvisioningFile(self.fp.child(recordType).path, self, recordType)
+    def provisionChild(self, name):
+        return CalendarHomeTypeProvisioningFile(self.fp.child(name).path, self, name)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -420,8 +420,8 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
-    def provisionChild(self, record):
-        child = CalendarHomeFile(self.fp.child(record.shortName).path, self, record)
+    def provisionChild(self, name):
+        child = CalendarHomeFile(self.fp.child(name).path, self, self.directory.recordWithShortName(self.recordType, name))
         if not child.exists():
             return child.provisionDefaultCalendars()
         return child

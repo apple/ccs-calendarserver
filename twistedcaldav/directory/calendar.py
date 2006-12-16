@@ -26,7 +26,6 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.internet.defer import succeed
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
@@ -138,7 +137,7 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
             assert name is None
             name = record.shortName
 
-        return self.provisionChild(record)
+        return self.provisionChild(name)
 
     def listChildren(self):
         return (record.shortName for record in self.directory.listRecords(self.recordType))
