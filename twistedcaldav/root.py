@@ -24,8 +24,8 @@ from twisted.web2.http import HTTPError
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
 from twisted.web2.dav import davxml
-from twisted.web2.dav.static import DAVFile
 
+from twistedcaldav.extensions import DAVFile
 from twistedcaldav.config import config
 
 class RootResource(DAVFile):
