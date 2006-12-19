@@ -31,31 +31,33 @@ documentroot="${wd}/twistedcaldav/test/data";
 
 usage ()
 {
-    program="$(basename "$0")";
-    echo "Usage: ${program} [-v] [-d docroot] [-s serverinfo]";
-    echo "Options:";
-    echo "        -h  Print this help and exit";
-    echo "        -d  Set the document root";
-    echo "        -s  Set the serverinfo.xml";
-    echo "        -v  Verbose.";
+  program="$(basename "$0")";
+  echo "Usage: ${program} [-v] [-d docroot] [-s serverinfo]";
+  echo "Options:";
+  echo "        -h  Print this help and exit";
+  echo "        -d  Set the document root";
+  echo "        -s  Set the serverinfo.xml";
+  echo "        -v  Verbose.";
 
-    if [ "${1-}" == "-" ]; then return 0; fi;
-    exit 64;
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
 }
 
 while getopts 'hvd:s:' option; do
-    case "$option" in 
-        '?') usage; ;;
-        'h') usage -; exit 0; ;;
-        'd') documentroot="${OPTARG}"; ;;
-        's')   serverinfo="${OPTARG}"; ;;
-        'v')      verbose="v"; ;;
-    esac;
+  case "$option" in 
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    'd') documentroot="${OPTARG}"; ;;
+    's')   serverinfo="${OPTARG}"; ;;
+    'v')      verbose="v"; ;;
+  esac;
 done;
 
 shift $((${OPTIND} - 1));
 
-if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+if [ $# == 0 ]; then
+  set - "--all";
+fi;
 
 ##
 # Do The Right Thing
@@ -71,4 +73,4 @@ fi;
 
 cd "${documentroot}" && python "makelargecalendars.py";
 
-cd "${cdt}" && python testcaldav.py -s "${serverinfo}" --all;
+cd "${cdt}" && python testcaldav.py -s "${serverinfo}" "$@";
