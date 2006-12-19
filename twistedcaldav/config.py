@@ -23,6 +23,9 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'AdminPrincipals': ['/principals/user/admin'],
+    'AuthSchemes': ['Basic'],
+    'CalendarUserProxyEnabled': True,
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -36,6 +39,7 @@ defaultConfig = {
     'PIDFile': '/var/run/caldavd.pid',
     'Port': 8008,
     'RunStandalone': True,
+    'SACLEnable': False,
     'SSLCertificate': '/etc/certificates/Default.crt',
     'SSLEnable': True,
     'SSLOnly': True,
@@ -43,12 +47,9 @@ defaultConfig = {
     'SSLPrivateKey': '/etc/certificates/Default.key',
     'ServerLogFile': '/var/log/caldavd/server.log',
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
+    'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
-    'twistdLocation': '/usr/share/caldavd/bin/twistd',
-    'SACLEnable': False,
-    'AuthSchemes': ['Basic'],
-    'AdminPrincipals': ['/principals/user/admin']
 }
 
 class Config (object):

@@ -99,6 +99,9 @@ limitations under the License.
   <key>NotificationsEnabled</key>
   <true/>
 
+  <key>CalendarUserProxyEnabled</key>
+  <true/>
+
   <key>SACLEnable</key>
   <true/>
 
