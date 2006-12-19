@@ -425,7 +425,9 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
     def provisionChild(self, name):
-        child = CalendarHomeFile(self.fp.child(name).path, self, self.directory.recordWithShortName(self.recordType, name))
+        record = self.directory.recordWithShortName(self.recordType, name)
+        assert record is not None, "No directory record %r of type %r" % (name, self.recordType)
+        child = CalendarHomeFile(self.fp.child(name).path, self, record)
         if not child.exists():
             # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
             # The result being that the default calendars will be present at some point
