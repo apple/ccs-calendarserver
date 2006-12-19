@@ -377,6 +377,8 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
         if fp.exists():
             return False
 
+        log.msg("Provisioning file: %s" % (self,))
+
         if hasattr(self, "parent"):
             parent = self.parent
             assert parent.exists()
