@@ -58,12 +58,9 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
         # FIXME: Smells like a hack
         directory.calendarHomesCollection = self
 
-    def provision(self):
-        if not self.putChildren:
-            # Create children
-            for recordType in self.directory.recordTypes():
-                self.putChild(recordType, self.provisionChild(recordType))
-        return super(DirectoryCalendarHomeProvisioningResource, self).provision()
+        # Create children
+        for recordType in self.directory.recordTypes():
+            self.putChild(recordType, self.provisionChild(recordType))
 
     def provisionChild(self, recordType):
         raise NotImplementedError("Subclass must implement provisionChild()")
