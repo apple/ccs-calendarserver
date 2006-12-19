@@ -143,12 +143,20 @@ class DAVFile (SuperDAVFile):
             """<div class="directory-listing">"""
             """<h1>%(title)s</h1>"""
             """<table>"""
-            """<tr><th>Filename</th> <th>Size</th> <th>Last Modified</th> <th>File Type</th></tr>"""
+            """<tr><th>Name</th> <th>Size</th> <th>Last Modified</th> <th>MIME Type</th></tr>"""
             % {
                 "title": urllib.unquote(request.uri),
                 "style": self.directoryStyleSheet(),
             }
         ]
+
+        def orNone(value, default="?", f=None):
+            if value is None:
+                return default
+            elif f is not None:
+                return f(value)
+            else:
+                return value
 
         even = False
         for name in sorted(self.listChildren()):
@@ -168,13 +176,14 @@ class DAVFile (SuperDAVFile):
                 lastModified = None
                 contentType = None
 
-            def orNone(value, default="?", f=None):
-                if value is None:
-                    return default
-                elif f is not None:
-                    return f(value)
-                else:
-                    return value
+            if self.fp.isdir():
+                contentType = "(collection)"
+            else:
+                contentType = orNone(
+                    contentType,
+                    default="-",
+                    f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)
+                )
 
             # FIXME: gray out resources that are not readable
             output.append(
@@ -190,7 +199,7 @@ class DAVFile (SuperDAVFile):
                     "name": name,
                     "size": orNone(size),
                     "lastModified": orNone(lastModified, f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))),
-                    "type": orNone(contentType, default="-", f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)),
+                    "type": contentType,
                 }
             )
             even = not even
