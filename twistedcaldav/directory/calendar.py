@@ -34,6 +34,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.dropbox import DropBoxHomeResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
+from twistedcaldav.notifications import NotificationsCollectionResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -188,7 +189,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         if config.DropBoxEnabled:
             childlist += (
                 ("dropbox"      , DropBoxHomeResource      ),
-               #("notifications", NotificationsHomeResource),
+            )
+        if config.NotificationsEnabled:
+            childlist += (
+                ("notifications", NotificationsCollectionResource),
             )
         for name, cls in childlist:
             child = self.provisionChild(name)

@@ -23,19 +23,25 @@ for automatic notification of changes to subscribed users.
 
 __all__ = [
     "DropBoxHomeResource",
+    "DropBoxCollectionResource",
+    "DropBoxChildResource",
 ]
+
+import datetime
+import md5
+import time
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import HTTPError, ErrorResponse
-from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twisted.web2.dav.resource import DAVResource, DAVPrincipalResource, TwistedACLInheritable
 from twisted.web2.dav.util import parentForURL
 
 from twistedcaldav import customxml
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.notifications import Notification
 
 class DropBoxHomeResource (DAVResource):
     """
@@ -80,25 +86,104 @@ class DropBoxCollectionResource (DAVResource):
         # Do inherited with possibly modified set of aces
         super(DropBoxCollectionResource, self).writeNewACEs(edited_aces)
 
+    def doNotification(self, request, myURI):
+        """
+        
+        @param childURI: URI of the child that changed and triggered the notification.
+        """
+        # First determine which principals should get notified
+        #
+        # Procedure:
+        #
+        # 1. Get the list of auto-subscribed principals from the parent collection property.
+        # 2. Expand any group principals in the list into their user principals.
+        # 3. Get the list of unsubscribed principals from the parent collection property.
+        # 4. Expand any group principals in the list into their user principals.
+        # 5. Generate a set from the difference between the subscribed list and unsubscribed list.
+        
+        def _expandPrincipals(principals):
+            result = []
+            for principal in principals:
+
+                principal = waitForDeferred(self.resolvePrincipal(principal.children[0], request))
+                yield principal
+                principal = principal.getResult()
+                if principal is None:
+                    continue
+        
+                presource = waitForDeferred(request.locateResource(str(principal)))
+                yield presource
+                presource = presource.getResult()
+        
+                if not isinstance(presource, DAVPrincipalResource):
+                    continue
+                
+                # Step 2. Expand groups.
+                members = presource.groupMembers()
+                
+                if members:
+                    for member in members:
+                        result.append(davxml.Principal(davxml.HRef.fromString(member)))
+                else:
+                    result.append(davxml.Principal(principal))
+            yield result
+
+        _expandPrincipals = deferredGenerator(_expandPrincipals)
+
+        # For drop box we look at the parent collection of the target resource and get the
+        # set of subscribed principals.
+        if not config.NotificationsEnabled or not self.hasDeadProperty(customxml.Subscribed):
+            yield None
+            return
+
+        principals = set()
+        autosubs = self.readDeadProperty(customxml.Subscribed).children
+        d = waitForDeferred(_expandPrincipals(autosubs))
+        yield d
+        autosubs = d.getResult()
+        principals.update(autosubs)
+        
+        for principal in principals:
+            if not isinstance(principal.children[0], davxml.HRef):
+                continue
+            purl = str(principal.children[0])
+            d = waitForDeferred(request.locateResource(purl))
+            yield d
+            presource = d.getResult()
+
+            collectionURL = presource.notificationsURL()
+            if collectionURL is None:
+                continue
+            d = waitForDeferred(request.locateResource(collectionURL))
+            yield d
+            collection = d.getResult()
+
+            name = "%s.xml" % (md5.new(str(self) + str(time.time()) + collectionURL).hexdigest(),)
+    
+            # Create new resource in the collection
+            d = waitForDeferred(request.locateChildResource(collection, name))    # This ensures the URI for the resource is mapped
+            yield d
+            child = d.getResult()
+
+            d = waitForDeferred(child.create(request, datetime.datetime.utcnow(), myURI))
+            yield d
+            d.getResult()
+        
+    doNotification = deferredGenerator(doNotification)
+
     def http_DELETE(self, request):
         #
-        # Handle notificiations
+        # Handle notification of this drop box collection being deleted
         #
-        parentURL=parentForURL(request.uri)
 
-        def gotParent(parent):
-            def gotResponse(response):
-                notification = Notification(parentURL=parentURL)
-                d = notification.doNotification(request, parent)
+        def gotResponse(response):
+            if response in (responsecode.OK, responsecode.NO_CONTENT):
+                d = self.doNotification(request, request.uri)
                 d.addCallback(lambda _: response)
-                return d
-
-            d = super(DropBoxCollectionResource, self).http_DELETE(request)
-            d.addCallback(gotResponse)
             return d
 
-        d = request.locateResource(parentURL)
-        d.addCallback(gotParent)
+        d = super(DropBoxCollectionResource, self).http_DELETE(request)
+        d.addCallback(gotResponse)
         return d
         
     def http_PUT(self, request):
@@ -190,8 +275,7 @@ class DropBoxChildResource (DAVResource):
         def gotParent(parent):
             def gotResponse(response):
                 if response.code in (responsecode.OK, responsecode.CREATED, responsecode.NO_CONTENT):
-                    notification = Notification(parentURL=parentForURL(request.uri))
-                    d = notification.doNotification(request, parent)
+                    d = parent.doNotification(request, parentURL)
                     d.addCallback(lambda _: response)
                     return d
 
@@ -202,3 +286,25 @@ class DropBoxChildResource (DAVResource):
         d = request.locateResource(parentURL)
         d.addCallback(gotParent)
         return d
+
+    def http_DELETE(self, request):
+        #
+        # Handle notificiations
+        #
+        parentURL=parentForURL(request.uri)
+
+        def gotParent(parent):
+            def gotResponse(response):
+                if response in (responsecode.OK, responsecode.NO_CONTENT):
+                    d = parent.doNotification(request, parentURL)
+                    d.addCallback(lambda _: response)
+                    return d
+
+            d = super(DropBoxChildResource, self).http_DELETE(request)
+            d.addCallback(gotResponse)
+            return d
+
+        d = request.locateResource(parentURL)
+        d.addCallback(gotParent)
+        return d
+        
