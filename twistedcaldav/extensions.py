@@ -198,7 +198,11 @@ class DAVFile (SuperDAVFile):
                     "url": url,
                     "name": name,
                     "size": orNone(size),
-                    "lastModified": orNone(lastModified, f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))),
+                    "lastModified": orNone(
+                        lastModified,
+                        default="",
+                        f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
+                    ),
                     "type": contentType,
                 }
             )
