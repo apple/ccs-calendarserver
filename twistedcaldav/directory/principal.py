@@ -234,6 +234,8 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         self.record = record
         self.parent = parent
         self._url = joinURL(parent.principalCollectionURL(), record.shortName)
+        if self.isCollection():
+            self._url += "/"
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
@@ -258,7 +260,23 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
                     yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
             return "".join(genlist())
 
-        output = ("".join((
+        output = [
+            """<html>"""
+            """<head>"""
+            """<title>%(title)s</title>"""
+            """<style>%(style)s</style>"""
+            """</head>"""
+            """<body>"""
+            """<div class="directory-listing">"""
+            """<h1>Principal Details</h1>"""
+            """<pre><blockquote>"""
+            % {
+                "title": unquote(request.uri),
+                "style": self.directoryStyleSheet(),
+            }
+        ]
+
+        output.append("".join((
             "Directory Information\n"
             "---------------------\n"
             "Directory GUID: %s\n"         % (self.record.service.guid,),
@@ -279,6 +297,15 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             "\nCalendar user addresses:\n" , format_list(self.calendarUserAddresses),
         )))
 
+        output.append(
+            """</pre></blockquote></div>"""
+        )
+
+        output.append(self.getDirectoryTable("Collection Listing"))
+
+        output.append("</body></html>")
+
+        output = "".join(output)
         if type(output) == unicode:
             output = output.encode("utf-8")
             mime_params = {"charset": "utf-8"}
@@ -286,7 +313,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             mime_params = {}
 
         response = Response(code=responsecode.OK, stream=output)
-        response.headers.setHeader("content-type", MimeType("text", "plain", mime_params))
+        response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
 
         return response
 
@@ -299,9 +326,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             return self.record.fullName
         else:
             return self.record.shortName
-
-    def isCollection(self):
-        return False
 
     ##
     # ACL

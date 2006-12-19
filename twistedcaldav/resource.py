@@ -551,14 +551,15 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         (calendarserver_namespace, "notifications-URL"),
     )
 
+    def isCollection(self):
+        return True
+
     def readProperty(self, property, request):
         def defer():
             if type(property) is tuple:
                 qname = property
-                sname = "{%s}%s" % property
             else:
                 qname = property.qname()
-                sname = property.sname()
 
             namespace, name = qname
 

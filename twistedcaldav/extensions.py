@@ -131,7 +131,7 @@ class DAVFile (SuperDAVFile):
         """
         Render a directory listing.
         """
-        title = "Directory listing for %s" % urllib.unquote(request.path)
+        pagetitle = "Directory listing for %s" % urllib.unquote(request.path)
     
         output = [
             """<html>"""
@@ -140,50 +140,40 @@ class DAVFile (SuperDAVFile):
             """<style>%(style)s</style>"""
             """</head>"""
             """<body>"""
+            % {
+                "title": pagetitle,
+                "style": self.directoryStyleSheet(),
+            }
+        ]
+
+        output.append(self.getDirectoryTable(urllib.unquote(request.uri)))
+
+        output.append("</body></html>")
+
+        response = Response(200, {}, "".join(output))
+        response.headers.setHeader("content-type", MimeType("text", "html"))
+        return response
+
+    def getDirectoryTable(self, title):
+        """
+        Generate a directory listing table in HTML.
+        """
+    
+        output = [
             """<div class="directory-listing">"""
             """<h1>%(title)s</h1>"""
             """<table>"""
             """<tr><th>Name</th> <th>Size</th> <th>Last Modified</th> <th>MIME Type</th></tr>"""
             % {
-                "title": urllib.unquote(request.uri),
-                "style": self.directoryStyleSheet(),
+                "title": title,
             }
         ]
-
-        def orNone(value, default="?", f=None):
-            if value is None:
-                return default
-            elif f is not None:
-                return f(value)
-            else:
-                return value
 
         even = False
         for name in sorted(self.listChildren()):
             child = self.getChild(name)
 
-            url = urllib.quote(name, '/')
-            if isinstance(child, SuperDAVFile) and child.isCollection():
-                url += "/"
-                name += "/"
-
-            if isinstance(child, MetaDataMixin):
-                size = child.contentLength()
-                lastModified = child.lastModified()
-                contentType = child.contentType()
-            else:
-                size = None
-                lastModified = None
-                contentType = None
-
-            if self.fp.isdir():
-                contentType = "(collection)"
-            else:
-                contentType = orNone(
-                    contentType,
-                    default="-",
-                    f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)
-                )
+            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
 
             # FIXME: gray out resources that are not readable
             output.append(
@@ -197,21 +187,60 @@ class DAVFile (SuperDAVFile):
                     "even": even and "even" or "odd",
                     "url": url,
                     "name": name,
-                    "size": orNone(size),
-                    "lastModified": orNone(
-                        lastModified,
-                        default="",
-                        f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
-                    ),
+                    "size": size,
+                    "lastModified": lastModified,
                     "type": contentType,
                 }
             )
             even = not even
-        output.append("</table></div></body></html>")
+        output.append("</table></div>")
 
-        response = Response(200, {}, "".join(output))
-        response.headers.setHeader("content-type", MimeType("text", "html"))
-        return response
+        return "".join(output)
+
+    def getChildDirectoryEntry(self, child, name):
+
+        def orNone(value, default="?", f=None):
+            if value is None:
+                return default
+            elif f is not None:
+                return f(value)
+            else:
+                return value
+            
+        url = urllib.quote(name, '/')
+        if isinstance(child, SuperDAVFile) and child.isCollection():
+            url += "/"
+            name += "/"
+
+        if isinstance(child, MetaDataMixin):
+            size = child.contentLength()
+            lastModified = child.lastModified()
+            contentType = child.contentType()
+        else:
+            size = None
+            lastModified = None
+            contentType = None
+
+        if self.fp.isdir():
+            contentType = "(collection)"
+        else:
+            contentType = self._orNone(
+                contentType,
+                default="-",
+                f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)
+            )
+
+        return (
+            url,
+            name,
+            orNone(size),
+            orNone(
+                lastModified,
+                default="",
+                f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
+             ),
+             contentType,
+         )
 
 class ReadOnlyResourceMixIn (object):
     """
