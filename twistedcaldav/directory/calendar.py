@@ -48,6 +48,7 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param url: the canonical URL for the resource.
         """
+        assert directory is not None
         assert url.endswith("/"), "Collection URL must end in '/'"
 
         DAVResource.__init__(self)
@@ -111,6 +112,9 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param recordType: the directory record type to provision.
         """
+        assert parent is not None
+        assert recordType is not None
+
         DAVResource.__init__(self)
 
         self.directory = parent.directory
@@ -168,6 +172,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         """
         @param path: the path to the file which will back the resource.
         """
+        assert parent is not None
+        assert record is not None
+
         CalDAVResource.__init__(self)
 
         self.record = record
