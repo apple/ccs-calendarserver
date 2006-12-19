@@ -423,7 +423,11 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
     def provisionChild(self, name):
         child = CalendarHomeFile(self.fp.child(name).path, self, self.directory.recordWithShortName(self.recordType, name))
         if not child.exists():
-            return child.provisionDefaultCalendars()
+            # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
+            # The result being that the default calendars will be present at some point
+            # in the future, not necessarily right now, and we don't have a way to wait
+            # on that to finish.
+            child.provisionDefaultCalendars()
         return child
 
     def createSimilarFile(self, path):
