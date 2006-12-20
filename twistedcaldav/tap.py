@@ -188,9 +188,10 @@ class CaldavServiceMaker(object):
         realm = directory.realmName or ""
 
         # TODO: figure out the list of supported schemes from the directory
-        schemes = {'basic': basic.BasicCredentialFactory(realm),
-                   'digest': digest.DigestCredentialFactory("md5", realm),
-                   }
+        schemes = {
+            "basic" : basic.BasicCredentialFactory(realm),
+            "digest": digest.DigestCredentialFactory("md5", realm),
+        }
 
         for scheme in config.AuthSchemes:
             scheme = scheme.lower()
@@ -206,7 +207,8 @@ class CaldavServiceMaker(object):
             root,
             portal,
             credentialFactories,
-            (auth.IPrincipal,))
+            (auth.IPrincipal,)
+        )
 
         site = Site(LogWrapperResource(authWrapper))
 
@@ -222,8 +224,7 @@ class CaldavServiceMaker(object):
 
         if not config.SSLOnly:
             httpService = internet.TCPServer(int(config.Port), channel)
-
-        httpService.setServiceParent(service)
+            httpService.setServiceParent(service)
 
         if config.SSLEnable:
             from twisted.internet.ssl import DefaultOpenSSLContextFactory
@@ -231,8 +232,8 @@ class CaldavServiceMaker(object):
                 int(config.SSLPort),
                 channel,
                 DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                             config.SSLCertificate))
-
+                                             config.SSLCertificate)
+            )
             httpsService.setServiceParent(service)
             
         return service
