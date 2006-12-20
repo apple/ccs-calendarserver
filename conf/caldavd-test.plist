@@ -48,16 +48,16 @@ limitations under the License.
   <string>conf/server.pem</string>
 
   <key>ServerLogFile</key>
-  <string>server.log</string>
+  <string>logs/server.log</string>
 
   <key>ErrorLogFile</key>
   <string>-</string>
 
   <key>ServerStatsFile</key>
-  <string>stats.plist</string>
+  <string>logs/stats.plist</string>
 
   <key>PIDFile</key>
-  <string>caldavd.pid</string>
+  <string>logs/caldavd.pid</string>
 
   <!--  XML File Directory Service -->
   <key>DirectoryService</key>
