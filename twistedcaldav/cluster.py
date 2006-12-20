@@ -7,7 +7,7 @@ from twisted.runner import procmon
 from twisted.python import usage
 
 from twistedcaldav.config import config
-from twistedcaldav.tap import CaldavOptions, CaldavServiceMaker
+# from twistedcaldav.tap import CaldavOptions, CaldavServiceMaker
 
 serviceTemplate = """
     <service name="%(name)s">
@@ -31,8 +31,6 @@ configTemplate = """
 
 hostTemplate = '<host name="%(name)s" ip="127.0.0.1:%(port)s" />'
 
-twistdTemplate = ('%(twistd)s caldav -f %(configFile)s '
-                  '-o Port=%(port)s -o SSLPort=%(sslPort)s')
 
 class TwistdSlaveProcess(object):
     prefix = "caldav"
@@ -58,6 +56,7 @@ class TwistdSlaveProcess(object):
     def getCommandLine(self):
         return [self.twistd, '-n', 'caldav', 
                 '-f', self.configFile,
+                '-t', 'standalone',
                 '-o', 'Port=%s' % (self.port,),
                 '-o', 'SSLPort=%s' % (self.sslPort,),
                 '-o', 'PIDFile=%s' % (self.pidFile,)]
@@ -72,54 +71,43 @@ class TwistdSlaveProcess(object):
         return hostTemplate % {'name': name,
                                'port': port}
 
+def makeService(self, options):
+    if not config.ClusterEnable:
+        raise usage.UsageError(
+            ("Clustering is not enabled in the config "
+             "file, use -o ClusterEnable=True to "
+             "override"))
 
-class ClusterServiceMaker(CaldavServiceMaker):
-    tapname = "caldavcluster"
-    
-    description = "A cluster of Calendar Servers"
+    service = procmon.ProcessMonitor()
 
-    def makeService(self, options):
-        _twistdTemplate = twistdTemplate % {
-            'twistd': config.twistdLocation,
-            'configFile': options['config'],
-            'port': '%(port)s',
-            'sslPort': '%(sslPort)s',
-            }
+    hosts = []
+    sslHosts = []
+
+    port = config.Port
+    sslport = config.SSLPort
+
+    for p in xrange(0, config.Cluster['processes']):
+        port += 1
+        sslport += 1
+
+        process = TwistdSlaveProcess(config.twistdLocation,
+                                     options['config'],
+                                     port, sslport)
+
+        service.addProcess(process.getName(),
+                           process.getCommandLine(),
+                           uid=options.parent['uid'],
+                           gid=options.parent['gid'])
         
-        if not config.ClusterEnable:
-            raise usage.UsageError(
-                ("Clustering is not enabled in the config "
-                 "file, use -o ClusterEnable=True to "
-                 "override, or use --degrade"))
+        if not config.SSLOnly:
+            hosts.append(process.getHostLine())
 
-        service = procmon.ProcessMonitor()
+        if config.SSLEnable:
+            sslHosts.append(process.getHostLine(ssl=True))
 
-        hosts = []
-        sslHosts = []
+    services = []
 
-        port = config.Port
-        sslport = config.SSLPort
-
-        for p in xrange(0, config.Cluster['processes']):
-            port += 1
-            sslport += 1
-
-            process = TwistdSlaveProcess(config.twistdLocation,
-                                         options['config'],
-                                         port, sslport)
-
-            service.addProcess(process.getName(),
-                               process.getCommandLine(),
-                               uid=options.parent['uid'],
-                               gid=options.parent['gid'])
-            
-            if not config.SSLOnly:
-                hosts.append(process.getHostLine())
-
-            if config.SSLEnable:
-                sslHosts.append(process.getHostLine(ssl=True))
-
-        services = []
+    if not config.SSLOnly:
 
         services.append(serviceTemplate % {
                 'name': 'http',
@@ -127,27 +115,26 @@ class ClusterServiceMaker(CaldavServiceMaker):
                 'scheduler': config.Cluster['scheduler'],
                 'hosts': '\n'.join(hosts)
                 })
-                
-
-        if config.SSLEnable:
-            services.append(serviceTemplate % {
-                    'name': 'https',
-                    'port': config.SSLPort,
-                    'scheduler': config.Cluster['scheduler'],
-                    'hosts': '\n'.join(sslHosts),
-                    })
+        
+    if config.SSLEnable:
+        services.append(serviceTemplate % {
+                'name': 'https',
+                'port': config.SSLPort,
+                'scheduler': config.Cluster['scheduler'],
+                'hosts': '\n'.join(sslHosts),
+                })
                     
-        pdconfig = configTemplate % {
-            'services': '\n'.join(services),
-            'username': config.Cluster['admin']['username'],
-            'password': config.Cluster['admin']['password'],
-            }
-            
-        fd, fname = tempfile.mkstemp(prefix='pydir')
-        os.write(fd, pdconfig)
-        os.close(fd)
-
-        service.addProcess('pydir', [config.Cluster['pydirLocation'],
-                                     fname])
-
-        return service
+    pdconfig = configTemplate % {
+        'services': '\n'.join(services),
+        'username': config.Cluster['admin']['username'],
+        'password': config.Cluster['admin']['password'],
+        }
+                    
+    fd, fname = tempfile.mkstemp(prefix='pydir')
+    os.write(fd, pdconfig)
+    os.close(fd)
+    
+    service.addProcess('pydir', [config.Cluster['pydirLocation'],
+                                 fname])
+    
+    return service

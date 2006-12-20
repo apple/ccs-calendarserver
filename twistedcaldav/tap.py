@@ -42,6 +42,7 @@ from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
+from twistedcaldav.cluster import makeService as makeService_cluster
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
@@ -53,6 +54,7 @@ class CaldavOptions(Options):
     optParameters = [
         ["config", "f", "/etc/caldavd/caldavd.plist",
          "Path to configuration file."],
+        ["type", "t", "standalone", "Select the type of service to run"],
         ]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}
@@ -122,7 +124,7 @@ class CaldavServiceMaker(object):
     principalResourceClass = DirectoryPrincipalProvisioningResource
     calendarResourceClass = CalendarHomeProvisioningFile
 
-    def makeService(self, options):
+    def makeService_standalone(self, options):
         #
         # Setup the Directory
         #
@@ -238,3 +240,22 @@ class CaldavServiceMaker(object):
             httpsService.setServiceParent(service)
             
         return service
+
+    makeService_slave = makeService_standalone
+
+    makeService_cluster = makeService_cluster
+
+    def makeService(self, options):
+        serviceType = options['type']
+        
+        serviceMethod = getattr(self, 'makeService_%s' % (serviceType,))
+
+        if not serviceMethod:
+            raise usage.UsageError(
+                ("Unknown service type %s, please choose: " % (serviceType,)))
+
+        else:
+            return serviceMethod(options)
+            
+
+                                

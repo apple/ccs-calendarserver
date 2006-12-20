@@ -49,7 +49,7 @@ defaultConfig = {
     'SACLEnable': False,
     'AuthSchemes': ['Basic'],
     'AdminPrincipals': ['/principals/user/admin'],
-    'ClusterEnable': Trueb,
+    'ClusterEnable': True,
     'Cluster': {
         'processes': 10,
         'scheduler': 'leastconns',
