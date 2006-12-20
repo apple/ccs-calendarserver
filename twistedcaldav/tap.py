@@ -89,7 +89,7 @@ class CaldavOptions(Options):
 
             self.overrides[key] = value
         else:
-            self.opt_options('%s=True' % (option,))
+            self.opt_option('%s=True' % (option,))
 
     opt_o = opt_option
 
