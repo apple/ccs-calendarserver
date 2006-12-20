@@ -29,6 +29,7 @@ class PrincipalAction(object):
     def __init__(self, config, type):
         self.config = config
         self.type = type
+        self.quota = self.config['quota']
 
         self.formatter = self.config.parent.formatter
         self.root = self.config.parent.root
@@ -73,7 +74,7 @@ class PrincipalAction(object):
                     util.getQuotaStatsForPrincipal(
                         self.config,
                         pcal,
-                        self.config.parent.config['UserQuotaBytes']))
+                        self.quota))
 
                 precord.update(
                     util.getCalendarDataCounts(pcal))

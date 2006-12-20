@@ -156,6 +156,10 @@ class PrincipalOptions(SubCommand):
         PARAM_GIGA,
         ]
 
+    def __init__(self):
+        SubCommand.__init__(self)
+        self['quota'] = config.UserQuotaBytes
+
     def postOptions(self):
         report = reflect.namedAny(self.action)(self, self.name).run()
         self.parent.formatter.printReport(report)

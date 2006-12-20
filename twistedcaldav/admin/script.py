@@ -36,14 +36,14 @@ from twisted.python import filepath
 from twistedcaldav.admin import options
 from twistedcaldav.admin import formatters
 
-from twistedcaldav.config import config, parseConfig
+from twistedcaldav.config import defaultConfigFile, config, parseConfig
 
 class AdminOptions(usage.Options):
     recursing = 0
     params = ()
 
     optParameters = [
-        ['config', 'c', config.defaultConfigFile, "Path to the caldavd.plist"],
+        ['config', 'c', defaultConfigFile, "Path to the caldavd.plist"],
         ['format', 'f', 'plain', ("Select an appropriate output formatter: "
                                   "%s" % (formatters.listFormatters(),))]
     ]
