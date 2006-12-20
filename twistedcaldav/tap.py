@@ -42,7 +42,7 @@ from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav.config import config, parseConfig
+from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -52,16 +52,54 @@ from twistedcaldav.static import CalendarHomeProvisioningFile
 class CaldavOptions(Options):
     optParameters = [
         ["config", "f", "/etc/caldavd/caldavd.plist",
-         "Path to configuration file."]
+         "Path to configuration file."],
         ]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}
+
+    def __init__(self, *args, **kwargs):
+        super(CaldavOptions, self).__init__(*args, **kwargs)
+
+        self.overrides = {}
+
+    def opt_option(self, option):
+        """
+        Set an option to override a value in the config file. True, False, int, 
+        and float options are supported, as well as comma seperated lists. Only
+        one option may be given for each --option flag, however multiple 
+        --option flags may be specified.
+        """
+
+        if '=' in option:
+            key, value = option.split('=')
+
+            if key in defaultConfig:
+                if isinstance(defaultConfig[key], bool):
+                    value = value == "True"
+
+                elif isinstance(defaultConfig[key], (int, float, long)):
+                    value = type(defaultConfig[key])(value)
+                
+                elif isinstance(defaultConfig[key], (list, tuples)):
+                    value = value.split(',')
+
+                elif isinstance(defaultConfig[key], dict):
+                    raise usage.UsageError(
+                        "We do not support dict options on the command line")
+
+            self.overrides[key] = value
+        else:
+            self.opt_options('%s=True' % (option,))
+
+    opt_o = opt_option
 
     def postOptions(self):
         if not os.path.exists(self['config']):
             print "Config file %s not found, using defaults" % (self['config'],)
 
         parseConfig(self['config'])
+
+        config.update(self.overrides)
 
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
