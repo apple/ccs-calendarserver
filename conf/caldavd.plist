@@ -29,6 +29,9 @@ limitations under the License.
   <key>DocumentRoot</key>
   <string>/Library/CalendarServer/Documents</string>
 
+  <key>BindAddress</key>
+  <string></string>
+
   <key>Port</key>
   <integer>8008</integer>
 
@@ -112,8 +115,8 @@ limitations under the License.
     <string>/principals/user/admin</string>
   </array>
 
-  <key>ClusterEnable</key>
-  <false/>
+  <key>ServerType</key>
+  <string>singleprocess</string>
   
   <key>Cluster</key>
   <dict>
@@ -134,6 +137,7 @@ limitations under the License.
     
     <key>pydirLocation</key>
     <string>/usr/share/caldavd/bin/pydir++.py</string>
+
   </dict>
 </dict>
 </plist>

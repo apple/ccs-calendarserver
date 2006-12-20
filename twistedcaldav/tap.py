@@ -23,7 +23,7 @@ from zope.interface import implements
 
 from twisted.python import log
 
-from twisted.python.usage import Options
+from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 
 from twisted.application import internet, service
@@ -42,7 +42,7 @@ from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav.cluster import makeService as makeService_cluster
+from twistedcaldav.cluster import makeService_multiprocess, makeService_pydir
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
@@ -54,7 +54,6 @@ class CaldavOptions(Options):
     optParameters = [
         ["config", "f", "/etc/caldavd/caldavd.plist",
          "Path to configuration file."],
-        ["type", "t", "standalone", "Select the type of service to run"],
         ]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}
@@ -86,7 +85,7 @@ class CaldavOptions(Options):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
-                    raise usage.UsageError(
+                    raise UsageError(
                         "We do not support dict options on the command line")
 
             self.overrides[key] = value
@@ -124,7 +123,7 @@ class CaldavServiceMaker(object):
     principalResourceClass = DirectoryPrincipalProvisioningResource
     calendarResourceClass = CalendarHomeProvisioningFile
 
-    def makeService_standalone(self, options):
+    def makeService_singleprocess(self, options):
         #
         # Setup the Directory
         #
@@ -226,7 +225,8 @@ class CaldavServiceMaker(object):
         service = Web2Service(logObserver)
 
         if not config.SSLOnly:
-            httpService = internet.TCPServer(int(config.Port), channel)
+            httpService = internet.TCPServer(int(config.Port), channel,
+                                             interface=config.BindAddress)
             httpService.setServiceParent(service)
 
         if config.SSLEnable:
@@ -235,24 +235,28 @@ class CaldavServiceMaker(object):
                 int(config.SSLPort),
                 channel,
                 DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                             config.SSLCertificate)
+                                             config.SSLCertificate),
+                interface=config.BindAddress
             )
             httpsService.setServiceParent(service)
             
         return service
 
-    makeService_slave = makeService_standalone
+    makeService_slave = makeService_singleprocess
 
-    makeService_cluster = makeService_cluster
+    makeService_multiprocess = makeService_multiprocess
+
+    makeService_master = makeService_pydir
 
     def makeService(self, options):
-        serviceType = options['type']
+        serverType = config.ServerType
         
-        serviceMethod = getattr(self, 'makeService_%s' % (serviceType,))
+        serviceMethod = getattr(self, 'makeService_%s' % (serverType,), None)
 
-        if not serviceMethod:
-            raise usage.UsageError(
-                ("Unknown service type %s, please choose: " % (serviceType,)))
+        if not serverMethod:
+            raise UsageError(
+                ("Unknown server type %s, please choose: singleprocess, "
+                 "multiprocess, master, slave" % (serverType,)))
 
         else:
             return serviceMethod(options)

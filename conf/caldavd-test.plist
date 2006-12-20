@@ -29,6 +29,9 @@ limitations under the License.
   <key>DocumentRoot</key>
   <string>twistedcaldav/test/data/</string>
 
+  <key>BindAddress</key>
+  <string>127.0.0.1</string>
+
   <key>Port</key>
   <integer>8008</integer>
 
@@ -165,14 +168,11 @@ limitations under the License.
   <array>
     <string>/principals/user/admin</string>
   </array>
-
-  <key>ClusterEnable</key>
-  <false/>
   
   <key>Cluster</key>
   <dict>
     <key>processes</key>
-    <integer>0</integer>
+    <integer>2</integer>
 
     <key>scheduler</key>
     <string>leastconns</string>
@@ -185,10 +185,12 @@ limitations under the License.
       <key>password</key>
       <string></string>
     </dict>
-    
-    <key>pydirLocation</key>
-    <string>../pydirector-1.0.0/pydir++.py</string>
-
   </dict>
+    
+  <key>pydirLocation</key>
+  <string>../pydirector-1.0.0/pydir.py</string>
+
+  <key>pydirConfig</key>
+  <string>conf/pydir.xml</string>
 </dict>
 </plist>

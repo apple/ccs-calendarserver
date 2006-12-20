@@ -23,6 +23,7 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'BindAddress': '127.0.0.1',
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -45,11 +46,16 @@ defaultConfig = {
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
-    'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
     'AuthSchemes': ['Basic'],
     'AdminPrincipals': ['/principals/user/admin'],
-    'ClusterEnable': True,
+
+    'twistdLocation': '/usr/share/caldavd/bin/twistd',
+    'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
+    'pydirConfig': '/etc/caldavd/pydir.xml',
+
+    'ServerType': 'singleprocess',
+
     'Cluster': {
         'processes': 10,
         'scheduler': 'leastconns',
@@ -57,7 +63,6 @@ defaultConfig = {
             'username': None,
             'password': None,
             },
-        'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
         },
     }
 

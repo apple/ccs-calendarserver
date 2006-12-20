@@ -1,17 +1,14 @@
 import os
+import sys
 import tempfile
-import socket
 
 from twisted.runner import procmon
 
-from twisted.python import usage
-
 from twistedcaldav.config import config
-# from twistedcaldav.tap import CaldavOptions, CaldavServiceMaker
 
 serviceTemplate = """
     <service name="%(name)s">
-	<listen ip="127.0.0.1:%(port)s" />
+	<listen ip="%(bindAddress)s:%(port)s" />
 	<group name="main" scheduler="%(scheduler)s">
 	  %(hosts)s
         </group>
@@ -25,7 +22,6 @@ configTemplate = """
     <admin listen="localhost:7001">
 	<user name="%(username)s" password="%(password)s" access="full"/>
     </admin>
-    <logging file="pydir.log"/>
 </pdconfig>
 """
 
@@ -54,13 +50,16 @@ class TwistdSlaveProcess(object):
         return '%s-%s' % (self.prefix, self.sslPort)
 
     def getCommandLine(self):
-        return [self.twistd, '-n', 'caldav', 
-                '-f', self.configFile,
-                '-t', 'standalone',
-                '-o', 'Port=%s' % (self.port,),
-                '-o', 'SSLPort=%s' % (self.sslPort,),
-                '-o', 'PIDFile=%s' % (self.pidFile,)]
-
+        return [
+            sys.executable,
+            self.twistd, '-n', 'caldav', 
+            '-f', self.configFile,
+            '-o', 'ServerType=standalone',
+            '-o', 'BindAddress=127.0.0.1',
+            '-o', 'Port=%s' % (self.port,),
+            '-o', 'SSLPort=%s' % (self.sslPort,),
+            '-o', 'PIDFile=%s' % (self.pidFile,)]
+    
     def getHostLine(self, ssl=None):
         name = self.getName()
         port = self.port
@@ -71,13 +70,7 @@ class TwistdSlaveProcess(object):
         return hostTemplate % {'name': name,
                                'port': port}
 
-def makeService(self, options):
-    if not config.ClusterEnable:
-        raise usage.UsageError(
-            ("Clustering is not enabled in the config "
-             "file, use -o ClusterEnable=True to "
-             "override"))
-
+def makeService_multiprocess(self, options):
     service = procmon.ProcessMonitor()
 
     hosts = []
@@ -108,9 +101,9 @@ def makeService(self, options):
     services = []
 
     if not config.SSLOnly:
-
         services.append(serviceTemplate % {
                 'name': 'http',
+                'bindAddress': config.BindAddress,
                 'port': config.Port,
                 'scheduler': config.Cluster['scheduler'],
                 'hosts': '\n'.join(hosts)
@@ -119,6 +112,7 @@ def makeService(self, options):
     if config.SSLEnable:
         services.append(serviceTemplate % {
                 'name': 'https',
+                'bindAddress': config.BindAddress,
                 'port': config.SSLPort,
                 'scheduler': config.Cluster['scheduler'],
                 'hosts': '\n'.join(sslHosts),
@@ -134,7 +128,17 @@ def makeService(self, options):
     os.write(fd, pdconfig)
     os.close(fd)
     
-    service.addProcess('pydir', [config.Cluster['pydirLocation'],
+    service.addProcess('pydir', [sys.executable,
+                                 config.pydirLocation,
                                  fname])
     
+    return service
+
+def makeService_pydir(self, options):
+    service = procmon.ProcessMonitor()
+
+    service.addProcess('pydir', [sys.executable,
+                                 config.pydirLocation,
+                                 config.pydirConfig])
+
     return service
