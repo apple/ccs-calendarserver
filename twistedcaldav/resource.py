@@ -24,7 +24,6 @@ __all__ = [
     "CalDAVResource",
     "CalendarPrincipalCollectionResource",
     "CalendarPrincipalResource",
-    "CalendarSchedulingCollectionResource",
     "isCalendarCollectionResource",
     "isPseudoCalendarCollectionResource",
 ]
