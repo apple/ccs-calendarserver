@@ -107,13 +107,14 @@ class ClusterServiceMaker(CaldavServiceMaker):
             process = TwistdSlaveProcess(config.twistdLocation,
                                          options['config'],
                                          port, sslport)
-            
+
             service.addProcess(process.getName(),
                                process.getCommandLine(),
                                uid=options.parent['uid'],
                                gid=options.parent['gid'])
-
-            hosts.append(process.getHostLine())
+            
+            if not config.SSLOnly:
+                hosts.append(process.getHostLine())
 
             if config.SSLEnable:
                 sslHosts.append(process.getHostLine(ssl=True))
