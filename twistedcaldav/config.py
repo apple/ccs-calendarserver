@@ -48,8 +48,18 @@ defaultConfig = {
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
     'AuthSchemes': ['Basic'],
-    'AdminPrincipals': ['/principals/user/admin']
-}
+    'AdminPrincipals': ['/principals/user/admin'],
+    'ClusterEnable': Trueb,
+    'Cluster': {
+        'processes': 10,
+        'scheduler': 'leastconns',
+        'admin': {
+            'username': None,
+            'password': None,
+            },
+        'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
+        },
+    }
 
 class Config (object):
     def __init__(self, defaults):

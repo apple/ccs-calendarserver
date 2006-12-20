@@ -527,6 +527,20 @@ if ! py_have_module pysqlite2; then
 fi;
 
 #
+# PyDirector
+#
+
+if ! py_have_module pydirector; then
+    pydirector="${top}/pydirector-1.0.0";
+    
+    www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+    py_build "PyDirector" "${pydirector}" false;
+    py_install "PyDirector" "${pydirector}";
+
+    export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
+fi;
+
+#
 # TwistedCalDAV
 #
 

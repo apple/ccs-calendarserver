@@ -80,7 +80,7 @@ class CaldavOptions(Options):
                 elif isinstance(defaultConfig[key], (int, float, long)):
                     value = type(defaultConfig[key])(value)
                 
-                elif isinstance(defaultConfig[key], (list, tuples)):
+                elif isinstance(defaultConfig[key], (list, tuple)):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
@@ -103,6 +103,7 @@ class CaldavOptions(Options):
 
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
+
 
 class CaldavServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)

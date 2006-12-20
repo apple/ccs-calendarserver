@@ -166,5 +166,29 @@ limitations under the License.
     <string>/principals/user/admin</string>
   </array>
 
+  <key>ClusterEnable</key>
+  <false/>
+  
+  <key>Cluster</key>
+  <dict>
+    <key>processes</key>
+    <integer>0</integer>
+
+    <key>scheduler</key>
+    <string>leastconns</string>
+
+    <key>admin</key>
+    <dict>
+      <key>username</key>
+      <string></string>
+
+      <key>password</key>
+      <string></string>
+    </dict>
+    
+    <key>pydirLocation</key>
+    <string>/usr/share/caldavd/bin/pydir++.py</string>
+
+  </dict>
 </dict>
 </plist>
