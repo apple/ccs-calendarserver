@@ -37,6 +37,8 @@ from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 
+from twistedcaldav.config import config
+from twistedcaldav.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import AutoProvisioningFileMixIn
@@ -425,6 +427,29 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record)
         else:
             return None
+
+    ##
+    # Static
+    ##
+
+    def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name, record=None):
+        if name == "":
+            return self
+
+        if config.CalendarUserProxyEnabled and name in ("calendar-proxy-read", "calendar-proxy-write"):
+            return CalendarUserProxyPrincipalResource(self.fp.child(name).path, self, name)
+        else:
+            return None
+
+    def listChildren(self):
+        if config.CalendarUserProxyEnabled:
+            return ("calendar-proxy-read", "calendar-proxy-write")
+        else:
+            return ()
 
 ##
 # Utilities
