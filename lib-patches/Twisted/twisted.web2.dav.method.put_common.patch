@@ -2,7 +2,7 @@ Index: twisted/web2/dav/method/put_common.py
 ===================================================================
 --- twisted/web2/dav/method/put_common.py	(revision 0)
 +++ twisted/web2/dav/method/put_common.py	(revision 0)
-@@ -0,0 +1,259 @@
+@@ -0,0 +1,265 @@
 +##
 +# Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
 +#
@@ -40,12 +40,13 @@ Index: twisted/web2/dav/method/put_common.py
 +from twisted.web2.http import HTTPError
 +from twisted.web2.http import StatusResponse
 +from twisted.web2.iweb import IResponse
++from twisted.web2.stream import MemoryStream
 +
 +import md5
 +
 +def storeResource(
 +    request,
-+    source=None, source_uri=None,
++    source=None, source_uri=None, data=None,
 +    destination=None, destination_uri=None,
 +    deletesource=False,
 +    depth="0"
@@ -57,6 +58,7 @@ Index: twisted/web2/dav/method/put_common.py
 +    @param source:            the L{DAVFile} for the source resource to copy from, or None if source data
 +                              is to be read from the request.
 +    @param source_uri:        the URI for the source resource.
++    @param data:              a C{str} to copy data from instead of the request stream.
 +    @param destination:       the L{DAVFile} for the destination resource to copy into.
 +    @param destination_uri:   the URI for the destination resource.
 +    @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
@@ -73,6 +75,7 @@ Index: twisted/web2/dav/method/put_common.py
 +        log.err("request=%s\n" % (request,))
 +        log.err("source=%s\n" % (source,))
 +        log.err("source_uri=%s\n" % (source_uri,))
++        log.err("data=%s\n" % (data,))
 +        log.err("destination=%s\n" % (destination,))
 +        log.err("destination_uri=%s\n" % (destination_uri,))
 +        log.err("deletesource=%s\n" % (deletesource,))
@@ -197,7 +200,10 @@ Index: twisted/web2/dav/method/put_common.py
 +        if source is not None:
 +            response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, depth)
 +        else:
-+            md5 = MD5StreamWrapper(request.stream)
++            datastream = request.stream
++            if data is not None:
++                datastream = MemoryStream(data)
++            md5 = MD5StreamWrapper(datastream)
 +            response = maybeDeferred(put, md5, destination.fp)
 +
 +        response = waitForDeferred(response)
