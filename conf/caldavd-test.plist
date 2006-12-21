@@ -169,24 +169,33 @@ limitations under the License.
     <string>/principals/user/admin</string>
   </array>
   
-  <key>Cluster</key>
+  <key>ServerType</key>
+  <string>singleprocess</string>
+  
+  <key>MultiProcess</key>
   <dict>
-    <key>processes</key>
+    <key>NumProcesses</key>
     <integer>2</integer>
 
-    <key>scheduler</key>
-    <string>leastconns</string>
-
-    <key>admin</key>
+    <key>PyDirector</key>
     <dict>
-      <key>username</key>
-      <string></string>
+      <key>Enabled</key>
+      <true/>
 
-      <key>password</key>
-      <string></string>
-    </dict>
+      <key>Scheduler</key>
+      <string>leastconns</string>
+
+      <key>admin</key>
+      <dict>
+        <key>username</key>
+        <string></string>
+
+        <key>password</key>
+        <string></string>
+      </dict>
+    </dict>    
   </dict>
-    
+
   <key>pydirLocation</key>
   <string>../pydirector-1.0.0/pydir.py</string>
 

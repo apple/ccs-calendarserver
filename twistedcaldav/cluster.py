@@ -25,13 +25,13 @@ configTemplate = """
 </pdconfig>
 """
 
-hostTemplate = '<host name="%(name)s" ip="127.0.0.1:%(port)s" />'
+hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 
 
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistdLocation, configFile, port, sslPort):
+    def __init__(self, twistdLocation, configFile, interface, port, sslPort):
         self.twistd = twistdLocation
 
         self.configFile = configFile
@@ -42,6 +42,8 @@ class TwistdSlaveProcess(object):
         self.pidFile = os.path.join(
             os.path.dirname(config.PIDFile),
             '%s.pid' % (self.getName(),))
+
+        self.interface = interface
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.port)
@@ -54,8 +56,8 @@ class TwistdSlaveProcess(object):
             sys.executable,
             self.twistd, '-n', 'caldav', 
             '-f', self.configFile,
-            '-o', 'ServerType=standalone',
-            '-o', 'BindAddress=127.0.0.1',
+            '-o', 'ServerType=singleprocess',
+            '-o', 'BindAddress=%s' % (self.interface,),
             '-o', 'Port=%s' % (self.port,),
             '-o', 'SSLPort=%s' % (self.sslPort,),
             '-o', 'PIDFile=%s' % (self.pidFile,)]
@@ -63,12 +65,14 @@ class TwistdSlaveProcess(object):
     def getHostLine(self, ssl=None):
         name = self.getName()
         port = self.port
+
         if ssl:
             name = self.getSSLName()
             port = self.sslPort
 
         return hostTemplate % {'name': name,
-                               'port': port}
+                               'port': port,
+                               'bindAddress': self.interface}
 
 def makeService_multiprocess(self, options):
     service = procmon.ProcessMonitor()
@@ -79,12 +83,18 @@ def makeService_multiprocess(self, options):
     port = config.Port
     sslport = config.SSLPort
 
-    for p in xrange(0, config.Cluster['processes']):
+    bindAddress = '127.0.0.1'
+
+    if not config.MultiProcess['PyDirector']['Enabled']:
+        bindAddress = config.BindAddress
+
+    for p in xrange(0, config.MultiProcess['NumProcesses']):
         port += 1
         sslport += 1
 
         process = TwistdSlaveProcess(config.twistdLocation,
                                      options['config'],
+                                     bindAddress,
                                      port, sslport)
 
         service.addProcess(process.getName(),
@@ -98,39 +108,44 @@ def makeService_multiprocess(self, options):
         if config.SSLEnable:
             sslHosts.append(process.getHostLine(ssl=True))
 
-    services = []
+    if config.MultiProcess['PyDirector']['Enabled']: 
+        services = []
 
-    if not config.SSLOnly:
-        services.append(serviceTemplate % {
-                'name': 'http',
-                'bindAddress': config.BindAddress,
-                'port': config.Port,
-                'scheduler': config.Cluster['scheduler'],
-                'hosts': '\n'.join(hosts)
-                })
+        if not config.SSLOnly:
+            services.append(serviceTemplate % {
+                    'name': 'http',
+                    'bindAddress': config.BindAddress,
+                    'port': config.Port,
+                    'scheduler': 
+                        config.MultiProcess['PyDirector']['Scheduler'],
+                    'hosts': '\n'.join(hosts)
+                    })
+            
+        if config.SSLEnable:
+            services.append(serviceTemplate % {
+                    'name': 'https',
+                    'bindAddress': config.BindAddress,
+                    'port': config.SSLPort,
+                    'scheduler': 
+                    config.MultiProcess['PyDirector']['Scheduler'],
+                        'hosts': '\n'.join(sslHosts),
+                    })
+
+        pdconfig = configTemplate % {
+            'services': '\n'.join(services),
+            'username': 
+                config.MultiProcess['PyDirector']['admin']['username'],
+            'password': 
+                config.MultiProcess['PyDirector']['admin']['password'],
+            }
+                
+        fd, fname = tempfile.mkstemp(prefix='pydir')
+        os.write(fd, pdconfig)
+        os.close(fd)
         
-    if config.SSLEnable:
-        services.append(serviceTemplate % {
-                'name': 'https',
-                'bindAddress': config.BindAddress,
-                'port': config.SSLPort,
-                'scheduler': config.Cluster['scheduler'],
-                'hosts': '\n'.join(sslHosts),
-                })
-                    
-    pdconfig = configTemplate % {
-        'services': '\n'.join(services),
-        'username': config.Cluster['admin']['username'],
-        'password': config.Cluster['admin']['password'],
-        }
-                    
-    fd, fname = tempfile.mkstemp(prefix='pydir')
-    os.write(fd, pdconfig)
-    os.close(fd)
-    
-    service.addProcess('pydir', [sys.executable,
-                                 config.pydirLocation,
-                                 fname])
+        service.addProcess('pydir', [sys.executable,
+                                     config.pydirLocation,
+                                     fname])
     
     return service
 

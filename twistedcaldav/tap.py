@@ -253,7 +253,7 @@ class CaldavServiceMaker(object):
         
         serviceMethod = getattr(self, 'makeService_%s' % (serverType,), None)
 
-        if not serverMethod:
+        if not serviceMethod:
             raise UsageError(
                 ("Unknown server type %s, please choose: singleprocess, "
                  "multiprocess, master, slave" % (serverType,)))

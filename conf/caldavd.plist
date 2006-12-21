@@ -118,26 +118,34 @@ limitations under the License.
   <key>ServerType</key>
   <string>singleprocess</string>
   
-  <key>Cluster</key>
+  <key>MultiProcess</key>
   <dict>
-    <key>processes</key>
+    <key>NumProcesses</key>
     <integer>0</integer>
 
-    <key>scheduler</key>
-    <string>leastconns</string>
-
-    <key>admin</key>
+    <key>PyDirector</key>
     <dict>
-      <key>username</key>
-      <string></string>
+      <key>Enabled</key>
+      <false/>
 
-      <key>password</key>
-      <string></string>
-    </dict>
-    
-    <key>pydirLocation</key>
-    <string>/usr/share/caldavd/bin/pydir++.py</string>
+      <key>Scheduler</key>
+      <string>leastconns</string>
 
+      <key>admin</key>
+      <dict>
+        <key>username</key>
+        <string></string>
+
+        <key>password</key>
+        <string></string>
+      </dict>
+    </dict>    
   </dict>
+
+  <key>pydirLocation</key>
+  <string>/usr/share/caldavd/bin/pydir++.py</string>
+
+  <key>pydirConfig</key>
+  <string>/etc/caldvad/pydir.xml</string>
 </dict>
 </plist>

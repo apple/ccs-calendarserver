@@ -56,12 +56,15 @@ defaultConfig = {
 
     'ServerType': 'singleprocess',
 
-    'Cluster': {
-        'processes': 10,
-        'scheduler': 'leastconns',
-        'admin': {
-            'username': None,
-            'password': None,
+    'MultiProcess': {
+        'NumProcesses': 10,
+        'PyDirector': {
+            'Enabled': True,
+            'Scheduler': 'leastconns',
+            'admin': {
+                'username': None,
+                'password': None,
+                },
             },
         },
     }
