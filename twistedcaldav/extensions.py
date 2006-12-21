@@ -40,11 +40,36 @@ from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
+from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 
 class DAVResource (SuperDAVResource):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
+
+class DAVPrincipalResource (SuperDAVPrincipalResource):
+    """
+    Extended L{twisted.web2.dav.static.DAVFile} implementation.
+    """
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == (dav_namespace, "resourcetype"):
+            return succeed(self.resourceType())
+
+        return super(DAVPrincipalResource, self).readProperty(property, request)
+
+    def resourceType(self):
+        # Allow live property to be overriden by dead property
+        if self.deadProperties().contains((dav_namespace, "resourcetype")):
+            return self.deadProperties().get((dav_namespace, "resourcetype"))
+        if self.isCollection():
+            return davxml.ResourceType(davxml.Collection(), davxml.Principal())
+        else:
+            return davxml.ResourceType(davxml.Principal())
 
 class DAVFile (SuperDAVFile):
     """

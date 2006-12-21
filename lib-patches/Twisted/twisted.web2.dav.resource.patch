@@ -823,7 +823,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1558,7 +1913,7 @@
+@@ -1558,10 +1913,10 @@
      """
      DAV resource with no children.
      """
@@ -831,8 +831,31 @@ Index: twisted/web2/dav/resource.py
 +    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
          return succeed(None)
  
- class DAVPrincipalResource (DAVLeafResource):
-@@ -1673,6 +2028,24 @@
+-class DAVPrincipalResource (DAVLeafResource):
++class DAVPrincipalResource (DAVResource):
+     """
+     Resource representing a WebDAV principal.  (RFC 3744, section 2)
+     """
+@@ -1571,7 +1926,7 @@
+     # WebDAV
+     ##
+ 
+-    liveProperties = DAVLeafResource.liveProperties + (
++    liveProperties = DAVResource.liveProperties + (
+         (dav_namespace, "alternate-URI-set"),
+         (dav_namespace, "principal-URL"    ),
+         (dav_namespace, "group-member-set" ),
+@@ -1584,9 +1939,6 @@
+     def isCollection(self):
+         return False
+ 
+-    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+-        return succeed(None)
+-
+     def readProperty(self, property, request):
+         def defer():
+             if type(property) is tuple:
+@@ -1673,6 +2025,24 @@
          else:
              return uri in self.groupMembers()
  
@@ -857,7 +880,7 @@ Index: twisted/web2/dav/resource.py
  class AccessDeniedError(Exception):
      def __init__(self, errors):
          """ 
-@@ -1712,6 +2085,37 @@
+@@ -1712,6 +2082,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  

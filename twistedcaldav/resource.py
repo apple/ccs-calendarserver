@@ -37,7 +37,7 @@ from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource, DAVPrincipalCollectionResource
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -50,7 +50,7 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.extensions import DAVResource
+from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
