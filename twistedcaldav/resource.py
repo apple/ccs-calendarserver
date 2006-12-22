@@ -607,6 +607,12 @@ class CalendarPrincipalResource (DAVPrincipalResource):
 
         return maybeDeferred(defer)
 
+    def groupMembers(self):
+        return ()
+
+    def groupMemberships(self):
+        return ()
+
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
             home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))

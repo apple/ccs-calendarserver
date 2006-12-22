@@ -15,9 +15,6 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
-from twisted.internet.defer import succeed
-from twistedcaldav.extensions import ReadOnlyResourceMixIn
-from twisted.web2.http import Response
 
 """
 Implements a calendar user proxy principal.
@@ -29,20 +26,41 @@ __all__ = [
 
 from urllib import unquote
 
+from twisted.internet.defer import succeed
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
-from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
+from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.util import joinURL
+from twisted.web2.http import Response
+from twisted.web2.http_headers import MimeType
 
 from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.resource import CalendarPrincipalResource
+from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import AutoProvisioningFileMixIn
 
-class PermissionsMixIn (ReadOnlyResourceMixIn):
+import os
+
+class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def defaultAccessControlList(self):
-        return authReadACL
+        aces = (
+            # DAV:read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+            ),
+            # Inheritable DAV:all access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(self.parent.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.WriteProperties())),
+                davxml.Protected(),
+            ),
+        )
+        
+        return davxml.ACL(*aces)
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
@@ -70,6 +88,21 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         # lookups.
         self.provision()
 
+    def _index(self):
+        """
+        Return the SQL database for this group principal.
+        
+        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        """
+        
+        # Get the principal collection we are contained in
+        pcollection = self.parent.parent.parent
+        
+        # The db is located in the principal collection root
+        if not hasattr(pcollection, "calendar_user_proxy_db"):
+            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
+        return pcollection.calendar_user_proxy_db
+
     def resourceType(self):
         if self.type == "calendar-proxy-read":
             return davxml.ResourceType.calendarproxyread
@@ -77,6 +110,21 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
             return davxml.ResourceType.calendarproxywrite
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
+
+    def writeProperty(self, property, request):
+        assert isinstance(property, davxml.WebDAVElement)
+
+        if property.qname() == (dav_namespace, "group-member-set"):
+            return self.setGroupMemberSet(property, request)
+
+        return super(CalendarUserProxyPrincipalResource, self).writeProperty(property, request)
+
+    def setGroupMemberSet(self, new_members, request):
+        
+        # Break out the list into a set of URIs.
+        members = [str(h) for h in new_members.children]
+        self._index().setGroupMembers(self._url, members)
+        return succeed(True)
 
     ##
     # HTTP
@@ -171,14 +219,122 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     def principalURL(self):
         return self._url
 
-    def groupMembers(self):
-        return ()
-
-    def groupMemberships(self):
-        return ()
-
     def principalCollections(self):
         return self.parent.principalCollections()
+
+    def groupMembers(self):
+        return self._index().getMembers(self._url)
+
+    def groupMemberships(self):
+        return self._index().getMemberships(self._url)
+
+
+class CalendarUserProxyDatabase(AbstractSQLDatabase):
+    """
+    A database to maintain calendar user proxy group memberships.
+
+    SCHEMA:
+    
+    Group Database:
+    
+    ROW: GROUPNAME, MEMBER
+    
+    """
+    
+    dbType = "CALENDARUSERPROXY"
+    dbFilename = ".db.calendaruserproxy"
+    dbFormatVersion = "1"
+
+    def __init__(self, path):
+        path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
+        super(CalendarUserProxyDatabase, self).__init__(path, CalendarUserProxyDatabase.dbFormatVersion)
+
+    def setGroupMembers(self, principalURI, members):
+        """
+        Add a group membership record.
+    
+        @param principalURI: the principalURI of the group principal to add.
+        @param members: the list of principalURIs that are members of this group.
+        """
+        
+        # Remove what is there, then add it back.
+        self._delete_from_db(principalURI)
+        self._add_to_db(principalURI, members)
+        self._db_commit()
+
+    def removeGroup(self, principalURI):
+        """
+        Remove a group membership record.
+    
+        @param principalURI: the principalURI of the group principal to add.
+        """
+        self._delete_from_db(principalURI)
+        self._db_commit()
+    
+    def getMembers(self, principalURI):
+        """
+        Return the list of group members for the specified principal.
+        """
+        members = set()
+        for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalURI):
+            members.add(row[0])
+        return members
+    
+    def getMemberships(self, principalURI):
+        """
+        Return the list of groups the specified principal is a member of.
+        """
+        members = set()
+        for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalURI):
+            members.add(row[0])
+        return members
+
+    def _add_to_db(self, principalURI, members):
+        """
+        Insert the specified entry into the database.
+
+        @param principalURI: the principalURI of the group principal to remove.
+        @param members: the list of principalURIs that are members of this group.
+        """
+        for member in members:
+            self._db_execute(
+                """
+                insert into GROUPS (GROUPNAME, MEMBER)
+                values (:1, :2)
+                """, principalURI, member
+            )
+       
+    def _delete_from_db(self, principalURI):
+        """
+        Deletes the specified entry from the database.
+
+        @param principalURI: the principalURI of the group principal to remove.
+        """
+        self._db_execute("delete from GROUPS where GROUPNAME = :1", principalURI)
+    
+    def _db_type(self):
+        """
+        @return: the collection type assigned to this index.
+        """
+        return CalendarUserProxyDatabase.dbType
+        
+    def _db_init_data_tables(self, q):
+        """
+        Initialise the underlying database tables.
+        @param q:           a database cursor to use.
+        """
+
+        #
+        # GROUPS table
+        #
+        q.execute(
+            """
+            create table GROUPS (
+                GROUPNAME   text,
+                MEMBER      text
+            )
+            """
+        )
 
 ##
 # Utilities

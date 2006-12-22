@@ -286,3 +286,19 @@ class ReadOnlyResourceMixIn (object):
 
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
+
+class ReadOnlyWritePropertiesResourceMixIn (object):
+    """
+    Read only that will allow writing of properties resource.
+    """
+    readOnlyResponse = StatusResponse(
+        responsecode.FORBIDDEN,
+        "Resource is read only."
+    )
+
+    def _forbidden(self, request):
+        return self.readOnlyResponse
+
+    http_DELETE    = _forbidden
+    http_MOVE      = _forbidden
+    http_PUT       = _forbidden

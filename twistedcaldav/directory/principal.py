@@ -38,6 +38,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.config import config
+from twistedcaldav.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
@@ -361,11 +362,29 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
         return relatives
 
+    def _calendar_user_proxy_index(self):
+        """
+        Return the SQL database for calendar user proxies.
+        
+        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        """
+        
+        # Get the principal collection we are contained in
+        pcollection = self.parent.parent
+        
+        # The db is located in the principal collection root
+        if not hasattr(pcollection, "calendar_user_proxy_db"):
+            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
+        return pcollection.calendar_user_proxy_db
+
     def groupMembers(self):
         return self._getRelatives("members")
 
     def groupMemberships(self):
-        return self._getRelatives("groups")
+        groups = self._getRelatives("groups")
+        if config.CalendarUserProxyEnabled:
+            groups.update(self._calendar_user_proxy_index().getMemberships(self._url))
+        return groups
 
     def principalCollections(self):
         return self.parent.principalCollections()
