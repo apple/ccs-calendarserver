@@ -76,6 +76,8 @@ class DirectoryService(object):
     credentialInterfaces = (IPrincipalCredentials,)
 
     def requestAvatarId(self, credentials):
+        import pdb
+        pdb.set_trace()
         credentials = IPrincipalCredentials(credentials)
 
         # FIXME: ?

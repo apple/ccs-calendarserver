@@ -29,6 +29,12 @@
     <string></string>
   </dict>
 -->
+  <dict>
+    <key>username</key>
+    <string>bob</string>
+    <key>password</key>
+    <string>bob</string>
+  </dict>
 </array>
 </dict>
 </plist>

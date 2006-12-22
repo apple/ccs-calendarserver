@@ -94,6 +94,24 @@ class SudoDirectoryService(DirectoryService):
             if entry['username'] == shortName:
                 return self._recordForEntry(entry)
 
+    def requestAvatarId(self, credentials):
+        # FIXME: ?
+        # We were checking if principal is enabled; seems unnecessary in current
+        # implementation because you shouldn't have a principal object for a
+        # disabled directory principal.
+
+        user = self.recordWithShortName("sudoer", 
+                                        credentials.credentials.username)
+        if user is None:
+            raise UnauthorizedLogin("No such user: %s" % (user,))
+
+        if user.verifyCredentials(credentials.credentials):
+            return (
+                credentials.authnPrincipal.principalURL(),
+                credentials.authzPrincipal.principalURL(),
+            )
+        else:
+            raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
 class SudoDirectoryRecord(DirectoryRecord):
     """

@@ -45,6 +45,7 @@ from twisted.web2.server import Site
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
@@ -132,9 +133,13 @@ class CaldavServiceMaker(object):
         directoryClass = namedClass(config.DirectoryService['type'])
         baseDirectory = directoryClass(**config.DirectoryService['params'])
 
+        sudoDirectory = None
+
         if config.SudoersFile:
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
+
+            CalDAVResource.sudoDirectory = sudoDirectory
         
         directory = AggregateDirectoryService((baseDirectory,
                                                sudoDirectory))
@@ -195,6 +200,12 @@ class CaldavServiceMaker(object):
         portal = Portal(auth.DavRealm())
 
         portal.registerChecker(directory)
+
+        # FIXME: This is a hack, why doesn't aggregate directory service 
+        # do the right thing.
+
+        if sudoDirectory:
+            portal.registerChecker(sudoDirectory)
 
         realm = directory.realmName or ""
 
