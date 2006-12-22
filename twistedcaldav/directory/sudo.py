@@ -59,9 +59,9 @@ class SudoDirectoryService(DirectoryService):
             
         self.plistFile = plistFile
         self._fileInfo = None
-        self._readPlist()
+        self._accounts()
 
-    def _readPlist(self):
+    def _accounts(self):
         fileInfo = (self.plistFile.getmtime(), self.plistFile.getsize())
         if fileInfo != self._fileInfo:
             self._plist = readPlist(self.plistFile.path)
@@ -83,14 +83,14 @@ class SudoDirectoryService(DirectoryService):
         if recordType != self.recordType:
             raise UnknownRecordTypeError(recordType)
 
-        for entry in self._plist['users']:
+        for entry in self._accounts()['users']:
             yield self._recordForEntry(entry)
 
     def recordWithShortName(self, recordType, shortName):
         if recordType != self.recordType:
             raise UnknownRecordTypeError(recordType)
 
-        for entry in self._plist['users']:
+        for entry in self._accounts()['users']:
             if entry['username'] == shortName:
                 return self._recordForEntry(entry)
 
