@@ -156,15 +156,32 @@ limitations under the License.
   <key>SACLEnable</key>
   <false/>
 
-  <key>AuthSchemes</key>
-  <array>
-    <string>Basic</string>
-  </array>
+  <key>Authentication</key>
+  <dict>
+    <key>Basic</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+    </dict>
+    <key>Digest</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+      <key>Algorithm</key>
+      <string>md5</string>
+    </dict>
+    <key>Kerberos</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+      <key>ServicePrincipal</key>
+      <string></string>
+    </dict>
+  </dict>
 
   <key>AdminPrincipals</key>
   <array>
     <string>/principals/user/admin</string>
   </array>
-
 </dict>
 </plist>

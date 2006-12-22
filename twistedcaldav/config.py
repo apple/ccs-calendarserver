@@ -47,9 +47,22 @@ defaultConfig = {
     'Verbose': False,
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
-    'AuthSchemes': ['Basic'],
+    'Authentication': {
+        'Basic': {
+            'Enabled': True,
+            },
+        'Digest': {
+            'Enabled': False,
+            'Algorithm': 'md5',
+            },
+        'Kerberos': {
+            'Enabled': False,
+            'ServicePrincipal': '',
+            },
+        },
     'AdminPrincipals': ['/principals/user/admin']
 }
+
 
 class Config (object):
     def __init__(self, defaults):
@@ -59,6 +72,7 @@ class Config (object):
         items = items.iteritems()
         for key, value in items:
             setattr(self, key, value)
+
 
 config = Config(defaultConfig)
 

@@ -34,8 +34,8 @@ from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.auth import basic
-from twisted.web2.auth import digest
+from twisted.web2.auth.basic import BasicCredentialFactory
+from twisted.web2.auth.digest import DigestCredentialFactory
 from twisted.web2.channel import http
 
 from twisted.web2.tap import Web2Service
@@ -47,7 +47,7 @@ from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
-
+from twistedcaldav.authkerb import NegotiateCredentialFactory
 
 class CaldavOptions(Options):
     optParameters = [
@@ -80,7 +80,7 @@ class CaldavOptions(Options):
                 elif isinstance(defaultConfig[key], (int, float, long)):
                     value = type(defaultConfig[key])(value)
                 
-                elif isinstance(defaultConfig[key], (list, tuples)):
+                elif isinstance(defaultConfig[key], (list, tuple)):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
@@ -103,6 +103,7 @@ class CaldavOptions(Options):
 
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
+
 
 class CaldavServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
@@ -187,28 +188,31 @@ class CaldavServiceMaker(object):
 
         realm = directory.realmName or ""
 
-        # TODO: figure out the list of supported schemes from the directory
-        schemes = {
-            "basic" : basic.BasicCredentialFactory(realm),
-            "digest": digest.DigestCredentialFactory("md5", realm),
-        }
-
-        for scheme in config.AuthSchemes:
+        for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
             
-            if scheme not in schemes:
-                print "Scheme not supported: %s" % (scheme,)
-                sys.exit(1)
-            else:
-                # TODO: limit basic scheme to SSL
-                credentialFactories.append(schemes[scheme])
-                
+            credFactory = None
+
+            if schemeConfig['Enabled']:
+                if scheme == 'kerberos':
+                    credFactory = NegotiateCredentialFactory(
+                        schemeConfig['ServicePrincipal'])
+
+                elif scheme == 'digest':
+                    credFactory = DigestCredentialFactory(
+                        schemeConfig['Algorithm'], realm)
+
+                elif scheme == 'basic':
+                    credFactory = BasicCredentialFactory(realm)
+
+            if credFactory:
+                credentialFactories.append(credFactory)
+
         authWrapper = auth.AuthenticationWrapper(
             root,
             portal,
             credentialFactories,
-            (auth.IPrincipal,)
-        )
+            (auth.IPrincipal,))
 
         site = Site(LogWrapperResource(authWrapper))
 
@@ -224,6 +228,7 @@ class CaldavServiceMaker(object):
 
         if not config.SSLOnly:
             httpService = internet.TCPServer(int(config.Port), channel)
+
             httpService.setServiceParent(service)
 
         if config.SSLEnable:
@@ -232,8 +237,8 @@ class CaldavServiceMaker(object):
                 int(config.SSLPort),
                 channel,
                 DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                             config.SSLCertificate)
-            )
+                                             config.SSLCertificate))
+
             httpsService.setServiceParent(service)
             
         return service
