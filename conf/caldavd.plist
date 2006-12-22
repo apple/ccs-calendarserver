@@ -129,5 +129,8 @@ limitations under the License.
   <array>
     <string>/principals/user/admin</string>
   </array>
+
+  <key>SudoersFile</key>
+  <string>/etc/caldavd/sudoers.plist</string>
 </dict>
 </plist>

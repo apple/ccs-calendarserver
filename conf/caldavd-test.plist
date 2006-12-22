@@ -183,5 +183,9 @@ limitations under the License.
   <array>
     <string>/principals/user/admin</string>
   </array>
+
+
+  <key>SudoersFile</key>
+  <string>conf/sudoers.plist</string>
 </dict>
 </plist>
