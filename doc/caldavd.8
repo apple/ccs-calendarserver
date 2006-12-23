@@ -16,16 +16,19 @@
 .\" DRI: Wilfredo Sanchez, wsanchez@apple.com
 .\"
 .\" The following requests are required for all man pages.
-.Dd June 16, 2006
-.Dt CALDAVD 1
+.Dd December 22, 2006
+.Dt CALDAVD 8
 .Os
 .Sh NAME
 .Nm caldavd
 .Nd Calendar Server Control Interface
 .Sh SYNOPSIS
 .Nm
-.Op Fl v
-.Ar command
+.Op Fl hX 
+.Op Fl u Ar username
+.Op Fl g Ar groupname
+.Op Fl T Ar twistd
+.Op Fl f Ar caldavd.plist
 .Sh DESCRIPTION
 .Nm
 is a front end to the Darwin Calendar Server.  The Darwin Calendar
@@ -33,19 +36,21 @@ server is a web server which implements the HTTP, WebDAV, WebDAV ACL,
 and CalDAV protocols.
 .Pp
 .Nm
-is a simple tool for starting, stopping, and restarting the server. It
-takes a single argument, (
-.Ar command )
-which describes the desired action.
-.Sh COMMANDS
-The allows commands are:
+is a simple tool for starting the server.
+.Sh OPTIONS
 .Bl -tag -width flag
-.It Ar start
-Starts the server.
-.It Ar stop
-Stops the server.
-.It Ar restart
-Restarts the server.  If the server is not running, simply starts the server.
+.It Fl h
+Displays usage information
+.It Fl X
+Starts the server but does not daemonize it.
+.It Fl u Ar username
+Drops privileges to the given username.
+.It Fl g Ar groupname
+Drops privileges to the given groupname.
+.It Fl f Ar caldavd.plist
+Specifies the path of the configuration file to read.
+.It Fl T Ar twistd
+Specifies the path to the twistd binary.
 .El
 .Sh FILES
 .Bl -tag -width flag
