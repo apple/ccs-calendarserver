@@ -47,7 +47,11 @@ from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.authkerb import NegotiateCredentialFactory
+
+try:
+    from twistedcaldav.authkerb import NegotiateCredentialFactory
+except ImportError:
+    NegotiateCredentialFactory = None
 
 class CaldavOptions(Options):
     optParameters = [
@@ -190,11 +194,15 @@ class CaldavServiceMaker(object):
 
         for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
-            
+
             credFactory = None
 
             if schemeConfig['Enabled']:
                 if scheme == 'kerberos':
+                    if not NegotiateCredentialFactory:
+                        log.msg("Kerberos support not available")
+                        continue
+
                     credFactory = NegotiateCredentialFactory(
                         schemeConfig['ServicePrincipal'])
 
