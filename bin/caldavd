@@ -96,7 +96,7 @@ while getopts 'hXu:g:f:T:P:' option; do
         'f') configfile="-f ${OPTARG}"; ;;
         'T') twistdpath="${OPTARG}"; ;;
         'u') username="-u ${OPTARG}"; ;;
-        'g') grouname="-g ${OPTARG}"; ;;
+        'g') groupname="-g ${OPTARG}"; ;;
         'P') plugin_name="${OPTARG}"; ;;
     esac;
 done;
