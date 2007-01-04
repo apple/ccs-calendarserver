@@ -74,10 +74,6 @@ class CalDAVResource (DAVResource):
     # resources to that size, or C{None} for no limit.
     sizeLimit = None
 
-    # Set containing user ids of all the users who have been given
-    # the right to authorize as someone else.
-    proxyUsers = set()
-
     ##
     # HTTP
     ##
@@ -258,10 +254,15 @@ class CalDAVResource (DAVResource):
             # Substitute the authz value for principal look up
             authz = authz[0]
 
-        # See if authenticated uid is a proxy user
-        if authid in CalDAVResource.proxyUsers:
+        def isSudoPrincipal(authid):
+            for collection in self.principalCollections():
+                if collection.principalForShortName('sudoer', authid):
+                    return True
+            return False
+
+        if isSudoPrincipal(authid):
             if authz:
-                if authz in CalDAVResource.proxyUsers:
+                if isSudoPrincipal(authz):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.UNAUTHORIZED)
                 else:

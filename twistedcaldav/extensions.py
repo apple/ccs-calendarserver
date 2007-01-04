@@ -46,6 +46,19 @@ class DAVResource (SuperDAVResource):
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
 
+    def findPrincipalForAuthID(self, authid):
+        """
+        Return an authentication and authorization principal identifiers for 
+        the authentication identifier passed in.  Check for sudo users before
+        regular users.
+        """
+        for collection in self.principalCollections():
+            principal = collection.principalForShortName('sudoer', authid)
+            if principal is not None:
+                return principal
+
+        return super(DAVFile, self).findPrincipalForAuthID(authid)
+
 class DAVFile (SuperDAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
@@ -212,6 +225,21 @@ class DAVFile (SuperDAVFile):
         response = Response(200, {}, "".join(output))
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
+
+    def findPrincipalForAuthID(self, authid):
+        """
+        Return an authentication and authorization principal identifiers for 
+        the authentication identifier passed in.  Check for sudo users before
+        regular users.
+        """
+
+        for collection in self.principalCollections():
+            principal = collection.principalForShortName('sudoer', authid)
+            if principal is not None:
+                return principal
+
+        return super(DAVFile, self).findPrincipalForAuthID(authid)
+
 
 class ReadOnlyResourceMixIn (object):
     """

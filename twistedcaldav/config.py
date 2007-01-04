@@ -60,7 +60,8 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
-    'AdminPrincipals': ['/principals/user/admin']
+    'AdminPrincipals': ['/principals/user/admin'],
+    'SudoersFile': '/etc/caldavd/sudoers.plist',
 }
 
 
