@@ -273,7 +273,8 @@ class CalDAVResource (DAVResource):
                         yield authzPrincipal
                         return
                     else:
-                        log.msg("Could not find proxy user id: '%s'" % authid)
+                        log.msg("Could not find authorization user id: '%s'" % 
+                                (authz,))
                         raise HTTPError(responsecode.UNAUTHORIZED)
             else:
                 log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authid, ))
