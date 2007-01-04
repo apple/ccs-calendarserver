@@ -548,6 +548,19 @@ Index: twisted/web2/dav/resource.py
          # Compare two HRefs and do group membership test as well
          if principal1 == principal2:
              yield True
+@@ -1296,9 +1392,9 @@
+         def testGroup(group):
+             # Get principal resource for principal2
+             if group and isinstance(group, DAVPrincipalResource):
+-                members = group.groupMembers()
+-                if principal1 in members:
+-                    return True
++                for member in group.groupMembers():
++                    if member.principalURL() == principal1:
++                        return True
+                 
+             return False
+ 
 @@ -1426,7 +1522,7 @@
                  log.err("DAV:self ACE is set on non-principal resource %r" % (self,))
                  yield None

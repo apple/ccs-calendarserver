@@ -47,4 +47,13 @@ limitations under the License.
     <password>resource%02d</password>
     <name>Room %02d</name>
   </resource>
+
+  <group>
+    <uid>group01</uid>
+    <password>group01</password>
+    <name>Group 01</name>
+    <members>
+      <member type="user">user01</member>
+    </members>
+  </group>
 </accounts>
