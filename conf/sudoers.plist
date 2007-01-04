@@ -31,9 +31,9 @@
 -->
   <dict>
     <key>username</key>
-    <string>bob</string>
+    <string>superuser</string>
     <key>password</key>
-    <string>bob</string>
+    <string>superuser</string>
   </dict>
 </array>
 </dict>

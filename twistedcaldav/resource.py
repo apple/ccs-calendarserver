@@ -254,15 +254,15 @@ class CalDAVResource (DAVResource):
             # Substitute the authz value for principal look up
             authz = authz[0]
 
-        # See if authenticated uid is a proxy user
-        sudoRecord = self.directory.recordWithShortName(
-            'sudoer',
-            authid)
+        def isSudoPrincipal(authid):
+            for collection in self.principalCollections():
+                if collection.principalForShortName('sudoer', authid):
+                    return True
+            return False
 
-        if sudoRecord:
+        if isSudoPrincipal(authid):
             if authz:
-                record = self.directory.recordWithShortName('sudoer', authz)
-                if record:
+                if isSudoPrincipal(authz):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.UNAUTHORIZED)
                 else:

@@ -52,17 +52,12 @@ class DAVResource (SuperDAVResource):
         the authentication identifier passed in.  Check for sudo users before
         regular users.
         """
+        for collection in self.principalCollections():
+            principal = collection.principalForShortName('sudoer', authid)
+            if principal is not None:
+                return principal
 
-        record = self.directory.recordWithShortName('sudoer', authid)
-
-        if record:
-            for collection in self.principalCollections():
-                principal = collection.principalForRecord(record)
-                if principal is not None:
-                    return principal
-
-        return super(DAVResource, self).findPrincipalForAuthID(authid)
-
+        return super(DAVFile, self).findPrincipalForAuthID(authid)
 
 class DAVFile (SuperDAVFile):
     """
@@ -233,10 +228,17 @@ class DAVFile (SuperDAVFile):
 
     def findPrincipalForAuthID(self, authid):
         """
-        returns the principals by asking it's parent, because it doesn't have
-        a reference to the directory
+        Return an authentication and authorization principal identifiers for 
+        the authentication identifier passed in.  Check for sudo users before
+        regular users.
         """
-        return self.parent.findPrincipalForAuthID(authid)
+
+        for collection in self.principalCollections():
+            principal = collection.principalForShortName('sudoer', authid)
+            if principal is not None:
+                return principal
+
+        return super(DAVFile, self).findPrincipalForAuthID(authid)
 
 
 class ReadOnlyResourceMixIn (object):

@@ -30,6 +30,8 @@ from twisted.python.filepath import FilePath
 from twisted.cred.credentials import (IUsernamePassword, 
                                       IUsernameHashedPassword)
 
+from twisted.cred.error import UnauthorizedLogin
+
 from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.directory.directory import (DirectoryService, 
                                                DirectoryRecord,
@@ -99,19 +101,20 @@ class SudoDirectoryService(DirectoryService):
         # We were checking if principal is enabled; seems unnecessary in current
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
-
-        user = self.recordWithShortName("sudoer", 
-                                        credentials.credentials.username)
-        if user is None:
-            raise UnauthorizedLogin("No such user: %s" % (user,))
-
-        if user.verifyCredentials(credentials.credentials):
+        sudouser = self.recordWithShortName("sudoer", 
+                                            credentials.credentials.username)
+        if sudouser is None:
+            raise UnauthorizedLogin("No such user: %s" % (sudouser,))
+        
+        if sudouser.verifyCredentials(credentials.credentials):
             return (
                 credentials.authnPrincipal.principalURL(),
                 credentials.authzPrincipal.principalURL(),
-            )
+                )
         else:
-            raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
+            raise UnauthorizedLogin(
+                "Incorrect credentials for %s" % (sudouser,)) 
+
 
 class SudoDirectoryRecord(DirectoryRecord):
     """

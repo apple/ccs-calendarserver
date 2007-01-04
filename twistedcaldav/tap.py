@@ -204,8 +204,8 @@ class CaldavServiceMaker(object):
         # FIXME: This is a hack, why doesn't aggregate directory service 
         # do the right thing.
 
-        if sudoDirectory:
-            portal.registerChecker(sudoDirectory)
+#         if sudoDirectory:
+#             portal.registerChecker(sudoDirectory)
 
         realm = directory.realmName or ""
 
