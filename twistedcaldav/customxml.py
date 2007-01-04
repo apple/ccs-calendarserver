@@ -176,6 +176,22 @@ class Subscribed (davxml.WebDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
 
+class Subscribe (davxml.WebDAVEmptyElement):
+    """
+    Used in the body of a POST to subscribe to notifications.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "subscribe"
+
+class Unsubscribe (davxml.WebDAVEmptyElement):
+    """
+    Used in the body of a POST to unsubscribe from notifications.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "unsubscribe"
+
 ##
 # Extensions to davxml.ResourceType
 ##

@@ -580,8 +580,7 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
     http_DELETE =              DropBoxCollectionResource.http_DELETE
     http_PUT =                 DropBoxCollectionResource.http_PUT
     http_MKCALENDAR =          DropBoxCollectionResource.http_MKCALENDAR
-    http_X_APPLE_SUBSCRIBE =   DropBoxCollectionResource.http_X_APPLE_SUBSCRIBE
-    http_X_APPLE_UNSUBSCRIBE = DropBoxCollectionResource.http_X_APPLE_SUBSCRIBE
+    http_POST =                DropBoxCollectionResource.http_POST
 
 class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
     def __init__(self, path, parent):

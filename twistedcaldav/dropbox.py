@@ -35,9 +35,9 @@ from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import HTTPError, ErrorResponse
+from twisted.web2.dav.http import HTTPError, ErrorResponse, StatusResponse
 from twisted.web2.dav.resource import DAVResource, DAVPrincipalResource, TwistedACLInheritable
-from twisted.web2.dav.util import parentForURL
+from twisted.web2.dav.util import davXMLFromStream, parentForURL
 
 from twistedcaldav import customxml
 from twistedcaldav.config import config
@@ -198,7 +198,46 @@ class DropBoxCollectionResource (DAVResource):
             (calendarserver_namespace, "valid-drop-box")
         )
 
-    def http_X_APPLE_SUBSCRIBE(self, request):
+    def http_POST(self, request):
+        """
+        Handle subscribe/unsubscribe requests only.
+        """
+        
+        # Read request body
+        try:
+            doc = waitForDeferred(davXMLFromStream(request.stream))
+            yield doc
+            doc = doc.getResult()
+        except ValueError, e:
+            error = "Must have valid XML request body for POST on a dropbox: %s" % (e,)
+            log.err(error)
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
+        
+        # Determine whether we are subscribing or unsubscribing and handle that
+        if doc is not None:
+            root = doc.root_element
+            if isinstance(root, customxml.Subscribe):
+                action = self.subscribe
+            elif isinstance(root, customxml.Unsubscribe):
+                action = self.unsubscribe
+            else:
+                error = "XML request body for POST on a dropbox must contain a single <subscribe> or <unsubscribe> element"
+                log.err(error)
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
+        else:
+            # If we get here we got an invalid request
+            error = "Must have valid XML request body for POST on a dropbox"
+            log.err(error)
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
+
+        d = waitForDeferred(action(request))
+        yield d
+        result = d.getResult()
+        yield result
+
+    http_POST = deferredGenerator(http_POST)
+
+    def subscribe(self, request):
         d = waitForDeferred(self.authorize(request, (davxml.Read(),)))
         yield d
         d.getResult()
@@ -223,9 +262,9 @@ class DropBoxCollectionResource (DAVResource):
 
         yield responsecode.OK
 
-    http_X_APPLE_SUBSCRIBE = deferredGenerator(http_X_APPLE_SUBSCRIBE)
+    subscribe = deferredGenerator(subscribe)
 
-    def http_X_APPLE_UNSUBSCRIBE(self, request):
+    def unsubscribe(self, request):
         # We do not check any privileges. If a principal is subscribed we always allow them to
         # unsubscribe provided they have at least authenticated.
         d = waitForDeferred(self.authorize(request, ()))
@@ -252,7 +291,7 @@ class DropBoxCollectionResource (DAVResource):
 
         yield responsecode.OK
 
-    http_X_APPLE_UNSUBSCRIBE = deferredGenerator(http_X_APPLE_UNSUBSCRIBE)
+    unsubscribe = deferredGenerator(unsubscribe)
 
 class DropBoxChildResource (DAVResource):
     def http_MKCOL(self, request):
