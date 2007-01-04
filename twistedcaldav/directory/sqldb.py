@@ -25,7 +25,7 @@ SCHEMA:
 
 User Database:
 
-ROW: RECORD_TYPE, SHORT_NAME (unique), PASSWORD, NAME, CAN_PROXY
+ROW: RECORD_TYPE, SHORT_NAME (unique), PASSWORD, NAME
 
 Group Database:
 
@@ -161,13 +161,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         shortName = record.shortName
         password = record.password
         name = record.name
-        canproxy = ('F', 'T')[record.canproxy]
 
         self._db_execute(
             """
-            insert into ACCOUNTS (RECORD_TYPE, SHORT_NAME, PASSWORD, NAME, CAN_PROXY)
-            values (:1, :2, :3, :4, :5)
-            """, recordType, shortName, password, name, canproxy
+            insert into ACCOUNTS (RECORD_TYPE, SHORT_NAME, PASSWORD, NAME)
+            values (:1, :2, :3, :4)
+            """, recordType, shortName, password, name
         )
         
         # Check for members
@@ -224,8 +223,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
                 RECORD_TYPE  text,
                 SHORT_NAME   text,
                 PASSWORD     text,
-                NAME         text,
-                CAN_PROXY    text(1)
+                NAME         text
             )
             """
         )
