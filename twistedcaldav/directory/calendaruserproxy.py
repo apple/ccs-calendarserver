@@ -70,17 +70,17 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     """
     Calendar user proxy principal resource.
     """
-    def __init__(self, path, parent, type):
+    def __init__(self, path, parent, proxyType):
         """
-        @param path: them path to the file which will back this resource.
+        @param path: the path to the file which will back this resource.
         @param parent: the parent of this resource.
-        @param type: the L{IDirectoryRecord} that this resource represents.
+        @param proxyType: a C{str} containing the name of the resource.
         """
-        super(CalendarUserProxyPrincipalResource, self).__init__(path, joinURL(parent.principalURL(), type))
+        super(CalendarUserProxyPrincipalResource, self).__init__(path, joinURL(parent.principalURL(), proxyType))
 
         self.parent = parent
-        self.type = type
-        self._url = joinURL(parent.principalURL(), type)
+        self.proxyType = proxyType
+        self._url = joinURL(parent.principalURL(), proxyType)
         if self.isCollection():
             self._url += "/"
 
@@ -104,9 +104,9 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         return pcollection.calendar_user_proxy_db
 
     def resourceType(self):
-        if self.type == "calendar-proxy-read":
+        if self.proxyType == "calendar-proxy-read":
             return davxml.ResourceType.calendarproxyread
-        elif self.type == "calendar-proxy-write":
+        elif self.proxyType == "calendar-proxy-write":
             return davxml.ResourceType.calendarproxywrite
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
@@ -206,7 +206,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     ##
 
     def displayName(self):
-        return self.type
+        return self.proxyType
 
     ##
     # ACL
