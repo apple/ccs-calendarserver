@@ -527,10 +527,10 @@ if ! py_have_module pysqlite2; then
 fi;
 
 #
-# TwistedCalDAV
+# Calendar Server
 #
 
-py_install "TwistedCalDAV" "${caldav}";
+py_install "Calendar Server" "${caldav}";
 
 ##
 # Do home install
