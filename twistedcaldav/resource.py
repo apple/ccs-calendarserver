@@ -254,10 +254,15 @@ class CalDAVResource (DAVResource):
             # Substitute the authz value for principal look up
             authz = authz[0]
 
-        def isSudoPrincipal(authid):
+        def getPrincipalForType(type, name):
             for collection in self.principalCollections():
-                if collection.principalForShortName('sudoer', authid):
-                    return True
+                principal = collection.principalForShortName(type, name)
+                if principal:
+                    return principal
+
+        def isSudoPrincipal(authid):
+            if getPrincipalForType('sudoer', authid):
+                return True
             return False
 
         if isSudoPrincipal(authid):
@@ -266,7 +271,10 @@ class CalDAVResource (DAVResource):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.FORBIDDEN)
                 else:
-                    authzPrincipal = self.findPrincipalForAuthID(authz)
+                    authzPrincipal = getPrincipalForType('group', authz)
+
+                    if not authzPrincipal:
+                        authzPrincipal = self.findPrincipalForAuthID(authz)
 
                     if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
