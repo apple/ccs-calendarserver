@@ -86,7 +86,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         )
 
     def defaultAccessControlList(self):
-        
         return davxml.ACL(
             # CalDAV:schedule for any authenticated user
             davxml.ACE(
@@ -105,14 +104,13 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
 
     def defaultAccessControlList(self):
-        
         if config.CalendarUserProxyEnabled:
             # FIXME: directory.principalCollection smells like a hack
             # See DirectoryPrincipalProvisioningResource.__init__()
             myPrincipal = self._parent._parent._parent.directory.principalCollection.principalForRecord(self.record)
     
             return davxml.ACL(
-                # CalDAV:schedule for any authenticated user
+                # CalDAV:schedule for associated write proxies
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write"))),
                     davxml.Grant(
