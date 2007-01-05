@@ -284,14 +284,14 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             aces += (
                 # DAV:read access for this principal's calendar-proxy-read users.
                 davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read"))),
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read/"))),
                     davxml.Grant(davxml.Privilege(davxml.Read())),
                     davxml.Protected(),
                     TwistedACLInheritable(),
                 ),
                 # DAV:read/DAV:write access for this principal's calendar-proxy-write users.
                 davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write"))),
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
                     davxml.Grant(davxml.Privilege(davxml.Read()), davxml.Privilege(davxml.Write())),
                     davxml.Protected(),
                     TwistedACLInheritable(),
