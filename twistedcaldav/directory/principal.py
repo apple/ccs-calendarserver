@@ -112,7 +112,7 @@ class DirectoryPrincipalProvisioningResource (
             path = None
         
         if path:
-            segments = [unquote(s) for s in path.split("/")]
+            segments = [unquote(s) for s in path.rstrip("/").split("/")]
             if segments[0] == "" and len(segments) == 3:
                 typeResource = self.getChild(segments[1])
                 if typeResource is not None:
