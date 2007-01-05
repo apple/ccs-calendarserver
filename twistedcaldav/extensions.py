@@ -95,7 +95,6 @@ class DAVFile (SuperDAVFile):
         return davxml.ResourceType.empty
 
     def render(self, req):
-        """You know what you doing."""
         if not self.fp.exists():
             return responsecode.NOT_FOUND
 
@@ -267,26 +266,6 @@ class DAVFile (SuperDAVFile):
              contentType,
          )
 
-class ReadOnlyResourceMixIn (object):
-    """
-    Read only resource.
-    """
-    readOnlyResponse = StatusResponse(
-        responsecode.FORBIDDEN,
-        "Resource is read only."
-    )
-
-    def _forbidden(self, request):
-        return self.readOnlyResponse
-
-    http_DELETE    = _forbidden
-    http_MOVE      = _forbidden
-    http_PROPPATCH = _forbidden
-    http_PUT       = _forbidden
-
-    def writeProperty(self, property, request):
-        raise HTTPError(self.readOnlyResponse)
-
 class ReadOnlyWritePropertiesResourceMixIn (object):
     """
     Read only that will allow writing of properties resource.
@@ -299,6 +278,15 @@ class ReadOnlyWritePropertiesResourceMixIn (object):
     def _forbidden(self, request):
         return self.readOnlyResponse
 
-    http_DELETE    = _forbidden
-    http_MOVE      = _forbidden
-    http_PUT       = _forbidden
+    http_DELETE = _forbidden
+    http_MOVE   = _forbidden
+    http_PUT    = _forbidden
+
+class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
+    """
+    Read only resource.
+    """
+    http_PROPPATCH = ReadOnlyWritePropertiesResourceMixIn._forbidden
+
+    def writeProperty(self, property, request):
+        raise HTTPError(self.readOnlyResponse)
