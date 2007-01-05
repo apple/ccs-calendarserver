@@ -28,6 +28,9 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT resource (uid, password, name, cuaddr*, calendar*, quota?, autorespond?, canproxy?)>
     <!ATTLIST resource repeat CDATA "1">
 
+  <!ELEMENT location (uid, password, name, cuaddr*, calendar*, quota?, autorespond?, canproxy?)>
+    <!ATTLIST location repeat CDATA "1">
+
   <!ELEMENT member (#PCDATA)>
     <!ATTLIST member type (user|group|resource) "user">
 

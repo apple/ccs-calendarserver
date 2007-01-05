@@ -84,6 +84,15 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
         self.assertEquals(self.recordNames("group"), set(self.groups.keys()))
 
+    def test_listRecords_locations(self):
+        """
+        IDirectoryService.listRecords("locations")
+        """
+        if not self.resources:
+            raise SkipTest("No locations")
+
+        self.assertEquals(self.recordNames("location"), set(self.locations.keys()))
+
     def test_listRecords_resources(self):
         """
         IDirectoryService.listRecords("resources")
@@ -100,6 +109,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         for recordType, data in (
             ( "user"    , self.users     ),
             ( "group"   , self.groups    ),
+            ( "location", self.locations ),
             ( "resource", self.resources ),
         ):
             if not data:

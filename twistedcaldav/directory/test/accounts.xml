@@ -112,22 +112,34 @@ limitations under the License.
       <member type="group">left_coast</member>
     </members>
   </group>
-  <resource>
+  <location>
     <uid>mercury</uid>
     <password>mercury</password>
     <name>Mecury Seven</name>
     <cuaddr>mailto:mercury@example.com</cuaddr>
-  </resource>
-  <resource>
+  </location>
+  <location>
     <uid>gemini</uid>
     <password>gemini</password>
     <name>Gemini Twelve</name>
     <cuaddr>mailto:gemini@example.com</cuaddr>
-  </resource>
-  <resource>
+  </location>
+  <location>
     <uid>apollo</uid>
     <password>apollo</password>
     <name>Apollo Eleven</name>
     <cuaddr>mailto:apollo@example.com</cuaddr>
+  </location>
+  <resource>
+    <uid>transporter</uid>
+    <password>transporter</password>
+    <name>Mass Transporter</name>
+    <cuaddr>mailto:transporter@example.com</cuaddr>
+  </resource>
+  <resource>
+    <uid>ftlcpu</uid>
+    <password>ftlcpu</password>
+    <name>Faster-Than-Light Microprocessor</name>
+    <cuaddr>mailto:ftlcpu@example.com</cuaddr>
   </resource>
 </accounts>

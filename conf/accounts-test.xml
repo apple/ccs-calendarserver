@@ -42,9 +42,14 @@ limitations under the License.
     <name>Public %02d</name>
     <cuaddr>mailto:public%02d@example.com</cuaddr>
   </user>
+  <location repeat="10">
+    <uid>location%02d</uid>
+    <password>location%02d</password>
+    <name>Room %02d</name>
+  </location>
   <resource repeat="10">
     <uid>resource%02d</uid>
     <password>resource%02d</password>
-    <name>Room %02d</name>
+    <name>Resource %02d</name>
   </resource>
 </accounts>

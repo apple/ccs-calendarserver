@@ -28,15 +28,15 @@ xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
 class XMLFileBase(object):
-    recordTypes = set(("user", "group", "resource"))
+    recordTypes = set(("user", "group", "location", "resource"))
 
     users = {
         "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
         "proxy"   : { "password": "yxorp",    "guid": None, "addresses": () },
         "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": ("mailto:wsanchez@example.com",) },
-        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": ("mailto:cdaboo@example.com",) },
-        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": ("mailto:lecroy@example.com",) },
-        "dreid"   : { "password": "dierd",    "guid": None, "addresses": ("mailto:dreid@example.com",) },
+        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": ("mailto:cdaboo@example.com",)   },
+        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": ("mailto:lecroy@example.com",)   },
+        "dreid"   : { "password": "dierd",    "guid": None, "addresses": ("mailto:dreid@example.com",)    },
         "user01"  : { "password": "01user",   "guid": None, "addresses": () },
         "user02"  : { "password": "02user",   "guid": None, "addresses": () },
     }
@@ -50,10 +50,15 @@ class XMLFileBase(object):
         "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": (("group", "right_coast"), ("group", "left_coast"))           },
     }
 
-    resources = {
+    locations = {
         "mercury": { "password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",) },
-        "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",) },
-        "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",) },
+        "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",)  },
+        "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",)  },
+    }
+
+    resources = {
+        "transporter": { "password": "transporter", "guid": None, "addresses": ("mailto:transporter@example.com",) },
+        "ftlcpu"     : { "password": "ftlcpu",      "guid": None, "addresses": ("mailto:ftlcpu@example.com",)      },
     }
 
     def xmlFile(self):

@@ -34,6 +34,7 @@ from twistedcaldav.resource import CalDAVResource
 ELEMENT_ACCOUNTS     = "accounts"
 ELEMENT_USER         = "user"
 ELEMENT_GROUP        = "group"
+ELEMENT_LOCATION     = "location"
 ELEMENT_RESOURCE     = "resource"
 
 ELEMENT_SHORTNAME    = "uid"
@@ -48,6 +49,13 @@ ATTRIBUTE_REALM      = "realm"
 ATTRIBUTE_REPEAT     = "repeat"
 ATTRIBUTE_RECORDTYPE = "type"
 
+RECORD_TYPES = {
+    ELEMENT_USER     : "user",
+    ELEMENT_GROUP    : "group",
+    ELEMENT_RESOURCE : "resource",
+    ELEMENT_LOCATION : "location",
+}
+
 class XMLAccountsParser(object):
     """
     XML account configuration file parser.
@@ -61,7 +69,10 @@ class XMLAccountsParser(object):
 
         self.xmlFile = xmlFile
         self.realm = None
-        self.items = {"user": {}, "group": {}, "resource": {}}
+        self.items = {}
+        
+        for recordType in RECORD_TYPES.values():
+            self.items[recordType] = {}
 
         # Read in XML
         fd = open(self.xmlFile.path, "r")
@@ -91,29 +102,31 @@ class XMLAccountsParser(object):
                     item.groups.add(group.shortName)
 
         for child in node._get_childNodes():
-            if child._get_localName() in (ELEMENT_USER, ELEMENT_GROUP, ELEMENT_RESOURCE):
-                if child.hasAttribute(ATTRIBUTE_REPEAT):
-                    repeat = int(child.getAttribute(ATTRIBUTE_REPEAT))
-                else:
-                    repeat = 1
+            child_name = child._get_localName()
+            if child_name is None:
+                continue
 
-                recordType = {
-                    ELEMENT_USER:    "user",
-                    ELEMENT_GROUP:   "group",
-                    ELEMENT_RESOURCE:"resource",
-                }[child._get_localName()]
-                
-                principal = XMLAccountRecord(recordType)
-                principal.parseXML(child)
-                if repeat > 1:
-                    for i in xrange(1, repeat+1):
-                        newprincipal = principal.repeat(i)
-                        self.items[recordType][newprincipal.shortName] = newprincipal
-                        updateMembership(newprincipal)
-                else:
-                    self.items[recordType][principal.shortName] = principal
-                    updateMembership(principal)
-        
+            try:
+                recordType = RECORD_TYPES[child_name]
+            except KeyError:
+                raise RuntimeError("Unknown account type: %s" % (child_name,))
+
+            if child.hasAttribute(ATTRIBUTE_REPEAT):
+                repeat = int(child.getAttribute(ATTRIBUTE_REPEAT))
+            else:
+                repeat = 1
+
+            principal = XMLAccountRecord(recordType)
+            principal.parseXML(child)
+            if repeat > 1:
+                for i in xrange(1, repeat+1):
+                    newprincipal = principal.repeat(i)
+                    self.items[recordType][newprincipal.shortName] = newprincipal
+                    updateMembership(newprincipal)
+            else:
+                self.items[recordType][principal.shortName] = principal
+                updateMembership(principal)
+
 class XMLAccountRecord (object):
     """
     Contains provision information for one user.
@@ -167,23 +180,28 @@ class XMLAccountRecord (object):
 
     def parseXML(self, node):
         for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_SHORTNAME:
+            child_name = child._get_localName()
+            if child_name is None:
+                continue
+            elif child_name == ELEMENT_SHORTNAME:
                 if child.firstChild is not None:
                     self.shortName = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_PASSWORD:
+            elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_NAME:
+            elif child_name == ELEMENT_NAME:
                 if child.firstChild is not None:
                     self.name = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_MEMBERS:
+            elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child)
-            elif child._get_localName() == ELEMENT_CUADDR:
+            elif child_name == ELEMENT_CUADDR:
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
-            elif child._get_localName() == ELEMENT_CANPROXY:
+            elif child_name == ELEMENT_CANPROXY:
                 CalDAVResource.proxyUsers.add(self.shortName)
                 self.canproxy = True
+            else:
+                raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 
     def _parseMembers(self, node):
         for child in node._get_childNodes():

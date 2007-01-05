@@ -53,7 +53,7 @@ class XMLDirectoryService(DirectoryService):
         self._accounts()
 
     def recordTypes(self):
-        recordTypes = ("user", "group", "resource")
+        recordTypes = ("user", "group", "location", "resource")
         return recordTypes
 
     def listRecords(self, recordType):
