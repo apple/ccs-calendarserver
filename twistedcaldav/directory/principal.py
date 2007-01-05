@@ -38,8 +38,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.config import config
-from twistedcaldav.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.calendaruserproxy import CalendarUserProxyPrincipalResource
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import AutoProvisioningFileMixIn
