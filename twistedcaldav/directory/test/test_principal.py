@@ -118,7 +118,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     recordResource = typeResource.getChild(shortName)
                     self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
 
-                    recordURL = typeURL + shortName
+                    recordURL = typeURL + shortName + "/"
                     self.assertEquals(recordURL, recordResource.principalURL())
 
                     principalCollections = recordResource.principalCollections()
