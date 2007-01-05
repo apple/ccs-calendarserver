@@ -40,9 +40,7 @@ else:
         """
         recordTypes = set(("user", "group", "resource"))
 
-        users = {}
-        groups = {}
-        resources = {}
+        users = groups = locations = resources = {}
 
         def service(self):
             return OpenDirectoryService(node="/Local")

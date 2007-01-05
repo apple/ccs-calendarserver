@@ -39,6 +39,10 @@ class SQLDB (
     def service(self):
         return SQLDirectoryService(os.getcwd(), self.xmlFile())
 
+    def test_recordTypes(self):
+        super(SQLDB, self).test_recordTypes()
+    test_recordTypes.todo = "Add locations record type"
+
     def test_verifyCredentials_digest(self):
         super(SQLDB, self).test_verifyCredentials_digest()
     test_verifyCredentials_digest.todo = ""

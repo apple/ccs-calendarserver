@@ -48,6 +48,9 @@ class Apache (object):
         "left_coast" : { "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "dreid"), ("user", "lecroy")) },
     }
 
+    locations = {
+    }
+
     resources = {
     }
 
