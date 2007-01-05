@@ -264,7 +264,7 @@ class CalDAVResource (DAVResource):
             if authz:
                 if isSudoPrincipal(authz):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
-                    raise HTTPError(responsecode.UNAUTHORIZED)
+                    raise HTTPError(responsecode.FORBIDDEN)
                 else:
                     authzPrincipal = self.findPrincipalForAuthID(authz)
 
@@ -275,13 +275,13 @@ class CalDAVResource (DAVResource):
                     else:
                         log.msg("Could not find authorization user id: '%s'" % 
                                 (authz,))
-                        raise HTTPError(responsecode.UNAUTHORIZED)
+                        raise HTTPError(responsecode.FORBIDDEN)
             else:
                 log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authid, ))
-                raise HTTPError(responsecode.UNAUTHORIZED)
+                raise HTTPError(responsecode.BAD_REQUEST)
         elif authz:
             log.msg("Cannot proxy: user '%s' as '%s'" % (authid, authz,))
-            raise HTTPError(responsecode.UNAUTHORIZED)
+            raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
             d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal))
