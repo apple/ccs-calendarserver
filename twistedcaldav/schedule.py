@@ -105,9 +105,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     def defaultAccessControlList(self):
         if config.CalendarUserProxyEnabled:
-            # FIXME: directory.principalCollection smells like a hack
-            # See DirectoryPrincipalProvisioningResource.__init__()
-            myPrincipal = self._parent._parent._parent.directory.principalCollection.principalForRecord(self.record)
+            myPrincipal = self.parent.principalForRecord()
     
             return davxml.ACL(
                 # CalDAV:schedule for associated write proxies
