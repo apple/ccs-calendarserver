@@ -79,10 +79,6 @@ class DirectoryPrincipalProvisioningResource (
         # FIXME: Smells like a hack
         directory.principalCollection = self
 
-        # Provision in __init__() because principals are used prior to request
-        # lookups.
-        self.provision()
-
         # Create children
         for recordType in self.directory.recordTypes():
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
@@ -140,6 +136,7 @@ class DirectoryPrincipalProvisioningResource (
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
+        self.provision()
         return self.putChildren.get(name, None)
 
     def listChildren(self):
@@ -174,10 +171,6 @@ class DirectoryPrincipalTypeResource (
         self.recordType = recordType
         self.parent = parent
 
-        # Provision in __init__() because principals are used prior to request
-        # lookups.
-        self.provision()
-
     def principalForUser(self, user):
         return self.parent.principalForUser(user)
 
@@ -196,6 +189,7 @@ class DirectoryPrincipalTypeResource (
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name, record=None):
+        self.provision()
         if name == "":
             return self
 

@@ -67,6 +67,10 @@ class RootTests(TestCase):
             '/principals/',
             directory)
 
+        # Otherwise the tests that never touch the root resource will 
+        # fail on teardown.
+        principals.provision()
+
         root = RootResource(self.docroot, 
                             principalCollections=[principals])
 
