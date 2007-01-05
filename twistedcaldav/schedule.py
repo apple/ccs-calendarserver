@@ -79,10 +79,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
     Extends L{DAVResource} to provide CalDAV functionality.
     """
     def resourceType(self):
-        return davxml.ResourceType(
-            davxml.ResourceType.collection,
-            davxml.ResourceType.scheduleInbox,
-        )
+        return davxml.ResourceType.scheduleInbox
 
     def defaultAccessControlList(self):
         return davxml.ACL(
@@ -102,10 +99,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     Extends L{DAVResource} to provide CalDAV functionality.
     """
     def resourceType(self):
-        return davxml.ResourceType(
-            davxml.ResourceType.collection,
-            davxml.ResourceType.scheduleOutbox,
-        )
+        return davxml.ResourceType.scheduleOutbox
 
     @deferredGenerator
     def http_POST(self, request):
