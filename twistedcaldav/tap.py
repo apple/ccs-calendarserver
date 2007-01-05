@@ -224,21 +224,25 @@ class CaldavServiceMaker(object):
         
         service = Web2Service(logObserver)
 
-        if not config.SSLOnly:
-            httpService = internet.TCPServer(int(config.Port), channel,
-                                             interface=config.BindAddress)
-            httpService.setServiceParent(service)
+        if not config.BindAddress:
+            config.BindAddress = ['']
 
-        if config.SSLEnable:
-            from twisted.internet.ssl import DefaultOpenSSLContextFactory
-            httpsService = internet.SSLServer(
-                int(config.SSLPort),
-                channel,
-                DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                             config.SSLCertificate),
-                interface=config.BindAddress
-            )
-            httpsService.setServiceParent(service)
+        for bindAddress in config.BindAddress:
+            if not config.SSLOnly:
+                httpService = internet.TCPServer(int(config.Port), channel,
+                                                 interface=bindAddress)
+                httpService.setServiceParent(service)
+
+            if config.SSLEnable:
+                from twisted.internet.ssl import DefaultOpenSSLContextFactory
+                httpsService = internet.SSLServer(
+                    int(config.SSLPort),
+                    channel,
+                    DefaultOpenSSLContextFactory(config.SSLPrivateKey,
+                                                 config.SSLCertificate),
+                    interface=bindAddress
+                    )
+                httpsService.setServiceParent(service)
             
         return service
 

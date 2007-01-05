@@ -30,7 +30,9 @@ limitations under the License.
   <string>twistedcaldav/test/data/</string>
 
   <key>BindAddress</key>
-  <string>127.0.0.1</string>
+  <array>
+    <string>127.0.0.1</string>
+  </array>
 
   <key>Port</key>
   <integer>8008</integer>
@@ -177,22 +179,19 @@ limitations under the License.
     <key>NumProcesses</key>
     <integer>2</integer>
 
-    <key>PyDirector</key>
+    <key>LoadBalancer</key>
     <dict>
       <key>Enabled</key>
       <true/>
 
       <key>Scheduler</key>
+      <!-- Least Connections -->
       <string>leastconns</string>
+      <!-- Round Robin -->
+      <!-- <string>roundrobin</string> -->
+      <!-- Least Connections and Round Robin -->
+      <!-- <string>leastconnsrr</string> -->
 
-      <key>admin</key>
-      <dict>
-        <key>username</key>
-        <string></string>
-
-        <key>password</key>
-        <string></string>
-      </dict>
     </dict>    
   </dict>
 

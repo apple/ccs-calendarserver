@@ -23,7 +23,7 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
-    'BindAddress': '127.0.0.1',
+    'BindAddress': ['127.0.0.1'],
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -58,13 +58,9 @@ defaultConfig = {
 
     'MultiProcess': {
         'NumProcesses': 10,
-        'PyDirector': {
+        'LoadBalancer': {
             'Enabled': True,
             'Scheduler': 'leastconns',
-            'admin': {
-                'username': None,
-                'password': None,
-                },
             },
         },
     }

@@ -30,7 +30,8 @@ limitations under the License.
   <string>/Library/CalendarServer/Documents</string>
 
   <key>BindAddress</key>
-  <string></string>
+  <array>
+  </array>
 
   <key>Port</key>
   <integer>8008</integer>
@@ -123,13 +124,18 @@ limitations under the License.
     <key>NumProcesses</key>
     <integer>0</integer>
 
-    <key>PyDirector</key>
+    <key>LoadBalancer</key>
     <dict>
       <key>Enabled</key>
       <false/>
 
       <key>Scheduler</key>
+      <!-- Least Connections -->
       <string>leastconns</string>
+      <!-- Round Robin -->
+      <!-- <string>roundrobin</string> -->
+      <!-- Least Connections and Round Robin -->
+      <!-- <string>leastconnsrr</string> -->
     </dict>    
   </dict>
 

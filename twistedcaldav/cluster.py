@@ -28,7 +28,7 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistdLocation, configFile, interface, port, sslPort):
+    def __init__(self, twistdLocation, configFile, interfaces, port, sslPort):
         self.twistd = twistdLocation
 
         self.configFile = configFile
@@ -40,7 +40,7 @@ class TwistdSlaveProcess(object):
             os.path.dirname(config.PIDFile),
             '%s.pid' % (self.getName(),))
 
-        self.interface = interface
+        self.interfaces = interfaces
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.port)
@@ -54,7 +54,7 @@ class TwistdSlaveProcess(object):
             self.twistd, '-n', 'caldav', 
             '-f', self.configFile,
             '-o', 'ServerType=singleprocess',
-            '-o', 'BindAddress=%s' % (self.interface,),
+            '-o', 'BindAddress=%s' % (','.join(self.interfaces),),
             '-o', 'Port=%s' % (self.port,),
             '-o', 'SSLPort=%s' % (self.sslPort,),
             '-o', 'PIDFile=%s' % (self.pidFile,)]
@@ -69,7 +69,7 @@ class TwistdSlaveProcess(object):
 
         return hostTemplate % {'name': name,
                                'port': port,
-                               'bindAddress': self.interface}
+                               'bindAddress': '127.0.0.1'}
 
 def makeService_multiprocess(self, options):
     service = procmon.ProcessMonitor()
@@ -80,9 +80,9 @@ def makeService_multiprocess(self, options):
     port = config.Port
     sslport = config.SSLPort
 
-    bindAddress = '127.0.0.1'
+    bindAddress = ['127.0.0.1']
 
-    if not config.MultiProcess['PyDirector']['Enabled']:
+    if not config.MultiProcess['LoadBalancer']['Enabled']:
         bindAddress = config.BindAddress
 
     for p in xrange(0, config.MultiProcess['NumProcesses']):
@@ -105,28 +105,32 @@ def makeService_multiprocess(self, options):
         if config.SSLEnable:
             sslHosts.append(process.getHostLine(ssl=True))
 
-    if config.MultiProcess['PyDirector']['Enabled']: 
+    if config.MultiProcess['LoadBalancer']['Enabled']: 
         services = []
 
-        if not config.SSLOnly:
-            services.append(serviceTemplate % {
-                    'name': 'http',
-                    'bindAddress': config.BindAddress,
-                    'port': config.Port,
-                    'scheduler': 
-                        config.MultiProcess['PyDirector']['Scheduler'],
-                    'hosts': '\n'.join(hosts)
-                    })
+        if not config.BindAddress:
+            config.BindAddress = ['']
+
+        for bindAddress in config.BindAddress:
+            if not config.SSLOnly:
+                services.append(serviceTemplate % {
+                        'name': 'http',
+                        'bindAddress': bindAddress,
+                        'port': config.Port,
+                        'scheduler': 
+                        config.MultiProcess['LoadBalancer']['Scheduler'],
+                        'hosts': '\n'.join(hosts)
+                        })
             
-        if config.SSLEnable:
-            services.append(serviceTemplate % {
-                    'name': 'https',
-                    'bindAddress': config.BindAddress,
-                    'port': config.SSLPort,
-                    'scheduler': 
-                    config.MultiProcess['PyDirector']['Scheduler'],
+            if config.SSLEnable:
+                services.append(serviceTemplate % {
+                        'name': 'https',
+                        'bindAddress': bindAddress,
+                        'port': config.SSLPort,
+                        'scheduler': 
+                        config.MultiProcess['LoadBalancer']['Scheduler'],
                         'hosts': '\n'.join(sslHosts),
-                    })
+                        })
 
         pdconfig = configTemplate % {
             'services': '\n'.join(services),
