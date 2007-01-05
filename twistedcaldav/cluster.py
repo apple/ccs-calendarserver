@@ -19,9 +19,6 @@ serviceTemplate = """
 configTemplate = """
 <pdconfig>
     %(services)s
-    <admin listen="localhost:7001">
-	<user name="%(username)s" password="%(password)s" access="full"/>
-    </admin>
 </pdconfig>
 """
 
@@ -133,10 +130,6 @@ def makeService_multiprocess(self, options):
 
         pdconfig = configTemplate % {
             'services': '\n'.join(services),
-            'username': 
-                config.MultiProcess['PyDirector']['admin']['username'],
-            'password': 
-                config.MultiProcess['PyDirector']['admin']['password'],
             }
                 
         fd, fname = tempfile.mkstemp(prefix='pydir')

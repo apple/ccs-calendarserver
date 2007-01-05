@@ -130,15 +130,6 @@ limitations under the License.
 
       <key>Scheduler</key>
       <string>leastconns</string>
-
-      <key>admin</key>
-      <dict>
-        <key>username</key>
-        <string></string>
-
-        <key>password</key>
-        <string></string>
-      </dict>
     </dict>    
   </dict>
 
