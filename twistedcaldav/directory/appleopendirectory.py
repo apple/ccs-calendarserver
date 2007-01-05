@@ -84,30 +84,37 @@ class OpenDirectoryService(DirectoryService):
         if recordType not in self._records:
             log.msg("Reloading %s record cache" % (recordType,))
 
+            attrs = [
+                dsattributes.kDS1AttrGeneratedUID,
+                dsattributes.kDS1AttrDistinguishedName,
+            ]
             if recordType == "user":
-                listRecords = opendirectory.listUsers
+                listRecordType = dsattributes.kDSStdRecordTypeUsers
             elif recordType == "group":
-                listRecords = opendirectory.listGroups
+                listRecordType = dsattributes.kDSStdRecordTypeGroups
+                attrs += [dsattributes.kDSNAttrGroupMembers,]
             elif recordType == "resource":
-                listRecords = opendirectory.listResources
+                listRecordType = dsattributes.kDSStdRecordTypeResources
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
 
             records = {}
 
-            for shortName, guid, lastModified, principalURI in listRecords(self.directory):
+            try:
+                results = opendirectory.listAllRecordsWithAttributes(self.directory, listRecordType, attrs)
+            except opendirectory.ODError, ex:
+                log.msg("OpenDirectory error: %s", str(ex))
+                raise
+
+            for (key, value) in results.iteritems():
+                shortName = key
+                guid = value.get(dsattributes.kDS1AttrGeneratedUID)
                 if not guid:
                     continue
+                realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
-                # FIXME: This is a second directory lookup; we should have gotten everything in one pass...
                 if recordType == "group":
-                    result = opendirectory.listGroupsWithAttributes(self.directory, [shortName])
-                    if result is None or shortName not in result:
-                        log.err("Group %s exists and then doesn't." % (shortName,))
-                        continue
-                    result = result[shortName]
-
-                    memberGUIDs = result.get(dsattributes.attrGroupMembers, None)
+                    memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                     if memberGUIDs is None:
                         memberGUIDs = ()
                     elif type(memberGUIDs) is str:
@@ -120,7 +127,7 @@ class OpenDirectoryService(DirectoryService):
                     recordType            = recordType,
                     guid                  = guid,
                     shortName             = shortName,
-                    fullName              = None, # FIXME: Need to get this attribute
+                    fullName              = realName,
                     calendarUserAddresses = set(), # FIXME: Should be able to look up email, etc.
                     memberGUIDs           = memberGUIDs,
                 )
@@ -144,41 +151,6 @@ class OpenDirectoryService(DirectoryService):
 
     def recordWithShortName(self, recordType, shortName):
         return self._cacheRecords(recordType).get(shortName, None)
-
-#    def recordWithShortName(self, recordType, shortName):
-#        if recordType == "user":
-#            listRecords = opendirectory.listUsersWithAttributes
-#        elif recordType == "group":
-#            listRecords = opendirectory.listGroupsWithAttributes
-#        elif recordType == "resource":
-#            listRecords = opendirectory.listResourcesWithAttributes
-#        else:
-#            raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
-#
-#        result = listRecords(self.directory, [shortName])
-#        if result is None or shortName not in result:
-#            return None
-#        else:
-#            result = result[shortName]
-#
-#        if dsattributes.attrGUID in result:
-#            guid = result[dsattributes.attrGUID]
-#        else:
-#            raise DirectoryError("Found OpenDirectory record %s of type %s with no GUID attribute"
-#                                 % (shortName, recordType))
-#
-#        if dsattributes.attrRealName in result:
-#            fullName = result[dsattributes.attrRealName]
-#        else:
-#            fullName = None
-#
-#        return OpenDirectoryRecord(
-#            service = self,
-#            recordType = recordType,
-#            guid = guid,
-#            shortName = shortName,
-#            fullName = fullName,
-#        )
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
@@ -213,7 +185,7 @@ class OpenDirectoryRecord(DirectoryRecord):
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
-            return opendirectory.authenticateUser(self.service.directory, self.shortName, credentials.password)
+            return opendirectory.authenticateUserBasic(self.service.directory, self.shortName, credentials.password)
 
         return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
 
