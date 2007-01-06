@@ -57,6 +57,16 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
     Extends L{DAVResource} to provide CalDAV scheduling collection
     functionality.
     """
+    def __init__(self, parent):
+        """
+        @param parent: the parent resource of this one.
+        """
+        assert parent is not None
+
+        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+
+        self.parent = parent
+
     def isCollection(self):
         return True
 
