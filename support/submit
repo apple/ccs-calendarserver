@@ -76,26 +76,29 @@ revision="$(svnversion "${src}")";
 # Do the Right Thing
 ##
 
+if "${build}"; then
+  project_version="${project}-${revision}";
+else 
 #
 # We need a single revision number
 #
-if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
-  echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
-  exit 1;
-else
-  revision="$(echo "${revision}" | sed 's|M$||g')";
-fi;
+  if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
+    echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
+    exit 1;
+  else
+    revision="$(echo "${revision}" | sed 's|M$||g')";
+  fi;
 
-project_version="${project}-$((${version} + ${revision} / 10000 % 100)).$((${revision} / 100 % 100)).$((${revision} % 100))";
+  project_version="${project}-$((${version} + ${revision} / 10000 % 100)).$((${revision} / 100 % 100)).$((${revision} % 100))";
 
 #
 # Make sure changes are checked in.
 #
-if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
-  echo "Working copy has uncommitted changes.  Aborting.";
-  exit 1;
+  if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
+    echo "Working copy has uncommitted changes.  Aborting.";
+    exit 1;
+  fi;
 fi;
-
 #
 # Do submission
 #
@@ -103,9 +106,15 @@ fi;
 tmp="$(mktemp -d -t CalendarServer)";
 wc="${tmp}/${project_version}";
 
-echo "";
-echo "Exporting ${uri}@${revision}..."
-svn export -r "${revision}" "${uri}@${revision}" "${wc}";
+if "${build}"; then
+  echo "";
+  echo "Copying ${src}...";
+  cp -rv "${src}" "${wc}"
+else
+  echo "";
+  echo "Exporting ${uri}@${revision}..."
+  svn export -r "${revision}" "${uri}@${revision}" "${wc}";
+fi;
 
 echo ""
 echo "Tweaking for B&I...";

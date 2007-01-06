@@ -82,6 +82,7 @@ install:: build
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
 	$(_v) $(INSTALL_FILE) $(Sources)/doc/caldavd.8 $(DSTROOT)$(MANDIR)/man8
+	$(_v) $(INSTALL_FILE) $(Sources)/doc/caladmin.8 $(DSTROOT)$(MANDIR)/man8
 	$(_v) gzip -9 -f $(DSTROOT)$(MANDIR)/man8/*.8
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/$(Project)
 	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)/Documents
@@ -96,7 +97,7 @@ install::
 $(BuildDirectory)/$(Project):
 	@echo "Copying source for $(Project)..."
 	$(_v) $(MKDIR) -p "$@"
-	$(_v) pax -rw bin conf Makefile patches setup.py twistedcaldav "$@/"
+	$(_v) pax -rw bin conf Makefile patches setup.py twistedcaldav twisted "$@/"
 
 $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
