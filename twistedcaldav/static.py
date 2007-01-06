@@ -79,6 +79,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
     # CalDAV
     ##
 
+    def resourceType(self):
+	if self.isCalendarCollection():
+	    return davxml.ResourceType.calendar
+	else:
+	    return super(CalDAVFile, self).resourceType()
+
     def createCalendar(self, request):
         #
         # request object is required because we need to validate against parent
