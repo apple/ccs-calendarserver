@@ -38,7 +38,6 @@ from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.auth.digest import DigestCredentialFactory
 from twisted.web2.channel import http
 
-from twisted.web2.tap import Web2Service
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
@@ -53,7 +52,22 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-class CaldavOptions(Options):
+
+class CalDAVService(service.MultiService):
+    def __init__(self, logObserver):
+        self.logObserver = logObserver
+        service.MultiService.__init__(self)
+
+    def privilegedStartService(self):
+        service.MultiService.privilegedStartService(self)
+        self.logObserver.start()
+
+    def stopService(self):
+        service.MultiService.stopService(self)
+        self.logObserver.stop()
+
+
+class CalDAVOptions(Options):
     optParameters = [
         ["config", "f", "/etc/caldavd/caldavd.plist",
          "Path to configuration file."],
@@ -62,7 +76,7 @@ class CaldavOptions(Options):
     zsh_actions = {"config" : "_files -g '*.plist'"}
 
     def __init__(self, *args, **kwargs):
-        super(CaldavOptions, self).__init__(*args, **kwargs)
+        super(CalDAVOptions, self).__init__(*args, **kwargs)
 
         self.overrides = {}
 
@@ -109,14 +123,14 @@ class CaldavOptions(Options):
         self.parent['pidfile'] = config.PIDFile
 
 
-class CaldavServiceMaker(object):
+class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
 
     tapname = "caldav"
 
     description = "The Darwin Calendar Server"
 
-    options = CaldavOptions
+    options = CalDAVOptions
 
     #
     # default resource classes
@@ -232,7 +246,7 @@ class CaldavServiceMaker(object):
 
         logObserver = RotatingFileAccessLoggingObserver(config.ServerLogFile)
         
-        service = Web2Service(logObserver)
+        service = CalDAVService(logObserver)
 
         if not config.SSLOnly:
             httpService = internet.TCPServer(int(config.Port), channel)

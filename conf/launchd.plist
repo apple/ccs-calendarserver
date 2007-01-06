@@ -49,11 +49,5 @@ limitations under the License.
 
   <key>KeepAlive</key>
   <true/>
-
-  <key>StandardOutPath</key>
-  <string>/var/log/caldavd/server.log</string>
-
-  <key>StandardErrorPath</key>
-  <string>/var/log/caldavd/error.log</string>
 </dict>
 </plist>

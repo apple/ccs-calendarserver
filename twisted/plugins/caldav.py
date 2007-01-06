@@ -1,3 +1,3 @@
-from twistedcaldav.tap import CaldavServiceMaker
+from twistedcaldav.tap import CalDAVServiceMaker
 
-TwistedCalDAV = CaldavServiceMaker()
+TwistedCalDAV = CalDAVServiceMaker()
