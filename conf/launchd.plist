@@ -26,14 +26,6 @@ limitations under the License.
   <key>Disabled</key>
   <true/>
 
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/usr/bin:/usr/share/caldavd/bin</string>
-    <key>PYTHONPATH</key>
-    <string>/usr/share/caldavd/lib/python</string>
-  </dict>
-
   <key>ProgramArguments</key>
   <array>
     <string>/usr/sbin/caldavd</string>

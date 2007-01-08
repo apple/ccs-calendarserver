@@ -73,13 +73,7 @@ version_file.close()
 
 from distutils.core import setup
 
-data_files = [("caldavd", ["conf/caldavd.plist",])]
-
-if sys.platform == 'darwin':
-    data_files.append(('sbs_backup', ['conf/85-calendar.plist']))
-    data_files.append(('/usr/libexec/sbs_backup', ['bin/calendar_restore']))
-
-setup(
+dist = setup(
     name             = "twistedcaldav",
     version          = version,
     description      = description,
@@ -96,5 +90,29 @@ setup(
                          "twisted" ],
     package_data     = { "twisted": ["plugins/caldav.py"] },
     scripts          = [ "bin/caldavd", "bin/caladmin" ],
-    data_files       = data_files
+    data_files = [("caldavd", ["conf/caldavd.plist",])]
 )
+
+if 'install' in dist.commands:
+    import os
+    install_scripts = dist.command_obj['install'].install_scripts
+    install_lib = dist.command_obj['install'].install_lib
+    base = dist.command_obj['install'].install_base
+
+    caldavdPath = os.path.join(install_scripts, 'caldavd')
+
+    print "rewriting %s" % (caldavdPath,)
+
+    caldavd = []
+    for line in file(caldavdPath, 'r'):
+        line = line.rstrip('\n')
+        if line == '#PYTHONPATH':
+            caldavd.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+        elif line == '#PATH':
+            caldavd.append('PATH="%s:$PATH"' % (os.path.join(base, 'bin'),))
+        else:
+            caldavd.append(line)
+
+    newCaldavd = open(caldavdPath, 'w')
+    newCaldavd.write('\n'.join(caldavd))
+    newCaldavd.close()

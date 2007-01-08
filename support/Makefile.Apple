@@ -89,6 +89,8 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) $(DSTROOT)$(VARDIR)/log/caldavd
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
 	$(_v) $(INSTALL_FILE) $(Sources)/conf/launchd.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.darwin.calendarserver.plist
+	$(_v) $(INSTALL_FILE) $(Sources)/conf/85-calendar.plist $(DSTROOT)/private/etc/sbs_backup/
+	$(_v) $(INSTALL_FILE) $(Sources)/bin/calendar_restore $(DSTROOT)/usr/libexec/sbs_backup/
 
 #
 # Automatic Extract

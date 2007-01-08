@@ -18,6 +18,9 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
+#PATH
+#PYTHONPATH
+
 daemonize="";
 username="";
 groupname="";
