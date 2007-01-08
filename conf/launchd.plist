@@ -42,7 +42,7 @@ limitations under the License.
   <key>KeepAlive</key>
   <true/>
   
-  <key>StandardOutputPath</key>
+  <key>StandardOutPath</key>
   <string>/var/log/caldavd/error.log</string>
 
   <key>StandardErrorPath</key>
