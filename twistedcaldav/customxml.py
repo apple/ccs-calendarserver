@@ -52,6 +52,22 @@ class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
+class CalendarProxyRead (davxml.WebDAVEmptyElement):
+    """
+    A read-only calendar user proxy principal resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "calendar-proxy-read"
+
+class CalendarProxyWrite (davxml.WebDAVEmptyElement):
+    """
+    A read-write calendar user proxy principal resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "calendar-proxy-write"
+
 class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
     """
     Contains the calendarPrincipalURI value for a directory record corresponding to a principal.
@@ -199,3 +215,5 @@ class Unsubscribe (davxml.WebDAVEmptyElement):
 davxml.ResourceType.dropboxhome = davxml.ResourceType(davxml.Collection(), DropBoxHome())
 davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
 davxml.ResourceType.notifications = davxml.ResourceType(davxml.Collection(), Notifications())
+davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
+davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())

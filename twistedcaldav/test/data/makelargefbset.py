@@ -19,9 +19,10 @@
 ##
 
 import os
+import xattr
 
 user_max = 99
-calendars = ("calendar.10", "calendar.100", "calendar.1000",)
+calendars = ("calendar.1000",)
 
 for ctr in xrange(1, user_max + 1): 
     path = "calendars/user/user%02d" % (ctr,)
@@ -33,7 +34,10 @@ for ctr in xrange(1, user_max + 1):
     except OSError: pass
 
     for calendar in calendars:
-        if not os.path.isdir(os.path.join(path, calendar)):
-            print "Expanding %s to %s" % (calendar, path)
-            cmd = "tar -C %r -zx -f %r" % (path, calendar + ".tgz")
-            os.system(cmd)
+        inboxname = os.path.join(path, "inbox")
+        attrs = xattr.xattr(inboxname)
+        attrs["WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"] = """<?xml version='1.0' encoding='UTF-8'?>
+<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>
+  <href xmlns='DAV:'>/calendars/user/user%02d/calendar/</href>
+  <href xmlns='DAV:'>/calendars/user/user%02d/calendar.1000/</href>
+</calendar-free-busy-set>""" % (ctr, ctr,)

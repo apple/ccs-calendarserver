@@ -496,7 +496,6 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
 class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
     def __init__(self, path, parent):
         super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
-        self.parent = parent
 
     def isCollection(self):
         return True
@@ -533,6 +532,10 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     """
     Calendar scheduling inbox collection resource.
     """
+    def __init__(self, path, parent):
+        ScheduleFile.__init__(self, path, parent)
+        ScheduleInboxResource.__init__(self, parent)
+
     def provision(self):
         if self.provisionFile():
             # FIXME: This should probably be a directory record option that
@@ -551,6 +554,10 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
     Calendar scheduling outbox collection resource.
     """
+    def __init__(self, path, parent):
+        ScheduleFile.__init__(self, path, parent)
+        ScheduleOutboxResource.__init__(self, parent)
+
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 

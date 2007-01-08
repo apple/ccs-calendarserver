@@ -37,6 +37,9 @@ from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 
+from twistedcaldav.config import config
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import AutoProvisioningFileMixIn
@@ -105,7 +108,7 @@ class DirectoryPrincipalProvisioningResource (
             path = None
         
         if path:
-            segments = [unquote(s) for s in path.split("/")]
+            segments = [unquote(s) for s in path.rstrip("/").split("/")]
             if segments[0] == "" and len(segments) == 3:
                 typeResource = self.getChild(segments[1])
                 if typeResource is not None:
@@ -228,6 +231,8 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         self.record = record
         self.parent = parent
         self._url = joinURL(parent.principalCollectionURL(), record.shortName)
+        if self.isCollection():
+            self._url += "/"
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
@@ -252,7 +257,23 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
                     yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
             return "".join(genlist())
 
-        output = ("".join((
+        output = [
+            """<html>"""
+            """<head>"""
+            """<title>%(title)s</title>"""
+            """<style>%(style)s</style>"""
+            """</head>"""
+            """<body>"""
+            """<div class="directory-listing">"""
+            """<h1>Principal Details</h1>"""
+            """<pre><blockquote>"""
+            % {
+                "title": unquote(request.uri),
+                "style": self.directoryStyleSheet(),
+            }
+        ]
+
+        output.append("".join((
             "Directory Information\n"
             "---------------------\n"
             "Directory GUID: %s\n"         % (self.record.service.guid,),
@@ -273,6 +294,15 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             "\nCalendar user addresses:\n" , format_list(self.calendarUserAddresses),
         )))
 
+        output.append(
+            """</pre></blockquote></div>"""
+        )
+
+        output.append(self.getDirectoryTable("Collection Listing"))
+
+        output.append("</body></html>")
+
+        output = "".join(output)
         if type(output) == unicode:
             output = output.encode("utf-8")
             mime_params = {"charset": "utf-8"}
@@ -280,7 +310,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             mime_params = {}
 
         response = Response(code=responsecode.OK, stream=output)
-        response.headers.setHeader("content-type", MimeType("text", "plain", mime_params))
+        response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
 
         return response
 
@@ -293,9 +323,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             return self.record.fullName
         else:
             return self.record.shortName
-
-    def isCollection(self):
-        return False
 
     ##
     # ACL
@@ -329,11 +356,29 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
         return relatives
 
+    def _calendar_user_proxy_index(self):
+        """
+        Return the SQL database for calendar user proxies.
+        
+        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        """
+        
+        # Get the principal collection we are contained in
+        pcollection = self.parent.parent
+        
+        # The db is located in the principal collection root
+        if not hasattr(pcollection, "calendar_user_proxy_db"):
+            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
+        return pcollection.calendar_user_proxy_db
+
     def groupMembers(self):
         return self._getRelatives("members")
 
     def groupMemberships(self):
-        return self._getRelatives("groups")
+        groups = self._getRelatives("groups")
+        if config.CalendarUserProxyEnabled:
+            groups.update(self._calendar_user_proxy_index().getMemberships(self._url))
+        return groups
 
     def principalCollections(self):
         return self.parent.principalCollections()
@@ -395,6 +440,29 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record)
         else:
             return None
+
+    ##
+    # Static
+    ##
+
+    def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name, record=None):
+        if name == "":
+            return self
+
+        if config.CalendarUserProxyEnabled and name in ("calendar-proxy-read", "calendar-proxy-write"):
+            return CalendarUserProxyPrincipalResource(self.fp.child(name).path, self, name)
+        else:
+            return None
+
+    def listChildren(self):
+        if config.CalendarUserProxyEnabled:
+            return ("calendar-proxy-read", "calendar-proxy-write")
+        else:
+            return ()
 
 ##
 # Utilities

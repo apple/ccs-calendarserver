@@ -41,6 +41,7 @@ from twistedcaldav import customxml
 from twistedcaldav import itip
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
@@ -56,6 +57,16 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
     Extends L{DAVResource} to provide CalDAV scheduling collection
     functionality.
     """
+    def __init__(self, parent):
+        """
+        @param parent: the parent resource of this one.
+        """
+        assert parent is not None
+
+        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+
+        self.parent = parent
+
     def isCollection(self):
         return True
 
@@ -98,6 +109,23 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     Extends L{DAVResource} to provide CalDAV functionality.
     """
+
+    def defaultAccessControlList(self):
+        if config.CalendarUserProxyEnabled:
+            myPrincipal = self.parent.principalForRecord()
+    
+            return davxml.ACL(
+                # CalDAV:schedule for associated write proxies
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write"))),
+                    davxml.Grant(
+                        davxml.Privilege(caldavxml.Schedule()),
+                    ),
+                ),
+            )
+        else:
+            return super(ScheduleOutboxResource, self).defaultAccessControlList()
+
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
 

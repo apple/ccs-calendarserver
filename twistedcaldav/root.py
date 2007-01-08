@@ -69,7 +69,7 @@ class RootResource(DAVFile):
         def _checkSACLCb((authnUser, authzUser)):
             # Figure out the "username" from the davxml.Principal object
             username = authzUser.children[0].children[0].data
-            username = username.split('/')[-1]
+            username = username.rstrip('/').split('/')[-1]
             
             if RootResource.CheckSACL(username, self.saclService) != 0:
                 return Failure(HTTPError(403))

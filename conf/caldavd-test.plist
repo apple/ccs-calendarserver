@@ -150,6 +150,9 @@ limitations under the License.
   <key>NotificationsEnabled</key>
   <true/>
 
+  <key>CalendarUserProxyEnabled</key>
+  <true/>
+
   <key>twistdLocation</key>
   <string>../Twisted/bin/twistd</string>
 
@@ -181,7 +184,7 @@ limitations under the License.
 
   <key>AdminPrincipals</key>
   <array>
-    <string>/principals/user/admin</string>
+    <string>/principals/user/admin/</string>
   </array>
 </dict>
 </plist>

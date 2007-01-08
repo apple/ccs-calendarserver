@@ -81,6 +81,11 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections()
 
+    def principalForRecord(self, record):
+        # FIXME: directory.principalCollection smells like a hack
+        # See DirectoryPrincipalProvisioningResource.__init__()
+        return self.directory.principalCollection.principalForRecord(record)
+
     def homeForDirectoryRecord(self, record):
         typeResource = self.getChild(record.recordType)
         if typeResource is None:
@@ -160,6 +165,10 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
 
     def principalCollections(self):
         return self._parent.principalCollections()
+
+    def principalForRecord(self, record):
+        return self._parent.principalForRecord(record)
+
 
 class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResource):
     """
@@ -254,9 +263,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def defaultAccessControlList(self):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
-        myPrincipal = self._parent._parent.directory.principalCollection.principalForRecord(self.record)
+        myPrincipal = self.principalForRecord()
 
-        return davxml.ACL(
+        aces = (
             # DAV:read access for authenticated users.
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
@@ -270,9 +279,32 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
                 TwistedACLInheritable(),
             ),
         )
+        
+        if config.CalendarUserProxyEnabled:
+            aces += (
+                # DAV:read access for this principal's calendar-proxy-read users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read/"))),
+                    davxml.Grant(davxml.Privilege(davxml.Read())),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+                # DAV:read/DAV:write access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(davxml.Privilege(davxml.Read()), davxml.Privilege(davxml.Write())),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+        return davxml.ACL(*aces)
 
     def principalCollections(self):
         return self._parent.principalCollections()
+
+    def principalForRecord(self):
+        return self._parent.principalForRecord(self.record)
 
     ##
     # Quota

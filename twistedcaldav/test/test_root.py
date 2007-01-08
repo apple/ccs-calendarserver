@@ -142,7 +142,7 @@ class RootTests(TestCase):
 
             self.assertEquals(request.authzUser, 
                               davxml.Principal(
-                    davxml.HRef('/principals/user/dreid')))
+                    davxml.HRef('/principals/user/dreid/')))
             
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
         d.addCallback(_Cb)

@@ -23,6 +23,7 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'CalendarUserProxyEnabled': True,
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -60,7 +61,7 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
-    'AdminPrincipals': ['/principals/user/admin']
+    'AdminPrincipals': ['/principals/user/admin/']
 }
 
 

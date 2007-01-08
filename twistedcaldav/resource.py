@@ -24,7 +24,6 @@ __all__ = [
     "CalDAVResource",
     "CalendarPrincipalCollectionResource",
     "CalendarPrincipalResource",
-    "CalendarSchedulingCollectionResource",
     "isCalendarCollectionResource",
     "isPseudoCalendarCollectionResource",
 ]
@@ -38,7 +37,7 @@ from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalResource, DAVPrincipalCollectionResource
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -51,7 +50,7 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.extensions import DAVResource
+from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
@@ -551,14 +550,15 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         (calendarserver_namespace, "notifications-URL"),
     )
 
+    def isCollection(self):
+        return True
+
     def readProperty(self, property, request):
         def defer():
             if type(property) is tuple:
                 qname = property
-                sname = "{%s}%s" % property
             else:
                 qname = property.qname()
-                sname = property.sname()
 
             namespace, name = qname
 
@@ -606,6 +606,12 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 
         return maybeDeferred(defer)
+
+    def groupMembers(self):
+        return ()
+
+    def groupMemberships(self):
+        return ()
 
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
