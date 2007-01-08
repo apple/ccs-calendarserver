@@ -139,7 +139,7 @@ class CaldavServiceMaker(object):
 
         sudoDirectory = None
 
-        if config.SudoersFile:
+        if config.SudoersFile and os.path.exists(config.SudoersFile):
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
 
