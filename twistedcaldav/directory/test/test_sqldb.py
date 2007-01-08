@@ -44,8 +44,10 @@ class SQLDB (
     test_verifyCredentials_digest.todo = ""
 
     def test_verifyRealmFromDB(self):
+        # Make sure the database has been initialized with the XML file
+        self.service()
 
-        def _service():
-            return SQLDirectoryService(os.getcwd(), None)
+        # Then get an instance without using the XML file
+        service = SQLDirectoryService(os.getcwd(), None)
 
-        self.assertEquals(_service().realmName, "Test")
+        self.assertEquals(service.realmName, "Test")
