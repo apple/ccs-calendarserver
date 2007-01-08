@@ -61,7 +61,7 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
-    'AdminPrincipals': ['/principals/user/admin/'],
+    'AdminPrincipals': ['/principals/users/admin/'],
 
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',

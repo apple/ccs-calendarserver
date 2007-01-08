@@ -29,6 +29,7 @@ import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.resource import CalDAVResource
 
 ELEMENT_ACCOUNTS     = "accounts"
@@ -50,10 +51,10 @@ ATTRIBUTE_REPEAT     = "repeat"
 ATTRIBUTE_RECORDTYPE = "type"
 
 RECORD_TYPES = {
-    ELEMENT_USER     : "user",
-    ELEMENT_GROUP    : "group",
-    ELEMENT_RESOURCE : "resource",
-    ELEMENT_LOCATION : "location",
+    ELEMENT_USER     : DirectoryService.recordType_users,
+    ELEMENT_GROUP    : DirectoryService.recordType_groups,
+    ELEMENT_LOCATION : DirectoryService.recordType_locations,
+    ELEMENT_RESOURCE : DirectoryService.recordType_resources,
 }
 
 class XMLAccountsParser(object):
@@ -209,6 +210,6 @@ class XMLAccountRecord (object):
                 if child.hasAttribute(ATTRIBUTE_RECORDTYPE):
                     recordType = child.getAttribute(ATTRIBUTE_RECORDTYPE).encode("utf-8")
                 else:
-                    recordType = "user"
+                    recordType = DirectoryService.recordType_users
                 if child.firstChild is not None:
                     self.members.add((recordType, child.firstChild.data.encode("utf-8")))

@@ -22,6 +22,7 @@ from twisted.python.filepath import FilePath
 
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
+from twistedcaldav.directory.directory import DirectoryService
 
 digestRealm = "Test"
 
@@ -32,7 +33,10 @@ groupFile      = FilePath(os.path.join(os.path.dirname(__file__), "groups"))
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
 class Apache (object):
-    recordTypes = set(("user", "group"))
+    recordTypes = set((
+        DirectoryService.recordType_users,
+        DirectoryService.recordType_groups
+    ))
 
     users = {
         "wsanchez": { "password": "foo",  "guid": None, "addresses": () },
@@ -42,10 +46,14 @@ class Apache (object):
     }
 
     groups = {
-        "managers"   : { "guid": None, "addresses": (), "members": (("user", "lecroy"),)                                         },
-        "grunts"     : { "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "cdaboo"), ("user", "dreid")) },
-        "right_coast": { "guid": None, "addresses": (), "members": (("user", "cdaboo"),)                                         },
-        "left_coast" : { "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "dreid"), ("user", "lecroy")) },
+        "managers"   : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "lecroy"),)                                         },
+        "grunts"     : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                    (DirectoryService.recordType_users, "cdaboo"),
+                                                                    (DirectoryService.recordType_users, "dreid")) },
+        "right_coast": { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "cdaboo"),)                                         },
+        "left_coast" : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                    (DirectoryService.recordType_users, "dreid"),
+                                                                    (DirectoryService.recordType_users, "lecroy")) },
     }
 
     locations = {
@@ -75,13 +83,13 @@ class Apache (object):
 
     def test_changedGroupFile(self):
         self.groupFile().open("w").write("grunts: wsanchez\n")
-        self.assertEquals(self.recordNames("group"), set(("grunts",)))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_groups), set(("grunts",)))
 
     def test_recordTypes_user(self):
         """
         IDirectoryService.recordTypes(userFile)
         """
-        self.assertEquals(set(self.serviceClass(digestRealm, self.userFile()).recordTypes()), set(("user",)))
+        self.assertEquals(set(self.serviceClass(digestRealm, self.userFile()).recordTypes()), set((DirectoryService.recordType_users,)))
 
     userEntry = None
 
@@ -89,7 +97,7 @@ class Apache (object):
         if self.userEntry is None:
             raise NotImplementedError("Test subclass needs to specify userEntry.")
         self.userFile().open("w").write(self.userEntry[1])
-        self.assertEquals(self.recordNames("user"), set((self.userEntry[0],)))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_users), set((self.userEntry[0],)))
 
 class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase):
     """

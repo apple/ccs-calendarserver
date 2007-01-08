@@ -53,7 +53,12 @@ class XMLDirectoryService(DirectoryService):
         self._accounts()
 
     def recordTypes(self):
-        recordTypes = ("user", "group", "location", "resource")
+        recordTypes = (
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+            DirectoryService.recordType_locations,
+            DirectoryService.recordType_resources
+        )
         return recordTypes
 
     def listRecords(self, recordType):
@@ -114,7 +119,7 @@ class XMLDirectoryRecord(DirectoryRecord):
 
     def groups(self):
         for shortName in self._groups:
-            yield self.service.recordWithShortName("group", shortName)
+            yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

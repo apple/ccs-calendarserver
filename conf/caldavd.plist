@@ -134,7 +134,7 @@ limitations under the License.
 
   <key>AdminPrincipals</key>
   <array>
-    <string>/principals/user/admin/</string>
+    <string>/principals/users/admin/</string>
   </array>
   <key>ServerType</key>
   <string>singleprocess</string>

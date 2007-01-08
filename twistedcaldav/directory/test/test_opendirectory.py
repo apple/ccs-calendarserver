@@ -21,6 +21,7 @@ try:
 except ImportError:
     pass
 else:
+    from twistedcaldav.directory.directory import DirectoryService
     import twistedcaldav.directory.test.util
 
     # Wonky hack to prevent unclean reactor shutdowns
@@ -38,7 +39,12 @@ else:
         """
         Test Open Directory directory implementation.
         """
-        recordTypes = set(("user", "group", "location", "resource"))
+        recordTypes = set((
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+            DirectoryService.recordType_locations,
+            DirectoryService.recordType_resources
+        ))
 
         users = groups = locations = resources = {}
 

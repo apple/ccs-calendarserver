@@ -78,7 +78,11 @@ class OpenDirectoryService(DirectoryService):
         return h
 
     def recordTypes(self):
-        return ("user", "group", "location", "resource")
+        return (
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+            DirectoryService.recordType_locations,
+            DirectoryService.recordType_resources)
 
     def _cacheRecords(self, recordType):
         if recordType not in self._records:
@@ -88,15 +92,15 @@ class OpenDirectoryService(DirectoryService):
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
             ]
-            if recordType == "user":
+            if recordType == DirectoryService.recordType_users:
                 listRecordType = dsattributes.kDSStdRecordTypeUsers
-            elif recordType == "group":
+            elif recordType == DirectoryService.recordType_groups:
                 listRecordType = dsattributes.kDSStdRecordTypeGroups
                 attrs += [dsattributes.kDSNAttrGroupMembers,]
-            elif recordType == "resource":
-                listRecordType = dsattributes.kDSStdRecordTypeResources
-            elif recordType == "location":
+            elif recordType == DirectoryService.recordType_locations:
                 listRecordType = dsattributes.kDSStdRecordTypeLocations
+            elif recordType == DirectoryService.recordType_resources:
+                listRecordType = dsattributes.kDSStdRecordTypeResources
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
 
@@ -115,7 +119,7 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
-                if recordType == "group":
+                if recordType == DirectoryService.recordType_groups:
                     memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                     if memberGUIDs is None:
                         memberGUIDs = ()
@@ -170,7 +174,7 @@ class OpenDirectoryRecord(DirectoryRecord):
         self._memberGUIDs = tuple(memberGUIDs)
 
     def members(self):
-        if self.recordType != "group":
+        if self.recordType != DirectoryService.recordType_groups:
             return
 
         for guid in self._memberGUIDs:
@@ -181,7 +185,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield userRecord
 
     def groups(self):
-        for groupRecord in self.service._cacheRecords("group").itervalues():
+        for groupRecord in self.service._cacheRecords(DirectoryService.recordType_groups).itervalues():
             if self.guid in groupRecord._memberGUIDs:
                 yield groupRecord
 

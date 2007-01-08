@@ -52,6 +52,7 @@ from twisted.web2.dav.util import parentForURL, bindMethods
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.config import config
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
@@ -540,7 +541,7 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
         if self.provisionFile():
             # FIXME: This should probably be a directory record option that
             # maps to the property value directly without the need to store one.
-            if self.parent.record.recordType == "resource":
+            if self.parent.record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources,):
                 # Resources should have autorespond turned on by default,
                 # since they typically don't have someone responding for them.
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())

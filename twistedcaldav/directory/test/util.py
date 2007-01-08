@@ -21,6 +21,7 @@ from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
@@ -68,21 +69,21 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
     def test_listRecords_user(self):
         """
-        IDirectoryService.listRecords("user")
+        IDirectoryService.listRecords(DirectoryService.recordType_users)
         """
         if not self.users:
             raise SkipTest("No users")
 
-        self.assertEquals(self.recordNames("user"), set(self.users.keys()))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_users), set(self.users.keys()))
 
     def test_listRecords_group(self):
         """
-        IDirectoryService.listRecords("group")
+        IDirectoryService.listRecords(DirectoryService.recordType_groups)
         """
         if not self.groups:
             raise SkipTest("No groups")
 
-        self.assertEquals(self.recordNames("group"), set(self.groups.keys()))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_groups), set(self.groups.keys()))
 
     def test_listRecords_locations(self):
         """
@@ -91,7 +92,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         if not self.resources:
             raise SkipTest("No locations")
 
-        self.assertEquals(self.recordNames("location"), set(self.locations.keys()))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_locations), set(self.locations.keys()))
 
     def test_listRecords_resources(self):
         """
@@ -100,17 +101,17 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         if not self.resources:
             raise SkipTest("No resources")
 
-        self.assertEquals(self.recordNames("resource"), set(self.resources.keys()))
+        self.assertEquals(self.recordNames(DirectoryService.recordType_resources), set(self.resources.keys()))
 
     def test_recordWithShortName(self):
         """
         IDirectoryService.recordWithShortName()
         """
         for recordType, data in (
-            ( "user"    , self.users     ),
-            ( "group"   , self.groups    ),
-            ( "location", self.locations ),
-            ( "resource", self.resources ),
+            ( DirectoryService.recordType_users    , self.users     ),
+            ( DirectoryService.recordType_groups   , self.groups    ),
+            ( DirectoryService.recordType_locations, self.locations ),
+            ( DirectoryService.recordType_resources, self.resources ),
         ):
             if not data:
                 raise SkipTest("No %s" % (recordType,))
@@ -163,7 +164,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         service = self.service()
         for group, info in self.groups.iteritems():
             prefix = info.get("prefix", "")
-            groupRecord = service.recordWithShortName(prefix + "group", group)
+            groupRecord = service.recordWithShortName(prefix + DirectoryService.recordType_groups, group)
             result = set((m.recordType, prefix + m.shortName) for m in groupRecord.members())
             expected = set(self.groups[group]["members"])
             self.assertEquals(
@@ -181,8 +182,8 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             raise SkipTest("No groups")
 
         for recordType, data in (
-            ( "user" , self.users  ),
-            ( "group", self.groups ),
+            ( DirectoryService.recordType_users , self.users  ),
+            ( DirectoryService.recordType_groups, self.groups ),
         ):
             service = self.service()
             for shortName, info in data.iteritems():
@@ -210,10 +211,10 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
 
     def allEntries(self):
         for data, recordType in (
-            (self.users,     "user"    ),
-            (self.groups,    "group"   ),
-            (self.locations, "location"),
-            (self.resources, "resource"),
+            (self.users,     DirectoryService.recordType_users    ),
+            (self.groups,    DirectoryService.recordType_groups   ),
+            (self.locations, DirectoryService.recordType_locations),
+            (self.resources, DirectoryService.recordType_resources),
         ):
             for item in data.iteritems():
                 yield item
@@ -266,7 +267,7 @@ class BasicTestCase (DirectoryTestCase):
 
         service = self.service()
         for user in self.users:
-            userRecord = service.recordWithShortName("user", user)
+            userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
             self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user]["password"])))
 
 # authRequest = {
@@ -295,7 +296,7 @@ class DigestTestCase (DirectoryTestCase):
 
         service = self.service()
         for user in self.users:
-            userRecord = service.recordWithShortName("user", user)
+            userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
 
             # I'm glad this is so simple...
             response = calcResponse(

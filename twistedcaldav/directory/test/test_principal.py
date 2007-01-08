@@ -33,6 +33,7 @@ from twisted.web2.dav.test.util import serialize
 
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.test.test_apache import basicUserFile, digestUserFile, groupFile, digestRealm
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
@@ -131,7 +132,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for directory in directoryServices:
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
-            for user in directory.listRecords("user"):
+            for user in directory.listRecords(DirectoryService.recordType_users):
                 userResource = provisioningResource.principalForUser(user.shortName)
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)

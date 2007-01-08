@@ -50,6 +50,11 @@ class DirectoryService(object):
 
     realmName = None
 
+    recordType_users = "users"
+    recordType_groups = "groups"
+    recordType_locations = "locations"
+    recordType_resources = "resources"
+    
     def _generatedGUID(self):
         if not hasattr(self, "_guid"):
             realmName = self.realmName
@@ -84,7 +89,7 @@ class DirectoryService(object):
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
 
-        user = self.recordWithShortName("user", credentials.credentials.username)
+        user = self.recordWithShortName(DirectoryService.recordType_users, credentials.credentials.username)
         if user is None:
             raise UnauthorizedLogin("No such user: %s" % (user,))
 

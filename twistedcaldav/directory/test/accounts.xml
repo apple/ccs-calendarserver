@@ -64,7 +64,7 @@ limitations under the License.
     <password>managers</password>
     <name>Managers</name>
     <members>
-      <member type="user">lecroy</member>
+      <member type="users">lecroy</member>
     </members>
   </group>
   <group>
@@ -72,7 +72,7 @@ limitations under the License.
     <password>admin</password>
     <name>Administrators</name>
     <members>
-      <member type="group">managers</member>
+      <member type="groups">managers</member>
     </members>
   </group>
   <group>
@@ -108,8 +108,8 @@ limitations under the License.
     <password>both_coasts</password>
     <name>Both Coasts</name>
     <members>
-      <member type="group">right_coast</member>
-      <member type="group">left_coast</member>
+      <member type="groups">right_coast</member>
+      <member type="groups">left_coast</member>
     </members>
   </group>
   <location>

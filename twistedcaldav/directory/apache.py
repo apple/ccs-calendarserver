@@ -53,14 +53,14 @@ class AbstractDirectoryService(DirectoryService):
         self.groupFile = groupFile
 
     def recordTypes(self):
-        recordTypes = ("user",)
+        recordTypes = (DirectoryService.recordType_users,)
         if self.groupFile is not None:
-            recordTypes += ("group",)
+            recordTypes += (DirectoryService.recordType_groups,)
         return recordTypes
 
     def listRecords(self, recordType):
         for entryShortName, entryData in self.entriesForRecordType(recordType):
-            if recordType == "user":
+            if recordType == DirectoryService.recordType_users:
                 yield self.userRecordClass(
                     service       = self,
                     recordType    = recordType,
@@ -68,7 +68,7 @@ class AbstractDirectoryService(DirectoryService):
                     cryptPassword = entryData,
                 )
 
-            elif recordType == "group":
+            elif recordType == DirectoryService.recordType_groups:
                 yield GroupRecord(
                     service    = self,
                     recordType = recordType,
@@ -83,7 +83,7 @@ class AbstractDirectoryService(DirectoryService):
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, entryData in self.entriesForRecordType(recordType):
             if entryShortName == shortName:
-                if recordType == "user":
+                if recordType == DirectoryService.recordType_users:
                     return self.userRecordClass(
                         service       = self,
                         recordType    = recordType,
@@ -91,7 +91,7 @@ class AbstractDirectoryService(DirectoryService):
                         cryptPassword = entryData,
                     )
 
-                if recordType == "group":
+                if recordType == DirectoryService.recordType_groups:
                     return GroupRecord(
                         service    = self,
                         recordType = recordType,
@@ -105,9 +105,9 @@ class AbstractDirectoryService(DirectoryService):
         return None
 
     def entriesForRecordType(self, recordType):
-        if recordType == "user":
+        if recordType == DirectoryService.recordType_users:
             recordFile = self.userFile
-        elif recordType == "group":
+        elif recordType == DirectoryService.recordType_groups:
             recordFile = self.groupFile
         else:
             raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
@@ -141,7 +141,7 @@ class AbstractUserRecord(AbstractDirectoryRecord):
         self._cryptPassword = cryptPassword
 
     def groups(self):
-        for group in self.service.listRecords("group"):
+        for group in self.service.listRecords(DirectoryService.recordType_groups):
             for member in group.members():
                 if member == self:
                     yield group
@@ -195,4 +195,4 @@ class GroupRecord(AbstractDirectoryRecord):
 
     def members(self):
         for shortName in self._members:
-            yield self.service.recordWithShortName("user", shortName)
+            yield self.service.recordWithShortName(DirectoryService.recordType_users, shortName)

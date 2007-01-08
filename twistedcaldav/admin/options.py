@@ -164,23 +164,31 @@ class PrincipalOptions(SubCommand):
         report = reflect.namedAny(self.action)(self, self.name).run()
         self.parent.formatter.printReport(report)
 
+from twistedcaldav.directory.directory import DirectoryService
 
 class UserOptions(PrincipalOptions):
-    name = "user"
+    name = DirectoryService.recordType_users
     help = PrincipalOptions.help % (name,)
 
 registerCommand(UserOptions)
 
 
 class GroupOptions(PrincipalOptions):
-    name = "group"
+    name = DirectoryService.recordType_groups
     help = PrincipalOptions.help % (name,)
 
 registerCommand(GroupOptions)
 
 
+class LocationOptions(PrincipalOptions):
+    name = DirectoryService.recordType_locations
+    help = PrincipalOptions.help % (name,)
+
+registerCommand(LocationOptions)
+
+
 class ResourceOptions(PrincipalOptions):
-    name = "resource"
+    name = DirectoryService.recordType_resources
     help = PrincipalOptions.help % (name,)
 
 registerCommand(ResourceOptions)

@@ -20,6 +20,7 @@ import os
 
 from twisted.python.filepath import FilePath
 
+from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
@@ -28,7 +29,12 @@ xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
 class XMLFileBase(object):
-    recordTypes = set(("user", "group", "location", "resource"))
+    recordTypes = set((
+        DirectoryService.recordType_users,
+        DirectoryService.recordType_groups,
+        DirectoryService.recordType_locations,
+        DirectoryService.recordType_resources
+    ))
 
     users = {
         "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
@@ -42,12 +48,17 @@ class XMLFileBase(object):
     }
 
     groups = {
-        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": (("group", "managers"),)                                      },
-        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": (("user", "lecroy"),)                                         },
-        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "cdaboo"), ("user", "dreid")) },
-        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": (("user", "cdaboo"),)                                         },
-        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": (("user", "wsanchez"), ("user", "dreid"), ("user", "lecroy")) },
-        "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": (("group", "right_coast"), ("group", "left_coast"))           },
+        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)                                      },
+        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "lecroy"),)                                         },
+        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                                               (DirectoryService.recordType_users, "cdaboo"),
+                                                                                               (DirectoryService.recordType_users, "dreid")) },
+        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "cdaboo"),)                                         },
+        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                                               (DirectoryService.recordType_users, "dreid"),
+                                                                                               (DirectoryService.recordType_users, "lecroy")) },
+        "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
+                                                                                               (DirectoryService.recordType_groups, "left_coast"))           },
     }
 
     locations = {
@@ -92,10 +103,10 @@ class XMLFile (
 """
         )
         for recordType, expectedRecords in (
-            ( "user"     , ("admin",) ),
-            ( "group"    , ()         ),
-            ( "location" , ()         ),
-            ( "resource" , ()         ),
+            ( DirectoryService.recordType_users     , ("admin",) ),
+            ( DirectoryService.recordType_groups    , ()         ),
+            ( DirectoryService.recordType_locations , ()         ),
+            ( DirectoryService.recordType_resources , ()         ),
         ):
             self.assertEquals(
                 set(r.shortName for r in self.service().listRecords(recordType)),

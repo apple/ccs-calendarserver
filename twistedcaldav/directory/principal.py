@@ -40,6 +40,7 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import AutoProvisioningFileMixIn
@@ -87,7 +88,7 @@ class DirectoryPrincipalProvisioningResource (
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
 
     def principalForUser(self, user):
-        return self.getChild("user").getChild(user)
+        return self.getChild(DirectoryService.recordType_users).getChild(user)
 
     def principalForRecord(self, record):
         typeResource = self.getChild(record.recordType)

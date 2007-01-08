@@ -32,7 +32,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>
-    <!ATTLIST member type (user|group|resource) "user">
+    <!ATTLIST member type (users|groups|locations|resources) "users">
 
   <!ELEMENT uid (#PCDATA)>
   <!ELEMENT password    (#PCDATA)>
