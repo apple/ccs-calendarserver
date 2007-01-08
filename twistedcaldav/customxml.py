@@ -28,7 +28,7 @@ change.
 from twisted.web2.dav.resource import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
-calendarserver_namespace = "http://org.calendarserver/ns/"
+calendarserver_namespace = "http://calendarserver.org/ns/"
 
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
