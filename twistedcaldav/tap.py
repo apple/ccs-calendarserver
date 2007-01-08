@@ -205,12 +205,6 @@ class CaldavServiceMaker(object):
 
         portal.registerChecker(directory)
 
-        # FIXME: This is a hack, why doesn't aggregate directory service 
-        # do the right thing.
-
-#         if sudoDirectory:
-#             portal.registerChecker(sudoDirectory)
-
         realm = directory.realmName or ""
 
         for scheme, schemeConfig in config.Authentication.iteritems():
