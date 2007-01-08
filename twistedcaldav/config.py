@@ -62,9 +62,6 @@ defaultConfig = {
         },
     'AdminPrincipals': ['/principals/user/admin'],
 
-<<<<<<< .working
-
-=======
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
     'pydirConfig': '/etc/caldavd/pydir.xml',
@@ -80,7 +77,6 @@ defaultConfig = {
         },
     }
 
->>>>>>> .merge-right.r955
 class Config (object):
     def __init__(self, defaults):
         self.update(defaults)
