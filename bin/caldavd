@@ -111,4 +111,6 @@ shift $((${OPTIND} - 1));
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
+export PYTHONPATH
+
 exec "${python}" "${twistdpath}" "${daemonize}" ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type};

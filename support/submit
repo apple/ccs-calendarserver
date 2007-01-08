@@ -77,7 +77,7 @@ revision="$(svnversion "${src}")";
 ##
 
 if "${build}"; then
-  project_version="${project}-${revision}";
+  project_version="${project}-$(echo ${revision} | sed -e 's/:/_/g')";
 else 
 #
 # We need a single revision number
