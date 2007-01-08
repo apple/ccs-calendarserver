@@ -97,9 +97,13 @@ if 'install' in dist.commands:
     import os
     install_scripts = dist.command_obj['install'].install_scripts
     install_lib = dist.command_obj['install'].install_lib
+    root = dist.command_obj['install'].root
     base = dist.command_obj['install'].install_base
 
     caldavdPath = os.path.join(install_scripts, 'caldavd')
+
+    if root:
+        install_lib = install_lib[len(root):]
 
     print "rewriting %s" % (caldavdPath,)
 
