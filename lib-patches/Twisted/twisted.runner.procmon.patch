@@ -1,0 +1,29 @@
+Index: twisted/runner/procmon.py
+===================================================================
+--- twisted/runner/procmon.py	(revision 18545)
++++ twisted/runner/procmon.py	(working copy)
+@@ -130,10 +130,10 @@
+         self.consistency = reactor.callLater(self.consistencyDelay,
+                                              self._checkConsistency)
+ 
+-    def addProcess(self, name, args, uid=None, gid=None):
++    def addProcess(self, name, args, uid=None, gid=None, env={}):
+         if self.processes.has_key(name):
+             raise KeyError("remove %s first" % name)
+-        self.processes[name] = args, uid, gid
++        self.processes[name] = args, uid, gid, env
+         if self.active:
+             self.startProcess(name)
+ 
+@@ -175,9 +175,9 @@
+         p = self.protocols[name] = LoggingProtocol()
+         p.service = self
+         p.name = name
+-        args, uid, gid = self.processes[name]
++        args, uid, gid, env = self.processes[name]
+         self.timeStarted[name] = time.time()
+-        reactor.spawnProcess(p, args[0], args, uid=uid, gid=gid)
++        reactor.spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env)
+ 
+     def _forceStopProcess(self, proc):
+         try:
