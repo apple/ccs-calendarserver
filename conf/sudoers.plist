@@ -5,6 +5,8 @@
 <key>users</key>
 <array>
 <!-- Sudo user definitions -->
+<!-- With the exception of username and password none of the following
+     elements are used in the current implementation. -->
 <!--
   <dict>
     <key>authorize-as</key>
