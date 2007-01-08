@@ -63,6 +63,7 @@ TwistedSubEnvironment = $(Environment) PYTHONPATH="$(DSTROOT)$(SHAREDIR)/caldavd
 Twisted::
 	@echo "Building Twisted..."
 	$(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/topfiles/setup.py install $(PY_INSTALL_FLAGS)
+        $(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/runner/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py build
 

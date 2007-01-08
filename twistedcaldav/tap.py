@@ -23,7 +23,7 @@ from zope.interface import implements
 
 from twisted.python import log
 
-from twisted.python.usage import Options
+from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 
 from twisted.application import internet, service
@@ -41,6 +41,7 @@ from twisted.web2.channel import http
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
+from twistedcaldav.cluster import makeService_multiprocess, makeService_pydir
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
@@ -102,7 +103,7 @@ class CalDAVOptions(Options):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
-                    raise usage.UsageError(
+                    raise UsageError(
                         "We do not support dict options on the command line")
 
             self.overrides[key] = value
@@ -140,7 +141,7 @@ class CalDAVServiceMaker(object):
     principalResourceClass = DirectoryPrincipalProvisioningResource
     calendarResourceClass = CalendarHomeProvisioningFile
 
-    def makeService(self, options):
+    def makeService_singleprocess(self, options):
         #
         # Setup the Directory
         #
@@ -248,19 +249,46 @@ class CalDAVServiceMaker(object):
         
         service = CalDAVService(logObserver)
 
-        if not config.SSLOnly:
-            httpService = internet.TCPServer(int(config.Port), channel)
+        if not config.BindAddress:
+            config.BindAddress = ['']
 
-            httpService.setServiceParent(service)
+        for bindAddress in config.BindAddress:
+            if not config.SSLOnly:
+                httpService = internet.TCPServer(int(config.Port), channel,
+                                                 interface=bindAddress)
+                httpService.setServiceParent(service)
 
-        if config.SSLEnable:
-            from twisted.internet.ssl import DefaultOpenSSLContextFactory
-            httpsService = internet.SSLServer(
-                int(config.SSLPort),
-                channel,
-                DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                             config.SSLCertificate))
-
-            httpsService.setServiceParent(service)
+            if config.SSLEnable:
+                from twisted.internet.ssl import DefaultOpenSSLContextFactory
+                httpsService = internet.SSLServer(
+                    int(config.SSLPort),
+                    channel,
+                    DefaultOpenSSLContextFactory(config.SSLPrivateKey,
+                                                 config.SSLCertificate),
+                    interface=bindAddress
+                    )
+                httpsService.setServiceParent(service)
             
         return service
+
+    makeService_slave = makeService_singleprocess
+
+    makeService_multiprocess = makeService_multiprocess
+
+    makeService_master = makeService_pydir
+
+    def makeService(self, options):
+        serverType = config.ServerType
+        
+        serviceMethod = getattr(self, 'makeService_%s' % (serverType,), None)
+
+        if not serviceMethod:
+            raise UsageError(
+                ("Unknown server type %s, please choose: singleprocess, "
+                 "multiprocess, master, slave" % (serverType,)))
+
+        else:
+            return serviceMethod(options)
+            
+
+                                

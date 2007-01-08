@@ -23,6 +23,7 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'BindAddress': ['127.0.0.1'],
     'CalendarUserProxyEnabled': True,
     'DirectoryService': {
         'params': {'node': '/Search'},
@@ -46,7 +47,6 @@ defaultConfig = {
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
-    'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
     'Authentication': {
         'Basic': {
@@ -61,9 +61,22 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
-    'AdminPrincipals': ['/principals/user/admin/']
-}
+    'AdminPrincipals': ['/principals/user/admin/'],
 
+    'twistdLocation': '/usr/share/caldavd/bin/twistd',
+    'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
+    'pydirConfig': '/etc/caldavd/pydir.xml',
+
+    'ServerType': 'singleprocess',
+
+    'MultiProcess': {
+        'NumProcesses': 10,
+        'LoadBalancer': {
+            'Enabled': True,
+            'Scheduler': 'leastconns',
+            },
+        },
+    }
 
 class Config (object):
     def __init__(self, defaults):
