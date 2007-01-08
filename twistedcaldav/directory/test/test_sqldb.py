@@ -39,9 +39,6 @@ class SQLDB (
     def service(self):
         return SQLDirectoryService(os.getcwd(), self.xmlFile())
 
-    def test_recordTypes(self):
-        super(SQLDB, self).test_recordTypes()
-
     def test_verifyCredentials_digest(self):
         super(SQLDB, self).test_verifyCredentials_digest()
     test_verifyCredentials_digest.todo = ""
