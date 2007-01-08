@@ -62,12 +62,12 @@ class SudoAuthIDMixin(object):
         return super(SudoAuthIDMixin, self).findPrincipalForAuthID(authid)
 
 
-class DAVResource (SuperDAVResource, SudoAuthIDMixin):
+class DAVResource (SudoAuthIDMixin, SuperDAVResource):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
 
-class DAVFile (SuperDAVFile, SudoAuthIDMixin):
+class DAVFile (SudoAuthIDMixin, SuperDAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
