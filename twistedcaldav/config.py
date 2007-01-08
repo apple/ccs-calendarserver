@@ -23,6 +23,7 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'BindAddress': ['127.0.0.1'],
     'DirectoryService': {
         'params': {'node': '/Search'},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
@@ -45,7 +46,6 @@ defaultConfig = {
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
-    'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'SACLEnable': False,
     'Authentication': {
         'Basic': {
@@ -60,10 +60,27 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
-    'AdminPrincipals': ['/principals/user/admin']
-}
+    'AdminPrincipals': ['/principals/user/admin'],
 
+<<<<<<< .working
 
+=======
+    'twistdLocation': '/usr/share/caldavd/bin/twistd',
+    'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
+    'pydirConfig': '/etc/caldavd/pydir.xml',
+
+    'ServerType': 'singleprocess',
+
+    'MultiProcess': {
+        'NumProcesses': 10,
+        'LoadBalancer': {
+            'Enabled': True,
+            'Scheduler': 'leastconns',
+            },
+        },
+    }
+
+>>>>>>> .merge-right.r955
 class Config (object):
     def __init__(self, defaults):
         self.update(defaults)

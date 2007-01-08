@@ -35,6 +35,7 @@ disable_setup="false";
       install="";
     daemonize="-X";
   plugin_name="caldav";
+ service_type="singleprocess";
 
 usage ()
 {
@@ -53,12 +54,13 @@ usage ()
   echo "        -d  Run caldavd as a daemon";
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
+  echo "        -t  Select the type of server to run (singleprocess, multiprocess, or master)";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvsfnpdP:i:I:' option; do
+while getopts 'hvsfnpdP:i:I:t:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -71,6 +73,7 @@ while getopts 'hvsfnpdP:i:I:' option; do
     'P')   plugin_name="${OPTARG}"; ;;
     'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
     'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+    't')  service_type="${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -186,7 +189,7 @@ run () {
         -f "${config}"                                \
         -T "${twisted}/bin/twistd"                    \
         -P "${plugin_name}"                           \
-        ;
+        -t "${service_type}";
     cd /;
   fi;
 }
@@ -524,6 +527,20 @@ if ! py_have_module pysqlite2; then
   py_install "PySQLite" "${pysqlite}";
 
   export PYTHONPATH="${PYTHONPATH}:${pysqlite}/build/${py_platform_libdir}";
+fi;
+
+#
+# PyDirector
+#
+
+if ! py_have_module pydirector; then
+    pydirector="${top}/pydirector-1.0.0";
+    
+    www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+    py_build "PyDirector" "${pydirector}" false;
+    py_install "PyDirector" "${pydirector}";
+
+    export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
 fi;
 
 #

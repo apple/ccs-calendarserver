@@ -27,6 +27,7 @@ groupname="";
 configfile="";
 twistdpath="$(type -p twistd)";
 plugin_name="caldav";
+service_type="";
 
 py_version ()
 {
@@ -78,7 +79,7 @@ usage ()
     
     if [ "${1--}" != "-" ]; then echo "${1}"; echo; fi;
 
-    echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-f caldavd.plist]";
+    echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-t type] [-f caldavd.plist]";
     echo "Options:";
     echo "        -h Print this help and exit";
     echo "        -X Do not daemonize";
@@ -86,12 +87,13 @@ usage ()
     echo "        -g Group to run as";
     echo "        -f Configuration file to read";
     echo "        -T Path to twistd binary";
+    echo "        -t Service type (master, slave, standalone, cluster)";
     
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
 }
 
-while getopts 'hXu:g:f:T:P:' option; do
+while getopts 'hXu:g:f:T:P:t:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
@@ -101,6 +103,7 @@ while getopts 'hXu:g:f:T:P:' option; do
         'u') username="-u ${OPTARG}"; ;;
         'g') groupname="-g ${OPTARG}"; ;;
         'P') plugin_name="${OPTARG}"; ;;
+        't') service_type="-o ServerType=${OPTARG}"; ;;
     esac;
 done;
 
@@ -108,4 +111,4 @@ shift $((${OPTIND} - 1));
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
-exec "${python}" "${twistdpath}" "${daemonize}" ${username} ${groupname} "${plugin_name}" ${configfile};
+exec "${python}" "${twistdpath}" "${daemonize}" ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type};
