@@ -94,6 +94,7 @@ class XMLFile (
         for recordType, expectedRecords in (
             ( "user"     , ("admin",) ),
             ( "group"    , ()         ),
+            ( "location" , ()         ),
             ( "resource" , ()         ),
         ):
             self.assertEquals(

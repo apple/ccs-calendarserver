@@ -212,6 +212,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         for data, recordType in (
             (self.users,     "user"    ),
             (self.groups,    "group"   ),
+            (self.locations, "location"),
             (self.resources, "resource"),
         ):
             for item in data.iteritems():

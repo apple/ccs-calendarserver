@@ -38,7 +38,7 @@ else:
         """
         Test Open Directory directory implementation.
         """
-        recordTypes = set(("user", "group", "resource"))
+        recordTypes = set(("user", "group", "location", "resource"))
 
         users = groups = locations = resources = {}
 

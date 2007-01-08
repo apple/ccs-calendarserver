@@ -78,7 +78,7 @@ class OpenDirectoryService(DirectoryService):
         return h
 
     def recordTypes(self):
-        return ("user", "group", "resource", "location",)
+        return ("user", "group", "location", "resource")
 
     def _cacheRecords(self, recordType):
         if recordType not in self._records:

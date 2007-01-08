@@ -41,7 +41,6 @@ class SQLDB (
 
     def test_recordTypes(self):
         super(SQLDB, self).test_recordTypes()
-    test_recordTypes.todo = "Add locations record type"
 
     def test_verifyCredentials_digest(self):
         super(SQLDB, self).test_verifyCredentials_digest()
