@@ -78,7 +78,7 @@ class OpenDirectoryService(DirectoryService):
         return h
 
     def recordTypes(self):
-        return ("user", "group", "resource")
+        return ("user", "group", "resource", "location",)
 
     def _cacheRecords(self, recordType):
         if recordType not in self._records:
@@ -95,6 +95,8 @@ class OpenDirectoryService(DirectoryService):
                 attrs += [dsattributes.kDSNAttrGroupMembers,]
             elif recordType == "resource":
                 listRecordType = dsattributes.kDSStdRecordTypeResources
+            elif recordType == "location":
+                listRecordType = dsattributes.kDSStdRecordTypeLocations
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType,))
 
