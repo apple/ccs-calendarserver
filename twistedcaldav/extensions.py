@@ -42,6 +42,7 @@ from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
+from twistedcaldav.directory.sudo import SudoDirectoryService
 
 
 class SudoAuthIDMixin(object):
@@ -57,7 +58,9 @@ class SudoAuthIDMixin(object):
         regular users.
         """
         for collection in self.principalCollections():
-            principal = collection.principalForShortName('sudoer', authid)
+            principal = collection.principalForShortName(
+                SudoDirectoryService.recordType_sudoers, 
+                authid)
             if principal is not None:
                 return principal
 

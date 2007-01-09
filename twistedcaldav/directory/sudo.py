@@ -47,7 +47,7 @@ class SudoDirectoryService(DirectoryService):
 
     plistFile = None
 
-    recordType = "sudoer"
+    recordType_sudoers = "sudoers"
 
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName,
@@ -71,25 +71,25 @@ class SudoDirectoryService(DirectoryService):
         return self._plist
 
     def recordTypes(self):
-        return (self.recordType,)
+        return (SudoDirectoryService.recordType_sudoers,)
 
     def _recordForEntry(self, entry):
         return SudoDirectoryRecord(
             service=self,
-            recordType=self.recordType,
+            recordType=SudoDirectoryService.recordType_sudoers,
             shortName=entry['username'],
             entry=entry)
 
 
     def listRecords(self, recordType):
-        if recordType != self.recordType:
+        if recordType != SudoDirectoryService.recordType_sudoers:
             raise UnknownRecordTypeError(recordType)
 
         for entry in self._accounts()['users']:
             yield self._recordForEntry(entry)
 
     def recordWithShortName(self, recordType, shortName):
-        if recordType != self.recordType:
+        if recordType != SudoDirectoryService.recordType_sudoers:
             raise UnknownRecordTypeError(recordType)
 
         for entry in self._accounts()['users']:
@@ -101,8 +101,10 @@ class SudoDirectoryService(DirectoryService):
         # We were checking if principal is enabled; seems unnecessary in current
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
-        sudouser = self.recordWithShortName("sudoer", 
-                                            credentials.credentials.username)
+        sudouser = self.recordWithShortName(
+            SudoDirectoryService.recordType_sudoers, 
+            credentials.credentials.username)
+
         if sudouser is None:
             raise UnauthorizedLogin("No such user: %s" % (sudouser,))
         

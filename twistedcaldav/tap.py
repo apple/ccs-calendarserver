@@ -149,8 +149,12 @@ class CalDAVServiceMaker(object):
         #
         # Setup the Directory
         #
+        directories = []
+        
         directoryClass = namedClass(config.DirectoryService['type'])
         baseDirectory = directoryClass(**config.DirectoryService['params'])
+
+        directories.append(baseDirectory)
 
         sudoDirectory = None
 
@@ -159,9 +163,13 @@ class CalDAVServiceMaker(object):
             sudoDirectory.realmName = baseDirectory.realmName
 
             CalDAVResource.sudoDirectory = sudoDirectory
-        
-        directory = AggregateDirectoryService((baseDirectory,
-                                               sudoDirectory))
+            directories.append(sudoDirectory)
+
+        directory = AggregateDirectoryService(directories)
+
+        if sudoDirectory:
+            directory.userRecordTypes.append(
+                SudoDirectoryService.recordType_sudoers)
 
         #
         # Setup Resource hierarchy

@@ -103,7 +103,7 @@ class AggregateDirectoryService(DirectoryService):
         else:
             return None
 
-    userRecordTypes = ['user', 'sudoer']
+    userRecordTypes = [DirectoryService.recordType_users]
 
     def requestAvatarId(self, credentials):
         for type in self.userRecordTypes:

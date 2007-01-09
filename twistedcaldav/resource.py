@@ -56,6 +56,9 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component as iComponent
 
+from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.sudo import SudoDirectoryService
+
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
 else:
@@ -249,6 +252,7 @@ class CalDAVResource (DAVResource):
 
         # Look for X-Authorize-As Header
         authz = request.headers.getRawHeaders("x-authorize-as")
+
         if authz is not None and (len(authz) == 1):
             # Substitute the authz value for principal look up
             authz = authz[0]
@@ -260,7 +264,8 @@ class CalDAVResource (DAVResource):
                     return principal
 
         def isSudoPrincipal(authid):
-            if getPrincipalForType('sudoer', authid):
+            if getPrincipalForType(SudoDirectoryService.recordType_sudoers, 
+                                   authid):
                 return True
             return False
 
@@ -270,7 +275,8 @@ class CalDAVResource (DAVResource):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
                     raise HTTPError(responsecode.FORBIDDEN)
                 else:
-                    authzPrincipal = getPrincipalForType('group', authz)
+                    authzPrincipal = getPrincipalForType(
+                        DirectoryService.recordType_groups, authz)
 
                     if not authzPrincipal:
                         authzPrincipal = self.findPrincipalForAuthID(authz)
