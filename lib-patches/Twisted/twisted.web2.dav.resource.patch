@@ -868,6 +868,19 @@ Index: twisted/web2/dav/resource.py
      def readProperty(self, property, request):
          def defer():
              if type(property) is tuple:
+@@ -1604,10 +1956,10 @@
+                     return davxml.PrincipalURL(davxml.HRef(self.principalURL()))
+ 
+                 if name == "group-member-set":
+-                    return davxml.GroupMemberSet(*[davxml.HRef(p) for p in self.groupMembers()])
++                    return davxml.GroupMemberSet(*[davxml.HRef(p.principalURL()) for p in self.groupMembers()])
+ 
+                 if name == "group-membership":
+-                    return davxml.GroupMembership(*[davxml.HRef(g) for g in self.groupMemberships()])
++                    return davxml.GroupMembership(*[davxml.HRef(g.principalURL()) for g in self.groupMemberships()])
+ 
+                 if name == "resourcetype":
+                     if self.isCollection():
 @@ -1673,6 +2025,24 @@
          else:
              return uri in self.groupMembers()
