@@ -81,7 +81,7 @@ class DirectoryPrincipalProvisioningResource (
         self.directory = IDirectoryService(directory)
 
         # FIXME: Smells like a hack
-        directory.principalCollection = self
+        self.directory.principalCollection = self
 
         # Create children
         for recordType in self.directory.recordTypes():
@@ -94,8 +94,10 @@ class DirectoryPrincipalProvisioningResource (
         return typeResource.getChild(name)
 
     def principalForUser(self, user):
-        return self.principalForShortName(DirectoryService.recordType_users, 
-                                          user)
+        return self.principalForShortName(DirectoryService.recordType_users, user)
+
+    def principalForGUID(self, guid):
+        return self.principalForRecord(self.directory.recordWithGUID(guid))
 
     def principalForRecord(self, record):
         return self.principalForShortName(record.recordType, record.shortName)
@@ -179,11 +181,17 @@ class DirectoryPrincipalTypeResource (
         self.recordType = recordType
         self.parent = parent
 
+    def principalForShortName(self, type, name):
+        return self.parent.principalForShortName(type, name)
+
     def principalForUser(self, user):
         return self.parent.principalForUser(user)
 
     def principalForRecord(self, record):
         return self.parent.principalForRecord(record)
+
+    def principalForGUID(self, guid):
+        return self.parent.principalForGUID(guid)
 
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
