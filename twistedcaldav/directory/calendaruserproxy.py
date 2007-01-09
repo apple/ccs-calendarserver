@@ -79,10 +79,12 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         super(CalendarUserProxyPrincipalResource, self).__init__(path, joinURL(parent.principalURL(), proxyType))
 
         self.parent = parent
+        self.pcollection = self.parent.parent.parent
         self.proxyType = proxyType
         self._url = joinURL(parent.principalURL(), proxyType)
         if self.isCollection():
             self._url += "/"
+        self.guid = self.parent.principalUID() + "-" + proxyType
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
@@ -95,13 +97,10 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         @return: the L{CalendarUserProxyDatabase} for the principal collection.
         """
         
-        # Get the principal collection we are contained in
-        pcollection = self.parent.parent.parent
-        
         # The db is located in the principal collection root
-        if not hasattr(pcollection, "calendar_user_proxy_db"):
-            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
-        return pcollection.calendar_user_proxy_db
+        if not hasattr(self.pcollection, "calendar_user_proxy_db"):
+            setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(self.pcollection.fp.path))
+        return self.pcollection.calendar_user_proxy_db
 
     def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
@@ -120,10 +119,26 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         return super(CalendarUserProxyPrincipalResource, self).writeProperty(property, request)
 
     def setGroupMemberSet(self, new_members, request):
-        
+        # FIXME: as defined right now it is not possible to specify a calendar-user-proxy group as
+        # a member of any other group since the directory service does not know how to lookup
+        # these special resource GUIDs.
+        #
+        # Really, c-u-p principals should be treated the same way as any other principal, so
+        # they should be allowed as members of groups.
+        #
+        # This implementation simply ignores any principal URIs that correspond to c-u-p principals.
+
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
-        self._index().setGroupMembers(self._url, members)
+        
+        # Map the URIs to principals.
+        # NB Non-matching URIs will return None foe the principal
+        principals = [self.pcollection._principalForURI(uri) for uri in members]
+        
+        # Map the principals to GUIDs, ignoring principals that are None.
+        guids = [p.principalUID() for p in principals if p is not None]
+
+        self._index().setGroupMembers(self.guid, guids)
         return succeed(True)
 
     ##
@@ -219,14 +234,21 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     def principalURL(self):
         return self._url
 
+    def principalUID(self):
+        return self.guid
+
     def principalCollections(self):
         return self.parent.principalCollections()
 
     def groupMembers(self):
-        return self._index().getMembers(self._url)
+        # Get member GUIDs and map to principal resources
+        members = self._index().getMembers(self.guid)
+        return [self.pcollection.principalForGUID(guid) for guid in members]
 
     def groupMemberships(self):
-        return self._index().getMemberships(self._url)
+        # Get membership GUIDs and map to principal resources
+        memberships = self._index().getMemberships(self.guid)
+        return [self.pcollection.principalForGUID(guid) for guid in memberships]
 
 
 class CalendarUserProxyDatabase(AbstractSQLDatabase):
@@ -243,74 +265,74 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     
     dbType = "CALENDARUSERPROXY"
     dbFilename = ".db.calendaruserproxy"
-    dbFormatVersion = "1"
+    dbFormatVersion = "2"
 
     def __init__(self, path):
         path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
         super(CalendarUserProxyDatabase, self).__init__(path, CalendarUserProxyDatabase.dbFormatVersion)
 
-    def setGroupMembers(self, principalURI, members):
+    def setGroupMembers(self, principalGUID, members):
         """
         Add a group membership record.
     
-        @param principalURI: the principalURI of the group principal to add.
-        @param members: the list of principalURIs that are members of this group.
+        @param principalGUID: the principalGUID of the group principal to add.
+        @param members: the list of principalGUIDs that are members of this group.
         """
         
         # Remove what is there, then add it back.
-        self._delete_from_db(principalURI)
-        self._add_to_db(principalURI, members)
+        self._delete_from_db(principalGUID)
+        self._add_to_db(principalGUID, members)
         self._db_commit()
 
-    def removeGroup(self, principalURI):
+    def removeGroup(self, principalGUID):
         """
         Remove a group membership record.
     
-        @param principalURI: the principalURI of the group principal to add.
+        @param principalGUID: the principalGUID of the group principal to remove.
         """
-        self._delete_from_db(principalURI)
+        self._delete_from_db(principalGUID)
         self._db_commit()
     
-    def getMembers(self, principalURI):
+    def getMembers(self, principalGUID):
         """
-        Return the list of group members for the specified principal.
+        Return the list of group member GUIDs for the specified principal.
         """
         members = set()
-        for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalURI):
+        for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalGUID):
             members.add(row[0])
         return members
     
-    def getMemberships(self, principalURI):
+    def getMemberships(self, principalGUID):
         """
-        Return the list of groups the specified principal is a member of.
+        Return the list of group principal GUIDs the specified principal is a member of.
         """
         members = set()
-        for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalURI):
+        for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalGUID):
             members.add(row[0])
         return members
 
-    def _add_to_db(self, principalURI, members):
+    def _add_to_db(self, principalGUID, members):
         """
         Insert the specified entry into the database.
 
-        @param principalURI: the principalURI of the group principal to remove.
-        @param members: the list of principalURIs that are members of this group.
+        @param principalGUID: the principalGUID of the group principal to add.
+        @param members: the list of principalGUIDs that are members of this group.
         """
         for member in members:
             self._db_execute(
                 """
                 insert into GROUPS (GROUPNAME, MEMBER)
                 values (:1, :2)
-                """, principalURI, member
+                """, principalGUID, member
             )
        
-    def _delete_from_db(self, principalURI):
+    def _delete_from_db(self, principalGUID):
         """
         Deletes the specified entry from the database.
 
-        @param principalURI: the principalURI of the group principal to remove.
+        @param principalGUID: the principalGUID of the group principal to remove.
         """
-        self._db_execute("delete from GROUPS where GROUPNAME = :1", principalURI)
+        self._db_execute("delete from GROUPS where GROUPNAME = :1", principalGUID)
     
     def _db_type(self):
         """

@@ -384,13 +384,41 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
         return pcollection.calendar_user_proxy_db
 
+    def _map_calendar_user_proxy_guids(self, guids):
+        """
+        Return a list of principals mapped from a list of calendar user proxy principal GUIDs.
+        
+        @param guids: a C{list} of C{str}'s containing the GUIDs to map.
+        @return: a C{list} of L{CalendarPrincipalResource}s for each mapped GUID.
+        """
+        proxies = []
+        for guid in guids:
+            # Get the "base" GUID for the parent of the proxy principal
+            if guid.endswith("-calendar-proxy-read"):
+                guid = guid[:-20]
+                proxyType = "calendar-proxy-read"
+            elif guid.endswith("-calendar-proxy-write"):
+                guid = guid[:-21]
+                proxyType = "calendar-proxy-write"
+                
+            # Lookup the base GUID and get its principal resource
+            principal = self.parent.principalForGUID(guid)
+            if principal:
+                proxyprincipal = principal.getChild(proxyType)
+                if proxyprincipal:
+                    proxies.append(proxyprincipal)
+                    
+        return proxies
+            
     def groupMembers(self):
         return self._getRelatives("members")
 
     def groupMemberships(self):
         groups = self._getRelatives("groups")
         if config.CalendarUserProxyEnabled:
-            groups.update(self._calendar_user_proxy_index().getMemberships(self._url))
+            # Get proxy group GUIDs and map to principal resources
+            proxies = self._map_calendar_user_proxy_guids(self._calendar_user_proxy_index().getMemberships(self.principalUID()))
+            groups.update(proxies)
         return groups
 
     def principalCollections(self):
