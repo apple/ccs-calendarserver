@@ -69,6 +69,20 @@ class AggregateDirectoryService(DirectoryService):
         self.realmName = realmName
         self._recordTypes = recordTypes
 
+    #
+    # Define calendarHomesCollection as a property so we can set it on contained services
+    # See CalendarHomeProvisioningFile.__init__()
+    #
+    def _getCalendarHomesCollection(self):
+        return self._calendarHomesCollection
+
+    def _setCalendarHomesCollection(self, value):
+        for service in self._recordTypes.values():
+            service.calendarHomesCollection = value
+        self._calendarHomesCollection = value
+
+    calendarHomesCollection = property(_getCalendarHomesCollection, _setCalendarHomesCollection)
+
     def recordTypes(self):
         return set(self._recordTypes)
 
