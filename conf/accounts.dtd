@@ -19,16 +19,16 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 <!ELEMENT accounts (user*, group*, resource*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid, password, name, cuaddr*, calendar*, quota?, autorespond?, canproxy?)>
+  <!ELEMENT user (uid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
     <!ATTLIST user repeat CDATA "1">
 
   <!ELEMENT group (uid, password, name, members, cuaddr*, calendar*, quota?)>
     <!ATTLIST group repeat CDATA "1">
 
-  <!ELEMENT resource (uid, password, name, cuaddr*, calendar*, quota?, autorespond?, canproxy?)>
+  <!ELEMENT resource (uid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
     <!ATTLIST resource repeat CDATA "1">
 
-  <!ELEMENT location (uid, password, name, cuaddr*, calendar*, quota?, autorespond?, canproxy?)>
+  <!ELEMENT location (uid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>
@@ -41,6 +41,5 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT calendar    (#PCDATA)>
   <!ELEMENT quota       (#PCDATA)>
   <!ELEMENT autorespond EMPTY>
-  <!ELEMENT canproxy    EMPTY>
   <!ELEMENT members     (member*)>
 >
