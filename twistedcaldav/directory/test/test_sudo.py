@@ -33,11 +33,13 @@ class SudoTestCase(
     Test the Sudo Directory Service
     """
 
-    recordTypes = set(('sudoer',))
-    recordType = 'sudoer'
+    recordTypes = set(('sudoers',))
+    recordType = 'sudoers'
 
     sudoers = {'alice': {'password': 'alice',},
              }
+
+    locations = {}
 
     def plistFile(self):
         if not hasattr(self, "_plistFile"):
@@ -59,8 +61,8 @@ class SudoTestCase(
     def test_recordWithShortName(self):
         service = self.service()
 
-        record = service.recordWithShortName('sudoer', 'alice')
+        record = service.recordWithShortName(self.recordType, 'alice')
         self.assertEquals(record.password, 'alice')
 
-        record = service.recordWithShortName('sudoer', 'bob')
+        record = service.recordWithShortName(self.recordType, 'bob')
         self.failIf(record)

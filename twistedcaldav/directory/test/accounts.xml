@@ -25,12 +25,6 @@ limitations under the License.
     <name>Administrators</name>
   </user>
   <user>
-    <uid>proxy</uid>
-    <password>yxorp</password>
-    <name>User who can authorize as someone else</name>
-    <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
-  </user>
-  <user>
     <uid>wsanchez</uid>
     <password>zehcnasw</password>
     <name>Wilfredo Sanchez</name>
