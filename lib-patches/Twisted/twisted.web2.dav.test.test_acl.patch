@@ -33,23 +33,27 @@ Index: twisted/web2/dav/test/test_acl.py
  class ACL(twisted.web2.dav.test.util.TestCase):
      """
      RFC 3744 (WebDAV ACL) tests.
-@@ -46,8 +63,14 @@
+@@ -46,8 +63,18 @@
          if not hasattr(self, "docroot"):
              self.docroot = self.mktemp()
              os.mkdir(self.docroot)
 -            rootresource = self.resource_class(self.docroot)
  
-+            userResource = TestDAVPrincipalResource("/principals/user01")
++            userResource = TestDAVPrincipalResource("/principals/users/user01")
 +            userResource.writeDeadProperty(TwistedPasswordProperty("user01"))
 +
-+            principalCollection = TestPrincipalsCollection("/principals/", children={"user01": userResource})
++            principalCollection = TestPrincipalsCollection(
++                "/principals/", 
++                children={"users": TestPrincipalsCollection(
++                        "/principals/users/",
++                        children={"user01": userResource})})
 +
 +            rootResource = self.resource_class(self.docroot, principalCollections=(principalCollection,))
 +
              portal = Portal(DavRealm())
              portal.registerChecker(TwistedPropertyChecker())
  
-@@ -56,26 +79,14 @@
+@@ -56,26 +83,14 @@
              loginInterfaces = (IPrincipal,)
  
              self.site = Site(AuthenticationWrapper(
