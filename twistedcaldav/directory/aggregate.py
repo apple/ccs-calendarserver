@@ -26,6 +26,8 @@ __all__ = [
     "DuplicateRecordTypeError",
 ]
 
+from twisted.cred.error import UnauthorizedLogin
+
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.directory import UnknownRecordTypeError
