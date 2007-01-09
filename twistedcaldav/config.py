@@ -61,7 +61,9 @@ defaultConfig = {
             'ServicePrincipal': '',
             },
         },
+
     'AdminPrincipals': ['/principals/users/admin/'],
+    'SudoersFile': '/etc/caldavd/sudoers.plist',
 
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
     'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',

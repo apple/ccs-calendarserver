@@ -45,7 +45,11 @@ from twistedcaldav.cluster import makeService_multiprocess, makeService_pydir
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
+from twistedcaldav.directory.sudo import SudoDirectoryService
+
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
 try:
@@ -146,7 +150,18 @@ class CalDAVServiceMaker(object):
         # Setup the Directory
         #
         directoryClass = namedClass(config.DirectoryService['type'])
-        directory = directoryClass(**config.DirectoryService['params'])
+        baseDirectory = directoryClass(**config.DirectoryService['params'])
+
+        sudoDirectory = None
+
+        if config.SudoersFile and os.path.exists(config.SudoersFile):
+            sudoDirectory = SudoDirectoryService(config.SudoersFile)
+            sudoDirectory.realmName = baseDirectory.realmName
+
+            CalDAVResource.sudoDirectory = sudoDirectory
+        
+        directory = AggregateDirectoryService((baseDirectory,
+                                               sudoDirectory))
 
         #
         # Setup Resource hierarchy

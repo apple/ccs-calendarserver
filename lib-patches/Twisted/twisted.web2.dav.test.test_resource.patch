@@ -54,12 +54,11 @@ Index: twisted/web2/dav/test/test_resource.py
          else:
              return davxml.Principal(davxml.Unauthenticated())
  
-@@ -400,17 +398,23 @@
+@@ -399,18 +397,21 @@
+ 
      def accessControlList(self, request, **kwargs):
          return succeed(self.acl)
-     
-+    def principalForUser(self, user):
-+        return self.children[user]
+-    
  
  class AuthAllResource (TestResource):
 -    """Give Authenticated principals all privileges deny everything else
