@@ -24,6 +24,7 @@ __all__ = [
     "DAVResource",
     "DAVFile",
     "ReadOnlyResourceMixIn",
+    "SudoAuthIDMixin",
 ]
 
 import urllib
@@ -41,11 +42,36 @@ from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
+from twistedcaldav.directory.sudo import SudoDirectoryService
 
-class DAVResource (SuperDAVResource):
+
+class SudoAuthIDMixin(object):
+    """
+    Mixin class to let DAVResource, and DAVFile subclasses below know
+    about sudoer principals and how to find their AuthID
+    """
+
+    def findPrincipalForAuthID(self, authid):
+        """
+        Return an authentication and authorization principal identifiers for 
+        the authentication identifier passed in.  Check for sudo users before
+        regular users.
+        """
+        for collection in self.principalCollections():
+            principal = collection.principalForShortName(
+                SudoDirectoryService.recordType_sudoers, 
+                authid)
+            if principal is not None:
+                return principal
+
+        return super(SudoAuthIDMixin, self).findPrincipalForAuthID(authid)
+
+
+class DAVResource (SudoAuthIDMixin, SuperDAVResource):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
+
 
 class DAVPrincipalResource (SuperDAVPrincipalResource):
     """
@@ -71,7 +97,8 @@ class DAVPrincipalResource (SuperDAVPrincipalResource):
         else:
             return davxml.ResourceType(davxml.Principal())
 
-class DAVFile (SuperDAVFile):
+
+class DAVFile (SudoAuthIDMixin, SuperDAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """

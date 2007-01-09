@@ -136,6 +136,9 @@ limitations under the License.
   <array>
     <string>/principals/users/admin/</string>
   </array>
+
+  <key>SudoersFile</key>
+  <string>/etc/caldavd/sudoers.plist</string>
   <key>ServerType</key>
   <string>singleprocess</string>
   

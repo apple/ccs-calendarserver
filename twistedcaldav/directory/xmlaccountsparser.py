@@ -44,7 +44,6 @@ ELEMENT_NAME         = "name"
 ELEMENT_MEMBERS      = "members"
 ELEMENT_MEMBER       = "member"
 ELEMENT_CUADDR       = "cuaddr"
-ELEMENT_CANPROXY     = "canproxy"
 
 ATTRIBUTE_REALM      = "realm"
 ATTRIBUTE_REPEAT     = "repeat"
@@ -143,7 +142,6 @@ class XMLAccountRecord (object):
         self.members = set()
         self.groups = set()
         self.calendarUserAddresses = set()
-        self.canproxy = False
 
     def repeat(self, ctr):
         """
@@ -176,7 +174,6 @@ class XMLAccountRecord (object):
         result.name = name
         result.members = self.members
         result.calendarUserAddresses = calendarUserAddresses
-        result.canproxy = self.canproxy
         return result
 
     def parseXML(self, node):
@@ -198,9 +195,6 @@ class XMLAccountRecord (object):
             elif child_name == ELEMENT_CUADDR:
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
-            elif child_name == ELEMENT_CANPROXY:
-                CalDAVResource.proxyUsers.add(self.shortName)
-                self.canproxy = True
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 

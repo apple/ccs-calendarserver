@@ -10,7 +10,7 @@ Index: twisted/web2/dav/test/test_acl.py
  from twisted.web2.dav.util import davXMLFromStream
  from twisted.web2.dav.auth import TwistedPasswordProperty, IPrincipal, DavRealm, TwistedPropertyChecker, AuthenticationWrapper
  
-@@ -38,6 +39,11 @@
+@@ -38,6 +39,22 @@
  from twisted.web2.dav.test.util import Site, serialize
  from twisted.web2.dav.test.test_resource import TestResource, TestDAVPrincipalResource
  
@@ -18,27 +18,42 @@ Index: twisted/web2/dav/test/test_acl.py
 +    def __init__(self, url, children):
 +        DAVPrincipalCollectionResource.__init__(self, url)
 +        TestResource.__init__(self, url, children, principalCollections=(self,))
++    
++    def principalForUser(self, user):
++        return self.principalForShortName('users', user)
++
++    def principalForShortName(self, type, shortName):
++        typeResource = self.children.get(type, None)
++        user = None
++        if typeResource:
++            user = typeResource.children.get(shortName, None)
++
++        return user
 +
  class ACL(twisted.web2.dav.test.util.TestCase):
      """
      RFC 3744 (WebDAV ACL) tests.
-@@ -46,8 +52,14 @@
+@@ -46,8 +63,18 @@
          if not hasattr(self, "docroot"):
              self.docroot = self.mktemp()
              os.mkdir(self.docroot)
 -            rootresource = self.resource_class(self.docroot)
  
-+            userResource = TestDAVPrincipalResource("/principals/user01")
++            userResource = TestDAVPrincipalResource("/principals/users/user01")
 +            userResource.writeDeadProperty(TwistedPasswordProperty("user01"))
 +
-+            principalCollection = TestPrincipalsCollection("/principals/", children={"user01": userResource})
++            principalCollection = TestPrincipalsCollection(
++                "/principals/", 
++                children={"users": TestPrincipalsCollection(
++                        "/principals/users/",
++                        children={"user01": userResource})})
 +
 +            rootResource = self.resource_class(self.docroot, principalCollections=(principalCollection,))
 +
              portal = Portal(DavRealm())
              portal.registerChecker(TwistedPropertyChecker())
  
-@@ -56,26 +68,14 @@
+@@ -56,26 +83,14 @@
              loginInterfaces = (IPrincipal,)
  
              self.site = Site(AuthenticationWrapper(

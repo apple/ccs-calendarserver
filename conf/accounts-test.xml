@@ -24,12 +24,6 @@ limitations under the License.
     <password>admin</password>
     <name>Super User</name>
   </user>
-  <user>
-    <uid>proxy</uid>
-    <password>proxy</password>
-    <name>User who can authorize as someone else</name>
-    <canproxy/> <!-- FIXME: Is the directory the right place to configure this bit? -->
-  </user>
   <user repeat="99">
     <uid>user%02d</uid>
     <password>user%02d</password>
@@ -52,4 +46,12 @@ limitations under the License.
     <password>resource%02d</password>
     <name>Resource %02d</name>
   </resource>
+  <group>
+    <uid>group01</uid>
+    <password>group01</password>
+    <name>Group 01</name>
+    <members>
+      <member type="users">user01</member>
+    </members>
+  </group>
 </accounts>

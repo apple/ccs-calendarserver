@@ -38,7 +38,6 @@ class XMLFileBase(object):
 
     users = {
         "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
-        "proxy"   : { "password": "yxorp",    "guid": None, "addresses": () },
         "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": ("mailto:wsanchez@example.com",) },
         "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": ("mailto:cdaboo@example.com",)   },
         "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": ("mailto:lecroy@example.com",)   },

@@ -87,14 +87,18 @@ class DirectoryPrincipalProvisioningResource (
         for recordType in self.directory.recordTypes():
             self.putChild(recordType, DirectoryPrincipalTypeResource(self.fp.child(recordType).path, self, recordType))
 
-    def principalForUser(self, user):
-        return self.getChild(DirectoryService.recordType_users).getChild(user)
-
-    def principalForRecord(self, record):
-        typeResource = self.getChild(record.recordType)
+    def principalForShortName(self, type, name):
+        typeResource = self.getChild(type)
         if typeResource is None:
             return None
-        return typeResource.getChild(record.shortName)
+        return typeResource.getChild(name)
+
+    def principalForUser(self, user):
+        return self.principalForShortName(DirectoryService.recordType_users, 
+                                          user)
+
+    def principalForRecord(self, record):
+        return self.principalForShortName(record.recordType, record.shortName)
 
     def _principalForURI(self, uri):
         if uri.startswith(self._url):

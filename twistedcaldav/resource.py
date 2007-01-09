@@ -56,6 +56,9 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component as iComponent
 
+from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.sudo import SudoDirectoryService
+
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
 else:
@@ -72,10 +75,6 @@ class CalDAVResource (DAVResource):
     # A global limit for the size of calendar object resources. Either a C{int} (size in bytes) to limit
     # resources to that size, or C{None} for no limit.
     sizeLimit = None
-
-    # Set containing user ids of all the users who have been given
-    # the right to authorize as someone else.
-    proxyUsers = set()
 
     ##
     # HTTP
@@ -253,32 +252,49 @@ class CalDAVResource (DAVResource):
 
         # Look for X-Authorize-As Header
         authz = request.headers.getRawHeaders("x-authorize-as")
+
         if authz is not None and (len(authz) == 1):
             # Substitute the authz value for principal look up
             authz = authz[0]
 
-        # See if authenticated uid is a proxy user
-        if authid in CalDAVResource.proxyUsers:
+        def getPrincipalForType(type, name):
+            for collection in self.principalCollections():
+                principal = collection.principalForShortName(type, name)
+                if principal:
+                    return principal
+
+        def isSudoPrincipal(authid):
+            if getPrincipalForType(SudoDirectoryService.recordType_sudoers, 
+                                   authid):
+                return True
+            return False
+
+        if isSudoPrincipal(authid):
             if authz:
-                if authz in CalDAVResource.proxyUsers:
+                if isSudoPrincipal(authz):
                     log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
-                    raise HTTPError(responsecode.UNAUTHORIZED)
+                    raise HTTPError(responsecode.FORBIDDEN)
                 else:
-                    authzPrincipal = self.findPrincipalForAuthID(authz)
+                    authzPrincipal = getPrincipalForType(
+                        DirectoryService.recordType_groups, authz)
+
+                    if not authzPrincipal:
+                        authzPrincipal = self.findPrincipalForAuthID(authz)
 
                     if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
                         yield authzPrincipal
                         return
                     else:
-                        log.msg("Could not find proxy user id: '%s'" % authid)
-                        raise HTTPError(responsecode.UNAUTHORIZED)
+                        log.msg("Could not find authorization user id: '%s'" % 
+                                (authz,))
+                        raise HTTPError(responsecode.FORBIDDEN)
             else:
                 log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authid, ))
-                raise HTTPError(responsecode.UNAUTHORIZED)
+                raise HTTPError(responsecode.BAD_REQUEST)
         elif authz:
             log.msg("Cannot proxy: user '%s' as '%s'" % (authid, authz,))
-            raise HTTPError(responsecode.UNAUTHORIZED)
+            raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
             d = waitForDeferred(super(CalDAVResource, self).authorizationPrincipal(request, authid, authnPrincipal))

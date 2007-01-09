@@ -103,6 +103,21 @@ class AggregateDirectoryService(DirectoryService):
         else:
             return None
 
+    userRecordTypes = [DirectoryService.recordType_users]
+
+    def requestAvatarId(self, credentials):
+        for type in self.userRecordTypes:
+            user = self.recordWithShortName(
+                type,
+                credentials.credentials.username)
+
+            if user:
+                return self.serviceForRecordType(
+                    type).requestAvatarId(credentials)
+        
+        raise UnauthorizedLogin("No such user: %s" % (
+                credentials.credentials.username,))
+
 class DuplicateRecordTypeError(DirectoryError):
     """
     Duplicate record type.
