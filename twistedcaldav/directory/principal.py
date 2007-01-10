@@ -256,11 +256,11 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     ##
 
     def render(self, request):
-        def format_list(method, *args):
+        def format_list(items, *args):
             def genlist():
                 try:
                     item = None
-                    for item in method(*args):
+                    for item in items:
                         yield " -> %s\n" % (item,)
                     if item is None:
                         yield " '()\n"
@@ -286,6 +286,9 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             }
         ]
 
+        def link(url):
+            return """<a href="%s">%s</a>""" % (url, url)
+
         output.append("".join((
             "Directory Information\n"
             "---------------------\n"
@@ -299,12 +302,12 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             "Short name: %s\n"             % (self.record.shortName,),
             "Full name: %s\n"              % (self.record.fullName,),
             "Principal UID: %s\n"          % (self.principalUID(),),
-            "Principal URL: %s\n"          % (self.principalURL(),),
-            "\nAlternate URIs:\n"          , format_list(self.alternateURIs),
-            "\nGroup members:\n"           , format_list(self.groupMembers),
-            "\nGroup memberships:\n"       , format_list(self.groupMemberships),
-            "\nCalendar homes:\n"          , format_list(self.calendarHomeURLs),
-            "\nCalendar user addresses:\n" , format_list(self.calendarUserAddresses),
+            "Principal URL: %s\n"          % (link(self.principalURL()),),
+            "\nAlternate URIs:\n"          , format_list(self.alternateURIs()),
+            "\nGroup members:\n"           , format_list(link(p.principalURL()) for p in self.groupMembers()),
+            "\nGroup memberships:\n"       , format_list(link(p.principalURL()) for p in self.groupMemberships()),
+            "\nCalendar homes:\n"          , format_list(link(u) for u in self.calendarHomeURLs()),
+            "\nCalendar user addresses:\n" , format_list(link(a) for a in self.calendarUserAddresses()),
         )))
 
         output.append(
