@@ -35,7 +35,10 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             dav = response.headers.getHeader("dav")
             if not dav: self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
+            self.assertIn("access-control", dav, "no DAV access-control header")
             self.assertIn("calendar-access", dav, "no DAV calendar-access header")
+            self.assertIn("calendar-schedule", dav, "no DAV calendar-schedule header")
+            self.assertIn("calendar-availability", dav, "no DAV calendar-availability header")
 
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
