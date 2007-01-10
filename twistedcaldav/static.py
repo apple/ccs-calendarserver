@@ -22,6 +22,7 @@ CalDAV-aware static resources.
 
 __all__ = [
     "CalDAVFile",
+    "AutoProvisioningFileMixIn",
     "CalendarHomeProvisioningFile",
     "CalendarHomeFile",
     "ScheduleInboxFile",
