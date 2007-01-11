@@ -297,6 +297,10 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
                           timerange,
                           name="VFREEBUSY",
                       ),
+                      caldavxml.ComponentFilter(
+                          timerange,
+                          name="VAVAILABILITY",
+                      ),
                       name="VCALENDAR",
                    )
               )
@@ -320,7 +324,6 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
     yield filteredaces
     filteredaces = filteredaces.getResult()
 
-    uri = request.urlForResource(calresource)
     for name, uid, type in calresource.index().search(filter): #@UnusedVariable
         
         # Ignore ones of this UID
@@ -352,6 +355,8 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
                 processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
             elif calendar.mainType() == "VFREEBUSY":
                 processFreeBusyFreeBusy(calendar, fbinfo, timerange)
+            elif calendar.mainType() == "VAVAILABILITY":
+                processAvailabilityFreeBusy(calendar, fbinfo, timerange)
             else:
                 assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
     
@@ -456,6 +461,41 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
                 if clipped:
                     mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
                     fbinfo[mapper.get(fbtype, 0)].append(clipped)
+
+def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
+    """
+    Extract free-busy data from a VAVAILABILITY component.
+    @param calendar: the L{Component} that is the VCALENDAR containing the VAVAILABILITY's.
+    @param fbinfo: the tuple used to store the three types of fb data.
+    @param timerange: the time range to restrict free busy data to.
+    """
+    
+    tempfbinfo = ([], [], [])
+    for vav in [x for x in calendar.subcomponents() if x.name() == "VAVAILABILITY"]:
+
+        # Get overall start/end
+        start = vav.getStartDateUTC()
+        if start is None:
+            start = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+        end = vav.getEndDateUTC()
+        if end is None:
+            end = datetime.datetime(3000, 1, 1, 0, 0, 0, tzinfo=utc)
+        period = (start, end)
+        overall = clipPeriod(period, (timerange.start, timerange.end))
+        if overall is None:
+            continue
+        
+        # Now get periods for each instance of AVAILABLE sub-components
+        periods = processAvailablePeriods(vav, timerange)
+
+def processAvailablePeriods(calendar, timerange):
+    """
+    Extract instance period data from an AVAILABLE component.
+    @param calendar: the L{Component} that is the VAVAILABILITY containing the AVAILABLE's.
+    @param fbinfo: the tuple used to store the three types of fb data.
+    @param timerange: the time range to restrict free busy data to.
+    """
+    pass
 
 def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None):
     """
