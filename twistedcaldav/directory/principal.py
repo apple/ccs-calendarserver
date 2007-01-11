@@ -449,7 +449,9 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     def calendarUserAddresses(self):
         # Add the principal URL to whatever calendar user addresses
         # the directory record provides.
-        return (self.principalURL(),) + tuple(self.record.calendarUserAddresses)
+        addresses = set(self.record.calendarUserAddresses)
+        addresses.add(self.principalURL())
+        return addresses
 
     def scheduleInbox(self, request):
         home = self._calendarHome()

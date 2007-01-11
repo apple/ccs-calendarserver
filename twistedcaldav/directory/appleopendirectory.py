@@ -82,7 +82,8 @@ class OpenDirectoryService(DirectoryService):
             DirectoryService.recordType_users,
             DirectoryService.recordType_groups,
             DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources)
+            DirectoryService.recordType_resources,
+        )
 
     def _cacheRecords(self, recordType):
         if recordType not in self._records:
@@ -93,11 +94,12 @@ class OpenDirectoryService(DirectoryService):
                 dsattributes.kDS1AttrDistinguishedName,
                 dsattributes.kDSNAttrCalendarPrincipalURI,
             ]
+
             if recordType == DirectoryService.recordType_users:
                 listRecordType = dsattributes.kDSStdRecordTypeUsers
             elif recordType == DirectoryService.recordType_groups:
                 listRecordType = dsattributes.kDSStdRecordTypeGroups
-                attrs += [dsattributes.kDSNAttrGroupMembers,]
+                attrs.append(dsattributes.kDSNAttrGroupMembers)
             elif recordType == DirectoryService.recordType_locations:
                 listRecordType = dsattributes.kDSStdRecordTypeLocations
             elif recordType == DirectoryService.recordType_resources:
@@ -120,11 +122,13 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
+                # FIXME: We get email address also
+                # FIXME: In new schema, kDSNAttrCalendarPrincipalURI goes away
                 cuaddrs = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
                 cuaddrset = set()
                 if cuaddrs is not None:
                     if isinstance(cuaddrs, str):
-                        cuaddrset.update((cuaddrs,))
+                        cuaddrset.add(cuaddrs)
                     else:
                         cuaddrset.update(cuaddrs)
 
