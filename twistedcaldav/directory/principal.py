@@ -131,11 +131,23 @@ class DirectoryPrincipalProvisioningResource (
         if principal:
             return principal
 
-        record = self.directory.recordWithCalendarUserAddress(address)
-        if record is None:
-            return None
+        # Special case server absolute URIs
+        if address.startswith("http:") or address.startswith("https:"):
+            if address.endswith("/"):
+                altaddress = address[:-1]
+            else:
+                altaddress = address + "/"
+            addresses = (address, altaddress,)
         else:
-            return self.principalForRecord(record)
+            addresses = (address,)
+                
+        # Next try looking it up in the directory
+        for addr in addresses:
+            record = self.directory.recordWithCalendarUserAddress(addr)
+            if record is not None:
+                return self.principalForRecord(record)
+        
+        return None
 
     ##
     # Static
