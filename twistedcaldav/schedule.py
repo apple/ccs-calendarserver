@@ -323,14 +323,18 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
             # Map recipient to their inbox
             inbox = None
-            if principal is not None:
+            if principal is None:
+                log.err("No principal for calendar user address: %s" % (recipient,))
+            else:
                 inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
                     inbox = waitForDeferred(request.locateResource(inboxURL))
                     yield inbox
                     inbox = inbox.getResult()
+                else:
+                    log.err("No schedule inbox for principal: %s" % (principal,))
+
             if inbox is None:
-                log.err("Could not find Inbox for recipient: %s" % (recipient,))
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
                 responses.add(recipient, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
                 recipients_state["BAD"] += 1
@@ -338,7 +342,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 # Process next recipient
                 continue
             else:
-
                 #
                 # Check access controls
                 #

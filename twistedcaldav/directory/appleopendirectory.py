@@ -91,6 +91,7 @@ class OpenDirectoryService(DirectoryService):
             attrs = [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
+                dsattributes.kDSNAttrCalendarPrincipalURI,
             ]
             if recordType == DirectoryService.recordType_users:
                 listRecordType = dsattributes.kDSStdRecordTypeUsers
@@ -119,6 +120,14 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
+                cuaddrs = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
+                cuaddrset = set()
+                if cuaddrs is not None:
+                    if isinstance(cuaddrs, str):
+                        cuaddrset.update((cuaddrs,))
+                    else:
+                        cuaddrset.update(cuaddrs)
+
                 if recordType == DirectoryService.recordType_groups:
                     memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                     if memberGUIDs is None:
@@ -134,7 +143,7 @@ class OpenDirectoryService(DirectoryService):
                     guid                  = guid,
                     shortName             = shortName,
                     fullName              = realName,
-                    calendarUserAddresses = set(), # FIXME: Should be able to look up email, etc.
+                    calendarUserAddresses = cuaddrset,
                     memberGUIDs           = memberGUIDs,
                 )
 

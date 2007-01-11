@@ -125,6 +125,26 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     principalCollections = recordResource.principalCollections()
                     self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
+    def test_allRecords(self):
+        """
+        Test of a test routine...
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.assertEquals(recordResource.record, record)
+
+    ##
+    # DirectoryPrincipalProvisioningResource
+    ##
+
+    def test_principalForShortName(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForShortName()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principal = provisioningResource.principalForShortName(recordType, record.shortName)
+            self.failIf(principal is None)
+            self.assertEquals(record, principal.record)
+
     def test_principalForUser(self):
         """
         DirectoryPrincipalProvisioningResource.principalForUser()
@@ -137,13 +157,46 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
 
+    def test_principalForGUID(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForGUID()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principal = provisioningResource.principalForGUID(record.guid)
+            self.failIf(principal is None)
+            self.assertEquals(record, principal.record)
+
     def test_principalForRecord(self):
         """
         DirectoryPrincipalProvisioningResource.principalForRecord()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.assertEquals(recordResource.record, record)
-                    
+            principal = provisioningResource.principalForRecord(record)
+            self.failIf(principal is None)
+            self.assertEquals(record, principal.record)
+
+    def test_principalForCalendarUserAddress(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principalURL = recordResource.principalURL()
+            if principalURL.endswith("/"):
+                alternateURL = principalURL[:-1]
+            else:
+                alternateURL = principalURL + "/"
+
+            for address in tuple(record.calendarUserAddresses) + (principalURL, alternateURL):
+                principal = provisioningResource.principalForCalendarUserAddress(address)
+                self.failIf(principal is None)
+                self.assertEquals(record, principal.record)
+
+    # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeResource also
+
+    ##
+    # DirectoryPrincipalResource
+    ##
+
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
