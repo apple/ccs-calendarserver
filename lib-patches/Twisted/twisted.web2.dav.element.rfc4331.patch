@@ -4,7 +4,7 @@ Index: twisted/web2/dav/element/rfc4331.py
 +++ twisted/web2/dav/element/rfc4331.py	(revision 0)
 @@ -0,0 +1,55 @@
 +##
-+# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
++# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
 +#
 +# Permission is hereby granted, free of charge, to any person obtaining a copy
 +# of this software and associated documentation files (the "Software"), to deal
