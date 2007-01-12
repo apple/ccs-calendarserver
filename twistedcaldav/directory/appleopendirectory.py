@@ -31,7 +31,8 @@ import opendirectory
 import dsattributes
 
 from twisted.python import log
-from twisted.internet import reactor
+from twisted.internet.threads import deferToThread
+from twisted.internet.reactor import callLater
 from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -60,6 +61,9 @@ class OpenDirectoryService(DirectoryService):
         self.directory = directory
         self.node = node
         self._records = {}
+
+        for recordType in self.recordTypes():
+            self.recordsForType(recordType)
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -92,7 +96,7 @@ class OpenDirectoryService(DirectoryService):
         type.  Keys are short names and values are the cooresponding
         OpenDirectoryRecord for the given record type.
         """
-        if recordType not in self._records:
+        def reloadCache():
             log.msg("Reloading %s record cache" % (recordType,))
 
             attrs = [
@@ -157,13 +161,34 @@ class OpenDirectoryService(DirectoryService):
                     memberGUIDs           = memberGUIDs,
                 )
 
-            self._records[recordType] = records
-            def flush():
-                log.msg("Flushing %s record cache" % (recordType,))
-                del self._records[recordType]
-            reactor.callLater(recordListCacheTimeout, flush)
+            storage = {
+                "status": "new",
+                "records": records,
+            }
 
-        return self._records[recordType]
+            def rot():
+                storage["status"] = "stale"
+            callLater(recordListCacheTimeout, rot)
+
+            self._records[recordType] = storage
+
+        try:
+            storage = self._records[recordType]
+        except KeyError:
+            reloadCache()
+        else:
+            if storage["status"] == "stale":
+                storage["status"] = "loading"
+
+                def onError(f):
+                    storage["status"] = "stale" # Keep trying
+                    log.err("Unable to load records of type %s from OpenDirectory due to unexpected error: %s"
+                            % (recordType, f))
+
+                d = deferToThread(reloadCache)
+                d.addErrback(onError)
+
+        return self._records[recordType]["records"]
 
     def listRecords(self, recordType):
         return self.recordsForType(recordType).itervalues()
