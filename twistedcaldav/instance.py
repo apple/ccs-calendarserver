@@ -136,6 +136,12 @@ class InstanceList(object):
                 self._addFreeBusyComponent(component, limit)
             elif component.name() == "VAVAILABILITY":
                 self._addAvailabilityComponent(component, limit)
+            elif component.name() == "AVAILABLE":
+                if component.hasProperty("RECURRENCE-ID"):
+                    overrides.append(component)
+                else:
+                    # AVAILABLE components are just like VEVENT components
+                    self._addMasterEventComponent(component, limit)
             
         for component in overrides:
             if component.name() == "VEVENT":
@@ -145,6 +151,9 @@ class InstanceList(object):
             elif component.name() == "VJOURNAL":
                 #TODO: VJOURNAL
                 raise NotImplementedError("VJOURNAL recurrence expansion not supported yet")
+            elif component.name() == "AVAILABLE":
+                # AVAILABLE components are just like VEVENT components
+                self._addOverrideEventComponent(component)
 
     def addInstance(self, instance):
         """

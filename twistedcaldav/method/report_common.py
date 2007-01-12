@@ -43,6 +43,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
+from twistedcaldav.instance import InstanceList
 
 from vobject.icalendar import utc
 
@@ -470,7 +471,6 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
     @param timerange: the time range to restrict free busy data to.
     """
     
-    tempfbinfo = ([], [], [])
     for vav in [x for x in calendar.subcomponents() if x.name() == "VAVAILABILITY"]:
 
         # Get overall start/end
@@ -487,15 +487,71 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         
         # Now get periods for each instance of AVAILABLE sub-components
         periods = processAvailablePeriods(vav, timerange)
+        
+        # Now invert the periods and store in accumulator
+        busyperiods = []
+        last_end = timerange.start
+        for period in periods:
+            if last_end < period[0]:
+                busyperiods.append((last_end, period[0]))
+            last_end = period[1]
+        if last_end < timerange.end:
+            busyperiods.append((last_end, timerange.end))
+
+        # Add to actual results mapped by busy type
+        fbtype = vav.propertyValue("BUSYTYPE")
+        if fbtype is None:
+            fbtype = "BUSY-UNAVAILABLE"
+
+        mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
+        fbinfo[mapper.get(fbtype, 2)].extend(busyperiods)
+            
 
 def processAvailablePeriods(calendar, timerange):
     """
     Extract instance period data from an AVAILABLE component.
     @param calendar: the L{Component} that is the VAVAILABILITY containing the AVAILABLE's.
-    @param fbinfo: the tuple used to store the three types of fb data.
     @param timerange: the time range to restrict free busy data to.
     """
-    pass
+    
+    periods = []
+
+    # First we need to group all AVAILABLE sub-components by UID
+    uidmap = {}
+    for component in calendar.subcomponents():
+        if component.name() == "AVAILABLE":
+            uid = component.propertyValue("UID")
+            uidmap.setdefault(uid, []).append(component)
+            
+    # Then we expand each uid set seperately
+    for componentSet in uidmap.itervalues():
+        instances = InstanceList()
+        instances.expandTimeRanges(componentSet, timerange.end)
+        
+        # Now convert instances into period list
+        for key in instances:
+            instance = instances[key]
+            # Ignore any with floating times (which should not happen as the spec requires UTC or local
+            # but we will try and be safe here).
+            start = instance.start
+            if start.tzinfo is None:
+                continue
+            end = instance.end
+            if end.tzinfo is None:
+                continue
+
+            # Clip period for this instance - use duration for period end if that
+            # is what original component used
+            if instance.component.hasProperty("DURATION"):
+                period = (start, end - start)
+            else:
+                period = (start, end)
+            clipped = clipPeriod(period, (timerange.start, timerange.end))
+            if clipped:
+                periods.append(clipped)
+            
+    normalizePeriodList(periods)
+    return periods
 
 def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None):
     """
