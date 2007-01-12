@@ -169,9 +169,13 @@ class OpenDirectoryService(DirectoryService):
 
             def rot():
                 storage["status"] = "stale"
+                removals = set()
                 for call in self._delayedCalls:
                     if not call.active():
-                        self._delayedCalls.remove(call)
+                        removals.add(call)
+                for item in removals:
+                    self._delayedCalls.remove(item)
+
             self._delayedCalls.add(callLater(recordListCacheTimeout, rot))
 
             self._records[recordType] = storage
