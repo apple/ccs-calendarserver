@@ -61,6 +61,7 @@ class OpenDirectoryService(DirectoryService):
         self.directory = directory
         self.node = node
         self._records = {}
+        self._delayedCalls = set()
 
         for recordType in self.recordTypes():
             self.recordsForType(recordType)
@@ -168,7 +169,10 @@ class OpenDirectoryService(DirectoryService):
 
             def rot():
                 storage["status"] = "stale"
-            callLater(recordListCacheTimeout, rot)
+                for call in self._delayedCalls:
+                    if not call.active():
+                        self._delayedCalls.remove(call)
+            self._delayedCalls.add(callLater(recordListCacheTimeout, rot))
 
             self._records[recordType] = storage
 

@@ -48,5 +48,14 @@ else:
 
         users = groups = locations = resources = {}
 
+        def setUp(self):
+            super(OpenDirectory, self).setUp()
+            self._service = OpenDirectoryService(node="/Local")
+
+        def tearDown(self):
+            for call in self._service._delayedCalls:
+                call.cancel()
+
         def service(self):
-            return OpenDirectoryService(node="/Local")
+            return self._service
+
