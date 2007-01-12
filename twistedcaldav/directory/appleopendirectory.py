@@ -85,7 +85,13 @@ class OpenDirectoryService(DirectoryService):
             DirectoryService.recordType_resources,
         )
 
-    def _cacheRecords(self, recordType):
+    def recordsForType(self, recordType):
+        """
+        @param recordType: a record type
+        @return: a dictionary containing all records for the given record
+        type.  Keys are short names and values are the cooresponding
+        OpenDirectoryRecord for the given record type.
+        """
         if recordType not in self._records:
             log.msg("Reloading %s record cache" % (recordType,))
 
@@ -160,10 +166,10 @@ class OpenDirectoryService(DirectoryService):
         return self._records[recordType]
 
     def listRecords(self, recordType):
-        return self._cacheRecords(recordType).itervalues()
+        return self.recordsForType(recordType).itervalues()
 
     def recordWithShortName(self, recordType, shortName):
-        return self._cacheRecords(recordType).get(shortName, None)
+        return self.recordsForType(recordType).get(shortName, None)
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
@@ -192,7 +198,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield userRecord
 
     def groups(self):
-        for groupRecord in self.service._cacheRecords(DirectoryService.recordType_groups).itervalues():
+        for groupRecord in self.service.recordsForType(DirectoryService.recordType_groups).itervalues():
             if self.guid in groupRecord._memberGUIDs:
                 yield groupRecord
 
