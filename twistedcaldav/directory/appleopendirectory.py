@@ -37,7 +37,7 @@ from twisted.cred.credentials import UsernamePassword
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 
-recordListCacheTimeout = 60 * 5 # 5 minutes
+recordListCacheTimeout = 60 * 30 # 30 minutes
 
 class OpenDirectoryService(DirectoryService):
     """
@@ -151,17 +151,11 @@ class OpenDirectoryService(DirectoryService):
                     memberGUIDs           = memberGUIDs,
                 )
 
-            if records:
-                self._records[recordType] = records
-
-                def flush():
-                    log.msg("Flushing %s record cache" % (recordType,))
-                    del self._records[recordType]
-                reactor.callLater(recordListCacheTimeout, flush)
-            else:
-                # records is empty.  This may mean the directory went down.
-                # Don't cache this result, so that we keep checking the directory.
-                return records
+            self._records[recordType] = records
+            def flush():
+                log.msg("Flushing %s record cache" % (recordType,))
+                del self._records[recordType]
+            reactor.callLater(recordListCacheTimeout, flush)
 
         return self._records[recordType]
 
