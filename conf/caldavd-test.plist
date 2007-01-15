@@ -184,6 +184,8 @@ limitations under the License.
       <false/>
       <key>ServicePrincipal</key>
       <string></string>
+      <key>Realm</key>
+      <string></string>
     </dict>
   </dict>
 

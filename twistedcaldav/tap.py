@@ -242,7 +242,8 @@ class CalDAVServiceMaker(object):
                         continue
 
                     credFactory = NegotiateCredentialFactory(
-                        schemeConfig['ServicePrincipal'])
+                        schemeConfig['ServicePrincipal'],
+                        schemeConfig['Realm'],)
 
                 elif scheme == 'digest':
                     credFactory = DigestCredentialFactory(

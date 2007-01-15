@@ -142,9 +142,10 @@ class NegotiateCredentialFactory:
 
     scheme = 'negotiate'
 
-    def __init__(self, service):
+    def __init__(self, service, realm):
 
         self.service = service
+        self.realm = realm
 
     def getChallenge(self, peer):
         return {}
@@ -172,10 +173,21 @@ class NegotiateCredentialFactory:
 
         response = kerberos.authGSSServerResponse(context)
         username = kerberos.authGSSServerUserName(context)
+        realmname = ""
         
         # Username may include realm suffix which we want to strip
         if username.find("@") != -1:
-            username = username.split("@", 1)[0]
+            splits = username.split("@", 1)
+            username = splits[0]
+            realmname = splits[1]
+        
+        # We currently do not support cross-realm authentciation, so we
+        # must verify that the realm we got exactly matches the one we expect.
+        if realmname != self.realm:
+            logging.err("authGSSServer Realms do not match: %s vs %s" % (realmname, self.realm,), system="NegotiateCredentialFactory")
+            kerberos.authGSSServerClean(context)
+            raise error.UnauthorizedLogin('Bad credentials: mismatched realm')
+
 
         # Close the context
         try:
