@@ -168,6 +168,6 @@ limitations under the License.
   <string>/usr/share/caldavd/bin/pydir++.py</string>
 
   <key>pydirConfig</key>
-  <string>/etc/caldvad/pydir.xml</string>
+  <string>/etc/caldavd/pydir.xml</string>
 </dict>
 </plist>
