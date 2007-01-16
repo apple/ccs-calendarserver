@@ -50,10 +50,10 @@ defaultConfig = {
     'SACLEnable': False,
     'Authentication': {
         'Basic': {
-            'Enabled': True,
+            'Enabled': False,
             },
         'Digest': {
-            'Enabled': False,
+            'Enabled': True,
             'Algorithm': 'md5',
             },
         'Kerberos': {
