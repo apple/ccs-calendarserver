@@ -53,9 +53,11 @@ class OpenDirectoryService(DirectoryService):
         """
         @param node: an OpenDirectory node name to bind to.
         """
-        directory = opendirectory.odInit(node)
-        if directory is None:
-            raise OpenDirectoryInitError("Failed to open Open Directory Node: %s" % (node,))
+        try:
+            directory = opendirectory.odInit(node)
+        except opendirectory.ODError, ex:
+            log.msg("Open Directory (node=%s) Initialization error: %s" % (node, str(ex)))
+            raise
 
         self.realmName = node
         self.directory = directory
@@ -123,7 +125,7 @@ class OpenDirectoryService(DirectoryService):
             try:
                 results = opendirectory.listAllRecordsWithAttributes(self.directory, listRecordType, attrs)
             except opendirectory.ODError, ex:
-                log.msg("OpenDirectory error: %s", str(ex))
+                log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (key, value) in results.iteritems():
@@ -240,7 +242,7 @@ class OpenDirectoryRecord(DirectoryRecord):
             try:
                 return opendirectory.authenticateUserBasic(self.service.directory, self.shortName, credentials.password)
             except opendirectory.ODError, e:
-                log.err("OpenDirectory error while performing basic authentication for user %s: %r" % (self.shortName, e))
+                log.err("Open Directory (node=%s) error while performing basic authentication for user %s: %r" % (self.service.realmName, self.shortName, e))
                 return False
 
         return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
