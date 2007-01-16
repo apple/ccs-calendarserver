@@ -62,7 +62,7 @@ defaultConfig = {
             },
         },
 
-    'AdminPrincipals': ['/principals/users/admin/'],
+    'AdminPrincipals': [],
     'SudoersFile': '/etc/caldavd/sudoers.plist',
 
     'twistdLocation': '/usr/share/caldavd/bin/twistd',
