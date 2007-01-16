@@ -77,7 +77,7 @@ usage ()
 {
     program="$(basename "$0")";
     
-    if [ "${1--}" != "-" ]; then echo "${1}"; echo; fi;
+    if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
     echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-t type] [-f caldavd.plist]";
     echo "Options:";

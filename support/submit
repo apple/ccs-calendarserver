@@ -40,7 +40,7 @@ usage ()
 {
   program="$(basename "$0")";
 
-  if [ "${1-}" != "-" ]; then echo "$1"; echo; fi;
+  if [ "${1-}" != "-" ]; then echo "$@"; echo; fi;
 
   echo "Usage: ${program} release";
   echo "       ${program} -b";

@@ -18,6 +18,34 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
+usage ()
+{
+  program="$(basename "$0")";
+
+  if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
+
+  echo "Usage: ${program} [-hn]";
+  echo "Options:";
+  echo "        -h  Print this help and exit";
+  echo "        -n  Do not use color";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+
+while getopts 'nh' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    'n') trial_args="--reporter=bwverbose"; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
+
+if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+
+
      wd="$(cd "$(dirname "$0")" && pwd -L)";
 twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
 
@@ -31,4 +59,4 @@ else
     test_modules="twistedcaldav";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${trial_args} ${test_modules};
