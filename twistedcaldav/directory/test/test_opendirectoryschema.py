@@ -1,0 +1,578 @@
+##
+# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
+##
+
+try:
+    from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+    from twistedcaldav.directory.appleopendirectory import OpenDirectoryInitError
+except ImportError:
+    pass
+else:
+    import twisted.trial.unittest
+
+    class PlistParse (twisted.trial.unittest.TestCase):
+        """
+        Test Open Directory service schema.
+        """
+        
+        plist_nomacosxserver_key = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+    </dict>
+</plist>
+"""
+
+        plist_nocalendarservice = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>80</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        plist_noserviceinfo = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>80</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+            
+            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
+            <dict>
+                <key>hostname</key>
+                <string>calendar.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8008</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>calendar</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        plist_disabledservice = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>80</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+            
+            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
+            <dict>
+                <key>hostname</key>
+                <string>calendar.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8008</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>calendar</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>calendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>NO</string>
+                        <key>templates</key>
+                        <dict>
+                            <key>principalPath</key>
+                            <string>/principals/%(type)s/%(name)s</string>
+                            <key>calendarUserAddresses</key>
+                            <array>
+                                <string>%(principal URI)s</string>
+                                <string>mailto:%(email)s</string>
+                                <string>urn:uuid:%(guid)s</string>
+                            </array>
+                        </dict>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        plist_nocuaddrtemplates = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>80</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+            
+            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
+            <dict>
+                <key>hostname</key>
+                <string>calendar.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8008</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>calendar</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>calendar</key>
+                    <dict>
+                        <key>templates</key>
+                        <dict>
+                            <key>principalPath</key>
+                            <string>/principals/%(type)s/%(name)s</string>
+                        </dict>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        plist_good = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>80</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <string>YES</string>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+            
+            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
+            <dict>
+                <key>hostname</key>
+                <string>calendar.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8008</string>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>8443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>calendar</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>calendar</key>
+                    <dict>
+                        <key>templates</key>
+                        <dict>
+                            <key>principalPath</key>
+                            <string>/principals/%(type)s/%(name)s</string>
+                            <key>calendarUserAddresses</key>
+                            <array>
+                                <string>%(principal URI)s</string>
+                                <string>mailto:%(email)s</string>
+                                <string>urn:uuid:%(guid)s</string>
+                            </array>
+                        </dict>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        def test_plist_errors(self):
+            def _doParse(plist, title):
+                service = OpenDirectoryService(node="/Search", dosetup=False)
+                try:
+                    service._parseXMLPlist(plist, "GUIDIFY")
+                    self.fail(msg="Plist parse should have failed: %s" % (title,))
+                except OpenDirectoryInitError:
+                    pass
+                
+            plists = (
+                (PlistParse.plist_nomacosxserver_key, "nomacosxserver_key"),
+                (PlistParse.plist_nocalendarservice,  "nocalendarservice"),
+                (PlistParse.plist_noserviceinfo,      "noserviceinfo"),
+                (PlistParse.plist_disabledservice,    "disabledservice"),
+                (PlistParse.plist_nocuaddrtemplates,  "nocuaddrtemplates"),
+            )
+            for plist, title in plists:
+                _doParse(plist, title)
+
+        def test_goodplist(self):
+            service = OpenDirectoryService(node="/Search", dosetup=False)
+            service._parseXMLPlist(PlistParse.plist_good, "GUIDIFY")
+            
+            # Verify that we extracted the proper items
+            self.assertEqual(service.servicetag, "GUIDIFY:C18C34AC-3D9E-403C-8A33-BFC303F3840E:calendar")
+            self.assertEqual(service.cuaddrtemplates, ["%(principal URI)s", "mailto:%(email)s", "urn:uuid:%(guid)s"])
+            
+            
