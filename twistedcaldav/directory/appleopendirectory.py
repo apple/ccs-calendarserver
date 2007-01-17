@@ -166,6 +166,24 @@ class OpenDirectoryService(DirectoryService):
             log.msg(msg)
             raise OpenDirectoryInitError(msg)
             
+        # Get host name
+        hostname = vhosts[hostguid].get("hostname", None)
+        if not hostname:
+            msg = "Open Directory (node=%s) /Computers/%s record does not have any host name in its XMLPlist attribute value" % (self.realmName, self.computerRecordName,)
+            log.msg(msg)
+            raise OpenDirectoryInitError(msg)
+        
+        # Get host details and create host templates
+        hostdetails = vhosts[hostguid].get("hostDetails", None)
+        if not hostdetails:
+            msg = "Open Directory (node=%s) /Computers/%s record does not have any host details in its XMLPlist attribute value" % (self.realmName, self.computerRecordName,)
+            log.msg(msg)
+            raise OpenDirectoryInitError(msg)
+        self.hostvariants = []
+        for key, value in hostdetails.iteritems():
+            self.hostvariants.append((key, hostname, value["port"],))
+        self.hostvariants = tuple(self.hostvariants)
+        
         # Look at the service data
         serviceInfos = vhosts[hostguid].get("serviceInfo", None)
         if not serviceInfos or not serviceInfos.has_key("calendar"):
@@ -189,11 +207,66 @@ class OpenDirectoryService(DirectoryService):
             raise OpenDirectoryInitError(msg)
         
         # Grab the templates we need for calendar user addresses
-        self.cuaddrtemplates = templates["calendarUserAddresses"]
+        self.cuaddrtemplates = tuple(templates["calendarUserAddresses"])
         
         # Create the string we will use to match users with accounts on this server
         self.servicetag = "%s:%s:calendar" % (recordguid, hostguid,)
     
+    def _templateExpandCalendarUserAddresses(self, recordType, recordName, record):
+        """
+        Expand this services calendar user address templates for the specified record.
+        
+        @param recordName: a C{str} containing the record name being operated on.
+        @param record: a C{dict} containing the attributes retrieved from the directory.
+        @return: a C{set} of C{str} for each expanded calendar user address.
+        """
+        
+        # Make a dict of the substitutions we can do for this record. The only record parameters
+        # we substitute are name, guid and email. Note that email is multi-valued so we have to
+        # create a list of dicts for each one of those.
+        name = recordName
+        type = recordType
+        guid = record.get(dsattributes.kDS1AttrGeneratedUID)
+        emails = record.get(dsattributes.kDSNAttrEMailAddress)
+        if emails is not None and isinstance(emails, str):
+            emails = [emails]
+            
+        subslist = []
+        if emails:
+            for email in emails:
+                subslist.append({
+                    "name"  : name,
+                    "type"  : type,
+                    "guid"  : guid,
+                    "email" : email,
+                })
+        else:
+            subslist.append({
+                "name"  : name,
+                "type"  : type,
+                "guid"  : guid,
+            })
+        
+        # Now do substitutions    
+        result = set()
+        for template in self.cuaddrtemplates:
+            for scheme, hostname, port in self.hostvariants:
+                for subs in subslist:
+                    # Add in host substitution values
+                    subs.update({
+                        "scheme"   : scheme,
+                        "hostname" : hostname,
+                        "port"     : port,
+                    })
+                    
+                    # Special check for no email address for this record
+                    if (template.find("%(email)s") != -1) and not emails:
+                        continue
+
+                    result.add(template % subs)
+                
+        return result
+
     def setup(self):
         self._lookupVHostRecord()
 
@@ -221,7 +294,7 @@ class OpenDirectoryService(DirectoryService):
             attrs = [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
-                dsattributes.kDSNAttrCalendarPrincipalURI,
+                dsattributes.kDSNAttrEMailAddress,
             ]
 
             if recordType == DirectoryService.recordType_users:
@@ -251,15 +324,8 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
-                # FIXME: We get email address also
-                # FIXME: In new schema, kDSNAttrCalendarPrincipalURI goes away
-                cuaddrs = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
-                cuaddrset = set()
-                if cuaddrs is not None:
-                    if isinstance(cuaddrs, str):
-                        cuaddrset.add(cuaddrs)
-                    else:
-                        cuaddrset.update(cuaddrs)
+                # Get calendar user addresses expanded from service record templates.
+                cuaddrset = self._templateExpandCalendarUserAddresses(recordType, key, value)
 
                 if recordType == DirectoryService.recordType_groups:
                     memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
