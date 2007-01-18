@@ -944,7 +944,19 @@ class Component (object):
         @param match: a C{list} of calendar user address strings to try and match.
         @return: the string value of the Organizer property, or None
         """
-        # FIXME: match argument is unused (except in recursion...)
+        
+        # FIXME: we should really have a URL class and have it manage comparisons
+        # in a sensible fashion.
+        def _normalizeCUAddress(addr):
+            if addr.startswith("/") or addr.startswith("http:") or addr.startswith("https:"):
+                return addr.rstrip("/")
+            else:
+                return addr
+
+        # Need to normalize http/https cu addresses
+        test = set()
+        for item in match:
+           test.add(_normalizeCUAddress(item))
         
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
@@ -955,7 +967,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 for p in self.properties("ATTENDEE"):
-                    if p.value() in match:
+                    if _normalizeCUAddress(p.value()) in test:
                         return p
             except:
                 pass
