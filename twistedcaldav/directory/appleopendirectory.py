@@ -291,10 +291,15 @@ class OpenDirectoryService(DirectoryService):
         def reloadCache():
             log.msg("Reloading %s record cache" % (recordType,))
 
+            query = {
+                dsattributes.kDSNAttrCalendarPrincipalURI: self.servicetag,
+            }
+    
             attrs = [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
                 dsattributes.kDSNAttrEMailAddress,
+                dsattributes.kDSNAttrCalendarPrincipalURI,
             ]
 
             if recordType == DirectoryService.recordType_users:
@@ -312,12 +317,33 @@ class OpenDirectoryService(DirectoryService):
             records = {}
 
             try:
-                results = opendirectory.listAllRecordsWithAttributes(self.directory, listRecordType, attrs)
+                results = opendirectory.queryRecordsWithAttributes(
+                    self.directory,
+                    query,
+                    dsattributes.eDSStartsWith,
+                    False,
+                    False,
+                    listRecordType,
+                    attrs)
             except opendirectory.ODError, ex:
                 log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (key, value) in results.iteritems():
+                # Make sure this user has service enabled.
+                enabled = True
+                service = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
+                if isinstance(service, str):
+                    service = [service]
+                for item in service:
+                    if item.startswith(self.servicetag):
+                        if item.endswith(":disabled"):
+                            enabled = False
+                        break
+                if not enabled:
+                    continue
+
+                # Now get useful record info.
                 shortName = key
                 guid = value.get(dsattributes.kDS1AttrGeneratedUID)
                 if not guid:
@@ -327,6 +353,7 @@ class OpenDirectoryService(DirectoryService):
                 # Get calendar user addresses expanded from service record templates.
                 cuaddrset = self._templateExpandCalendarUserAddresses(recordType, key, value)
 
+                # Special case for groups.
                 if recordType == DirectoryService.recordType_groups:
                     memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                     if memberGUIDs is None:
