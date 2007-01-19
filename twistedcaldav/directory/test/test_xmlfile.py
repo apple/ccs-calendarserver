@@ -37,25 +37,25 @@ class XMLFileBase(object):
     ))
 
     users = {
-        "admin"   : { "password": "nimda",    "guid": None, "addresses": () },
-        "wsanchez": { "password": "zehcnasw", "guid": None, "addresses": ("mailto:wsanchez@example.com",) },
-        "cdaboo"  : { "password": "oobadc",   "guid": None, "addresses": ("mailto:cdaboo@example.com",)   },
-        "lecroy"  : { "password": "yorcel",   "guid": None, "addresses": ("mailto:lecroy@example.com",)   },
-        "dreid"   : { "password": "dierd",    "guid": None, "addresses": ("mailto:dreid@example.com",)    },
-        "user01"  : { "password": "01user",   "guid": None, "addresses": () },
-        "user02"  : { "password": "02user",   "guid": None, "addresses": () },
+        "admin"   : { "password": "nimda",    "guid": "D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "addresses": () },
+        "wsanchez": { "password": "zehcnasw", "guid": "6423F94A-6B76-4A3A-815B-D52CFD77935D", "addresses": ("mailto:wsanchez@example.com",) },
+        "cdaboo"  : { "password": "oobadc",   "guid": "5A985493-EE2C-4665-94CF-4DFEA3A89500", "addresses": ("mailto:cdaboo@example.com",)   },
+        "lecroy"  : { "password": "yorcel",   "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)   },
+        "dreid"   : { "password": "dierd",    "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)    },
+        "user01"  : { "password": "01user",   "guid": None                                  , "addresses": () },
+        "user02"  : { "password": "02user",   "guid": None                                  , "addresses": () },
     }
 
     groups = {
         "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)                                      },
-        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "lecroy"),)                                         },
-        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
-                                                                                               (DirectoryService.recordType_users, "cdaboo"),
-                                                                                               (DirectoryService.recordType_users, "dreid")) },
-        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "cdaboo"),)                                         },
-        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
-                                                                                               (DirectoryService.recordType_users, "dreid"),
-                                                                                               (DirectoryService.recordType_users, "lecroy")) },
+        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "lecroy"),)                                         },
+        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
+                                                                                               (DirectoryService.recordType_users , "cdaboo"),
+                                                                                               (DirectoryService.recordType_users , "dreid")) },
+        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),)                                         },
+        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
+                                                                                               (DirectoryService.recordType_users , "dreid"),
+                                                                                               (DirectoryService.recordType_users , "lecroy")) },
         "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
                                                                                                (DirectoryService.recordType_groups, "left_coast"))           },
     }

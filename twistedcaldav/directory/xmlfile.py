@@ -62,12 +62,12 @@ class XMLDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
-        for entryShortName, xmlprincipal in self._entriesForRecordType(recordType):
+        for entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
             yield XMLDirectoryRecord(
                 service       = self,
                 recordType    = recordType,
                 shortName     = entryShortName,
-                xmlPrincipal  = xmlprincipal,
+                xmlPrincipal  = xmlPrincipal,
             )
 
     def recordWithShortName(self, recordType, shortName):
@@ -103,7 +103,7 @@ class XMLDirectoryRecord(DirectoryRecord):
         super(XMLDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
-            guid                  = None,
+            guid                  = xmlPrincipal.guid,
             shortName             = shortName,
             fullName              = xmlPrincipal.name,
             calendarUserAddresses = xmlPrincipal.calendarUserAddresses

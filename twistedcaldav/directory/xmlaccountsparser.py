@@ -39,6 +39,7 @@ ELEMENT_LOCATION     = "location"
 ELEMENT_RESOURCE     = "resource"
 
 ELEMENT_SHORTNAME    = "uid"
+ELEMENT_GUID         = "guid"
 ELEMENT_PASSWORD     = "password"
 ELEMENT_NAME         = "name"
 ELEMENT_MEMBERS      = "members"
@@ -137,6 +138,7 @@ class XMLAccountRecord (object):
         """
         self.recordType = recordType
         self.shortName = None
+        self.guid = None
         self.password = None
         self.name = None
         self.members = set()
@@ -184,6 +186,9 @@ class XMLAccountRecord (object):
             elif child_name == ELEMENT_SHORTNAME:
                 if child.firstChild is not None:
                     self.shortName = child.firstChild.data.encode("utf-8")
+            elif child_name == ELEMENT_GUID:
+                if child.firstChild is not None:
+                    self.guid = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")

@@ -21,29 +21,34 @@ limitations under the License.
 <accounts realm="Test">
   <user>
     <uid>admin</uid>
+    <guid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</guid>
     <password>nimda</password>
     <name>Administrators</name>
   </user>
   <user>
     <uid>wsanchez</uid>
+    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
     <password>zehcnasw</password>
     <name>Wilfredo Sanchez</name>
     <cuaddr>mailto:wsanchez@example.com</cuaddr>
   </user>
   <user>
     <uid>cdaboo</uid>
+    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
     <password>oobadc</password>
     <name>Cyrus Daboo</name>
     <cuaddr>mailto:cdaboo@example.com</cuaddr>
   </user>
   <user>
     <uid>lecroy</uid>
+    <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
     <password>yorcel</password>
     <name>Chris Lecroy</name>
     <cuaddr>mailto:lecroy@example.com</cuaddr>
   </user>
   <user>
     <uid>dreid</uid>
+    <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
     <password>dierd</password>
     <name>David Reid</name>
     <cuaddr>mailto:dreid@example.com</cuaddr>
