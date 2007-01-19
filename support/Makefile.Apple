@@ -45,16 +45,17 @@ PyKerberos::      $(BuildDirectory)/PyKerberos
 PyOpenDirectory:: $(BuildDirectory)/PyOpenDirectory
 vobject::         $(BuildDirectory)/vobject
 Twisted::         $(BuildDirectory)/Twisted
+pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
 $(Project)::      $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory vobject Twisted $(Project)
+build:: PyKerberos PyOpenDirectory pydirector-1.0.0 vobject Twisted $(Project)
 
 setup:
 	$(_v) $(Sources)/run -s
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz vobject.tgz Twisted.tgz
+prep:: setup PyKerberos.tgz PyOpenDirectory.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
 
-PyKerberos PyOpenDirectory vobject $(Project)::
+PyKerberos PyOpenDirectory pydirector-1.0.0 vobject $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -74,6 +75,7 @@ install:: build
 	          --install-data="$(ETCDIR)"
 	$(_v) cd $(BuildDirectory)/PyKerberos      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyOpenDirectory && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/pydirector-1.0.0 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
