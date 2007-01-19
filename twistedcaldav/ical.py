@@ -49,7 +49,7 @@ from twisted.web2.dav.util import allDataFromStream
 from twistedcaldav.dateops import normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 
-iCalendarProductID = "-//CALENDARSERVER.APPLE.COM//NONSGML Version 1//EN"
+iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
 class Property (object):
     """
