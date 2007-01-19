@@ -41,12 +41,12 @@ GROUP = 93 # FIXME: calendar
 
 .phony: $(Project) vobject Twisted setup prep
 
-PyKerberos::      $(BuildDirectory)/PyKerberos
-PyOpenDirectory:: $(BuildDirectory)/PyOpenDirectory
-vobject::         $(BuildDirectory)/vobject
-Twisted::         $(BuildDirectory)/Twisted
-pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
-$(Project)::      $(BuildDirectory)/$(Project)
+PyKerberos::       $(BuildDirectory)/PyKerberos
+PyOpenDirectory::  $(BuildDirectory)/PyOpenDirectory
+vobject::          $(BuildDirectory)/vobject
+Twisted::          $(BuildDirectory)/Twisted
+pydirector-1.0.0:: $(BuildDirectory)/pydirector-1.0.0
+$(Project)::       $(BuildDirectory)/$(Project)
 
 build:: PyKerberos PyOpenDirectory pydirector-1.0.0 vobject Twisted $(Project)
 
@@ -67,6 +67,7 @@ Twisted::
 	$(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/runner/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py build
+	$(_v) cd $(BuildDirectory)
 
 install:: build
 	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py install \
@@ -82,6 +83,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
+	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name '__init__.*'); do rm "$${f}"; done
 
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
