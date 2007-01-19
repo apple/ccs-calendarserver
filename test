@@ -33,18 +33,14 @@ usage ()
   exit 64;
 }
 
-
-while getopts 'nh' option; do
-  case "$option" in
+while getopts "nh" option; do
+  case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'n') trial_args="--reporter=bwverbose"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
-
-if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
-
 
      wd="$(cd "$(dirname "$0")" && pwd -L)";
 twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
