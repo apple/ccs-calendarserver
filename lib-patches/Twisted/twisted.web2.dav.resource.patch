@@ -858,7 +858,13 @@ Index: twisted/web2/dav/resource.py
          (dav_namespace, "alternate-URI-set"),
          (dav_namespace, "principal-URL"    ),
          (dav_namespace, "group-member-set" ),
-@@ -1584,9 +1939,6 @@
+@@ -1579,14 +1934,11 @@
+     )
+ 
+     def davComplianceClasses(self):
+-        return ("1",)
++        return ("1", "access-control",)
+ 
      def isCollection(self):
          return False
  

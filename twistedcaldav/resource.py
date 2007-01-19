@@ -557,6 +557,9 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     """
     implements(ICalendarPrincipalResource)
 
+    def davComplianceClasses(self):
+        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + ("calendar-access", "calendar-schedule")
+
     liveProperties = DAVPrincipalResource.liveProperties + (
         (caldav_namespace, "calendar-home-set"        ),
         (caldav_namespace, "calendar-user-address-set"),
