@@ -67,7 +67,6 @@ Twisted::
 	$(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/runner/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py build
-	$(_v) cd $(BuildDirectory)
 
 install:: build
 	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py install \
