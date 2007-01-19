@@ -86,52 +86,32 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def listRecords(self, recordType):
         # Get each account record
-        for (shortName, password, name) in self._db_execute(
+        for shortName, guid, password, name in self._db_execute(
             """
-            select SHORT_NAME, PASSWORD, NAME from ACCOUNTS
-            where RECORD_TYPE = :1
+            select SHORT_NAME, GUID, PASSWORD, NAME
+              from ACCOUNTS
+             where RECORD_TYPE = :1
             """, recordType
         ):
-            members = set()
-            groups = set()
-            calendarUserAddresses = set()
-    
             # See if we have members
-            for member in self._db_execute(
-                """
-                select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS
-                where SHORT_NAME = :1
-                """, shortName
-            ):
-                members.add(tuple(member))
+            members = self.members(shortName)
                 
-            # See if we are a member of a group
-            for (name,) in self._db_execute(
-                """
-                select SHORT_NAME from GROUPS
-                where MEMBER_SHORT_NAME = :1
-                """, shortName
-            ):
-                groups.add(name)
+            # See if we are a member of any groups
+            groups = self.groups(shortName)
                 
             # Get calendar user addresses
-            for (address,) in self._db_execute(
-                """
-                select ADDRESS from ADDRESSES
-                where SHORT_NAME = :1
-                """, shortName
-            ):
-                calendarUserAddresses.add(address)
+            calendarUserAddresses = self.calendarUserAddresses(shortName)
                 
-            yield shortName, password, name, members, groups, calendarUserAddresses
+            yield shortName, guid, password, name, members, groups, calendarUserAddresses
 
     def getRecord(self, recordType, shortName):
         # Get individual account record
-        for shortName, password, name in self._db_execute(
+        for shortName, guid, password, name in self._db_execute(
             """
-            select SHORT_NAME, PASSWORD, NAME from ACCOUNTS
-            where RECORD_TYPE = :1
-              and SHORT_NAME  = :2
+            select SHORT_NAME, GUID, PASSWORD, NAME
+              from ACCOUNTS
+             where RECORD_TYPE = :1
+               and SHORT_NAME  = :2
             """, recordType, shortName
         ):
             break
@@ -139,34 +119,65 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             return None
         
         # See if we have members
-        members = set()
-        for row in self._db_execute("select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME from GROUPS where SHORT_NAME = :1", shortName):
-            members.add((row[0], row[1]))
+        members = self.members(shortName)
             
-        # See if we are a member of a group
-        groups = set()
-        for row in self._db_execute("select SHORT_NAME from GROUPS where MEMBER_SHORT_NAME = :1", shortName):
-            groups.add(row[0])
+        # See if we are a member of any groups
+        groups = self.groups(shortName)
             
         # Get calendar user addresses
+        calendarUserAddresses = self.calendarUserAddresses(shortName)
+            
+        return shortName, guid, password, name, members, groups, calendarUserAddresses
+            
+    def members(self, shortName):
+        members = set()
+        for member in self._db_execute(
+            """
+            select MEMBER_RECORD_TYPE, MEMBER_SHORT_NAME
+              from GROUPS
+             where SHORT_NAME = :1
+            """, shortName
+        ):
+            members.add(tuple(member))
+        return members
+
+    def groups(self, shortName):
+        groups = set()
+        for (name,) in self._db_execute(
+            """
+            select SHORT_NAME
+              from GROUPS
+             where MEMBER_SHORT_NAME = :1
+            """, shortName
+        ):
+            groups.add(name)
+        return groups
+
+    def calendarUserAddresses(self, shortName):
         calendarUserAddresses = set()
-        for row in self._db_execute("select ADDRESS from ADDRESSES where SHORT_NAME = :1", shortName):
-            calendarUserAddresses.add(row[0])
-            
-        return shortName, password, name, members, groups, calendarUserAddresses
-            
+        for (address,) in self._db_execute(
+            """
+            select ADDRESS
+              from ADDRESSES
+             where SHORT_NAME = :1
+            """, shortName
+        ):
+            calendarUserAddresses.add(address)
+        return calendarUserAddresses
+
     def _add_to_db(self, record):
         # Do regular account entry
         recordType = record.recordType
         shortName = record.shortName
+        guid = record.guid
         password = record.password
         name = record.name
 
         self._db_execute(
             """
-            insert into ACCOUNTS (RECORD_TYPE, SHORT_NAME, PASSWORD, NAME)
-            values (:1, :2, :3, :4)
-            """, recordType, shortName, password, name
+            insert into ACCOUNTS (RECORD_TYPE, SHORT_NAME, GUID, PASSWORD, NAME)
+            values (:1, :2, :3, :4, :5)
+            """, recordType, shortName, guid, password, name
         )
         
         # Check for members
@@ -222,6 +233,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             create table ACCOUNTS (
                 RECORD_TYPE  text,
                 SHORT_NAME   text,
+                GUID         text,
                 PASSWORD     text,
                 NAME         text
             )
@@ -289,11 +301,12 @@ class SQLDirectoryService(DirectoryService):
                 service               = self,
                 recordType            = recordType,
                 shortName             = result[0],
-                password              = result[1],
-                name                  = result[2],
-                members               = result[3],
-                groups                = result[4],
-                calendarUserAddresses = result[5],
+                guid                  = result[1],
+                password              = result[2],
+                name                  = result[3],
+                members               = result[4],
+                groups                = result[5],
+                calendarUserAddresses = result[6],
             )
 
     def recordWithShortName(self, recordType, shortName):
@@ -303,11 +316,12 @@ class SQLDirectoryService(DirectoryService):
                 service               = self,
                 recordType            = recordType,
                 shortName             = result[0],
-                password              = result[1],
-                name                  = result[2],
-                members               = result[3],
-                groups                = result[4],
-                calendarUserAddresses = result[5],
+                guid                  = result[1],
+                password              = result[2],
+                name                  = result[3],
+                members               = result[4],
+                groups                = result[5],
+                calendarUserAddresses = result[6],
             )
 
         return None
@@ -316,11 +330,11 @@ class SQLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, shortName, password, name, members, groups, calendarUserAddresses):
+    def __init__(self, service, recordType, shortName, guid, password, name, members, groups, calendarUserAddresses):
         super(SQLDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
-            guid                  = None,
+            guid                  = guid,
             shortName             = shortName,
             fullName              = name,
             calendarUserAddresses = calendarUserAddresses,
