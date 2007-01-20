@@ -60,8 +60,8 @@ class OpenDirectoryService(DirectoryService):
         """
         try:
             directory = opendirectory.odInit(node)
-        except opendirectory.ODError, ex:
-            log.msg("Open Directory (node=%s) Initialization error: %s" % (node, str(ex)))
+        except opendirectory.ODError, e:
+            log.msg("Open Directory (node=%s) Initialization error: %s" % (node, e))
             raise
 
         self.realmName = node
@@ -96,7 +96,7 @@ class OpenDirectoryService(DirectoryService):
         """
 
         # Get MAC address
-        macaddr = os.popen('/sbin/ifconfig en0|grep ether').read().replace('\n','').split()[1]
+        macaddr = os.popen("/sbin/ifconfig en0|grep ether").read().replace("\n", "").split()[1]
         
         # Find a record in /Computers with an ENetAddress attribute value equal to the MAC address
         # and return some useful attributes.
