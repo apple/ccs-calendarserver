@@ -55,8 +55,9 @@ class OpenDirectoryService(DirectoryService):
     def __init__(self, node="/Search", dosetup=True):
         """
         @param node: an OpenDirectory node name to bind to.
-		@param dosetup: if C{True} then the directory records are initialized,
-			if C{False} they are not. This is only set to C{False} when doing unit tests.
+        @param dosetup: if C{True} then the directory records are initialized,
+                        if C{False} they are not.
+                        This should only be set to C{False} when doing unit tests.
         """
         try:
             directory = opendirectory.odInit(node)
@@ -72,7 +73,14 @@ class OpenDirectoryService(DirectoryService):
         self._delayedCalls = set()
 
         if dosetup:
-            self.setup()
+            try:
+                self._lookupVHostRecord()
+            except Exception, e:
+                log.err("Unable to locate virtual host record: %s" % (e,))
+                raise
+
+            for recordType in self.recordTypes():
+                self.recordsForType(recordType)
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -117,19 +125,14 @@ class OpenDirectoryService(DirectoryService):
         )
         
         # Must have a single result
-        if len(results) == 0:
+        if len(results) != 1:
             raise OpenDirectoryInitError(
-                "Open Directory (node=%s) no /Computers record with EnetAddress: %s"
-                % (self.realmName, macaddr)
+                "Open Directory (node=%s) has %s (!= 1) /Computers records with EnetAddress: %s"
+                % (self.realmName, len(results), macaddr)
             )
-        elif len(results) > 1:
-            raise OpenDirectoryInitError(
-                "Open Directory (node=%s) multiple /Computers records with EnetAddress: %s"
-                % (self.realmName, macaddr)
-            )
-        else:
-            self.computerRecordName = results.keys()[0]
-            record = results[self.computerRecordName]
+
+        self.computerRecordName = results.keys()[0]
+        record = results[self.computerRecordName]
         
         # Get XMLPlist value
         plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
@@ -281,16 +284,6 @@ class OpenDirectoryService(DirectoryService):
                 
         return result
 
-    def setup(self):
-        try:
-            self._lookupVHostRecord()
-        except Exception, e:
-            log.err("Unable to locate virtual host record: %s" % (e,))
-            raise
-
-        for recordType in self.recordTypes():
-            self.recordsForType(recordType)
-        
     def recordTypes(self):
         return (
             DirectoryService.recordType_users,
