@@ -162,12 +162,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             originator = originator[0]
     
         # Verify that Originator is a valid calendar user (has an INBOX)
-        inboxURL = None
         oprincipal = self.principalForCalendarUserAddress(originator)
-        if oprincipal is not None:
-            inboxURL = oprincipal.scheduleInboxURL()
+        if oprincipal is None:
+            log.err("Could not find principal for originator: %s" % (originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+
+        inboxURL = oprincipal.scheduleInboxURL()
         if inboxURL is None:
-            log.err("Could not find Inbox for originator: %s" % (originator,))
+            log.err("Could not find inbox for originator: %s" % (originator,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
     
         # Get list of Recipient headers
