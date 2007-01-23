@@ -36,6 +36,7 @@ defaultConfig = {
     'MaximumAttachmentSizeBytes': 1048576,
     'NotificationsEnabled': False,
     'PIDFile': '/var/run/caldavd.pid',
+    'ServerHostName': 'localhost',
     'Port': 8008,
     'RunStandalone': True,
     'SSLCertificate': '/etc/certificates/Default.crt',
