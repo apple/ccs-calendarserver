@@ -66,12 +66,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>443</string>
+                        <integer>443</integer>
                     </dict>
                 </dict>
 
@@ -87,23 +87,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -135,12 +135,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>443</string>
+                        <integer>443</integer>
                     </dict>
                 </dict>
 
@@ -156,23 +156,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -187,12 +187,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
@@ -206,9 +206,9 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                 </dict>
             </dict>
@@ -240,7 +240,7 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
@@ -261,23 +261,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -292,12 +292,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
@@ -311,7 +311,7 @@ else:
                     <key>calendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>NO</string>
+                        <false/>
                         <key>templates</key>
                         <dict>
                             <key>principalPath</key>
@@ -354,7 +354,7 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
@@ -375,23 +375,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -403,12 +403,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
@@ -463,7 +463,7 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
@@ -484,23 +484,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -561,7 +561,7 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
@@ -582,23 +582,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -613,12 +613,12 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
@@ -644,7 +644,6 @@ else:
     </dict>
 </plist>
 """
-
         plist_good = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -667,7 +666,7 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
@@ -688,23 +687,23 @@ else:
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -719,12 +718,124 @@ else:
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>calendar</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>calendar</key>
+                    <dict>
+                        <key>templates</key>
+                        <dict>
+                            <key>principalPath</key>
+                            <string>/principals/%(type)s/%(name)s</string>
+                            <key>calendarUserAddresses</key>
+                            <array>
+                                <string>%(scheme)s://%(hostname)s:%(port)s/principals/%(type)s/%(name)s</string>
+                                <string>mailto:%(email)s</string>
+                                <string>urn:uuid:%(guid)s</string>
+                            </array>
+                        </dict>
+                    </dict>
+                </dict>
+            </dict>
+
+        </dict>
+    </dict>
+</plist>
+"""
+
+        plist_good_other = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>ReplicaName</key>
+        <string>Master</string>
+
+        <key>com.apple.od.role</key>
+        <string>master</string>
+
+        <key>com.apple.macosxserver.virtualhosts</key>
+        <dict>
+            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
+            <dict>
+                <key>hostname</key>
+                <string>foo.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <integer>80</integer>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <string>443</string>
+                    </dict>
+                </dict>
+
+                <key>serviceType</key>
+                <array>
+                    <string>wiki</string>
+                    <string>webCalendar</string>
+                    <string>webMailingList</string>
+                </array>
+
+                <key>serviceInfo</key>
+                <dict>
+                    <key>webCalendar</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
+                    </dict>
+                    <key>wiki</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
+                    </dict>
+                    <key>webMailingList</key>
+                    <dict>
+                        <key>enabled</key>
+                        <true/>
+                        <key>urlMask</key>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
+                    </dict>
+                </dict>
+            </dict>
+            
+            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
+            <dict>
+                <key>hostname</key>
+                <string>privatecalendar.apple.com</string>
+
+                <key>hostDetails</key>
+                <dict>
+                    <key>http</key>
+                    <dict>
+                        <key>port</key>
+                        <integer>8008</integer>
+                    </dict>
+                    <key>https</key>
+                    <dict>
+                        <key>port</key>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
@@ -760,11 +871,8 @@ else:
         def test_plist_errors(self):
             def _doParse(plist, title):
                 service = OpenDirectoryService(node="/Search", dosetup=False)
-                try:
-                    service._parseXMLPlist(plist, "GUIDIFY")
+                if service._parseXMLPlist("calendar.apple.com", "recordit", plist, "GUIDIFY"):
                     self.fail(msg="Plist parse should have failed: %s" % (title,))
-                except OpenDirectoryInitError:
-                    pass
                 
             plists = (
                 (PlistParse.plist_nomacosxserver_key, "nomacosxserver_key"),
@@ -780,21 +888,24 @@ else:
 
         def test_goodplist(self):
             service = OpenDirectoryService(node="/Search", dosetup=False)
-            service._parseXMLPlist(PlistParse.plist_good, "GUIDIFY")
-            
-            # Verify that we extracted the proper items
-            self.assertEqual(service.servicetag, "GUIDIFY:C18C34AC-3D9E-403C-8A33-BFC303F3840E:calendar")
-            self.assertEqual(service.hostvariants, (("http", "calendar.apple.com", "8008"), ("https", "calendar.apple.com", "8443")))
-            self.assertEqual(service.cuaddrtemplates, ("%(scheme)s://%(hostname)s:%(port)s/principals/%(type)s/%(name)s", "mailto:%(email)s", "urn:uuid:%(guid)s"))
+            if not service._parseXMLPlist("calendar.apple.com", "recordit", PlistParse.plist_good, "GUIDIFY"):
+                self.fail(msg="Plist parse should not have failed")
+            else:
+                # Verify that we extracted the proper items
+                self.assertEqual(service.servicetag, "GUIDIFY:C18C34AC-3D9E-403C-8A33-BFC303F3840E:calendar")
+                self.assertEqual(service.hostvariants, (("http", "calendar.apple.com", 8008), ("https", "calendar.apple.com", 8443)))
+                self.assertEqual(service.cuaddrtemplates, ("%(scheme)s://%(hostname)s:%(port)s/principals/%(type)s/%(name)s", "mailto:%(email)s", "urn:uuid:%(guid)s"))
 
         def test_expandcuaddrs(self):
             def _doTest(recordName, record, result, title):
                 service = OpenDirectoryService(node="/Search", dosetup=False)
-                service._parseXMLPlist(PlistParse.plist_good, "GUIDIFY")
-                expanded = service._templateExpandCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
-    
-                # Verify that we extracted the proper items
-                self.assertEqual(expanded, result, msg=title % (expanded, result,))
+                if not service._parseXMLPlist("calendar.apple.com", recordName, PlistParse.plist_good, "GUIDIFY"):
+                    self.fail(msg="Plist parse should not have failed: %s" % (recordName,))
+                else:
+                    expanded = service._templateExpandCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
+        
+                    # Verify that we extracted the proper items
+                    self.assertEqual(expanded, result, msg=title % (expanded, result,))
             
             data = (
                 (
@@ -842,4 +953,66 @@ else:
             
             for recordName, record, result, title in data:
                 _doTest(recordName, record, result, title)
-            
+
+    class ODRecordsParse (twisted.trial.unittest.TestCase):
+
+        record_good = ("computer1.apple.com", {
+            dsattributes.kDS1AttrGeneratedUID : "GUID1",
+            dsattributes.kDSNAttrRecordName   : "computer1.apple.com",
+            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good,
+        })
+        record_good_other = ("computer2.apple.com", {
+            dsattributes.kDS1AttrGeneratedUID : "GUID1",
+            dsattributes.kDSNAttrRecordName   : "computer2.apple.com",
+            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good_other,
+        })
+        record_good_duplicate = ("computer2.apple.com", {
+            dsattributes.kDS1AttrGeneratedUID : "GUID1",
+            dsattributes.kDSNAttrRecordName   : "computer2.apple.com",
+            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good,
+        })
+
+        def test_odrecords_error(self):
+            def _doParseRecords(recordlist, title):
+                service = OpenDirectoryService(node="/Search", dosetup=False)
+                try:
+                    service._parseComputersRecords(recordlist, "calendar.apple.com")
+                    self.fail(msg="Record parse should have failed: %s" % (title,))
+                except OpenDirectoryInitError:
+                    pass
+                
+            records = (
+                ({}, "no records found"),
+                ({
+                      ODRecordsParse.record_good[0]            : ODRecordsParse.record_good[1],
+                      ODRecordsParse.record_good_duplicate[0]  : ODRecordsParse.record_good_duplicate[1],
+                 }, "duplicate records found"),
+                ({
+                      ODRecordsParse.record_good_other[0]  : ODRecordsParse.record_good_other[1],
+                 }, "non-matching record found"),
+            )
+
+            for recordlist, title in records:
+                _doParseRecords(recordlist, title)
+
+        def test_odrecords_good(self):
+            def _doParseRecords(recordlist, title):
+                service = OpenDirectoryService(node="/Search", dosetup=False)
+                try:
+                    service._parseComputersRecords(recordlist, "calendar.apple.com")
+                except OpenDirectoryInitError, ex:
+                    self.fail(msg="Record parse should not have failed: \"%s\" with error: %s" % (title, ex))
+                
+            records = (
+                ({
+                      ODRecordsParse.record_good[0]        : ODRecordsParse.record_good[1],
+                 }, "single good plist"),
+                ({
+                      ODRecordsParse.record_good[0]        : ODRecordsParse.record_good[1],
+                      ODRecordsParse.record_good_other[0]  : ODRecordsParse.record_good_other[1],
+                 }, "multiple plists"),
+            )
+
+            for recordlist, title in records:
+                _doParseRecords(recordlist, title)
+

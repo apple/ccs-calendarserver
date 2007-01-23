@@ -36,6 +36,7 @@ from twisted.internet.threads import deferToThread
 from twisted.internet.reactor import callLater
 from twisted.cred.credentials import UsernamePassword
 
+from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 
@@ -103,9 +104,14 @@ class OpenDirectoryService(DirectoryService):
         Get the OD service record for this host.
         """
 
-        # Get MAC address
-        macaddr = os.popen("/sbin/ifconfig en0|grep ether").read().replace("\n", "").split()[1]
-        
+        # The server must have been configured with a virtual hostname.
+        vhostname = config.ServerHostName
+        if not vhostname:
+            raise OpenDirectoryInitError(
+                "There is no virtual hostname configured for the server for use with Open Directory (node=%s)"
+                % (self.realmName,)
+            )
+         
         # Find a record in /Computers with an ENetAddress attribute value equal to the MAC address
         # and return some useful attributes.
         attrs = [
@@ -114,47 +120,62 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrXMLPlist,
         ]
 
-        results = opendirectory.queryRecordsWithAttributes(
+        records = opendirectory.queryRecordsWithAttributes(
             self.directory,
-            { dsattributes.kDS1AttrENetAddress: macaddr },
-            dsattributes.eDSExact,
-            False,
+            { dsattributes.kDS1AttrXMLPlist: vhostname },
+            dsattributes.eDSContains,
+            True,    # case insentive for hostnames
             False,
             dsattributes.kDSStdRecordTypeComputers,
             attrs
         )
+        self._parseComputersRecords(records, vhostname)
+
+    def _parseComputersRecords(self, records, vhostname):
         
-        # Must have a single result
-        if len(results) != 1:
+        # Must have some results
+        if len(records) == 0:
             raise OpenDirectoryInitError(
-                "Open Directory (node=%s) has %s (!= 1) /Computers records with EnetAddress: %s"
-                % (self.realmName, len(results), macaddr)
+                "Open Directory (node=%s) has no /Computers records with a virtual hostname: %s"
+                % (self.realmName, vhostname,)
             )
 
-        self.computerRecordName = results.keys()[0]
-        record = results[self.computerRecordName]
-        
-        # Get XMLPlist value
-        plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
-        if not plist:
+        # Now find a single record that actually matches the hostname
+        found = False
+        for recordname, record in records.iteritems():
+            
+            # Must have XMLPlist value
+            plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
+            if not plist:
+                continue
+            
+            if not self._parseXMLPlist(vhostname, recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]):
+                continue
+            elif found:
+                raise OpenDirectoryInitError(
+                    "Open Directory (node=%s) multiple /Computers records found matching virtual hostname: %s"
+                    % (self.realmName, vhostname,)
+                )
+            else:
+                found = True
+                
+        if not found:
             raise OpenDirectoryInitError(
-                "Open Directory (node=%s) /Computers/%s record does not have an XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                "Open Directory (node=%s) no /Computers records with an enabled and valid calendar service were found matching virtual hostname: %s"
+                % (self.realmName, vhostname,)
             )
-        
-        # Parse it and extract useful information
-        self._parseXMLPlist(plist, record[dsattributes.kDS1AttrGeneratedUID])
     
-    def _parseXMLPlist(self, plist, recordguid):
+    def _parseXMLPlist(self, vhostname, recordname, plist, recordguid):
         # Parse the plist and look for our special entry
         plist = readPlistFromString(plist)
         vhosts = plist.get("com.apple.macosxserver.virtualhosts", None)
         if not vhosts:
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
                 "com.apple.macosxserver.virtualhosts in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
         
         # Iterate over each vhost and find one that is a calendar service
         hostguid = None
@@ -167,29 +188,39 @@ class OpenDirectoryService(DirectoryService):
                         break
                     
         if not hostguid:
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
                 "calendar service in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
             
         # Get host name
         hostname = vhosts[hostguid].get("hostname", None)
         if not hostname:
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have "
                 "any host name in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
+        if hostname != vhostname:
+            log.msg(
+                "Open Directory (node=%s) /Computers/%s record hostname (%s) "
+                "does not match this server (%s)"
+                % (self.realmName, recordname, hostname, vhostname)
+            )
+            return False
         
         # Get host details and create host templates
         hostdetails = vhosts[hostguid].get("hostDetails", None)
         if not hostdetails:
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have "
                 "any host details in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
         self.hostvariants = []
         for key, value in hostdetails.iteritems():
             self.hostvariants.append((key, hostname, value["port"]))
@@ -198,36 +229,43 @@ class OpenDirectoryService(DirectoryService):
         # Look at the service data
         serviceInfos = vhosts[hostguid].get("serviceInfo", None)
         if not serviceInfos or not serviceInfos.has_key("calendar"):
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
                 "calendar service in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
         serviceInfo = serviceInfos["calendar"]
         
         # Check that this service is enabled
-        enabled = serviceInfo.get("enabled", "YES")
-        if enabled != "YES":
-            raise OpenDirectoryInitError(
+        enabled = serviceInfo.get("enabled", True)
+        if not enabled:
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have an "
                 "enabled calendar service in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
         
         # Get useful templates
         templates = serviceInfo.get("templates", None)
         if not templates or not templates.has_key("calendarUserAddresses"):
-            raise OpenDirectoryInitError(
+            log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
                 "template for calendar user addresses in its XMLPlist attribute value"
-                % (self.realmName, self.computerRecordName)
+                % (self.realmName, recordname)
             )
+            return False
         
+        self.computerRecordName = recordname
+
         # Grab the templates we need for calendar user addresses
         self.cuaddrtemplates = tuple(templates["calendarUserAddresses"])
         
         # Create the string we will use to match users with accounts on this server
         self.servicetag = "%s:%s:calendar" % (recordguid, hostguid)
+        
+        return True
     
     def _templateExpandCalendarUserAddresses(self, recordType, recordName, record):
         """

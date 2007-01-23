@@ -88,12 +88,12 @@ def initComputerRecord(admin_user, admin_pswd, node, recordname):
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>80</string>
+                        <integer>80</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>443</string>
+                        <integer>443</integer>
                     </dict>
                 </dict>
 
@@ -109,23 +109,23 @@ def initComputerRecord(admin_user, admin_pswd, node, recordname):
                     <key>webCalendar</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/webcalendar</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
                     </dict>
                     <key>wiki</key>
                     <dict>
                         <key>enabled</key>
-                        <string>YES</string>
+                        <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/wiki</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
                     </dict>
                     <key>webMailingList</key>
                     <dict>
                         <key>enabled</key>
                         <true/>
                         <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(groupname)s/mailinglist</string>
+                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
                     </dict>
                 </dict>
             </dict>
@@ -140,12 +140,12 @@ def initComputerRecord(admin_user, admin_pswd, node, recordname):
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <string>8008</string>
+                        <integer>8008</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <string>8443</string>
+                        <integer>8443</integer>
                     </dict>
                 </dict>
 
