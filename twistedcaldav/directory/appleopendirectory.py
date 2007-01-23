@@ -133,8 +133,6 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
-                # FIXME: We get email address also
-                # FIXME: In new schema, kDSNAttrCalendarPrincipalURI goes away
                 cuaddrs = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
                 cuaddrset = set()
                 if cuaddrs is not None:

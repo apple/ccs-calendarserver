@@ -127,7 +127,11 @@ class CalDAVResource (DAVResource):
     ##
 
     def davComplianceClasses(self):
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + ("calendar-access", "calendar-schedule")
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + (
+            "calendar-access",
+            "calendar-schedule",
+            "calendar-availability",
+        )
 
     liveProperties = DAVResource.liveProperties + (
         (caldav_namespace, "supported-calendar-component-set"),
@@ -140,6 +144,7 @@ class CalDAVResource (DAVResource):
         caldavxml.CalendarComponent(name="VTIMEZONE"),
         caldavxml.CalendarComponent(name="VJOURNAL" ),
         caldavxml.CalendarComponent(name="VFREEBUSY"),
+        caldavxml.CalendarComponent(name="VAVAILABILITY"),
     )
 
     def readProperty(self, property, request):
@@ -558,7 +563,11 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     implements(ICalendarPrincipalResource)
 
     def davComplianceClasses(self):
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + ("calendar-access", "calendar-schedule")
+        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + (
+            "calendar-access",
+            "calendar-schedule",
+            "calendar-availability",
+        )
 
     liveProperties = DAVPrincipalResource.liveProperties + (
         (caldav_namespace, "calendar-home-set"        ),

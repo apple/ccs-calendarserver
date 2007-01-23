@@ -21,7 +21,10 @@ iCalendar Recurrence Expansion Utilities
 """
 
 import datetime
+
 from twistedcaldav.dateops import normalizeForIndex, compareDateTime, differenceDateTime, periodEnd
+
+from vobject.icalendar import utc
 
 # The maximum number of instances we will ezpand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
@@ -113,7 +116,7 @@ class InstanceList(object):
         @param limit: datetime.date value representing the end of the expansion.
         """
         
-        # Look at each VEVENT, VTODO, VJOURNAL
+        # Look at each component type
         overrides = []
         for component in componentSet:
             if component.name() == "VEVENT":
@@ -131,6 +134,14 @@ class InstanceList(object):
                 raise NotImplementedError("VJOURNAL recurrence expansion not supported yet")
             elif component.name() == "VFREEBUSY":
                 self._addFreeBusyComponent(component, limit)
+            elif component.name() == "VAVAILABILITY":
+                self._addAvailabilityComponent(component, limit)
+            elif component.name() == "AVAILABLE":
+                if component.hasProperty("RECURRENCE-ID"):
+                    overrides.append(component)
+                else:
+                    # AVAILABLE components are just like VEVENT components
+                    self._addMasterEventComponent(component, limit)
             
         for component in overrides:
             if component.name() == "VEVENT":
@@ -140,6 +151,9 @@ class InstanceList(object):
             elif component.name() == "VJOURNAL":
                 #TODO: VJOURNAL
                 raise NotImplementedError("VJOURNAL recurrence expansion not supported yet")
+            elif component.name() == "AVAILABLE":
+                # AVAILABLE components are just like VEVENT components
+                self._addOverrideEventComponent(component)
 
     def addInstance(self, instance):
         """
@@ -347,4 +361,29 @@ class InstanceList(object):
                 start = normalizeForIndex(period[0])
                 end = normalizeForIndex(periodEnd(period))
                 self.addInstance(Instance(component, start, end))
-       
+
+    def _addAvailabilityComponent(self, component, limit):
+        """
+        Add the specified master VAVAILABILITY Component to the instance list, expanding it
+        within the supplied time range. VAVAILABILITY components are not recurring, they have an
+        optional DTSTART and DTEND/DURATION defining a single time-range which may be bounded
+        depedning on the presence of the properties. If unbounded at one or both ends, we will
+        set the time to 1/1/1900 in the past and 1/1/3000 in the future.
+        @param component: the Component to expand
+        @param limit: the end datetime.datetime for expansion
+        """
+
+        start = component.getStartDateUTC()
+        if start is not None and (compareDateTime(start, limit) >= 0):
+            # If the free busy is beyond the end of the range we want, ignore it
+            return
+        if start is None:
+            start = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+        start = normalizeForIndex(start)
+
+        end = component.getEndDateUTC()
+        if end is None:
+            end = datetime.datetime(3000, 1, 1, 0, 0, 0, tzinfo=utc)
+        end = normalizeForIndex(end)
+
+        self.addInstance(Instance(component, start, end))

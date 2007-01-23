@@ -898,28 +898,28 @@ class ComponentFilter (CalDAVFilterElement):
                 log.msg("Top-level comp-filter must be VCALENDAR, instead: %s" % (self.filter_name,))
                 return False
         elif level == 1:
-            # Dissallow VCALENDAR, VALARM, STANDARD, DAYLIGHT at the top, everything else is OK
-            if self.filter_name in ("VCALENDAR", "VALARM", "STANDARD", "DAYLIGHT"):
+            # Dissallow VCALENDAR, VALARM, STANDARD, DAYLIGHT, AVAILABLE at the top, everything else is OK
+            if self.filter_name in ("VCALENDAR", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE"):
                 log.msg("comp-filter wrong component type: %s" % (self.filter_name,))
                 return False
             
-            # time-range only on VEVENT, VTODO, VJOURNAL, VFREEBUSY
-            if timerange and self.filter_name not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY"):
+            # time-range only on VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY
+            if timerange and self.filter_name not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY"):
                 log.msg("time-range cannot be used with component %s" % (self.filter_name,))
                 return False
         elif level == 2:
-            # Dissallow VCALENDAR, VTIMEZONE, VEVENT, VTODO, VJOURNAL, VFREEBUSY at the top, everything else is OK
-            if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY")):
+            # Dissallow VCALENDAR, VTIMEZONE, VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY at the top, everything else is OK
+            if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY")):
                 log.msg("comp-filter wrong sub-component type: %s" % (self.filter_name,))
                 return False
             
-            # time-range only on VALARM
-            if timerange and self.filter_name not in ("VALARM",):
+            # time-range only on VALARM, AVAILABLE
+            if timerange and self.filter_name not in ("VALARM", "AVAILABLE",):
                 log.msg("time-range cannot be used with sub-component %s" % (self.filter_name,))
                 return False
         else:
             # Dissallow all std iCal components anywhere else
-            if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VALARM", "STANDARD", "DAYLIGHT")) or timerange:
+            if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE")) or timerange:
                 log.msg("comp-filter wrong standard component type: %s" % (self.filter_name,))
                 return False
         

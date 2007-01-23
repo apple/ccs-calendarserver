@@ -503,8 +503,8 @@ case "${USER}" in
     base="http://svn.osafoundation.org";
     ;;
 esac;
-svn_uri="${base}/vobject/trunk";
-svn_get "vObject" "${vobject}" "${svn_uri}" 164;
+svn_uri="${base}/vobject/branches/users/cdaboo/vavailability-173";
+svn_get "vObject" "${vobject}" "${svn_uri}" 178;
 
 if ! "${disable_setup}"; then
   # Avoid having to download setuptools to build vobject
