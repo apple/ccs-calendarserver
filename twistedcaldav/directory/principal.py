@@ -104,15 +104,33 @@ class DirectoryPrincipalProvisioningResource (
         return self.principalForShortName(record.recordType, record.shortName)
 
     def _principalForURI(self, uri):
-        scheme, host, path, params, query, fragment = urlparse(uri)
+        scheme, netloc, path, params, query, fragment = urlparse(uri)
 
         if scheme == "":
             pass
+
         elif scheme in ("http", "https"):
-            # FIXME: Check that the hostname matches this server
-            # This means we need to know our hostname/port combos
-            log.msg("**** %s" % (host,))
-            pass
+            # Get rid of possible user/password nonsense
+            netloc = netloc.split("@", 1)[-1]
+
+            # Get host/port
+            netloc = netloc.split(":", 1)
+
+            host = netloc[0]
+            if len(netloc) == 1 or netloc[1] == "":
+                port = 80
+            else:
+                port = int(netloc[1])
+
+            if host != config.ServerHostName:
+                return None
+
+            if port != {
+                "http" : config.Port,
+                "https": config.SSLPort,
+            }[scheme]:
+                return None
+
         elif scheme == "urn":
             if path.startswith("uuid:"):
                 return self.principalForGUID(path[5:])
@@ -143,11 +161,10 @@ class DirectoryPrincipalProvisioningResource (
             return principal
 
         # Next try looking it up in the directory
-        for addr in addresses:
-            record = self.directory.recordWithCalendarUserAddress(addr)
-            if record is not None:
-                return self.principalForRecord(record)
-        
+        record = self.directory.recordWithCalendarUserAddress(address)
+        if record is not None:
+            return self.principalForRecord(record)
+
         return None
 
     ##
