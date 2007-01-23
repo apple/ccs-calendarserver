@@ -34,6 +34,9 @@ limitations under the License.
     <string>127.0.0.1</string>
   </array>
 
+  <key>ServerHostName</key>
+  <string>localhost</string>
+
   <key>Port</key>
   <integer>8008</integer>
 
