@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from urllib import unquote
+from urlparse import urlparse
 
 from twisted.python import log
 from twisted.python.failure import Failure
@@ -103,25 +104,35 @@ class DirectoryPrincipalProvisioningResource (
         return self.principalForShortName(record.recordType, record.shortName)
 
     def _principalForURI(self, uri):
-        if uri.startswith(self._url):
-            path = uri[len(self._url) - 1:]
+        scheme, host, path, params, query, fragment = urlparse(uri)
+
+        if scheme == "":
+            pass
+        elif scheme in ("http", "https"):
+            # FIXME: Check that the hostname matches this server
+            # This means we need to know our hostname/port combos
+            log.msg("**** %s" % (host,))
+            pass
+        elif scheme == "urn":
+            if path.startswith("uuid:"):
+                return self.principalForGUID(path[5:])
+            else:
+                return None
         else:
-            #TODO: figure out absolute URIs
-            #absuri = request.unparseURL(path=self._url)
-            #if uri.startswith(absuri):
-            #    path = uri[len(absuri) - 1:]
-            #else:
-            #    path = None
-            path = None
-        
-        if path:
-            segments = [unquote(s) for s in path.rstrip("/").split("/")]
-            if segments[0] == "" and len(segments) == 3:
-                typeResource = self.getChild(segments[1])
-                if typeResource is not None:
-                    principalResource = typeResource.getChild(segments[2])
-                    if principalResource:
-                        return principalResource
+            return None
+
+        if not path.startswith(self._url):
+            return None
+
+        path = path[len(self._url) - 1:]
+
+        segments = [unquote(s) for s in path.rstrip("/").split("/")]
+        if segments[0] == "" and len(segments) == 3:
+            typeResource = self.getChild(segments[1])
+            if typeResource is not None:
+                principalResource = typeResource.getChild(segments[2])
+                if principalResource:
+                    return principalResource
             
         return None
 
@@ -131,16 +142,6 @@ class DirectoryPrincipalProvisioningResource (
         if principal:
             return principal
 
-        # Special case server absolute URIs
-        if address.startswith("http:") or address.startswith("https:"):
-            if address.endswith("/"):
-                altaddress = address[:-1]
-            else:
-                altaddress = address + "/"
-            addresses = (address, altaddress,)
-        else:
-            addresses = (address,)
-                
         # Next try looking it up in the directory
         for addr in addresses:
             record = self.directory.recordWithCalendarUserAddress(addr)
