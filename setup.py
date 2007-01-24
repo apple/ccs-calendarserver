@@ -100,23 +100,49 @@ if 'install' in dist.commands:
     root = dist.command_obj['install'].root
     base = dist.command_obj['install'].install_base
 
-    caldavdPath = os.path.join(install_scripts, 'caldavd')
-
     if root:
         install_lib = install_lib[len(root):]
 
-    print "rewriting %s" % (caldavdPath,)
+    for script in dist.scripts:
+        scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-    caldavd = []
-    for line in file(caldavdPath, 'r'):
-        line = line.rstrip('\n')
-        if line == '#PYTHONPATH':
-            caldavd.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
-        elif line == '#PATH':
-            caldavd.append('PATH="%s:$PATH"' % (os.path.join(base, 'bin'),))
-        else:
-            caldavd.append(line)
+        print "rewriting %s" % (scriptPath,)
 
-    newCaldavd = open(caldavdPath, 'w')
-    newCaldavd.write('\n'.join(caldavd))
-    newCaldavd.close()
+        script = []
+    
+        fileType = None
+
+        for line in file(scriptPath, 'r'):
+            if not fileType:
+                if line.startswith('#!'):
+                    if 'python' in line.lower():
+                        fileType = 'python'
+                    elif 'sh' in line.lower():
+                        fileType = 'sh'
+
+            line = line.rstrip('\n')
+            if fileType == 'sh':
+                if line == '#PYTHONPATH':
+                    script.append(
+                        'PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+                elif line == '#PATH':
+                    script.append(
+                        'PATH="%s:$PATH"' % (os.path.join(base, 'bin'),))
+                else:
+                    script.append(line)
+
+            elif fileType == 'python':
+                if line == '#PYTHONPATH':
+                    script.append('PYTHONPATH="%s"' % (install_lib,))
+                elif line == '#PATH':
+                    script.append(
+                        'PATH="%s"' % (os.path.join(base, 'bin'),))
+                else:
+                    script.append(line)
+
+            else:
+                script.append(line)
+
+        newScript = open(scriptPath, 'w')
+        newScript.write('\n'.join(script))
+        newScript.close()

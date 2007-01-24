@@ -19,6 +19,11 @@
 
 import sys, os
 
+#PYTHONPATH
+
 if __name__ == '__main__':
+   if PYTHONPATH in globals():
+      sys.path.insert(0, PYTHONPATH)
+
    from twistedcaldav.admin.script import run
    run()
