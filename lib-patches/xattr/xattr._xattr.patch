@@ -1,0 +1,157 @@
+Index: Modules/xattr/_xattr.c
+===================================================================
+--- Modules/xattr/_xattr.c	(revision 984)
++++ Modules/xattr/_xattr.c	(working copy)
+@@ -365,7 +365,12 @@
+ static PyObject *
+ xattr_error_with_filename(char *name)
+ {
+-    return PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
++    PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
++    if(name != NULL) {
++        PyMem_Free(name);
++    }
++    
++    return NULL;
+ }
+ 
+ PyDoc_STRVAR(pydoc_getxattr,
+@@ -397,13 +402,16 @@
+         Py_BEGIN_ALLOW_THREADS
+         res = xattr_getxattr((const char *)path, (const char *)name, NULL, 0, position, options);
+         Py_END_ALLOW_THREADS
+-        if (res == -1) {    
++        if (res == -1) {
++            PyMem_Free(name);
+             return xattr_error_with_filename(path);
+         }
+         size = res;
+     }
+     buffer = PyString_FromStringAndSize((char *)NULL, size);
+     if (buffer == NULL) {
++        PyMem_Free(path);
++        PyMem_Free(name);
+         return NULL;
+     }
+     Py_BEGIN_ALLOW_THREADS
+@@ -411,11 +419,14 @@
+     Py_END_ALLOW_THREADS
+     if (res == -1) {
+         Py_DECREF(buffer);
++        PyMem_Free(name);
+         return xattr_error_with_filename(path);
+     }
+     if (res != size) {
+         _PyString_Resize(&buffer, (int)res);
+     }
++    PyMem_Free(path);
++    PyMem_Free(name);
+     return buffer;
+ }
+ 
+@@ -448,13 +459,15 @@
+         Py_BEGIN_ALLOW_THREADS
+         res = xattr_fgetxattr(fd, (const char *)name, NULL, 0, position, options);
+         Py_END_ALLOW_THREADS
+-        if (res == -1) {    
++        if (res == -1) {
++            PyMem_Free(name);
+             return xattr_error();
+         }
+         size = res;
+     }
+     buffer = PyString_FromStringAndSize((char *)NULL, size);
+     if (buffer == NULL) {
++        PyMem_Free(name);
+         return NULL;
+     }
+     Py_BEGIN_ALLOW_THREADS
+@@ -462,11 +475,13 @@
+     Py_END_ALLOW_THREADS
+     if (res == -1) {
+         Py_DECREF(buffer);
++        PyMem_Free(name);
+         return xattr_error();
+     }
+     if (res != size) {
+         _PyString_Resize(&buffer, (int)res);
+     }
++    PyMem_Free(name);
+     return buffer;
+ }
+ 
+@@ -498,9 +513,15 @@
+     Py_BEGIN_ALLOW_THREADS
+     res = xattr_setxattr((const char *)path, (const char *)name, (void *)value, size, position, options);
+     Py_END_ALLOW_THREADS
++    
++    PyMem_Free(name);
++    
+     if (res) {
+-        return xattr_error_with_filename(path);
++            return xattr_error_with_filename(path);
+     }
++    
++    PyMem_Free(path);
++    
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+@@ -533,6 +554,9 @@
+     Py_BEGIN_ALLOW_THREADS
+     res = xattr_fsetxattr(fd, (const char *)name, (void *)value, size, position, options);
+     Py_END_ALLOW_THREADS
++
++    PyMem_Free(name);
++
+     if (res) {
+         return xattr_error();
+     }
+@@ -563,9 +587,15 @@
+     Py_BEGIN_ALLOW_THREADS
+     res = xattr_removexattr((const char *)path, (const char *)name, options);
+     Py_END_ALLOW_THREADS
++    
++    PyMem_Free(name);
++    
+     if (res) {
+         return xattr_error_with_filename(path);
+     }
++    
++    PyMem_Free(path);
++    
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+@@ -593,6 +623,9 @@
+     Py_BEGIN_ALLOW_THREADS
+     res = xattr_fremovexattr(fd, (const char *)name, options);
+     Py_END_ALLOW_THREADS
++    
++    PyMem_Free(name);
++    
+     if (res) {
+         return xattr_error();
+     }
+@@ -627,6 +660,7 @@
+     }
+     buffer = PyString_FromStringAndSize((char *)NULL, (int)res);
+     if (buffer == NULL) {
++        PyMem_Free(path);
+         return NULL;
+     }
+     Py_BEGIN_ALLOW_THREADS
+@@ -634,11 +668,13 @@
+     Py_END_ALLOW_THREADS
+     if (res == -1) {
+         Py_DECREF(buffer);
++        PyMem_Free(path);
+         return xattr_error_with_filename(path);
+     }
+     if (res != (ssize_t)PyString_GET_SIZE(buffer)) {
+         _PyString_Resize(&buffer, (int)res);
+     }
++    PyMem_Free(path);
+     return buffer;
+ }
+ 
