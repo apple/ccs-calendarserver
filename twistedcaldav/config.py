@@ -59,7 +59,7 @@ defaultConfig = {
             },
         'Kerberos': {
             'Enabled': False,
-            'ServicePrincipal': '',
+            'Realm': '',
             },
         },
 
