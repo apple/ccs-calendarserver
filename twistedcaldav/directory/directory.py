@@ -37,7 +37,11 @@ from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 
-from twistedcaldav.authkerb import NegotiateCredentials
+try:
+    from twistedcaldav.authkerb import NegotiateCredentials
+except ImportError:
+    NegotiateCredentials=None
+
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
 
@@ -94,7 +98,8 @@ class DirectoryService(object):
             raise UnauthorizedLogin("No such user: %s" % (user,))
 
         # Handle Kerberos as a separate behavior
-        if isinstance(credentials.credentials, NegotiateCredentials):
+        if NegotiateCredentials and isinstance(credentials.credentials, 
+                                               NegotiateCredentials):
             # If we get here with Kerberos, then authentication has already succeeded
             return (
                 credentials.authnPrincipal.principalURL(),
