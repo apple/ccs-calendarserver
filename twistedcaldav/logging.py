@@ -137,7 +137,7 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
             if isinstance(request.authnUser.children[0], davxml.HRef):
                 uid = str(request.authnUser.children[0])
                 if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uid:
-                    uid += " as %s" % (str(request.authzUser.children[0]),)
+                    uid = '"%s as %s"' % (uid, str(request.authzUser.children[0]),)
         
 
         self.logMessage(
