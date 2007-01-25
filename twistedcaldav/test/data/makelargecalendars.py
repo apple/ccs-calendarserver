@@ -18,22 +18,35 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
+import getopt
 import os
+import sys
 
-user_max = 99
-calendars = ("calendar.10", "calendar.100", "calendar.1000",)
+if __name__ == "__main__":
 
-for ctr in xrange(1, user_max + 1): 
-    path = "calendars/user/user%02d" % (ctr,)
+    user_max = 99
+    calendars = ("calendar.10", "calendar.100", "calendar.1000",)
 
-    try: os.makedirs(path)
-    except OSError: pass
+    options, args = getopt.getopt(sys.argv[1:], "n:")
 
-    try: os.makedirs(os.path.join(path, "calendar"))
-    except OSError: pass
-
-    for calendar in calendars:
-        if not os.path.isdir(os.path.join(path, calendar)):
-            print "Expanding %s to %s" % (calendar, path)
-            cmd = "tar -C %r -zx -f %r" % (path, calendar + ".tgz")
-            os.system(cmd)
+    for option, value in options:
+        if option == "-n":
+            user_max = int(value)
+        else:
+            print "Unrecognized option: %s" % (option,)
+            raise ValueError
+    
+    for ctr in xrange(1, user_max + 1): 
+        path = "calendars/users/user%02d" % (ctr,)
+    
+        try: os.makedirs(path)
+        except OSError: pass
+    
+        try: os.makedirs(os.path.join(path, "calendar"))
+        except OSError: pass
+    
+        for calendar in calendars:
+            if not os.path.isdir(os.path.join(path, calendar)):
+                print "Expanding %s to %s" % (calendar, path)
+                cmd = "tar -C %r -zx -f %r" % (path, calendar + ".tgz")
+                os.system(cmd)

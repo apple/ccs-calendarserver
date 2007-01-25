@@ -18,26 +18,37 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
+import getopt
 import os
+import sys
 import xattr
 
-user_max = 99
-calendars = ("calendar.1000",)
+if __name__ == "__main__":
 
-for ctr in xrange(1, user_max + 1): 
-    path = "calendars/user/user%02d" % (ctr,)
+    user_max = 99
 
-    try: os.makedirs(path)
-    except OSError: pass
+    options, args = getopt.getopt(sys.argv[1:], "n:")
 
-    try: os.makedirs(os.path.join(path, "calendar"))
-    except OSError: pass
+    for option, value in options:
+        if option == "-n":
+            user_max = int(value)
+        else:
+            print "Unrecognized option: %s" % (option,)
+            raise ValueError
 
-    for calendar in calendars:
+    for ctr in xrange(1, user_max + 1): 
+        path = "calendars/users/user%02d" % (ctr,)
+    
+        try: os.makedirs(path)
+        except OSError: pass
+    
+        try: os.makedirs(os.path.join(path, "calendar"))
+        except OSError: pass
+    
         inboxname = os.path.join(path, "inbox")
         attrs = xattr.xattr(inboxname)
         attrs["WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"] = """<?xml version='1.0' encoding='UTF-8'?>
-<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>
-  <href xmlns='DAV:'>/calendars/user/user%02d/calendar/</href>
-  <href xmlns='DAV:'>/calendars/user/user%02d/calendar.1000/</href>
-</calendar-free-busy-set>""" % (ctr, ctr,)
+    <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>
+      <href xmlns='DAV:'>/calendars/users/user%02d/calendar/</href>
+      <href xmlns='DAV:'>/calendars/users/user%02d/calendar.1000/</href>
+    </calendar-free-busy-set>""" % (ctr, ctr,)
