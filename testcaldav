@@ -71,6 +71,10 @@ else
   svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
 fi;
 
+if [ ! -e "${documentroot}/calendars/users/user01" ]; then
+	curl "http://localhost:8008/calendars/users/user01/";
+fi;
+
 cd "${documentroot}" && python makelargecalendars.py -n 1;
 
 cd "${cdt}" && python testcaldav.py -r "${documentroot}" -s "${serverinfo}" "$@";
