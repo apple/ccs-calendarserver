@@ -441,7 +441,7 @@ fi;
 if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
-  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.4/ 992;
+  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.4 992;
   py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
 
