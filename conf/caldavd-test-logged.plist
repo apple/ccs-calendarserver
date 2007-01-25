@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>Verbose</key>
+  <false/>
+
+  <key>RunStandalone</key>
+  <true/>
+
+  <key>DocumentRoot</key>
+  <string>twistedcaldav/test/data/</string>
+
+  <key>BindAddress</key>
+  <array>
+    <string>127.0.0.1</string>
+  </array>
+
+  <key>ServerHostName</key>
+  <string>localhost</string>
+
+  <key>Port</key>
+  <integer>8008</integer>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>SSLEnable</key>
+  <true/>
+
+  <key>SSLOnly</key>
+  <false/>
+
+  <key>SSLPrivateKey</key>
+  <string>conf/server.pem</string>
+
+  <key>SSLCertificate</key>
+  <string>conf/server.pem</string>
+
+  <key>ServerLogFile</key>
+  <string>logs/server.log</string>
+
+  <key>ErrorLogFile</key>
+  <string>logs/error.log</string>
+
+  <key>ServerStatsFile</key>
+  <string>logs/stats.plist</string>
+
+  <key>PIDFile</key>
+  <string>logs/caldavd.pid</string>
+
+  <!--  XML File Directory Service -->
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+  
+    <key>params</key>
+    <dict>
+      <key>xmlFile</key>
+      <string>conf/accounts-test.xml</string>
+    </dict>
+  </dict>
+
+  <!--  Open Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
+  
+    <key>params</key>
+    <dict>
+      <key>node</key>
+      <string>/Search</string>
+    </dict>
+  </dict>
+  -->
+  
+  <!--  Apache-style Basic Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.apache.BasicDirectoryService</string>
+  
+    <key>params</key>
+    <dict>
+      <key>userFile</key>
+      <string>conf/basic</string>
+      <key>groupFile</key>
+      <string>conf/group</string>
+    </dict>
+  </dict>
+  -->
+
+  <!--  Apache-style Digest Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.apache.DigestDirectoryService</string>
+  
+    <key>params</key>
+    <dict>
+      <key>userFile</key>
+      <string>conf/digest</string>
+      <key>groupFile</key>
+      <string>conf/group</string>
+    </dict>
+  </dict>
+  -->
+
+  <!--  SQL Directory Service -->
+  <!--
+  <key>DirectoryService</key>
+  <dict>
+    <key>type</key>
+    <string>twistedcaldav.directory.sqldb.SQLDirectoryService</string>
+  
+    <key>params</key>
+    <dict>
+      <key>dbParentPath</key>
+      <string>twistedcaldav/test/data/</string>
+      <key>xmlFile</key>
+      <string>conf/accounts-test.xml</string>
+    </dict>
+  </dict>
+  -->
+  
+  <key>MaximumAttachmentSizeBytes</key>
+  <integer>1048576</integer><!-- 1Mb -->
+
+  <key>UserQuotaBytes</key>
+  <integer>104857600</integer><!-- 100Mb -->
+
+  <key>DropBoxEnabled</key>
+  <true/>
+
+  <key>NotificationsEnabled</key>
+  <true/>
+
+  <key>CalendarUserProxyEnabled</key>
+  <true/>
+
+  <key>twistdLocation</key>
+  <string>../Twisted/bin/twistd</string>
+
+  <key>SACLEnable</key>
+  <false/>
+
+  <key>Authentication</key>
+  <dict>
+    <key>Basic</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+    </dict>
+    <key>Digest</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+      <key>Algorithm</key>
+      <string>md5</string>
+    </dict>
+    <key>Kerberos</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+      <key>ServicePrincipal</key>
+      <string></string>
+      <key>Realm</key>
+      <string></string>
+    </dict>
+  </dict>
+
+  <key>AdminPrincipals</key>
+  <array>
+    <string>/principals/users/admin/</string>
+  </array>
+
+  <key>SudoersFile</key>
+  <string>conf/sudoers.plist</string>
+  
+  <key>ServerType</key>
+  <string>singleprocess</string>
+  
+  <key>MultiProcess</key>
+  <dict>
+    <key>NumProcesses</key>
+    <integer>2</integer>
+
+    <key>LoadBalancer</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+
+      <key>Scheduler</key>
+      <!-- Least Connections -->
+      <string>leastconns</string>
+      <!-- Round Robin -->
+      <!-- <string>roundrobin</string> -->
+      <!-- Least Connections and Round Robin -->
+      <!-- <string>leastconnsrr</string> -->
+
+    </dict>    
+  </dict>
+
+  <key>pydirLocation</key>
+  <string>../pydirector-1.0.0/pydir.py</string>
+
+  <key>pydirConfig</key>
+  <string>conf/pydir.xml</string>
+</dict>
+</plist>
