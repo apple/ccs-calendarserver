@@ -71,6 +71,6 @@ else
   svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
 fi;
 
-cd "${documentroot}" && python "makelargecalendars.py";
+cd "${documentroot}" && python makelargecalendars.py -n 1;
 
-cd "${cdt}" && python testcaldav.py -s "${serverinfo}" "$@";
+cd "${cdt}" && python testcaldav.py -r "${documentroot}" -s "${serverinfo}" "$@";
