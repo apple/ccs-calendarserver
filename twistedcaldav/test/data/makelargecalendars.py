@@ -42,7 +42,7 @@ if __name__ == "__main__":
         try: os.makedirs(path)
         except OSError: pass
     
-        try: os.makedirs(os.path.join(path, "calendar"))
+        try: os.makedirs(path)
         except OSError: pass
     
         for calendar in calendars:
