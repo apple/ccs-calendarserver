@@ -127,6 +127,25 @@ class CalDAVOptions(Options):
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
 
+        # Verify that document root actually exists
+        self.checkDirectory(config.DocumentRoot, "Document root")
+            
+        # Verify that ssl certs exist if needed
+        if config.SSLEnable:
+            self.checkFile(config.SSLPrivateKey, "SSL Private key")
+            self.checkFile(config.SSLCertificate, "SSL Public key")
+
+    def checkDirectory(self, dirpath, description):
+        if not os.path.exists(dirpath):
+            raise ValueError("%s does not exist: %s" % (description, dirpath,))
+        elif not os.path.isdir(dirpath):
+            raise ValueError("%s is not a directory: %s" % (description, dirpath,))
+    
+    def checkFile(self, filepath, description):
+        if not os.path.exists(filepath):
+            raise ValueError("%s does not exist: %s" % (description, filepath,))
+        elif not os.path.isfile(filepath):
+            raise ValueError("%s is not a file: %s" % (description, filepath,))
 
 class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
