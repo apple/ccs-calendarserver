@@ -23,21 +23,25 @@ import os
 import sys
 
 if __name__ == "__main__":
-
+    wd = os.path.dirname(__file__)
+    document_root = "."
     user_max = 99
     calendars = ("calendar.10", "calendar.100", "calendar.1000",)
 
-    options, args = getopt.getopt(sys.argv[1:], "n:")
+    options, args = getopt.getopt(sys.argv[1:], "n:d:")
 
     for option, value in options:
         if option == "-n":
             user_max = int(value)
+        elif option == "-d":
+            document_root = os.path.abspath(value)
         else:
             print "Unrecognized option: %s" % (option,)
             raise ValueError
+
     
     for ctr in xrange(1, user_max + 1): 
-        path = "calendars/users/user%02d" % (ctr,)
+        path = os.path.join(document_root, "calendars/users/user%02d" % (ctr,))
     
         try: os.makedirs(path)
         except OSError: pass
@@ -48,5 +52,7 @@ if __name__ == "__main__":
         for calendar in calendars:
             if not os.path.isdir(os.path.join(path, calendar)):
                 print "Expanding %s to %s" % (calendar, path)
-                cmd = "tar -C %r -zx -f %r" % (path, calendar + ".tgz")
+                cmd = "tar -C %r -zx -f %r" % (path, 
+                                               os.path.join(wd, 
+                                                            calendar + ".tgz"))
                 os.system(cmd)
