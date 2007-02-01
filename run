@@ -209,7 +209,14 @@ apply_patches () {
         -print                                 \
         -exec patch -p0 --forward -i '{}' ';';
     cd /;
+
   fi;
+
+  echo ""
+  echo "Removing build directory ${path}/build..."
+  rm -rf "${path}/build";
+  echo "Removing pyc files from ${path}..."
+  find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm;
 }
 
 www_get () {
@@ -462,6 +469,9 @@ case "${USER}" in
 esac;
 svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-2";
 svn_get "Twisted" "${twisted}" "${svn_uri}" 18545;
+
+# No py_build step, since we tend to do edit Twisted, we want the sources in
+# PYTHONPATH, not a build directory.
 
 py_install "Twisted" "${twisted}";
  
