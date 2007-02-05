@@ -28,9 +28,10 @@ __all__ = [
 ]
 
 import urllib
+import cgi
 import time
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
 from twisted.web2.http_headers import MimeType
@@ -182,42 +183,40 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
         """
         Render a directory listing.
         """
-        pagetitle = "Directory listing for %s" % urllib.unquote(request.path)
-    
         output = [
             """<html>"""
             """<head>"""
-            """<title>%(title)s</title>"""
+            """<title>Collection listing for %(path)s</title>"""
             """<style>%(style)s</style>"""
             """</head>"""
             """<body>"""
             % {
-                "title": pagetitle,
+                "path": "%s" % cgi.escape(urllib.unquote(request.path)),
                 "style": self.directoryStyleSheet(),
             }
         ]
 
-        output.append(self.getDirectoryTable(urllib.unquote(request.uri)))
+        def gotTable(table):
+            output.append(table)
+            output.append("</body></html>")
 
-        output.append("</body></html>")
+            response = Response(200, {}, "".join(output))
+            response.headers.setHeader("content-type", MimeType("text", "html"))
+            return response
 
-        response = Response(200, {}, "".join(output))
-        response.headers.setHeader("content-type", MimeType("text", "html"))
-        return response
+        d = self.getDirectoryTable(request)
+        d.addCallback(gotTable)
+        return d
 
-    def getDirectoryTable(self, title):
+    def getDirectoryTable(self, request):
         """
         Generate a directory listing table in HTML.
         """
-    
         output = [
             """<div class="directory-listing">"""
-            """<h1>%(title)s</h1>"""
+            """<h1>Collection Listing</h1>"""
             """<table>"""
             """<tr><th>Name</th> <th>Size</th> <th>Last Modified</th> <th>MIME Type</th></tr>"""
-            % {
-                "title": title,
-            }
         ]
 
         even = False
@@ -237,19 +236,52 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
                 % {
                     "even": even and "even" or "odd",
                     "url": url,
-                    "name": name,
+                    "name": cgi.escape(name),
                     "size": size,
                     "lastModified": lastModified,
                     "type": contentType,
                 }
             )
             even = not even
-        output.append("</table></div>")
 
-        return "".join(output)
+        output.append(
+            """</table></div>"""
+            """<div class="directory-listing">"""
+            """<h1>Properties</h1>"""
+            """<table>"""
+            """<tr><th>Name</th> <th>Value</th></tr>"""
+        )
+
+        @deferredGenerator
+        def gotProperties(qnames):
+            even = False
+            for qname in qnames:
+                property = waitForDeferred(self.readProperty(qname, request))
+                yield property
+                property = property.getResult()
+
+                output.append(
+                    """<tr class="%(even)s">"""
+                    """<td>%(name)s</td>"""
+                    """<td><pre>%(value)s</pre></td>"""
+                    """</tr>"""
+                    % {
+                        "even": even and "even" or "odd",
+                        "name": property.sname(),
+                        "value": cgi.escape(property.toxml()),
+                    }
+                )
+                even = not even
+
+            output.append("</div>")
+
+            yield "".join(output)
+
+        d = self.listProperties(request)
+        d.addCallback(gotProperties)
+        return d
 
     def getChildDirectoryEntry(self, child, name):
-
         def orNone(value, default="?", f=None):
             if value is None:
                 return default

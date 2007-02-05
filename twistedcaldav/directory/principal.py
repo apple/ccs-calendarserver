@@ -344,7 +344,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             """</pre></blockquote></div>"""
         )
 
-        output.append(self.getDirectoryTable("Collection Listing"))
+        output.append(self.getDirectoryTable(request))
 
         output.append("</body></html>")
 
