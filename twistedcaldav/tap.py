@@ -171,6 +171,10 @@ class CalDAVServiceMaker(object):
         directories = []
         
         directoryClass = namedClass(config.DirectoryService['type'])
+        
+        log.msg("Configuring directory service of type: %s" % (
+            config.DirectoryService['type'],))
+        
         baseDirectory = directoryClass(**config.DirectoryService['params'])
 
         directories.append(baseDirectory)
@@ -178,11 +182,18 @@ class CalDAVServiceMaker(object):
         sudoDirectory = None
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
+            log.msg("Configuring SudoDirectoryService with file: %s" % (
+                config.SudoersFile,))
+                
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
 
             CalDAVResource.sudoDirectory = sudoDirectory
             directories.append(sudoDirectory)
+        else:
+            log.msg(
+                "Not using SudoDirectoryService file doesn't exist: %s" % (
+                config.SudoersFile,))
 
         directory = AggregateDirectoryService(directories)
 
@@ -194,7 +205,10 @@ class CalDAVServiceMaker(object):
         # Setup Resource hierarchy
         #
 
-        log.msg("Setting up document root: %s" % (config.DocumentRoot,))
+        log.msg("Setting up document root at: %s" % (config.DocumentRoot,))
+        
+        log.msg("Setting up principal collection: %r" % (
+            self.principalResourceClass,))
 
         principalCollection = self.principalResourceClass(
             os.path.join(config.DocumentRoot, 'principals'),
@@ -202,11 +216,16 @@ class CalDAVServiceMaker(object):
             directory
         )
 
+        log.msg("Setting up calendar collection: %r" % (
+            self.calendarResourceClass,))
+
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, 'calendars'),
             directory,
             '/calendars/'
         )
+        
+        log.msg("Setting up root resource: %r" % (self.rootResourceClass,))
         
         root = self.rootResourceClass(
             config.DocumentRoot, 
@@ -218,14 +237,20 @@ class CalDAVServiceMaker(object):
 
         # Configure default ACLs on the root resource
 
+        log.msg("Setting up default ACEs on root resource")
+
         rootACEs = [
             davxml.ACE(
                 davxml.Principal(davxml.All()),
                 davxml.Grant(davxml.Privilege(davxml.Read())),
             ),
         ]
+        
+        log.msg("Setting up AdminPrincipals")
 
         for principal in config.AdminPrincipals:
+            log.msg("Added %s as admin principal" % (principal,))
+            
             rootACEs.append(
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(principal)),
@@ -234,6 +259,8 @@ class CalDAVServiceMaker(object):
                     TwistedACLInheritable(),
                 )
             )
+
+        log.msg("Setting root ACL")
 
         root.setAccessControlList(davxml.ACL(*rootACEs))
 
@@ -249,12 +276,16 @@ class CalDAVServiceMaker(object):
 
         realm = directory.realmName or ""
 
+        log.msg("Configuring authentication for realm: %s" % (realm,))
+
         for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
 
             credFactory = None
-
+            
             if schemeConfig['Enabled']:
+                log.msg("Setting up scheme: %s" % (scheme,))
+                
                 if scheme == 'kerberos':
                     if not NegotiateCredentialFactory:
                         log.msg("Kerberos support not available")
@@ -271,8 +302,13 @@ class CalDAVServiceMaker(object):
                 elif scheme == 'basic':
                     credFactory = BasicCredentialFactory(realm)
 
+                else:
+                    log.err("Unknown scheme: %s" % (scheme,))
+
             if credFactory:
                 credentialFactories.append(credFactory)
+
+        log.msg("Configuring authentication wrapper")
 
         authWrapper = auth.AuthenticationWrapper(
             root,
@@ -286,7 +322,12 @@ class CalDAVServiceMaker(object):
         # Configure the service
         # 
 
+        log.msg("Setting up service")
+
         channel = http.HTTPFactory(site)
+
+        log.msg("Configuring rotating log observer for file: %s" % (
+            config.ServerLogFile,))
 
         logObserver = RotatingFileAccessLoggingObserver(config.ServerLogFile)
         
@@ -297,12 +338,18 @@ class CalDAVServiceMaker(object):
 
         for bindAddress in config.BindAddress:
             if not config.SSLOnly:
+                log.msg("Adding server at %s:%s" % (
+                    bindAddress, config.Port))
+                    
                 httpService = internet.TCPServer(int(config.Port), channel,
                                                  interface=bindAddress)
                 httpService.setServiceParent(service)
 
             if config.SSLEnable:
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
+                log.msg("Adding SSL server at %s:%s" % (
+                    bindAddress, config.Port))
+                
                 httpsService = internet.SSLServer(
                     int(config.SSLPort),
                     channel,
