@@ -285,7 +285,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     # HTTP
     ##
 
-    def render(self, request):
+    def renderDirectoryBody(self, request):
         def format_list(items, *args):
             def genlist():
                 try:
@@ -300,66 +300,38 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
                     yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
             return "".join(genlist())
 
-        output = [
-            """<html>"""
-            """<head>"""
-            """<title>%(title)s</title>"""
-            """<style>%(style)s</style>"""
-            """</head>"""
-            """<body>"""
-            """<div class="directory-listing">"""
-            """<h1>Principal Details</h1>"""
-            """<pre><blockquote>"""
-            % {
-                "title": unquote(request.uri),
-                "style": self.directoryStyleSheet(),
-            }
-        ]
-
         def link(url):
             return """<a href="%s">%s</a>""" % (url, url)
 
-        output.append("".join((
-            "Directory Information\n"
-            "---------------------\n"
-            "Directory GUID: %s\n"         % (self.record.service.guid,),
-            "Realm: %s\n"                  % (self.record.service.realmName,),
-            "\n"
-            "Principal Information\n"
-            "---------------------\n"
-            "GUID: %s\n"                   % (self.record.guid,),
-            "Record type: %s\n"            % (self.record.recordType,),
-            "Short name: %s\n"             % (self.record.shortName,),
-            "Full name: %s\n"              % (self.record.fullName,),
-            "Principal UID: %s\n"          % (self.principalUID(),),
-            "Principal URL: %s\n"          % (link(self.principalURL()),),
-            "\nAlternate URIs:\n"          , format_list(self.alternateURIs()),
-            "\nGroup members:\n"           , format_list(link(p.principalURL()) for p in self.groupMembers()),
-            "\nGroup memberships:\n"       , format_list(link(p.principalURL()) for p in self.groupMemberships()),
-            "\nCalendar homes:\n"          , format_list(link(u) for u in self.calendarHomeURLs()),
-            "\nCalendar user addresses:\n" , format_list(link(a) for a in self.calendarUserAddresses()),
-        )))
+        def gotSuper(output):
+            return "".join((
+                """<div class="directory-listing">"""
+                """<h1>Principal Details</h1>"""
+                """<pre><blockquote>"""
+                """Directory Information\n"""
+                """---------------------\n"""
+                """Directory GUID: %s\n"""         % (self.record.service.guid,),
+                """Realm: %s\n"""                  % (self.record.service.realmName,),
+                """\n"""
+                """Principal Information\n"""
+                """---------------------\n"""
+                """GUID: %s\n"""                   % (self.record.guid,),
+                """Record type: %s\n"""            % (self.record.recordType,),
+                """Short name: %s\n"""             % (self.record.shortName,),
+                """Full name: %s\n"""              % (self.record.fullName,),
+                """Principal UID: %s\n"""          % (self.principalUID(),),
+                """Principal URL: %s\n"""          % (link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(self.alternateURIs()),
+                """\nGroup members:\n"""           , format_list(link(p.principalURL()) for p in self.groupMembers()),
+                """\nGroup memberships:\n"""       , format_list(link(p.principalURL()) for p in self.groupMemberships()),
+                """\nCalendar homes:\n"""          , format_list(link(u) for u in self.calendarHomeURLs()),
+                """\nCalendar user addresses:\n""" , format_list(link(a) for a in self.calendarUserAddresses()),
+                """</pre></blockquote></div>""",
+                output
+            ))
 
-        output.append("</pre></blockquote></div>")
-
-        def gotTable(table, output=output):
-            output.append(table)
-            output.append("</body></html>")
-            output = "".join(output)
-
-            if type(output) == unicode:
-                output = output.encode("utf-8")
-                mime_params = {"charset": "utf-8"}
-            else:
-                mime_params = {}
-
-            response = Response(code=responsecode.OK, stream=output)
-            response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
-
-            return response
-
-        d = self.getDirectoryTable(request)
-        d.addCallback(gotTable)
+        d = super(DirectoryPrincipalResource, self).renderDirectoryBody(request)
+        d.addCallback(gotSuper)
         return d
 
     ##

@@ -205,11 +205,11 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
             response.headers.setHeader("content-type", MimeType("text", "html"))
             return response
 
-        d = self.getDirectoryTable(request)
+        d = self.renderDirectoryBody(request)
         d.addCallback(gotTable)
         return d
 
-    def getDirectoryTable(self, request):
+    def renderDirectoryBody(self, request):
         """
         Generate a directory listing table in HTML.
         """
