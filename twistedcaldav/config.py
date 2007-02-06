@@ -48,6 +48,7 @@ defaultConfig = {
     'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
     'UserQuotaBytes': 104857600,
     'Verbose': False,
+    'ServerHostName': 'localhost',
     'SACLEnable': False,
     'Authentication': {
         'Basic': {
