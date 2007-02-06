@@ -341,14 +341,14 @@ class OpenDirectoryService(DirectoryService):
             log.msg("Reloading %s record cache" % (recordType,))
 
             query = {
-                dsattributes.kDSNAttrCalendarPrincipalURI: self.servicetag,
+                dsattributes.kDSNAttrServicesLocator: self.servicetag,
             }
     
             attrs = [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
                 dsattributes.kDSNAttrEMailAddress,
-                dsattributes.kDSNAttrCalendarPrincipalURI,
+                dsattributes.kDSNAttrServicesLocator,
             ]
 
             if recordType == DirectoryService.recordType_users:
@@ -382,7 +382,7 @@ class OpenDirectoryService(DirectoryService):
             for (key, value) in results.iteritems():
                 # Make sure this user has service enabled.
                 enabled = True
-                service = value.get(dsattributes.kDSNAttrCalendarPrincipalURI)
+                service = value.get(dsattributes.kDSNAttrServicesLocator)
                 if isinstance(service, str):
                     service = [service]
                 for item in service:
