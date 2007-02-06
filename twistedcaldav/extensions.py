@@ -31,6 +31,7 @@ import urllib
 import cgi
 import time
 
+from twisted.python import log
 from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -258,7 +259,17 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
             for qname in qnames:
                 property = waitForDeferred(self.readProperty(qname, request))
                 yield property
-                property = property.getResult()
+                try:
+                    property = property.getResult()
+                    name = property.sname()
+                    value = property.toxml()
+                except HTTPError, e:
+                    if e.response.code != responsecode.UNAUTHORIZED:
+                        log.err("Unable to read property %s for dirlist: %s" % (qname, e))
+                        raise
+
+                    name = "{%s}%s" % qname
+                    value = "(access forbidden)"
 
                 output.append(
                     """<tr class="%(even)s">"""
@@ -267,8 +278,8 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
                     """</tr>"""
                     % {
                         "even": even and "even" or "odd",
-                        "name": property.sname(),
-                        "value": cgi.escape(property.toxml()),
+                        "name": name,
+                        "value": cgi.escape(value),
                     }
                 )
                 even = not even
