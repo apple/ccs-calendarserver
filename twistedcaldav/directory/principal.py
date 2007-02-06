@@ -340,25 +340,27 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             "\nCalendar user addresses:\n" , format_list(link(a) for a in self.calendarUserAddresses()),
         )))
 
-        output.append(
-            """</pre></blockquote></div>"""
-        )
+        output.append("</pre></blockquote></div>")
 
-        output.append(self.getDirectoryTable(request))
+        def gotTable(table, output=output):
+            output.append(table)
+            output.append("</body></html>")
+            output = "".join(output)
 
-        output.append("</body></html>")
+            if type(output) == unicode:
+                output = output.encode("utf-8")
+                mime_params = {"charset": "utf-8"}
+            else:
+                mime_params = {}
 
-        output = "".join(output)
-        if type(output) == unicode:
-            output = output.encode("utf-8")
-            mime_params = {"charset": "utf-8"}
-        else:
-            mime_params = {}
+            response = Response(code=responsecode.OK, stream=output)
+            response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
 
-        response = Response(code=responsecode.OK, stream=output)
-        response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
+            return response
 
-        return response
+        d = self.getDirectoryTable(request)
+        d.addCallback(gotTable)
+        return d
 
     ##
     # DAV
