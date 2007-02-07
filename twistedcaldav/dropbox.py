@@ -143,7 +143,14 @@ class DropBoxCollectionResource (DAVResource):
         autosubs = d.getResult()
         principals.update(autosubs)
         
+        my_principal = self.currentPrincipal(request)
+
         for principal in principals:
+
+            # Don't send a notification to the principal that generated it
+            if principal == my_principal:
+                continue
+
             if not isinstance(principal.children[0], davxml.HRef):
                 continue
             purl = str(principal.children[0])
