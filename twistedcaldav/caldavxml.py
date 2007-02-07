@@ -1107,7 +1107,7 @@ class TextMatch (CalDAVTextElement):
             elif caseless == "no":
                 self.caseless = False
         else:
-            self.caseless = None
+            self.caseless = True
 
         if "negate-condition" in attributes:
             negate = attributes["negate-condition"]
