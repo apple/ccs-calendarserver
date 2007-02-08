@@ -49,6 +49,12 @@ limitations under the License.
   <key>SSLOnly</key>
   <false/>
 
+  <key>Username</key>
+  <string></string>
+
+  <key>Groupname</key>
+  <string></string>
+
   <key>SSLPrivateKey</key>
   <string>conf/server.pem</string>
 

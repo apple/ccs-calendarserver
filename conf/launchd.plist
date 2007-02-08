@@ -30,10 +30,6 @@ limitations under the License.
   <array>
     <string>/usr/sbin/caldavd</string>
     <string>-X</string>
-    <string>-u</string>
-    <string>calendar</string>
-    <string>-g</string>
-    <string>calendar</string>
   </array>
 
   <key>InitGroups</key>

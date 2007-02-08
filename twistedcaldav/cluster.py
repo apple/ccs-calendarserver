@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 from twisted.runner import procmon
-
+from twisted.scripts.mktap import getid
 from twistedcaldav.config import config
 
 serviceTemplate = """
@@ -54,10 +54,6 @@ class TwistdSlaveProcess(object):
         self.port = port
         self.sslPort = sslPort
 
-        self.pidFile = os.path.join(
-            os.path.dirname(config.PIDFile),
-            '%s.pid' % (self.getName(),))
-
         self.interfaces = interfaces
 
     def getName(self):
@@ -69,13 +65,17 @@ class TwistdSlaveProcess(object):
     def getCommandLine(self):
         return [
             sys.executable,
-            self.twistd, '-n', 'caldav', 
+            self.twistd,
+            '-u', config.Username,
+            '-g', config.Groupname,
+            '-n', 'caldav',
             '-f', self.configFile,
-            '-o', 'ServerType=singleprocess',
+            '-o', 'ServerType=slave',
             '-o', 'BindAddress=%s' % (','.join(self.interfaces),),
             '-o', 'Port=%s' % (self.port,),
             '-o', 'SSLPort=%s' % (self.sslPort,),
-            '-o', 'PIDFile=%s' % (self.pidFile,)]
+            '-o', 'PIDFile=None',
+            '-o', 'ErrorLogFile=None']
     
     def getHostLine(self, ssl=None):
         name = self.getName()
@@ -106,8 +106,9 @@ def makeService_multiprocess(self, options):
         bindAddress = config.BindAddress
 
     for p in xrange(0, config.MultiProcess['NumProcesses']):
-        port += 1
-        sslport += 1
+        if int(config.MultiProcess['NumProcesses']) > 1:
+            port += 1
+            sslport += 1
 
         process = TwistdSlaveProcess(config.twistdLocation,
                                      options['config'],
@@ -116,8 +117,6 @@ def makeService_multiprocess(self, options):
 
         service.addProcess(process.getName(),
                            process.getCommandLine(),
-                           uid=options.parent['uid'],
-                           gid=options.parent['gid'],
                            env=parentEnv)
         
         if not config.SSLOnly:
@@ -126,7 +125,8 @@ def makeService_multiprocess(self, options):
         if config.SSLEnable:
             sslHosts.append(process.getHostLine(ssl=True))
 
-    if config.MultiProcess['LoadBalancer']['Enabled']: 
+    if (config.MultiProcess['LoadBalancer']['Enabled'] and 
+        config.MultiProcess['NumProcesses'] > 1):
         services = []
 
         if not config.BindAddress:

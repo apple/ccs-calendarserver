@@ -36,6 +36,12 @@ limitations under the License.
   <key>ServerHostName</key>
   <string>localhost</string>
 
+  <key>Username</key>
+  <string>calendar</string>
+
+  <key>Groupname</key>
+  <string>calendar</string>
+
   <key>Port</key>
   <integer>8008</integer>
 
@@ -64,7 +70,7 @@ limitations under the License.
   <string>/var/log/caldavd/error.log</string>
 
   <key>PIDFile</key>
-  <string>/var/log/caldavd/caldavd.pid</string>
+  <string>/var/run/caldavd.pid</string>
 
   <!--  XML File Directory Service -->
   <!--
@@ -145,12 +151,12 @@ limitations under the License.
   <key>SudoersFile</key>
   <string>/etc/caldavd/sudoers.plist</string>
   <key>ServerType</key>
-  <string>singleprocess</string>
+  <string>multiprocess</string>
   
   <key>MultiProcess</key>
   <dict>
     <key>NumProcesses</key>
-    <integer>0</integer>
+    <integer>1</integer>
 
     <key>LoadBalancer</key>
     <dict>
