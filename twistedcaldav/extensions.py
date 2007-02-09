@@ -273,7 +273,7 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
 
                 output.append(
                     """<tr class="%(even)s">"""
-                    """<td>%(name)s</td>"""
+                    """<td valign="top">%(name)s</td>"""
                     """<td><pre>%(value)s</pre></td>"""
                     """</tr>"""
                     % {
