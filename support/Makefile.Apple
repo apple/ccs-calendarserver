@@ -93,7 +93,7 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)/Documents
 	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) $(DSTROOT)$(VARDIR)/log/caldavd
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
-	$(_v) $(INSTALL_FILE) $(Sources)/conf/launchd.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.darwin.calendarserver.plist
+	$(_v) $(INSTALL_FILE) $(Sources)/conf/launchd.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist
 	$(_v) $(MKDIR) $(DSTROOT)$(ETCDIR)/sbs_backup/
 	$(_v) $(MKDIR) $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
 	$(_v) $(INSTALL_FILE) $(Sources)/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/sbs_backup/

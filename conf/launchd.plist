@@ -21,7 +21,7 @@ limitations under the License.
 <dict>
 
   <key>Label</key>
-  <string>org.darwin.calendarserver</string>
+  <string>org.calendarserver.calendarserver</string>
 
   <key>Disabled</key>
   <true/>
