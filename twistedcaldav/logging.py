@@ -141,7 +141,7 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
         
 
         self.logMessage(
-            '%s - %s [%s] "%s" %s %d "%s" "%s"' %(
+            '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]' %(
                 request.remoteAddr.host,
                 uid,
                 self.logDateString(
@@ -150,7 +150,8 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
                 response.code,
                 loginfo.bytesSent,
                 request.headers.getHeader('referer', '-'),
-                request.headers.getHeader('user-agent', '-')
+                request.headers.getHeader('user-agent', '-'),
+                (time.time() - request.initTime) * 1000,
                 )
             )
 

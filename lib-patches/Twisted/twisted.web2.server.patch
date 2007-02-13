@@ -10,7 +10,17 @@ Index: twisted/web2/server.py
  
  from twisted.web2 import version as web2_version
  from twisted import __version__ as twisted_version
-@@ -150,17 +151,32 @@
+@@ -143,6 +144,9 @@
+                        error.defaultErrorHandler, defaultHeadersFilter]
+     
+     def __init__(self, *args, **kw):
++        
++        self.initTime = time.time()
++
+         if kw.has_key('site'):
+             self.site = kw['site']
+             del kw['site']
+@@ -150,17 +154,32 @@
              self._initialprepath = kw['prepathuri']
              del kw['prepathuri']
  
@@ -46,7 +56,7 @@ Index: twisted/web2/server.py
  
      def unparseURL(self, scheme=None, host=None, port=None,
                     path=None, params=None, querystring=None, fragment=None):
-@@ -265,6 +281,7 @@
+@@ -265,6 +284,7 @@
          
          d = defer.Deferred()
          d.addCallback(self._getChild, self.site.resource, self.postpath)
@@ -54,7 +64,7 @@ Index: twisted/web2/server.py
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -320,8 +337,6 @@
+@@ -320,8 +340,6 @@
                      url = "/" + "/".join(path)
                  else:
                      url = "/"
@@ -63,7 +73,7 @@ Index: twisted/web2/server.py
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -342,17 +357,16 @@
+@@ -342,17 +360,16 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
@@ -85,7 +95,7 @@ Index: twisted/web2/server.py
  
      def urlForResource(self, resource):
          """
-@@ -367,10 +381,7 @@
+@@ -367,10 +384,7 @@
  
          @return: the URL of C{resource} if known, otherwise C{None}.
          """
@@ -97,7 +107,7 @@ Index: twisted/web2/server.py
  
      def locateResource(self, url):
          """
-@@ -385,7 +396,8 @@
+@@ -385,7 +399,8 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -107,7 +117,7 @@ Index: twisted/web2/server.py
  
          #
          # Parse the URL
-@@ -406,19 +418,71 @@
+@@ -406,19 +421,71 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
