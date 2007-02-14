@@ -94,6 +94,10 @@ class Config (object):
         for key, value in items:
             setattr(self, key, value)
 
+class ConfigurationError (RuntimeError):
+    """
+    Invalid server configuration.
+    """
 
 config = Config(defaultConfig)
 
