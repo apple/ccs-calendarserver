@@ -36,7 +36,7 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 
-from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.resource import CalendarPrincipalResource
 from twistedcaldav.sql import AbstractSQLDatabase
@@ -66,10 +66,18 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, CalendarPrincipalResource, DAVFile):
+class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Calendar user proxy principal resource.
     """
+
+    def davComplianceClasses(self):
+        return tuple(super(CalendarUserProxyPrincipalResource, self).davComplianceClasses()) + (
+            "calendar-access",
+            "calendar-schedule",
+            "calendar-availability",
+        )
+
     def __init__(self, path, parent, proxyType):
         """
         @param path: the path to the file which will back this resource.
@@ -110,6 +118,9 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
+    def isCollection(self):
+        return True
+
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -145,12 +156,12 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     # HTTP
     ##
 
-    def render(self, request):
-        def format_list(method, *args):
+    def renderDirectoryBody(self, request):
+        def format_list(items, *args):
             def genlist():
                 try:
                     item = None
-                    for item in method(*args):
+                    for item in items:
                         yield " -> %s\n" % (item,)
                     if item is None:
                         yield " '()\n"
@@ -160,61 +171,42 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                     yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
             return "".join(genlist())
 
-        output = [
-            """<html>"""
-            """<head>"""
-            """<title>%(title)s</title>"""
-            """<style>%(style)s</style>"""
-            """</head>"""
-            """<body>"""
-            """<div class="directory-listing">"""
-            """<h1>Proxy Principal Details</h1>"""
-            """<pre><blockquote>"""
-            % {
-                "title": unquote(request.uri),
-                "style": self.directoryStyleSheet(),
-            }
-        ]
+        def link(url):
+            return """<a href="%s">%s</a>""" % (url, url)
 
-        output.append("".join((
-            "Directory Information\n"
-            "---------------------\n"
-            "Parent Directory GUID: %s\n"  % (self.parent.record.service.guid,),
-            "Realm: %s\n"                  % (self.parent.record.service.realmName,),
-            "\n"
-            "Parent Principal Information\n"
-            "---------------------\n"
-            "GUID: %s\n"                   % (self.parent.record.guid,),
-            "Record type: %s\n"            % (self.parent.record.recordType,),
-            "Short name: %s\n"             % (self.parent.record.shortName,),
-            "Full name: %s\n"              % (self.parent.record.fullName,),
-            "\n"
-            "Proxy Principal Information\n"
-            "---------------------\n"
-            "Principal URL: %s\n"          % (self.principalURL(),),
-            "\nAlternate URIs:\n"          , format_list(self.alternateURIs),
-            "\nGroup members:\n"           , format_list(self.groupMembers),
-        )))
+        def gotSuper(output):
+            return "".join((
+                """<div class="directory-listing">"""
+                """<h1>Principal Details</h1>"""
+                """<pre><blockquote>"""
+                """Directory Information\n"""
+                """---------------------\n"""
+                """Parent Directory GUID: %s\n"""  % (self.parent.record.service.guid,),
+                """Realm: %s\n"""                  % (self.parent.record.service.realmName,),
+                """\n"""
+                """Parent Principal Information\n"""
+                """---------------------\n"""
+                """GUID: %s\n"""                   % (self.parent.record.guid,),
+                """Record type: %s\n"""            % (self.parent.record.recordType,),
+                """Short name: %s\n"""             % (self.parent.record.shortName,),
+                """Full name: %s\n"""              % (self.parent.record.fullName,),
+                """Principal UID: %s\n"""          % (self.parent.principalUID(),),
+                """Principal URL: %s\n"""          % (link(self.parent.principalURL()),),
+                """\n"""
+                """Proxy Principal Information\n"""
+                """---------------------\n"""
+                """Principal UID: %s\n"""          % (self.principalUID(),),
+                """Principal URL: %s\n"""          % (link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(self.alternateURIs()),
+                """\nGroup members:\n"""           , format_list(link(p.principalURL()) for p in self.groupMembers()),
+                """\nGroup memberships:\n"""       , format_list(link(p.principalURL()) for p in self.groupMemberships()),
+                """</pre></blockquote></div>""",
+                output
+            ))
 
-        output.append(
-            """</pre></blockquote></div>"""
-        )
-
-        output.append(self.getDirectoryTable("Collection Listing"))
-
-        output.append("</body></html>")
-
-        output = "".join(output)
-        if type(output) == unicode:
-            output = output.encode("utf-8")
-            mime_params = {"charset": "utf-8"}
-        else:
-            mime_params = {}
-
-        response = Response(code=responsecode.OK, stream=output)
-        response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
-
-        return response
+        d = super(CalendarUserProxyPrincipalResource, self).renderDirectoryBody(request)
+        d.addCallback(gotSuper)
+        return d
 
     ##
     # DAV
