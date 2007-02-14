@@ -268,7 +268,7 @@ if __name__ == "__main__":
                 print "Too many arguments given to 'init'"
                 usage()
                 raise ValueError
-            initComputerRecord(admin_user, admin_pswd, node, "caldav.apple.com$")
+            initComputerRecord(admin_user, admin_pswd, node, computername)
         elif args[0] == "addUser":
             if len(args) > 2:
                 print "Too many arguments given to 'addUser'"
