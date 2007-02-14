@@ -304,6 +304,12 @@ class OpenDirectoryService(DirectoryService):
         # Now do substitutions    
         result = set()
         for template in self.cuaddrtemplates:
+            
+            # Ignore %(principaluri)s templates as we already default to adding those
+            if template.find("%(principaluri)s") != -1:
+                continue
+
+            # Loop over each host variant
             for scheme, hostname, port in self.hostvariants:
                 for subs in subslist:
                     # Add in host substitution values
