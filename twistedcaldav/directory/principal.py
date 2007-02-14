@@ -443,6 +443,11 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         # the directory record provides.
         addresses = set(self.record.calendarUserAddresses)
         addresses.add(self.principalURL())
+        if not config.SSLOnly:
+            addresses.add("http://%s:%s%s" % (config.ServerHostName, config.Port, self.principalURL(),))
+        if config.SSLEnable:
+            addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, self.principalURL(),))
+        
         return addresses
 
     def scheduleInbox(self, request):
