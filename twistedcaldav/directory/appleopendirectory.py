@@ -222,7 +222,8 @@ class OpenDirectoryService(DirectoryService):
             return False
         self.hostvariants = []
         for key, value in hostdetails.iteritems():
-            self.hostvariants.append((key, hostname, value["port"]))
+            if key in ("http", "https"):
+                self.hostvariants.append((key, hostname, value["port"]))
         self.hostvariants = tuple(self.hostvariants)
         
         # Look at the service data
