@@ -63,6 +63,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -132,6 +137,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -184,6 +194,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -237,6 +252,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -289,6 +309,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -351,6 +376,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -400,6 +430,11 @@ else:
             <dict>
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -460,6 +495,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -558,6 +598,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -610,6 +655,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -663,6 +713,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -715,6 +770,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -775,6 +835,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
@@ -827,6 +892,11 @@ else:
 
                 <key>hostDetails</key>
                 <dict>
+                    <key>access</key>
+                    <dict>
+                        <key>somethingorother</key>
+                        <string>somethingelse</string>
+                    </dict>
                     <key>http</key>
                     <dict>
                         <key>port</key>
