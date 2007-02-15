@@ -216,7 +216,7 @@ apply_patches () {
   echo "Removing build directory ${path}/build..."
   rm -rf "${path}/build";
   echo "Removing pyc files from ${path}..."
-  find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm;
+  find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm -f;
 }
 
 www_get () {
