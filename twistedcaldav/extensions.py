@@ -197,16 +197,22 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
             }
         ]
 
-        def gotTable(table):
-            output.append(table)
+        def gotBody(body, output=output):
+            output.append(body)
             output.append("</body></html>")
 
-            response = Response(200, {}, "".join(output))
+            output = "".join(output)
+
+            if isinstance(output, unicode):
+                output = output.encode("utf-8")
+
+            response = Response(200, {}, output)
             response.headers.setHeader("content-type", MimeType("text", "html"))
+            response.headers.setHeader("content-encoding", "utf-8")
             return response
 
         d = self.renderDirectoryBody(request)
-        d.addCallback(gotTable)
+        d.addCallback(gotBody)
         return d
 
     def renderDirectoryBody(self, request):
