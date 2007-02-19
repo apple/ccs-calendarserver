@@ -505,7 +505,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
             try:
-                return opendirectory.authenticateUserBasic(self.service.directory, self.shortName, credentials.password)
+                return opendirectory.authenticateUserBasic(self.service.directory, self.guid, self.shortName, credentials.password)
             except opendirectory.ODError, e:
                 log.err("Open Directory (node=%s) error while performing basic authentication for user %s: %r"
                         % (self.service.realmName, self.shortName, e))
