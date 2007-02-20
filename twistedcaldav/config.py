@@ -23,8 +23,6 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
-    'BasePort': 8008,
-    'BaseSSLPort': 8443,
     'BindAddress': [],
     'CalendarUserProxyEnabled': True,
     'DirectoryService': {
@@ -34,6 +32,8 @@ defaultConfig = {
     'DocumentRoot': '/Library/CalendarServer/Documents',
     'DropBoxEnabled': False,
     'ErrorLogFile': '/var/log/caldavd/error.log',
+    'InstancePort': 0,
+    'InstanceSSLPort': 0,
     'ManholePort': 0,
     'MaximumAttachmentSizeBytes': 1048576,
     'NotificationsEnabled': False,

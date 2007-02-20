@@ -20,6 +20,8 @@ import os
 import sys
 import tempfile
 
+from twisted.python import log
+
 from twisted.runner import procmon
 from twisted.scripts.mktap import getid
 from twistedcaldav.config import config
@@ -72,8 +74,8 @@ class TwistdSlaveProcess(object):
             '-f', self.configFile,
             '-o', 'ServerType=slave',
             '-o', 'BindAddress=%s' % (','.join(self.interfaces),),
-            '-o', 'Port=%s' % (self.port,),
-            '-o', 'SSLPort=%s' % (self.sslPort,),
+            '-o', 'InstancePort=%s' % (self.port,),
+            '-o', 'InstanceSSLPort=%s' % (self.sslPort,),
             '-o', 'PIDFile=None',
             '-o', 'ErrorLogFile=None']
     
@@ -161,6 +163,8 @@ def makeService_multiprocess(self, options):
         os.write(fd, pdconfig)
         os.close(fd)
         
+        log.msg("Adding pydirector service with configuration: %s" % (fname,))
+
         service.addProcess('pydir', [sys.executable,
                                      config.pydirLocation,
                                      fname])
@@ -169,6 +173,8 @@ def makeService_multiprocess(self, options):
 
 def makeService_pydir(self, options):
     service = procmon.ProcessMonitor()
+
+    log.msg("Adding pydirector service with configuration: %s" % (config.pydirConfig,))
 
     service.addProcess('pydir', [sys.executable,
                                  config.pydirLocation,

@@ -431,20 +431,24 @@ class CalDAVServiceMaker(object):
 
         for bindAddress in config.BindAddress:
             if not config.SSLOnly:
+                if config.InstancePort == 0:
+                    config.InstancePort = config.Port
                 log.msg("Adding server at %s:%s" % (
-                    bindAddress, config.Port))
+                    bindAddress, config.InstancePort))
                     
-                httpService = internet.TCPServer(int(config.Port), channel,
+                httpService = internet.TCPServer(int(config.InstancePort), channel,
                                                  interface=bindAddress)
                 httpService.setServiceParent(service)
 
             if config.SSLEnable:
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
+                if config.InstanceSSLPort == 0:
+                    config.InstanceSSLPort = config.SSLPort
                 log.msg("Adding SSL server at %s:%s" % (
-                    bindAddress, config.SSLPort))
+                    bindAddress, config.InstanceSSLPort))
                 
                 httpsService = internet.SSLServer(
-                    int(config.SSLPort),
+                    int(config.InstanceSSLPort),
                     channel,
                     DefaultOpenSSLContextFactory(config.SSLPrivateKey,
                                                  config.SSLCertificate),
