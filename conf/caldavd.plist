@@ -97,6 +97,8 @@ limitations under the License.
     <dict>
       <key>node</key>
       <string>/Search</string>
+      <key>allUsers</key>
+      <false/>
     </dict>
   </dict>
   

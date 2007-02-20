@@ -52,7 +52,7 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", dosetup=True):
+    def __init__(self, node="/Search", allUsers=False, dosetup=True):
         """
         @param node: an OpenDirectory node name to bind to.
         @param dosetup: if C{True} then the directory records are initialized,
@@ -68,6 +68,7 @@ class OpenDirectoryService(DirectoryService):
         self.realmName = node
         self.directory = directory
         self.node = node
+        self.allUsers = allUsers
         self.computerRecordName = ""
         self._records = {}
         self._delayedCalls = set()
@@ -373,31 +374,38 @@ class OpenDirectoryService(DirectoryService):
             records = {}
 
             try:
-                results = opendirectory.queryRecordsWithAttributes(
-                    self.directory,
-                    query,
-                    dsattributes.eDSStartsWith,
-                    False,
-                    False,
-                    listRecordType,
-                    attrs)
+                if self.allUsers:
+                    results = opendirectory.listAllRecordsWithAttributes(
+                        self.directory,
+                        listRecordType,
+                        attrs)
+                else:
+                    results = opendirectory.queryRecordsWithAttributes(
+                        self.directory,
+                        query,
+                        dsattributes.eDSStartsWith,
+                        False,
+                        False,
+                        listRecordType,
+                        attrs)
             except opendirectory.ODError, ex:
                 log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (key, value) in results.iteritems():
-                # Make sure this user has service enabled.
-                enabled = True
-                service = value.get(dsattributes.kDSNAttrServicesLocator)
-                if isinstance(service, str):
-                    service = [service]
-                for item in service:
-                    if item.startswith(self.servicetag):
-                        if item.endswith(":disabled"):
-                            enabled = False
-                        break
-                if not enabled:
-                    continue
+                if not self.allUsers:
+	                # Make sure this user has service enabled.
+                    enabled = True
+                    service = value.get(dsattributes.kDSNAttrServicesLocator)
+                    if isinstance(service, str):
+                        service = [service]
+                    for item in service:
+                        if item.startswith(self.servicetag):
+                            if item.endswith(":disabled"):
+                                enabled = False
+                            break
+                    if not enabled:
+                        continue
 
                 # Now get useful record info.
                 shortName = key
