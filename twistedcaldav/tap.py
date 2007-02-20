@@ -441,7 +441,7 @@ class CalDAVServiceMaker(object):
             if config.SSLEnable:
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
                 log.msg("Adding SSL server at %s:%s" % (
-                    bindAddress, config.Port))
+                    bindAddress, config.SSLPort))
                 
                 httpsService = internet.SSLServer(
                     int(config.SSLPort),
