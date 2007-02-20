@@ -579,121 +579,6 @@ else:
 </plist>
 """
 
-        plist_nocuaddrtemplates = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-    <dict>
-        <key>ReplicaName</key>
-        <string>Master</string>
-
-        <key>com.apple.od.role</key>
-        <string>master</string>
-
-        <key>com.apple.macosxserver.virtualhosts</key>
-        <dict>
-            <key>4F088107-51FD-4DE5-904D-2C0AD9C6C893</key>
-            <dict>
-                <key>hostname</key>
-                <string>foo.apple.com</string>
-
-                <key>hostDetails</key>
-                <dict>
-                    <key>access</key>
-                    <dict>
-                        <key>somethingorother</key>
-                        <string>somethingelse</string>
-                    </dict>
-                    <key>http</key>
-                    <dict>
-                        <key>port</key>
-                        <integer>80</integer>
-                    </dict>
-                    <key>https</key>
-                    <dict>
-                        <key>port</key>
-                        <string>443</string>
-                    </dict>
-                </dict>
-
-                <key>serviceType</key>
-                <array>
-                    <string>wiki</string>
-                    <string>webCalendar</string>
-                    <string>webMailingList</string>
-                </array>
-
-                <key>serviceInfo</key>
-                <dict>
-                    <key>webCalendar</key>
-                    <dict>
-                        <key>enabled</key>
-                        <true/>
-                        <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/webcalendar</string>
-                    </dict>
-                    <key>wiki</key>
-                    <dict>
-                        <key>enabled</key>
-                        <true/>
-                        <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/wiki</string>
-                    </dict>
-                    <key>webMailingList</key>
-                    <dict>
-                        <key>enabled</key>
-                        <true/>
-                        <key>urlMask</key>
-                        <string>%(scheme)s://%(hostname)s:%(port)s/groups/%(name)s/mailinglist</string>
-                    </dict>
-                </dict>
-            </dict>
-            
-            <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
-            <dict>
-                <key>hostname</key>
-                <string>calendar.apple.com</string>
-
-                <key>hostDetails</key>
-                <dict>
-                    <key>access</key>
-                    <dict>
-                        <key>somethingorother</key>
-                        <string>somethingelse</string>
-                    </dict>
-                    <key>http</key>
-                    <dict>
-                        <key>port</key>
-                        <integer>8008</integer>
-                    </dict>
-                    <key>https</key>
-                    <dict>
-                        <key>port</key>
-                        <integer>8443</integer>
-                    </dict>
-                </dict>
-
-                <key>serviceType</key>
-                <array>
-                    <string>calendar</string>
-                </array>
-
-                <key>serviceInfo</key>
-                <dict>
-                    <key>calendar</key>
-                    <dict>
-                        <key>templates</key>
-                        <dict>
-                            <key>principalPath</key>
-                            <string>/principals/%(type)s/%(name)s</string>
-                        </dict>
-                    </dict>
-                </dict>
-            </dict>
-
-        </dict>
-    </dict>
-</plist>
-"""
         plist_good = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -951,7 +836,6 @@ else:
                 (PlistParse.plist_disabledservice,    "disabledservice"),
                 (PlistParse.plist_nohostname,         "nohostname"),
                 (PlistParse.plist_nohostdetails,      "nohostdetails"),
-                (PlistParse.plist_nocuaddrtemplates,  "nocuaddrtemplates"),
             )
             for plist, title in plists:
                 _doParse(plist, title)
@@ -963,8 +847,6 @@ else:
             else:
                 # Verify that we extracted the proper items
                 self.assertEqual(service.servicetag, "GUIDIFY:C18C34AC-3D9E-403C-8A33-BFC303F3840E:calendar")
-                self.assertEqual(service.hostvariants, (("http", "calendar.apple.com", 8008), ("https", "calendar.apple.com", 8443)))
-                self.assertEqual(service.cuaddrtemplates, ("%(scheme)s://%(hostname)s:%(port)s/principals/%(type)s/%(name)s", "mailto:%(email)s", "urn:uuid:%(guid)s"))
 
         def test_expandcuaddrs(self):
             def _doTest(recordName, record, result, title):
@@ -972,7 +854,7 @@ else:
                 if not service._parseXMLPlist("calendar.apple.com", recordName, PlistParse.plist_good, "GUIDIFY"):
                     self.fail(msg="Plist parse should not have failed: %s" % (recordName,))
                 else:
-                    expanded = service._templateExpandCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
+                    expanded = service._getCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
         
                     # Verify that we extracted the proper items
                     self.assertEqual(expanded, result, msg=title % (expanded, result,))
@@ -985,10 +867,7 @@ else:
                     dsattributes.kDSNAttrEMailAddress: "user01@example.com",
                  },
                  set((
-                    "http://calendar.apple.com:8008/principals/users/user01",
-                    "https://calendar.apple.com:8443/principals/users/user01",
                     "mailto:user01@example.com",
-                    "urn:uuid:GUID-USER-01",
                  )),
                  "User with one email address, %s != %s",
                 ),
@@ -999,11 +878,8 @@ else:
                     dsattributes.kDSNAttrEMailAddress: ["user02@example.com", "user02@calendar.example.com"],
                  },
                  set((
-                    "http://calendar.apple.com:8008/principals/users/user02",
-                    "https://calendar.apple.com:8443/principals/users/user02",
                     "mailto:user02@example.com",
                     "mailto:user02@calendar.example.com",
-                    "urn:uuid:GUID-USER-02",
                  )),
                  "User with multiple email addresses, %s != %s",
                 ),
@@ -1012,11 +888,7 @@ else:
                  {
                     dsattributes.kDS1AttrGeneratedUID: "GUID-USER-03",
                  },
-                 set((
-                    "http://calendar.apple.com:8008/principals/users/user03",
-                    "https://calendar.apple.com:8443/principals/users/user03",
-                    "urn:uuid:GUID-USER-03",
-                 )),
+                 set(()),
                  "User with no email addresses, %s != %s",
                 ),
             )

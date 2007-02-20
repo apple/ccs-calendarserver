@@ -52,9 +52,11 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", allUsers=False, dosetup=True):
+    def __init__(self, node="/Search", useFullSchema=True, dosetup=True):
         """
         @param node: an OpenDirectory node name to bind to.
+        @param useFullSchema: C{True} if the directory schema is to be used to determine
+            which calendar users are enabled.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
                         This should only be set to C{False} when doing unit tests.
@@ -68,17 +70,18 @@ class OpenDirectoryService(DirectoryService):
         self.realmName = node
         self.directory = directory
         self.node = node
-        self.allUsers = allUsers
+        self.useFullSchema = useFullSchema
         self.computerRecordName = ""
         self._records = {}
         self._delayedCalls = set()
 
         if dosetup:
-            try:
-                self._lookupVHostRecord()
-            except Exception, e:
-                log.err("Unable to locate virtual host record: %s" % (e,))
-                raise
+            if self.useFullSchema:
+                try:
+                    self._lookupVHostRecord()
+                except Exception, e:
+                    log.err("Unable to locate virtual host record: %s" % (e,))
+                    raise
 
             for recordType in self.recordTypes():
                 self.recordsForType(recordType)
@@ -221,11 +224,10 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, recordname)
             )
             return False
-        self.hostvariants = []
+        hostvariants = []
         for key, value in hostdetails.iteritems():
             if key in ("http", "https"):
-                self.hostvariants.append((key, hostname, value["port"]))
-        self.hostvariants = tuple(self.hostvariants)
+                hostvariants.append((key, hostname, value["port"]))
         
         # Look at the service data
         serviceInfos = vhosts[hostguid].get("serviceInfo", None)
@@ -247,85 +249,33 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, recordname)
             )
             return False
-        
-        # Get useful templates
-        templates = serviceInfo.get("templates", None)
-        if not templates or not templates.has_key("calendarUserAddresses"):
-            log.msg(
-                "Open Directory (node=%s) /Computers/%s record does not have a "
-                "template for calendar user addresses in its XMLPlist attribute value"
-                % (self.realmName, recordname)
-            )
-            return False
-        
-        self.computerRecordName = recordname
 
-        # Grab the templates we need for calendar user addresses
-        self.cuaddrtemplates = tuple(templates["calendarUserAddresses"])
-        
         # Create the string we will use to match users with accounts on this server
         self.servicetag = "%s:%s:calendar" % (recordguid, hostguid)
         
+        self.computerRecordName = recordname
+        
         return True
     
-    def _templateExpandCalendarUserAddresses(self, recordType, recordName, record):
+    def _getCalendarUserAddresses(self, recordType, recordName, record):
         """
-        Expand this services calendar user address templates for the specified record.
+        Extract specific attributes from the directory record for use as calendar user address.
         
         @param recordName: a C{str} containing the record name being operated on.
         @param record: a C{dict} containing the attributes retrieved from the directory.
         @return: a C{set} of C{str} for each expanded calendar user address.
         """
         
-        # Make a dict of the substitutions we can do for this record. The only record parameters
-        # we substitute are name, guid and email. Note that email is multi-valued so we have to
-        # create a list of dicts for each one of those.
-        name = recordName
-        type = recordType
-        guid = record.get(dsattributes.kDS1AttrGeneratedUID)
-        emails = record.get(dsattributes.kDSNAttrEMailAddress)
-        if emails is not None and isinstance(emails, str):
-            emails = [emails]
-            
-        subslist = []
-        if emails:
-            for email in emails:
-                subslist.append({
-                    "name"  : name,
-                    "type"  : type,
-                    "guid"  : guid,
-                    "email" : email,
-                })
-        else:
-            subslist.append({
-                "name"  : name,
-                "type"  : type,
-                "guid"  : guid,
-            })
-        
-        # Now do substitutions    
+        # Now get the addresses
         result = set()
-        for template in self.cuaddrtemplates:
-            
-            # Ignore %(principaluri)s templates as we already default to adding those
-            if template.find("%(principaluri)s") != -1:
-                continue
-
-            # Loop over each host variant
-            for scheme, hostname, port in self.hostvariants:
-                for subs in subslist:
-                    # Add in host substitution values
-                    subs.update({
-                        "scheme"   : scheme,
-                        "hostname" : hostname,
-                        "port"     : port,
-                    })
-                    
-                    # Special check for no email address for this record
-                    if (template.find("%(email)s") != -1) and not emails:
-                        continue
-
-                    result.add(template % subs)
+        
+        # Add each email address as a mailto URI
+        emails = record.get(dsattributes.kDSNAttrEMailAddress)
+        if emails is not None:
+            if isinstance(emails, str):
+                emails = [emails]
+            for email in emails:
+                result.add("mailto:%s" % (email,))
                 
         return result
 
@@ -347,10 +297,6 @@ class OpenDirectoryService(DirectoryService):
         def reloadCache():
             log.msg("Reloading %s record cache" % (recordType,))
 
-            query = {
-                dsattributes.kDSNAttrServicesLocator: self.servicetag,
-            }
-    
             attrs = [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDS1AttrDistinguishedName,
@@ -374,12 +320,10 @@ class OpenDirectoryService(DirectoryService):
             records = {}
 
             try:
-                if self.allUsers:
-                    results = opendirectory.listAllRecordsWithAttributes(
-                        self.directory,
-                        listRecordType,
-                        attrs)
-                else:
+                if self.useFullSchema:
+                    query = {
+                        dsattributes.kDSNAttrServicesLocator: self.servicetag,
+                    }
                     results = opendirectory.queryRecordsWithAttributes(
                         self.directory,
                         query,
@@ -388,12 +332,17 @@ class OpenDirectoryService(DirectoryService):
                         False,
                         listRecordType,
                         attrs)
+                else:
+                    results = opendirectory.listAllRecordsWithAttributes(
+                        self.directory,
+                        listRecordType,
+                        attrs)
             except opendirectory.ODError, ex:
                 log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (key, value) in results.iteritems():
-                if not self.allUsers:
+                if self.useFullSchema:
 	                # Make sure this user has service enabled.
                     enabled = True
                     service = value.get(dsattributes.kDSNAttrServicesLocator)
@@ -414,8 +363,8 @@ class OpenDirectoryService(DirectoryService):
                     continue
                 realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
-                # Get calendar user addresses expanded from service record templates.
-                cuaddrset = self._templateExpandCalendarUserAddresses(recordType, key, value)
+                # Get calendar user addresses from directory record.
+                cuaddrset = self._getCalendarUserAddresses(recordType, key, value)
 
                 # Special case for groups.
                 if recordType == DirectoryService.recordType_groups:

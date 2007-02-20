@@ -45,7 +45,13 @@ limitations under the License.
   <key>Port</key>
   <integer>8008</integer>
 
+  <key>BasePort</key>
+  <integer>8008</integer>
+
   <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>BaseSSLPort</key>
   <integer>8443</integer>
 
   <key>SSLEnable</key>
@@ -97,8 +103,8 @@ limitations under the License.
     <dict>
       <key>node</key>
       <string>/Search</string>
-      <key>allUsers</key>
-      <false/>
+      <key>useFullSchema</key>
+      <true/>
     </dict>
   </dict>
   

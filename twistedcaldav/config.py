@@ -23,10 +23,12 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = '/etc/caldavd/caldavd.plist'
 
 defaultConfig = {
+    'BasePort': 8008,
+    'BaseSSLPort': 8443,
     'BindAddress': [],
     'CalendarUserProxyEnabled': True,
     'DirectoryService': {
-        'params': {'node': '/Search'},
+        'params': {'node': '/Search', 'useFullSchema': True},
         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
     },
     'DocumentRoot': '/Library/CalendarServer/Documents',

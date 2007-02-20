@@ -439,14 +439,15 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         return self.record.guid
         
     def calendarUserAddresses(self):
-        # Add the principal URL to whatever calendar user addresses
+        # Add the principal URL and GUID to whatever calendar user addresses
         # the directory record provides.
         addresses = set(self.record.calendarUserAddresses)
         addresses.add(self.principalURL())
         if not config.SSLOnly:
-            addresses.add("http://%s:%s%s" % (config.ServerHostName, config.Port, self.principalURL(),))
+            addresses.add("http://%s:%s%s" % (config.ServerHostName, config.BasePort, self.principalURL(),))
         if config.SSLEnable:
-            addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, self.principalURL(),))
+            addresses.add("https://%s:%s%s" % (config.ServerHostName, config.BaseSSLPort, self.principalURL(),))
+        addresses.add("urn:uuid:%s" % (self.principalUID(),))
         
         return addresses
 
