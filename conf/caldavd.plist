@@ -176,7 +176,7 @@ limitations under the License.
   </dict>
 
   <key>pydirLocation</key>
-  <string>/usr/share/caldavd/bin/pydir++.py</string>
+  <string>/usr/share/caldavd/bin/pydir.py</string>
 
   <key>pydirConfig</key>
   <string>/etc/caldavd/pydir.xml</string>

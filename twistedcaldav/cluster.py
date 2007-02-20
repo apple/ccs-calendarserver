@@ -167,17 +167,21 @@ def makeService_multiprocess(self, options):
 
         service.addProcess('pydir', [sys.executable,
                                      config.pydirLocation,
-                                     fname])
+                                     fname],
+                           env=parentEnv)
     
     return service
 
 def makeService_pydir(self, options):
     service = procmon.ProcessMonitor()
 
+    parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
+
     log.msg("Adding pydirector service with configuration: %s" % (config.pydirConfig,))
 
     service.addProcess('pydir', [sys.executable,
                                  config.pydirLocation,
-                                 config.pydirConfig])
+                                 config.pydirConfig],
+                       env=parentEnv)
 
     return service
