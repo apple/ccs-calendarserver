@@ -285,7 +285,7 @@ class CalDAVServiceMaker(object):
             directories.append(sudoDirectory)
         else:
             log.msg(
-                "Not using SudoDirectoryService file doesn't exist: %s" % (
+                "Not using SudoDirectoryService; file doesn't exist: %s" % (
                 config.SudoersFile,))
 
         directory = AggregateDirectoryService(directories)
