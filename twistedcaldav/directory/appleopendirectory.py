@@ -331,29 +331,35 @@ class OpenDirectoryService(DirectoryService):
                         False,
                         False,
                         listRecordType,
-                        attrs)
+                        attrs,
+                    )
                 else:
                     results = opendirectory.listAllRecordsWithAttributes(
                         self.directory,
                         listRecordType,
-                        attrs)
+                        attrs,
+                    )
             except opendirectory.ODError, ex:
                 log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (key, value) in results.iteritems():
                 if self.useFullSchema:
-	                # Make sure this user has service enabled.
+                    # Make sure this record has service enabled.
                     enabled = True
-                    service = value.get(dsattributes.kDSNAttrServicesLocator)
-                    if isinstance(service, str):
-                        service = [service]
-                    for item in service:
-                        if item.startswith(self.servicetag):
-                            if item.endswith(":disabled"):
+
+                    services = value.get(dsattributes.kDSNAttrServicesLocator)
+                    if isinstance(services, str):
+                        services = [services]
+
+                    for service in services:
+                        if service.startswith(self.servicetag):
+                            if service.endswith(":disabled"):
                                 enabled = False
                             break
+
                     if not enabled:
+                        log.err("Record %s is not enabled" % ())
                         continue
 
                 # Now get useful record info.
@@ -385,6 +391,8 @@ class OpenDirectoryService(DirectoryService):
                     calendarUserAddresses = cuaddrset,
                     memberGUIDs           = memberGUIDs,
                 )
+
+                #log.debug("Populated record: %s" % (records[shortName],))
 
             storage = {
                 "status": "new",
