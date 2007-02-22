@@ -259,7 +259,11 @@ class AbstractIndex(object):
         """
         if not hasattr(self, "_db_connection"):
             db_filename = os.path.join(self.resource.fp.path, db_basename)
-            self._db_connection = sqlite.connect(db_filename)
+            try:
+                self._db_connection = sqlite.connect(db_filename)
+            except:
+                log.err("Unable to open database file: %s" % (db_filename,))
+                raise
 
             #
             # Set up the schema
