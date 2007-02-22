@@ -91,7 +91,6 @@ class DirectoryPrincipalProvisioningResource (
     def principalForShortName(self, type, name):
         typeResource = self.getChild(type)
         if typeResource is None:
-            log.err("No directory record type resource %s" % (type,))
             return None
         return typeResource.getChild(name)
 
