@@ -72,7 +72,7 @@ class TwistdSlaveProcess(object):
             '-g', config.GroupName,
             '-n', 'caldav',
             '-f', self.configFile,
-            '-o', 'ProcessType=slave',
+            '-o', 'ProcessType=Slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
             '-o', 'BindHTTPPorts=%s' % (self.port,),
             '-o', 'BindSSLPorts=%s' % (self.sslPort,),
@@ -91,7 +91,7 @@ class TwistdSlaveProcess(object):
                                'port': port,
                                'bindAddress': '127.0.0.1'}
 
-def makeService_multiprocess(self, options):
+def makeService_Combined(self, options):
     service = procmon.ProcessMonitor()
     
     parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
@@ -107,8 +107,8 @@ def makeService_multiprocess(self, options):
     if not config.MultiProcess['LoadBalancer']['Enabled']:
         bindAddress = config.BindAddresses
 
-    for p in xrange(0, config.MultiProcess['NumProcesses']):
-        if int(config.MultiProcess['NumProcesses']) > 1:
+    for p in xrange(0, config.MultiProcess['ProcessCount']):
+        if int(config.MultiProcess['ProcessCount']) > 1:
             port += 1
             sslport += 1
 
@@ -128,11 +128,17 @@ def makeService_multiprocess(self, options):
             sslHosts.append(process.getHostLine(ssl=True))
 
     if (config.MultiProcess['LoadBalancer']['Enabled'] and 
-        config.MultiProcess['NumProcesses'] > 1):
+        config.MultiProcess['ProcessCount'] > 1):
         services = []
 
         if not config.BindAddresses:
             config.BindAddresses = ['']
+
+        scheduler_map = {
+            "LeastConnections": "leastconns",
+            "RoundRobin": "roundrobin",
+            "LeastConnectionsAndRoundRobin": "leastconnsrr",
+        }
 
         for bindAddress in config.BindAddresses:
             if config.HTTPPort:
@@ -140,8 +146,7 @@ def makeService_multiprocess(self, options):
                         'name': 'http',
                         'bindAddress': bindAddress,
                         'port': config.HTTPPort,
-                        'scheduler': 
-                        config.MultiProcess['LoadBalancer']['Scheduler'],
+                        'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
                         'hosts': '\n'.join(hosts)
                         })
             
@@ -150,8 +155,7 @@ def makeService_multiprocess(self, options):
                         'name': 'https',
                         'bindAddress': bindAddress,
                         'port': config.SSLPort,
-                        'scheduler': 
-                        config.MultiProcess['LoadBalancer']['Scheduler'],
+                        'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
                         'hosts': '\n'.join(sslHosts),
                         })
 
@@ -172,7 +176,7 @@ def makeService_multiprocess(self, options):
     
     return service
 
-def makeService_pydir(self, options):
+def makeService_Master(self, options):
     service = procmon.ProcessMonitor()
 
     parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}

@@ -101,12 +101,12 @@ defaultConfig = {
     #
     "UserName": "daemon",
     "GroupName": "daemon",
-    "ProcessType": "singleprocess",
+    "ProcessType": "Slave",
     "MultiProcess": {
-        "NumProcesses": 10,
+        "ProcessCount": 10,
         "LoadBalancer": {
             "Enabled": True,
-            "Scheduler": "leastconns",
+            "Scheduler": "LeastConnections",
         },
     },
 
@@ -130,7 +130,6 @@ defaultConfig = {
 
     # Twisted
     "twistdLocation": "/usr/share/caldavd/bin/twistd",
-    "ManholePort": 0, # Port number to bind to for Twisted manhole (debugging) [0 = none]
 
     # Python Director
     "pydirLocation": "/usr/share/caldavd/bin/pydir++.py",

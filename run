@@ -35,7 +35,7 @@ disable_setup="false";
       install="";
     daemonize="-X";
   plugin_name="caldav";
- service_type="singleprocess";
+ service_type="Slave";
 
 usage ()
 {
@@ -54,7 +54,7 @@ usage ()
   echo "        -d  Run caldavd as a daemon";
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
-  echo "        -t  Select the type of server to run (singleprocess, multiprocess, or master)";
+  echo "        -t  Select the server process type (Master, Slave or Combined)";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;

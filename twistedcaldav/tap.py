@@ -43,7 +43,7 @@ from twisted.web2.channel import http
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
-from twistedcaldav.cluster import makeService_multiprocess, makeService_pydir
+from twistedcaldav.cluster import makeService_Combined, makeService_Master
 from twistedcaldav.config import config, parseConfig, defaultConfig, ConfigurationError
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
@@ -75,11 +75,10 @@ class CalDAVService(service.MultiService):
 
 
 class CalDAVOptions(Options):
-    optParameters = [
-        ["config", "f", "/etc/caldavd/caldavd.plist",
-         "Path to configuration file."],
-        ]
-        
+    optParameters = [[
+        "config", "f", "/etc/caldavd/caldavd.plist", "Path to configuration file."
+    ]]
+
     zsh_actions = {"config" : "_files -g '*.plist'"}
 
     def __init__(self, *args, **kwargs):
@@ -109,8 +108,7 @@ class CalDAVOptions(Options):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
-                    raise UsageError(
-                        "We do not support dict options on the command line")
+                    raise UsageError("Dict options not supported on the command line")
                         
                 elif value == 'None':
                     value = None
@@ -139,15 +137,15 @@ class CalDAVOptions(Options):
             if uid != os.getuid() and os.getuid() != 0:
                 import pwd
                 username = pwd.getpwuid(os.getuid())[0]
-                raise UsageError(("Only root can drop privileges "
-                                  "you are: %r" % (username,)))
+                raise UsageError("Only root can drop privileges you are: %r"
+                                 % (username,))
 
         if gid:
             if gid != os.getgid() and os.getgid() != 0:
                 import grp
                 groupname = grp.getgrgid(os.getuid())[0]
-                raise UsageError(("Only root can drop privileges, "
-                                  "you are: %s" % (groupname,)))
+                raise UsageError("Only root can drop privileges, you are: %s"
+                                 % (groupname,))
 
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
@@ -159,7 +157,8 @@ class CalDAVOptions(Options):
             access=os.R_OK or os.W_OK,
             permissions=0750,
             uname=config.UserName,
-            gname=config.GroupName)
+            gname=config.GroupName
+        )
             
         # Verify that ssl certs exist if needed
         if config.SSLPort:
@@ -167,20 +166,21 @@ class CalDAVOptions(Options):
                 config.SSLPrivateKey,
                 "SSL Private key",
                 access=os.R_OK,
-                permissions=0640)
+                permissions=0640
+            )
             self.checkFile(
                 config.SSLCertificate,
                 "SSL Public key",
                 access=os.R_OK,
-                permissions=0644)
+                permissions=0644
+            )
 
         #
         # Nuke the file log observer's time format.
         #
 
-        if not config.ErrorLogFile and config.ProcessType == 'slave':
+        if not config.ErrorLogFile and config.ProcessType == 'Slave':
             log.FileLogObserver.timeFormat = ''
-        
         
         # Check current umask and warn if changed
         oldmask = os.umask(0027)
@@ -215,29 +215,29 @@ class CalDAVOptions(Options):
         pathstat = os.stat(path)
         if permissions:
             if stat.S_IMODE(pathstat[stat.ST_MODE]) != permissions:
-                raiseOrPrint("The permisions on %s directory %s are 0%03o and do not match expected permissions: 0%03o" % \
-                             (description, path, stat.S_IMODE(pathstat[stat.ST_MODE]), permissions))
+                raiseOrPrint("The permisions on %s directory %s are 0%03o and do not match expected permissions: 0%03o"
+                             % (description, path, stat.S_IMODE(pathstat[stat.ST_MODE]), permissions))
         if uname:
             import pwd
             try:
                 pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
                 if pathuname != uname:
-                    raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s" % \
-                                 (description, path, pathuname, uname))
+                    raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s"
+                                 % (description, path, pathuname, uname))
             except KeyError:
-                raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s" % \
-                             (description, path, pathstat[stat.ST_UID], uname))
+                raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s"
+                             % (description, path, pathstat[stat.ST_UID], uname))
                     
         if gname:
             import grp
             try:
                 pathgname = grp.getgrgid(pathstat[stat.ST_GID])[0]
                 if pathgname != gname:
-                    raiseOrPrint("The group of %s directory %s is %s and does not match the expected group: %s" % \
-                                 (description, path, pathgname, gname))
+                    raiseOrPrint("The group of %s directory %s is %s and does not match the expected group: %s"
+                                 % (description, path, pathgname, gname))
             except KeyError:
-                raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s" % \
-                             (description, path, pathstat[stat.ST_GID], gname))
+                raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
+                             % (description, path, pathstat[stat.ST_GID], gname))
                     
 
 class CalDAVServiceMaker(object):
@@ -253,11 +253,11 @@ class CalDAVServiceMaker(object):
     # default resource classes
     #
 
-    rootResourceClass = RootResource
+    rootResourceClass      = RootResource
     principalResourceClass = DirectoryPrincipalProvisioningResource
-    calendarResourceClass = CalendarHomeProvisioningFile
+    calendarResourceClass  = CalendarHomeProvisioningFile
 
-    def makeService_singleprocess(self, options):
+    def makeService_Slave(self, options):
         #
         # Setup the Directory
         #
@@ -265,8 +265,8 @@ class CalDAVServiceMaker(object):
         
         directoryClass = namedClass(config.DirectoryService['type'])
         
-        log.msg("Configuring directory service of type: %s" % (
-            config.DirectoryService['type'],))
+        log.msg("Configuring directory service of type: %s"
+                % (config.DirectoryService['type'],))
         
         baseDirectory = directoryClass(**config.DirectoryService['params'])
 
@@ -275,8 +275,8 @@ class CalDAVServiceMaker(object):
         sudoDirectory = None
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
-            log.msg("Configuring SudoDirectoryService with file: %s" % (
-                config.SudoersFile,))
+            log.msg("Configuring SudoDirectoryService with file: %s"
+                    % (config.SudoersFile,))
                 
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
@@ -284,9 +284,8 @@ class CalDAVServiceMaker(object):
             CalDAVResource.sudoDirectory = sudoDirectory
             directories.append(sudoDirectory)
         else:
-            log.msg(
-                "Not using SudoDirectoryService; file doesn't exist: %s" % (
-                config.SudoersFile,))
+            log.msg("Not using SudoDirectoryService; file doesn't exist: %s"
+                    % (config.SudoersFile,))
 
         directory = AggregateDirectoryService(directories)
 
@@ -300,8 +299,7 @@ class CalDAVServiceMaker(object):
 
         log.msg("Setting up document root at: %s" % (config.DocumentRoot,))
         
-        log.msg("Setting up principal collection: %r" % (
-            self.principalResourceClass,))
+        log.msg("Setting up principal collection: %r" % (self.principalResourceClass,))
 
         principalCollection = self.principalResourceClass(
             os.path.join(config.DocumentRoot, 'principals'),
@@ -309,8 +307,7 @@ class CalDAVServiceMaker(object):
             directory
         )
 
-        log.msg("Setting up calendar collection: %r" % (
-            self.calendarResourceClass,))
+        log.msg("Setting up calendar collection: %r" % (self.calendarResourceClass,))
 
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, 'calendars'),
@@ -386,11 +383,14 @@ class CalDAVServiceMaker(object):
 
                     credFactory = NegotiateCredentialFactory(
                         schemeConfig['ServicePrincipal'],
-                        schemeConfig['Realm'],)
+                        schemeConfig['Realm'],
+                    )
 
                 elif scheme == 'digest':
                     credFactory = DigestCredentialFactory(
-                        schemeConfig['Algorithm'], realm)
+                        schemeConfig['Algorithm'],
+                        realm
+                    )
 
                 elif scheme == 'basic':
                     credFactory = BasicCredentialFactory(realm)
@@ -407,7 +407,8 @@ class CalDAVServiceMaker(object):
             root,
             portal,
             credentialFactories,
-            (auth.IPrincipal,))
+            (auth.IPrincipal,)
+        )
 
         site = Site(LogWrapperResource(authWrapper))
 
@@ -463,19 +464,16 @@ class CalDAVServiceMaker(object):
             
         return service
 
-    makeService_slave        = makeService_singleprocess
-    makeService_multiprocess = makeService_multiprocess
-    makeService_master       = makeService_pydir
+    makeService_Combined = makeService_Combined
+    makeService_Master   = makeService_Master
 
     def makeService(self, options):
         serverType = config.ProcessType
-        
+
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
 
         if not serviceMethod:
-            raise UsageError(
-                "Unknown server type %s, please choose: singleprocess, "
-                "multiprocess, master, slave" % (serverType,)
-            )
+            raise UsageError("Unknown server type %s.  Please choose: Master, Slave or Combined"
+                             % (serverType,))
         else:
             return serviceMethod(options)

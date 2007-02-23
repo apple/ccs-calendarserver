@@ -87,7 +87,7 @@ usage ()
     echo "        -g Group name to run as";
     echo "        -f Configuration file to read";
     echo "        -T Path to twistd binary";
-    echo "        -t Service type (master, slave, standalone, cluster)";
+    echo "        -t Process type (Master, Slave or Combined)";
     
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;

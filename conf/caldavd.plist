@@ -149,26 +149,12 @@ limitations under the License.
   <key>SudoersFile</key>
   <string>/etc/caldavd/sudoers.plist</string>
   <key>ProcessType</key>
-  <string>multiprocess</string>
+  <string>Combined</string>
   
   <key>MultiProcess</key>
   <dict>
-    <key>NumProcesses</key>
+    <key>ProcessCount</key>
     <integer>1</integer>
-
-    <key>LoadBalancer</key>
-    <dict>
-      <key>Enabled</key>
-      <false/>
-
-      <key>Scheduler</key>
-      <!-- Least Connections -->
-      <string>leastconns</string>
-      <!-- Round Robin -->
-      <!-- <string>roundrobin</string> -->
-      <!-- Least Connections and Round Robin -->
-      <!-- <string>leastconnsrr</string> -->
-    </dict>    
   </dict>
 
   <key>pydirLocation</key>
