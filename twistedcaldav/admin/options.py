@@ -158,7 +158,7 @@ class PrincipalOptions(SubCommand):
 
     def __init__(self):
         SubCommand.__init__(self)
-        self['quota'] = config.UserQuotaBytes
+        self['quota'] = config.UserQuota
 
     def postOptions(self):
         report = reflect.namedAny(self.action)(self, self.name).run()

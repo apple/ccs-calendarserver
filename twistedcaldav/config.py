@@ -48,8 +48,8 @@ defaultConfig = {
     # Data store
     #
     "DocumentRoot": "/Library/CalendarServer/Documents",
-    "UserQuotaBytes": 104857600,
-    "MaximumAttachmentSizeBytes": 1048576,
+    "UserQuota": 104857600,           # User quota (in bytes)
+    "MaximumAttachmentSize": 1048576, # Attachment size limit (in bytes)
 
     #
     # Directory service

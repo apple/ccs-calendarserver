@@ -148,10 +148,10 @@ limitations under the License.
   </dict>
   -->
   
-  <key>MaximumAttachmentSizeBytes</key>
+  <key>MaximumAttachmentSize</key>
   <integer>1048576</integer><!-- 1Mb -->
 
-  <key>UserQuotaBytes</key>
+  <key>UserQuota</key>
   <integer>104857600</integer><!-- 100Mb -->
 
   <key>DropBoxEnabled</key>
