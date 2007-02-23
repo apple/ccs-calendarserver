@@ -82,7 +82,6 @@ defaultConfig = {
     "SSLPrivateKey": "/etc/certificates/Default.key",
 
     # Process management
-    "RunStandalone": True,
     "Username": "daemon",
     "Groupname": "daemon",
     "ServerType": "singleprocess",
