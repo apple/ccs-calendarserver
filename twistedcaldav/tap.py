@@ -432,7 +432,7 @@ class CalDAVServiceMaker(object):
         for bindAddress in config.BindAddress:
             if not config.SSLOnly:
                 if config.InstancePort == 0:
-                    config.InstancePort = config.Port
+                    config.InstancePort = config.HTTPPort
                 log.msg("Adding server at %s:%s" % (
                     bindAddress, config.InstancePort))
                     

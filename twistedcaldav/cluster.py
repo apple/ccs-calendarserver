@@ -99,7 +99,7 @@ def makeService_multiprocess(self, options):
     hosts = []
     sslHosts = []
 
-    port = config.Port
+    port = config.HTTPPort
     sslport = config.SSLPort
 
     bindAddress = ['127.0.0.1']
@@ -139,7 +139,7 @@ def makeService_multiprocess(self, options):
                 services.append(serviceTemplate % {
                         'name': 'http',
                         'bindAddress': bindAddress,
-                        'port': config.Port,
+                        'port': config.HTTPPort,
                         'scheduler': 
                         config.MultiProcess['LoadBalancer']['Scheduler'],
                         'hosts': '\n'.join(hosts)

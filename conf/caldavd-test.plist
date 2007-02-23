@@ -37,7 +37,7 @@ limitations under the License.
   <key>ServerHostName</key>
   <string>localhost</string>
 
-  <key>Port</key>
+  <key>HTTPPort</key>
   <integer>8008</integer>
 
   <key>SSLPort</key>

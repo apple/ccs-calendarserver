@@ -32,7 +32,7 @@ defaultConfig = {
     #    load balancer or proxy which forwards connections to the server.
     #
     "ServerHostName": "localhost", # Network host name.
-    "Port": 8008,                  # HTTP port
+    "HTTPPort": 8008,              # HTTP port
     "SSLPort": 8443,               # SSL port
 
     #
@@ -77,17 +77,17 @@ defaultConfig = {
     # Authentication
     #
     "Authentication": {
-        "Basic"   : { "Enabled": False }                     # Clear text; best avoided
-        "Digest"  : { "Enabled": True,  "Algorithm": "md5" } # Digest challenge/response
-        "Kerberos": { "Enabled": False, "Realm": "" }        # Kerberos/SPNEGO
+        "Basic"   : { "Enabled": False },                     # Clear text; best avoided
+        "Digest"  : { "Enabled": True,  "Algorithm": "md5" }, # Digest challenge/response
+        "Kerberos": { "Enabled": False, "Realm": "" },        # Kerberos/SPNEGO
     },
 
     #
     # Logging
     #
     "Verbose": False,
-    "ServerLogFile": "/var/log/caldavd/access.log",
-    "ErrorLogFile": "/var/log/caldavd/error.log",
+    "ServerLogFile": "/var/log/caldavd/access.log",                     # Apache-styp access log
+    "ErrorLogFile": "/var/log/caldavd/error.log",                       # Server activity log
     "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
     "PIDFile": "/var/run/caldavd.pid",
 
