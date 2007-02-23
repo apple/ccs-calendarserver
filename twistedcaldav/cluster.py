@@ -73,7 +73,7 @@ class TwistdSlaveProcess(object):
             '-n', 'caldav',
             '-f', self.configFile,
             '-o', 'ServerType=slave',
-            '-o', 'BindAddress=%s' % (','.join(self.interfaces),),
+            '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
             '-o', 'InstancePort=%s' % (self.port,),
             '-o', 'InstanceSSLPort=%s' % (self.sslPort,),
             '-o', 'PIDFile=None',
@@ -105,7 +105,7 @@ def makeService_multiprocess(self, options):
     bindAddress = ['127.0.0.1']
 
     if not config.MultiProcess['LoadBalancer']['Enabled']:
-        bindAddress = config.BindAddress
+        bindAddress = config.BindAddresses
 
     for p in xrange(0, config.MultiProcess['NumProcesses']):
         if int(config.MultiProcess['NumProcesses']) > 1:
@@ -131,10 +131,10 @@ def makeService_multiprocess(self, options):
         config.MultiProcess['NumProcesses'] > 1):
         services = []
 
-        if not config.BindAddress:
-            config.BindAddress = ['']
+        if not config.BindAddresses:
+            config.BindAddresses = ['']
 
-        for bindAddress in config.BindAddress:
+        for bindAddress in config.BindAddresses:
             if not config.SSLOnly:
                 services.append(serviceTemplate % {
                         'name': 'http',

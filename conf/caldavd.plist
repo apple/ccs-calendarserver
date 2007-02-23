@@ -29,7 +29,7 @@ limitations under the License.
   <key>DocumentRoot</key>
   <string>/Library/CalendarServer/Documents</string>
 
-  <key>BindAddress</key>
+  <key>BindAddresses</key>
   <array>
   </array>
 

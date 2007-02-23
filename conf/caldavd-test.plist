@@ -29,7 +29,7 @@ limitations under the License.
   <key>DocumentRoot</key>
   <string>twistedcaldav/test/data/</string>
 
-  <key>BindAddress</key>
+  <key>BindAddresses</key>
   <array>
     <string>127.0.0.1</string>
   </array>

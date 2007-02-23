@@ -40,7 +40,7 @@ defaultConfig = {
     #
     #    This configures the actual network address that the server binds to.
     #
-    "BindAddress": [],     # List of IP addresses to bind to [empty = all]
+    "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
     "InstancePort": 0,     # Port number to bind to for HTTP [0 = same as "Port"]
     "InstanceSSLPort": 0,  # Port number to bind to for SSL [0 = same as "SSLPort"]
     "ManholePort": 0,      # Port number to bind to for Twisted manhole (debugging) [0 = none]

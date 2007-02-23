@@ -426,10 +426,10 @@ class CalDAVServiceMaker(object):
         
         service = CalDAVService(logObserver)
 
-        if not config.BindAddress:
-            config.BindAddress = ['']
+        if not config.BindAddresses:
+            config.BindAddresses = ['']
 
-        for bindAddress in config.BindAddress:
+        for bindAddress in config.BindAddresses:
             if not config.SSLOnly:
                 if config.InstancePort == 0:
                     config.InstancePort = config.HTTPPort
