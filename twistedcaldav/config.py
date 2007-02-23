@@ -20,72 +20,94 @@ import os
 
 from twistedcaldav.py.plistlib import readPlist
 
-defaultConfigFile = '/etc/caldavd/caldavd.plist'
+defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
 defaultConfig = {
-    'BindAddress': [],
-    'CalendarUserProxyEnabled': True,
-    'DirectoryService': {
-        'params': {'node': '/Search', 'useFullSchema': True},
-        'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
+    # Public network address
+    "ServerHostName": "localhost",
+    "Port": 8008,
+    "SSLPort": 8443,
+
+    # Network configuration
+    "BindAddress": [],
+    "InstancePort": 0,
+    "InstanceSSLPort": 0,
+    "ManholePort": 0,
+
+    # Data store
+    "DocumentRoot": "/Library/CalendarServer/Documents",
+    "UserQuotaBytes": 104857600,
+    "MaximumAttachmentSizeBytes": 1048576,
+
+    # Directory service
+    "DirectoryService": {
+        "params": {
+            "node": "/Search",
+            "useFullSchema": True,
+        },
+        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"
     },
-    'DocumentRoot': '/Library/CalendarServer/Documents',
-    'DropBoxEnabled': False,
-    'ErrorLogFile': '/var/log/caldavd/error.log',
-    'InstancePort': 0,
-    'InstanceSSLPort': 0,
-    'ManholePort': 0,
-    'MaximumAttachmentSizeBytes': 1048576,
-    'NotificationsEnabled': False,
-    'PIDFile': '/var/run/caldavd.pid',
-    'ServerHostName': 'localhost',
-    'Port': 8008,
-    'RunStandalone': True,
-    'SSLCertificate': '/etc/certificates/Default.crt',
-    'SSLEnable': True,
-    'SSLOnly': True,
-    'SSLPort': 8443,
-    'SSLPrivateKey': '/etc/certificates/Default.key',
-    'ServerLogFile': '/var/log/caldavd/server.log',
-    'ServerStatsFile': '/Library/CalendarServer/Documents/stats.plist',
-    'UserQuotaBytes': 104857600,
-    'Verbose': False,
-    'ServerHostName': 'localhost',
-    'SACLEnable': False,
-    'Authentication': {
-        'Basic': {
-            'Enabled': False,
-            },
-        'Digest': {
-            'Enabled': True,
-            'Algorithm': 'md5',
-            },
-        'Kerberos': {
-            'Enabled': False,
-            'Realm': '',
-            },
+
+    # Special principals
+    "AdminPrincipals": [],
+    "SudoersFile": "/etc/caldavd/sudoers.plist",
+    "CalendarUserProxyEnabled": True,
+
+    # Authentication
+    "Authentication": {
+        "Basic": {
+            "Enabled": False,
         },
-
-    'AdminPrincipals': [],
-    'SudoersFile': '/etc/caldavd/sudoers.plist',
-
-    'twistdLocation': '/usr/share/caldavd/bin/twistd',
-    'pydirLocation': '/usr/share/caldavd/bin/pydir++.py',
-    'pydirConfig': '/etc/caldavd/pydir.xml',
-
-    'ServerType': 'singleprocess',
-
-    'Username': 'daemon',
-    'Groupname': 'daemon',
-
-    'MultiProcess': {
-        'NumProcesses': 10,
-        'LoadBalancer': {
-            'Enabled': True,
-            'Scheduler': 'leastconns',
-            },
+        "Digest": {
+            "Enabled": True,
+            "Algorithm": "md5",
         },
-    }
+        "Kerberos": {
+            "Enabled": False,
+            "Realm": "",
+        },
+    },
+
+    # Logging
+    "Verbose": False,
+    "ServerLogFile": "/var/log/caldavd/access.log",
+    "ErrorLogFile": "/var/log/caldavd/error.log",
+    "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
+    "PIDFile": "/var/run/caldavd.pid",
+
+    # SSL
+    "SSLOnly": True,
+    "SSLEnable": True,
+    "SSLCertificate": "/etc/certificates/Default.crt",
+    "SSLPrivateKey": "/etc/certificates/Default.key",
+
+    # Process management
+    "RunStandalone": True,
+    "Username": "daemon",
+    "Groupname": "daemon",
+    "ServerType": "singleprocess",
+    "MultiProcess": {
+        "NumProcesses": 10,
+        "LoadBalancer": {
+            "Enabled": True,
+            "Scheduler": "leastconns",
+        },
+    },
+
+    # Service ACLs
+    "SACLEnable": False,
+
+    # Non-standard CalDAV extensions
+    "DropBoxEnabled": False,
+    "NotificationsEnabled": False,
+
+    # Twistd
+    "twistdLocation": "/usr/share/caldavd/bin/twistd",
+
+    # Python director
+    "pydirLocation": "/usr/share/caldavd/bin/pydir++.py",
+    "pydirConfig"  : "/etc/caldavd/pydir.xml",
+}
 
 class Config (object):
     def __init__(self, defaults):
