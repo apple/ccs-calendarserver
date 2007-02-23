@@ -148,7 +148,7 @@ limitations under the License.
 
   <key>SudoersFile</key>
   <string>/etc/caldavd/sudoers.plist</string>
-  <key>ServerType</key>
+  <key>ProcessType</key>
   <string>multiprocess</string>
   
   <key>MultiProcess</key>

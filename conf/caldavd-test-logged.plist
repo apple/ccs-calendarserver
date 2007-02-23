@@ -196,7 +196,7 @@ limitations under the License.
   <key>SudoersFile</key>
   <string>conf/sudoers.plist</string>
   
-  <key>ServerType</key>
+  <key>ProcessType</key>
   <string>singleprocess</string>
   
   <key>MultiProcess</key>

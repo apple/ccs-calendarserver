@@ -72,7 +72,7 @@ class TwistdSlaveProcess(object):
             '-g', config.GroupName,
             '-n', 'caldav',
             '-f', self.configFile,
-            '-o', 'ServerType=slave',
+            '-o', 'ProcessType=slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
             '-o', 'BindHTTPPorts=%s' % (self.port,),
             '-o', 'BindSSLPorts=%s' % (self.sslPort,),

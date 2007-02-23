@@ -103,7 +103,7 @@ while getopts 'hXu:g:f:T:P:t:' option; do
         'u') username="-u ${OPTARG}"; ;;
         'g') groupname="-g ${OPTARG}"; ;;
         'P') plugin_name="${OPTARG}"; ;;
-        't') service_type="-o ServerType=${OPTARG}"; ;;
+        't') service_type="-o ProcessType=${OPTARG}"; ;;
     esac;
 done;
 

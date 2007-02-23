@@ -178,7 +178,7 @@ class CalDAVOptions(Options):
         # Nuke the file log observer's time format.
         #
 
-        if not config.ErrorLogFile and config.ServerType == 'slave':
+        if not config.ErrorLogFile and config.ProcessType == 'slave':
             log.FileLogObserver.timeFormat = ''
         
         
@@ -468,7 +468,7 @@ class CalDAVServiceMaker(object):
     makeService_master       = makeService_pydir
 
     def makeService(self, options):
-        serverType = config.ServerType
+        serverType = config.ProcessType
         
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
 
