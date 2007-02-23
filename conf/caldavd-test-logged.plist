@@ -157,9 +157,6 @@ limitations under the License.
   <key>EnableProxyPrincipals</key>
   <true/>
 
-  <key>twistdLocation</key>
-  <string>../Twisted/bin/twistd</string>
-
   <key>EnableSACLs</key>
   <false/>
 
@@ -205,10 +202,13 @@ limitations under the License.
     <integer>2</integer>
   </dict>
 
-  <key>pydirLocation</key>
-  <string>../pydirector-1.0.0/pydir.py</string>
+  <key>PythonDirector</key>
+  <dict>
+      <key>pydir</key>
+      <string>../pydirector-1.0.0/pydir.py</string>
 
-  <key>pydirConfig</key>
-  <string>conf/pydir.xml</string>
+      <key>ConfigFile</key>
+      <string>conf/pydir.xml</string>
+  </dict>
 </dict>
 </plist>

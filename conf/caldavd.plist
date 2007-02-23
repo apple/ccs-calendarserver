@@ -156,11 +156,5 @@ limitations under the License.
     <key>ProcessCount</key>
     <integer>1</integer>
   </dict>
-
-  <key>pydirLocation</key>
-  <string>/usr/share/caldavd/bin/pydir.py</string>
-
-  <key>pydirConfig</key>
-  <string>/etc/caldavd/pydir.xml</string>
 </dict>
 </plist>

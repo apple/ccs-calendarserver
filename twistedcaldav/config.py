@@ -129,11 +129,15 @@ defaultConfig = {
     #
 
     # Twisted
-    "twistdLocation": "/usr/share/caldavd/bin/twistd",
+    "Twisted": {
+        "twistd": "/usr/share/caldavd/bin/twistd",
+    },
 
     # Python Director
-    "pydirLocation": "/usr/share/caldavd/bin/pydir++.py",
-    "pydirConfig": "/etc/caldavd/pydir.xml",
+    "PythonDirector": {
+        "pydir": "/usr/share/caldavd/bin/pydir++.py",
+        "ConfigFile": "/etc/caldavd/pydir.xml",
+    },
 }
 
 class Config (object):

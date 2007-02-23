@@ -48,8 +48,8 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistdLocation, configFile, interfaces, port, sslPort):
-        self.twistd = twistdLocation
+    def __init__(self, twistd, configFile, interfaces, port, sslPort):
+        self.twistd = twistd
 
         self.configFile = configFile
 
@@ -112,7 +112,7 @@ def makeService_Combined(self, options):
             port += 1
             sslport += 1
 
-        process = TwistdSlaveProcess(config.twistdLocation,
+        process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      options['config'],
                                      bindAddress,
                                      port, sslport)
@@ -170,7 +170,7 @@ def makeService_Combined(self, options):
         log.msg("Adding pydirector service with configuration: %s" % (fname,))
 
         service.addProcess('pydir', [sys.executable,
-                                     config.pydirLocation,
+                                     config.PythonDirector['pydir'],
                                      fname],
                            env=parentEnv)
     
@@ -181,11 +181,11 @@ def makeService_Master(self, options):
 
     parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
 
-    log.msg("Adding pydirector service with configuration: %s" % (config.pydirConfig,))
+    log.msg("Adding pydirector service with configuration: %s" % (config.PythonDirector['ConfigFile'],))
 
     service.addProcess('pydir', [sys.executable,
-                                 config.pydirLocation,
-                                 config.pydirConfig],
+                                 config.PythonDirector['pydir'],
+                                 config.PythonDirector['ConfigFile']],
                        env=parentEnv)
 
     return service
