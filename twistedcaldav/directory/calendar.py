@@ -195,11 +195,11 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             ("inbox" , ScheduleInboxResource ),
             ("outbox", ScheduleOutboxResource),
         )
-        if config.DropBoxEnabled:
+        if config.EnableDropBox:
             childlist += (
                 ("dropbox"      , DropBoxHomeResource      ),
             )
-        if config.NotificationsEnabled:
+        if config.EnableNotifications:
             childlist += (
                 ("notifications", NotificationsCollectionResource),
             )
@@ -280,7 +280,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             ),
         )
         
-        if config.CalendarUserProxyEnabled:
+        if config.EnableProxyPrincipals:
             aces += (
                 # DAV:read access for this principal's calendar-proxy-read users.
                 davxml.ACE(

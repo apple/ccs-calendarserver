@@ -148,19 +148,19 @@ limitations under the License.
   <key>UserQuota</key>
   <integer>104857600</integer><!-- 100Mb -->
 
-  <key>DropBoxEnabled</key>
+  <key>EnableDropBox</key>
   <true/>
 
-  <key>NotificationsEnabled</key>
+  <key>EnableNotifications</key>
   <true/>
 
-  <key>CalendarUserProxyEnabled</key>
+  <key>EnableProxyPrincipals</key>
   <true/>
 
   <key>twistdLocation</key>
   <string>../Twisted/bin/twistd</string>
 
-  <key>SACLEnable</key>
+  <key>EnableSACLs</key>
   <false/>
 
   <key>Authentication</key>

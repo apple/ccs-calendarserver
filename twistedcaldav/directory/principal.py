@@ -423,7 +423,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
     def groupMemberships(self):
         groups = self._getRelatives("groups")
-        if config.CalendarUserProxyEnabled:
+        if config.EnableProxyPrincipals:
             # Get proxy group GUIDs and map to principal resources
             proxies = self._map_calendar_user_proxy_guids(self._calendar_user_proxy_index().getMemberships(self.principalUID()))
             groups.update(proxies)
@@ -510,13 +510,13 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         if name == "":
             return self
 
-        if config.CalendarUserProxyEnabled and name in ("calendar-proxy-read", "calendar-proxy-write"):
+        if config.EnableProxyPrincipals and name in ("calendar-proxy-read", "calendar-proxy-write"):
             return CalendarUserProxyPrincipalResource(self.fp.child(name).path, self, name)
         else:
             return None
 
     def listChildren(self):
-        if config.CalendarUserProxyEnabled:
+        if config.EnableProxyPrincipals:
             return ("calendar-proxy-read", "calendar-proxy-write")
         else:
             return ()

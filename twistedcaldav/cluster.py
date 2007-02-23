@@ -68,8 +68,8 @@ class TwistdSlaveProcess(object):
         return [
             sys.executable,
             self.twistd,
-            '-u', config.Username,
-            '-g', config.Groupname,
+            '-u', config.UserName,
+            '-g', config.GroupName,
             '-n', 'caldav',
             '-f', self.configFile,
             '-o', 'ServerType=slave',

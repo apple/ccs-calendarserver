@@ -132,7 +132,7 @@ class DropBoxCollectionResource (DAVResource):
 
         # For drop box we look at the parent collection of the target resource and get the
         # set of subscribed principals.
-        if not config.NotificationsEnabled or not self.hasDeadProperty(customxml.Subscribed):
+        if not config.EnableNotifications or not self.hasDeadProperty(customxml.Subscribed):
             yield None
             return
 

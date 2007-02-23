@@ -39,7 +39,7 @@ class RootResource(DAVFile):
     def __init__(self, path, *args, **kwargs):
         super(RootResource, self).__init__(path, *args, **kwargs)
         
-        if config.SACLEnable and RootResource.CheckSACL:
+        if config.EnableSACLs and RootResource.CheckSACL:
             self.useSacls = True
 
     def checkSacl(self, request):

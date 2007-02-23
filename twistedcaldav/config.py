@@ -70,7 +70,7 @@ defaultConfig = {
     #
     "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
     "SudoersFile": "/etc/caldavd/sudoers.plist", # Principals that can pose as other principals
-    "CalendarUserProxyEnabled": True,            # Create "proxy access" principals
+    "EnableProxyPrincipals": True,               # Create "proxy access" principals
 
     #
     # Authentication
@@ -99,8 +99,8 @@ defaultConfig = {
     #
     # Process management
     #
-    "Username": "daemon",
-    "Groupname": "daemon",
+    "UserName": "daemon",
+    "GroupName": "daemon",
     "ServerType": "singleprocess",
     "MultiProcess": {
         "NumProcesses": 10,
@@ -113,13 +113,13 @@ defaultConfig = {
     #
     # Service ACLs
     #
-    "SACLEnable": False,
+    "EnableSACLs": False,
 
     #
     # Non-standard CalDAV extensions
     #
-    "DropBoxEnabled": False,       # Calendar Drop Box
-    "NotificationsEnabled": False, # Drop Box Notifications
+    "EnableDropBox"      : False, # Calendar Drop Box
+    "EnableNotifications": False, # Drop Box Notifications
 
     #
     # Implementation details

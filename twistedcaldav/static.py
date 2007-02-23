@@ -464,11 +464,11 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
     def provisionChild(self, name):
-        if config.DropBoxEnabled:
+        if config.EnableDropBox:
             DropBoxHomeFileClass = DropBoxHomeFile
         else:
             DropBoxHomeFileClass = None
-        if config.NotificationsEnabled:
+        if config.EnableNotifications:
             NotificationsCollectionFileClass = NotificationsCollectionFile
         else:
             NotificationsCollectionFileClass = None

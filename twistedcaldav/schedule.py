@@ -111,7 +111,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
 
     def defaultAccessControlList(self):
-        if config.CalendarUserProxyEnabled:
+        if config.EnableProxyPrincipals:
             myPrincipal = self.parent.principalForRecord()
     
             return davxml.ACL(

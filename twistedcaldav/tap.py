@@ -158,8 +158,8 @@ class CalDAVOptions(Options):
             "Document root",
             access=os.R_OK or os.W_OK,
             permissions=0750,
-            uname=config.Username,
-            gname=config.Groupname)
+            uname=config.UserName,
+            gname=config.GroupName)
             
         # Verify that ssl certs exist if needed
         if config.SSLPort:

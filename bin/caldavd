@@ -83,8 +83,8 @@ usage ()
     echo "Options:";
     echo "        -h Print this help and exit";
     echo "        -X Do not daemonize";
-    echo "        -u Username to run as";
-    echo "        -g Group to run as";
+    echo "        -u User name to run as";
+    echo "        -g Group name to run as";
     echo "        -f Configuration file to read";
     echo "        -T Path to twistd binary";
     echo "        -t Service type (master, slave, standalone, cluster)";
