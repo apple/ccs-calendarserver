@@ -23,23 +23,41 @@ from twistedcaldav.py.plistlib import readPlist
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
 defaultConfig = {
-    # Public network address
-    "ServerHostName": "localhost",
-    "Port": 8008,
-    "SSLPort": 8443,
+    #
+    # Public network address information
+    #
+    #    This is the server's public network address, which is provided to clients
+    #    in URLs and the like.  It may or may not be the network address that the
+    #    server is listening to directly.  For example, it may be the address of a
+    #    load balancer or proxy which forwards connections to the server.
+    #
+    "ServerHostName": "localhost", # Network host name.
+    "Port": 8008,                  # HTTP port
+    "SSLPort": 8443,               # SSL port
 
-    # Network configuration
-    "BindAddress": [],
-    "InstancePort": 0,
-    "InstanceSSLPort": 0,
-    "ManholePort": 0,
+    #
+    # Network address configuration information
+    #
+    #    This configures the actual network address that the server binds to.
+    #
+    "BindAddress": [],     # List of IP addresses to bind to [empty = all]
+    "InstancePort": 0,     # Port number to bind to for HTTP [0 = same as "Port"]
+    "InstanceSSLPort": 0,  # Port number to bind to for SSL [0 = same as "SSLPort"]
+    "ManholePort": 0,      # Port number to bind to for Twisted manhole (debugging) [0 = none]
 
+    #
     # Data store
+    #
     "DocumentRoot": "/Library/CalendarServer/Documents",
     "UserQuotaBytes": 104857600,
     "MaximumAttachmentSizeBytes": 1048576,
 
+    #
     # Directory service
+    #
+    #    A directory service provides information about principals (eg. users, groups,
+    #    locations and resources) to the server.
+    #
     "DirectoryService": {
         "params": {
             "node": "/Search",
@@ -48,40 +66,42 @@ defaultConfig = {
         "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"
     },
 
+    #
     # Special principals
-    "AdminPrincipals": [],
-    "SudoersFile": "/etc/caldavd/sudoers.plist",
-    "CalendarUserProxyEnabled": True,
+    #
+    "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
+    "SudoersFile": "/etc/caldavd/sudoers.plist", # Principals that can pose as other principals
+    "CalendarUserProxyEnabled": True,            # Create "proxy access" principals
 
+    #
     # Authentication
+    #
     "Authentication": {
-        "Basic": {
-            "Enabled": False,
-        },
-        "Digest": {
-            "Enabled": True,
-            "Algorithm": "md5",
-        },
-        "Kerberos": {
-            "Enabled": False,
-            "Realm": "",
-        },
+        "Basic"   : { "Enabled": False }                     # Clear text; best avoided
+        "Digest"  : { "Enabled": True,  "Algorithm": "md5" } # Digest challenge/response
+        "Kerberos": { "Enabled": False, "Realm": "" }        # Kerberos/SPNEGO
     },
 
+    #
     # Logging
+    #
     "Verbose": False,
     "ServerLogFile": "/var/log/caldavd/access.log",
     "ErrorLogFile": "/var/log/caldavd/error.log",
     "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
     "PIDFile": "/var/run/caldavd.pid",
 
+    #
     # SSL
-    "SSLOnly": True,
-    "SSLEnable": True,
-    "SSLCertificate": "/etc/certificates/Default.crt",
-    "SSLPrivateKey": "/etc/certificates/Default.key",
+    #
+    "SSLOnly": True,                                   # Disables HTTP
+    "SSLEnable": True,                                 # Enables SSL
+    "SSLCertificate": "/etc/certificates/Default.crt", # Public key
+    "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
 
+    #
     # Process management
+    #
     "Username": "daemon",
     "Groupname": "daemon",
     "ServerType": "singleprocess",
@@ -93,19 +113,30 @@ defaultConfig = {
         },
     },
 
+    #
     # Service ACLs
+    #
     "SACLEnable": False,
 
+    #
     # Non-standard CalDAV extensions
-    "DropBoxEnabled": False,
-    "NotificationsEnabled": False,
+    #
+    "DropBoxEnabled": False,       # Calendar Drop Box
+    "NotificationsEnabled": False, # Drop Box Notifications
+
+    #
+    # Implementation details
+    #
+    #    The following are specific to how the server is built, and useful
+    #    for development, but shouldn't be needed by users.
+    #
 
     # Twistd
     "twistdLocation": "/usr/share/caldavd/bin/twistd",
 
     # Python director
     "pydirLocation": "/usr/share/caldavd/bin/pydir++.py",
-    "pydirConfig"  : "/etc/caldavd/pydir.xml",
+    "pydirConfig": "/etc/caldavd/pydir.xml",
 }
 
 class Config (object):
