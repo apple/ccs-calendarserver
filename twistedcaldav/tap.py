@@ -420,9 +420,9 @@ class CalDAVServiceMaker(object):
         channel = http.HTTPFactory(site)
 
         log.msg("Configuring rotating log observer for file: %s" % (
-            config.ServerLogFile,))
+            config.AccessLogFile,))
 
-        logObserver = RotatingFileAccessLoggingObserver(config.ServerLogFile)
+        logObserver = RotatingFileAccessLoggingObserver(config.AccessLogFile)
         
         service = CalDAVService(logObserver)
 

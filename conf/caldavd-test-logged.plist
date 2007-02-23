@@ -55,7 +55,7 @@ limitations under the License.
   <key>SSLCertificate</key>
   <string>conf/server.pem</string>
 
-  <key>ServerLogFile</key>
+  <key>AccessLogFile</key>
   <string>logs/server.log</string>
 
   <key>ErrorLogFile</key>

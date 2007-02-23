@@ -85,7 +85,7 @@ defaultConfig = {
     # Logging
     #
     "Verbose": False,
-    "ServerLogFile": "/var/log/caldavd/access.log",                     # Apache-styp access log
+    "AccessLogFile": "/var/log/caldavd/access.log",                     # Apache-style access log
     "ErrorLogFile": "/var/log/caldavd/error.log",                       # Server activity log
     "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
     "PIDFile": "/var/run/caldavd.pid",

@@ -60,7 +60,7 @@ limitations under the License.
   <key>SSLCertificate</key>
   <string>/etc/certificates/Default.crt</string>
 
-  <key>ServerLogFile</key>
+  <key>AccessLogFile</key>
   <string>/var/log/caldavd/server.log</string>
 
   <key>ServerStatsFile</key>

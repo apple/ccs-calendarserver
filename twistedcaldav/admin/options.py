@@ -127,7 +127,7 @@ class LogOptions(SubCommand):
     def postOptions(self):
         if not self['logfile']:
             self['logfile'] = filepath.FilePath(
-                config.ServerLogFile)
+                config.AccessLogFile)
         else:
             self['logfile'] = filepath.FilePath(self['logfile'])
 
