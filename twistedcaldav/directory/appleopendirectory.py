@@ -70,7 +70,7 @@ class OpenDirectoryService(DirectoryService):
         self.realmName = node
         self.directory = directory
         self.node = node
-        self.requireComputerRecord = useFullSchema
+        self.requireComputerRecord = requireComputerRecord
         self.computerRecordName = ""
         self._records = {}
         self._delayedCalls = set()
