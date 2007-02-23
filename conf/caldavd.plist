@@ -97,7 +97,7 @@ limitations under the License.
     <dict>
       <key>node</key>
       <string>/Search</string>
-      <key>useFullSchema</key>
+      <key>requireComputerRecord</key>
       <true/>
     </dict>
   </dict>

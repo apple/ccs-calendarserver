@@ -52,10 +52,10 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", useFullSchema=True, dosetup=True):
+    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True):
         """
         @param node: an OpenDirectory node name to bind to.
-        @param useFullSchema: C{True} if the directory schema is to be used to determine
+        @param requireComputerRecord: C{True} if the directory schema is to be used to determine
             which calendar users are enabled.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
@@ -70,13 +70,13 @@ class OpenDirectoryService(DirectoryService):
         self.realmName = node
         self.directory = directory
         self.node = node
-        self.useFullSchema = useFullSchema
+        self.requireComputerRecord = useFullSchema
         self.computerRecordName = ""
         self._records = {}
         self._delayedCalls = set()
 
         if dosetup:
-            if self.useFullSchema:
+            if self.requireComputerRecord:
                 try:
                     self._lookupVHostRecord()
                 except Exception, e:
@@ -320,7 +320,7 @@ class OpenDirectoryService(DirectoryService):
             records = {}
 
             try:
-                if self.useFullSchema:
+                if self.requireComputerRecord:
                     query = {
                         dsattributes.kDSNAttrServicesLocator: self.servicetag,
                     }
@@ -344,7 +344,7 @@ class OpenDirectoryService(DirectoryService):
                 raise
 
             for (key, value) in results.iteritems():
-                if self.useFullSchema:
+                if self.requireComputerRecord:
                     # Make sure this record has service enabled.
                     enabled = True
 

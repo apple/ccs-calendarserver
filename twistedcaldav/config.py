@@ -60,7 +60,7 @@ defaultConfig = {
     "DirectoryService": {
         "params": {
             "node": "/Search",
-            "useFullSchema": True,
+            "requireComputerRecord": True,
         },
         "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"
     },
