@@ -74,8 +74,8 @@ class TwistdSlaveProcess(object):
             '-f', self.configFile,
             '-o', 'ServerType=slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-            '-o', 'InstancePort=%s' % (self.port,),
-            '-o', 'InstanceSSLPort=%s' % (self.sslPort,),
+            '-o', 'BindHTTPPorts=%s' % (self.port,),
+            '-o', 'BindSSLPorts=%s' % (self.sslPort,),
             '-o', 'PIDFile=None',
             '-o', 'ErrorLogFile=None']
     

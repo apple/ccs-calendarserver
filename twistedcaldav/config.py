@@ -41,9 +41,8 @@ defaultConfig = {
     #    This configures the actual network address that the server binds to.
     #
     "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
-    "InstancePort": 0,     # Port number to bind to for HTTP [0 = same as "Port"]
-    "InstanceSSLPort": 0,  # Port number to bind to for SSL [0 = same as "SSLPort"]
-    "ManholePort": 0,      # Port number to bind to for Twisted manhole (debugging) [0 = none]
+    "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP [empty = same as "Port"]
+    "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
 
     #
     # Data store
@@ -131,10 +130,11 @@ defaultConfig = {
     #    for development, but shouldn't be needed by users.
     #
 
-    # Twistd
+    # Twisted
     "twistdLocation": "/usr/share/caldavd/bin/twistd",
+    "ManholePort": 0, # Port number to bind to for Twisted manhole (debugging) [0 = none]
 
-    # Python director
+    # Python Director
     "pydirLocation": "/usr/share/caldavd/bin/pydir++.py",
     "pydirConfig": "/etc/caldavd/pydir.xml",
 }

@@ -427,55 +427,49 @@ class CalDAVServiceMaker(object):
         service = CalDAVService(logObserver)
 
         if not config.BindAddresses:
-            config.BindAddresses = ['']
+            config.BindAddresses = [""]
 
         for bindAddress in config.BindAddresses:
             if not config.SSLOnly:
-                if config.InstancePort == 0:
-                    config.InstancePort = config.HTTPPort
-                log.msg("Adding server at %s:%s" % (
-                    bindAddress, config.InstancePort))
+                if not config.BindHTTPPorts:
+                    config.BindHTTPPorts = [config.HTTPPort]
+
+                for port in config.BindHTTPPorts:
+                    log.msg("Adding server at %s:%s" % (bindAddress, port))
                     
-                httpService = internet.TCPServer(int(config.InstancePort), channel,
-                                                 interface=bindAddress)
-                httpService.setServiceParent(service)
+                    httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
+                    httpService.setServiceParent(service)
 
             if config.SSLEnable:
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
-                if config.InstanceSSLPort == 0:
-                    config.InstanceSSLPort = config.SSLPort
-                log.msg("Adding SSL server at %s:%s" % (
-                    bindAddress, config.InstanceSSLPort))
+                if not config.BindSSLPorts:
+                    config.BindSSLPorts = [config.SSLPort]
+
+                for port in config.BindSSLPorts:
+                    log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
                 
-                httpsService = internet.SSLServer(
-                    int(config.InstanceSSLPort),
-                    channel,
-                    DefaultOpenSSLContextFactory(config.SSLPrivateKey,
-                                                 config.SSLCertificate),
-                    interface=bindAddress
+                    httpsService = internet.SSLServer(
+                        int(port), channel,
+                        DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate),
+                        interface=bindAddress
                     )
-                httpsService.setServiceParent(service)
+                    httpsService.setServiceParent(service)
             
         return service
 
-    makeService_slave = makeService_singleprocess
-
+    makeService_slave        = makeService_singleprocess
     makeService_multiprocess = makeService_multiprocess
-
-    makeService_master = makeService_pydir
+    makeService_master       = makeService_pydir
 
     def makeService(self, options):
         serverType = config.ServerType
         
-        serviceMethod = getattr(self, 'makeService_%s' % (serverType,), None)
+        serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
 
         if not serviceMethod:
             raise UsageError(
-                ("Unknown server type %s, please choose: singleprocess, "
-                 "multiprocess, master, slave" % (serverType,)))
-
+                "Unknown server type %s, please choose: singleprocess, "
+                "multiprocess, master, slave" % (serverType,)
+            )
         else:
             return serviceMethod(options)
-            
-
-                                
