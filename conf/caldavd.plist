@@ -36,10 +36,10 @@ limitations under the License.
   <key>ServerHostName</key>
   <string>localhost</string>
 
-  <key>Username</key>
+  <key>UserName</key>
   <string>calendar</string>
 
-  <key>Groupname</key>
+  <key>GroupName</key>
   <string>calendar</string>
 
   <key>HTTPPort</key>

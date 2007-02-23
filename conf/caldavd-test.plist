@@ -43,12 +43,6 @@ limitations under the License.
   <key>SSLPort</key>
   <integer>8443</integer>
 
-  <key>Username</key>
-  <string></string>
-
-  <key>Groupname</key>
-  <string></string>
-
   <key>SSLPrivateKey</key>
   <string>conf/server.pem</string>
 
