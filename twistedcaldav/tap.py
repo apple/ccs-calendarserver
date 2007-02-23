@@ -162,7 +162,7 @@ class CalDAVOptions(Options):
             gname=config.Groupname)
             
         # Verify that ssl certs exist if needed
-        if config.SSLEnable:
+        if config.SSLPort:
             self.checkFile(
                 config.SSLPrivateKey,
                 "SSL Private key",
@@ -430,30 +430,36 @@ class CalDAVServiceMaker(object):
             config.BindAddresses = [""]
 
         for bindAddress in config.BindAddresses:
-            if not config.SSLOnly:
-                if not config.BindHTTPPorts:
+            if config.BindHTTPPorts:
+                if not config.HTTPPort:
+                    raise UsageError("HTTPPort required if BindHTTPPorts is not empty")
+            elif config.HTTPPort:
                     config.BindHTTPPorts = [config.HTTPPort]
 
-                for port in config.BindHTTPPorts:
-                    log.msg("Adding server at %s:%s" % (bindAddress, port))
-                    
-                    httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
-                    httpService.setServiceParent(service)
+            if config.BindSSLPorts:
+                if not config.SSLPort:
+                    raise UsageError("SSLPort required if BindSSLPorts is not empty")
+            elif config.SSLPort:
+                config.BindSSLPorts = [config.SSLPort]
 
-            if config.SSLEnable:
+            if config.BindSSLPorts:
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
-                if not config.BindSSLPorts:
-                    config.BindSSLPorts = [config.SSLPort]
 
-                for port in config.BindSSLPorts:
-                    log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
+            for port in config.BindHTTPPorts:
+                log.msg("Adding server at %s:%s" % (bindAddress, port))
                 
-                    httpsService = internet.SSLServer(
-                        int(port), channel,
-                        DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate),
-                        interface=bindAddress
-                    )
-                    httpsService.setServiceParent(service)
+                httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
+                httpService.setServiceParent(service)
+
+            for port in config.BindSSLPorts:
+                log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
+            
+                httpsService = internet.SSLServer(
+                    int(port), channel,
+                    DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate),
+                    interface=bindAddress
+                )
+                httpsService.setServiceParent(service)
             
         return service
 

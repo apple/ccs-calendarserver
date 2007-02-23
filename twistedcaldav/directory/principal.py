@@ -444,9 +444,9 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         # the directory record provides.
         addresses = set(self.record.calendarUserAddresses)
         addresses.add(self.principalURL())
-        if not config.SSLOnly:
+        if config.HTTPPort:
             addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, self.principalURL(),))
-        if config.SSLEnable:
+        if config.SSLPort:
             addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, self.principalURL(),))
         addresses.add("urn:uuid:%s" % (self.principalUID(),))
         

@@ -32,8 +32,8 @@ defaultConfig = {
     #    load balancer or proxy which forwards connections to the server.
     #
     "ServerHostName": "localhost", # Network host name.
-    "HTTPPort": 8008,              # HTTP port
-    "SSLPort": 8443,               # SSL port
+    "HTTPPort": None,              # HTTP port (None to disable HTTP)
+    "SSLPort" : None,              # SSL port (None to disable HTTPS)
 
     #
     # Network address configuration information
@@ -48,8 +48,8 @@ defaultConfig = {
     # Data store
     #
     "DocumentRoot": "/Library/CalendarServer/Documents",
-    "UserQuota": 104857600,           # User quota (in bytes)
-    "MaximumAttachmentSize": 1048576, # Attachment size limit (in bytes)
+    "UserQuota"            : 104857600, # User quota (in bytes)
+    "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
 
     #
     # Directory service
@@ -85,16 +85,14 @@ defaultConfig = {
     # Logging
     #
     "Verbose": False,
-    "AccessLogFile": "/var/log/caldavd/access.log",                     # Apache-style access log
-    "ErrorLogFile": "/var/log/caldavd/error.log",                       # Server activity log
+    "AccessLogFile"  : "/var/log/caldavd/access.log",                   # Apache-style access log
+    "ErrorLogFile"   : "/var/log/caldavd/error.log",                    # Server activity log
     "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
-    "PIDFile": "/var/run/caldavd.pid",
+    "PIDFile"        : "/var/run/caldavd.pid",
 
     #
     # SSL
     #
-    "SSLOnly": True,                                   # Disables HTTP
-    "SSLEnable": True,                                 # Enables SSL
     "SSLCertificate": "/etc/certificates/Default.crt", # Public key
     "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
 

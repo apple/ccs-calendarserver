@@ -121,10 +121,10 @@ def makeService_multiprocess(self, options):
                            process.getCommandLine(),
                            env=parentEnv)
         
-        if not config.SSLOnly:
+        if config.HTTPPort:
             hosts.append(process.getHostLine())
 
-        if config.SSLEnable:
+        if config.SSLPort:
             sslHosts.append(process.getHostLine(ssl=True))
 
     if (config.MultiProcess['LoadBalancer']['Enabled'] and 
@@ -135,7 +135,7 @@ def makeService_multiprocess(self, options):
             config.BindAddresses = ['']
 
         for bindAddress in config.BindAddresses:
-            if not config.SSLOnly:
+            if config.HTTPPort:
                 services.append(serviceTemplate % {
                         'name': 'http',
                         'bindAddress': bindAddress,
@@ -145,7 +145,7 @@ def makeService_multiprocess(self, options):
                         'hosts': '\n'.join(hosts)
                         })
             
-            if config.SSLEnable:
+            if config.SSLPort:
                 services.append(serviceTemplate % {
                         'name': 'https',
                         'bindAddress': bindAddress,
