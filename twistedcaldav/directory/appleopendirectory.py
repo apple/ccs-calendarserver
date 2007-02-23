@@ -29,6 +29,7 @@ import sys
 
 import opendirectory
 import dsattributes
+import dsquery
 
 from twisted.python import log
 from twisted.internet.threads import deferToThread
@@ -123,12 +124,12 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrXMLPlist,
         ]
 
-        records = opendirectory.queryRecordsWithAttributes(
+        records = opendirectory.queryRecordsWithAttribute(
             self.directory,
-            { dsattributes.kDS1AttrXMLPlist: vhostname },
+            dsattributes.kDS1AttrXMLPlist,
+            vhostname,
             dsattributes.eDSContains,
             True,    # case insentive for hostnames
-            False,
             dsattributes.kDSStdRecordTypeComputers,
             attrs
         )
@@ -304,35 +305,61 @@ class OpenDirectoryService(DirectoryService):
                 dsattributes.kDSNAttrServicesLocator,
             ]
 
+            query = None
             if recordType == DirectoryService.recordType_users:
                 listRecordType = dsattributes.kDSStdRecordTypeUsers
+
             elif recordType == DirectoryService.recordType_groups:
                 listRecordType = dsattributes.kDSStdRecordTypeGroups
                 attrs.append(dsattributes.kDSNAttrGroupMembers)
+
             elif recordType == DirectoryService.recordType_locations:
-                listRecordType = dsattributes.kDSStdRecordTypeLocations
+                listRecordType = dsattributes.kDSStdRecordTypeResources
+                query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
+            
             elif recordType == DirectoryService.recordType_resources:
                 listRecordType = dsattributes.kDSStdRecordTypeResources
+                query = dsquery.expression(dsquery.expression.OR, (
+                    dsquery.match(dsattributes.kDSNAttrResourceType, "0", dsattributes.eDSExact),
+                    dsquery.match(dsattributes.kDSNAttrResourceType, "2", dsattributes.eDSExact),
+                    dsquery.match(dsattributes.kDSNAttrResourceType, "3", dsattributes.eDSExact),
+                    dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
+                    dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
+                ))
+            
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s"
                                              % (recordType,))
 
+            if self.requireComputerRecord:
+                cprecord = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
+                if query:
+                    query = dsquery.expression(dsquery.expression.AND, (cprecord, query))
+                else:
+                    query = cprecord
+                
             records = {}
 
             try:
-                if self.requireComputerRecord:
-                    query = {
-                        dsattributes.kDSNAttrServicesLocator: self.servicetag,
-                    }
-                    results = opendirectory.queryRecordsWithAttributes(
-                        self.directory,
-                        query,
-                        dsattributes.eDSStartsWith,
-                        False,
-                        False,
-                        listRecordType,
-                        attrs,
-                    )
+                if query:
+                    if isinstance(query, dsquery.match):
+                        results = opendirectory.queryRecordsWithAttribute(
+                            self.directory,
+                            query.attribute,
+                            query.value,
+                            query.matchType,
+                            False,
+                            listRecordType,
+                            attrs,
+                        )
+                    else:
+                        results = opendirectory.queryRecordsWithAttributes(
+                            self.directory,
+                            query.generate(),
+                            False,
+                            listRecordType,
+                            attrs,
+                        )
                 else:
                     results = opendirectory.listAllRecordsWithAttributes(
                         self.directory,

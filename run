@@ -417,7 +417,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   if ! py_have_module opendirectory; then
     opendirectory="${top}/PyOpenDirectory";
 
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 1213;
+    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 1251;
     py_build "PyOpenDirectory" "${opendirectory}" false;
     py_install "PyOpenDirectory" "${opendirectory}";
 
