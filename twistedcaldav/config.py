@@ -26,10 +26,11 @@ defaultConfig = {
     #
     # Public network address information
     #
-    #    This is the server's public network address, which is provided to clients
-    #    in URLs and the like.  It may or may not be the network address that the
-    #    server is listening to directly.  For example, it may be the address of a
-    #    load balancer or proxy which forwards connections to the server.
+    #    This is the server's public network address, which is provided to
+    #    clients in URLs and the like.  It may or may not be the network
+    #    address that the server is listening to directly, though it is by
+    #    default.  For example, it may be the address of a load balancer or
+    #    proxy which forwards connections to the server.
     #
     "ServerHostName": "localhost", # Network host name.
     "HTTPPort": None,              # HTTP port (None to disable HTTP)
@@ -54,15 +55,15 @@ defaultConfig = {
     #
     # Directory service
     #
-    #    A directory service provides information about principals (eg. users, groups,
-    #    locations and resources) to the server.
+    #    A directory service provides information about principals (eg.
+    #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
+        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
         "params": {
             "node": "/Search",
             "requireComputerRecord": True,
         },
-        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"
     },
 
     #
@@ -91,7 +92,7 @@ defaultConfig = {
     "PIDFile"        : "/var/run/caldavd.pid",
 
     #
-    # SSL
+    # SSL/TLS
     #
     "SSLCertificate": "/etc/certificates/Default.crt", # Public key
     "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
@@ -103,7 +104,7 @@ defaultConfig = {
     "GroupName": "daemon",
     "ProcessType": "Slave",
     "MultiProcess": {
-        "ProcessCount": 10,
+        "ProcessCount": 4,
         "LoadBalancer": {
             "Enabled": True,
             "Scheduler": "LeastConnections",

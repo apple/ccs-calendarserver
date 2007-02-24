@@ -20,46 +20,75 @@ limitations under the License.
 <plist version="1.0">
 <dict>
 
-  <key>Verbose</key>
-  <false/>
+  <!--
+    Public network address information
 
-  <key>RunStandalone</key>
-  <true/>
+    This is the server's public network address, which is provided to
+    clients in URLs and the like.  It may or may not be the network
+    address that the server is listening to directly, though it is by
+    default.  For example, it may be the address of a load balancer or
+    proxy which forwards connections to the server.
+  -->
 
-  <key>DocumentRoot</key>
-  <string>twistedcaldav/test/data/</string>
+  <!-- Network host name -->
+  <key>ServerHostName</key>
+  <string>localhost</string>
 
+  <!-- HTTP port (comment out to disable HTTP) -->
+  <key>HTTPPort</key>
+  <integer>8008</integer>
+
+  <!-- SSL port (comment out to disable HTTPS) -->
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+
+  <!--
+    Network address configuration information
+
+    This configures the actual network address that the server binds to.
+  -->
+
+  <!-- List of IP addresses to bind to [empty = all] -->
   <key>BindAddresses</key>
   <array>
     <string>127.0.0.1</string>
   </array>
 
-  <key>ServerHostName</key>
-  <string>localhost</string>
+  <!-- List of port numbers to bind to for HTTP [empty = same as "Port"] -->
+  <key>BindHTTPPorts</key>
+  <array></array>
 
-  <key>HTTPPort</key>
-  <integer>8008</integer>
+  <!-- List of port numbers to bind to for SSL [empty = same as "SSLPort"] -->
+  <key>BindSSLPorts</key>
+  <array></array>
 
-  <key>SSLPort</key>
-  <integer>8443</integer>
 
-  <key>SSLPrivateKey</key>
-  <string>conf/server.pem</string>
+  <!--
+    Data Store
+  -->
 
-  <key>SSLCertificate</key>
-  <string>conf/server.pem</string>
+  <!-- Document root -->
+  <key>DocumentRoot</key>
+  <string>twistedcaldav/test/data/</string>
 
-  <key>AccessLogFile</key>
-  <string>logs/server.log</string>
+  <!-- User quota (in bytes) -->
+  <key>UserQuota</key>
+  <integer>104857600</integer><!-- 100Mb -->
 
-  <key>ErrorLogFile</key>
-  <string>logs/error.log</string>
+  <!-- Attachment size limit (in bytes) -->
+  <key>MaximumAttachmentSize</key>
+  <integer>1048576</integer><!-- 1Mb -->
 
-  <key>ServerStatsFile</key>
-  <string>logs/stats.plist</string>
 
-  <key>PIDFile</key>
-  <string>logs/caldavd.pid</string>
+  <!--
+    Directory service
+
+    A directory service provides information about principals (eg.
+    users, groups, locations and resources) to the server.
+
+    A variety of directory services are available for use.
+  -->
 
   <!--  XML File Directory Service -->
   <key>DirectoryService</key>
@@ -73,7 +102,7 @@ limitations under the License.
       <string>conf/accounts-test.xml</string>
     </dict>
   </dict>
-
+  
   <!--  Open Directory Service -->
   <!--
   <key>DirectoryService</key>
@@ -90,7 +119,7 @@ limitations under the License.
     </dict>
   </dict>
   -->
-  
+
   <!--  Apache-style Basic Directory Service -->
   <!--
   <key>DirectoryService</key>
@@ -141,32 +170,45 @@ limitations under the License.
     </dict>
   </dict>
   -->
-  
-  <key>MaximumAttachmentSize</key>
-  <integer>1048576</integer><!-- 1Mb -->
 
-  <key>UserQuota</key>
-  <integer>104857600</integer><!-- 100Mb -->
 
-  <key>EnableDropBox</key>
-  <true/>
+  <!--
+    Special principals
 
-  <key>EnableNotifications</key>
-  <true/>
+    These principals are granted special access and/or perform
+    special roles on the server.
+  -->
 
+  <!-- Principals with "DAV:all" access (relative URLs) -->
+  <key>AdminPrincipals</key>
+  <array>
+    <!-- <string>/principals/users/admin/</string> -->
+  </array>
+
+  <!-- Principals that can pose as other principals -->
+  <key>SudoersFile</key>
+  <string>conf/sudoers.plist</string>
+
+  <!-- Create "proxy access" principals -->
   <key>EnableProxyPrincipals</key>
   <true/>
 
-  <key>EnableSACLs</key>
-  <false/>
+
+  <!--
+    Authentication
+  -->
 
   <key>Authentication</key>
   <dict>
+
+    <!-- Clear text; best avoided -->
     <key>Basic</key>
     <dict>
       <key>Enabled</key>
       <true/>
     </dict>
+
+    <!-- Digest challenge/response -->
     <key>Digest</key>
     <dict>
       <key>Enabled</key>
@@ -174,6 +216,8 @@ limitations under the License.
       <key>Algorithm</key>
       <string>md5</string>
     </dict>
+
+    <!-- Kerberos/SPNEGO -->
     <key>Kerberos</key>
     <dict>
       <key>Enabled</key>
@@ -183,24 +227,91 @@ limitations under the License.
       <key>Realm</key>
       <string></string>
     </dict>
+
   </dict>
 
-  <key>AdminPrincipals</key>
-  <array>
-    <string>/principals/users/admin/</string>
-  </array>
 
-  <key>SudoersFile</key>
-  <string>conf/sudoers.plist</string>
-  
+  <!--
+    Logging
+  -->
+
+  <key>Verbose</key>
+  <false/>
+
+  <!-- Apache-style access log -->
+  <key>AccessLogFile</key>
+  <string>logs/server.log</string>
+
+  <!-- Server activity log -->
+  <key>ErrorLogFile</key>
+  <string>logs/error.log</string>
+
+  <!-- Server statistics file -->
+  <key>ServerStatsFile</key>
+  <string>logs/stats.plist</string>
+
+  <!-- Server process ID file -->
+  <key>PIDFile</key>
+  <string>logs/caldavd.pid</string>
+
+
+  <!--
+    SSL/TLS
+  -->
+
+  <!-- Public key -->
+  <key>SSLCertificate</key>
+  <string>conf/server.pem</string>
+
+  <!-- Private key -->
+  <key>SSLPrivateKey</key>
+  <string>conf/server.pem</string>
+
+
+  <!--
+    Process management
+  -->
+
+  <key>UserName</key>
+  <string>calendar</string>
+
+  <key>GroupName</key>
+  <string>calendar</string>
+
   <key>ProcessType</key>
-  <string>Slave</string>
-  
+  <string>Combined</string>
+
   <key>MultiProcess</key>
   <dict>
     <key>ProcessCount</key>
-    <integer>2</integer>
+    <integer>4</integer>
   </dict>
+
+
+  <!--
+    Service ACLs
+  -->
+
+  <key>EnableSACLs</key>
+  <true/>
+
+
+  <!--
+    Non-standard CalDAV extensions
+  -->
+
+  <!-- Calendar Drop Box -->
+  <key>EnableDropBox</key>
+  <true/>
+
+  <!-- Drop Box Notifications -->
+  <key>EnableNotifications</key>
+  <true/>
+
+
+  <!--
+    Python Director
+  -->
 
   <key>PythonDirector</key>
   <dict>
@@ -210,5 +321,6 @@ limitations under the License.
       <key>ConfigFile</key>
       <string>conf/pydir.xml</string>
   </dict>
+
 </dict>
 </plist>
