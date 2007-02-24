@@ -887,9 +887,13 @@ Index: twisted/web2/dav/resource.py
  
                  if name == "resourcetype":
                      if self.isCollection():
-@@ -1673,6 +2025,24 @@
+@@ -1671,8 +2023,27 @@
+         if self.principalURL() == uri:
+             return True
          else:
-             return uri in self.groupMembers()
+-            return uri in self.groupMembers()
++            member_uris = [member.principalURL() for member in self.groupMembers()]
++            return uri in member_uris
  
 +class DAVPrincipalCollectionResource (DAVResource):
 +    """
@@ -912,7 +916,7 @@ Index: twisted/web2/dav/resource.py
  class AccessDeniedError(Exception):
      def __init__(self, errors):
          """ 
-@@ -1712,6 +2082,37 @@
+@@ -1712,6 +2083,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
