@@ -24,8 +24,6 @@ __all__ = [
     "CalendarUserProxyPrincipalResource",
 ]
 
-from urllib import unquote
-
 from twisted.internet.defer import succeed
 from twisted.python import log
 from twisted.python.failure import Failure
@@ -33,12 +31,10 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.util import joinURL
-from twisted.web2.http import Response
-from twisted.web2.http_headers import MimeType
+from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
-from twistedcaldav.resource import CalendarPrincipalResource
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import AutoProvisioningFileMixIn
 
@@ -137,17 +133,25 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         # Really, c-u-p principals should be treated the same way as any other principal, so
         # they should be allowed as members of groups.
         #
-        # This implementation simply ignores any principal URIs that correspond to c-u-p principals.
+        # This implementation now raises an exception for any principal it cannot find.
 
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
         
         # Map the URIs to principals.
-        # NB Non-matching URIs will return None foe the principal
-        principals = [self.pcollection._principalForURI(uri) for uri in members]
+        principals = []
+        for uri in members:
+            principal = self.pcollection._principalForURI(uri)
+            # Invalid principals MUST result in an error.
+            if principal is None:
+                raise HTTPError(StatusResponse(
+                    responsecode.BAD_REQUEST,
+                    "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
+                ))
+            principals.append(principal)
         
-        # Map the principals to GUIDs, ignoring principals that are None.
-        guids = [p.principalUID() for p in principals if p is not None]
+        # Map the principals to GUIDs.
+        guids = [p.principalUID() for p in principals]
 
         self._index().setGroupMembers(self.guid, guids)
         return succeed(True)
