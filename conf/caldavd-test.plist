@@ -285,6 +285,25 @@ limitations under the License.
   <dict>
     <key>ProcessCount</key>
     <integer>4</integer>
+
+    <key>LoadBalancer</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+
+	  <!-- One of the strings below must be used - the others commented out -->
+      <key>Scheduler</key>
+
+      <!-- Least Connections -->
+      <string>LeastConnections</string>
+
+      <!-- Round Robin -->
+      <!-- <string>RoundRobin</string> -->
+
+      <!-- Least Connections and Round Robin -->
+      <!-- <string>LeastConnectionsAndRoundRobin</string> -->
+    </dict>
+
   </dict>
 
 
@@ -308,6 +327,15 @@ limitations under the License.
   <key>EnableNotifications</key>
   <true/>
 
+  <!--
+    Twisted
+  -->
+
+  <key>Twisted</key>
+  <dict>
+      <key>twistd</key>
+      <string>../Twisted/bin/twistd</string>
+  </dict>
 
   <!--
     Python Director
