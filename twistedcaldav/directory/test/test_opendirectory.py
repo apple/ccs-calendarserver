@@ -21,6 +21,7 @@ try:
 except ImportError:
     pass
 else:
+    from twisted.internet.task import Clock
     from twistedcaldav.directory.directory import DirectoryService
     import twistedcaldav.directory.test.util
 
@@ -50,7 +51,7 @@ else:
 
         def setUp(self):
             super(OpenDirectory, self).setUp()
-            self._service = OpenDirectoryService(node="/Search", dosetup=False)
+            self._service = OpenDirectoryService(node="/Search")
 
         def tearDown(self):
             for call in self._service._delayedCalls:

@@ -50,6 +50,8 @@ class XMLDirectoryService(DirectoryService):
 
         self.xmlFile = xmlFile
         self._fileInfo = None
+
+    def startService(self):
         self._accounts()
 
     def recordTypes(self):

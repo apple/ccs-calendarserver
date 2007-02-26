@@ -73,4 +73,7 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         xmlService = XMLDirectoryService(xmlFile)
         xmlService.recordTypePrefix = xml_prefix
 
-        return AggregateDirectoryService((apacheService, xmlService))
+        aggregate = AggregateDirectoryService((apacheService, xmlService))
+        aggregate.startService()
+
+        return aggregate

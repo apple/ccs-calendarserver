@@ -53,14 +53,11 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True):
+    def __init__(self, node="/Search", requireComputerRecord=True):
         """
         @param node: an OpenDirectory node name to bind to.
         @param requireComputerRecord: C{True} if the directory schema is to be used to determine
             which calendar users are enabled.
-        @param dosetup: if C{True} then the directory records are initialized,
-                        if C{False} they are not.
-                        This should only be set to C{False} when doing unit tests.
         """
         try:
             directory = opendirectory.odInit(node)
@@ -76,16 +73,16 @@ class OpenDirectoryService(DirectoryService):
         self._records = {}
         self._delayedCalls = set()
 
-        if dosetup:
-            if self.requireComputerRecord:
-                try:
-                    self._lookupVHostRecord()
-                except Exception, e:
-                    log.err("Unable to locate virtual host record: %s" % (e,))
-                    raise
+    def startService(self):
+        if self.requireComputerRecord:
+            try:
+                self._lookupVHostRecord()
+            except Exception, e:
+                log.err("Unable to locate virtual host record: %s" % (e,))
+                raise
 
-            for recordType in self.recordTypes():
-                self.recordsForType(recordType)
+        for recordType in self.recordTypes():
+            self.recordsForType(recordType)
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -115,7 +112,7 @@ class OpenDirectoryService(DirectoryService):
                 "There is no virtual hostname configured for the server for use with Open Directory (node=%s)"
                 % (self.realmName,)
             )
-         
+
         # Find a record in /Computers with an ENetAddress attribute value equal to the MAC address
         # and return some useful attributes.
         attrs = [
@@ -136,7 +133,7 @@ class OpenDirectoryService(DirectoryService):
         self._parseComputersRecords(records, vhostname)
 
     def _parseComputersRecords(self, records, vhostname):
-        
+
         # Must have some results
         if len(records) == 0:
             raise OpenDirectoryInitError(
@@ -147,12 +144,12 @@ class OpenDirectoryService(DirectoryService):
         # Now find a single record that actually matches the hostname
         found = False
         for recordname, record in records.iteritems():
-            
+
             # Must have XMLPlist value
             plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
             if not plist:
                 continue
-            
+
             if not self._parseXMLPlist(vhostname, recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]):
                 continue
             elif found:
@@ -162,13 +159,13 @@ class OpenDirectoryService(DirectoryService):
                 )
             else:
                 found = True
-                
+
         if not found:
             raise OpenDirectoryInitError(
                 "Open Directory (node=%s) no /Computers records with an enabled and valid calendar service were found matching virtual hostname: %s"
                 % (self.realmName, vhostname,)
             )
-    
+
     def _parseXMLPlist(self, vhostname, recordname, plist, recordguid):
         # Parse the plist and look for our special entry
         plist = readPlistFromString(plist)
@@ -180,7 +177,7 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, recordname)
             )
             return False
-        
+
         # Iterate over each vhost and find one that is a calendar service
         hostguid = None
         for key, value in vhosts.iteritems():
@@ -190,7 +187,7 @@ class OpenDirectoryService(DirectoryService):
                     if type == "calendar":
                         hostguid = key
                         break
-                    
+
         if not hostguid:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
@@ -198,7 +195,7 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, recordname)
             )
             return False
-            
+
         # Get host name
         hostname = vhosts[hostguid].get("hostname", None)
         if not hostname:
@@ -215,7 +212,7 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, recordname, hostname, vhostname)
             )
             return False
-        
+
         # Get host details and create host templates
         hostdetails = vhosts[hostguid].get("hostDetails", None)
         if not hostdetails:
@@ -229,7 +226,7 @@ class OpenDirectoryService(DirectoryService):
         for key, value in hostdetails.iteritems():
             if key in ("http", "https"):
                 hostvariants.append((key, hostname, value["port"]))
-        
+
         # Look at the service data
         serviceInfos = vhosts[hostguid].get("serviceInfo", None)
         if not serviceInfos or not serviceInfos.has_key("calendar"):
@@ -240,7 +237,7 @@ class OpenDirectoryService(DirectoryService):
             )
             return False
         serviceInfo = serviceInfos["calendar"]
-        
+
         # Check that this service is enabled
         enabled = serviceInfo.get("enabled", True)
         if not enabled:
@@ -253,23 +250,23 @@ class OpenDirectoryService(DirectoryService):
 
         # Create the string we will use to match users with accounts on this server
         self.servicetag = "%s:%s:calendar" % (recordguid, hostguid)
-        
+
         self.computerRecordName = recordname
-        
+
         return True
-    
+
     def _getCalendarUserAddresses(self, recordType, recordName, record):
         """
         Extract specific attributes from the directory record for use as calendar user address.
-        
+
         @param recordName: a C{str} containing the record name being operated on.
         @param record: a C{dict} containing the attributes retrieved from the directory.
         @return: a C{set} of C{str} for each expanded calendar user address.
         """
-        
+
         # Now get the addresses
         result = set()
-        
+
         # Add each email address as a mailto URI
         emails = record.get(dsattributes.kDSNAttrEMailAddress)
         if emails is not None:
@@ -277,7 +274,7 @@ class OpenDirectoryService(DirectoryService):
                 emails = [emails]
             for email in emails:
                 result.add("mailto:%s" % (email,))
-                
+
         return result
 
     def recordTypes(self):
@@ -316,7 +313,7 @@ class OpenDirectoryService(DirectoryService):
             elif recordType == DirectoryService.recordType_locations:
                 listRecordType = dsattributes.kDSStdRecordTypeResources
                 query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
-            
+
             elif recordType == DirectoryService.recordType_resources:
                 listRecordType = dsattributes.kDSStdRecordTypeResources
                 query = dsquery.expression(dsquery.expression.OR, (
@@ -326,7 +323,7 @@ class OpenDirectoryService(DirectoryService):
                     dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
                     dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
                 ))
-            
+
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s"
                                              % (recordType,))
@@ -337,7 +334,7 @@ class OpenDirectoryService(DirectoryService):
                     query = dsquery.expression(dsquery.expression.AND, (cprecord, query))
                 else:
                     query = cprecord
-                
+
             records = {}
 
             try:

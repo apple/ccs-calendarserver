@@ -86,7 +86,9 @@ class XMLFile (
     Test XML file based directory implementation.
     """
     def service(self):
-        return XMLDirectoryService(self.xmlFile())
+        service = XMLDirectoryService(self.xmlFile())
+        service.startService()
+        return service
 
     def test_changedXML(self):
         self.xmlFile().open("w").write(

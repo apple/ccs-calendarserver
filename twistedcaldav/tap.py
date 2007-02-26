@@ -88,9 +88,9 @@ class CalDAVOptions(Options):
 
     def opt_option(self, option):
         """
-        Set an option to override a value in the config file. True, False, int, 
+        Set an option to override a value in the config file. True, False, int,
         and float options are supported, as well as comma seperated lists. Only
-        one option may be given for each --option flag, however multiple 
+        one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
 
@@ -103,13 +103,13 @@ class CalDAVOptions(Options):
 
                 elif isinstance(defaultConfig[key], (int, float, long)):
                     value = type(defaultConfig[key])(value)
-                
+
                 elif isinstance(defaultConfig[key], (list, tuple)):
                     value = value.split(',')
 
                 elif isinstance(defaultConfig[key], dict):
                     raise UsageError("Dict options not supported on the command line")
-                        
+
                 elif value == 'None':
                     value = None
 
@@ -130,7 +130,7 @@ class CalDAVOptions(Options):
         uid, gid = None, None
 
         if self.parent['uid'] or self.parent['gid']:
-            uid, gid = getid(self.parent['uid'], 
+            uid, gid = getid(self.parent['uid'],
                              self.parent['gid'])
 
         if uid:
@@ -159,7 +159,7 @@ class CalDAVOptions(Options):
             uname=config.UserName,
             gname=config.GroupName
         )
-            
+
         # Verify that ssl certs exist if needed
         if config.SSLPort:
             self.checkFile(
@@ -181,12 +181,12 @@ class CalDAVOptions(Options):
 
         if not config.ErrorLogFile and config.ProcessType == 'Slave':
             log.FileLogObserver.timeFormat = ''
-        
+
         # Check current umask and warn if changed
         oldmask = os.umask(0027)
         if oldmask != 0027:
             print "WARNING: changing umask from: 0%03o to 0%03o" % (oldmask, 0027,)
-        
+
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
         if not os.path.exists(dirpath):
             raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
@@ -195,7 +195,7 @@ class CalDAVOptions(Options):
         elif access and not os.access(dirpath, access):
             raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, dirpath,))
         self.securityCheck(dirpath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
-    
+
     def checkFile(self, filepath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
         if not os.path.exists(filepath):
             raise ConfigurationError("%s does not exist: %s" % (description, filepath,))
@@ -227,7 +227,7 @@ class CalDAVOptions(Options):
             except KeyError:
                 raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s"
                              % (description, path, pathstat[stat.ST_UID], uname))
-                    
+
         if gname:
             import grp
             try:
@@ -238,7 +238,7 @@ class CalDAVOptions(Options):
             except KeyError:
                 raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
                              % (description, path, pathstat[stat.ST_GID], gname))
-                    
+
 
 class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
@@ -262,12 +262,12 @@ class CalDAVServiceMaker(object):
         # Setup the Directory
         #
         directories = []
-        
+
         directoryClass = namedClass(config.DirectoryService['type'])
-        
+
         log.msg("Configuring directory service of type: %s"
                 % (config.DirectoryService['type'],))
-        
+
         baseDirectory = directoryClass(**config.DirectoryService['params'])
 
         directories.append(baseDirectory)
@@ -277,7 +277,7 @@ class CalDAVServiceMaker(object):
         if config.SudoersFile and os.path.exists(config.SudoersFile):
             log.msg("Configuring SudoDirectoryService with file: %s"
                     % (config.SudoersFile,))
-                
+
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
 
@@ -298,7 +298,7 @@ class CalDAVServiceMaker(object):
         #
 
         log.msg("Setting up document root at: %s" % (config.DocumentRoot,))
-        
+
         log.msg("Setting up principal collection: %r" % (self.principalResourceClass,))
 
         principalCollection = self.principalResourceClass(
@@ -314,11 +314,11 @@ class CalDAVServiceMaker(object):
             directory,
             '/calendars/'
         )
-        
+
         log.msg("Setting up root resource: %r" % (self.rootResourceClass,))
-        
+
         root = self.rootResourceClass(
-            config.DocumentRoot, 
+            config.DocumentRoot,
             principalCollections=(principalCollection,)
         )
 
@@ -335,12 +335,12 @@ class CalDAVServiceMaker(object):
                 davxml.Grant(davxml.Privilege(davxml.Read())),
             ),
         ]
-        
+
         log.msg("Setting up AdminPrincipals")
 
         for principal in config.AdminPrincipals:
             log.msg("Added %s as admin principal" % (principal,))
-            
+
             rootACEs.append(
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(principal)),
@@ -372,10 +372,10 @@ class CalDAVServiceMaker(object):
             scheme = scheme.lower()
 
             credFactory = None
-            
+
             if schemeConfig['Enabled']:
                 log.msg("Setting up scheme: %s" % (scheme,))
-                
+
                 if scheme == 'kerberos':
                     if not NegotiateCredentialFactory:
                         log.msg("Kerberos support not available")
@@ -414,7 +414,7 @@ class CalDAVServiceMaker(object):
 
         #
         # Configure the service
-        # 
+        #
 
         log.msg("Setting up service")
 
@@ -424,8 +424,10 @@ class CalDAVServiceMaker(object):
             config.AccessLogFile,))
 
         logObserver = RotatingFileAccessLoggingObserver(config.AccessLogFile)
-        
+
         service = CalDAVService(logObserver)
+
+        directory.setServiceParent(service)
 
         if not config.BindAddresses:
             config.BindAddresses = [""]
@@ -448,20 +450,20 @@ class CalDAVServiceMaker(object):
 
             for port in config.BindHTTPPorts:
                 log.msg("Adding server at %s:%s" % (bindAddress, port))
-                
+
                 httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
                 httpService.setServiceParent(service)
 
             for port in config.BindSSLPorts:
                 log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
-            
+
                 httpsService = internet.SSLServer(
                     int(port), channel,
                     DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate),
                     interface=bindAddress
                 )
                 httpsService.setServiceParent(service)
-            
+
         return service
 
     makeService_Combined = makeService_Combined

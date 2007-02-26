@@ -30,7 +30,7 @@ else:
         """
         Test Open Directory service schema.
         """
-        
+
         plist_nomacosxserver_key = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -186,7 +186,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -301,7 +301,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -425,7 +425,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostDetails</key>
@@ -544,7 +544,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -647,7 +647,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -769,7 +769,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -825,10 +825,10 @@ else:
 
         def test_plist_errors(self):
             def _doParse(plist, title):
-                service = OpenDirectoryService(node="/Search", dosetup=False)
+                service = OpenDirectoryService(node="/Search")
                 if service._parseXMLPlist("calendar.apple.com", "recordit", plist, "GUIDIFY"):
                     self.fail(msg="Plist parse should have failed: %s" % (title,))
-                
+
             plists = (
                 (PlistParse.plist_nomacosxserver_key, "nomacosxserver_key"),
                 (PlistParse.plist_nocalendarservice,  "nocalendarservice"),
@@ -841,7 +841,7 @@ else:
                 _doParse(plist, title)
 
         def test_goodplist(self):
-            service = OpenDirectoryService(node="/Search", dosetup=False)
+            service = OpenDirectoryService(node="/Search")
             if not service._parseXMLPlist("calendar.apple.com", "recordit", PlistParse.plist_good, "GUIDIFY"):
                 self.fail(msg="Plist parse should not have failed")
             else:
@@ -850,15 +850,15 @@ else:
 
         def test_expandcuaddrs(self):
             def _doTest(recordName, record, result, title):
-                service = OpenDirectoryService(node="/Search", dosetup=False)
+                service = OpenDirectoryService(node="/Search")
                 if not service._parseXMLPlist("calendar.apple.com", recordName, PlistParse.plist_good, "GUIDIFY"):
                     self.fail(msg="Plist parse should not have failed: %s" % (recordName,))
                 else:
                     expanded = service._getCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
-        
+
                     # Verify that we extracted the proper items
                     self.assertEqual(expanded, result, msg=title % (expanded, result,))
-            
+
             data = (
                 (
                  "user01",
@@ -892,7 +892,7 @@ else:
                  "User with no email addresses, %s != %s",
                 ),
             )
-            
+
             for recordName, record, result, title in data:
                 _doTest(recordName, record, result, title)
 
@@ -916,13 +916,13 @@ else:
 
         def test_odrecords_error(self):
             def _doParseRecords(recordlist, title):
-                service = OpenDirectoryService(node="/Search", dosetup=False)
+                service = OpenDirectoryService(node="/Search")
                 try:
                     service._parseComputersRecords(recordlist, "calendar.apple.com")
                     self.fail(msg="Record parse should have failed: %s" % (title,))
                 except OpenDirectoryInitError:
                     pass
-                
+
             records = (
                 ({}, "no records found"),
                 ({
@@ -939,12 +939,12 @@ else:
 
         def test_odrecords_good(self):
             def _doParseRecords(recordlist, title):
-                service = OpenDirectoryService(node="/Search", dosetup=False)
+                service = OpenDirectoryService(node="/Search")
                 try:
                     service._parseComputersRecords(recordlist, "calendar.apple.com")
                 except OpenDirectoryInitError, ex:
                     self.fail(msg="Record parse should not have failed: \"%s\" with error: %s" % (title, ex))
-                
+
             records = (
                 ({
                       ODRecordsParse.record_good[0]        : ODRecordsParse.record_good[1],
