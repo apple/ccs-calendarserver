@@ -65,8 +65,97 @@ class CalDAVService(service.MultiService):
         self.logObserver = logObserver
         service.MultiService.__init__(self)
 
+    def verifyFiles(self):
+        # Verify that document root actually exists
+        self.checkDirectory(
+            config.DocumentRoot,
+            "Document root",
+            access=os.R_OK or os.W_OK,
+            permissions=0750,
+            uname=config.UserName,
+            gname=config.GroupName
+        )
+
+        # Verify that ssl certs exist if needed
+        if config.SSLPort:
+            self.checkFile(
+                config.SSLPrivateKey,
+                "SSL Private key",
+                access=os.R_OK,
+                permissions=0640
+            )
+            self.checkFile(
+                config.SSLCertificate,
+                "SSL Public key",
+                access=os.R_OK,
+                permissions=0644
+            )
+
+    def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
+        if not os.path.exists(dirpath):
+            raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
+        elif not os.path.isdir(dirpath):
+            raise ConfigurationError("%s is not a directory: %s" % (description, dirpath,))
+        elif access and not os.access(dirpath, access):
+            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, dirpath,))
+        self.securityCheck(dirpath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
+
+    def checkFile(self, filepath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
+        if not os.path.exists(filepath):
+            raise ConfigurationError("%s does not exist: %s" % (description, filepath,))
+        elif not os.path.isfile(filepath):
+            raise ConfigurationError("%s is not a file: %s" % (description, filepath,))
+        elif access and not os.access(filepath, access):
+            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, filepath,))
+        self.securityCheck(filepath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
+
+    def securityCheck(self, path, description, fail=False, permissions=None, uname=None, gname=None):
+        def raiseOrPrint(txt):
+            if fail:
+                raise ConfigurationError(txt)
+            else:
+                print "WARNING: %s" % (txt,)
+
+        pathstat = os.stat(path)
+        if permissions:
+            if stat.S_IMODE(pathstat[stat.ST_MODE]) != permissions:
+                raiseOrPrint("The permisions on %s directory %s are 0%03o and do not match expected permissions: 0%03o"
+                             % (description, path, stat.S_IMODE(pathstat[stat.ST_MODE]), permissions))
+        if uname:
+            import pwd
+            try:
+                pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
+                if pathuname != uname:
+                    raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s"
+                                 % (description, path, pathuname, uname))
+            except KeyError:
+                raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s"
+                             % (description, path, pathstat[stat.ST_UID], uname))
+
+        if gname:
+            import grp
+            try:
+                pathgname = grp.getgrgid(pathstat[stat.ST_GID])[0]
+                if pathgname != gname:
+                    raiseOrPrint("The group of %s directory %s is %s and does not match the expected group: %s"
+                                 % (description, path, pathgname, gname))
+            except KeyError:
+                raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
+                             % (description, path, pathstat[stat.ST_GID], gname))
+
+    def startService(self):
+        self.verifyFiles()
+
+        service.MultiService.startService(self)
+
     def privilegedStartService(self):
         service.MultiService.privilegedStartService(self)
+
+        # Check current umask and warn if changed
+        oldmask = os.umask(0027)
+        if oldmask != 0027:
+            print "WARNING: changing umask from: 0%03o to 0%03o" % (oldmask, 0027,)
+
         self.logObserver.start()
 
     def stopService(self):
@@ -150,30 +239,6 @@ class CalDAVOptions(Options):
         self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
 
-        # Verify that document root actually exists
-        self.checkDirectory(
-            config.DocumentRoot,
-            "Document root",
-            access=os.R_OK or os.W_OK,
-            permissions=0750,
-            uname=config.UserName,
-            gname=config.GroupName
-        )
-
-        # Verify that ssl certs exist if needed
-        if config.SSLPort:
-            self.checkFile(
-                config.SSLPrivateKey,
-                "SSL Private key",
-                access=os.R_OK,
-                permissions=0640
-            )
-            self.checkFile(
-                config.SSLCertificate,
-                "SSL Public key",
-                access=os.R_OK,
-                permissions=0644
-            )
 
         #
         # Nuke the file log observer's time format.
@@ -182,62 +247,7 @@ class CalDAVOptions(Options):
         if not config.ErrorLogFile and config.ProcessType == 'Slave':
             log.FileLogObserver.timeFormat = ''
 
-        # Check current umask and warn if changed
-        oldmask = os.umask(0027)
-        if oldmask != 0027:
-            print "WARNING: changing umask from: 0%03o to 0%03o" % (oldmask, 0027,)
 
-    def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
-        if not os.path.exists(dirpath):
-            raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
-        elif not os.path.isdir(dirpath):
-            raise ConfigurationError("%s is not a directory: %s" % (description, dirpath,))
-        elif access and not os.access(dirpath, access):
-            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, dirpath,))
-        self.securityCheck(dirpath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
-
-    def checkFile(self, filepath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
-        if not os.path.exists(filepath):
-            raise ConfigurationError("%s does not exist: %s" % (description, filepath,))
-        elif not os.path.isfile(filepath):
-            raise ConfigurationError("%s is not a file: %s" % (description, filepath,))
-        elif access and not os.access(filepath, access):
-            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, filepath,))
-        self.securityCheck(filepath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
-
-    def securityCheck(self, path, description, fail=False, permissions=None, uname=None, gname=None):
-        def raiseOrPrint(txt):
-            if fail:
-                raise ConfigurationError(txt)
-            else:
-                print "WARNING: %s" % (txt,)
-
-        pathstat = os.stat(path)
-        if permissions:
-            if stat.S_IMODE(pathstat[stat.ST_MODE]) != permissions:
-                raiseOrPrint("The permisions on %s directory %s are 0%03o and do not match expected permissions: 0%03o"
-                             % (description, path, stat.S_IMODE(pathstat[stat.ST_MODE]), permissions))
-        if uname:
-            import pwd
-            try:
-                pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
-                if pathuname != uname:
-                    raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s"
-                                 % (description, path, pathuname, uname))
-            except KeyError:
-                raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s"
-                             % (description, path, pathstat[stat.ST_UID], uname))
-
-        if gname:
-            import grp
-            try:
-                pathgname = grp.getgrgid(pathstat[stat.ST_GID])[0]
-                if pathgname != gname:
-                    raiseOrPrint("The group of %s directory %s is %s and does not match the expected group: %s"
-                                 % (description, path, pathgname, gname))
-            except KeyError:
-                raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
-                             % (description, path, pathstat[stat.ST_GID], gname))
 
 
 class CalDAVServiceMaker(object):
@@ -279,7 +289,6 @@ class CalDAVServiceMaker(object):
                     % (config.SudoersFile,))
 
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
-            sudoDirectory.realmName = baseDirectory.realmName
 
             CalDAVResource.sudoDirectory = sudoDirectory
             directories.append(sudoDirectory)

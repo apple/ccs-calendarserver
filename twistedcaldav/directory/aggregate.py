@@ -56,7 +56,7 @@ class AggregateDirectoryService(DirectoryService, MultiService):
             service = IDirectoryService(service)
 
             if service.realmName != self.realmName:
-                assert self.realmName is None, (
+                assert self.realmName is None or service.realmName is None, (
                     "Aggregated directory services must have the same realm name: %r != %r"
                     % (service.realmName, self.realmName)
                 )
