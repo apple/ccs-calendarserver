@@ -17,6 +17,7 @@
 ##
 
 import os
+import copy
 
 from twistedcaldav.py.plistlib import readPlist
 
@@ -141,14 +142,37 @@ defaultConfig = {
     },
 }
 
+
 class Config (object):
     def __init__(self, defaults):
-        self.update(defaults)
+        self._defaults = defaults
+        self._data = copy.deepcopy(defaults)
+        self._configFile = None
 
     def update(self, items):
-        items = items.iteritems()
-        for key, value in items:
-            setattr(self, key, value)
+        self._data.update(items)
+
+    def updateDefaults(self, items):
+        self._defaults.update(items)
+        self.update(items)
+
+    def __getattr__(self, attr):
+        if attr in self._data:
+            return self._data[attr]
+
+        raise AttributeError(attr)
+
+    def reload(self):
+        self._data = copy.deepcopy(self._defaults)
+        self.loadConfig(self._configFile)
+
+    def loadConfig(self, configFile):
+        self._configFile = configFile
+
+        if configFile and os.path.exists(configFile):
+            plist = readPlist(configFile)
+            self.update(plist)
+
 
 class ConfigurationError (RuntimeError):
     """
@@ -158,6 +182,4 @@ class ConfigurationError (RuntimeError):
 config = Config(defaultConfig)
 
 def parseConfig(configFile):
-    if os.path.exists(configFile):
-        plist = readPlist(configFile)
-        config.update(plist)
+    config.loadConfig(configFile)
