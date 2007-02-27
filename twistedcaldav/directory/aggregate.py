@@ -27,13 +27,12 @@ __all__ = [
 ]
 
 from twisted.cred.error import UnauthorizedLogin
-from twisted.application.service import MultiService, IService
 
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 
-class AggregateDirectoryService(DirectoryService, MultiService):
+class AggregateDirectoryService(DirectoryService):
     """
     L{IDirectoryService} implementation which aggregates multiple directory services.
     """
@@ -41,38 +40,34 @@ class AggregateDirectoryService(DirectoryService, MultiService):
 
     def __init__(self, services):
         DirectoryService.__init__(self)
-        MultiService.__init__(self)
 
-        self.realmName = None
-        self._recordTypes = {}
+        realmName = None
+        recordTypes = {}
 
         for service in services:
-            IService(service).setServiceParent(self)
-
-    def startService(self):
-        super(AggregateDirectoryService, self).startService()
-
-        for service in self.services:
             service = IDirectoryService(service)
 
-            if service.realmName != self.realmName:
-                assert self.realmName is None or service.realmName is None, (
+            if service.realmName != realmName:
+                assert realmName is None, (
                     "Aggregated directory services must have the same realm name: %r != %r"
-                    % (service.realmName, self.realmName)
+                    % (service.realmName, realmName)
                 )
-                self.realmName = service.realmName
+                realmName = service.realmName
 
             if not hasattr(service, "recordTypePrefix"):
                 service.recordTypePrefix = ""
             prefix = service.recordTypePrefix
 
             for recordType in (prefix + r for r in service.recordTypes()):
-                if recordType in self._recordTypes:
+                if recordType in recordTypes:
                     raise DuplicateRecordTypeError(
                         "%r is in multiple services: %s, %s"
-                        % (recordType, self._recordTypes[recordType], service)
+                        % (recordType, recordTypes[recordType], service)
                     )
-                self._recordTypes[recordType] = service
+                recordTypes[recordType] = service
+
+        self.realmName = realmName
+        self._recordTypes = recordTypes
 
     def __repr__(self):
         return "<%s (%s): %r>" % (self.__class__.__name__, self.realmName, self._recordTypes)
@@ -138,7 +133,7 @@ class AggregateDirectoryService(DirectoryService, MultiService):
             if user:
                 return self.serviceForRecordType(
                     type).requestAvatarId(credentials)
-
+        
         raise UnauthorizedLogin("No such user: %s" % (
                 credentials.credentials.username,))
 

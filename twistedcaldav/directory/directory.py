@@ -33,7 +33,6 @@ import sys
 from zope.interface import implements
 
 from twisted.python import log
-from twisted.application.service import Service
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
@@ -46,7 +45,7 @@ except ImportError:
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
 
-class DirectoryService(object, Service):
+class DirectoryService(object):
     implements(IDirectoryService, ICredentialsChecker)
 
     ##
@@ -59,7 +58,7 @@ class DirectoryService(object, Service):
     recordType_groups = "groups"
     recordType_locations = "locations"
     recordType_resources = "resources"
-
+    
     def _generatedGUID(self):
         if not hasattr(self, "_guid"):
             realmName = self.realmName
@@ -99,7 +98,7 @@ class DirectoryService(object, Service):
             raise UnauthorizedLogin("No such user: %s" % (user,))
 
         # Handle Kerberos as a separate behavior
-        if NegotiateCredentials and isinstance(credentials.credentials,
+        if NegotiateCredentials and isinstance(credentials.credentials, 
                                                NegotiateCredentials):
             # If we get here with Kerberos, then authentication has already succeeded
             return (
@@ -113,7 +112,7 @@ class DirectoryService(object, Service):
                     credentials.authzPrincipal.principalURL(),
                 )
             else:
-                raise UnauthorizedLogin("Incorrect credentials for %s" % (user,))
+                raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
 
     def recordTypes(self):
         raise NotImplementedError("Subclass must implement recordTypes()")

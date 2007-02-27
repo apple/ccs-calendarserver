@@ -65,7 +65,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def loadFromXML(self, xmlFile):
         parser = XMLAccountsParser(xmlFile)
-
+       
         # Totally wipe existing DB and start from scratch
         if os.path.exists(self.dbpath):
             os.remove(self.dbpath)
@@ -95,13 +95,13 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         ):
             # See if we have members
             members = self.members(shortName)
-
+                
             # See if we are a member of any groups
             groups = self.groups(shortName)
-
+                
             # Get calendar user addresses
             calendarUserAddresses = self.calendarUserAddresses(shortName)
-
+                
             yield shortName, guid, password, name, members, groups, calendarUserAddresses
 
     def getRecord(self, recordType, shortName):
@@ -117,18 +117,18 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             break
         else:
             return None
-
+        
         # See if we have members
         members = self.members(shortName)
-
+            
         # See if we are a member of any groups
         groups = self.groups(shortName)
-
+            
         # Get calendar user addresses
         calendarUserAddresses = self.calendarUserAddresses(shortName)
-
+            
         return shortName, guid, password, name, members, groups, calendarUserAddresses
-
+            
     def members(self, shortName):
         members = set()
         for member in self._db_execute(
@@ -179,7 +179,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             values (:1, :2, :3, :4, :5)
             """, recordType, shortName, guid, password, name
         )
-
+        
         # Check for members
         for memberRecordType, memberShortName in record.members:
             self._db_execute(
@@ -188,7 +188,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
                 values (:1, :2, :3)
                 """, shortName, memberRecordType, memberShortName
             )
-
+                
         # CUAddress
         for cuaddr in record.calendarUserAddresses:
             self._db_execute(
@@ -197,7 +197,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
                 values (:1, :2)
                 """, cuaddr, shortName
             )
-
+       
     def _delete_from_db(self, shortName):
         """
         Deletes the specified entry from all dbs.
@@ -208,13 +208,13 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         self._db_execute("delete from GROUPS    where SHORT_NAME        = :1", shortName)
         self._db_execute("delete from GROUPS    where MEMBER_SHORT_NAME = :1", shortName)
         self._db_execute("delete from ADDRESSES where SHORT_NAME        = :1", shortName)
-
+    
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return SQLDirectoryManager.dbType
-
+        
     def _db_init_data_tables(self, q):
         """
         Initialise the underlying database tables.
@@ -280,14 +280,10 @@ class SQLDirectoryService(DirectoryService):
 
         if type(dbParentPath) is str:
             dbParentPath = FilePath(dbParentPath)
-
-        self.xmlFile = xmlFile
-
+            
         self.manager = SQLDirectoryManager(dbParentPath.path)
-
-    def startService(self):
-        if self.xmlFile:
-            self.manager.loadFromXML(self.xmlFile)
+        if xmlFile:
+            self.manager.loadFromXML(xmlFile)
         self.realmName = self.manager.getRealm()
 
     def recordTypes(self):

@@ -37,9 +37,7 @@ class SQLDB (
     Test SQL directory implementation.
     """
     def service(self):
-        service = SQLDirectoryService(os.getcwd(), self.xmlFile())
-        service.startService()
-        return service
+        return SQLDirectoryService(os.getcwd(), self.xmlFile())
 
     def test_verifyCredentials_digest(self):
         super(SQLDB, self).test_verifyCredentials_digest()
@@ -51,6 +49,5 @@ class SQLDB (
 
         # Then get an instance without using the XML file
         service = SQLDirectoryService(os.getcwd(), None)
-        service.startService()
 
         self.assertEquals(service.realmName, "Test")
