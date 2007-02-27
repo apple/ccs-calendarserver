@@ -147,11 +147,7 @@ class CalDAVOptions(Options):
                 raise UsageError("Only root can drop privileges, you are: %s"
                                  % (groupname,))
 
-        if self.parent['nodaemon']:
-            self.parent['logfile'] = None
-        else:
-            self.parent['logfile'] = config.ErrorLogFile
-
+        self.parent['logfile'] = config.ErrorLogFile
         self.parent['pidfile'] = config.PIDFile
 
         # Verify that document root actually exists
