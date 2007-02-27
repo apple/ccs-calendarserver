@@ -481,4 +481,21 @@ class CalDAVServiceMaker(object):
             raise UsageError("Unknown server type %s.  Please choose: Master, Slave or Combined"
                              % (serverType,))
         else:
-            return serviceMethod(options)
+            service = serviceMethod(options)           
+            
+            # Temporary hack to work around SIGHUP problem
+            # If there is a stopped process in the same session as the calendar server
+            # and the calendar server is the group leader then when twistd forks to drop
+            # privelages a SIGHUP may be sent by the kernel. This SIGHUP should be ignored.
+            # Note that this handler is not unset, so any further SIGHUPs are also ignored.
+            import signal
+            def sighup_handler(num, frame):
+                if frame is None:
+                    location = "Unknown"
+                else:
+                    location = str(frame.f_code.co_name) + ": " + str(frame.f_lineno)
+                log.msg("SIGHUP recieved at " + location)
+            signal.signal(signal.SIGHUP, sighup_handler)
+
+            return service
+
