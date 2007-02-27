@@ -16,6 +16,8 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
+from twisted.python import log
+
 from twisted.internet import defer
 from twisted.python.failure import Failure
 from twisted.cred.error import UnauthorizedLogin
@@ -38,9 +40,14 @@ class RootResource(DAVFile):
 
     def __init__(self, path, *args, **kwargs):
         super(RootResource, self).__init__(path, *args, **kwargs)
-        
-        if config.EnableSACLs and RootResource.CheckSACL:
-            self.useSacls = True
+
+        if config.EnableSACLs:
+            if RootResource.CheckSACL:
+                self.useSacls = True
+            else:
+                log.msg(("RootResource.CheckSACL is unset but "
+                         "config.EnableSACLs is True, SACLs will not be"
+                         "turned on."))
 
     def checkSacl(self, request):
         """

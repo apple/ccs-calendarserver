@@ -312,7 +312,7 @@ limitations under the License.
   -->
 
   <key>EnableSACLs</key>
-  <true/>
+  <false/>
 
 
   <!--
