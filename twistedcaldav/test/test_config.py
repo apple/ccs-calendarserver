@@ -64,7 +64,7 @@ class ConfigTests(unittest.TestCase):
         getVerbose()
 
     def testReloading(self):
-        self.assertEquals(config.HTTPPort, None)
+        self.assertEquals(config.HTTPPort, -1)
 
         parseConfig(self.testConfig)
 
@@ -74,10 +74,10 @@ class ConfigTests(unittest.TestCase):
 
         config.reload()
 
-        self.assertEquals(config.HTTPPort, None)
+        self.assertEquals(config.HTTPPort, -1)
 
     def testUpdateAndReload(self):
-        self.assertEquals(config.HTTPPort, None)
+        self.assertEquals(config.HTTPPort, -1)
 
         parseConfig(self.testConfig)
 
@@ -92,14 +92,14 @@ class ConfigTests(unittest.TestCase):
         self.assertEquals(config.HTTPPort, 8008)
 
     def testUpdating(self):
-        self.assertEquals(config.SSLPort, None)
+        self.assertEquals(config.SSLPort, -1)
 
         config.update({'SSLPort': 8443})
 
         self.assertEquals(config.SSLPort, 8443)
 
     def testUpdateDefaults(self):
-        self.assertEquals(config.SSLPort, None)
+        self.assertEquals(config.SSLPort, -1)
 
         parseConfig(self.testConfig)
 
@@ -111,4 +111,4 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEquals(config.SSLPort, 8009)
 
-        config.updateDefaults({'SSLPort': None})
+        config.updateDefaults({'SSLPort': -1})
