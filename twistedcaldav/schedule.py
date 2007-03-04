@@ -275,44 +275,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)
     
-        # Outbox copy is saved when not doing free busy request
-        if not freebusy:
-            # Hash the iCalendar data for use as the last path element of the URI path
-            name = md5.new(str(calendar) + str(time.time()) + self.fp.path).hexdigest() + ".ics"
-        
-            # Save a copy of the calendar data into the Outbox
-            childURL = joinURL(request.uri, name)
-            child = waitForDeferred(request.locateResource(childURL))
-            yield child
-            child = child.getResult()
-            responses.setLocation(childURL)
-        
-            try:
-                d = waitForDeferred(
-                        maybeDeferred(
-                            storeCalendarObjectResource,
-                            request = request,
-                            sourcecal = False,
-                            destination = child,
-                            destination_uri = childURL,
-                            calendardata = str(calendar),
-                            destinationparent = self,
-                            destinationcal = True,
-                            isiTIP = True
-                        )
-                    )
-                yield d
-                d.getResult()
-            except:
-                log.err("Error while handling POST: %s" % (Failure(),))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "outbox-copy")))
-        
-            # Store CALDAV:originator property
-            child.writeDeadProperty(caldavxml.Originator(davxml.HRef(originator)))
-        
-            # Store CALDAV:recipient property
-            child.writeDeadProperty(caldavxml.Recipient(*map(davxml.HRef, recipients)))
- 
         # Extract the ORGANIZER property and UID value from the calendar data  for use later
         organizerProp = calendar.getOrganizerProperty()
         uid = calendar.resourceUID()
