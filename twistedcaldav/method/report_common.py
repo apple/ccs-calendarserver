@@ -259,7 +259,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
 
 _namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
     
-def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, excludeuid=None):
+def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, excludeuid=None, organizer=None):
     """
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
@@ -268,8 +268,10 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
     @param fbinfo:      the array of busy periods to update.
     @param timerange:   the L{TimeRange} for the query.
     @param matchtotal:  the running total for the number of matches.
-    @param excludeuid:  the C{str} containing a UID value to exclude any components with that
+    @param excludeuid:  a C{str} containing a UID value to exclude any components with that
         UID from contributing to free-busy.
+    @param organizer:   a C{str} containing the value of the ORGANIZER proeprty in the VFREEBUSY request.
+        This is used in conjunction with the UID value to process exclusions.
     """
     
     # First check the privilege on this collection
@@ -327,10 +329,6 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
 
     for name, uid, type in calresource.index().search(filter): #@UnusedVariable
         
-        # Ignore ones of this UID
-        if excludeuid and (excludeuid == uid):
-            continue
-
         # Check privileges - must have at least CalDAV:read-free-busy
         child = waitForDeferred(request.locateChildResource(calresource, name))
         yield child
@@ -346,6 +344,12 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
         calendar = calresource.iCalendar(name)
         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (name, calresource)
         
+        # Ignore ones of this UID
+        if excludeuid:
+            # Check that ORGANIZER's match (security requirement) and UIDs match
+            if (excludeuid == uid) and ((organizer is None) or (organizer == calendar.getOrganizer())):
+                continue
+
         if filter.match(calendar):
             # Check size of results is within limit
             matchtotal += 1

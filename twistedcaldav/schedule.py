@@ -266,6 +266,9 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             timerange.start = dtstart
             timerange.end = dtend
 
+            # Look for maksed UID
+            excludeuid = calendar.getMaskUID()
+
             # Do free busy operation
             freebusy = True
         else:
@@ -275,7 +278,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)
     
-        # Extract the ORGANIZER property and UID value from the calendar data  for use later
+        # Extract the ORGANIZER property and UID value from the calendar data for use later
         organizerProp = calendar.getOrganizerProperty()
         uid = calendar.resourceUID()
 
@@ -347,7 +350,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                                 # properly manage the free busy set that should not prevent us from working.
                                 continue
                          
-                            matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(request, cal, fbinfo, timerange, matchtotal))
+                            matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
+                                request,
+                                cal,
+                                fbinfo,
+                                timerange,
+                                matchtotal,
+                                excludeuid=excludeuid,
+                                organizer=organizer))
                             yield matchtotal
                             matchtotal = matchtotal.getResult()
                     

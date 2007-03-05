@@ -974,6 +974,27 @@ class Component (object):
 
         return None
 
+    def getMaskUID(self):
+        """
+        Get the X-CALENDARSEREVR-MASK-UID value. Works on either a VCALENDAR or on a component.
+        
+        @return: the string value of the X-CALENDARSEREVR-MASK-UID property, or None
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    return component.getMaskUID()
+        else:
+            try:
+                # Find the primary subcomponent
+                return self.propertyValue("X-CALENDARSERVER-MASK-UID")
+            except:
+                pass
+
+        return None
+
 ##
 # Dates and date-times
 ##
