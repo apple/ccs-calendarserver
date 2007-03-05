@@ -206,9 +206,10 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
             if isinstance(output, unicode):
                 output = output.encode("utf-8")
 
+            mime_params = {"charset": "utf-8"}
+
             response = Response(200, {}, output)
-            response.headers.setHeader("content-type", MimeType("text", "html"))
-            response.headers.setHeader("content-encoding", "utf-8")
+            response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
             return response
 
         d = self.renderDirectoryBody(request)
