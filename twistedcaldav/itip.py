@@ -243,10 +243,6 @@ def processRequest(request, principal, inbox, calendar, child):
             yield newchild
             newchild = newchild.getResult()
             newInboxResource(child, newchild)
-            logging.info("[ITIP]: saving iTIP REPLY %s" % (("declined","accepted")[accepted],))
-            newchild = waitForDeferred(saveReply(request, principal, replycal, inbox))
-            yield newchild
-            newchild = newchild.getResult()
 
         # Store CALDAV:schedule-state property
         assert child.fp.exists()
@@ -576,41 +572,6 @@ def writeReply(request, principal, replycal, ainbox):
     yield d.getResult()
 
 writeReply = deferredGenerator(writeReply)
-
-def saveReply(request, principal, replycal, ainbox):
-    """
-    Write an iTIP message reply into the specified principal's Outbox.
-    
-    @param request: the L{twisted.web2.server.Request} for the current request.
-    @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
-    @param replycal: the L{Component} for the iTIP message reply.
-    @param ainbox: the L{ScheduleInboxFile} for the principal's Inbox.
-    """
-    
-    # Get the Outbox of the principal
-    outboxURL = principal.scheduleOutboxURL()
-    assert outboxURL
-    
-    # Determine whether current principal has CALDAV:schedule right on that Outbox
-    outbox = waitForDeferred(request.locateResource(outboxURL))
-    yield outbox
-    outbox = outbox.getResult()
-
-    try:
-        d = waitForDeferred(outbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
-        yield d
-        d.getResult()
-    except:
-        logging.info("[ITIP]: could not save reply as %s does not have CALDAV:schedule permission on their Outbox." % (principal.principalURL(),))
-        yield None
-        return
-    
-    # Now deposit the new calendar into the inbox
-    d = waitForDeferred(writeResource(request, outboxURL, outbox, None, replycal))
-    yield d
-    yield d.getResult()
-
-saveReply = deferredGenerator(saveReply)    
 
 def writeResource(request, collURL, collection, name, calendar):
     """
