@@ -351,6 +351,14 @@ py_have_module () {
     PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
 }
 
+put_setuptools () {
+    local where="$1"; shift;
+
+    if ! "${disable_setup}"; then
+      cp "${caldav}/support/setuptools-0.6c5-py2.5.egg" "${where}/";
+    fi;
+}
+
 #
 # Zope Interface
 #
@@ -449,6 +457,7 @@ if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
   svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.4 992;
+  put_setuptools "${xattr}";
   py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
 
@@ -515,11 +524,7 @@ case "${USER}" in
 esac;
 svn_uri="${base}/vobject/branches/users/cdaboo/vavailability-173";
 svn_get "vObject" "${vobject}" "${svn_uri}" 178;
-
-if ! "${disable_setup}"; then
-  # Avoid having to download setuptools to build vobject
-  cp "${caldav}/support/setuptools-0.6c1-py2.4.egg" "${vobject}/";
-fi;
+put_setuptools "${vobject}";
 
 py_install "vObject" "${vobject}";
 
