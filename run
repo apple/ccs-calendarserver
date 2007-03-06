@@ -476,8 +476,8 @@ case "${USER}" in
     proto="svn";
     ;;
 esac;
-svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-2";
-svn_get "Twisted" "${twisted}" "${svn_uri}" 18545;
+svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-4";
+svn_get "Twisted" "${twisted}" "${svn_uri}" 19773;
 
 # No py_build step, since we tend to do edit Twisted, we want the sources in
 # PYTHONPATH, not a build directory.

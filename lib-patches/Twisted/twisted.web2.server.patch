@@ -1,6 +1,6 @@
 Index: twisted/web2/server.py
 ===================================================================
---- twisted/web2/server.py	(revision 18545)
+--- twisted/web2/server.py	(revision 19773)
 +++ twisted/web2/server.py	(working copy)
 @@ -26,6 +26,7 @@
  from twisted.web2 import http_headers
@@ -64,50 +64,31 @@ Index: twisted/web2/server.py
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -320,8 +340,6 @@
-                     url = "/" + "/".join(path)
-                 else:
-                     url = "/"
--        
--                self._rememberURLForResource(quote(url), res)
+@@ -321,7 +341,6 @@
+         if newpath is StopTraversal:
+             # We need to rethink how to do this.
+             #if newres is res:
+-                self._rememberResource(res, url)
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -342,17 +360,16 @@
+@@ -337,7 +356,6 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
--        self._rememberURLForResource(quote(url), child)
+-        self._rememberResource(child, url)
  
          return child
  
--    _resourcesByURL = weakref.WeakKeyDictionary()
--
--    def _rememberURLForResource(self, url, resource):
-+    def _rememberResource(self, resource, url):
+@@ -347,6 +365,7 @@
          """
--        Remember the URL of visited resources.
-+        Remember the URL of a visited resources.
+         Remember the URL of a visited resource.
          """
-         self._resourcesByURL[resource] = url
-+        self._urlsByResource[url] = resource
-+        return resource
++        self._resourcesByURL[url] = resource
+         self._urlsByResource[resource] = url
+         return resource
  
-     def urlForResource(self, resource):
-         """
-@@ -367,10 +384,7 @@
- 
-         @return: the URL of C{resource} if known, otherwise C{None}.
-         """
--        try:
--            return self._resourcesByURL[resource]
--        except KeyError:
--            return None
-+        return self._resourcesByURL.get(resource, None)
- 
-     def locateResource(self, url):
-         """
-@@ -385,7 +399,8 @@
+@@ -386,7 +405,8 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -117,80 +98,19 @@ Index: twisted/web2/server.py
  
          #
          # Parse the URL
-@@ -406,19 +421,71 @@
+@@ -407,9 +427,13 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
 -        segments = path.split("/")
-+        # Looked for cached value
-+        cached = self._urlsByResource.get(path, None)
++        # Look for cached value
++        cached = self._resourcesByURL.get(path, None)
 +        if cached is not None:
 +            return defer.succeed(cached)
 +
 +        segments = unquote(path).split("/")
          assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
-         segments = segments[1:]
--        segments = map(unquote, segments)
+-        segments = map(unquote, segments[1:])
  
          def notFound(f):
              f.trap(http.HTTPError)
--            if f.response.code != responsecode.NOT_FOUND:
--                raise f
-+            if f.value.response.code != responsecode.NOT_FOUND:
-+                return f
-             return None
- 
--        return defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
-+        d.addCallback(self._rememberResource, path)
-+        d.addErrback(notFound)
-+        return d
- 
-+    def locateChildResource(self, parent, child_name):
-+        """
-+        Looks up the child resource with the given name given the parent
-+        resource.  This is similar to locateResource(), but doesn't have to
-+        start the lookup from the root resource, so it is potentially faster.
-+        @param parent: the parent of the resource being looked up.
-+        @param child_name: the name of the child of C{parent} to looked up.
-+            to C{parent}.
-+        @return: a L{Deferred} resulting in the L{IResource} at the
-+            given URL or C{None} if no such resource can be located.
-+        @raise HTTPError: If C{url} is not a URL on the site that this
-+            request is being applied to.  The contained response will
-+            have a status code of L{responsecode.BAD_GATEWAY}.
-+        @raise HTTPError: If C{url} contains a query or fragment.
-+            The contained response will have a status code of
-+            L{responsecode.BAD_REQUEST}.
-+        """
-+        if parent is None or child_name is None:
-+            return defer.succeed(None)
-+
-+        parent_resource = self.urlForResource(parent)
-+
-+        assert parent_resource is not None
-+
-+        url = joinURL(parent_resource, child_name)
-+
-+        cached = self._urlsByResource.get(url, None)
-+        if cached is not None:
-+            return defer.succeed(cached)
-+
-+        assert "/" not in child_name, "Child name may not contain '/': %s" % (child_name,)
-+
-+        segment = unquote(child_name)
-+
-+        def notFound(f):
-+            f.trap(http.HTTPError)
-+            if f.value.response.code != responsecode.NOT_FOUND:
-+                return f
-+            return None
-+
-+        d = defer.maybeDeferred(self._getChild, None, parent, [segment], updatepaths=False)
-+        d.addCallback(self._rememberResource, url)
-+        d.addErrback(notFound)
-+        return d
-+
-     def _processingFailed(self, reason):
-         if reason.check(http.HTTPError) is not None:
-             # If the exception was an HTTPError, leave it alone

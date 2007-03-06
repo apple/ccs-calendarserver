@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/static.py
 ===================================================================
---- twisted/web2/dav/static.py	(revision 18545)
+--- twisted/web2/dav/static.py	(revision 19773)
 +++ twisted/web2/dav/static.py	(working copy)
 @@ -28,16 +28,16 @@
  
@@ -131,71 +131,14 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -132,63 +186,11 @@
+@@ -132,7 +186,9 @@
          return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
  
      def createSimilarFile(self, path):
 -        return self.__class__(path, defaultType=self.defaultType, indexNames=self.indexNames[:])
 +        return self.__class__(
-+            path, self.defaultType, self.indexNames[:],
-+            principalCollections=self.principalCollections()
-+        )
++            path, defaultType=self.defaultType, indexNames=self.indexNames[:],
++            principalCollections=self.principalCollections())
  
--    def render(self, request):
--        """
--        This is a direct copy of web2.static.render with the
--        listChildren behavior replaced with findChildren to ensure
--        that the current authenticated principal can only list
--        directory contents that they have read permissions for.
--        """
--        if not self.fp.exists():
--            yield responsecode.NOT_FOUND
--            return
--
--        if self.fp.isdir():
--            if request.uri[-1] != "/":
--                # Redirect to include trailing '/' in URI
--                yield RedirectResponse(
--                    request.unparseURL(path=request.path+'/'))
--                return
--            else:
--                ifp = self.fp.childSearchPreauth(*self.indexNames)
--                if ifp:
--                    # Render from the index file
--                    standin = self.createSimilarFile(ifp.path)
--                else:
--                    filtered_aces = waitForDeferred(self.inheritedACEsforChildren(request))
--                    yield filtered_aces
--                    filtered_aces = filtered_aces.getResult()
--
--                    children = []
--
--                    def found(request, uri):
--                        children.append(uri.split("/")[-1].rstrip("/"))
--
--                    x = waitForDeferred(
--                        self.findChildren("1", request, found, (davxml.Read(),),
--                                          inherited_aces=filtered_aces)
--                    )
--                    yield x
--                    x = x.getResult()
--
--                    # Render from a DirectoryLister
--                    standin = dirlist.DirectoryLister(
--                        self.fp.path,
--                        children,
--                        self.contentTypes,
--                        self.contentEncodings,
--                        self.defaultType
--                    )
--                yield standin.render(request)
--                return
--
--        # Do regular resource behavior from superclass
--        yield super(DAVFile, self).render(request)
--    
--    render = deferredGenerator(render)
--
  #
  # Attach method handlers to DAVFile
- #
