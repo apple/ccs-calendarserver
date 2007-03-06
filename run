@@ -549,13 +549,14 @@ fi;
 #
 
 if ! py_have_module pydirector; then
-    pydirector="${top}/pydirector-1.0.0";
+  pydirector="${top}/pydirector-1.0.0";
     
-    www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
-    py_build "PyDirector" "${pydirector}" false;
-    py_install "PyDirector" "${pydirector}";
+  www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+  put_setuptools "${pydirector}";
+  py_build "PyDirector" "${pydirector}" false;
+  py_install "PyDirector" "${pydirector}";
 
-    export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
+  export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
 fi;
 
 #
