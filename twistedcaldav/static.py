@@ -34,6 +34,7 @@ __all__ = [
     "NotificationFile",
 ]
 
+import datetime
 import os
 import errno
 from urlparse import urlsplit
@@ -124,8 +125,18 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         # Create the collection once we know it is safe to do so
         #
-        return self.createSpecialCollection(davxml.ResourceType.calendar)
+        def onCalendarCollection(status):
+            if status != responsecode.CREATED:
+                raise HTTPError(status)
     
+            # Initialize CTag on the calendar collection
+            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            return status
+
+        d = self.createSpecialCollection(davxml.ResourceType.calendar)
+        d.addCallback(onCalendarCollection)
+        return d
+
     def createSpecialCollection(self, resourceType=None):
         #
         # Create the collection once we know it is safe to do so

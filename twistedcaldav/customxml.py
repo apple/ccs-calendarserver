@@ -208,6 +208,14 @@ class Unsubscribe (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "unsubscribe"
 
+class GETCTag (davxml.WebDAVTextElement):
+    """
+    Contains the calendar collection entity tag.
+    """
+    namespace = calendarserver_namespace
+    name = "getctag"
+    protected = True
+
 ##
 # Extensions to davxml.ResourceType
 ##

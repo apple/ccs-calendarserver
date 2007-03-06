@@ -22,9 +22,12 @@ CalDAV DELETE method.
 
 __all__ = ["http_DELETE"]
 
+import datetime
+
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import parentForURL
 
+from twistedcaldav import customxml
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_DELETE(self, request):
@@ -38,6 +41,9 @@ def http_DELETE(self, request):
                 if isPseudoCalendarCollectionResource(parent):
                     index = parent.index()
                     index.deleteResource(self.fp.basename())
+                    
+                    # Change CTag on the parent calendar collection
+                    parent.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
 
             return response
 
