@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/element/__init__.py
 ===================================================================
---- twisted/web2/dav/element/__init__.py	(revision 18545)
+--- twisted/web2/dav/element/__init__.py	(revision 19773)
 +++ twisted/web2/dav/element/__init__.py	(working copy)
 @@ -35,4 +35,5 @@
      "rfc2518",

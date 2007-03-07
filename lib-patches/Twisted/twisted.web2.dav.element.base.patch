@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/element/base.py
 ===================================================================
---- twisted/web2/dav/element/base.py	(revision 18545)
+--- twisted/web2/dav/element/base.py	(revision 19773)
 +++ twisted/web2/dav/element/base.py	(working copy)
 @@ -145,21 +145,20 @@
  

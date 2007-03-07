@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/test/test_prop.py
 ===================================================================
---- twisted/web2/dav/test/test_prop.py	(revision 18545)
+--- twisted/web2/dav/test/test_prop.py	(revision 19773)
 +++ twisted/web2/dav/test/test_prop.py	(working copy)
 @@ -21,6 +21,8 @@
  #

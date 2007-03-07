@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/copymove.py
 ===================================================================
---- twisted/web2/dav/method/copymove.py	(revision 18545)
+--- twisted/web2/dav/method/copymove.py	(revision 19773)
 +++ twisted/web2/dav/method/copymove.py	(working copy)
 @@ -34,11 +34,12 @@
  from twisted.python import log

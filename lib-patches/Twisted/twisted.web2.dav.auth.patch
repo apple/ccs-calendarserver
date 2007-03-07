@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/auth.py
 ===================================================================
---- twisted/web2/dav/auth.py	(revision 18545)
+--- twisted/web2/dav/auth.py	(revision 19773)
 +++ twisted/web2/dav/auth.py	(working copy)
 @@ -40,7 +40,7 @@
  

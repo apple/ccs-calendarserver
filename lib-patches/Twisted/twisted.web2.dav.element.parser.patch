@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/element/parser.py
 ===================================================================
---- twisted/web2/dav/element/parser.py	(revision 18545)
+--- twisted/web2/dav/element/parser.py	(revision 19773)
 +++ twisted/web2/dav/element/parser.py	(working copy)
 @@ -106,6 +106,26 @@
              "children"   : [],

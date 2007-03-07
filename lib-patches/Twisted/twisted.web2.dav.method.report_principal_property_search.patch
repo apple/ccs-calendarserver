@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/method/report_principal_property_search.py
 ===================================================================
---- twisted/web2/dav/method/report_principal_property_search.py	(revision 18545)
+--- twisted/web2/dav/method/report_principal_property_search.py	(revision 19773)
 +++ twisted/web2/dav/method/report_principal_property_search.py	(working copy)
 @@ -127,13 +127,8 @@
          matchcount = 0

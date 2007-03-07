@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/xattrprops.py
 ===================================================================
---- twisted/web2/dav/xattrprops.py	(revision 18545)
+--- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
 @@ -66,16 +66,8 @@
          deadPropertyXattrPrefix = "user."

@@ -1,6 +1,6 @@
 Index: twisted/web2/dav/test/test_acl.py
 ===================================================================
---- twisted/web2/dav/test/test_acl.py	(revision 18545)
+--- twisted/web2/dav/test/test_acl.py	(revision 19773)
 +++ twisted/web2/dav/test/test_acl.py	(working copy)
 @@ -30,6 +30,7 @@
  from twisted.web2.auth import basic
