@@ -23,9 +23,14 @@ different types of index we need in the server.
 
 __all__ = ["AbstractIndex"]
 
-from pysqlite2 import dbapi2 as sqlite
-from twisted.python import log
 import os
+
+try:
+    import sqlite3 as sqlite
+except ImportError:
+    from pysqlite2 import dbapi2 as sqlite
+
+from twisted.python import log
 
 db_basename = ".db.sqlite"
 
