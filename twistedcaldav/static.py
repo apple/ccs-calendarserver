@@ -561,6 +561,9 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
                 # since they typically don't have someone responding for them.
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
+            # Initialize CTag on the calendar collection
+            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+
         return super(ScheduleInboxFile, self).provision()
 
     def __repr__(self):
@@ -573,6 +576,13 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def __init__(self, path, parent):
         ScheduleFile.__init__(self, path, parent)
         ScheduleOutboxResource.__init__(self, parent)
+
+    def provision(self):
+        if self.provisionFile():
+            # Initialize CTag on the calendar collection
+            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+
+        return super(ScheduleOutboxFile, self).provision()
 
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
