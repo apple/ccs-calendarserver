@@ -161,6 +161,8 @@ class Component (object):
         @return: a L{Component} representing the first component described by
             C{string}.
         """
+        if type(string) is unicode:
+            string = string.encode("utf-8")
         return clazz.fromStream(StringIO.StringIO(string))
 
     @classmethod
