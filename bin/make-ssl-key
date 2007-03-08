@@ -1,0 +1,75 @@
+#!/bin/sh
+
+set -e
+set -u
+
+##
+# Handle command line
+##
+
+usage ()
+{
+  program=$(basename "$0");
+
+  if [ $# != 0 ]; then echo "$@"; echo ""; fi;
+
+  echo "usage: ${program} host_name";
+}
+
+if [ $# != 1 ]; then
+  usage;
+  exit 1;
+fi;
+
+host="$1";
+
+##
+# Do The Right Thing
+##
+
+newfile ()
+{
+  # New file is not readable and empty
+  name="$1";
+  rm -f "${name}";
+  tmp="$(mktemp "${name}")";
+  if [ "${tmp}" != "${name}" ]; then
+    mv "${tmp}" "${name}";
+  fi;
+}
+
+if [ ! -s "${host}.key" ]; then
+  echo "Generating host key...";
+  newfile "${host}.key.tmp";
+  openssl genrsa -des3 -out "${host}.key.tmp" 1024;
+  echo "";
+
+  echo "Removing pass phrase from key...";
+  newfile "${host}.key";
+  openssl rsa -in "${host}.key.tmp" -out "${host}.key";
+  rm "${host}.key.tmp";
+  echo "";
+else
+  echo "Key for ${host} already exists.";
+fi;
+
+if [ ! -s "${host}.csr" ]; then
+  echo "Generating certificate request...";
+  newfile "${host}.csr";
+  openssl req -new -key "${host}.key" -out "${host}.csr";
+  echo "";
+else
+  echo "Certificate request for ${host} already exists.";
+fi;
+
+if [ ! -s "${host}.crt" ]; then
+  echo "Generating certificate...";
+  openssl x509 -req -in "${host}.csr" -out "${host}.crt" -sha1 -CA ca.crt -CAkey ca.key -CAcreateserial -days 3650;
+  chmod 644 "${host}.crt";
+  echo "";
+else
+  echo "Certificate for ${host} already exists.";
+fi;
+
+# Print the certificate
+openssl x509 -in "${host}.crt" -text -noout;
