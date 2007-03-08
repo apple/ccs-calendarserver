@@ -1,0 +1,85 @@
+Index: twisted/web2/dav/method/report_principal_match.py
+===================================================================
+--- twisted/web2/dav/method/report_principal_match.py	(revision 19773)
++++ twisted/web2/dav/method/report_principal_match.py	(working copy)
+@@ -89,40 +89,53 @@
+         responses = []
+         matchcount = 0
+ 
+-        selfPrincipal = self.currentPrincipal(request).children[0]
++        selfPrincipalURL = self.currentPrincipal(request).children[0]
+ 
+-        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+-        # the child resource loop and supply those to the checkPrivileges on each child.
+-        filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
+-        yield filteredaces
+-        filteredaces = filteredaces.getResult()
+-    
+-        children = []
+-        d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
+-                                              privileges=(davxml.Read(),), inherited_aces=filteredaces))
+-        yield d
+-        d.getResult()
+-
+         if lookForPrincipals:
+ 
+-            for child, uri in children:
+-                if isPrincipalResource(child) and child.principalMatch(selfPrincipal):
++            # Find the set of principals that represent "self".
++            
++            # First add "self"
++            principal = waitForDeferred(request.locateResource(str(selfPrincipalURL)))
++            yield principal
++            principal = principal.getResult()
++            selfItems = [principal,]
++            
++            # Get group memberships for "self" and add each of those
++            selfItems.extend(principal.groupMemberships())
++            
++            # Now add each principal found to the response provided the principal resource is a child of
++            # the current resource.
++            for principal in selfItems:
++                if principal.principalURL().startswith(request.uri):
+                     # Check size of results is within limit
+                     matchcount += 1
+                     if matchcount > max_number_of_matches:
+                         raise NumberOfMatchesWithinLimits
+-
++    
+                     d = waitForDeferred(prop_common.responseForHref(
+                         request,
+                         responses,
+-                        davxml.HRef.fromString(uri),
+-                        child,
++                        davxml.HRef.fromString(principal.principalURL()),
++                        principal,
+                         propertiesForResource,
+                         propElement
+                     ))
+                     yield d
+                     d.getResult()
+         else:
++            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++            # the child resource loop and supply those to the checkPrivileges on each child.
++            filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
++            yield filteredaces
++            filteredaces = filteredaces.getResult()
++        
++            children = []
++            d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
++                                                  privileges=(davxml.Read(),), inherited_aces=filteredaces))
++            yield d
++            d.getResult()
++
+             for child, uri in children:
+                 # Try to read the requested property from this resource
+                 try:
+@@ -137,7 +150,7 @@
+                         yield principal
+                         principal = principal.getResult()
+ 
+-                        if principal and isPrincipalResource(principal) and principal.principalMatch(selfPrincipal):
++                        if principal and isPrincipalResource(principal) and principal.principalMatch(selfPrincipalURL):
+                             # Check size of results is within limit
+                             matchcount += 1
+                             if matchcount > max_number_of_matches:
