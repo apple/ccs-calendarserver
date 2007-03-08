@@ -7,18 +7,32 @@ set -u
 # Handle command line
 ##
 
+authority="ca";
+
 usage ()
 {
   program=$(basename "$0");
 
   if [ $# != 0 ]; then echo "$@"; echo ""; fi;
 
-  echo "usage: ${program} host_name";
+  echo "usage: ${program} [options] host_name";
+  echo "";
+  echo "  -h              Show this help";
+  echo "  -a authority    Use given certificate authority [${authority}].";
 }
+
+while getopts 'ha:' option; do
+  case "$option" in
+    '?') usage; exit 64; ;;
+    'h') usage; exit 0; ;;
+    'a') authority="${OPTARG}"; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
 
 if [ $# != 1 ]; then
   usage;
-  exit 1;
+  exit 64;
 fi;
 
 host="$1";
@@ -26,6 +40,15 @@ host="$1";
 ##
 # Do The Right Thing
 ##
+
+if [ ! -s "${authority}.key" ]; then
+  echo "Not a certificate authority key: ${authority}.key";
+  exit 1;
+fi;
+if [ ! -s "${authority}.crt" ]; then
+  echo "Not a certificate authority certificate: ${authority}.crt";
+  exit 1;
+fi;
 
 newfile ()
 {
@@ -38,6 +61,11 @@ newfile ()
   fi;
 }
 
+#
+# FIXME:
+#   Remove requirement that user type in a pass phrase here, which
+#   we then simply strip out.
+#
 if [ ! -s "${host}.key" ]; then
   echo "Generating host key...";
   newfile "${host}.key.tmp";
@@ -53,6 +81,11 @@ else
   echo "Key for ${host} already exists.";
 fi;
 
+#
+# FIXME:
+#   Remove requirement that user type the common name, which we
+#   already know ($hostname).
+#
 if [ ! -s "${host}.csr" ]; then
   echo "Generating certificate request...";
   newfile "${host}.csr";
@@ -64,7 +97,8 @@ fi;
 
 if [ ! -s "${host}.crt" ]; then
   echo "Generating certificate...";
-  openssl x509 -req -in "${host}.csr" -out "${host}.crt" -sha1 -CA ca.crt -CAkey ca.key -CAcreateserial -days 3650;
+  openssl x509 -req -in "${host}.csr" -out "${host}.crt" -sha1 -days 3650 \
+    -CA "${authority}.crt" -CAkey "${authority}.key" -CAcreateserial;
   chmod 644 "${host}.crt";
   echo "";
 else
