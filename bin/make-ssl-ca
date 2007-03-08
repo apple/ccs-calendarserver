@@ -1,0 +1,60 @@
+#!/bin/sh
+
+set -e
+set -u
+
+##
+# Handle command line
+##
+
+usage ()
+{
+  program=$(basename "$0");
+
+  if [ $# != 0 ]; then echo "$@"; echo ""; fi;
+
+  echo "usage: ${program} name";
+}
+
+if [ $# != 1 ]; then
+  usage;
+  exit 1;
+fi;
+
+name="$1";
+
+##
+# Do The Right Thing
+##
+
+newfile ()
+{
+  # New file is not readable and empty
+  local name="$1";
+  rm -f "${name}";
+  tmp="$(mktemp "${name}")";
+  if [ "${tmp}" != "${name}" ]; then
+    mv "${tmp}" "${name}";
+  fi;
+}
+
+if [ ! -s "${name}.key" ]; then
+  echo "Generating certificate authority key...";
+  newfile "${name}.key";
+  openssl genrsa -des3 -out "${name}.key" 2048;
+  echo "";
+else
+  echo "Key for ${name} already exists.";
+fi;
+
+if [ ! -s "${name}.crt" ]; then
+  echo "Generating certificate...";
+  openssl req -new -x509 -days 3650 -key "${name}.key" -out "${name}.crt";
+  chmod 644 "${name}.crt";
+  echo "";
+else
+  echo "Certificate for ${name} already exists.";
+fi;
+
+# Print the certificate
+openssl x509 -in "${name}.crt" -text -noout;
