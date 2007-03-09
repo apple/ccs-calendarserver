@@ -35,6 +35,7 @@ from twisted.python import log
 from twisted.internet.threads import deferToThread
 from twisted.internet.reactor import callLater
 from twisted.cred.credentials import UsernamePassword
+from twisted.web2.auth.digest import DigestedCredentials
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -500,6 +501,31 @@ class OpenDirectoryRecord(DirectoryRecord):
                 return opendirectory.authenticateUserBasic(self.service.directory, self.guid, self.shortName, credentials.password)
             except opendirectory.ODError, e:
                 log.err("Open Directory (node=%s) error while performing basic authentication for user %s: %r"
+                        % (self.service.realmName, self.shortName, e))
+                return False
+        elif isinstance(credentials, DigestedCredentials):
+            try:
+                # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
+                # picky about exactly what it receives.
+                
+                challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
+                response = ('Digest username="%(username)s", '
+                            'realm="%(realm)s", '
+                            'nonce="%(nonce)s", '
+                            'uri="%(uri)s", '
+                            'response="%(response)s",'
+                            'algorithm=%(algorithm)s') % credentials.fields
+
+                return opendirectory.authenticateUserDigest(
+                    self.service.directory,
+                    self.guid,
+                    self.shortName,
+                    challenge,
+                    response,
+                    credentials.method
+                )
+            except opendirectory.ODError, e:
+                log.err("Open Directory (node=%s) error while performing digest authentication for user %s: %r"
                         % (self.service.realmName, self.shortName, e))
                 return False
 

@@ -162,6 +162,8 @@ limitations under the License.
       <false/>
       <key>Algorithm</key>
       <string>md5</string>
+      <key>Qop</key>
+      <string></string>
     </dict>
 
     <!-- Kerberos/SPNEGO -->

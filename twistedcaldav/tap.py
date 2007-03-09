@@ -37,7 +37,6 @@ from twisted.web2.dav import auth
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.auth.basic import BasicCredentialFactory
-from twisted.web2.auth.digest import DigestCredentialFactory
 from twisted.web2.channel import http
 
 from twisted.web2.log import LogWrapperResource
@@ -48,6 +47,7 @@ from twistedcaldav.config import config, parseConfig, defaultConfig, Configurati
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
@@ -392,8 +392,9 @@ class CalDAVServiceMaker(object):
                     )
 
                 elif scheme == 'digest':
-                    credFactory = DigestCredentialFactory(
+                    credFactory = QopDigestCredentialFactory(
                         schemeConfig['Algorithm'],
+                        schemeConfig['Qop'],
                         realm
                     )
 
