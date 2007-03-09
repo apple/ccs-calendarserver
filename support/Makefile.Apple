@@ -83,6 +83,11 @@ install:: build
 	$(_v) for so in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name '__init__.*'); do rm "$${f}"; done
+	$(_v) rm -rf "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zsh"
+	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
+	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
+	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.pyc"
+	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/_twisted_zsh_stub"
 
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
