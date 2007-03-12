@@ -48,8 +48,10 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistd, configFile, interfaces, port, sslPort):
+    def __init__(self, twistd, tapname, configFile, interfaces, port, sslPort):
         self.twistd = twistd
+
+        self.tapname = tapname
 
         self.configFile = configFile
 
@@ -60,7 +62,7 @@ class TwistdSlaveProcess(object):
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.port)
-    
+
     def getSSLName(self):
         return '%s-%s' % (self.prefix, self.sslPort)
 
@@ -70,7 +72,7 @@ class TwistdSlaveProcess(object):
             self.twistd,
             '-u', config.UserName,
             '-g', config.GroupName,
-            '-n', 'caldav',
+            '-n', self.tapname,
             '-f', self.configFile,
             '-o', 'ProcessType=Slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
@@ -113,6 +115,7 @@ def makeService_Combined(self, options):
             sslport += 1
 
         process = TwistdSlaveProcess(config.Twisted['twistd'],
+                                     self.tapname,
                                      options['config'],
                                      bindAddress,
                                      port, sslport)

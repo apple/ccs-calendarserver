@@ -467,7 +467,7 @@ class CalDAVServiceMaker(object):
                     interface=bindAddress
                 )
                 httpsService.setServiceParent(service)
-            
+
         return service
 
     makeService_Combined = makeService_Combined
