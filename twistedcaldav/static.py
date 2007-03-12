@@ -83,10 +83,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
     ##
 
     def resourceType(self):
-	if self.isCalendarCollection():
-	    return davxml.ResourceType.calendar
-	else:
-	    return super(CalDAVFile, self).resourceType()
+        if self.isCalendarCollection():
+            return davxml.ResourceType.calendar
+        else:
+            return super(CalDAVFile, self).resourceType()
 
     def createCalendar(self, request):
         #
