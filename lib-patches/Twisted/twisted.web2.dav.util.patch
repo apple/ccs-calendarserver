@@ -1,0 +1,15 @@
+Index: twisted/web2/dav/util.py
+===================================================================
+--- twisted/web2/dav/util.py	(revision 19773)
++++ twisted/web2/dav/util.py	(working copy)
+@@ -76,7 +76,9 @@
+ 
+     def parse(xml):
+         try:
+-            return davxml.WebDAVDocument.fromString(xml)
++            doc = davxml.WebDAVDocument.fromString(xml)
++            doc.root_element.validate()
++            return doc
+         except ValueError:
+             log.err("Bad XML:\n%s" % (xml,))
+             raise

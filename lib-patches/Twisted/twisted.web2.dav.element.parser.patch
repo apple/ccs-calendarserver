@@ -2,6 +2,15 @@ Index: twisted/web2/dav/element/parser.py
 ===================================================================
 --- twisted/web2/dav/element/parser.py	(revision 19773)
 +++ twisted/web2/dav/element/parser.py	(working copy)
+@@ -37,7 +37,7 @@
+     "WebDAVDocument",
+ ]
+ 
+-import StringIO
++import cStringIO as StringIO
+ import xml.dom.minidom
+ import xml.sax
+ 
 @@ -106,6 +106,26 @@
              "children"   : [],
          }]
@@ -59,3 +68,12 @@ Index: twisted/web2/dav/element/parser.py
  
          self.stack.append({
              "name"       : name,
+@@ -194,6 +219,8 @@
+             except xml.sax.SAXParseException, e:
+                 raise ValueError(e)
+ 
++            #handler.dom.root_element.validate()
++
+             return handler.dom
+ 
+         return parse
