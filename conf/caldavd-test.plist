@@ -293,7 +293,7 @@ limitations under the License.
       <key>Enabled</key>
       <false/>
 
-	  <!-- One of the strings below must be used - the others commented out -->
+      <!-- One of the strings below must be used - the others commented out -->
       <key>Scheduler</key>
 
       <!-- Least Connections -->
