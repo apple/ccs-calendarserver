@@ -28,11 +28,12 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twisted.web2.dav.method.report import max_number_of_matches
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method import report_common
+
+max_number_of_multigets = 5000
 
 def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
     """
@@ -76,7 +77,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         raise AssertionError("We shouldn't be here")
 
     # Check size of results is within limit
-    if len(resources) > max_number_of_matches:
+    if len(resources) > max_number_of_multigets:
         log.err("Too many results in multiget report: %d" % len(resources))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
 
