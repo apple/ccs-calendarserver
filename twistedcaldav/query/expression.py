@@ -30,6 +30,9 @@ __all__ = [
     "timerangeExpression",
     "containsExpression",
     "isExpression",
+    "isnotExpression",
+    "inExpression",
+    "notinExpression",
 ]
 
 class baseExpression(object):
@@ -213,12 +216,44 @@ class isnotExpression(textcompareExpression):
     def operator(self):
         return "is not"
 
+class inExpression(textcompareExpression):
+    """
+    Text IN (exact string match to one of the supplied items) expression.
+    """
+    
+    def __init__(self, field, text_list, caseless):
+        super(inExpression, self).__init__(field, text_list, caseless)
+
+    def operator(self):
+        return "in"
+
+    def __str__(self):
+        return self.operator() + "(" + self.field + ", " + str(self.text) + ", " + str(self.caseless) + ")"
+
+class notinExpression(textcompareExpression):
+    """
+    Text NOT IN (exact string match to none of the supplied items) expression.
+    """
+    
+    def __init__(self, field, text, caseless):
+        super(notinExpression, self).__init__(field, text, caseless)
+
+    def operator(self):
+        return "not in"
+
+    def __str__(self):
+        return self.operator() + "(" + self.field + ", " + str(self.text) + ", " + str(self.caseless) + ")"
+
 if __name__ == "__main__":
     
     e1 = isExpression("type", "vevent", False)
-    e2 = timerangeExpression("20060101T120000Z", "20060101T130000Z")
+    e2 = timerangeExpression("20060101T120000Z", "20060101T130000Z", "20060101T120000Z", "20060101T130000Z")
     e3 = containsExpression("summary", "help", True)
     e4 = notExpression(e3)
     e5 = andExpression([e1, e2, e4])
     print e5
+    e6 = inExpression("type", ("vevent", "vtodo",), False)
+    print e6
+    e7 = notinExpression("type", ("vevent", "vtodo",), False)
+    print e7
 

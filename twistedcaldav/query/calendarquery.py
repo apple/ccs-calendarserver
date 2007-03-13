@@ -90,7 +90,10 @@ def compfilterExpression(compfilter):
         return expression.isnotExpression(FIELD_TYPE, compfilter.filter_name, True)
         
     expressions = []
-    expressions.append(expression.isExpression(FIELD_TYPE, compfilter.filter_name, True))
+    if isinstance(compfilter.filter_name, str):
+        expressions.append(expression.isExpression(FIELD_TYPE, compfilter.filter_name, True))
+    else:
+        expressions.append(expression.inExpression(FIELD_TYPE, compfilter.filter_name, True))
     
     # Handle time-range    
     if compfilter.qualifier and isinstance(compfilter.qualifier, caldavxml.TimeRange):
@@ -226,7 +229,7 @@ if __name__ == "__main__":
                  caldavxml.ComponentFilter(
                      *[caldavxml.ComponentFilter(
                            *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
-                           **{"name":"VEVENT"}
+                           **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                        )],
                      **{"name":"VCALENDAR"}
                  )

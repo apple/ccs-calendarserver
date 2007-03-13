@@ -182,6 +182,8 @@ class CalDAVFilterElement (CalDAVElement):
         self.qualifier   = qualifier
         self.filters     = filters
         self.filter_name = attributes["name"]
+        if isinstance(self.filter_name, unicode):
+            self.filter_name = self.filter_name.encode("utf-8")
         self.defined     = not self.qualifier or (self.qualifier.qname() != (caldav_namespace, "is-not-defined"))
 
     def match(self, item):
@@ -843,7 +845,10 @@ class ComponentFilter (CalDAVFilterElement):
     def _match(self, component):
         # At least one subcomponent must match (or is-not-defined is set)
         for subcomponent in component.subcomponents():
-            if subcomponent.name() != self.filter_name: continue
+            if isinstance(self.filter_name, str):
+                if subcomponent.name() != self.filter_name: continue
+            else:
+                if subcomponent.name() not in self.filter_name: continue
             if self.match(subcomponent): break
         else:
             return not self.defined
