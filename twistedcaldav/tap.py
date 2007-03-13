@@ -226,7 +226,7 @@ class CalDAVOptions(Options):
             import pwd
             try:
                 pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
-                if pathuname != uname:
+                if pathuname not in (uname, "_" + uname):
                     raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s"
                                  % (description, path, pathuname, uname))
             except KeyError:
