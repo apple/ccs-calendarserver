@@ -290,9 +290,6 @@ limitations under the License.
 
     <key>LoadBalancer</key>
     <dict>
-      <key>Enabled</key>
-      <true/>
-
       <!-- One of the strings below must be used - the others commented out -->
       <key>Scheduler</key>
 
