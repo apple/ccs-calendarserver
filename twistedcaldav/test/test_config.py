@@ -93,6 +93,15 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEquals(config.HTTPPort, 8008)
 
+    def testSetAttr(self):
+        self.assertNotIn('BindAddresses', config.__dict__)
+
+        config.BindAddresses = ['127.0.0.1']
+
+        self.assertNotIn('BindAddresses', config.__dict__)
+
+        self.assertEquals(config.BindAddresses, ['127.0.0.1'])
+
     def testUpdating(self):
         self.assertEquals(config.SSLPort, -1)
 

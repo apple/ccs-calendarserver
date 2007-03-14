@@ -82,9 +82,16 @@ defaultConfig = {
     # Authentication
     #
     "Authentication": {
-        "Basic"   : { "Enabled": False },                     # Clear text; best avoided
-        "Digest"  : { "Enabled": True,  "Algorithm": "md5" }, # Digest challenge/response
-        "Kerberos": { "Enabled": False, "Realm": "" },        # Kerberos/SPNEGO
+        "Basic"   : { "Enabled": False },   # Clear text; best avoided
+        "Digest"  : {                       # Digest challenge/response
+            "Enabled": True,
+            "Algorithm": "md5",
+            "Qop": ""
+        },
+        "Kerberos": {                       # Kerberos/SPNEGO
+            "Enabled": False,
+            "Realm": ""
+        },
     },
 
     #
@@ -175,6 +182,12 @@ class Config (object):
     def setDefaults(self, defaults):
         self._defaults = copy.deepcopy(defaults)
 
+    def __setattr__(self, attr, value):
+        if hasattr(self, '_data') and attr in self._data:
+            self._data[attr] = value
+        else:
+            self.__dict__[attr] = value
+
     def __getattr__(self, attr):
         if attr in self._data:
             return self._data[attr]
@@ -190,7 +203,6 @@ class Config (object):
 
         if configFile and os.path.exists(configFile):
             configDict = readPlist(configFile)
-            configDict = self.cleanup(configDict)
             configDict = self.cleanup(configDict)
             self.update(configDict)
 
