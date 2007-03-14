@@ -90,7 +90,7 @@ defaultConfig = {
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "Realm": ""
+            "ServicePrincipal": ''
         },
     },
 

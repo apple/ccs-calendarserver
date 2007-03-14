@@ -159,6 +159,8 @@ class BaseServiceMakerTests(unittest.TestCase):
     Utility class for ServiceMaker tests.
     """
 
+    configOptions = None
+
     def setUp(self):
         self.options = TestCalDAVOptions()
         self.options.parent = Options()
@@ -182,6 +184,9 @@ class BaseServiceMakerTests(unittest.TestCase):
         self.config['SSLCertificate'] = sibpath(__file__, 'data/server.pem')
 
         self.config['SudoersFile'] = ''
+
+        if self.configOptions:
+            self.config = config_mod._mergeData(self.config, self.configOptions)
 
         os.mkdir(self.config['DocumentRoot'])
 
@@ -386,3 +391,136 @@ class SlaveServiceTest(BaseServiceMakerTests):
 
         self.assertEquals(len(tcpServers), 0)
         self.assertEquals(len(sslServers), 0)
+
+
+class ServiceHTTPFactoryTests(BaseServiceMakerTests):
+    """
+    Test the configuration of the initial resource hierarchy of the
+    single service
+    """
+
+    configOptions = {'HTTPPort': 8008}
+
+    def test_AuthWrapperAllEnabled(self):
+        """
+        Test the configuration of the authentication wrapper
+        when all schemes are enabled.
+        """
+        self.config['Authentication']['Digest']['Enabled'] = True
+        self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.config['Authentication']['Basic']['Enabled'] = True
+
+        self.writeConfig()
+        site = self.getSite()
+
+        self.failUnless(isinstance(
+                site.resource.resource,
+                auth.AuthenticationWrapper))
+
+        authWrapper = site.resource.resource
+
+        expectedSchemes = ['negotiate', 'digest', 'basic']
+
+        for scheme in authWrapper.credentialFactories:
+            self.failUnless(scheme in expectedSchemes)
+
+        self.assertEquals(len(expectedSchemes),
+                          len(authWrapper.credentialFactories))
+
+    def test_servicePrincipalNoRealm(self):
+        """
+        Test that the Kerberos Realm defaults to the ServerHostName when
+        the principal is not in the form of proto/host@realm
+        """
+        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello'
+        self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.writeConfig()
+        site = self.getSite()
+
+        authWrapper = site.resource.resource
+
+        ncf = authWrapper.credentialFactories['negotiate']
+        self.assertEquals(ncf.service, 'http/hello')
+        self.assertEquals(ncf.realm, 'localhost')
+
+    def test_servicePrincipalWithRealm(self):
+        """
+        Test that the kerberos realm is the realm portion of a principal
+        in the form proto/host@realm
+        """
+        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello@bob'
+        self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.writeConfig()
+        site = self.getSite()
+
+        authWrapper = site.resource.resource
+
+        ncf = authWrapper.credentialFactories['negotiate']
+        self.assertEquals(ncf.service, 'http/hello@bob')
+        self.assertEquals(ncf.realm, 'bob')
+
+    def test_AuthWrapperPartialEnabled(self):
+        """
+        Test that the expected credential factories exist when
+        only a partial set of authentication schemes is
+        enabled.
+        """
+
+        self.config['Authentication']['Basic']['Enabled'] = False
+        self.config['Authentication']['Kerberos']['Enabled'] = False
+
+        self.writeConfig()
+        site = self.getSite()
+
+        authWrapper = site.resource.resource
+
+        expectedSchemes = ['digest']
+
+        for scheme in authWrapper.credentialFactories:
+            self.failUnless(scheme in expectedSchemes)
+
+        self.assertEquals(len(expectedSchemes),
+                          len(authWrapper.credentialFactories))
+
+    def test_LogWrapper(self):
+        """
+        Test the configuration of the log wrapper
+        """
+
+        site = self.getSite()
+
+        self.failUnless(isinstance(
+                site.resource,
+                LogWrapperResource))
+
+    def test_rootResource(self):
+        """
+        Test the root resource
+        """
+        site = self.getSite()
+        root = site.resource.resource.resource
+
+        self.failUnless(isinstance(root, CalDAVServiceMaker.rootResourceClass))
+
+    def test_principalResource(self):
+        """
+        Test the principal resource
+        """
+        site = self.getSite()
+        root = site.resource.resource.resource
+
+        self.failUnless(isinstance(
+                root.getChild('principals'),
+                CalDAVServiceMaker.principalResourceClass))
+
+    def test_calendarResource(self):
+        """
+        Test the calendar resource
+        """
+        site = self.getSite()
+        root = site.resource.resource.resource
+
+        self.failUnless(isinstance(
+                root.getChild('calendars'),
+                CalDAVServiceMaker.calendarResourceClass))
+
