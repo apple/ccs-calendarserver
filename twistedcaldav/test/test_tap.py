@@ -72,7 +72,10 @@ class CalDAVOptionsTest(unittest.TestCase):
         self.config.parent['gid'] = 0
         self.config.parent['nodaemon'] = False
 
-        config_mod.parseConfig('non-existant-config')
+    def tearDown(self):
+        config.loadConfig(None)
+        config.setDefaults(config_mod.defaultConfig)
+        config.reload()
 
     def test_overridesConfig(self):
         """
@@ -149,3 +152,237 @@ class CalDAVOptionsTest(unittest.TestCase):
 
         self.assertEquals(config.Authentication['Basic']['Enabled'],
                           myConfig['Authentication']['Basic']['Enabled'])
+
+
+class BaseServiceMakerTests(unittest.TestCase):
+    """
+    Utility class for ServiceMaker tests.
+    """
+
+    def setUp(self):
+        self.options = TestCalDAVOptions()
+        self.options.parent = Options()
+        self.options.parent['gid'] = None
+        self.options.parent['uid'] = None
+        self.options.parent['nodaemon'] = None
+
+        self.config = deepcopy(config_mod.defaultConfig)
+
+        accountsFile = sibpath(os.path.dirname(__file__),
+                               'directory/test/accounts.xml')
+
+        self.config['DirectoryService'] = {
+            'params': {'xmlFile': accountsFile},
+            'type': 'twistedcaldav.directory.xmlfile.XMLDirectoryService'
+            }
+
+        self.config['DocumentRoot'] = self.mktemp()
+
+        self.config['SSLPrivateKey'] = sibpath(__file__, 'data/server.pem')
+        self.config['SSLCertificate'] = sibpath(__file__, 'data/server.pem')
+
+        self.config['SudoersFile'] = ''
+
+        os.mkdir(self.config['DocumentRoot'])
+
+        self.configFile = self.mktemp()
+
+        self.writeConfig()
+
+    def tearDown(self):
+        config.loadConfig(None)
+        config.setDefaults(config_mod.defaultConfig)
+        config.reload()
+
+    def writeConfig(self):
+        """
+        Flush self.config out to self.configFile
+        """
+
+        writePlist(self.config, self.configFile)
+
+    def makeService(self):
+        """
+        Create a service by calling into CalDAVServiceMaker with
+        self.configFile
+        """
+
+        self.options.parseOptions(['-f', self.configFile])
+
+        return CalDAVServiceMaker().makeService(self.options)
+
+    def getSite(self):
+        """
+        Get the server.Site from the service by finding the HTTPFactory
+        """
+
+        service = self.makeService()
+
+        return service.services[0].args[1].protocolArgs['requestFactory']
+
+
+class CalDAVServiceMakerTests(BaseServiceMakerTests):
+    """
+    Test the service maker's behavior
+    """
+
+    def test_makeServiceDispatcher(self):
+        """
+        Test the default options of the dispatching makeService
+        """
+        validServices = ['Slave', 'Master', 'Combined']
+
+        for service in validServices:
+            self.config['ServerType'] = service
+            self.writeConfig()
+            self.makeService()
+
+        self.config['ServerType'] = 'Unknown Service'
+        self.writeConfig()
+        self.assertRaises(UsageError, self.makeService)
+
+
+class SlaveServiceTest(BaseServiceMakerTests):
+    """
+    Test various configurations of the Slave service
+    """
+
+    def test_defaultService(self):
+        """
+        Test the value of a Slave service in it's simplest
+        configuration.
+        """
+        self.config['HTTPPort'] = 8008
+        self.config['SSLPort'] = 8443
+        self.writeConfig()
+
+        service = self.makeService()
+
+        self.failUnless(IService(service),
+                        "%s does not provide IService" % (service,))
+
+        self.failUnless(service.services,
+                        "No services configured")
+
+        self.failUnless(isinstance(service, tap.CalDAVService),
+                        "%s is not a tap.CalDAVService" % (service,))
+
+    def test_defaultListeners(self):
+        """
+        Test that the Slave service has sub services with the
+        default TCP and SSL configuration
+        """
+        self.config['HTTPPort'] = 8008
+        self.config['SSLPort'] = 8443
+        self.writeConfig()
+
+        service = self.makeService()
+
+        expectedSubServices = ((internet.TCPServer, self.config['HTTPPort']),
+                               (internet.SSLServer, self.config['SSLPort']))
+
+        configuredSubServices = [(s.__class__, s.args)
+                                 for s in service.services]
+
+        for serviceClass, serviceArgs in configuredSubServices:
+            self.failUnless(
+                serviceClass in (s[0] for s in expectedSubServices))
+
+            self.assertEquals(serviceArgs[0],
+                              dict(expectedSubServices)[serviceClass])
+
+    def test_SSLKeyConfiguration(self):
+        """
+        Test that the configuration of the SSLServer reflect the config file's
+        SSL Private Key and SSL Certificate
+        """
+        self.config['SSLPort'] = 8443
+        self.writeConfig()
+
+        service = self.makeService()
+
+        sslService = None
+        for s in service.services:
+            if isinstance(s, internet.SSLServer):
+                sslService = s
+                break
+
+        self.failIf(sslService is None, "No SSL Service found")
+
+        context = sslService.args[2]
+
+        self.assertEquals(self.config['SSLPrivateKey'],
+                          context.privateKeyFileName)
+
+        self.assertEquals(self.config['SSLCertificate'],
+                          context.certificateFileName)
+
+    def test_noSSL(self):
+        """
+        Test the single service to make sure there is no SSL Service when SSL
+        is disabled
+        """
+        service = self.makeService()
+
+        self.assertNotIn(
+            internet.SSLServer, [s.__class__ for s in service.services])
+
+    def test_noHTTP(self):
+        """
+        Test the single service to make sure there is no TCPServer when
+        HTTPPort is not configured
+        """
+        service = self.makeService()
+
+        self.assertNotIn(
+            internet.TCPServer, [s.__class__ for s in service.services])
+
+    def test_singleBindAddresses(self):
+        """
+        Test that the TCPServer and SSLServers are bound to the proper address
+        """
+        self.config['SSLPort'] = 8443
+        self.config['HTTPPort'] = 8008
+
+        self.config['BindAddresses'] = ['127.0.0.1']
+        self.writeConfig()
+        service = self.makeService()
+
+        for s in service.services:
+            self.assertEquals(s.kwargs['interface'], '127.0.0.1')
+
+    def test_multipleBindAddresses(self):
+        """
+        Test that the TCPServer and SSLServers are bound to the proper
+        addresses.
+        """
+        self.config['SSLPort'] = 8443
+        self.config['HTTPPort'] = 8008
+
+        self.config['BindAddresses'] = ['127.0.0.1', '10.0.0.2', '172.53.13.123']
+        self.writeConfig()
+        service = self.makeService()
+
+        tcpServers = []
+        sslServers = []
+
+        for s in service.services:
+            if isinstance(s, internet.TCPServer):
+                tcpServers.append(s)
+            elif isinstance(s, internet.SSLServer):
+                sslServers.append(s)
+
+        self.assertEquals(len(tcpServers), len(self.config['BindAddresses']))
+        self.assertEquals(len(sslServers), len(self.config['BindAddresses']))
+
+        for addr in self.config['BindAddresses']:
+            for s in tcpServers:
+                if s.kwargs['interface'] == addr:
+                    tcpServers.remove(s)
+
+            for s in sslServers:
+                if s.kwargs['interface'] == addr:
+                    sslServers.remove(s)
+
+        self.assertEquals(len(tcpServers), 0)
+        self.assertEquals(len(sslServers), 0)

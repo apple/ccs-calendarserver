@@ -126,7 +126,7 @@ class CalDAVOptions(Options):
 
         parseConfig(self['config'])
 
-        config.update(self.overrides)
+        config.updateDefaults(self.overrides)
 
         uid, gid = None, None
 
@@ -440,15 +440,15 @@ class CalDAVServiceMaker(object):
 
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
-                if not config.HTTPPort:
+                if config.HTTPPort == -1:
                     raise UsageError("HTTPPort required if BindHTTPPorts is not empty")
-            elif config.HTTPPort:
+            elif config.HTTPPort != -1:
                     config.BindHTTPPorts = [config.HTTPPort]
 
             if config.BindSSLPorts:
-                if not config.SSLPort:
+                if config.SSLPort == -1:
                     raise UsageError("SSLPort required if BindSSLPorts is not empty")
-            elif config.SSLPort:
+            elif config.SSLPort != -1:
                 config.BindSSLPorts = [config.SSLPort]
 
             if config.BindSSLPorts:
