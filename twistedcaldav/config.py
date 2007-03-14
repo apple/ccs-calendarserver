@@ -64,11 +64,11 @@ defaultConfig = {
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
-#        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
-#        "params": {
-#            "node": "/Search",
-#            "requireComputerRecord": True,
-#        },
+        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
+        "params": {
+            "node": "/Search",
+            "requireComputerRecord": True,
+        },
     },
 
     #
@@ -148,7 +148,7 @@ defaultConfig = {
 
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
-        if isinstance(value, (dict,)):
+        if isinstance(value, (dict,)) and key in ("MultiProcess",):
             assert isinstance(oldData.get(key, {}), (dict,))
             oldData[key] = _mergeData(oldData.get(key, {}), value)
         else:
