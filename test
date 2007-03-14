@@ -24,20 +24,22 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hn]";
+  echo "Usage: ${program} [-hnr]";
   echo "Options:";
   echo "        -h  Print this help and exit";
   echo "        -n  Do not use color";
+  echo "        -r  Run tests in random order";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts "nh" option; do
+while getopts "nhr" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'n') trial_args="--reporter=bwverbose"; ;;
+    'n') no_colour="--reporter=bwverbose"; ;;
+    'r') random="--random=$(date "+%s")"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -55,4 +57,4 @@ else
     test_modules="twistedcaldav";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${trial_args} ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${random} ${no_colour} ${test_modules};
