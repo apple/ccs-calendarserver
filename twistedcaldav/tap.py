@@ -159,10 +159,10 @@ class CalDAVOptions(Options):
         self.checkDirectory(
             config.DocumentRoot,
             "Document root",
-            access=os.R_OK or os.W_OK,
-            permissions=0750,
-            uname=config.UserName,
-            gname=config.GroupName
+            access=os.W_OK,
+            #permissions=0750,
+            #uname=config.UserName,
+            #gname=config.GroupName
         )
             
         # Verify that ssl certs exist if needed
@@ -171,13 +171,13 @@ class CalDAVOptions(Options):
                 config.SSLPrivateKey,
                 "SSL Private key",
                 access=os.R_OK,
-                permissions=0640
+                #permissions=0640
             )
             self.checkFile(
                 config.SSLCertificate,
                 "SSL Public key",
                 access=os.R_OK,
-                permissions=0644
+                #permissions=0644
             )
 
         #
