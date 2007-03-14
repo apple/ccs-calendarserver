@@ -146,6 +146,15 @@ defaultConfig = {
     },
 }
 
+def _mergeData(oldData, newData):
+    for key, value in newData.iteritems():
+        if isinstance(value, (dict,)):
+            assert isinstance(oldData.get(key, {}), (dict,))
+            oldData[key] = _mergeData(oldData.get(key, {}), value)
+        else:
+            oldData[key] = value
+
+    return oldData
 
 class Config (object):
     def __init__(self, defaults):
@@ -157,10 +166,10 @@ class Config (object):
         return str(self._data)
 
     def update(self, items):
-        self._data.update(items)
+        self._data = _mergeData(self._data, items)
 
     def updateDefaults(self, items):
-        self._defaults.update(items)
+        self._defaults = _mergeData(self._defaults, items)
         self.update(items)
 
     def __getattr__(self, attr):

@@ -98,6 +98,11 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEquals(config.SSLPort, 8443)
 
+    def testMerge(self):
+        config.update({'MultiProcess': {}})
+
+        self.assertEquals(config.MultiProcess["LoadBalancer"]["Enabled"], True)
+
     def testUpdateDefaults(self):
         self.assertEquals(config.SSLPort, -1)
 
@@ -112,3 +117,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEquals(config.SSLPort, 8009)
 
         config.updateDefaults({'SSLPort': -1})
+
+    def testMergeDefaults(self):
+        config.updateDefaults({'MultiProcess': {}})
+
+        self.assertEquals(config._defaults["MultiProcess"]["LoadBalancer"]["Enabled"], True)
