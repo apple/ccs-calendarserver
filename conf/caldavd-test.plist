@@ -263,11 +263,11 @@ limitations under the License.
 
   <!-- Public key -->
   <key>SSLCertificate</key>
-  <string>conf/server.pem</string>
+  <string>twistedcaldav/test/data/server.pem</string>
 
   <!-- Private key -->
   <key>SSLPrivateKey</key>
-  <string>conf/server.pem</string>
+  <string>twistedcaldav/test/data/server.pem</string>
 
 
   <!--
