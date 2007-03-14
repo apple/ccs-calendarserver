@@ -141,7 +141,7 @@ defaultConfig = {
 
     # Python Director
     "PythonDirector": {
-        "pydir": "/usr/share/caldavd/bin/pydir++.py",
+        "pydir": "/usr/share/caldavd/bin/pydir.py",
         "ConfigFile": "/etc/caldavd/pydir.xml",
     },
 }
