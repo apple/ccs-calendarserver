@@ -242,7 +242,7 @@ limitations under the License.
 
   <!-- Apache-style access log -->
   <key>AccessLogFile</key>
-  <string>logs/server.log</string>
+  <string>logs/access.log</string>
 
   <!-- Server activity log -->
   <key>ErrorLogFile</key>
