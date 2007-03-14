@@ -121,7 +121,8 @@ class CalDAVOptions(Options):
 
     def postOptions(self):
         if not os.path.exists(self['config']):
-            print "Config file %s not found, using defaults" % (self['config'],)
+            log.msg("Config file %s not found, using defaults" % (
+                    self['config'],))
 
         parseConfig(self['config'])
 
@@ -190,7 +191,8 @@ class CalDAVOptions(Options):
         # Check current umask and warn if changed
         oldmask = os.umask(0027)
         if oldmask != 0027:
-            print "WARNING: changing umask from: 0%03o to 0%03o" % (oldmask, 0027,)
+            log.msg("WARNING: changing umask from: 0%03o to 0%03o" % (
+                    oldmask, 0027,))
         
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
         if not os.path.exists(dirpath):
@@ -215,7 +217,7 @@ class CalDAVOptions(Options):
             if fail:
                 raise ConfigurationError(txt)
             else:
-                print "WARNING: %s" % (txt,)
+                log.msg("WARNING: %s" % (txt,))
 
         pathstat = os.stat(path)
         if permissions:
