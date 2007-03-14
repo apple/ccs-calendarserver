@@ -294,15 +294,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
                   caldavxml.ComponentFilter(
                       caldavxml.ComponentFilter(
                           timerange,
-                          name="VEVENT",
-                      ),
-                      caldavxml.ComponentFilter(
-                          timerange,
-                          name="VFREEBUSY",
-                      ),
-                      caldavxml.ComponentFilter(
-                          timerange,
-                          name="VAVAILABILITY",
+                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
                       ),
                       name="VCALENDAR",
                    )

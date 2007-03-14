@@ -1,0 +1,74 @@
+Index: twisted/web2/dav/element/rfc3744.py
+===================================================================
+--- twisted/web2/dav/element/rfc3744.py	(revision 19773)
++++ twisted/web2/dav/element/rfc3744.py	(working copy)
+@@ -131,8 +131,8 @@
+         (dav_namespace, "self"           ): (0, 1),
+     }
+ 
+-    def __init__(self, *children, **attributes):
+-        super(Principal, self).__init__(*children, **attributes)
++    def validate(self):
++        super(Principal, self).validate()
+ 
+         if len(self.children) > 1:
+             raise ValueError(
+@@ -385,9 +385,14 @@
+         self.inherited  = None
+         self.protected  = False
+ 
++        my_children = []
++
+         for child in self.children:
+             namespace, name = child.qname()
+ 
++            if isinstance(child, PCDATAElement):
++                continue
++
+             if (namespace == dav_namespace):
+                 if name in ("principal", "invert"):
+                     if self.principal is not None:
+@@ -417,6 +422,10 @@
+                 elif name == "protected":
+                     self.protected = True
+ 
++            my_children.append(child)
++
++        self.children = tuple(my_children)
++
+         if self.principal is None:
+             raise ValueError(
+                 "One of DAV:principal or DAV:invert is required in %s, got: %s"
+@@ -551,8 +560,8 @@
+         (dav_namespace, "property"       ): (0, None),
+     }
+ 
+-    def __init__(self, *children, **attributes):
+-        super(RequiredPrincipal, self).__init__(*children, **attributes)
++    def validate(self):
++        super(RequiredPrincipal, self).validate()
+ 
+         type = None
+ 
+@@ -628,8 +637,8 @@
+ 
+     allowed_children = { WebDAVElement: (0, None) }
+ 
+-    def __init__(self, *children, **attributes):
+-        super(ACLPrincipalPropSet, self).__init__(*children, **attributes)
++    def validate(self):
++        super(ACLPrincipalPropSet, self).validate()
+ 
+         prop = False
+         
+@@ -656,8 +665,8 @@
+         (dav_namespace, "prop"              ): (0, 1),
+     }
+ 
+-    def __init__(self, *children, **attributes):
+-        super(PrincipalMatch, self).__init__(*children, **attributes)
++    def validate(self):
++        super(PrincipalMatch, self).validate()
+ 
+         # This element can be empty when uses in supported-report-set
+         if not len(self.children):

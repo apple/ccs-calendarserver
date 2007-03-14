@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 import datetime
-import StringIO
+import cStringIO as StringIO
 
 from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent

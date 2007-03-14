@@ -2,7 +2,68 @@ Index: twisted/web2/dav/element/base.py
 ===================================================================
 --- twisted/web2/dav/element/base.py	(revision 19773)
 +++ twisted/web2/dav/element/base.py	(working copy)
-@@ -145,21 +145,20 @@
+@@ -45,7 +45,7 @@
+ ]
+ 
+ import string
+-import StringIO
++import cStringIO as StringIO
+ import xml.dom.minidom
+ 
+ import datetime
+@@ -90,6 +90,35 @@
+             raise NotImplementedError("WebDAVElement subclass %s is not implemented."
+                                       % (self.__class__.__name__,))
+ 
++        my_children = []
++
++        allowPCDATA = self.allowed_children.has_key(PCDATAElement)
++
++        for child in children:
++            if child is None:
++                continue
++
++            if isinstance(child, (str, unicode)):
++                child = PCDATAElement(child)
++
++            if isinstance(child, PCDATAElement) and not allowPCDATA:
++                continue
++
++            my_children.append(child)
++
++        self.children = tuple(my_children)
++
++        self.attributes = attributes
++
++    def validate(self):
++
++        children = self.children
++        attributes = self.attributes
++
++        if self.allowed_children is None:
++            raise NotImplementedError("WebDAVElement subclass %s is not implemented."
++                                      % (self.__class__.__name__,))
++
+         #
+         # Validate that children are of acceptable types
+         #
+@@ -102,13 +131,10 @@
+         my_children = []
+ 
+         for child in children:
+-            if child is None:
+-                continue
+ 
+-            if isinstance(child, (str, unicode)):
+-                child = PCDATAElement(child)
+-
+             assert isinstance(child, (WebDAVElement, PCDATAElement)), "Not an element: %r" % (child,)
++            
++            child.validate()
+ 
+             for allowed, (min, max) in allowed_children.items():
+                 if type(allowed) == type and isinstance(child, allowed):
+@@ -145,21 +171,20 @@
  
          if self.allowed_attributes:
              for name in attributes:
@@ -31,7 +92,7 @@ Index: twisted/web2/dav/element/base.py
  
          self.attributes = my_attributes
  
-@@ -190,14 +189,93 @@
+@@ -190,14 +215,93 @@
          return child in self.children
  
      def writeXML(self, output):
@@ -129,7 +190,17 @@ Index: twisted/web2/dav/element/base.py
  
      def element(self, document):
          element = document.createElementNS(self.namespace, self.name)
-@@ -324,6 +402,22 @@
+@@ -285,6 +389,9 @@
+ 
+         self.data = data
+ 
++    def validate(self):
++        pass
++
+     def __str__(self):
+         return str(self.data)
+ 
+@@ -324,6 +431,22 @@
              log.err("Invalid PCDATA: %r" % (self.data,))
              raise
  

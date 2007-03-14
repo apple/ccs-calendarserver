@@ -28,7 +28,7 @@ __all__ = [
 
 from twistedcaldav.query import expression
 
-import StringIO
+import cStringIO as StringIO
 
 class sqlgenerator(object):
     
@@ -43,6 +43,8 @@ class sqlgenerator(object):
     NOTCONTAINSOP = " NOT GLOB "
     ISOP          = " == "
     ISNOTOP       = " != "
+    INOP          = " IN "
+    NOTINOP       = " NOT IN "
 
     TIMESPANTEST  = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
 
@@ -149,6 +151,28 @@ class sqlgenerator(object):
             self.sout.write(expr.field)
             self.sout.write(self.ISNOTOP)
             self.addArgument(expr.text)
+        
+        # IN
+        elif isinstance(expr, expression.inExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.INOP)
+            self.sout.write("(")
+            for count, item in enumerate(expr.text):
+                if count != 0:
+                    self.sout.write(", ")
+                self.addArgument(item)
+            self.sout.write(")")
+        
+        # NOT IN
+        elif isinstance(expr, expression.notinExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.NOTINOP)
+            self.sout.write("(")
+            for count, item in enumerate(expr.text):
+                if count != 0:
+                    self.sout.write(", ")
+                self.addArgument(item)
+            self.sout.write(")")
 
     def generateSubExpression(self, expression):
         """
@@ -194,4 +218,12 @@ if __name__ == "__main__":
     e5 = expression.andExpression([e1, e2, e3])
     print e5
     sql = sqlgenerator(e5)
+    print sql.generate()
+    e6 = expression.inExpression("TYPE", ("VEVENT", "VTODO",), False)
+    print e6
+    sql = sqlgenerator(e6)
+    print sql.generate()
+    e7 = expression.notinExpression("TYPE", ("VEVENT", "VTODO",), False)
+    print e7
+    sql = sqlgenerator(e7)
     print sql.generate()
