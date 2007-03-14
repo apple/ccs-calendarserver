@@ -158,7 +158,7 @@ def _mergeData(oldData, newData):
 
 class Config (object):
     def __init__(self, defaults):
-        self._defaults = defaults
+        self._defaults = copy.deepcopy(defaults)
         self._data = copy.deepcopy(defaults)
         self._configFile = None
 
@@ -171,6 +171,9 @@ class Config (object):
     def updateDefaults(self, items):
         self._defaults = _mergeData(self._defaults, items)
         self.update(items)
+
+    def setDefaults(self, defaults):
+        self._defaults = copy.deepcopy(defaults)
 
     def __getattr__(self, attr):
         if attr in self._data:

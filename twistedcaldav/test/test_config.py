@@ -34,6 +34,11 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 """
 
+def _testVerbose(testCase):
+    from twistedcaldav.config import config
+    testCase.assertEquals(config.Verbose, True)
+
+
 class ConfigTests(unittest.TestCase):
     def setUp(self):
         config.update(defaultConfig)
@@ -44,29 +49,26 @@ class ConfigTests(unittest.TestCase):
         for key, value in defaultConfig.iteritems():
             self.assertEquals(getattr(config, key), value)
 
-    def testParseConfig(self):
+    def testLoadConfig(self):
         self.assertEquals(config.Verbose, False)
 
-        parseConfig(self.testConfig)
+        config.loadConfig(self.testConfig)
 
         self.assertEquals(config.Verbose, True)
 
     def testScoping(self):
-        def getVerbose():
-            self.assertEquals(config.Verbose, True)
-
         self.assertEquals(config.Verbose, False)
 
-        parseConfig(self.testConfig)
+        config.loadConfig(self.testConfig)
 
         self.assertEquals(config.Verbose, True)
 
-        getVerbose()
+        _testVerbose(self)
 
     def testReloading(self):
         self.assertEquals(config.HTTPPort, -1)
 
-        parseConfig(self.testConfig)
+        config.loadConfig(self.testConfig)
 
         self.assertEquals(config.HTTPPort, 8008)
 
@@ -79,7 +81,7 @@ class ConfigTests(unittest.TestCase):
     def testUpdateAndReload(self):
         self.assertEquals(config.HTTPPort, -1)
 
-        parseConfig(self.testConfig)
+        config.loadConfig(self.testConfig)
 
         self.assertEquals(config.HTTPPort, 8008)
 
@@ -106,7 +108,7 @@ class ConfigTests(unittest.TestCase):
     def testUpdateDefaults(self):
         self.assertEquals(config.SSLPort, -1)
 
-        parseConfig(self.testConfig)
+        config.loadConfig(self.testConfig)
 
         config.updateDefaults({'SSLPort': 8009})
 
@@ -122,3 +124,17 @@ class ConfigTests(unittest.TestCase):
         config.updateDefaults({'MultiProcess': {}})
 
         self.assertEquals(config._defaults["MultiProcess"]["LoadBalancer"]["Enabled"], True)
+
+    def testSetDefaults(self):
+        config.updateDefaults({'SSLPort': 8443})
+
+        config.setDefaults(defaultConfig)
+
+        config.reload()
+
+        self.assertEquals(config.SSLPort, -1)
+
+    def testCopiesDefaults(self):
+        config.updateDefaults({'Foo': 'bar'})
+
+        self.assertNotIn('Foo', defaultConfig)
