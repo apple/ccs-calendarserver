@@ -51,6 +51,15 @@ from twistedcaldav.instance import InstanceList
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
+allowedComponents = (
+    "VEVENT",
+    "VTODO",
+    "VTIMEZONE",
+    "VJOURNAL",
+    "VFREEBUSY",
+    #"VAVAILABILITY",
+)
+
 class Property (object):
     """
     iCalendar Property
@@ -770,6 +779,9 @@ class Component (object):
                         raise ValueError("Calendar resources may not contain more than one type of calendar " +
                                          "component (%s and %s found)" % (ctype, subcomponent.name()))
         
+                if ctype not in allowedComponents:
+                    raise ValueError("Component type: %s not allowed" % (ctype,))
+                    
                 uid = subcomponent.propertyValue("UID")
                 if uid is None:
                     raise ValueError("All components must have UIDs")

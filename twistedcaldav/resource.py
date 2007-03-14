@@ -54,6 +54,7 @@ from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -139,12 +140,7 @@ class CalDAVResource (DAVResource):
     )
 
     supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
-        caldavxml.CalendarComponent(name="VEVENT"   ),
-        caldavxml.CalendarComponent(name="VTODO"    ),
-        caldavxml.CalendarComponent(name="VTIMEZONE"),
-        caldavxml.CalendarComponent(name="VJOURNAL" ),
-        caldavxml.CalendarComponent(name="VFREEBUSY"),
-        caldavxml.CalendarComponent(name="VAVAILABILITY"),
+        *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
     )
 
     def readProperty(self, property, request):

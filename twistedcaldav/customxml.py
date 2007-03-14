@@ -28,6 +28,8 @@ change.
 from twisted.web2.dav.resource import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
+from twistedcaldav.ical import Component as iComponent
+
 calendarserver_namespace = "http://calendarserver.org/ns/"
 
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
@@ -215,6 +217,50 @@ class GETCTag (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "getctag"
     protected = True
+
+class CalendarAvailability (davxml.WebDAVTextElement):
+    """
+    Contains the calendar availability property.
+    """
+    namespace = calendarserver_namespace
+    name = "calendar-availability"
+    hidden = True
+
+
+    def calendar(self):
+        """
+        Returns a calendar component derived from this element.
+        """
+        return iComponent.fromString(str(self))
+
+    def valid(self):
+        """
+        Determine whether the content of this element is a valid single VAVAILABILITY component,
+        with zero or more VTIEMZONE components.
+
+        @return: True if valid, False if not.
+        """
+        
+        try:
+            calendar = self.calendar()
+            if calendar is None:
+                return False
+        except ValueError:
+            return False
+
+        found = False
+        for subcomponent in calendar.subcomponents():
+            if subcomponent.name() == "VAVAILABILITY":
+                if found:
+                    return False
+                else:
+                    found = True
+            elif subcomponent.name() == "VTIMEZONE":
+                continue
+            else:
+                return False
+
+        return found
 
 ##
 # Extensions to davxml.ResourceType

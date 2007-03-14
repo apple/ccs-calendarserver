@@ -64,11 +64,11 @@ defaultConfig = {
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
-        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
-        "params": {
-            "node": "/Search",
-            "requireComputerRecord": True,
-        },
+#        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
+#        "params": {
+#            "node": "/Search",
+#            "requireComputerRecord": True,
+#        },
     },
 
     #

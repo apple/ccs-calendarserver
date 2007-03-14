@@ -42,6 +42,7 @@ from twistedcaldav import itip
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
@@ -102,6 +103,22 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 ),
             ),
         )
+
+    def writeProperty(self, property, request):
+        assert isinstance(property, davxml.WebDAVElement)
+
+        # Strictly speaking CS:calendar-availability is a live property in the sense that the
+        # server enforces what can be stored, however it need not actually
+        # exist so we cannot list it in liveProperties on this resource, since its
+        # its presence there means that hasProperty will always return True for it.
+        if property.qname() == (calendarserver_namespace, "calendar-availability"):
+            if not property.valid():
+                raise HTTPError(ErrorResponse(
+                    responsecode.CONFLICT,
+                    (caldav_namespace, "valid-calendar-data")
+                ))
+
+        return super(ScheduleInboxResource, self).writeProperty(property, request)
 
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
@@ -340,6 +357,18 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     fbinfo = ([], [], [])
                 
                     try:
+                        # Process the availability property from the Inbox.
+                        has_prop = waitForDeferred(inbox.hasProperty((calendarserver_namespace, "calendar-availability"), request))
+                        yield has_prop
+                        has_prop = has_prop.getResult()
+                        if has_prop:
+                            availability = waitForDeferred(inbox.readProperty((calendarserver_namespace, "calendar-availability"), request))
+                            yield availability
+                            availability = availability.getResult()
+                            availability = availability.calendar()
+                            report_common.processAvailabilityFreeBusy(availability, fbinfo, timerange)
+
+                        # Now process free-busy set calendars
                         matchtotal = 0
                         for calURL in fbset:
                             cal = waitForDeferred(request.locateResource(calURL))
