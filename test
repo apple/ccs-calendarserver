@@ -18,6 +18,8 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
+random="--random=$(date "+%s")";
+
 usage ()
 {
   program="$(basename "$0")";
@@ -28,18 +30,20 @@ usage ()
   echo "Options:";
   echo "        -h  Print this help and exit";
   echo "        -n  Do not use color";
-  echo "        -r  Run tests in random order";
+  echo "        -o  Do not run tests in random order.";
+  echo "        -u  Run until the tests fail.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts "nhr" option; do
+while getopts "nhou" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'n') no_colour="--reporter=bwverbose"; ;;
-    'r') random="--random=$(date "+%s")"; ;;
+    'o') random=""; ;;
+    'u') until_fail="--until-failure"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -57,4 +61,4 @@ else
     test_modules="twistedcaldav";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${no_colour} ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${test_modules};
