@@ -110,9 +110,34 @@ class ConfigTests(unittest.TestCase):
         self.assertEquals(config.SSLPort, 8443)
 
     def testMerge(self):
+        self.assertEquals(config.MultiProcess["LoadBalancer"]["Enabled"], True)
+
         config.update({'MultiProcess': {}})
 
         self.assertEquals(config.MultiProcess["LoadBalancer"]["Enabled"], True)
+
+    def testDirectoryService(self):
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        config.update({"DirectoryService": {}})
+
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
+
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
+        self.assertNotIn("xmlFile", config.DirectoryService["params"])
+        self.assertEquals(config.DirectoryService["params"]["node"], "/Search")
+        self.assertEquals(config.DirectoryService["params"]["requireComputerRecord"], True)
+
+        config.update({"DirectoryService": {"params": {"xmlFile": "/tmp/foo"}}})
+
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/tmp/foo")
+        self.assertNotIn("node", config.DirectoryService["params"])
+        self.assertNotIn("requireComputerRecord", config.DirectoryService["params"])
 
     def testUpdateDefaults(self):
         self.assertEquals(config.SSLPort, -1)

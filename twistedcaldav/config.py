@@ -63,13 +63,7 @@ defaultConfig = {
     #    A directory service provides information about principals (eg.
     #    users, groups, locations and resources) to the server.
     #
-    "DirectoryService": {
-        "type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
-        "params": {
-            "node": "/Search",
-            "requireComputerRecord": True,
-        },
-    },
+    "DirectoryService": {},
 
     #
     # Special principals
@@ -153,34 +147,64 @@ defaultConfig = {
     },
 }
 
-def _mergeData(oldData, newData):
-    for key, value in newData.iteritems():
-        if isinstance(value, (dict,)) and key in ("MultiProcess",):
-            assert isinstance(oldData.get(key, {}), (dict,))
-            oldData[key] = _mergeData(oldData.get(key, {}), value)
-        else:
-            oldData[key] = value
+def _dsDefaults(configDict):
+    if configDict is None:
+        return None
 
-    return oldData
+    configDict = copy.deepcopy(configDict)
+
+    dsDict = configDict.get("DirectoryService", None)
+    if dsDict is None:
+        return configDict
+
+    if "type" in dsDict:
+        dsType = dsDict["type"]
+    else:
+        dsType = "twistedcaldav.directory.xmlfile.XMLDirectoryService"
+        dsDict["type"] = dsType
+
+    if "params" in dsDict:
+        params = dsDict["params"]
+    else:
+        params = {}
+        dsDict["params"] = params
+
+    if dsType == "twistedcaldav.directory.xmlfile.XMLDirectoryService":
+        if "xmlFile" not in params:
+            params["xmlFile"] = "/etc/caldavd/accounts.xml"
+
+    elif dsType == "twistedcaldav.directory.appleopendirectory.OpenDirectoryService":
+        if "node" not in params:
+            params["node"] = "/Search"
+
+        if "requireComputerRecord" not in params:
+            params["requireComputerRecord"] = True
+
+    else:
+        raise AssertionError("Unknown directory service type: %r" % (dsType,))
+
+    return configDict
+
+defaultConfig = _dsDefaults(defaultConfig)
 
 class Config (object):
     def __init__(self, defaults):
-        self._defaults = copy.deepcopy(defaults)
-        self._data = copy.deepcopy(defaults)
+        self.setDefaults(defaults)
+        self._data = copy.deepcopy(self._defaults)
         self._configFile = None
 
     def __str__(self):
         return str(self._data)
 
     def update(self, items):
-        self._data = _mergeData(self._data, items)
+        _mergeData(self._data, items)
 
     def updateDefaults(self, items):
-        self._defaults = _mergeData(self._defaults, items)
+        _mergeData(self._defaults, items)
         self.update(items)
 
     def setDefaults(self, defaults):
-        self._defaults = copy.deepcopy(defaults)
+        self._defaults = _dsDefaults(defaults)
 
     def __setattr__(self, attr, value):
         if hasattr(self, '_data') and attr in self._data:
@@ -203,87 +227,99 @@ class Config (object):
 
         if configFile and os.path.exists(configFile):
             configDict = readPlist(configFile)
-            configDict = self.cleanup(configDict)
+            configDict = _cleanup(configDict)
             self.update(configDict)
 
-    def cleanup(self, configDict):
-        cleanDict = copy.deepcopy(configDict)
-
-        def deprecated(oldKey, newKey):
-            log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
-
-        def renamed(oldKey, newKey):
-            deprecated(oldKey, newKey)
-            cleanDict[newKey] = configDict[oldKey]
-            del cleanDict[oldKey]
-
-        renamedOptions = {
-            "BindAddress"                : "BindAddresses",
-            "ServerLogFile"              : "AccessLogFile",
-            "MaximumAttachmentSizeBytes" : "MaximumAttachmentSize",
-            "UserQuotaBytes"             : "UserQuota",
-            "DropBoxEnabled"             : "EnableDropBox",
-            "NotificationsEnabled"       : "EnableNotifications",
-            "CalendarUserProxyEnabled"   : "EnableProxyPrincipals",
-            "SACLEnable"                 : "EnableSACLs",
-            "ServerType"                 : "ProcessType",
-        }
-
-        for key in configDict:
-            if key in defaultConfig:
-                continue
-
-            if key == "SSLOnly":
-                deprecated(key, "HTTPPort")
-                if configDict["SSLOnly"]:
-                    cleanDict["HTTPPort"] = None
-                del cleanDict["SSLOnly"]
-
-            elif key == "SSLEnable":
-                deprecated(key, "SSLPort")
-                if not configDict["SSLEnable"]:
-                    cleanDict["SSLPort"] = None
-                del cleanDict["SSLEnable"]
-
-            elif key == "Port":
-                deprecated(key, "HTTPPort")
-                if not configDict.get("SSLOnly", False):
-                    cleanDict["HTTPPort"] = cleanDict["Port"]
-                del cleanDict["Port"]
-
-            elif key == "twistdLocation":
-                deprecated(key, "Twisted -> twistd")
-                if "Twisted" not in cleanDict:
-                    cleanDict["Twisted"] = {}
-                cleanDict["Twisted"]["twistd"] = cleanDict["twistdLocation"]
-                del cleanDict["twistdLocation"]
-
-            elif key == "pydirLocation":
-                deprecated(key, "PythonDirector -> pydir")
-                if "PythonDirector" not in cleanDict:
-                    cleanDict["PythonDirector"] = {}
-                cleanDict["PythonDirector"]["pydir"] = cleanDict["pydirLocation"]
-                del cleanDict["pydirLocation"]
-
-            elif key == "pydirConfig":
-                deprecated(key, "PythonDirector -> pydir")
-                if "PythonDirector" not in cleanDict:
-                    cleanDict["PythonDirector"] = {}
-                cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
-                del cleanDict["pydirConfig"]
-
-            elif key in renamedOptions:
-                renamed(key, renamedOptions[key])
-
-            elif key == "RunStandalone":
-                log.err("Ignoring obsolete configuration option: %s" % (key,))
-                del cleanDict[key]
-
+def _mergeData(oldData, newData):
+    newData = _dsDefaults(newData)
+    for key, value in newData.iteritems():
+        if isinstance(value, (dict,)) and key in ("MultiProcess",):
+            if key in oldData:
+                assert isinstance(oldData[key], (dict,))
             else:
-                log.err("Ignoring unknown configuration option: %s" % (key,))
-                del cleanDict[key]
+                oldData[key] = {}
+            _mergeData(oldData[key], value)
+        else:
+            oldData[key] = value
 
-        return cleanDict
+def _cleanup(configDict):
+    cleanDict = copy.deepcopy(configDict)
+
+    def deprecated(oldKey, newKey):
+        log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+
+    def renamed(oldKey, newKey):
+        deprecated(oldKey, newKey)
+        cleanDict[newKey] = configDict[oldKey]
+        del cleanDict[oldKey]
+
+    renamedOptions = {
+        "BindAddress"                : "BindAddresses",
+        "ServerLogFile"              : "AccessLogFile",
+        "MaximumAttachmentSizeBytes" : "MaximumAttachmentSize",
+        "UserQuotaBytes"             : "UserQuota",
+        "DropBoxEnabled"             : "EnableDropBox",
+        "NotificationsEnabled"       : "EnableNotifications",
+        "CalendarUserProxyEnabled"   : "EnableProxyPrincipals",
+        "SACLEnable"                 : "EnableSACLs",
+        "ServerType"                 : "ProcessType",
+    }
+
+    for key in configDict:
+        if key in defaultConfig:
+            continue
+
+        if key == "SSLOnly":
+            deprecated(key, "HTTPPort")
+            if configDict["SSLOnly"]:
+                cleanDict["HTTPPort"] = None
+            del cleanDict["SSLOnly"]
+
+        elif key == "SSLEnable":
+            deprecated(key, "SSLPort")
+            if not configDict["SSLEnable"]:
+                cleanDict["SSLPort"] = None
+            del cleanDict["SSLEnable"]
+
+        elif key == "Port":
+            deprecated(key, "HTTPPort")
+            if not configDict.get("SSLOnly", False):
+                cleanDict["HTTPPort"] = cleanDict["Port"]
+            del cleanDict["Port"]
+
+        elif key == "twistdLocation":
+            deprecated(key, "Twisted -> twistd")
+            if "Twisted" not in cleanDict:
+                cleanDict["Twisted"] = {}
+            cleanDict["Twisted"]["twistd"] = cleanDict["twistdLocation"]
+            del cleanDict["twistdLocation"]
+
+        elif key == "pydirLocation":
+            deprecated(key, "PythonDirector -> pydir")
+            if "PythonDirector" not in cleanDict:
+                cleanDict["PythonDirector"] = {}
+            cleanDict["PythonDirector"]["pydir"] = cleanDict["pydirLocation"]
+            del cleanDict["pydirLocation"]
+
+        elif key == "pydirConfig":
+            deprecated(key, "PythonDirector -> pydir")
+            if "PythonDirector" not in cleanDict:
+                cleanDict["PythonDirector"] = {}
+            cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
+            del cleanDict["pydirConfig"]
+
+        elif key in renamedOptions:
+            renamed(key, renamedOptions[key])
+
+        elif key == "RunStandalone":
+            log.err("Ignoring obsolete configuration option: %s" % (key,))
+            del cleanDict[key]
+
+        else:
+            log.err("Ignoring unknown configuration option: %s" % (key,))
+            del cleanDict[key]
+
+    return cleanDict
 
 class ConfigurationError (RuntimeError):
     """
