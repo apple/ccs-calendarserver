@@ -65,7 +65,6 @@ class CalDAVOptionsTest(unittest.TestCase):
         Set up our options object, giving it a parent, and forcing the
         global config to be loaded from defaults.
         """
-
         self.config = TestCalDAVOptions()
         self.config.parent = Options()
         self.config.parent['uid'] = 0
@@ -83,7 +82,8 @@ class CalDAVOptionsTest(unittest.TestCase):
         overide the config file
         """
 
-        argv = ['-o', 'EnableSACLs',
+        argv = ['-f', 'No-Such-File',
+                '-o', 'EnableSACLs',
                 '-o', 'HTTPPort=80',
                 '-o', 'BindAddresses=127.0.0.1,127.0.0.2,127.0.0.3',
                 '-o', 'DocumentRoot=/dev/null',
@@ -111,7 +111,8 @@ class CalDAVOptionsTest(unittest.TestCase):
         Option's object)
         """
 
-        argv = ['-o', 'ErrorLogFile=/dev/null',
+        argv = ['-f', 'No-Such-File',
+                '-o', 'ErrorLogFile=/dev/null',
                 '-o', 'PIDFile=/dev/null']
 
         self.config.parseOptions(argv)
@@ -186,7 +187,7 @@ class BaseServiceMakerTests(unittest.TestCase):
         self.config['SudoersFile'] = ''
 
         if self.configOptions:
-            self.config = config_mod._mergeData(self.config, self.configOptions)
+            config_mod._mergeData(self.config, self.configOptions)
 
         os.mkdir(self.config['DocumentRoot'])
 
@@ -252,15 +253,14 @@ class SlaveServiceTest(BaseServiceMakerTests):
     Test various configurations of the Slave service
     """
 
+    configOptions = {'HTTPPort': 8008,
+                     'SSLPort': 8443}
+
     def test_defaultService(self):
         """
         Test the value of a Slave service in it's simplest
         configuration.
         """
-        self.config['HTTPPort'] = 8008
-        self.config['SSLPort'] = 8443
-        self.writeConfig()
-
         service = self.makeService()
 
         self.failUnless(IService(service),
@@ -277,10 +277,6 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the Slave service has sub services with the
         default TCP and SSL configuration
         """
-        self.config['HTTPPort'] = 8008
-        self.config['SSLPort'] = 8443
-        self.writeConfig()
-
         service = self.makeService()
 
         expectedSubServices = ((internet.TCPServer, self.config['HTTPPort']),
@@ -301,9 +297,6 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the configuration of the SSLServer reflect the config file's
         SSL Private Key and SSL Certificate
         """
-        self.config['SSLPort'] = 8443
-        self.writeConfig()
-
         service = self.makeService()
 
         sslService = None
@@ -327,6 +320,9 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test the single service to make sure there is no SSL Service when SSL
         is disabled
         """
+        del self.config['SSLPort']
+        self.writeConfig()
+
         service = self.makeService()
 
         self.assertNotIn(
@@ -337,6 +333,9 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test the single service to make sure there is no TCPServer when
         HTTPPort is not configured
         """
+        del self.config['HTTPPort']
+        self.writeConfig()
+
         service = self.makeService()
 
         self.assertNotIn(
@@ -346,9 +345,6 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         Test that the TCPServer and SSLServers are bound to the proper address
         """
-        self.config['SSLPort'] = 8443
-        self.config['HTTPPort'] = 8008
-
         self.config['BindAddresses'] = ['127.0.0.1']
         self.writeConfig()
         service = self.makeService()
@@ -361,10 +357,9 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the TCPServer and SSLServers are bound to the proper
         addresses.
         """
-        self.config['SSLPort'] = 8443
-        self.config['HTTPPort'] = 8008
-
-        self.config['BindAddresses'] = ['127.0.0.1', '10.0.0.2', '172.53.13.123']
+        self.config['BindAddresses'] = ['127.0.0.1',
+                                        '10.0.0.2',
+                                        '172.53.13.123']
         self.writeConfig()
         service = self.makeService()
 
@@ -524,3 +519,131 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
                 root.getChild('calendars'),
                 CalDAVServiceMaker.calendarResourceClass))
 
+
+sudoersFile = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>users</key>
+    <array>
+       	<dict>
+            <key>password</key>
+            <string>superuser</string>
+            <key>username</key>
+            <string>superuser</string>
+        </dict>
+    </array>
+</dict>
+</plist>
+"""
+
+class DirectoryServiceTest(BaseServiceMakerTests):
+    """
+    Tests of the directory service
+    """
+
+    configOptions = {'HTTPPort': 8008}
+
+    def test_sameDirectory(self):
+        """
+        Test that the principal hierarchy has a reference
+        to the same DirectoryService as the calendar hierarchy
+        """
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        calendars = site.resource.resource.resource.getChild('calendars')
+
+        self.assertEquals(principals.directory,
+                          calendars.directory)
+
+    def test_aggregateDirectory(self):
+        """
+        Assert that the base directory service is actually
+        an AggregateDirectoryService
+        """
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        directory = principals.directory
+
+        self.failUnless(isinstance(
+                directory,
+                AggregateDirectoryService))
+
+    def test_sudoDirectoryService(self):
+        """
+        Test that a sudo directory service is available if the
+        SudoersFile is set and exists
+        """
+        self.config['SudoersFile'] = self.mktemp()
+
+        self.writeConfig()
+
+        open(self.config['SudoersFile'], 'w').write(sudoersFile)
+
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        directory = principals.directory
+
+        self.failUnless(self.config['SudoersFile'])
+
+        sudoService = directory.serviceForRecordType(
+            SudoDirectoryService.recordType_sudoers)
+
+        self.assertEquals(sudoService.plistFile.path,
+                          os.path.abspath(self.config['SudoersFile']))
+
+        self.failUnless(SudoDirectoryService.recordType_sudoers in
+                        directory.userRecordTypes)
+
+    def test_sudoDirectoryServiceNoFile(self):
+        """
+        Test that there is no SudoDirectoryService if
+        the SudoersFile does not exist.
+        """
+        self.config['SudoersFile'] = self.mktemp()
+
+        self.writeConfig()
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        directory = principals.directory
+
+        self.failUnless(self.config['SudoersFile'])
+
+        self.assertRaises(
+            UnknownRecordTypeError,
+            directory.serviceForRecordType,
+            SudoDirectoryService.recordType_sudoers)
+
+    def test_sudoDirectoryServiceNotConfigured(self):
+        """
+        Test that there is no SudoDirectoryService if
+        the SudoersFile is not configured
+        """
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        directory = principals.directory
+
+        self.failIf(self.config['SudoersFile'])
+
+        self.assertRaises(
+            UnknownRecordTypeError,
+            directory.serviceForRecordType,
+            SudoDirectoryService.recordType_sudoers)
+
+    def test_configuredDirectoryService(self):
+        """
+        Test that the real directory service is the directory service
+        set in the configuration file.
+        """
+        site = self.getSite()
+        principals = site.resource.resource.resource.getChild('principals')
+        directory = principals.directory
+
+        realDirectory = directory.serviceForRecordType('users')
+
+        configuredDirectory = namedAny(
+            self.config['DirectoryService']['type'])
+
+        self.failUnless(isinstance(
+                realDirectory,
+                configuredDirectory))
