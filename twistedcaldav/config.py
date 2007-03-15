@@ -123,7 +123,7 @@ defaultConfig = {
     "GroupName": "daemon",
     "ProcessType": "Slave",
     "MultiProcess": {
-        "ProcessCount": 4,
+        "ProcessCount": 0,
         "LoadBalancer": {
             "Enabled": True,
             "Scheduler": "LeastConnections",

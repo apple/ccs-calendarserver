@@ -26,6 +26,8 @@ from twisted.runner import procmon
 from twisted.scripts.mktap import getid
 from twistedcaldav.config import config
 
+from twistedcaldav.util import getNCPU
+
 serviceTemplate = """
     <service name="%(name)s">
 	<listen ip="%(bindAddress)s:%(port)s" />
@@ -108,6 +110,18 @@ def makeService_Combined(self, options):
 
     if not config.MultiProcess['LoadBalancer']['Enabled']:
         bindAddress = config.BindAddresses
+
+    if config.MultiProcess['ProcessCount'] == 0:
+        try:
+            config.MultiProcess['ProcessCount'] = getNCPU()
+            log.msg("%d processors found, configuring %d processes." % (
+                    config.MultiProcess['ProcessCount'],
+                    config.MultiProcess['ProcessCount']))
+
+        except NotImplementedError, err:
+            log.msg('Could not autodetect number of CPUs:')
+            log.msg(err)
+            config.MultiProcess['ProcessCount'] = 1
 
     for p in xrange(0, config.MultiProcess['ProcessCount']):
         if int(config.MultiProcess['ProcessCount']) > 1:
