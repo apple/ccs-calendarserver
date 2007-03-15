@@ -25,6 +25,16 @@ from twistedcaldav.py.plistlib import readPlist
 
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
+serviceDefaultParams = {
+    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
+        "xmlFile": "/etc/caldavd/accounts.xml",
+    },
+    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+        "node": "/Search",
+        "requireComputerRecord": True,
+    },
+}
+
 defaultConfig = {
     #
     # Public network address information
@@ -63,7 +73,10 @@ defaultConfig = {
     #    A directory service provides information about principals (eg.
     #    users, groups, locations and resources) to the server.
     #
-    "DirectoryService": {},
+    "DirectoryService": {
+        "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
+        "params": serviceDefaultParams["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
+    },
 
     #
     # Special principals
@@ -147,46 +160,6 @@ defaultConfig = {
     },
 }
 
-def _dsDefaults(configDict):
-    if configDict is None:
-        return None
-
-    configDict = copy.deepcopy(configDict)
-
-    dsDict = configDict.get("DirectoryService", None)
-    if dsDict is None:
-        return configDict
-
-    if "type" in dsDict:
-        dsType = dsDict["type"]
-    else:
-        dsType = "twistedcaldav.directory.xmlfile.XMLDirectoryService"
-        dsDict["type"] = dsType
-
-    if "params" in dsDict:
-        params = dsDict["params"]
-    else:
-        params = {}
-        dsDict["params"] = params
-
-    if dsType == "twistedcaldav.directory.xmlfile.XMLDirectoryService":
-        if "xmlFile" not in params:
-            params["xmlFile"] = "/etc/caldavd/accounts.xml"
-
-    elif dsType == "twistedcaldav.directory.appleopendirectory.OpenDirectoryService":
-        if "node" not in params:
-            params["node"] = "/Search"
-
-        if "requireComputerRecord" not in params:
-            params["requireComputerRecord"] = True
-
-    else:
-        raise AssertionError("Unknown directory service type: %r" % (dsType,))
-
-    return configDict
-
-defaultConfig = _dsDefaults(defaultConfig)
-
 class Config (object):
     def __init__(self, defaults):
         self.setDefaults(defaults)
@@ -197,14 +170,33 @@ class Config (object):
         return str(self._data)
 
     def update(self, items):
+        dsType = items.get("DirectoryService", {}).get("type", None)
+        if dsType is None:
+            dsType = self._data["DirectoryService"]["type"]
+        else:
+            if dsType == self._data["DirectoryService"]["type"]:
+                oldParams = self._data["DirectoryService"]["params"]
+                newParams = items["DirectoryService"].get("params", {})
+                _mergeData(oldParams, newParams)
+            else:
+                self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+
+        for param in items.get("DirectoryService", {}).get("params", {}):
+            if param not in serviceDefaultParams[dsType]:
+                raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
+
         _mergeData(self._data, items)
+
+        for param in tuple(self._data["DirectoryService"]["params"]):
+            if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
+                del self._data["DirectoryService"]["params"][param]
 
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
         self.update(items)
 
     def setDefaults(self, defaults):
-        self._defaults = _dsDefaults(defaults)
+        self._defaults = copy.deepcopy(defaults)
 
     def __setattr__(self, attr, value):
         if hasattr(self, '_data') and attr in self._data:
@@ -231,9 +223,8 @@ class Config (object):
             self.update(configDict)
 
 def _mergeData(oldData, newData):
-    newData = _dsDefaults(newData)
     for key, value in newData.iteritems():
-        if isinstance(value, (dict,)) and key in ("MultiProcess",):
+        if isinstance(value, (dict,)):
             if key in oldData:
                 assert isinstance(oldData[key], (dict,))
             else:

@@ -20,7 +20,7 @@ from twisted.trial import unittest
 
 from twistedcaldav.py.plistlib import writePlist
 
-from twistedcaldav.config import config, defaultConfig, parseConfig
+from twistedcaldav.config import config, defaultConfig, parseConfig, ConfigurationError
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,6 +44,11 @@ class ConfigTests(unittest.TestCase):
         config.update(defaultConfig)
         self.testConfig = self.mktemp()
         open(self.testConfig, 'w').write(testConfig)
+
+    def tearDown(self):
+        config.setDefaults(defaultConfig)
+        config.loadConfig(None)
+        config.reload()
 
     def testDefaults(self):
         for key, value in defaultConfig.iteritems():
@@ -116,12 +121,25 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEquals(config.MultiProcess["LoadBalancer"]["Enabled"], True)
 
-    def testDirectoryService(self):
+    def testDirectoryService_noChange(self):
         self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
         self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
 
         config.update({"DirectoryService": {}})
 
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+    def testDirectoryService_sameType(self):
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        config.update({"DirectoryService": {"type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"}})
+
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+    def testDirectoryService_newType(self):
         self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
         self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
 
@@ -132,12 +150,35 @@ class ConfigTests(unittest.TestCase):
         self.assertEquals(config.DirectoryService["params"]["node"], "/Search")
         self.assertEquals(config.DirectoryService["params"]["requireComputerRecord"], True)
 
-        config.update({"DirectoryService": {"params": {"xmlFile": "/tmp/foo"}}})
-
+    def testDirectoryService_newParam(self):
         self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/tmp/foo")
-        self.assertNotIn("node", config.DirectoryService["params"])
-        self.assertNotIn("requireComputerRecord", config.DirectoryService["params"])
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
+        config.update({"DirectoryService": {"params": {"requireComputerRecord": False}}})
+
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["node"], "/Search")
+        self.assertEquals(config.DirectoryService["params"]["requireComputerRecord"], False)
+
+    def testDirectoryService_badParam(self):
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        self.assertRaises(ConfigurationError, config.update, {"DirectoryService": {"params": {"requireComputerRecord": False}}})
+
+    def testDirectoryService_unknownType(self):
+        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+
+        config.update({"DirectoryService": {"type": "twistedcaldav.test.test_config.SuperDuperAwesomeService"}})
+
+        self.assertEquals(
+            config.DirectoryService["params"],
+            SuperDuperAwesomeService.defaultParameters
+        )
+
+    testDirectoryService_unknownType.todo = "unimplemented"
 
     def testUpdateDefaults(self):
         self.assertEquals(config.SSLPort, -1)
