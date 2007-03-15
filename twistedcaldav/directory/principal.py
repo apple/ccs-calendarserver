@@ -242,7 +242,7 @@ class DirectoryPrincipalTypeResource (
         if record is None:
             record = self.directory.recordWithShortName(self.recordType, name)
             if record is None:
-                log.err("No directory record (%s)%s; cannot create principal resource." % (self.recordType, name))
+                #log.err("No directory record (%s)%s; cannot create principal resource." % (self.recordType, name))
                 return None
         else:
             assert name is None
