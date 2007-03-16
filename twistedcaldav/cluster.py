@@ -30,7 +30,7 @@ from twistedcaldav.util import getNCPU
 
 serviceTemplate = """
     <service name="%(name)s">
-	<listen ip="%(bindAddress)s:%(port)s" />
+        %(listeningInterfaces)s
 	<group name="main" scheduler="%(scheduler)s">
 	  %(hosts)s
         </group>
@@ -43,6 +43,8 @@ configTemplate = """
     %(services)s
 </pdconfig>
 """
+
+listenTemplate = '<listen ip="%(bindAddress)s:%(port)s" />'
 
 hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 
@@ -82,7 +84,7 @@ class TwistdSlaveProcess(object):
             '-o', 'BindSSLPorts=%s' % (self.sslPort,),
             '-o', 'PIDFile=None',
             '-o', 'ErrorLogFile=None']
-    
+
     def getHostLine(self, ssl=None):
         name = self.getName()
         port = self.port
@@ -97,7 +99,7 @@ class TwistdSlaveProcess(object):
 
 def makeService_Combined(self, options):
     service = procmon.ProcessMonitor()
-    
+
     parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
 
     hosts = []
@@ -137,14 +139,14 @@ def makeService_Combined(self, options):
         service.addProcess(process.getName(),
                            process.getCommandLine(),
                            env=parentEnv)
-        
+
         if config.HTTPPort:
             hosts.append(process.getHostLine())
 
         if config.SSLPort:
             sslHosts.append(process.getHostLine(ssl=True))
 
-    if (config.MultiProcess['LoadBalancer']['Enabled'] and 
+    if (config.MultiProcess['LoadBalancer']['Enabled'] and
         config.MultiProcess['ProcessCount'] > 1):
         services = []
 
@@ -158,20 +160,30 @@ def makeService_Combined(self, options):
         }
 
         for bindAddress in config.BindAddresses:
-            if config.HTTPPort:
+            httpListeners = []
+            sslListeners = []
+
+            for ports, listeners in ((config.BindHTTPPorts, httpListeners),
+                                     (config.BindSSLPorts, sslListeners)):
+                for port in ports:
+                    listeners.append(listenTemplate % {
+                            'bindAddress': bindAddress,
+                            'port': port})
+
+            if config.BindHTTPPorts:
                 services.append(serviceTemplate % {
                         'name': 'http',
+                        'listeningInterfaces': '\n'.join(httpListeners),
                         'bindAddress': bindAddress,
-                        'port': config.HTTPPort,
                         'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
                         'hosts': '\n'.join(hosts)
                         })
-            
-            if config.SSLPort:
+
+            if config.BindSSLPorts:
                 services.append(serviceTemplate % {
                         'name': 'https',
+                        'listeningInterfaces': '\n'.join(sslListeners),
                         'bindAddress': bindAddress,
-                        'port': config.SSLPort,
                         'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
                         'hosts': '\n'.join(sslHosts),
                         })
@@ -179,18 +191,18 @@ def makeService_Combined(self, options):
         pdconfig = configTemplate % {
             'services': '\n'.join(services),
             }
-                
+
         fd, fname = tempfile.mkstemp(prefix='pydir')
         os.write(fd, pdconfig)
         os.close(fd)
-        
+
         log.msg("Adding pydirector service with configuration: %s" % (fname,))
 
         service.addProcess('pydir', [sys.executable,
                                      config.PythonDirector['pydir'],
                                      fname],
                            env=parentEnv)
-    
+
     return service
 
 def makeService_Master(self, options):
