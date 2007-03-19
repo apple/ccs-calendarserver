@@ -88,6 +88,8 @@ install:: build
 	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
 	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.pyc"
 	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/_twisted_zsh_stub"
+	$(_v) echo "# Don't load all plugins off of PYTHONPATH" > "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/__init__.py"
+	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/__init__.pyc"
 
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
