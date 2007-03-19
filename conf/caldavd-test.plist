@@ -34,11 +34,11 @@ limitations under the License.
   <key>ServerHostName</key>
   <string>localhost</string>
 
-  <!-- HTTP port (comment out to disable HTTP) -->
+  <!-- HTTP port [empty = disable HTTP] -->
   <key>HTTPPort</key>
   <integer>8008</integer>
 
-  <!-- SSL port (comment out to disable HTTPS) -->
+  <!-- SSL port [empty = disable HTTPS] -->
   <key>SSLPort</key>
   <integer>8443</integer>
 
