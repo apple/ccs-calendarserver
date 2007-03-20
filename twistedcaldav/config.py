@@ -199,7 +199,7 @@ class Config (object):
         self._defaults = copy.deepcopy(defaults)
 
     def __setattr__(self, attr, value):
-        if hasattr(self, '_data') and attr in self._data:
+        if '_data' in self.__dict__ and attr in self.__dict__['_data']:
             self._data[attr] = value
         else:
             self.__dict__[attr] = value
