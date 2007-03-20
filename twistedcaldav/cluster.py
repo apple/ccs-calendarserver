@@ -29,18 +29,18 @@ from twistedcaldav.config import config
 from twistedcaldav.util import getNCPU
 
 serviceTemplate = """
-    <service name="%(name)s">
-        %(listeningInterfaces)s
-	<group name="main" scheduler="%(scheduler)s">
-	  %(hosts)s
-        </group>
-        <enable group="main" />
-    </service>
+  <service name="%(name)s">
+    %(listeningInterfaces)s
+    <group name="main" scheduler="%(scheduler)s">
+      %(hosts)s
+    </group>
+    <enable group="main" />
+  </service>
 """
 
 configTemplate = """
 <pdconfig>
-    %(services)s
+%(services)s
 </pdconfig>
 """
 
@@ -70,20 +70,33 @@ class TwistdSlaveProcess(object):
     def getSSLName(self):
         return '%s-%s' % (self.prefix, self.sslPort)
 
+    def getSafeName(self):
+        if self.port:
+            return '%s-%s' % (self.prefix, self.port)
+        elif self.sslPort:
+            return '%s-%s' % (self.prefix, self.sslPort)
+        else:
+            return None
+
     def getCommandLine(self):
-        return [
+        result = [
             sys.executable,
             self.twistd,
-            '-u', config.UserName,
-            '-g', config.GroupName,
             '-n', self.tapname,
             '-f', self.configFile,
             '-o', 'ProcessType=Slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-            '-o', 'BindHTTPPorts=%s' % (self.port,),
-            '-o', 'BindSSLPorts=%s' % (self.sslPort,),
             '-o', 'PIDFile=None',
             '-o', 'ErrorLogFile=None']
+        if config.UserName:
+            result.extend(('-u', config.UserName,))
+        if config.GroupName:
+            result.extend(('-g', config.GroupName,))
+        if self.port:
+            result.extend(('-o', 'BindHTTPPorts=%s' % (self.port,),))
+        if self.sslPort:
+            result.extend(('-o', 'BindSSLPorts=%s' % (self.sslPort,),))
+        return result
 
     def getHostLine(self, ssl=None):
         name = self.getName()
@@ -127,8 +140,10 @@ def makeService_Combined(self, options):
 
     for p in xrange(0, config.MultiProcess['ProcessCount']):
         if int(config.MultiProcess['ProcessCount']) > 1:
-            port += 1
-            sslport += 1
+            if port:
+                port += 1
+            if sslport:
+                sslport += 1
 
         process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      self.tapname,
@@ -136,7 +151,7 @@ def makeService_Combined(self, options):
                                      bindAddress,
                                      port, sslport)
 
-        service.addProcess(process.getName(),
+        service.addProcess(process.getSafeName(),
                            process.getCommandLine(),
                            env=parentEnv)
 
@@ -163,29 +178,28 @@ def makeService_Combined(self, options):
             httpListeners = []
             sslListeners = []
 
-            for ports, listeners in ((config.BindHTTPPorts, httpListeners),
-                                     (config.BindSSLPorts, sslListeners)):
-                for port in ports:
-                    listeners.append(listenTemplate % {
-                            'bindAddress': bindAddress,
-                            'port': port})
+            for port, listeners in ((config.HTTPPort, httpListeners),
+                                     (config.SSLPort, sslListeners)):
+                listeners.append(listenTemplate % {
+                        'bindAddress': bindAddress,
+                        'port': port})
 
-            if config.BindHTTPPorts:
+            if config.HTTPPort:
                 services.append(serviceTemplate % {
                         'name': 'http',
                         'listeningInterfaces': '\n'.join(httpListeners),
                         'bindAddress': bindAddress,
                         'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
-                        'hosts': '\n'.join(hosts)
+                        'hosts': '\n      '.join(hosts)
                         })
 
-            if config.BindSSLPorts:
+            if config.SSLPort:
                 services.append(serviceTemplate % {
                         'name': 'https',
-                        'listeningInterfaces': '\n'.join(sslListeners),
+                        'listeningInterfaces': '\n          '.join(sslListeners),
                         'bindAddress': bindAddress,
                         'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
-                        'hosts': '\n'.join(sslHosts),
+                        'hosts': '\n      '.join(sslHosts),
                         })
 
         pdconfig = configTemplate % {
