@@ -29,6 +29,8 @@ from twisted.web2 import iweb
 from twisted.web2.dav import davxml
 from twisted.web2.log import BaseCommonAccessLoggingObserver
 
+from twistedcaldav.config import config
+
 #
 # Logging levels:
 #  0 - no logging
@@ -200,7 +202,10 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
         Rotate when the date has changed since last write
         """
 
-        return self.toDate() > self.lastDate
+        if config.RotateAccessLog:
+            return self.toDate() > self.lastDate
+        else:
+            return False
 
     def toDate(self, *args):
         """

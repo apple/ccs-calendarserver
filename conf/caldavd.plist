@@ -188,6 +188,8 @@ limitations under the License.
   <!-- Apache-style access log -->
   <key>AccessLogFile</key>
   <string>/var/log/caldavd/access.log</string>
+  <key>RotateAccessLog</key>
+  <true/>
 
   <!-- Server activity log -->
   <key>ErrorLogFile</key>

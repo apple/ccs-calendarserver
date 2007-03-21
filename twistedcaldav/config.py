@@ -109,6 +109,7 @@ defaultConfig = {
     "ErrorLogFile"   : "/var/log/caldavd/error.log",                    # Server activity log
     "ServerStatsFile": "/Library/CalendarServer/Documents/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
+    "RotateAccessLog": True,
 
     #
     # SSL/TLS
