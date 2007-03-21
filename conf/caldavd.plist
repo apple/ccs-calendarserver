@@ -189,7 +189,7 @@ limitations under the License.
   <key>AccessLogFile</key>
   <string>/var/log/caldavd/access.log</string>
   <key>RotateAccessLog</key>
-  <true/>
+  <false/>
 
   <!-- Server activity log -->
   <key>ErrorLogFile</key>
