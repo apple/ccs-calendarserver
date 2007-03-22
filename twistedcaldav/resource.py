@@ -50,6 +50,7 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
@@ -612,15 +613,14 @@ class CalendarPrincipalResource (DAVPrincipalResource):
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
 
             elif namespace == calendarserver_namespace:
-                if name == "dropbox-home-URL":
+                if name == "dropbox-home-URL" and config.EnableDropBox:
                     url = self.dropboxURL()
                     if url is None:
                         return None
                     else:
                         return customxml.DropBoxHomeURL(davxml.HRef(url))
 
-                if name == "notifications-URL":
-                    # Use the first calendar home only
+                if name == "notifications-URL" and config.EnableNotifications:
                     url = self.notificationsURL()
                     if url is None:
                         return None
