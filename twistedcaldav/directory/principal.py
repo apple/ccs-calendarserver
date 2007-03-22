@@ -477,10 +477,16 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         return self._homeChildURL("outbox/")
 
     def dropboxURL(self):
-        return self._homeChildURL("dropbox/")
+        if config.EnableDropBox:
+            return self._homeChildURL("dropbox/")
+        else:
+            return None
 
     def notificationsURL(self):
-        return self._homeChildURL("notifications/")
+        if config.EnableNotifications:
+            return self._homeChildURL("notifications/")
+        else:
+            return None
 
     def _homeChildURL(self, name):
         home = self._calendarHome()
