@@ -566,14 +566,18 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             "calendar-availability",
         )
 
-    liveProperties = DAVPrincipalResource.liveProperties + (
+    liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),
         (caldav_namespace, "calendar-user-address-set"),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
-        (calendarserver_namespace, "dropbox-home-URL" ),
-        (calendarserver_namespace, "notifications-URL"),
     )
+
+    if config.EnableDropBox:
+        liveProperties += ((calendarserver_namespace, "dropbox-home-URL" ),)
+
+    if config.EnableNotifications:
+        liveProperties += ((calendarserver_namespace, "notifications-URL"),)
 
     def isCollection(self):
         return True
