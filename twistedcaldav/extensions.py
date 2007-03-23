@@ -271,6 +271,11 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
                     name = property.sname()
                     value = property.toxml()
                 except HTTPError, e:
+                    if e.response.code == responsecode.NOT_FOUND:
+                        log.err("Property {%s}%s was returned by listProperties() but does not exist for resource %s."
+                                % (qname[0], qname[1], self))
+                        continue
+
                     if e.response.code != responsecode.UNAUTHORIZED:
                         log.err("Unable to read property %s for dirlist: %s" % (qname, e))
                         raise
