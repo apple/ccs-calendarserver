@@ -187,12 +187,12 @@ class CalDAVOptions(Options):
 
         if not config.ErrorLogFile and config.ProcessType == 'Slave':
             log.FileLogObserver.timeFormat = ''
-        
+
         # Check current umask and warn if changed
-        oldmask = os.umask(0027)
-        if oldmask != 0027:
+        oldmask = os.umask(config.umask)
+        if oldmask != config.umask:
             log.msg("WARNING: changing umask from: 0%03o to 0%03o" % (
-                    oldmask, 0027,))
+                    oldmask, config.umask,))
         
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
         if not os.path.exists(dirpath):

@@ -159,6 +159,9 @@ defaultConfig = {
         "pydir": "/usr/share/caldavd/bin/pydir.py",
         "ConfigFile": "/etc/caldavd/pydir.xml",
     },
+
+    # Umask
+    "umask": 0027,
 }
 
 class Config (object):
