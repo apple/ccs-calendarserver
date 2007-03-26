@@ -133,6 +133,7 @@ class CalDAVResource (DAVResource):
             "calendar-access",
             "calendar-schedule",
             "calendar-availability",
+            "inbox-availability",
         )
 
     liveProperties = DAVResource.liveProperties + (
