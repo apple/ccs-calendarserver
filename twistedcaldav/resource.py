@@ -574,11 +574,21 @@ class CalendarPrincipalResource (DAVPrincipalResource):
         (caldav_namespace, "schedule-outbox-URL"      ),
     )
 
-    if config.EnableDropBox:
-        liveProperties += ((calendarserver_namespace, "dropbox-home-URL" ),)
+    @classmethod
+    def enableDropBox(clz, enable):
+        qname = (calendarserver_namespace, "dropbox-home-URL" )
+        if enable and qname not in clz.liveProperties:
+            clz.liveProperties += (qname,)
+        elif not enable and qname in clz.liveProperties:
+            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
-    if config.EnableNotifications:
-        liveProperties += ((calendarserver_namespace, "notifications-URL"),)
+    @classmethod
+    def enableNotifications(clz, enable):
+        qname = (calendarserver_namespace, "notifications-URL" )
+        if enable and qname not in clz.liveProperties:
+            clz.liveProperties += (qname,)
+        elif not enable and qname in clz.liveProperties:
+            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
     def isCollection(self):
         return True

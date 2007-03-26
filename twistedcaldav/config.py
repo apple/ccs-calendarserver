@@ -195,6 +195,21 @@ class Config (object):
             if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
                 del self._data["DirectoryService"]["params"][param]
 
+        self.updateServerCapabilities()
+
+    def updateServerCapabilities(self):
+        """
+        Change server capabilities based on the current config parameters.
+        Here are the "features" in the config that need special treatment:
+        
+        EnableDropBox
+        EnableNotifications
+        """
+        
+        from twistedcaldav.resource import CalendarPrincipalResource
+        CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
+        CalendarPrincipalResource.enableNotifications(self.EnableNotifications)
+
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
         self.update(items)
