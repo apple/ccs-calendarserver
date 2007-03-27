@@ -197,7 +197,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         )
         if config.EnableDropBox:
             childlist += (
-                ("dropbox"      , DropBoxHomeResource      ),
+                ("dropbox", DropBoxHomeResource),
             )
         if config.EnableNotifications:
             childlist += (
