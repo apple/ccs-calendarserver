@@ -35,6 +35,7 @@ disable_setup="false";
       install="";
     daemonize="-X";
          kill="false";
+      restart="false";
   plugin_name="caldav";
  service_type="Slave";
      read_key="";
@@ -45,17 +46,18 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvsfp] [-K key] [-iI dst] [-t type]";
+  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
   echo "	-s  Run setup only; don't run server";
   echo "	-f  Force setup to run";
   echo "	-p  Print PYTHONPATH value for server and exit";
-  echo "        -K  Print value of configuration key and exit";
   echo "	-n  Do not run setup";
   echo "        -d  Run caldavd as a daemon";
   echo "        -k  Stop caldavd";
+  echo "        -r  Restart caldavd";
+  echo "        -K  Print value of configuration key and exit";
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
   echo "        -t  Select the server process type (Master, Slave or Combined)";
@@ -64,7 +66,7 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvsfnpkdP:i:I:t:K:' option; do
+while getopts 'hvsfnpkrdP:i:I:t:K:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -74,6 +76,7 @@ while getopts 'hvsfnpkdP:i:I:t:K:' option; do
     'n') disable_setup="true"; ;;
     'p')    print_path="true"; ;;
     'k')          kill="true"; ;;
+    'r')       restart="true"; ;;
     'd')     daemonize=""; ;;
     'P')   plugin_name="${OPTARG}"; ;;
     'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
@@ -162,7 +165,7 @@ if [ -n "${read_key}" ]; then
     exit $?;
 fi;
 
-if "${kill}"; then
+if "${kill}" || "${restart}"; then
     pidfile="$(conf_read_key "PIDFile")";
     if [ ! -r "${pidfile}" ]; then
         echo "Unreadable PID file: ${pidfile}";
@@ -175,7 +178,9 @@ if "${kill}"; then
     fi;
     echo "Killing process ${pid}";
     kill -TERM "${pid}";
-    exit 0;
+    if ! "${restart}"; then
+        exit 0;
+    fi;
 fi;
 
 if [ -z "${PYTHONPATH:-}" ]; then
