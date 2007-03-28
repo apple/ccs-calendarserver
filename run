@@ -34,8 +34,10 @@ disable_setup="false";
    print_path="false";
       install="";
     daemonize="-X";
+         kill="false";
   plugin_name="caldav";
  service_type="Slave";
+     read_key="";
 
 usage ()
 {
@@ -43,15 +45,17 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvsf] [-iI dst]";
+  echo "Usage: ${program} [-hvsfp] [-K key] [-iI dst] [-t type]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
   echo "	-s  Run setup only; don't run server";
-  echo "	-p  Print PYTHONPATH value for server and exit";
   echo "	-f  Force setup to run";
+  echo "	-p  Print PYTHONPATH value for server and exit";
+  echo "        -K  Print value of configuration key and exit";
   echo "	-n  Do not run setup";
   echo "        -d  Run caldavd as a daemon";
+  echo "        -k  Stop caldavd";
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
   echo "        -t  Select the server process type (Master, Slave or Combined)";
@@ -60,7 +64,7 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvsfnpdP:i:I:t:' option; do
+while getopts 'hvsfnpkdP:i:I:t:K:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -69,11 +73,13 @@ while getopts 'hvsfnpdP:i:I:t:' option; do
     'f')   force_setup="true"; ;;
     'n') disable_setup="true"; ;;
     'p')    print_path="true"; ;;
+    'k')          kill="true"; ;;
     'd')     daemonize=""; ;;
     'P')   plugin_name="${OPTARG}"; ;;
     'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
     'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
+    'K')      read_key="${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -139,6 +145,37 @@ twisted="${top}/Twisted";
 
 if [ -z "${config:-}" ]; then
   config="${wd}/conf/caldavd-dev.plist";
+fi;
+
+conf_read_key ()
+{
+  local key="$1"; shift;
+
+  # FIXME: This only works for simple values (no arrays, dicts)
+  tr '\n' ' ' < "${config}"                                                    \
+    | xpath "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2>/dev/null \
+    | sed -n 's|^<[^<][^<]*>\([^<]*\)</[^<][^<]*>.*$|\1|p';
+}
+
+if [ -n "${read_key}" ]; then
+    conf_read_key "${read_key}";
+    exit $?;
+fi;
+
+if "${kill}"; then
+    pidfile="$(conf_read_key "PIDFile")";
+    if [ ! -r "${pidfile}" ]; then
+        echo "Unreadable PID file: ${pidfile}";
+        exit 1;
+    fi;
+    pid="$(cat "${pidfile}" | head -1)";
+    if [ -z "${pid}" ]; then
+        echo "No PID in PID file: ${pidfile}";
+        exit 1;
+    fi;
+    echo "Killing process ${pid}";
+    kill -TERM "${pid}";
+    exit 0;
 fi;
 
 if [ -z "${PYTHONPATH:-}" ]; then
