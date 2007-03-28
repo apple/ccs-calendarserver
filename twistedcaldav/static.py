@@ -240,14 +240,14 @@ class CalDAVFile (CalDAVResource, DAVFile):
         if self.isCollection():
             return succeed(calendarPrivilegeSet)
         else:
-            def _callback(parent):
+            def gotParent(parent):
                 if parent and isCalendarCollectionResource(parent):
                     return succeed(calendarPrivilegeSet)
                 else:
                     return super(CalDAVFile, self).supportedPrivileges(request)
 
             d = self.locateParent(request, request.urlForResource(self))
-            d.addCallback(_callback)
+            d.addCallback(gotParent)
             return d
         
         return super(CalDAVFile, self).supportedPrivileges(request)
