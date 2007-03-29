@@ -123,12 +123,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     if not disabled:
         for href in resources:
 
-            resource_uri = unquote(str(href))
+            resource_uri = str(href)
 
             # Do href checks
             if requestURIis == "calendar":
                 # Verify that href is an immediate child of the request URI and that resource exists.
-                name = resource_uri[resource_uri.rfind("/") + 1:]
+                name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                 if not self._isChildURI(request, resource_uri) or self.getChild(name) is None:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
@@ -143,7 +143,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                 child = child.getResult()
     
             elif requestURIis == "collection":
-                name = resource_uri[resource_uri.rfind("/") + 1:]
+                name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                 if not self._isChildURI(request, resource_uri, False):
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
@@ -184,7 +184,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     filteredaces = filteredaces.getResult()
     
             else:
-                name = resource_uri[resource_uri.rfind("/") + 1:]
+                name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                 if (resource_uri != request.uri) or not self.exists():
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                     continue
