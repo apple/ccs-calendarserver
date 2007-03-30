@@ -404,7 +404,13 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
             assert parent.isCollection()
 
         if self.isCollection():
-            fp.makedirs()
+            try:
+                fp.makedirs()
+            except OSError:
+                # It's possible someone else created the directory in the meantime...
+                # Check our status again, and re-raise if we're not a collection.
+                if not self.isCollection():
+                    raise
             fp.restat(False)
         else:
             fp.open("w").close()
