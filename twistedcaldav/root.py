@@ -20,6 +20,7 @@ from twisted.python import log
 
 from twisted.internet import defer
 from twisted.python.failure import Failure
+from twisted.cred.error import LoginFailed
 from twisted.cred.error import UnauthorizedLogin
 
 from twisted.web2.http import HTTPError
@@ -55,10 +56,11 @@ class RootResource(DAVFile):
         """
 
         def _authCb((authnUser, authzUser)):
-            # Insure that the user is not unauthenticated.
+            # Ensure that the user is not unauthenticated.
             # SACLs are authorization for the use of the service,
             # so unauthenticated access doesn't make any sense.
             if authzUser == davxml.Principal(davxml.Unauthenticated()):
+                log.msg("Unauthenticated users not enabled with the '%s' SACL" % (self.saclService,))
                 return Failure(HTTPError(UnauthorizedResponse(
                             request.credentialFactories,
                             request.remoteAddr)))
@@ -67,7 +69,7 @@ class RootResource(DAVFile):
 
         def _authEb(failure):
             # Make sure we propogate UnauthorizedLogin errors.
-            failure.trap(UnauthorizedLogin)
+            failure.trap(UnauthorizedLogin, LoginFailed)
 
             return Failure(HTTPError(UnauthorizedResponse(
                         request.credentialFactories,
@@ -79,6 +81,7 @@ class RootResource(DAVFile):
             username = username.rstrip('/').split('/')[-1]
             
             if RootResource.CheckSACL(username, self.saclService) != 0:
+                log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
                 return Failure(HTTPError(403))
 
             return True
