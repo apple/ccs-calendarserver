@@ -144,7 +144,7 @@ class CalDAVOptions(Options):
         if gid:
             if gid != os.getgid() and os.getgid() != 0:
                 import grp
-                groupname = grp.getgrgid(os.getuid())[0]
+                groupname = grp.getgrgid(os.getgid())[0]
                 raise UsageError("Only root can drop privileges, you are: %s"
                                  % (groupname,))
 
