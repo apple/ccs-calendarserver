@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+##
+# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# DRI: Wilfredo Sanchez, wsanchez@apple.com
+##
+
+import sys
+import os
+import getopt
+import xattr
+
+def usage(e=None):
+    if e:
+        print e
+        print ""
+
+    name = os.path.basename(sys.argv[0])
+    print "usage: %s [-l] file [file ...]" % (name,)
+    print "       %s -p [-l] attr_name file [file ...]" % (name,)
+    print "       %s -w attr_name attr_value file [file ...]" % (name,)
+    print "       %s -d attr_name file [file ...]" % (name,)
+    print ""
+    print "The first form lists the names of all xattrs on the given file(s)."
+    print "The second form prints the value of the xattr attr_name on the given file(s)."
+    print "The third form sets the value of the xattr attr_name to attr_value on the given file(s)."
+    print "The fourth form deletes the xattr attr_value on the given file(s)."
+    print ""
+    print "options:"
+    print "  -h: print this help"
+    print "  -l: print long format (attr_name: attr_value)"
+
+    if e:
+        sys.exit(64)
+    else:
+        sys.exit(0)
+
+def main():
+    try:
+        (optargs, args) = getopt.getopt(sys.argv[1:], "hlpwd", ["help"])
+    except getopt.GetoptError, e:
+        usage(e)
+
+    attr_name   = None
+    long_format = False
+    read        = False
+    write       = False
+    delete      = False
+    status      = 0
+
+    for opt, arg in optargs:
+        if opt in ("-h", "--help"):
+            usage()
+        elif opt == "-l":
+            long_format = True
+        elif opt == "-p":
+	    read = True
+        elif opt == "-w":
+	    write = True
+        elif opt == "-d":
+	    delete = True
+
+    if write or delete:
+	if long_format:
+	    usage("-l not allowed with -w or -p")
+
+    if read or write or delete:
+	if not args:
+	    usage("No attr_name")
+	attr_name = args.pop(0)
+
+    if write:
+	if not args:
+	    usage("No attr_value")
+	attr_value = args.pop(0)
+
+    if len(args) > 1:
+	multiple_files = True
+    else:
+	multiple_files = False
+
+    for filename in args:
+	def onError(e):
+	    if not os.path.exists(filename):
+		sys.stderr.write("No such file: %s\n" % (filename,))
+	    else:
+		sys.stderr.write(str(e) + "\n")
+	    status = 1
+
+	try:
+	    attrs = xattr.xattr(filename)
+	except (IOError, OSError), e:
+	    onError(e)
+	    continue
+
+	if write:
+	    try:
+		attrs[attr_name] = attr_value
+	    except (IOError, OSError), e:
+		onError(e)
+		continue
+
+	elif delete:
+	    try:
+		del attrs[attr_name]
+	    except (IOError, OSError), e:
+		onError(e)
+		continue
+	    except KeyError:
+		onError("No such xattr: %s" % (attr_name,))
+		continue
+
+	else:
+	    try:
+		if read:
+		    attr_names = (attr_name,)
+		else:
+		    attr_names = attrs.keys()
+	    except (IOError, OSError), e:
+		onError(e)
+		continue
+
+	    if multiple_files:
+		file_prefix = "%s: " % (filename,)
+	    else:
+		file_prefix = ""
+
+	    for attr_name in attr_names:
+		try:
+		    if long_format:
+			print "".join((file_prefix, "%s: " % (attr_name,), attrs[attr_name]))
+		    else:
+			if read:
+			    print "".join((file_prefix, attrs[attr_name]))
+			else:
+			    print "".join((file_prefix, attr_name))
+		except KeyError:
+		    onError("%sNo such xattr: %s" % (file_prefix, attr_name))
+		    continue
+
+    sys.exit(status)
+
+if __name__ == "__main__":
+    main()
