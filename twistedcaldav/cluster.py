@@ -163,14 +163,22 @@ def makeService_Combined(self, options):
             httpListeners = []
             sslListeners = []
 
-            for ports, listeners in ((config.BindHTTPPorts, httpListeners),
-                                     (config.BindSSLPorts, sslListeners)):
+            httpPorts = config.BindHTTPPorts
+            if not httpPorts:
+                httpPorts = (config.HTTPPort,)
+
+            sslPorts = config.BindSSLPorts
+            if not sslPorts:
+                sslPorts = (config.SSLPort,)
+
+            for ports, listeners in ((httpPorts, httpListeners),
+                                     (sslPorts, sslListeners)):
                 for port in ports:
                     listeners.append(listenTemplate % {
                             'bindAddress': bindAddress,
                             'port': port})
 
-            if config.BindHTTPPorts:
+            if httpPorts:
                 services.append(serviceTemplate % {
                         'name': 'http',
                         'listeningInterfaces': '\n'.join(httpListeners),
@@ -179,7 +187,7 @@ def makeService_Combined(self, options):
                         'hosts': '\n'.join(hosts)
                         })
 
-            if config.BindSSLPorts:
+            if sslPorts:
                 services.append(serviceTemplate % {
                         'name': 'https',
                         'listeningInterfaces': '\n'.join(sslListeners),
