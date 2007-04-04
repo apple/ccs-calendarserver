@@ -106,7 +106,7 @@ def http_MKCALENDAR(self, request):
                         p = waitForDeferred(self.writeProperty(property, request))
                         yield p
                         p.getResult()
-                except:
+                except HTTPError:
                     errors.add(Failure(), property)
                     got_an_error = True
                 else:

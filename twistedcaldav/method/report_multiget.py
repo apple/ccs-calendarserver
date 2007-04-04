@@ -28,6 +28,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
@@ -218,7 +219,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                         d = waitForDeferred(parent.checkPrivileges(request, (davxml.Read(),)))
                         yield d
                         d.getResult()
-                    except:
+                    except AccessDeniedError:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                         continue
                     
@@ -258,7 +259,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
                     yield d
                     d.getResult()
-                except:
+                except AccessDeniedError:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
         

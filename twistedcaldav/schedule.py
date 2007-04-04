@@ -34,6 +34,7 @@ from twisted.web2.http import HTTPError, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
+from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL, parentForURL
 
 from twistedcaldav import caldavxml
@@ -333,7 +334,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(oprincipal.principalURL()))))
                     yield d
                     d.getResult()
-                except:
+                except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permisions")))
                     responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")

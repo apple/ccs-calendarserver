@@ -43,6 +43,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.fileop import delete
+from twisted.web2.dav.resource import AccessDeniedError
+
 from twistedcaldav import caldavxml
 from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
@@ -561,7 +563,7 @@ def writeReply(request, principal, replycal, ainbox):
         d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
         yield d
         d.getResult()
-    except:
+    except AccessDeniedError:
         logging.info("[ITIP]: could not send reply as %s does not have CALDAV:schedule permission on %s Inbox." % (principal.principalURL(), organizer))
         yield None
         return
@@ -682,7 +684,7 @@ def canAutoRespond(calendar):
             return False
         if calendar.mainType() not in ("VEVENT"):
             return False
-    except:
+    except ValueError:
         return False
     
     return True
@@ -711,7 +713,7 @@ def matchComponentInCalendar(collection, calendar, ignore):
         # Remove the one we want to ignore
         if ignore is not None:
             result = [name for name in result if name != ignore.fp.basename()]
-    except:
+    except ValueError:
         return []
     
     return result
@@ -741,7 +743,7 @@ def getAllInfo(collection, calendar, ignore):
         # Remove the one we want to ignore
         if ignore is not None:
             names = [name for name in names if name != ignore.fp.basename()]
-    except:
+    except ValueError:
         return []
     
     # Now get info for each name
@@ -767,7 +769,7 @@ def getSyncInfo(name, calendar):
         dtstamp = comp.propertyValue("DTSTAMP")
         rid = comp.propertyValue("RECURRENCE-ID")
         
-    except:
+    except ValueError:
         return (name, None, None, None, None)
     
     return (name, uid, seq, dtstamp, rid)

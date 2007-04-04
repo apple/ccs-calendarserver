@@ -38,6 +38,8 @@ from twisted.web2.dav.http import statusForFailure
 from twisted.web2.dav.method.propfind import propertyName
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.method.report import max_number_of_matches
+from twisted.web2.dav.resource import AccessDeniedError
+from twisted.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
@@ -71,7 +73,7 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         d = waitForDeferred(resource.checkPrivileges(request, privileges))
         yield d
         d.getResult()
-    except:
+    except AccessDeniedError:
         yield None
         return
 
@@ -246,7 +248,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
                 yield prop
                 prop = prop.getResult()
                 properties_by_status[responsecode.OK].append(prop)
-            except:
+            except HTTPError:
                 f = Failure()
     
                 log.err("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
@@ -281,7 +283,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
         d = waitForDeferred(calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),)))
         yield d
         d.getResult()
-    except:
+    except AccessDeniedError:
         yield matchtotal
         return
 
@@ -332,7 +334,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
             d = waitForDeferred(child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
-        except:
+        except AccessDeniedError:
             continue
 
         calendar = calresource.iCalendar(name)

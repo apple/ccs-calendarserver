@@ -48,6 +48,7 @@ from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.method import put_common as put_common_base
+from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, bindMethods
 
@@ -189,7 +190,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
                         yield d
                         d.getResult()
-                    except:
+                    except AccessDeniedError:
                         continue
                     subcalendar = self.iCalendar(name)
                     assert subcalendar.name() == "VCALENDAR"

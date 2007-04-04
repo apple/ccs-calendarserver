@@ -851,7 +851,7 @@ class Component (object):
             method = self.propertyValue("METHOD")
             if method not in ("PUBLISH", "REQUEST", "REPLY", "ADD", "CANCEL", "REFRESH", "COUNTER", "DECLINECOUNTER"):
                 return False
-        except:
+        except ValueError:
             return False
         
         return True
@@ -882,7 +882,7 @@ class Component (object):
                 if len([c for c in self.subcomponents()]) != 1:
                     return False
 
-        except:
+        except ValueError:
             return False
         
         return True
@@ -903,7 +903,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.propertyValue("ORGANIZER")
-            except:
+            except ValueError:
                 pass
 
         return None
@@ -924,7 +924,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.getProperty("ORGANIZER")
-            except:
+            except ValueError:
                 pass
 
         return None
@@ -943,11 +943,8 @@ class Component (object):
                 if component.name() != "VTIMEZONE":
                     return component.getAttendees()
         else:
-            try:
-                # Find the property values
-                return [p.value() for p in self.properties("ATTENDEE")]
-            except:
-                pass
+            # Find the property values
+            return [p.value() for p in self.properties("ATTENDEE")]
 
         return None
 
@@ -978,13 +975,10 @@ class Component (object):
                 if component.name() != "VTIMEZONE":
                     return component.getAttendeeProperty(match)
         else:
-            try:
-                # Find the primary subcomponent
-                for p in self.properties("ATTENDEE"):
-                    if _normalizeCUAddress(p.value()) in test:
-                        return p
-            except:
-                pass
+            # Find the primary subcomponent
+            for p in self.properties("ATTENDEE"):
+                if _normalizeCUAddress(p.value()) in test:
+                    return p
 
         return None
 
@@ -1004,7 +998,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.propertyValue("X-CALENDARSERVER-MASK-UID")
-            except:
+            except ValueError:
                 pass
 
         return None

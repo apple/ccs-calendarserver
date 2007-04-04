@@ -123,7 +123,7 @@ def compfilterExpression(compfilter):
         compsExpression = None
 
     # Now build compound expression
-    if ((propsExpression is not None) or (compsExpression is not None)):
+    if ((propsExpression is not None) and (compsExpression is not None)):
         expressions.append(expression.orExpression([propsExpression, compsExpression]))
     elif propsExpression is not None:
         expressions.append(propsExpression)
@@ -218,7 +218,7 @@ def sqlcalendarquery(filter):
         expression = calendarquery(filter)
         sql = sqlgenerator.sqlgenerator(expression)
         return sql.generate()
-    except:
+    except ValueError:
         return None
 
 
