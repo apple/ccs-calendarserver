@@ -44,6 +44,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
 from twistedcaldav import caldavxml
 
+from vobject.icalendar import utc
+
 db_basename = ".db.sqlite"
 schema_version = "4"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
@@ -218,6 +220,29 @@ class AbstractIndex(object):
         uid = self._db_value_for_sql("select UID from RESOURCE where NAME = :1", name)
         return uid is not None
     
+    def resourcesExist(self, names):
+        """
+        Determines whether the specified resource name exists in the index.
+        @param names: a C{list} containing the names of the resources to test
+        @return: a C{list} of all names that exist
+        """
+        statement = "select NAME from RESOURCE where NAME in ("
+        for ctr, ignore_name in enumerate(names):
+            if ctr != 0:
+                statement += ", "
+            statement += ":%s" % (ctr,)
+        statement += ")"
+        results = self._db_values_for_sql(statement, *names)
+        return results
+    
+    def searchValid(self, filter):
+        if isinstance(filter, caldavxml.Filter):
+            qualifiers = calendarquery.sqlcalendarquery(filter)
+        else:
+            qualifiers = None
+            
+        return qualifiers is not None
+
     def search(self, filter):
         """
         Finds resources matching the given qualifiers.
@@ -525,12 +550,14 @@ class CalendarIndex (AbstractIndex):
         instances = calendar.expandTimeRanges(expand_max)
         for key in instances:
             instance = instances[key]
+            start = instance.start.replace(tzinfo=utc)
+            end = instance.end.replace(tzinfo=utc)
             float = ('N', 'Y')[instance.start.tzinfo is None]
             self._db_execute(
                 """
                 insert into TIMESPAN (NAME, FLOAT, START, END)
                 values (:1, :2, :3, :4)
-                """, name, float, normalizeForIndex(instance.start), normalizeForIndex(instance.end)
+                """, name, float, start, end
             )
 
         self._db_execute(

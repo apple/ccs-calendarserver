@@ -71,15 +71,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     if query.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
+        generate_calendar_data = False
 
     elif query.qname() == ("DAV:", "propname"):
         propertiesForResource = report_common.propertyNamesForResource
+        generate_calendar_data = False
 
     elif query.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
         
         # Verify that any calendar-data element matches what we can handle
-        result, message = report_common.validPropertyListCalendarDataTypeVersion(query)
+        result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(query)
         if not result:
             log.err(message)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
@@ -101,7 +103,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param uri: the uri for the calendar collecton resource.
         """
         
-        def queryCalendarObjectResource(resource, uri, name, calendar):
+        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok = False):
             """
             Run a query on the specified calendar.
             @param resource: the L{CalDAVFile} for the calendar.
@@ -110,7 +112,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             @param calendar: the L{Component} calendar read from the resource.
             """
             
-            if filter.match(calendar):
+            if query_ok or filter.match(calendar):
                 # Check size of results is within limit
                 matchcount[0] += 1
                 if matchcount[0] > max_number_of_matches:
@@ -146,23 +148,37 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         
             # Check for disabled access
             if filteredaces is not None:
-                for name, uid, type in calresource.index().search(filter): #@UnusedVariable
-                    # Check privileges - must have at least DAV:read
-                    child = waitForDeferred(request.locateChildResource(calresource, name))
-                    yield child
-                    child = child.getResult()
-
-                    try:
-                        d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
-                        yield d
-                        d.getResult()
-                    except:
-                        continue
-    
-                    calendar = calresource.iCalendar(name)
-                    assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (name, self)
+                # See whether the filter is valid for an index only query
+                index_query_ok = calresource.index().searchValid(filter)
+            
+                # Get list of children that match the search and have read access
+                names = [name for name, ignore_uid, ignore_type in calresource.index().search(filter)]
+                  
+                # Now determine which valid resources are readable and which are not
+                ok_resources = []
+                d = calresource.findChildrenFaster(
+                    "1",
+                    request,
+                    lambda x, y: ok_resources.append((x, y)),
+                    None,
+                    names,
+                    (davxml.Read(),),
+                    inherited_aces=filteredaces
+                )
+                x = waitForDeferred(d)
+                yield x
+                x.getResult()
+                
+                for child, child_uri in ok_resources:
+                    child_name = child_uri[child_uri.rfind("/") + 1:]
                     
-                    d = waitForDeferred(queryCalendarObjectResource(child, uri, name, calendar))
+                    if generate_calendar_data or not index_query_ok:
+                        calendar = calresource.iCalendar(child_name)
+                        assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_name, self)
+                    else:
+                        calendar = None
+                    
+                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_name, calendar, query_ok = index_query_ok))
                     yield d
                     d.getResult()
         else:

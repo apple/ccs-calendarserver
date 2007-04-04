@@ -193,14 +193,16 @@ def validPropertyListCalendarDataTypeVersion(prop):
     
     result = True
     message = ""
+    generate_calendar_data = False
     for property in prop.children:
         if isinstance(property, caldavxml.CalendarData):
             if not property.verifyTypeVersion([("text/calendar", "2.0")]):
                 result = False
                 message = "Calendar-data element type/version not supported: content-type: %s, version: %s" % (property.content_type,property.version)
+            generate_calendar_data = True
             break
 
-    return result, message
+    return result, message, generate_calendar_data
 
 def _namedPropertiesForResource(request, props, resource, calendar=None):
     """

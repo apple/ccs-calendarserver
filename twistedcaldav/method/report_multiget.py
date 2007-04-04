@@ -28,6 +28,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
@@ -63,15 +64,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
     if propertyreq.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
+        generate_calendar_data = False
 
     elif propertyreq.qname() == ("DAV:", "propname"):
         propertiesForResource = report_common.propertyNamesForResource
+        generate_calendar_data = False
 
     elif propertyreq.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
         
         # Verify that any calendar-data element matches what we can handle
-        result, message = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
+        result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
         if not result:
             log.err(message)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
@@ -121,101 +124,147 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         filteredaces = None
 
     if not disabled:
-        for href in resources:
-
-            resource_uri = str(href)
-
-            # Do href checks
-            if requestURIis == "calendar":
-                # Verify that href is an immediate child of the request URI and that resource exists.
+        
+        def doCalendarResponse():
+            # Verify that requested resources are immediate children of the request-URI
+            valid_names = []
+            for href in resources:
+                resource_uri = str(href)
                 name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                 if not self._isChildURI(request, resource_uri) or self.getChild(name) is None:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-                    continue
-                
-                # Verify that we are dealing with a calendar object resource
-                if not self.index().resourceExists(name):
+                else:
+                    valid_names.append(name)
+            if not valid_names:
+                yield None
+                return
+        
+            # Verify that valid requested resources are calendar objects
+            exists_names = tuple(self.index().resourcesExist(valid_names))
+            checked_names = []
+            for name in valid_names:
+                if name not in exists_names:
+                    href = davxml.HRef.fromString(joinURL(request.uri, name))
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-                    continue
-                
-                child = waitForDeferred(request.locateResource(resource_uri))
-                yield child
-                child = child.getResult()
+                else:
+                    checked_names.append(name)
+            
+            # Now determine which valid resources are readable and which are not
+            ok_resources = []
+            bad_resources = []
+            d = self.findChildrenFaster(
+                "1",
+                request,
+                lambda x, y: ok_resources.append((x, y)),
+                lambda x, y: bad_resources.append((x, y)),
+                checked_names,
+                (davxml.Read(),),
+                inherited_aces=filteredaces
+            )
+            x = waitForDeferred(d)
+            yield x
+            x.getResult()
+
+            # Get properties for all valid readable resources
+            for resource, href in ok_resources:
+                d = waitForDeferred(report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, propertiesForResource, propertyreq))
+                yield d
+                d.getResult()
     
-            elif requestURIis == "collection":
-                name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
-                if not self._isChildURI(request, resource_uri, False):
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-                    continue
- 
-                child = waitForDeferred(request.locateResource(resource_uri))
-                yield child
-                child = child.getResult()
+            # Indicate error for all valid non-readable resources
+            for ignore_resource, href in bad_resources:
+                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+    
+        doCalendarResponse = deferredGenerator(doCalendarResponse)
 
-                if not child or not child.exists():
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-                    continue
-
-                parent = waitForDeferred(child.locateParent(request, resource_uri))
-                yield parent
-                parent = parent.getResult()
-
-                if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-                    continue
+        if requestURIis == "calendar":
+            d = waitForDeferred(doCalendarResponse())
+            yield d
+            d.getResult()
+        else:
+            for href in resources:
+    
+                resource_uri = str(href)
+    
+                # Do href checks
+                if requestURIis == "calendar":
+                    pass
+        
+                # TODO: we can optimize this one in a similar manner to the calendar case
+                elif requestURIis == "collection":
+                    name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
+                    if not self._isChildURI(request, resource_uri, False):
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                        continue
+     
+                    child = waitForDeferred(request.locateResource(resource_uri))
+                    yield child
+                    child = child.getResult()
+    
+                    if not child or not child.exists():
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                        continue
+    
+                    parent = waitForDeferred(child.locateParent(request, resource_uri))
+                    yield parent
+                    parent = parent.getResult()
+    
+                    if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        continue
+                    
+                    # Check privileges on parent - must have at least DAV:read
+                    try:
+                        d = waitForDeferred(parent.checkPrivileges(request, (davxml.Read(),)))
+                        yield d
+                        d.getResult()
+                    except:
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        continue
+                    
+                    # Cache the last parent's inherited aces for checkPrivileges optimization
+                    if lastParent != parent:
+                        lastParent = parent
                 
-                # Check privileges on parent - must have at least DAV:read
-                try:
-                    d = waitForDeferred(parent.checkPrivileges(request, (davxml.Read(),)))
-                    yield d
-                    d.getResult()
-                except:
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-                    continue
-                
-                # Cache the last parent's inherited aces for checkPrivileges optimization
-                if lastParent != parent:
-                    lastParent = parent
+                        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+                        # the child resource loop and supply those to the checkPrivileges on each child.
+                        filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
+                        yield filteredaces
+                        filteredaces = filteredaces.getResult()
+        
+                else:
+                    name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
+                    if (resource_uri != request.uri) or not self.exists():
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                        continue
+    
+                    parent = waitForDeferred(self.locateParent(request, resource_uri))
+                    yield parent
+                    parent = parent.getResult()
+    
+                    if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        continue
+                    child = self
             
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                     # the child resource loop and supply those to the checkPrivileges on each child.
                     filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
                     yield filteredaces
                     filteredaces = filteredaces.getResult()
-    
-            else:
-                name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
-                if (resource_uri != request.uri) or not self.exists():
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-                    continue
-
-                parent = waitForDeferred(self.locateParent(request, resource_uri))
-                yield parent
-                parent = parent.getResult()
-
-                if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
+        
+                # Check privileges - must have at least DAV:read
+                try:
+                    d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
+                    yield d
+                    d.getResult()
+                except:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                     continue
-                child = self
         
-                # Do some optimisation of access control calculation by determining any inherited ACLs outside of
-                # the child resource loop and supply those to the checkPrivileges on each child.
-                filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
-                yield filteredaces
-                filteredaces = filteredaces.getResult()
-    
-            # Check privileges - must have at least DAV:read
-            try:
-                d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
+                d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq))
                 yield d
                 d.getResult()
-            except:
-                responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-                continue
-    
-            d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq))
-            yield d
-            d.getResult()
 
     yield MultiStatusResponse(responses)
 
