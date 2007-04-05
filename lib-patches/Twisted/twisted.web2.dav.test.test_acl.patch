@@ -82,3 +82,22 @@ Index: twisted/web2/dav/test/test_acl.py
          for name, acl in (
              ("none"       , self.grant()),
              ("read"       , self.grant(davxml.Read())),
+@@ -363,7 +378,7 @@
+                 elif method == "REPORT":
+                     # BAD_REQUEST in the allowed case, because we're not actually
+                     # including the required XML in the request body.
+-                    ok = responsecode.BAD_REQUEST
++                    ok = responsecode.MULTI_STATUS
+                 else:
+                     raise AssertionError("We shouldn't be here.  (method = %r)" % (method,))
+ 
+@@ -377,6 +392,9 @@
+                     path = os.path.join(self.docroot, name)
+ 
+                     request = SimpleRequest(self.site, method, "/" + name)
++                    if method == "REPORT":
++                        request.stream = MemoryStream(davxml.PrincipalPropertySearch().toxml())
++
+                     _add_auth_header(request)
+ 
+                     def test(response, code=code, path=path):
