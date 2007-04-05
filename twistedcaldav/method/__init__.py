@@ -29,6 +29,7 @@ __all__ = [
     "mkcalendar",
     "mkcol",
     "put",
+    "report",
     "report_calquery",
     "report_freebusy",
     "report_multiget",
