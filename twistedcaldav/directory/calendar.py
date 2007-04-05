@@ -217,17 +217,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
 
         def setupChild(_):
-            # Grant read-free-busy access to authenticated users
-            child.setAccessControlList(
-                davxml.ACL(
-                    davxml.ACE(
-                        davxml.Principal(davxml.Authenticated()),
-                        davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
-                        TwistedACLInheritable(),
-                    ),
-                )
-            )
-
             # Set calendar-free-busy-set on inbox
             inbox = self.getChild("inbox")
             # FIXME: Shouldn't have to call provision() on another resource
@@ -276,6 +265,12 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
                 davxml.Grant(davxml.Privilege(davxml.All())),
                 davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+            # Inheritable CALDAV:read-free-busy access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
                 TwistedACLInheritable(),
             ),
         )
