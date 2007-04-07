@@ -30,7 +30,7 @@ else:
         """
         Test Open Directory service schema.
         """
-        
+
         plist_nomacosxserver_key = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -186,7 +186,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -301,7 +301,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -425,7 +425,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostDetails</key>
@@ -544,7 +544,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -647,7 +647,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -769,7 +769,7 @@ else:
                     </dict>
                 </dict>
             </dict>
-            
+
             <key>C18C34AC-3D9E-403C-8A33-BFC303F3840E</key>
             <dict>
                 <key>hostname</key>
@@ -828,7 +828,7 @@ else:
                 service = OpenDirectoryService(node="/Search", dosetup=False)
                 if service._parseXMLPlist("calendar.apple.com", "recordit", plist, "GUIDIFY"):
                     self.fail(msg="Plist parse should have failed: %s" % (title,))
-                
+
             plists = (
                 (PlistParse.plist_nomacosxserver_key, "nomacosxserver_key"),
                 (PlistParse.plist_nocalendarservice,  "nocalendarservice"),
@@ -855,10 +855,10 @@ else:
                     self.fail(msg="Plist parse should not have failed: %s" % (recordName,))
                 else:
                     expanded = service._getCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
-        
+
                     # Verify that we extracted the proper items
                     self.assertEqual(expanded, result, msg=title % (expanded, result,))
-            
+
             data = (
                 (
                  "user01",
@@ -892,26 +892,35 @@ else:
                  "User with no email addresses, %s != %s",
                 ),
             )
-            
+
             for recordName, record, result, title in data:
                 _doTest(recordName, record, result, title)
 
     class ODRecordsParse (twisted.trial.unittest.TestCase):
 
         record_good = ("computer1.apple.com", {
-            dsattributes.kDS1AttrGeneratedUID : "GUID1",
-            dsattributes.kDSNAttrRecordName   : "computer1.apple.com",
-            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good,
-        })
+            dsattributes.kDS1AttrGeneratedUID     : "GUID1",
+            dsattributes.kDSNAttrRecordName       : "computer1.apple.com",
+            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+       })
         record_good_other = ("computer2.apple.com", {
-            dsattributes.kDS1AttrGeneratedUID : "GUID1",
-            dsattributes.kDSNAttrRecordName   : "computer2.apple.com",
-            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good_other,
+            dsattributes.kDS1AttrGeneratedUID     : "GUID1",
+            dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
+            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good_other,
+            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
         })
-        record_good_duplicate = ("computer2.apple.com", {
-            dsattributes.kDS1AttrGeneratedUID : "GUID1",
-            dsattributes.kDSNAttrRecordName   : "computer2.apple.com",
-            dsattributes.kDS1AttrXMLPlist     : PlistParse.plist_good,
+        record_good_duplicate = ("computer3.apple.com", {
+            dsattributes.kDS1AttrGeneratedUID     : "GUID2",
+            dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
+            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/directory.apple.com",
+        })
+        record_good_local_duplicate = ("ServiceInformation", {
+            dsattributes.kDS1AttrGeneratedUID     : "GUID3",
+            dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
+            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
         })
 
         def test_odrecords_error(self):
@@ -922,13 +931,9 @@ else:
                     self.fail(msg="Record parse should have failed: %s" % (title,))
                 except OpenDirectoryInitError:
                     pass
-                
+
             records = (
                 ({}, "no records found"),
-                ({
-                      ODRecordsParse.record_good[0]            : ODRecordsParse.record_good[1],
-                      ODRecordsParse.record_good_duplicate[0]  : ODRecordsParse.record_good_duplicate[1],
-                 }, "duplicate records found"),
                 ({
                       ODRecordsParse.record_good_other[0]  : ODRecordsParse.record_good_other[1],
                  }, "non-matching record found"),
@@ -944,7 +949,7 @@ else:
                     service._parseComputersRecords(recordlist, "calendar.apple.com")
                 except OpenDirectoryInitError, ex:
                     self.fail(msg="Record parse should not have failed: \"%s\" with error: %s" % (title, ex))
-                
+
             records = (
                 ({
                       ODRecordsParse.record_good[0]        : ODRecordsParse.record_good[1],
@@ -958,3 +963,29 @@ else:
             for recordlist, title in records:
                 _doParseRecords(recordlist, title)
 
+        def test_odrecords_multiple(self):
+            def _doParseRecords(recordlist, title, guid):
+                service = OpenDirectoryService(node="/Search", dosetup=False)
+                service._parseComputersRecords(recordlist, "calendar.apple.com")
+                gotGuid = service.servicetag.split(':', 1)[0]
+
+                self.assertEquals(guid, gotGuid,
+                                  "Got wrong guid, %s: Expected %s not %s" % (title, guid, gotGuid))
+
+            records = (
+                ({ODRecordsParse.record_good_other[0]           : ODRecordsParse.record_good_other[1],
+                  ODRecordsParse.record_good_duplicate[0]       : ODRecordsParse.record_good_duplicate[1],
+                  ODRecordsParse.record_good_local_duplicate[0] :
+                      ODRecordsParse.record_good_local_duplicate[1]},
+                 "Remote Record Preferred", "GUID2"),
+                ({ODRecordsParse.record_good[0]                 : ODRecordsParse.record_good[1],
+                  ODRecordsParse.record_good_local_duplicate[0] :
+                      ODRecordsParse.record_good_local_duplicate[1]},
+                 "Local OD Preferred", "GUID1"),
+                ({ODRecordsParse.record_good_local_duplicate[0] :
+                      ODRecordsParse.record_good_local_duplicate[1]},
+                 "Local Node Preferred", "GUID3"),
+            )
+
+            for recordlist, title, guid in records:
+                _doParseRecords(recordlist, title, guid)
