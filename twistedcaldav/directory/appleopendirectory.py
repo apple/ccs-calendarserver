@@ -123,6 +123,7 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrRecordName,
             dsattributes.kDS1AttrXMLPlist,
+            dsattributes.kDSNAttrMetaNodeLocation,
         ]
 
         records = opendirectory.queryRecordsWithAttribute(
@@ -137,7 +138,9 @@ class OpenDirectoryService(DirectoryService):
         self._parseComputersRecords(records, vhostname)
 
     def _parseComputersRecords(self, records, vhostname):
-        
+        localNodePath = '/Local/Default'
+        localODNodePath = '/LDAPv3/127.0.0.1'
+
         # Must have some results
         if len(records) == 0:
             raise OpenDirectoryInitError(
@@ -146,30 +149,59 @@ class OpenDirectoryService(DirectoryService):
             )
 
         # Now find a single record that actually matches the hostname
-        found = False
+        # Prefering the remote OD node to the local OD Node and
+        # the local OD Node to the local node.
+
+        _localNode = None
+        _localODNode = None
+        _remoteNode = None
+
         for recordname, record in records.iteritems():
-            
             # Must have XMLPlist value
             plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
             if not plist:
                 continue
-            
-            if not self._parseXMLPlist(vhostname, recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]):
+
+            # XXX: Parse the plist so we can find only calendar vhosts with our hostname.
+            plistDict = readPlistFromString(plist)
+            vhosts = plistDict.get("com.apple.macosxserver.virtualhosts", None)
+            if not vhosts:
                 continue
-            elif found:
-                raise OpenDirectoryInitError(
-                    "Open Directory (node=%s) multiple /Computers records found matching virtual hostname: %s"
-                    % (self.realmName, vhostname,)
-                )
+
+            hostguid = None
+            for key, value in vhosts.iteritems():
+                serviceTypes = value.get("serviceType", None)
+                if serviceTypes:
+                    for type in serviceTypes:
+                        if type == "calendar":
+                            hostguid = key
+                            break
+
+            if vhosts[hostguid].get("hostname", None) != vhostname:
+                continue
+
+            if record[dsattributes.kDSNAttrMetaNodeLocation] == localNodePath:
+                _localNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+
+            elif record[dsattributes.kDSNAttrMetaNodeLocation] == localODNodePath:
+                _localODNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+
             else:
-                found = True
-                
-        if not found:
+                _remoteNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+
+        # XXX: These calls to self._parseXMLPlist will cause the plsit to be parsed _again_
+        #      refactor later so we only ever parse it once.
+
+        for node in (_remoteNode, _localODNode, _localNode):
+            if node and self._parseXMLPlist(vhostname, *node):
+                break
+
+        else:
             raise OpenDirectoryInitError(
                 "Open Directory (node=%s) no /Computers records with an enabled and valid calendar service were found matching virtual hostname: %s"
                 % (self.realmName, vhostname,)
             )
-    
+
     def _parseXMLPlist(self, vhostname, recordname, plist, recordguid):
         # Parse the plist and look for our special entry
         plist = readPlistFromString(plist)
