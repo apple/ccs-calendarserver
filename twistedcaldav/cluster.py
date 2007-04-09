@@ -59,16 +59,16 @@ class TwistdSlaveProcess(object):
 
         self.configFile = configFile
 
-        self.port = port
-        self.sslPort = sslPort
+        self.ports = port
+        self.sslPorts = sslPort
 
         self.interfaces = interfaces
 
     def getName(self):
-        return '%s-%s' % (self.prefix, self.port)
+        return '%s-%s' % (self.prefix, self.ports[0])
 
     def getSSLName(self):
-        return '%s-%s' % (self.prefix, self.sslPort)
+        return '%s-%s' % (self.prefix, self.sslPorts[0])
 
     def getCommandLine(self):
         return [
@@ -80,21 +80,21 @@ class TwistdSlaveProcess(object):
             '-f', self.configFile,
             '-o', 'ProcessType=Slave',
             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-            '-o', 'BindHTTPPorts=%s' % (self.port,),
-            '-o', 'BindSSLPorts=%s' % (self.sslPort,),
+            '-o', 'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),),
+            '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
             '-o', 'PIDFile=None',
             '-o', 'ErrorLogFile=None']
 
     def getHostLine(self, ssl=None):
         name = self.getName()
-        port = self.port
+        port = self.ports
 
         if ssl:
             name = self.getSSLName()
-            port = self.sslPort
+            port = self.sslPorts
 
         return hostTemplate % {'name': name,
-                               'port': port,
+                               'port': port[0],
                                'bindAddress': '127.0.0.1'}
 
 def makeService_Combined(self, options):
@@ -105,13 +105,13 @@ def makeService_Combined(self, options):
     hosts = []
     sslHosts = []
 
-    port = config.HTTPPort
-    sslport = config.SSLPort
+    port = [config.HTTPPort,]
+    sslPort = [config.SSLPort,]
 
     bindAddress = ['127.0.0.1']
 
-    if not config.MultiProcess['LoadBalancer']['Enabled']:
-        bindAddress = config.BindAddresses
+    # Attempt to calculate the number of processes to use
+    # 1 per processor
 
     if config.MultiProcess['ProcessCount'] == 0:
         try:
@@ -125,16 +125,37 @@ def makeService_Combined(self, options):
             log.msg(err)
             config.MultiProcess['ProcessCount'] = 1
 
+    if config.MultiProcess['ProcessCount'] > 1:
+        if config.BindHTTPPorts:
+            port = [list(reversed(config.BindHTTPPorts))[0]]
+
+        if config.BindSSLPorts:
+            sslPort = [list(reversed(config.BindSSLPorts))[0]]
+
+    elif config.MultiProcess['ProcessCount'] == 1:
+        if config.BindHTTPPorts:
+            port = config.BindHTTPPorts
+
+        if config.BindSSLPorts:
+            sslPort = config.BindSSLPorts
+
+    # If the load balancer isn't enabled, or if we only have one process
+    # We listen directly on the interfaces.
+
+    if ((not config.MultiProcess['LoadBalancer']['Enabled']) or
+        (config.MultiProcess['ProcessCount'] == 1)):
+        bindAddress = config.BindAddresses
+
     for p in xrange(0, config.MultiProcess['ProcessCount']):
-        if int(config.MultiProcess['ProcessCount']) > 1:
-            port += 1
-            sslport += 1
+        if config.MultiProcess['ProcessCount'] > 1:
+            port = [port[0] + 1]
+            sslPort = [sslPort[0] + 1]
 
         process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      self.tapname,
                                      options['config'],
                                      bindAddress,
-                                     port, sslport)
+                                     port, sslPort)
 
         service.addProcess(process.getName(),
                            process.getCommandLine(),
@@ -145,6 +166,8 @@ def makeService_Combined(self, options):
 
         if config.SSLPort:
             sslHosts.append(process.getHostLine(ssl=True))
+
+    # Set up pydirector config file.
 
     if (config.MultiProcess['LoadBalancer']['Enabled'] and
         config.MultiProcess['ProcessCount'] > 1):
