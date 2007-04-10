@@ -180,7 +180,7 @@ class BaseServiceMakerTests(unittest.TestCase):
             }
 
         self.config['DocumentRoot'] = self.mktemp()
-
+        self.config['ProcessType'] = 'Slave'
         self.config['SSLPrivateKey'] = sibpath(__file__, 'data/server.pem')
         self.config['SSLCertificate'] = sibpath(__file__, 'data/server.pem')
 
