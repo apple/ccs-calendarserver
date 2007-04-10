@@ -42,6 +42,8 @@ from twisted.web2.channel import http
 from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
+from twistedcaldav import logging
+
 from twistedcaldav.cluster import makeService_Combined, makeService_Master
 from twistedcaldav.config import config, parseConfig, defaultConfig, ConfigurationError
 from twistedcaldav.logging import RotatingFileAccessLoggingObserver
@@ -435,11 +437,12 @@ class CalDAVServiceMaker(object):
 
         channel = http.HTTPFactory(site)
 
-        log.msg("Configuring rotating log observer for file: %s" % (
-            config.AccessLogFile,))
+        log.msg("Configuring log observer: %s" % (
+            config.ControlSocket,))
 
-        logObserver = RotatingFileAccessLoggingObserver(config.AccessLogFile)
-        
+        logObserver = logging.AMPCommonAccessLoggingObserver(
+            config.ControlSocket)
+
         service = CalDAVService(logObserver)
 
         if not config.BindAddresses:

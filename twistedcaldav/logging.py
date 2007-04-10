@@ -25,6 +25,8 @@ import os
 import time
 
 from twisted.python import log
+from twisted.internet import protocol
+
 from twisted.web2 import iweb
 from twisted.web2.dav import davxml
 from twisted.web2.log import BaseCommonAccessLoggingObserver
@@ -47,79 +49,62 @@ currentLogLevel = logtypes["error"]
 def canLog(type):
     """
     Determine whether a particular log level type is current active.
-    
+
     @param type: a string with one of the types above.
     @return:     True if the log level is currently active.
     """
-    
+
     return currentLogLevel >= logtypes.get(type, 1)
 
 def info(message, **kwargs):
     """
     Log a message at the "info" level.
-    
+
     @param message:  message to log.
     @param **kwargs: additional log arguments.
     """
-    
+
     if canLog("info"):
         log.msg(message, **kwargs)
 
 def warn(message, **kwargs):
     """
     Log a message at the "warning" level.
-    
+
     @param message:  message to log.
     @param **kwargs: additional log arguments.
     """
-    
+
     if canLog("warning"):
         log.msg(message, **kwargs)
 
 def err(message, **kwargs):
     """
     Log a message at the "error" level.
-    
+
     @param message:  message to log.
     @param **kwargs: additional log arguments.
     """
-    
+
     if canLog("error"):
         log.msg(message, **kwargs)
 
 def debug(message, **kwargs):
     """
     Log a message at the "debug" level.
-    
+
     @param message:  message to log.
     @param **kwargs: additional log arguments.
     """
-    
+
     if canLog("debug"):
         log.msg(message, debug=True, **kwargs)
 
-class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
-    """
-    Class to do 'apache' style access logging to a rotating log file. The log
-    file is rotated after midnight each day.
-    """
-    
-    def __init__(self, logpath):
-        self.logpath = logpath
-                
-    def logMessage(self, message, allowrotate=True):
-        """
-        Log a message to the file and possibly rotate if date has changed.
 
-        @param message: C{str} for the message to log.
-        @param allowrotate: C{True} if log rotate allowed, C{False} to log to current file
-            without testing for rotation.
-        """
-        
-        if self.shouldRotate() and allowrotate:
-            self.flush()
-            self.rotate()
-        self.f.write(message + '\n')
+class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
+    """
+    A base class for our extension to the L{BaseCommonAccessLoggingObserver}
+    """
 
     def emit(self, eventDict):
         if eventDict.get('interface') is not iweb.IRequest:
@@ -132,7 +117,7 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
             request.method,
             request.uri,
             '.'.join([str(x) for x in request.clientproto]))
-        
+
         # Try to determine authentication and authorization identifiers
         uid = "-"
         if hasattr(request, "authnUser"):
@@ -140,7 +125,6 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
                 uid = str(request.authnUser.children[0])
                 if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uid:
                     uid = '"%s as %s"' % (uid, request.authzUser.children[0])
-        
 
         self.logMessage(
             '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]' %(
@@ -157,20 +141,44 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
                 )
             )
 
+
+class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
+    """
+    Class to do 'apache' style access logging to a rotating log file. The log
+    file is rotated after midnight each day.
+    """
+
+    def __init__(self, logpath):
+        self.logpath = logpath
+
+    def logMessage(self, message, allowrotate=True):
+        """
+        Log a message to the file and possibly rotate if date has changed.
+
+        @param message: C{str} for the message to log.
+        @param allowrotate: C{True} if log rotate allowed, C{False} to log to current file
+            without testing for rotation.
+        """
+
+        if self.shouldRotate() and allowrotate:
+            self.flush()
+            self.rotate()
+        self.f.write(message + '\n')
+
     def start(self):
         """
         Start logging. Open the log file and log an 'open' message.
         """
-        
+
         super(RotatingFileAccessLoggingObserver, self).start()
         self._open()
         self.logMessage("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
-        
+
     def stop(self):
         """
         Stop logging. Close the log file and log an 'open' message.
         """
-        
+
         self.logMessage("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
         super(RotatingFileAccessLoggingObserver, self).stop()
         self._close()
@@ -182,21 +190,21 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
 
         self.f = open(self.logpath, 'a', 1)
         self.lastDate = self.toDate(os.stat(self.logpath)[8])
-    
+
     def _close(self):
         """
         Close the log file.
         """
 
         self.f.close()
-    
+
     def flush(self):
         """
         Flush the log file.
         """
 
         self.f.flush()
-    
+
     def shouldRotate(self):
         """
         Rotate when the date has changed since last write
@@ -211,7 +219,7 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
         """
         Convert a unixtime to (year, month, day) localtime tuple,
         or return the current (year, month, day) localtime tuple.
-        
+
         This function primarily exists so you may overload it with
         gmtime, or some cruft to make unit testing possible.
         """
@@ -248,4 +256,83 @@ class RotatingFileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
         os.rename(self.logpath, newpath)
         self._open()
         self.logMessage("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
+
+
+from twisted.protocols import amp
+
+
+class LogMessage(amp.Command):
+    arguments = [('message', amp.String())]
+
+
+class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
+    def __init__(self, socket):
+        self.socket = socket
+        self.protocol = None
+        self._buffer = []
+
+    def flushBuffer(self):
+        if self._buffer:
+            for msg in self._buffer:
+                self.logMessage(msg)
+
+    def start(self):
+        super(AMPCommonAccessLoggingObserver, self).start()
+
+        from twisted.internet import reactor
+
+        def _gotProtocol(proto):
+            self.protocol = proto
+            self.flushBuffer()
+
+        self.client = protocol.ClientCreator(reactor, amp.AMP)
+        d = self.client.connectUNIX(self.socket)
+        d.addCallback(_gotProtocol)
+
+    def stop(self):
+        super(AMPCommonAccessLoggingObserver, self).stop()
+        self.client.disconnect()
+
+    def logMessage(self, message):
+        """
+        Log a message to the remote AMP Protocol
+        """
+        if self.protocol is not None:
+            # XXX: Yeah we're not waiting for anything to happen here.
+            #      but we will log an error.
+            d = self.protocol.callRemote(LogMessage, message=message)
+            d.addErrback(log.err)
+        else:
+            self._buffer.append(message)
+
+
+class AMPLoggingProtocol(amp.AMP):
+    """
+    A server side protocol for logging to the given observer.
+    """
+
+    def __init__(self, observer):
+        self.observer = observer
+
+        super(AMPLoggingProtocol, self).__init__()
+
+    def logMessage(self, message):
+        self.observer.logMessage(message)
+        return {}
+
+    LogMessage.responder(logMessage)
+
+
+class AMPLoggingFactory(protocol.ServerFactory):
+    def __init__(self, observer):
+        self.observer = observer
+
+    def doStart(self):
+        self.observer.start()
+
+    def doStop(self):
+        self.observer.stop()
+
+    def buildProtocol(self, addr):
+        return AMPLoggingProtocol(self.observer)
 

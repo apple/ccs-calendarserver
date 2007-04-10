@@ -120,9 +120,13 @@ defaultConfig = {
     #
     # Process management
     #
-    "UserName": "daemon",
-    "GroupName": "daemon",
-    "ProcessType": "Slave",
+
+    # Username and Groupname to drop privileges to, if empty privileges will
+    # not be dropped.
+
+    "UserName": "",
+    "GroupName": "",
+    "ProcessType": "Combined",
     "MultiProcess": {
         "ProcessCount": 0,
         "LoadBalancer": {
@@ -162,6 +166,10 @@ defaultConfig = {
 
     # Umask
     "umask": 0027,
+
+    # A unix socket used for communication between the child and master
+    # processes.
+    "ControlSocket": "/var/run/caldavd.sock",
 }
 
 class Config (object):

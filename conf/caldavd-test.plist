@@ -275,10 +275,10 @@ limitations under the License.
   -->
 
   <key>UserName</key>
-  <string>calendar</string>
+  <string></string>
 
   <key>GroupName</key>
-  <string>calendar</string>
+  <string></string>
 
   <key>ProcessType</key>
   <string>Combined</string>

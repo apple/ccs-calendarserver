@@ -24,6 +24,9 @@ from twisted.python import log
 
 from twisted.runner import procmon
 from twisted.scripts.mktap import getid
+from twisted.application import internet, service
+
+from twistedcaldav import logging
 from twistedcaldav.config import config
 
 from twistedcaldav.util import getNCPU
@@ -71,19 +74,27 @@ class TwistdSlaveProcess(object):
         return '%s-%s' % (self.prefix, self.sslPorts[0])
 
     def getCommandLine(self):
-        return [
+        args = [
             sys.executable,
-            self.twistd,
-            '-u', config.UserName,
-            '-g', config.GroupName,
-            '-n', self.tapname,
-            '-f', self.configFile,
-            '-o', 'ProcessType=Slave',
-            '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-            '-o', 'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),),
-            '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
-            '-o', 'PIDFile=None',
-            '-o', 'ErrorLogFile=None']
+            self.twistd]
+
+        if config.UserName:
+            args.extend(('-u', config.UserName))
+
+        if config.GroupName:
+            args.extend(('-g', config.GroupName))
+
+        args.extend(
+            ['-n', self.tapname,
+             '-f', self.configFile,
+             '-o', 'ProcessType=Slave',
+             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
+             '-o', 'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),),
+             '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
+             '-o', 'PIDFile=None',
+             '-o', 'ErrorLogFile=None'])
+
+        return args
 
     def getHostLine(self, ssl=None):
         name = self.getName()
@@ -98,7 +109,9 @@ class TwistdSlaveProcess(object):
                                'bindAddress': '127.0.0.1'}
 
 def makeService_Combined(self, options):
-    service = procmon.ProcessMonitor()
+    s = service.MultiService()
+    monitor = procmon.ProcessMonitor()
+    monitor.setServiceParent(s)
 
     parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
 
@@ -157,7 +170,7 @@ def makeService_Combined(self, options):
                                      bindAddress,
                                      port, sslPort)
 
-        service.addProcess(process.getName(),
+        monitor.addProcess(process.getName(),
                            process.getCommandLine(),
                            env=parentEnv)
 
@@ -229,12 +242,19 @@ def makeService_Combined(self, options):
 
         log.msg("Adding pydirector service with configuration: %s" % (fname,))
 
-        service.addProcess('pydir', [sys.executable,
+        monitor.addProcess('pydir', [sys.executable,
                                      config.PythonDirector['pydir'],
                                      fname],
                            env=parentEnv)
 
-    return service
+    logger = logging.AMPLoggingFactory(
+        logging.RotatingFileAccessLoggingObserver(config.AccessLogFile))
+
+    loggingService = internet.UNIXServer(config.ControlSocket, logger)
+
+    loggingService.setServiceParent(s)
+
+    return s
 
 def makeService_Master(self, options):
     service = procmon.ProcessMonitor()
