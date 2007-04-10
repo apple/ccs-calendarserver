@@ -16,7 +16,11 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
-from hashlib import sha1
+try:
+    from hashlib import sha1
+except ImportError:
+    import sha
+    sha1 = sha.new
 import random
 import os
 import stat
