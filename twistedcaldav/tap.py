@@ -437,11 +437,16 @@ class CalDAVServiceMaker(object):
 
         channel = http.HTTPFactory(site)
 
-        log.msg("Configuring log observer: %s" % (
-            config.ControlSocket,))
+        if config.ProcessType == 'Slave':
+            logObserver = logging.AMPCommonAccessLoggingObserver(
+                config.ControlSocket)
 
-        logObserver = logging.AMPCommonAccessLoggingObserver(
-            config.ControlSocket)
+        elif config.ProcessType == 'Single':
+            logObserver = logging.RotatingFileAccessLoggingObserver(
+                config.AccessLogFile)
+
+        log.msg("Configuring log observer: %s" % (
+            logObserver,))
 
         service = CalDAVService(logObserver)
 
@@ -484,6 +489,7 @@ class CalDAVServiceMaker(object):
 
     makeService_Combined = makeService_Combined
     makeService_Master   = makeService_Master
+    makeService_Single   = makeService_Slave
 
     def makeService(self, options):
         serverType = config.ProcessType

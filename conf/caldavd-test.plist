@@ -286,7 +286,7 @@ limitations under the License.
   <key>MultiProcess</key>
   <dict>
     <key>ProcessCount</key>
-    <integer>4</integer>
+    <integer>0</integer>
 
     <key>LoadBalancer</key>
     <dict>
@@ -348,6 +348,9 @@ limitations under the License.
       <key>ConfigFile</key>
       <string>conf/pydir.xml</string>
   </dict>
+
+  <key>ControlSocket</key>
+  <string>logs/caldavd.sock</string>
 
 </dict>
 </plist>
