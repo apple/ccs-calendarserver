@@ -92,7 +92,8 @@ class TwistdSlaveProcess(object):
              '-o', 'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),),
              '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
              '-o', 'PIDFile=None',
-             '-o', 'ErrorLogFile=None'])
+             '-o', 'ErrorLogFile=None',
+             '-o', 'SharedSecret=%s' % (config.SharedSecret,)])
 
         return args
 

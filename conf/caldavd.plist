@@ -164,6 +164,8 @@ limitations under the License.
       <string>md5</string>
       <key>Qop</key>
       <string></string>
+      <key>Secret</key>
+      <string></string>
     </dict>
 
     <!-- Kerberos/SPNEGO -->

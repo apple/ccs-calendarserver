@@ -29,7 +29,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
     See twisted.web2.auth.digest.DigestCredentialFactory
     """
 
-    def __init__(self, algorithm, qop, realm):
+    def __init__(self, algorithm, qop, secret, realm):
         """
         @type algorithm: C{str}
         @param algorithm: case insensitive string that specifies
@@ -40,12 +40,18 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @param qop: case insensitive string that specifies
             the qop to use
 
+
+        @type secret: C{str}
+        @param secret: specifies a secret key to be used for opaque value hashing
+
         @type realm: C{str}
         @param realm: case sensitive string that specifies the realm
             portion of the challenge
         """
         super(QopDigestCredentialFactory, self).__init__(algorithm, realm)
         self.qop = qop
+        if secret:
+            self.privateKey = secret
 
     def getChallenge(self, peer):
         """
