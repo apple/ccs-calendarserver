@@ -37,7 +37,7 @@ disable_setup="false";
          kill="false";
       restart="false";
   plugin_name="caldav";
- service_type="Slave";
+ service_type="Combined";
      read_key="";
 
 usage ()
