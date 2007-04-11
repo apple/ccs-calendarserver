@@ -105,6 +105,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             ),
         )
 
+    @deferredGenerator
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -119,7 +120,21 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     (caldav_namespace, "valid-calendar-data")
                 ))
 
-        return super(ScheduleInboxResource, self).writeProperty(property, request)
+        elif property.qname() == (caldav_namespace, "calendar-free-busy-set"):
+            for href in property.children:
+                cal = waitForDeferred(request.locateResource(str(href)))
+                yield cal
+                cal = cal.getResult()
+                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+                    # Validate that href's point to a valid calendar.
+                    raise HTTPError(ErrorResponse(
+                        responsecode.CONFLICT,
+                        (caldav_namespace, "valid-calendar-url")
+                    ))
+
+        d = waitForDeferred(super(ScheduleInboxResource, self).writeProperty(property, request))
+        yield d
+        yield d.getResult()
 
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
