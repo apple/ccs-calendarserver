@@ -21,7 +21,7 @@
 +                           pdamp.PDControlFactory(self))
 +
 +    def getClientAddress(self, host, port):
-+        return self._connections[(host, port)]
++        return self._connections.get((host, port), (None, None))
 +
 +    def setClientAddress(self, host, peer):
 +        self._connections[host] = peer

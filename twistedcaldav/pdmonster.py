@@ -22,20 +22,30 @@ class PDClientAddressWrapper(WrapperResource):
 
             return self.hook(request)
 
+        def _gotError(result):
+            result.trap(amp.RemoteAmpError)
+            if result.value.errorCode != 'UNKNOWN_PORT':
+                return result
+            logging.err('Unknown Port: %s' % (request.remoteAddr,))
+
         def _gotAddress(result):
             logging.debug('result = %r' % (result,))
             request.remoteAddr = address.IPv4Address(
                 'TCP',
                 result['host'],
                 int(result['port']))
+            request._pdRewritten = True
 
         if self.protocol is not None:
+            if hasattr(request, '_pdRewritten'):
+                return
+
             host, port = request.remoteAddr.host, request.remoteAddr.port
             logging.debug("GetClientAddress(host=%r, port=%r)" % (host, port))
             d = self.protocol.callRemoteString("GetClientAddress",
                                                   host=host,
                                                   port=str(port))
-            d.addCallback(_gotAddress)
+            d.addCallbacks(_gotAddress, _gotError)
             return d
 
         else:
