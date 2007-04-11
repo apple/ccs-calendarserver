@@ -1,0 +1,42 @@
+--- pydirector/pdmain.py	2004-12-14 05:31:39.000000000 -0800
++++ pydirector/pdmain.py	2007-04-10 17:25:12.000000000 -0700
+@@ -9,6 +9,9 @@
+ if sys.version_info < (2,2):
+     class object: pass
+ 
++from twisted.internet import reactor
++from pydirector import pdamp
++
+ class PythonDirector(object):
+ 
+     def __init__(self, config):
+@@ -17,8 +20,17 @@
+         self.schedulers = {}
+         self.manager = None
+         self.conf = pdconf.PDConfig(config)
++        self._connections = {}
+         self.createManager()
+         self.createListeners()
++        reactor.listenUNIX(self.conf.socket,
++                           pdamp.PDControlFactory(self))
++
++    def getClientAddress(self, host, port):
++        return self._connections[(host, port)]
++
++    def setClientAddress(self, host, peer):
++        self._connections[host] = peer
+ 
+     def start(self, profile=0):
+         import sys
+@@ -69,8 +81,9 @@
+             self.listeners[service.name] = []
+             for lobj in service.listen:
+                 l = pdnetwork.Listener(service.name,
+-                                   pdconf.splitHostPort(lobj),
+-                                   scheduler)
++                                       pdconf.splitHostPort(lobj),
++                                       scheduler,
++                                       self)
+                 self.listeners[service.name].append(l)
+ 
+     def enableGroup(self, serviceName, groupName):

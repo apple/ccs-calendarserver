@@ -349,6 +349,9 @@ limitations under the License.
 
       <key>ConfigFile</key>
       <string>conf/pydir.xml</string>
+
+      <key>ControlSocket</key>
+      <string>logs/caldavd-pydir.sock</string>
   </dict>
 
   <key>ControlSocket</key>

@@ -1,0 +1,30 @@
+--- pydirector/pdconf.py	2004-12-14 05:31:39.000000000 -0800
++++ pydirector/pdconf.py	2007-04-10 17:25:31.000000000 -0700
+@@ -174,7 +174,7 @@
+ 
+ 
+ class PDConfig(object):
+-    __slots__ = [ 'services', 'admin', 'dom' ]
++    __slots__ = [ 'services', 'admin', 'dom', 'socket' ]
+ 
+     def __init__(self, filename=None, xml=None):
+         import pdlogging
+@@ -186,7 +186,8 @@
+                                                                 dom.nodeName)
+         for item in dom.childNodes:
+             if item.nodeName in ("#text", "#comment"): continue
+-            if item.nodeName not in ( u'service', u'admin', u'logging' ):
++            if item.nodeName not in ( u'service', u'admin',
++                                      u'logging', u'control' ):
+                 raise ConfigError, \
+                     "expected 'service' or 'admin', got '%s'"%item.nodeName
+             if item.nodeName == u'service':
+@@ -198,6 +199,8 @@
+                     raise ConfigError, "only one 'admin' block allowed"
+             elif item.nodeName == u'logging':
+                 pdlogging.initlog(item.getAttribute('file'))
++            elif item.nodeName == u'control':
++                self.socket = item.getAttribute('socket')
+ 
+     def _loadDOM(self, filename, xml):
+         from xml.dom.minidom import parseString

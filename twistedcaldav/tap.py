@@ -63,6 +63,8 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
+from twistedcaldav import pdmonster
+
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
 except ImportError:
@@ -446,7 +448,7 @@ class CalDAVServiceMaker(object):
             (auth.IPrincipal,)
         )
 
-        site = Site(LogWrapperResource(authWrapper))
+        logWrapper = LogWrapperResource(authWrapper)
 
         #
         # Configure the service
@@ -454,13 +456,17 @@ class CalDAVServiceMaker(object):
 
         log.msg("Setting up service")
 
-        channel = http.HTTPFactory(site)
-
         if config.ProcessType == 'Slave':
+            realRoot = pdmonster.PDClientAddressWrapper(
+                logWrapper,
+                config.PythonDirector['ControlSocket'])
+
             logObserver = logging.AMPCommonAccessLoggingObserver(
                 config.ControlSocket)
 
         elif config.ProcessType == 'Single':
+            realRoot = logWrapper
+
             logObserver = logging.RotatingFileAccessLoggingObserver(
                 config.AccessLogFile)
 
@@ -468,6 +474,10 @@ class CalDAVServiceMaker(object):
             logObserver,))
 
         service = CalDAVService(logObserver)
+
+        site = Site(realRoot)
+
+        channel = http.HTTPFactory(site)
 
         if not config.BindAddresses:
             config.BindAddresses = [""]

@@ -44,6 +44,7 @@ serviceTemplate = """
 configTemplate = """
 <pdconfig>
     %(services)s
+    <control socket="%(controlSocket)s" />
 </pdconfig>
 """
 
@@ -235,6 +236,7 @@ def makeService_Combined(self, options):
 
         pdconfig = configTemplate % {
             'services': '\n'.join(services),
+            'controlSocket': config.PythonDirector["ControlSocket"],
             }
 
         fd, fname = tempfile.mkstemp(prefix='pydir')

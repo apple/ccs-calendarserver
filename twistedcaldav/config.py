@@ -163,6 +163,7 @@ defaultConfig = {
     "PythonDirector": {
         "pydir": "/usr/share/caldavd/bin/pydir.py",
         "ConfigFile": "/etc/caldavd/pydir.xml",
+        "ControlSocket": "/var/run/caldavd-pydir.sock",
     },
 
     # Umask

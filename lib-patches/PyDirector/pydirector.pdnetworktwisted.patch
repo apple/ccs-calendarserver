@@ -1,0 +1,46 @@
+--- pydirector/pdnetworktwisted.py	2004-12-14 05:31:39.000000000 -0800
++++ pydirector/pdnetworktwisted.py	2007-04-10 17:25:44.000000000 -0700
+@@ -28,10 +28,13 @@
+         attribute .listening_address: read - a tuple of (host,port)
+     """
+ 
+-    def __init__(self, name, (bindhost, bindport), scheduler):
++    def __init__(self, name, (bindhost, bindport), scheduler, director):
+         self.name = name
+         self.listening_address = (bindhost, bindport)
+-        self.rfactory = ReceiverFactory((bindhost,bindport), scheduler)
++        self.director = director
++        self.rfactory = ReceiverFactory((bindhost,bindport),
++                                        scheduler,
++                                        self.director)
+         self.setScheduler(scheduler)
+         reactor.listenTCP(bindport, self.rfactory, interface=bindhost)
+ 
+@@ -79,6 +82,14 @@
+             it's ok to send any buffered data from the client.
+         """
+         #print "client connection",self.factory
++        #XXX: OMG THIS IS HORRIBLE
++        inSrc = self.receiver.transport.getPeer()
++        outSrc = self.transport.getHost()
++
++        self.receiver.factory.director.setClientAddress(
++            (outSrc.host, outSrc.port),
++            (inSrc.host, inSrc.port))
++
+         if self.receiver.receiverOk:
+             self.receiver.setSender(self)
+         else:
+@@ -197,10 +208,11 @@
+     protocol = Receiver
+     noisy = 0
+ 
+-    def __init__(self, (bindhost, bindport), scheduler):
++    def __init__(self, (bindhost, bindport), scheduler, director):
+         self.bindhost = bindhost
+         self.bindport = bindport
+         self.scheduler = scheduler
++        self.director = director
+ 
+     def setScheduler(self, scheduler):
+         self.scheduler = scheduler
