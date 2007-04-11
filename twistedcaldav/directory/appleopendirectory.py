@@ -32,8 +32,8 @@ import dsattributes
 import dsquery
 
 from twisted.python import log
-from twisted.internet.threads import deferToThread
 from twisted.internet.reactor import callLater
+from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 
@@ -532,7 +532,7 @@ class OpenDirectoryRecord(DirectoryRecord):
             try:
                 return opendirectory.authenticateUserBasic(self.service.directory, self.guid, self.shortName, credentials.password)
             except opendirectory.ODError, e:
-                log.err("Open Directory (node=%s) error while performing basic authentication for user %s: %r"
+                log.err("Open Directory (node=%s) error while performing basic authentication for user %s: %s"
                         % (self.service.realmName, self.shortName, e))
                 return False
         elif isinstance(credentials, DigestedCredentials):
@@ -557,7 +557,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                     credentials.method
                 )
             except opendirectory.ODError, e:
-                log.err("Open Directory (node=%s) error while performing digest authentication for user %s: %r"
+                log.err("Open Directory (node=%s) error while performing digest authentication for user %s: %s"
                         % (self.service.realmName, self.shortName, e))
                 return False
 
