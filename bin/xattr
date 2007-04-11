@@ -35,9 +35,9 @@ def usage(e=None):
     print "       %s -d attr_name file [file ...]" % (name,)
     print ""
     print "The first form lists the names of all xattrs on the given file(s)."
-    print "The second form prints the value of the xattr attr_name on the given file(s)."
-    print "The third form sets the value of the xattr attr_name to attr_value on the given file(s)."
-    print "The fourth form deletes the xattr attr_value on the given file(s)."
+    print "The second form (-p) prints the value of the xattr attr_name on the given file(s)."
+    print "The third form (-w) sets the value of the xattr attr_name to attr_value on the given file(s)."
+    print "The fourth form (-d) deletes the xattr attr_name on the given file(s)."
     print ""
     print "options:"
     print "  -h: print this help"
