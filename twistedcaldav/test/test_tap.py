@@ -409,10 +409,10 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         site = self.getSite()
 
         self.failUnless(isinstance(
-                site.resource.resource,
+                site.resource.resource.resource,
                 auth.AuthenticationWrapper))
 
-        authWrapper = site.resource.resource
+        authWrapper = site.resource.resource.resource
 
         expectedSchemes = ['negotiate', 'digest', 'basic']
 
@@ -432,7 +432,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.writeConfig()
         site = self.getSite()
 
-        authWrapper = site.resource.resource
+        authWrapper = site.resource.resource.resource
 
         ncf = authWrapper.credentialFactories['negotiate']
         self.assertEquals(ncf.service, 'http/hello')
@@ -448,7 +448,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.writeConfig()
         site = self.getSite()
 
-        authWrapper = site.resource.resource
+        authWrapper = site.resource.resource.resource
 
         ncf = authWrapper.credentialFactories['negotiate']
         self.assertEquals(ncf.service, 'http/hello@bob')
@@ -467,7 +467,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.writeConfig()
         site = self.getSite()
 
-        authWrapper = site.resource.resource
+        authWrapper = site.resource.resource.resource
 
         expectedSchemes = ['digest']
 
@@ -485,7 +485,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         site = self.getSite()
 
         self.failUnless(isinstance(
-                site.resource,
+                site.resource.resource,
                 LogWrapperResource))
 
     def test_rootResource(self):
@@ -493,7 +493,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         Test the root resource
         """
         site = self.getSite()
-        root = site.resource.resource.resource
+        root = site.resource.resource.resource.resource
 
         self.failUnless(isinstance(root, CalDAVServiceMaker.rootResourceClass))
 
@@ -502,7 +502,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         Test the principal resource
         """
         site = self.getSite()
-        root = site.resource.resource.resource
+        root = site.resource.resource.resource.resource
 
         self.failUnless(isinstance(
                 root.getChild('principals'),
@@ -513,7 +513,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         Test the calendar resource
         """
         site = self.getSite()
-        root = site.resource.resource.resource
+        root = site.resource.resource.resource.resource
 
         self.failUnless(isinstance(
                 root.getChild('calendars'),
@@ -550,8 +550,8 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         to the same DirectoryService as the calendar hierarchy
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
-        calendars = site.resource.resource.resource.getChild('calendars')
+        principals = site.resource.resource.resource.resource.getChild('principals')
+        calendars = site.resource.resource.resource.resource.getChild('calendars')
 
         self.assertEquals(principals.directory,
                           calendars.directory)
@@ -562,7 +562,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         an AggregateDirectoryService
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.resource.getChild('principals')
         directory = principals.directory
 
         self.failUnless(isinstance(
@@ -581,7 +581,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         open(self.config['SudoersFile'], 'w').write(sudoersFile)
 
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.resource.getChild('principals')
         directory = principals.directory
 
         self.failUnless(self.config['SudoersFile'])
@@ -604,7 +604,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
 
         self.writeConfig()
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.resource.getChild('principals')
         directory = principals.directory
 
         self.failUnless(self.config['SudoersFile'])
@@ -620,7 +620,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         the SudoersFile is not configured
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.resource.getChild('principals')
         directory = principals.directory
 
         self.failIf(self.config['SudoersFile'])
@@ -636,7 +636,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         set in the configuration file.
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.resource.getChild('principals')
         directory = principals.directory
 
         realDirectory = directory.serviceForRecordType('users')
