@@ -153,6 +153,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             
                 # Get list of children that match the search and have read access
                 names = [name for name, ignore_uid, ignore_type in calresource.index().search(filter)]
+                if not names:
+                    yield None
+                    return
                   
                 # Now determine which valid resources are readable and which are not
                 ok_resources = []

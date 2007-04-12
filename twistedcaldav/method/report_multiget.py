@@ -149,6 +149,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
                 else:
                     checked_names.append(name)
+            if not checked_names:
+                yield None
+                return
             
             # Now determine which valid resources are readable and which are not
             ok_resources = []
