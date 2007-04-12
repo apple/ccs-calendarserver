@@ -39,6 +39,7 @@ disable_setup="false";
   plugin_name="caldav";
  service_type="Combined";
      read_key="";
+      profile="";
 
 usage ()
 {
@@ -46,7 +47,7 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type]";
+  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type] [-S statsfile]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
@@ -61,12 +62,13 @@ usage ()
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
   echo "        -t  Select the server process type (Master, Slave or Combined)";
+  echo "        -S  Write a pstats object to the given file when the server is stopped.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvsfnpkrdP:i:I:t:K:' option; do
+while getopts 'hvsfnpkrdP:i:I:t:K:S:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -83,6 +85,7 @@ while getopts 'hvsfnpkrdP:i:I:t:K:' option; do
     'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
+    'S')       profile="-p ${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -231,7 +234,8 @@ run () {
         -f "${config}"                                \
         -T "${twisted}/bin/twistd"                    \
         -P "${plugin_name}"                           \
-        -t "${service_type}";
+        -t "${service_type}"                          \
+        ${profile};
     cd /;
   fi;
 }

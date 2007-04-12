@@ -28,6 +28,7 @@ configfile="";
 twistdpath="$(type -p twistd)";
 plugin_name="caldav";
 service_type="";
+profile="";
 
 py_version ()
 {
@@ -79,7 +80,7 @@ usage ()
     
     if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-    echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-t type] [-f caldavd.plist]";
+    echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-t type] [-f caldavd.plist] [-p statsfile]";
     echo "Options:";
     echo "        -h Print this help and exit";
     echo "        -X Do not daemonize";
@@ -88,12 +89,13 @@ usage ()
     echo "        -f Configuration file to read";
     echo "        -T Path to twistd binary";
     echo "        -t Process type (Master, Slave or Combined)";
+    echo "        -p Path to the desired pstats file.";
     
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
 }
 
-while getopts 'hXu:g:f:T:P:t:' option; do
+while getopts 'hXu:g:f:T:P:t:p:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
@@ -104,6 +106,7 @@ while getopts 'hXu:g:f:T:P:t:' option; do
         'g') groupname="-g ${OPTARG}"; ;;
         'P') plugin_name="${OPTARG}"; ;;
         't') service_type="-o ProcessType=${OPTARG}"; ;;
+        'p') profile="--profile=${OPTARG} --nothotshot --savestats"; ;;
     esac;
 done;
 
@@ -113,4 +116,4 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH
 
-exec "${python}" "${twistdpath}" ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type};
+exec "${python}" "${twistdpath}" ${daemonize} ${username} ${groupname} ${profile} "${plugin_name}" ${configfile} ${service_type};
