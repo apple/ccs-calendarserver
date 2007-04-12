@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 from twisted.internet import reactor
-from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
+from twisted.internet.defer import deferredGenerator, maybeDeferred, succeed, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
@@ -91,6 +91,11 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
     Extends L{DAVResource} to provide CalDAV functionality.
     """
+
+    liveProperties = CalendarSchedulingCollectionResource.liveProperties + (
+        (caldav_namespace, "calendar-free-busy-set"),
+    )
+
     def resourceType(self):
         return davxml.ResourceType.scheduleInbox
 
@@ -104,6 +109,19 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 ),
             ),
         )
+
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == (caldav_namespace, "calendar-free-busy-set"):
+            # Always return at least an empty list
+            if not self.hasDeadProperty(property):
+                return succeed(())
+            
+        return super(ScheduleInboxResource, self).readProperty(property, request)
 
     @deferredGenerator
     def writeProperty(self, property, request):
