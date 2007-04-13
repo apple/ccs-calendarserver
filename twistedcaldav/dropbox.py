@@ -123,7 +123,7 @@ class DropBoxCollectionResource (DAVResource):
                 
                 if members:
                     for member in members:
-                        result.append(davxml.Principal(davxml.HRef.fromString(member)))
+                        result.append(davxml.Principal(davxml.HRef.fromString(member.principalURL())))
                 else:
                     result.append(davxml.Principal(principal))
             yield result
