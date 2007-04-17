@@ -231,10 +231,10 @@ run () {
       mkdir "${wd}/logs";
     fi;
     exec "${caldav}/bin/caldavd" ${daemonize} \
-        -f "${config}"                                \
-        -T "${twisted}/bin/twistd"                    \
-        -P "${plugin_name}"                           \
-        -t "${service_type}"                          \
+        -f "${config}"                        \
+        -T "${twisted}/bin/twistd"            \
+        -P "${plugin_name}"                   \
+        -t "${service_type}"                  \
         ${profile};
     cd /;
   fi;
