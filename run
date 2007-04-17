@@ -98,13 +98,13 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 py_version ()
 {
-  local python="$1"; shift
+  local python="$1"; shift;
   echo "$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
 }
 
 try_python ()
 {
-  local python="$1"; shift
+  local python="$1"; shift;
 
   if [ -z "${python}" ]; then return 1; fi;
 
@@ -230,7 +230,7 @@ run () {
     if [ ! -d "${wd}/logs" ]; then
       mkdir "${wd}/logs";
     fi;
-    exec /bin/sh "${caldav}/bin/caldavd" ${daemonize} \
+    exec "${caldav}/bin/caldavd" ${daemonize} \
         -f "${config}"                                \
         -T "${twisted}/bin/twistd"                    \
         -P "${plugin_name}"                           \
