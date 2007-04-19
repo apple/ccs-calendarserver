@@ -197,7 +197,10 @@ class Config (object):
                 newParams = items["DirectoryService"].get("params", {})
                 _mergeData(oldParams, newParams)
             else:
-                self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+                if dsType in serviceDefaultParams:
+                    self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+                else:
+                    self._data["DirectoryService"]["params"] = {}
 
         for param in items.get("DirectoryService", {}).get("params", {}):
             if param not in serviceDefaultParams[dsType]:
