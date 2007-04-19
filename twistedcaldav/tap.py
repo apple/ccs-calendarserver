@@ -459,16 +459,15 @@ class CalDAVServiceMaker(object):
         if config.ProcessType == 'Slave':
             realRoot = pdmonster.PDClientAddressWrapper(
                 logWrapper,
-                config.PythonDirector['ControlSocket'])
+                config.PythonDirector['ControlSocket']
+            )
 
-            logObserver = logging.AMPCommonAccessLoggingObserver(
-                config.ControlSocket)
+            logObserver = logging.AMPCommonAccessLoggingObserver(config.ControlSocket)
 
         elif config.ProcessType == 'Single':
             realRoot = logWrapper
 
-            logObserver = logging.RotatingFileAccessLoggingObserver(
-                config.AccessLogFile)
+            logObserver = logging.RotatingFileAccessLoggingObserver(config.AccessLogFile)
 
         log.msg("Configuring log observer: %s" % (
             logObserver,))
@@ -500,18 +499,15 @@ class CalDAVServiceMaker(object):
 
             for port in config.BindHTTPPorts:
                 log.msg("Adding server at %s:%s" % (bindAddress, port))
-                
+
                 httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
                 httpService.setServiceParent(service)
 
             for port in config.BindSSLPorts:
                 log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
-            
-                httpsService = internet.SSLServer(
-                    int(port), channel,
-                    DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate),
-                    interface=bindAddress
-                )
+
+                contextFactory = DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate)
+                httpsService = internet.SSLServer(int(port), channel, contextFactory, interface=bindAddress)
                 httpsService.setServiceParent(service)
 
         return service
