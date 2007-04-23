@@ -113,7 +113,7 @@ install::
 $(BuildDirectory)/$(Project):
 	@echo "Copying source for $(Project)..."
 	$(_v) $(MKDIR) -p "$@"
-	$(_v) pax -rw bin conf Makefile patches setup.py twistedcaldav twisted "$@/"
+	$(_v) pax -rw bin conf Makefile lib-patches setup.py twistedcaldav twisted "$@/"
 
 $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
