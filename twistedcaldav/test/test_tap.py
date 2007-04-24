@@ -154,6 +154,16 @@ class CalDAVOptionsTest(unittest.TestCase):
         self.assertEquals(config.Authentication['Basic']['Enabled'],
                           myConfig['Authentication']['Basic']['Enabled'])
 
+    def test_specifyDictPath(self):
+        """
+        Test that we can specify command line overrides to leafs using
+        a '/' seperated path.  Such as '-o MultiProcess/ProcessCount=1'
+        """
+
+        argv = ['-o', 'MultiProcess/ProcessCount=102']
+        self.config.parseOptions(argv)
+
+        self.assertEquals(config.MultiProcess['ProcessCount'], 102)
 
 class BaseServiceMakerTests(unittest.TestCase):
     """

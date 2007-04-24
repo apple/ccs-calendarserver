@@ -56,7 +56,8 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistd, tapname, configFile, interfaces, port, sslPort):
+    def __init__(self, twistd, tapname, configFile,
+                 interfaces, port, sslPort):
         self.twistd = twistd
 
         self.tapname = tapname
@@ -94,7 +95,10 @@ class TwistdSlaveProcess(object):
              '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
              '-o', 'PIDFile=None',
              '-o', 'ErrorLogFile=None',
-             '-o', 'SharedSecret=%s' % (config.SharedSecret,)])
+             '-o', 'SharedSecret=%s' % (config.SharedSecret,),
+             '-o', 'MultiProcess/ProcessCount=%d' % (
+                    config.MultiProcess['ProcessCount'],)])
+
 
         return args
 

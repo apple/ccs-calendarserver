@@ -25,6 +25,7 @@ import random
 import os
 import stat
 import sys
+import copy
 
 from zope.interface import implements
 
@@ -97,6 +98,49 @@ class CalDAVOptions(Options):
 
         self.overrides = {}
 
+    def _coerceOption(self, configDict, key, value):
+        """
+        Coerce the given C{val} to type of C{configDict[key]}
+        """
+        if key in configDict:
+            if isinstance(configDict[key], bool):
+                value = value == "True"
+
+            elif isinstance(configDict[key], (int, float, long)):
+                value = type(configDict[key])(value)
+
+            elif isinstance(configDict[key], (list, tuple)):
+                value = value.split(',')
+
+            elif isinstance(configDict[key], dict):
+                raise UsageError("Dict options not supported on the command line")
+
+            elif value == 'None':
+                value = None
+
+        return value
+
+    def _setOverride(self, configDict, path, value, overrideDict):
+        """
+        Set the value at path in configDict
+        """
+        key = path[0]
+
+        if len(path) == 1:
+            overrideDict[key] = self._coerceOption(configDict, key, value)
+            return
+
+        if key in configDict:
+            if not isinstance(configDict[key], dict):
+                raise UsageError(
+                    "Found intermediate path element that is not a dictionary")
+
+            if key not in overrideDict:
+                overrideDict[key] = {}
+
+            self._setOverride(
+                configDict[key], path[1:], value, overrideDict[key])
+
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
@@ -106,25 +150,9 @@ class CalDAVOptions(Options):
         """
 
         if '=' in option:
-            key, value = option.split('=')
-
-            if key in defaultConfig:
-                if isinstance(defaultConfig[key], bool):
-                    value = value == "True"
-
-                elif isinstance(defaultConfig[key], (int, float, long)):
-                    value = type(defaultConfig[key])(value)
-
-                elif isinstance(defaultConfig[key], (list, tuple)):
-                    value = value.split(',')
-
-                elif isinstance(defaultConfig[key], dict):
-                    raise UsageError("Dict options not supported on the command line")
-
-                elif value == 'None':
-                    value = None
-
-            self.overrides[key] = value
+            path, value = option.split('=')
+            self._setOverride(
+                defaultConfig, path.split('/'), value, self.overrides)
         else:
             self.opt_option('%s=True' % (option,))
 
@@ -457,10 +485,13 @@ class CalDAVServiceMaker(object):
         log.msg("Setting up service")
 
         if config.ProcessType == 'Slave':
-            realRoot = pdmonster.PDClientAddressWrapper(
-                logWrapper,
-                config.PythonDirector['ControlSocket']
-            )
+            if config.MultiProcess['ProcessCount'] > 1:
+                realRoot = pdmonster.PDClientAddressWrapper(
+                    logWrapper,
+                    config.PythonDirector['ControlSocket']
+                )
+            else:
+                realRoot = logWrapper
 
             logObserver = logging.AMPCommonAccessLoggingObserver(config.ControlSocket)
 
