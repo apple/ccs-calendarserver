@@ -538,3 +538,15 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
+
+class XMLResponse (Response):
+    """
+    XML L{Response} object.
+    Renders itself as an XML document.
+    """
+    def __init__(self, code, element):
+        """
+        @param xml_responses: an interable of davxml.Response objects.
+        """
+        Response.__init__(self, code, stream=element.toxml())
+        self.headers.setHeader("content-type", MimeType("text", "xml"))
