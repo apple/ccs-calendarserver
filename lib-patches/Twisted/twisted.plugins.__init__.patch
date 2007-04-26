@@ -1,7 +1,7 @@
-Index: __init__.py
+Index: twisted/plugins/__init__.py
 ===================================================================
---- __init__.py	(revision 19773)
-+++ __init__.py	(working copy)
+--- twisted/plugins/__init__.py	(revision 19773)
++++ twisted/plugins/__init__.py	(working copy)
 @@ -12,6 +12,6 @@
  """
  
