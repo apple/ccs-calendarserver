@@ -172,10 +172,13 @@ defaultConfig = {
     # A unix socket used for communication between the child and master
     # processes.
     "ControlSocket": "/var/run/caldavd.sock",
-    
+
     # A secret key (SHA-1 hash of random string) that is used for internal
     # crypto operations and shared by multiple server processes
     "SharedSecret": "",
+
+    # Support for the gzip Content-Encoding as specified in RFC2616 Section 3.5
+    "GZipEncoding": True,
 }
 
 class Config (object):

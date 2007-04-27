@@ -34,6 +34,7 @@ from twistedcaldav.config import config
 class RootResource(DAVFile):
     """
     A special root resource that contains support checking SACLs
+    as well as adding responseFilters.
     """
 
     useSacls = False
@@ -49,6 +50,12 @@ class RootResource(DAVFile):
                 log.msg(("RootResource.CheckSACL is unset but "
                          "config.EnableSACLs is True, SACLs will not be"
                          "turned on."))
+
+        self.contentFilters = []
+
+        if config.GZipEncoding:
+            from twisted.web2.filter import gzip
+            self.contentFilters.append((gzip.gzipfilter, True))
 
     def checkSacl(self, request):
         """
@@ -92,6 +99,9 @@ class RootResource(DAVFile):
         return d
 
     def locateChild(self, request, segments):
+        for filter in self.contentFilters:
+            request.addResponseFilter(filter[0], atEnd=filter[1])
+
         if self.useSacls:
             d = self.checkSacl(request)
             d.addCallback(lambda _: super(RootResource, self
