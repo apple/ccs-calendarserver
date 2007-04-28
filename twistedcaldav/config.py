@@ -177,8 +177,9 @@ defaultConfig = {
     # crypto operations and shared by multiple server processes
     "SharedSecret": "",
 
-    # Support for the gzip Content-Encoding as specified in RFC2616 Section 3.5
-    "GZipEncoding": True,
+    # Support for Content-Encoding compression options as specified in
+    # RFC2616 Section 3.5
+    "ResponseCompression": True,
 }
 
 class Config (object):

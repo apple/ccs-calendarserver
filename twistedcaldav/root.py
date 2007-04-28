@@ -53,7 +53,7 @@ class RootResource(DAVFile):
 
         self.contentFilters = []
 
-        if config.GZipEncoding:
+        if config.ResponseCompression:
             from twisted.web2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
