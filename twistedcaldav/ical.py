@@ -632,9 +632,9 @@ class Component (object):
             if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
                 newcomp.removeProperty(property)
         
-        # Convert all datetime properties to UTC
+        # Convert all datetime properties to UTC unless they are floating
         for property in newcomp.properties():
-            if isinstance(property.value(), datetime.datetime):
+            if isinstance(property.value(), datetime.datetime) and property.value().tzinfo is not None:
                 property.setValue(property.value().astimezone(utc))
         
         # Now reset DTSTART, DTEND/DURATION
