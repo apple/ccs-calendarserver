@@ -1,0 +1,616 @@
+
+
+
+Calendar Server Extension                                       C. Daboo
+                                                                   Apple
+                                                             May 3, 2007
+
+
+                     CalDAV Fast Resynchronization
+                            caldav-resync-02
+
+Abstract
+
+   This specification defines an extension to CalDAV that allows a
+   client to quickly determine differences between calendar data it has
+   cached and the current state of that data on the server.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  3
+   3.  Overview . . . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   4.  New features in CalDAV . . . . . . . . . . . . . . . . . . . .  4
+     4.1.  CS:calendar-resync REPORT  . . . . . . . . . . . . . . . .  4
+       4.1.1.  Example: Initial CALDAV:calendar-resync REPORT . . . .  6
+       4.1.2.  Example: Successful CALDAV:calendar-resync REPORT  . .  7
+   5.  XML Element Definitions  . . . . . . . . . . . . . . . . . . .  9
+     5.1.  CS:calendar-resync XML Element . . . . . . . . . . . . . .  9
+     5.2.  CS:resource XML Element  . . . . . . . . . . . . . . . . . 10
+   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 10
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 10
+   8.  Normative References . . . . . . . . . . . . . . . . . . . . . 10
+   Appendix A.  Acknowledgments . . . . . . . . . . . . . . . . . . . 11
+   Appendix B.  Change History  . . . . . . . . . . . . . . . . . . . 11
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 1]
+
+                        CalDAV Resynchronization                May 2007
+
+
+1.  Introduction
+
+   CalDAV [RFC4791] provides a way for calendar users to store calendar
+   data and exchange this data via scheduling operations.  Due to the
+   stateless nature of the HTTP [RFC2616] and WebDAV [RFC2518]
+   protocols, on which CalDAV is built, there is no notification of
+   changes to server data that a client can utilize during a "session"
+   to keep its state synchronized with the server.  In the absence of
+   this the client is forced to poll the server at regular intervals in
+   order to check for changes to calendar collections.
+
+   Currently, re-synchronizing a calendar collection consists of three
+   steps.
+
+      The first is to issue a PROPFIND request to retrieve the CS:
+      getctag [CTAG] property on a calendar collection.  If the value of
+      that has changed since the last such poll, the client moves to the
+      second step.
+
+      In the second step the client issues a PROPFIND (Depth:1) on a
+      calendar collection to fetch the DAV:href values and DAV:getetag
+      properties of all immediate child resources within that
+      collection.  It then compares the results of that with the cached
+      DAV:href/DAV:getetag values it has to determine what has changed
+      on the server.  For resources that are no longer on the server, it
+      will remove its local copy, for resources that are new or have
+      changed on the server, the client moves to the third step.
+
+      In the third step the client fetches all the data for new and
+      changed resources.  For this, it can use a single CALDAV:multiget
+      REPORT on a calendar collection to retrieve all the changed data
+      in one go.
+
+   Thus a re-synchronizing, where at least one calendar object resource
+   has changed, involves three requests.  The second PROPFIND (Depth:1)
+   can be expensive on large calendars in that a significant amount of
+   data is returned, when in fact the changes are small.
+
+   To improve the performance of client synchronization, this
+   specification defines a new CalDAV CS:calendar-resync REPORT that
+   allows a client to request the server to return information about
+   changes to calendar object resources in a calendar collection only.
+   This can be accomplished in a single round trip.
+
+   Note, that from a server load standpoint, it is still more efficient
+   if a client uses the CS:getctag property to first determine whether
+   any changes have taken place before using the CS:calendar-resync
+   REPORT to find any changes.  This is particularly true for short
+
+
+
+Daboo                                                           [Page 2]
+
+                        CalDAV Resynchronization                May 2007
+
+
+   polling intervals.
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   When XML element types in the namespaces "DAV:" and
+   "urn:ietf:params:xml:ns:caldav" are referenced in this document
+   outside of the context of an XML fragment, the string "DAV:" and
+   "CALDAV:" will be prefixed to the element type names respectively.
+
+   The namespace "http://calendarserver.org/ns/" is used for XML
+   elements defined in this specification.  When XML element types in
+   this namespace are referenced in this document outside of the context
+   of an XML fragment, the string "CS:" will be prefixed to the element
+   type names respectively.
+
+
+3.  Overview
+
+   The first time a client "connects" to a server and examines a
+   calendar collection, it will download and cache the data for all
+   calendar object resources in that collection, if it wishes to
+   maintain a complete cache of all such resources.
+
+   Subsequently, when the client wishes to check for changes it will
+   issue a CS:calendar-resync REPORT request to the server targeting the
+   calendar collection URI.  In the report body it will include all DAV:
+   href/DAV:getetag value pairs it has stored for cached data.
+
+   When the server receives the client report request, it will compare
+   the list of DAV:href/DAV:getetag pairs with the current list
+   accessible to the current user.
+
+   The server will then return in a response information about only
+   those resources that are new, have changed, or have been deleted on
+   the server.  Resources that are unchanged are not returned in the
+   response.
+
+   The client can update its cache using the server results returned in
+   the response.
+
+
+
+
+
+
+
+Daboo                                                           [Page 3]
+
+                        CalDAV Resynchronization                May 2007
+
+
+4.  New features in CalDAV
+
+   This section describes the changes to the base CalDAV access
+   [RFC4791] and scheduling [I-D.desruisseaux-caldav-sched] drafts.
+
+4.1.  CS:calendar-resync REPORT
+
+   The CALDAV:calendar-resync REPORT is used to retrieve calendar object
+   resources that are new, changed, deleted or had privileges changed.
+   This report is similar to the CALDAV:calendar-multiget REPORT (see
+   [RFC4791]), except that it takes a list of CS:resource elements,
+   instead of DAV:href elements, to determine which calendar object
+   resources to return.
+
+   Marshalling:
+
+      The request body MUST be a CALDAV:calendar-resync XML element (see
+      Section 5.1)
+
+      The Request-URI MUST be a calendar collection resource (see
+      [RFC4791]), or a scheduling Inbox or Outbox collection (see
+      [I-D.desruisseaux-caldav-sched]).  The DAV:href elements inside of
+      the CS:resource elements MUST all refer to calendar object
+      resources within the collection.  As a result, the "Depth" header
+      MUST be ignored by the server and SHOULD NOT be sent by the
+      client.
+
+      The response body for a successful request MUST be a DAV:
+      multistatus XML element.
+
+      The response body for a successful CALDAV:calendar-resync REPORT
+      request MUST contain a DAV:response element for each calendar
+      object resource referenced by the provided set of DAV:href
+      elements inside of each CS:resource element.  Calendar data is
+      being returned in the CALDAV:calendar-data element inside the DAV:
+      prop element.
+
+      For each CS:resource element in the request, the server examines
+      the DAV:href and DAV:getetag element values, and uses the
+      following procedure to build the response:
+
+         If the resource referenced by the DAV:href element is not an
+         immediate child of the collection targeted by the request-URI,
+         the server adds a DAV:response element with a DAV:status
+         element with the status set to "400 Bad Request".
+
+         If the resource referenced by the DAV:href element does not
+         exist, the server adds a DAV:response element with a DAV:status
+
+
+
+Daboo                                                           [Page 4]
+
+                        CalDAV Resynchronization                May 2007
+
+
+         element with the status set to "404 Not Found".
+
+         If the resource referenced by the DAV:href element is not
+         readable by the currently authenticated user, the server adds a
+         DAV:response element with a DAV:status element with the status
+         set to "403 Forbidden".
+
+         If the resource referenced by the DAV:href element exists and
+         is readable, but the DAV:getetag value in the request does not
+         match the current DAV:getetag property value on the resource,
+         the server adds a DAV:response element with a DAV:status
+         element with the status set to "200 OK".  The server also
+         includes in the DAV:response any properties requested by the
+         client in its request.
+
+         If the resource referenced by the DAV:href element exists and
+         is readable, and the DAV:getetag value in the request matches
+         the current DAV:getetag property value on the resource, the
+         server does not add a DAV:response for that resource.
+
+      For each resource in the calendar collection referenced by the
+      request-URI on the server that does not have a corresponding CS:
+      resource entry in the client's request, the server carries out the
+      following procedure to build the response:
+
+         If the resource is not readable by the currently authenticated
+         user, the server ignores it.
+
+         If the resource is readable, the server adds a DAV:response
+         element with a DAV:status element with the status set to "200
+         OK".  The server also includes in the DAV:response any
+         properties requested by the client in its request.
+
+   Preconditions:
+
+      (CALDAV:supported-calendar-data): The attributes "content-type"
+      and "version" of the CALDAV:calendar-data XML elements (see
+      [RFC4791]) specify a media type supported by the server for
+      calendar object resources.
+
+   Postconditions:
+
+      None.
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 5]
+
+                        CalDAV Resynchronization                May 2007
+
+
+4.1.1.  Example: Initial CALDAV:calendar-resync REPORT
+
+   In this example, the client requests the server to synchronize a
+   calendar that it has not cached before.  As a result the client
+   request does not include any CS:resource elements.  The response from
+   the server indicates the presence of three resources in the calendar.
+
+   >> Request <<
+
+   REPORT /cyrus/work/ HTTP/1.1
+   Host: cal.example.com
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-resync xmlns:D="DAV:"
+                    xmlns:C="urn:ietf:params:xml:ns:caldav"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <D:prop>
+       <D:getetag/>
+     </D:prop>
+   </C:calendar-resync>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 6]
+
+                        CalDAV Resynchronization                May 2007
+
+
+   >> Response <<
+
+   HTTP/1.1 207 Multi-Status
+   Date: Sat, 11 Nov 2006 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:"
+                  xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg1.ics</D:href>
+       <D:propstat>
+         <D:prop>
+           <D:getetag>"MTG1-0011"</D:getetag>
+         </D:prop>
+         <D:status>HTTP/1.1 200 OK</D:status>
+       </D:propstat>
+     </D:response>
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg2.ics</D:href>
+       <D:propstat>
+         <D:prop>
+           <D:getetag>"MTG2-0021"</D:getetag>
+         </D:prop>
+         <D:status>HTTP/1.1 200 OK</D:status>
+       </D:propstat>
+     </D:response>
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg3.ics</D:href>
+       <D:propstat>
+         <D:prop>
+           <D:getetag>"MTG3-0031"</D:getetag>
+         </D:prop>
+         <D:status>HTTP/1.1 200 OK</D:status>
+       </D:propstat>
+     </D:response>
+   </D:multistatus>
+
+4.1.2.  Example: Successful CALDAV:calendar-resync REPORT
+
+   In this example, the client requests the server to synchronize the
+   calendar previously cached.  The DAV:getetag property is requested
+   and returned as part of the response.  Note that in this example, the
+   resource at http://cal.example.com/bernard/work/mtg1.ics no longer
+   exists, the resource at http://cal.example.com/cyrus/work/mtg2.ics
+   exists but has changed, the resource at
+   http://cal.example.com/cyrus/work/mtg3.ics exists and has not
+
+
+
+Daboo                                                           [Page 7]
+
+                        CalDAV Resynchronization                May 2007
+
+
+   changed, and a new resource at
+   http://cal.example.com/cyrus/work/mtg4.ics exists.
+
+   >> Request <<
+
+   REPORT /cyrus/work/ HTTP/1.1
+   Host: cal.example.com
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-resync xmlns:D="DAV:"
+                    xmlns:C="urn:ietf:params:xml:ns:caldav"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <D:prop>
+       <D:getetag/>
+     </D:prop>
+     <CS:resource>
+       <D:href>/cyrus/work/mtg1.ics</D:href>
+       <D:getetag>MTG1-0011</D:getetag>
+     </CS:resource>
+     <CS:resource>
+       <D:href>/cyrus/work/mtg2.ics</D:href>
+       <D:getetag>MTG2-0021</D:getetag>
+     </CS:resource>
+     <CS:resource>
+       <D:href>/cyrus/work/mtg3.ics</D:href>
+       <D:getetag>MTG3-0031</D:getetag>
+     </CS:resource>
+   </C:calendar-resync>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 8]
+
+                        CalDAV Resynchronization                May 2007
+
+
+   >> Response <<
+
+   HTTP/1.1 207 Multi-Status
+   Date: Sat, 11 Nov 2006 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:"
+                  xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg1.ics</D:href>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:response>
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg2.ics</D:href>
+       <D:propstat>
+         <D:prop>
+           <D:getetag>"MTG2-0022"</D:getetag>
+         </D:prop>
+         <D:status>HTTP/1.1 200 OK</D:status>
+       </D:propstat>
+     </D:response>
+     <D:response>
+       <D:href>http://cal.example.com/cyrus/work/mtg4.ics</D:href>
+       <D:propstat>
+         <D:prop>
+           <D:getetag>"MTG4-0041"</D:getetag>
+         </D:prop>
+         <D:status>HTTP/1.1 200 OK</D:status>
+       </D:propstat>
+     </D:response>
+   </D:multistatus>
+
+
+5.  XML Element Definitions
+
+5.1.  CS:calendar-resync XML Element
+
+   Name:  calendar-resync
+   Namespace:  http://calendarserver.org/ns/
+   Purpose:  Used as the root element in a REPORT request to find
+      changes to a calendar collection.
+   Description:  See Section 4.1.
+
+
+
+
+
+
+
+Daboo                                                           [Page 9]
+
+                        CalDAV Resynchronization                May 2007
+
+
+   Definition:
+
+   <!ELEMENT calendar-resync ((DAV:allprop |
+                               DAV:propname |
+                               DAV:prop)?,
+                              resource*)>
+
+5.2.  CS:resource XML Element
+
+   Name:  resource
+   Namespace:  http://calendarserver.org/ns/
+   Purpose:  Used to hold DAV:href/DAV:getetag pairs to indicate to a
+      server what data a client has cached.
+   Description:  See Section 4.1.
+   Definition:
+
+   <!ELEMENT resource (href, getetag)>
+
+
+6.  Security Considerations
+
+   When determining changes to the set of resources the client has
+   cached, the server MUST take into consideration WebDAV ACLs on the
+   resources it has stored for the user making the request.  In
+   particular, the addition or removal of the DAV:read privilege MUST
+   result in appropriate change notification to a client.
+
+
+7.  IANA Considerations
+
+   This document does not require any actions on the part of IANA.
+
+
+8.  Normative References
+
+   [CTAG]     Daboo, C., "Calendar Collection Entity Tag (CTag) in
+              CalDAV", March 2007, <file:caldav-ctag-01.txt>.
+
+   [I-D.desruisseaux-caldav-sched]
+              Desruisseaux, B., "Scheduling Extensions to CalDAV",
+              draft-desruisseaux-caldav-sched-03 (work in progress),
+              January 2007.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2518]  Goland, Y., Whitehead, E., Faizi, A., Carter, S., and D.
+              Jensen, "HTTP Extensions for Distributed Authoring --
+
+
+
+Daboo                                                          [Page 10]
+
+                        CalDAV Resynchronization                May 2007
+
+
+              WEBDAV", RFC 2518, February 1999.
+
+   [RFC2616]  Fielding, R., Gettys, J., Mogul, J., Frystyk, H.,
+              Masinter, L., Leach, P., and T. Berners-Lee, "Hypertext
+              Transfer Protocol -- HTTP/1.1", RFC 2616, June 1999.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+
+Appendix A.  Acknowledgments
+
+   This specification is the result of discussions between the Apple
+   calendar server and client teams.
+
+
+Appendix B.  Change History
+
+   Changes from -00:
+   1.  Fixed some typos.
+
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cdaboo@apple.com
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 11]
+
