@@ -1,0 +1,340 @@
+Index: twisted/web2/auth/digest.py
+===================================================================
+--- twisted/web2/auth/digest.py	(revision 19773)
++++ twisted/web2/auth/digest.py	(working copy)
+@@ -173,14 +173,110 @@
+         return expected == response
+ 
+ 
++class IDigestCredentialsDatabase(Interface):
++    """
++    An interface to a digest credentials database that is used to hold per-client digest credentials so that fast
++    re-authentication can be done with replay attacks etc prevented.
++    """
++    
++    def has_key(self, key):
++        """
++        See whether the matching key exists.
++
++        @param key:    the key to check.
++        @type key:     C{str}.
++        
++        @return:       C{True} if the key exists, C{False} otherwise.
++        """
++        pass
++
++    def set(self, key, value):
++        """
++        Store per-client credential information the first time a nonce is generated and used.
++
++        @param key:        the key for the data to store.
++        @type key:         C{str}
++        @param value:      the data to store.
++        @type value:       any.
++        """
++        pass
++    
++    def get(self, key):
++        """
++        Validate client supplied credentials by comparing with the cached values. If valid, store the new
++        cnonce value in the database so that it can be used on the next validate.
++
++        @param key:    the key to check.
++        @type key:     C{str}.
++
++        @return:       the value for the corresponding key, or C{None} if the key is not found.
++        """
++        pass
++    
++    def delete(self, key):
++        """
++        Remove the record associated with the supplied key.
++
++        @param key:        the key to remove.
++        @type key:         C{str}
++        """
++        pass
++
++    def keys(self):
++        """
++        Return all the keys currently available.
++        
++        @return:    a C{list} of C{str} for each key currently in the database.
++        """
++        pass
++    
++class DigestCredentialsMap:
++
++    implements(IDigestCredentialsDatabase)
++
++    def __init__(self, *args):
++        self.db = {}
++    
++    def has_key(self, key):
++        """
++        See IDigestCredentialsDatabase.
++        """
++        return self.db.has_key(key)
++
++    def set(self, key, value):
++        """
++        See IDigestCredentialsDatabase.
++        """
++        self.db[key] = value
++
++    def get(self, key):
++        """
++        See IDigestCredentialsDatabase.
++        """
++        if self.db.has_key(key):
++            return self.db[key]
++        else:
++            return None
++
++    def delete(self, key):
++        """
++        See IDigestCredentialsDatabase.
++        """
++        if self.db.has_key(key):
++            del self.db[key]
++
++    def keys(self):
++        """
++        See IDigestCredentialsDatabase.
++        """
++        return self.db.keys()
++
+ class DigestCredentialFactory(object):
+     """
+     Support for RFC2617 HTTP Digest Authentication
+ 
+     @cvar CHALLENGE_LIFETIME_SECS: The number of seconds for which an
+         opaque should be valid.
+-
+-    @ivar privateKey: A random string used for generating the secure opaque.
+     """
+ 
+     implements(ICredentialFactory)
+@@ -189,7 +285,7 @@
+ 
+     scheme = "digest"
+ 
+-    def __init__(self, algorithm, realm):
++    def __init__(self, algorithm, realm, mapper=DigestCredentialsMap, mapperargs=[]):
+         """
+         @type algorithm: C{str}
+         @param algorithm: case insensitive string that specifies
+@@ -199,87 +295,19 @@
+         @type realm: C{str}
+         @param realm: case sensitive string that specifies the realm
+             portion of the challenge
++
++        @type mapper: C{IDigestCredentialsDatabase}
++        @param realm: the class of mapper to use with this factory
+         """
+         self.algorithm = algorithm
+         self.realm = realm
++        self.db = mapper(*mapperargs)
+ 
+-        c = tuple([random.randrange(sys.maxint) for _ in range(3)])
+-
+-        self.privateKey = '%d%d%d' % c
+-
+     def generateNonce(self):
+         c = tuple([random.randrange(sys.maxint) for _ in range(3)])
+         c = '%d%d%d' % c
+         return c
+ 
+-    def _getTime(self):
+-        """
+-        Parameterize the time based seed used in generateOpaque
+-        so we can deterministically unittest it's behavior.
+-        """
+-        return time.time()
+-
+-    def generateOpaque(self, nonce, clientip):
+-        """
+-        Generate an opaque to be returned to the client.
+-        This should be a unique string that can be returned to us and verified.
+-        """
+-
+-        # Now, what we do is encode the nonce, client ip and a timestamp
+-        # in the opaque value with a suitable digest
+-        key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
+-        digest = md5.new(key + self.privateKey).hexdigest()
+-        ekey = key.encode('base64')
+-        return "%s-%s" % (digest, ekey.strip('\n'))
+-
+-    def verifyOpaque(self, opaque, nonce, clientip):
+-        """
+-        Given the opaque and nonce from the request, as well as the clientip
+-        that made the request, verify that the opaque was generated by us.
+-        And that it's not too old."
+-
+-        @param opaque: The opaque value from the Digest response
+-        @param nonce: The nonce value from the Digest response
+-        @param clientip: The remote IP address of the client making the request
+-
+-        @return: Return True if the opaque was successfully verified
+-
+-        @raise L{twisted.cred.error.LoginFailed}
+-        """
+-
+-        # First split the digest from the key
+-        opaqueParts = opaque.split('-')
+-        if len(opaqueParts) != 2:
+-            raise error.LoginFailed('Invalid response, invalid opaque value')
+-
+-        # Verify the key
+-        key = opaqueParts[1].decode('base64')
+-        keyParts = key.split(',')
+-
+-        if len(keyParts) != 3:
+-            raise error.LoginFailed('Invalid response, invalid opaque value')
+-
+-        if keyParts[0] != nonce:
+-            raise error.LoginFailed(
+-                'Invalid response, incompatible opaque/nonce values')
+-
+-        if keyParts[1] != clientip:
+-            raise error.LoginFailed(
+-                'Invalid response, incompatible opaque/client values')
+-
+-        if (int(self._getTime()) - int(keyParts[2]) >
+-            DigestCredentialFactory.CHALLENGE_LIFETIME_SECS):
+-
+-            raise error.LoginFailed(
+-                'Invalid response, incompatible opaque/nonce too old')
+-
+-        # Verify the digest
+-        digest = md5.new(key + self.privateKey).hexdigest()
+-        if digest != opaqueParts[0]:
+-            raise error.LoginFailed('Invalid response, invalid opaque value')
+-
+-        return True
+-
+     def getChallenge(self, peer):
+         """
+         Generate the challenge for use in the WWW-Authenticate header
+@@ -291,10 +319,15 @@
+         """
+ 
+         c = self.generateNonce()
+-        o = self.generateOpaque(c, peer.host)
++        
++        # Make sure it is not a duplicate
++        if self.db.has_key(c):
++            raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
+ 
++        # The database record is a tuple of (client ip, nonce-count, timestamp)
++        self.db.set(c, (peer.host, 0, time.time()))
++
+         return {'nonce': c,
+-                'opaque': o,
+                 'qop': 'auth',
+                 'algorithm': self.algorithm,
+                 'realm': self.realm}
+@@ -331,18 +364,96 @@
+         if not username:
+             raise error.LoginFailed('Invalid response, no username given.')
+ 
+-        if 'opaque' not in auth:
+-            raise error.LoginFailed('Invalid response, no opaque given.')
+-
+         if 'nonce' not in auth:
+             raise error.LoginFailed('Invalid response, no nonce given.')
+ 
+-        # Now verify the nonce/opaque values for this client
+-        if self.verifyOpaque(auth.get('opaque'),
+-                             auth.get('nonce'),
+-                             request.remoteAddr.host):
++        # Now verify the nonce/cnonce values for this client
++        if self.validate(auth, request):
+ 
+             return DigestedCredentials(username,
+                                        request.method,
+                                        self.realm,
+                                        auth)
++        else:
++            raise error.LoginFailed('Invalid nonce/cnonce values')
++
++    def validate(self, auth, request):
++        """
++        Check that the parameters in the response represent a valid set of credentials that
++        may be being re-used.
++
++        @param auth:        the response parameters.
++        @type auth:         C{dict}
++        @param request:     the request being processed.
++        @type request:      L{twisted.web2.server.Request}
++        
++        @return:            C{True} if validated.
++        @raise LoginFailed: if validation fails.
++        """
++
++        nonce = auth.get('nonce')
++        clientip = request.remoteAddr.host
++        nonce_count = auth.get('nc')
++
++        # First check we have this nonce
++        if not self.db.has_key(nonce):
++            raise error.LoginFailed('Invalid nonce value: %s' % (nonce,))
++        db_clientip, db_nonce_count, db_timestamp = self.db.get(nonce)
++
++        # Next check client ip
++        if db_clientip != clientip:
++            self.invalidate(nonce)
++            raise error.LoginFailed('Client IPs do not match: %s and %s' % (clientip, db_clientip,))
++        
++        # cnonce and nonce-count MUST be present if qop is present
++        if auth.get('qop') is not None:
++            if auth.get('cnonce') is None:
++                self.invalidate(nonce)
++                raise error.LoginFailed('cnonce is required when qop is specified')
++            if nonce_count is None:
++                self.invalidate(nonce)
++                raise error.LoginFailed('nonce-count is required when qop is specified')
++                
++            # Next check the nonce-count is one greater than the previous one and update it in the DB
++            try:
++                nonce_count = int(nonce_count, 16)
++            except ValueError:
++                self.invalidate(nonce)
++                raise error.LoginFailed('nonce-count is not a valid hex string: %s' % (auth.get('nonce-count'),))            
++            if nonce_count != db_nonce_count + 1:
++                self.invalidate(nonce)
++                raise error.LoginFailed('nonce-count value out of sequence: %s should be one more than %s' % (nonce_count, db_nonce_count,))
++            self.db.set(nonce, (db_clientip, nonce_count, db_timestamp))
++        else:
++            # When not using qop the stored nonce-count must always be zero.
++            # i.e. we can't allow a qop auth then a non-qop auth with the same nonce
++            if db_nonce_count != 0:
++                self.invalidate(nonce)
++                raise error.LoginFailed('nonce-count was sent with this nonce: %s' % (nonce,))                
++        
++        # Now check timestamp
++        if db_timestamp + DigestCredentialFactory.CHALLENGE_LIFETIME_SECS <= time.time():
++            self.invalidate(nonce)
++            raise error.LoginFailed('Digest credentials expired')
++
++        return True
++    
++    def invalidate(self, nonce):
++        """
++        Invalidate cached credentials for the specified nonce value.
++
++        @param nonce:    the nonce for the record to invalidate.
++        @type nonce:     C{str}
++        """
++        self.db.delete(nonce)
++
++    def cleanup(self):
++        """
++        This should be called at regular intervals to remove expired credentials from the cache.
++        """
++        keys = self.db.keys()
++        oldest_allowed = time.time() - DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
++        for key in keys:
++            ignore_clientip, ignore_cnonce, db_timestamp = self.db.get(key)
++            if db_timestamp <= oldest_allowed:
++                self.invalidate(key)

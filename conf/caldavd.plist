@@ -66,6 +66,10 @@ limitations under the License.
     Data Store
   -->
 
+  <!-- Data root -->
+  <key>DataRoot</key>
+  <string>/Library/CalendarServer/Data</string>
+
   <!-- Document root -->
   <key>DocumentRoot</key>
   <string>/Library/CalendarServer/Documents</string>
@@ -163,8 +167,6 @@ limitations under the License.
       <key>Algorithm</key>
       <string>md5</string>
       <key>Qop</key>
-      <string></string>
-      <key>Secret</key>
       <string></string>
     </dict>
 

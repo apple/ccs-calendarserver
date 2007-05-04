@@ -63,7 +63,8 @@ defaultConfig = {
     #
     # Data store
     #
-    "DocumentRoot": "/Library/CalendarServer/Documents",
+    "DataRoot"             : "/Library/CalendarServer/Data",
+    "DocumentRoot"         : "/Library/CalendarServer/Documents",
     "UserQuota"            : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
 
@@ -94,7 +95,6 @@ defaultConfig = {
             "Enabled": True,
             "Algorithm": "md5",
             "Qop": "",
-            "Secret": "",
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
@@ -172,10 +172,6 @@ defaultConfig = {
     # A unix socket used for communication between the child and master
     # processes.
     "ControlSocket": "/var/run/caldavd.sock",
-
-    # A secret key (SHA-1 hash of random string) that is used for internal
-    # crypto operations and shared by multiple server processes
-    "SharedSecret": "",
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
