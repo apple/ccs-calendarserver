@@ -1,0 +1,17 @@
+Index: twisted/web2/http.py
+===================================================================
+--- twisted/web2/http.py	(revision 19773)
++++ twisted/web2/http.py	(working copy)
+@@ -66,9 +66,9 @@
+             object.
+         @type codeOrResponse: C{int} or L{http.Response}
+         """
+-        Exception.__init__(self)
+-        self.response = iweb.IResponse(codeOrResponse)
+-        self.args = str(self.response)
++        response = iweb.IResponse(codeOrResponse)
++        Exception.__init__(self, str(response))
++        self.response = response
+ 
+     def __repr__(self):
+         return "<%s %s>" % (self.__class__.__name__, self.response)
