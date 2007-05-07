@@ -144,6 +144,14 @@ if [ -z "${caldav:-}" ]; then
   caldav="${wd}";
 fi;
 
+if [ -z "${caldavd_wrapper_command:-}" ]; then
+  if [ "$(uname -s)" == "Darwin" ]; then
+      caldavd_wrapper_command="launchctl bsexec /";
+  else
+      caldavd_wrapper_command="";
+  fi;
+fi;
+
     top="$(cd "${caldav}/.." && pwd -L)"
 patches="${caldav}/lib-patches";
 twisted="${top}/Twisted";
@@ -230,11 +238,12 @@ run () {
     if [ ! -d "${wd}/logs" ]; then
       mkdir "${wd}/logs";
     fi;
-    exec "${caldav}/bin/caldavd" ${daemonize} \
-        -f "${config}"                        \
-        -T "${twisted}/bin/twistd"            \
-        -P "${plugin_name}"                   \
-        -t "${service_type}"                  \
+    exec ${caldavd_wrapper_command}          \
+        "${caldav}/bin/caldavd" ${daemonize} \
+        -f "${config}"                       \
+        -T "${twisted}/bin/twistd"           \
+        -P "${plugin_name}"                  \
+        -t "${service_type}"                 \
         ${profile};
     cd /;
   fi;
