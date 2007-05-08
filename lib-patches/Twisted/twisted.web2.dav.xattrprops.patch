@@ -2,7 +2,17 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -66,16 +66,8 @@
+@@ -33,6 +33,9 @@
+ 
+ import urllib
+ import sys
++from time import sleep
++from random import random
++from errno import EAGAIN
+ 
+ import xattr
+ 
+@@ -66,16 +69,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -21,3 +31,21 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
+@@ -109,7 +104,16 @@
+         return doc.root_element
+ 
+     def set(self, property):
+-        self.attrs[self._encode(property.qname())] = property.toxml()
++        for n in range(20):
++            try:
++                self.attrs[self._encode(property.qname())] = property.toxml()
++            except IOError, error:
++		if error.errno != EAGAIN:
++		    raise
++                sleep(random() / 10) # OMG Brutal Hax
++            else:
++                break
++    
+ 
+         # Update the resource because we've modified it
+         self.resource.fp.restat()
