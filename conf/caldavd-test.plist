@@ -68,6 +68,10 @@ limitations under the License.
     Data Store
   -->
 
+  <!-- Data root -->
+  <key>DataRoot</key>
+  <string>data/</string>
+
   <!-- Document root -->
   <key>DocumentRoot</key>
   <string>twistedcaldav/test/data/</string>
@@ -216,8 +220,6 @@ limitations under the License.
       <key>Algorithm</key>
       <string>md5</string>
       <key>Qop</key>
-      <string></string>
-      <key>Secret</key>
       <string></string>
     </dict>
 

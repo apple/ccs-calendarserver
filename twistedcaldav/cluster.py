@@ -95,7 +95,6 @@ class TwistdSlaveProcess(object):
              '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
              '-o', 'PIDFile=None',
              '-o', 'ErrorLogFile=None',
-             '-o', 'SharedSecret=%s' % (config.SharedSecret,),
              '-o', 'MultiProcess/ProcessCount=%d' % (
                     config.MultiProcess['ProcessCount'],)])
 

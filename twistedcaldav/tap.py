@@ -16,16 +16,10 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
-try:
-    from hashlib import sha1
-except ImportError:
-    import sha
-    sha1 = sha.new
 import random
 import os
 import stat
 import sys
-import copy
 
 from zope.interface import implements
 
@@ -232,11 +226,6 @@ class CalDAVOptions(Options):
         if oldmask != config.umask:
             log.msg("WARNING: changing umask from: 0%03o to 0%03o" % (
                     oldmask, config.umask,))
-
-        # Generate a shared secret that will be passed to any slave processes
-        if not config.SharedSecret:
-            c = tuple([random.randrange(sys.maxint) for _ in range(3)])
-            config.SharedSecret = sha1('%d%d%d' % c).hexdigest()
 
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
         if not os.path.exists(dirpath):
@@ -445,17 +434,11 @@ class CalDAVServiceMaker(object):
                     )
 
                 elif scheme == 'digest':
-                    secret = schemeConfig['Secret']
-                    if not secret and config.SharedSecret:
-                        log.msg("Using master process shared secret for Digest authentication")
-                        secret = config.SharedSecret
-                    else:
-                        log.msg("No shared secret for Digest authentication")
                     credFactory = QopDigestCredentialFactory(
                         schemeConfig['Algorithm'],
                         schemeConfig['Qop'],
-                        secret,
-                        realm
+                        realm,
+                        config.DataRoot,
                     )
 
                 elif scheme == 'basic':
