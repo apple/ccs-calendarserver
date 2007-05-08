@@ -145,7 +145,7 @@ if [ -z "${caldav:-}" ]; then
 fi;
 
 if [ -z "${caldavd_wrapper_command:-}" ]; then
-  if [ "$(uname -s)" == "Darwin" ]; then
+  if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
       caldavd_wrapper_command="launchctl bsexec /";
   else
       caldavd_wrapper_command="";
