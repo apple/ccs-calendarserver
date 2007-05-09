@@ -95,6 +95,12 @@ class AbstractIndex(object):
         """
         self.resource = resource
 
+    def create(self):
+        """
+        Create the index and initialize it.
+        """
+        self._db()
+
     def reserveUID(self, uid):
         """
         Reserve a UID for this index's resource.

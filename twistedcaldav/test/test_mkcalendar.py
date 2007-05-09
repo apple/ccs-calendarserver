@@ -17,6 +17,7 @@
 ##
 from twisted.internet.defer import waitForDeferred
 from twisted.internet.defer import deferredGenerator
+from twistedcaldav import index
 
 import os
 
@@ -62,6 +63,9 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
             if response.code != responsecode.CREATED:
                 self.fail("Incorrect response to successful MKCALENDAR: %s"
                           % (response.code,))
+
+            if not os.path.exists(os.path.join(path, index.db_basename)):
+                self.fail("Did not create index file when creating a calendar")
 
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
         return self.send(request, do_test)

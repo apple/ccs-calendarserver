@@ -132,6 +132,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
     
             # Initialize CTag on the calendar collection
             self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            
+            # Create the index so its ready when the first PUTs come in
+            self.index().create()
+            
             return status
 
         d = self.createSpecialCollection(davxml.ResourceType.calendar)
