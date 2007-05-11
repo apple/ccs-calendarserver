@@ -546,7 +546,12 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
     def http_MOVE       (self, request): return responsecode.FORBIDDEN
     def http_DELETE     (self, request): return responsecode.FORBIDDEN
     def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-    def http_MKCALENDAR (self, request): return responsecode.FORBIDDEN
+
+    def http_MKCALENDAR(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "calendar-collection-location-ok")
+        )
 
     ##
     # ACL
