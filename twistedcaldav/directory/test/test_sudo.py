@@ -21,7 +21,6 @@ from twisted.python.filepath import FilePath
 
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.sudo import SudoDirectoryService
-from twistedcaldav.py.plistlib import writePlist
 
 plistFile = FilePath(os.path.join(os.path.dirname(__file__), "sudoers.plist"))
 

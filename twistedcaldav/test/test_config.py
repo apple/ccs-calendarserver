@@ -20,7 +20,7 @@ from twisted.trial import unittest
 
 from twistedcaldav.py.plistlib import writePlist
 
-from twistedcaldav.config import config, defaultConfig, parseConfig, ConfigurationError
+from twistedcaldav.config import config, defaultConfig, ConfigurationError
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

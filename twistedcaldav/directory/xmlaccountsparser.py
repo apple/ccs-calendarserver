@@ -30,7 +30,6 @@ import xml.dom.minidom
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.resource import CalDAVResource
 
 ELEMENT_ACCOUNTS     = "accounts"
 ELEMENT_USER         = "user"

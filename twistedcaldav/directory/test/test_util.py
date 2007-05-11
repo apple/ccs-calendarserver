@@ -16,7 +16,7 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-from twistedcaldav.directory.util import *
+from twistedcaldav.directory.util import uuidFromName
 
 import twisted.trial.unittest
 

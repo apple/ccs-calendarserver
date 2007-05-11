@@ -39,7 +39,6 @@ except ImportError:
 
 from twisted.python import log
 
-from twistedcaldav.dateops import normalizeForIndex
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
 from twistedcaldav import caldavxml

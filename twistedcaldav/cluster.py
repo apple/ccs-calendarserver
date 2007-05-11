@@ -23,7 +23,6 @@ import tempfile
 from twisted.python import log
 
 from twisted.runner import procmon
-from twisted.scripts.mktap import getid
 from twisted.application import internet, service
 
 from twistedcaldav import logging

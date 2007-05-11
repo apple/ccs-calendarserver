@@ -33,8 +33,7 @@ from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
-from twisted.web2.http import Response, HTTPError
-from twisted.web2.http_headers import MimeType
+from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 

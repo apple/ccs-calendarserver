@@ -16,15 +16,12 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
-import random
 import os
 import stat
-import sys
 
 from zope.interface import implements
 
 from twisted.python import log
-
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 
@@ -45,10 +42,8 @@ from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
 from twistedcaldav import logging
-
 from twistedcaldav.cluster import makeService_Combined, makeService_Master
 from twistedcaldav.config import config, parseConfig, defaultConfig, ConfigurationError
-from twistedcaldav.logging import RotatingFileAccessLoggingObserver
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -56,9 +51,8 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 
-from twistedcaldav.static import CalendarHomeProvisioningFile
-
 from twistedcaldav import pdmonster
+from twistedcaldav.static import CalendarHomeProvisioningFile
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
