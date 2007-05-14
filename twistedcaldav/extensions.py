@@ -289,21 +289,21 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
             return davxml.ResourceType.collection
         return davxml.ResourceType.empty
 
-    def render(self, req):
+    def render(self, request):
         if not self.fp.exists():
             return responsecode.NOT_FOUND
 
         if self.fp.isdir():
-            if req.uri[-1] != "/":
+            if request.uri[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(req.unparseURL(path=req.path+'/'))
+                return RedirectResponse(request.unparseURL(path=request.path+'/'))
             else:
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:
                     # Render from the index file
-                    return self.createSimilarFile(ifp.path).render(req)
+                    return self.createSimilarFile(ifp.path).render(request)
 
-                return self.renderDirectory(req)
+                return self.renderDirectory(request)
 
         try:
             f = self.fp.open()
@@ -430,9 +430,9 @@ class DAVFile (SudoAuthIDMixin, SuperDAVFile):
         def gotProperties(qnames):
             even = False
             for qname in qnames:
-                property = waitForDeferred(self.readProperty(qname, request))
-                yield property
                 try:
+                    property = waitForDeferred(self.readProperty(qname, request))
+                    yield property
                     property = property.getResult()
                     name = property.sname()
                     value = property.toxml()
