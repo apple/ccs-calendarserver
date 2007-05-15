@@ -879,7 +879,7 @@ class Component (object):
                 # TODO: verify REQUEST/VFREEBUSY as being OK
                 
                 # Only one VFREEBUSY (actually multiple X-'s are allowed but we will reject)
-                if len([c for c in self.subcomponents() if c.name() != "VTIMEZONE"]) != 1:
+                if len([c for c in self.subcomponents()]) != 1:
                     return False
 
         except ValueError:
