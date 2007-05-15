@@ -227,6 +227,12 @@ class Config (object):
         CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
         CalendarPrincipalResource.enableNotifications(self.EnableNotifications)
 
+        # Handle global quota value
+        from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
+        from twistedcaldav.resource import CalDAVResource
+        DirectoryCalendarHomeResource.quotaLimit = self.UserQuota
+        CalDAVResource.sizeLimit = self.MaximumAttachmentSize
+
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
         self.update(items)
