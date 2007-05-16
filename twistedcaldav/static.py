@@ -294,7 +294,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         @return: an L{Deferred} with a C{int} result containing the size of the resource.
         """
         if self.isCollection():
-            def walktree(top, top_level = False):
+            def walktree(top):
                 """
                 Recursively descend the directory tree rooted at top,
                 calling the callback function for each regular file
@@ -306,7 +306,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 for f in top.listdir():
     
                     # Ignore the database
-                    if top_level and f == db_basename:
+                    if f == db_basename:
                         continue
     
                     child = top.child(f)
@@ -326,7 +326,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             
             walktree = deferredGenerator(walktree)
     
-            return walktree(self.fp, True)
+            return walktree(self.fp)
         else:
             return succeed(self.fp.getsize())
 
