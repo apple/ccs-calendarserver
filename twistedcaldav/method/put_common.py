@@ -472,6 +472,9 @@ def storeCalendarObjectResource(
                     responsecode.FORBIDDEN,
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
                 ))
+            except ValueError, e:
+                log.err(str(e))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
             destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
             return None
