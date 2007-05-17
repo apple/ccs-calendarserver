@@ -356,8 +356,17 @@ limitations under the License.
       <string>logs/caldavd-pydir.sock</string>
   </dict>
 
+  <!--
+    Miscellaneous items
+  -->
+
+  <!-- A unix socket used for communication between the child and master processes. -->
   <key>ControlSocket</key>
   <string>logs/caldavd.sock</string>
+
+  <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
+  <key>ResponseCompression</key>
+  <false/>
 
 </dict>
 </plist>
