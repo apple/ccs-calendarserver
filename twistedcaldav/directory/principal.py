@@ -97,7 +97,11 @@ class DirectoryPrincipalProvisioningResource (
         return self.principalForShortName(DirectoryService.recordType_users, user)
 
     def principalForGUID(self, guid):
-        return self.principalForRecord(self.directory.recordWithGUID(guid))
+        record = self.directory.recordWithGUID(guid)
+        if record:
+            return self.principalForRecord(record)
+        else:
+            return None
 
     def principalForRecord(self, record):
         return self.principalForShortName(record.recordType, record.shortName)
