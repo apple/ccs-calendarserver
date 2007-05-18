@@ -63,7 +63,7 @@ defaultConfig = {
     #
     # Data store
     #
-    "DataRoot"             : "/Library/CalendarServer/Data",
+    "DataRoot"             : "/var/run",
     "DocumentRoot"         : "/Library/CalendarServer/Documents",
     "UserQuota"            : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
