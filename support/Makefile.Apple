@@ -41,21 +41,22 @@ GROUP = calendar
 
 .phony: $(Project) vobject Twisted setup prep
 
-PyKerberos::       $(BuildDirectory)/PyKerberos
-PyOpenDirectory::  $(BuildDirectory)/PyOpenDirectory
-vobject::          $(BuildDirectory)/vobject
-Twisted::          $(BuildDirectory)/Twisted
-pydirector-1.0.0:: $(BuildDirectory)/pydirector-1.0.0
-$(Project)::       $(BuildDirectory)/$(Project)
+PyKerberos::          $(BuildDirectory)/PyKerberos
+PyOpenDirectory::     $(BuildDirectory)/PyOpenDirectory
+vobject::             $(BuildDirectory)/vobject
+Twisted::             $(BuildDirectory)/Twisted
+pydirector-1.0.0::    $(BuildDirectory)/pydirector-1.0.0
+python-dateutil-1.1:: $(BuildDirectory)/python-dateutil-1.1
+$(Project)::          $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory pydirector-1.0.0 vobject Twisted $(Project)
+build:: PyKerberos PyOpenDirectory pydirector-1.0.0 vobject python-dateutil-1.1 Twisted $(Project)
 
 setup:
 	$(_v) $(Sources)/run -s
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
+prep:: setup PyKerberos.tgz PyOpenDirectory.tgz pydirector-1.0.0.tgz vobject.tgz python-dateutil-1.1.tgz Twisted.tgz
 
-PyKerberos PyOpenDirectory pydirector-1.0.0 vobject $(Project)::
+PyKerberos PyOpenDirectory pydirector-1.0.0 vobject python-dateutil-1.1 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -73,10 +74,11 @@ install:: build
 	          $(PY_INSTALL_FLAGS)                                                      \
 	          --install-scripts="$(USRSBINDIR)"                                        \
 	          --install-data="$(ETCDIR)"
-	$(_v) cd $(BuildDirectory)/PyKerberos      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyOpenDirectory && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pydirector-1.0.0 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/vobject         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyKerberos          && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyOpenDirectory     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/pydirector-1.0.0    && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/vobject             && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/python-dateutil-1.1 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
