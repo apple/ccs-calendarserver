@@ -91,7 +91,7 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
     
-class DigestCredentialsMap:
+class DigestCredentialsMap(object):
 
     implements(IDigestCredentialsDatabase)
 
