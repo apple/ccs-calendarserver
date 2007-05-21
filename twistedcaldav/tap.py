@@ -193,6 +193,17 @@ class CalDAVOptions(Options):
             #gname=config.GroupName
         )
 
+        # Verify that data root actually exists
+        self.checkDirectory(
+            config.DataRoot,
+            "Data root",
+            access=os.W_OK,
+            #permissions=0750,
+            #uname=config.UserName,
+            #gname=config.GroupName
+            create=(0750, config.UserName, config.GroupName,)
+        )
+
         # Verify that ssl certs exist if needed
         if config.SSLPort:
             self.checkFile(
@@ -221,13 +232,33 @@ class CalDAVOptions(Options):
             log.msg("WARNING: changing umask from: 0%03o to 0%03o" % (
                     oldmask, config.umask,))
 
-    def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
+    def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None, create=None):
         if not os.path.exists(dirpath):
-            raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
-        elif not os.path.isdir(dirpath):
+            if create is not None:
+            	# create is a tuple of (mode, username, groupname)
+                try:
+                    os.mkdir(dirpath)
+                    os.chmod(dirpath, create[0])
+                    if create[1] and create[2]:
+                        import pwd
+                        import grp
+                        uid = pwd.getpwnam(create[1])[2]
+                        gid = grp.getgrnam(create[2])[2]
+                        os.chown(dirpath, uid, gid)
+                except:
+                    log.msg("Could not create %s" % (dirpath,))
+                    raise ConfigurationError("%s does not exist and cannot be created: %s" % (description, dirpath,))
+
+                log.msg("Created %s" % (dirpath,))
+            else:
+                raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
+
+        if not os.path.isdir(dirpath):
             raise ConfigurationError("%s is not a directory: %s" % (description, dirpath,))
-        elif access and not os.access(dirpath, access):
+
+        if access and not os.access(dirpath, access):
             raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, dirpath,))
+
         self.securityCheck(dirpath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
 
     def checkFile(self, filepath, description, access=None, fail=False, permissions=None, uname=None, gname=None):

@@ -68,7 +68,7 @@ limitations under the License.
 
   <!-- Data root -->
   <key>DataRoot</key>
-  <string>/var/run</string>
+  <string>/var/run/caldavd</string>
 
   <!-- Document root -->
   <key>DocumentRoot</key>
