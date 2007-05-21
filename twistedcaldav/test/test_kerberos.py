@@ -34,18 +34,25 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
         authkerb.BasicKerberosCredentials("test", "test", "http/example.com@EXAMPLE.COM", "EXAMPLE.COM")
 
     def test_BasicKerberosCredentialFactory(self):
-        factory = authkerb.BasicKerberosCredentialFactory("http/example.com@EXAMPLE.COM", "EXAMPLE.COM")
+        factory = authkerb.BasicKerberosCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
 
         challenge = factory.getChallenge("peer")
         expected_challenge = {'realm': "EXAMPLE.COM"}
         self.assertTrue(challenge == expected_challenge,
                         msg="BasicKerberosCredentialFactory challenge %s != %s" % (challenge, expected_challenge))
 
+    def test_BasicKerberosCredentialFactoryInvalidPrincipal(self):
+        self.assertRaises(
+            ValueError,
+            authkerb.BasicKerberosCredentialFactory,
+            principal="http/server.example.com/EXAMPLE.COM"
+        )
+
     def test_NegotiateCredentials(self):
         authkerb.NegotiateCredentials("test")
 
     def test_NegotiateCredentialFactory(self):
-        factory = authkerb.NegotiateCredentialFactory("http/example.com@EXAMPLE.COM", "EXAMPLE.COM")
+        factory = authkerb.NegotiateCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
 
         challenge = factory.getChallenge("peer")
         expected_challenge = {}
@@ -61,3 +68,10 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
             self.fail(msg="NegotiateCredentialFactory decode failed with exception: %s" % (ex,))
         else:
             self.fail(msg="NegotiateCredentialFactory decode did not fail")
+
+    def test_NegotiateCredentialFactoryInvalidPrincipal(self):
+        self.assertRaises(
+            ValueError,
+            authkerb.NegotiateCredentialFactory,
+            principal="http/server.example.com/EXAMPLE.COM"
+        )

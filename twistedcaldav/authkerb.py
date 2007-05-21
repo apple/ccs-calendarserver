@@ -55,6 +55,17 @@ class BasicKerberosCredentials(credentials.UsernamePassword):
     """
 
     def __init__(self, username, password, service, realm):
+        """
+        
+        @param username:   user name of user to authenticate
+        @type username:    str
+        @param password:   password for user being authenticated
+        @type password:    str
+        @param service:    service principal
+        @type service:     str
+        @param hostname:   realm
+        @type hostname:    str
+        """
         credentials.UsernamePassword.__init__(self, username, password)
         
         # Convert Kerberos principal spec into service and realm
@@ -73,15 +84,43 @@ class BasicKerberosCredentialFactory:
 
     scheme = 'basic'
 
-    def __init__(self, service, realm):
+    def __init__(self, principal=None, type=None, hostname=None):
         """
-        The realm string can be of the form service/realm@domain. We split that
-        into service@domain, and realm.
+        
+        @param principal:  full Kerberos principal (e.g., 'http/server.example.com@EXAMPLE.COM'). If C{None}
+            then the type and hostname arguments are used instead.
+        @type service:     str
+        @param type:       service type for Kerberos (e.g., 'http'). Must be C{None} if principal used.
+        @type type:        str
+        @param hostname:   hostname for this server. Must be C{None} if principal used.
+        @type hostname:    str
         """
-        self.service = service
+
+        # Only certain combinations of arguments allowed
+        assert (principal and not type and not hostname) or (not principal and type and hostname)
+
+        if not principal:
+            # Look up the Kerberos principal given the service type and hostname, and extract
+            # the realm and a service principal value for later use.
+            try:
+                principal = kerberos.getServerPrincipalDetails(type, hostname)
+            except kerberos.KrbError, ex:
+                logging.err("getServerPrincipalDetails: %s" % (ex[0],), system="BasicKerberosCredentialFactory")
+                raise ValueError('Authentication System Failure: %s' % (ex[0],))
+
+        try:
+            splits = principal.split("/")
+            servicetype = splits[0]
+            splits = splits[1].split("@")
+            realm = splits[1]
+        except IndexError:
+            logging.err("Invalid Kerberos principal: %s" % (principal,), system="BasicKerberosCredentialFactory")
+            raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
+                
+        self.service = "%s@%s" % (servicetype, realm,)
         self.realm = realm
 
-    def getChallenge(self, peer):
+    def getChallenge(self, _ignore_peer):
         return {'realm': self.realm}
 
     def decode(self, response, request): #@UnusedVariable
@@ -142,19 +181,50 @@ class NegotiateCredentialFactory:
 
     scheme = 'negotiate'
 
-    def __init__(self, service, realm):
+    def __init__(self, principal=None, type=None, hostname=None):
+        """
+        
+        @param principal:  full Kerberos principal (e.g., 'http/server.example.com@EXAMPLE.COM'). If C{None}
+            then the type and hostname arguments are used instead.
+        @type service:     str
+        @param type:       service type for Kerberos (e.g., 'http'). Must be C{None} if principal used.
+        @type type:        str
+        @param hostname:   hostname for this server. Must be C{None} if principal used.
+        @type hostname:    str
+        """
 
-        self.service = service
+        # Only certain combinations of arguments allowed
+        assert (principal and not type and not hostname) or (not principal and type and hostname)
+
+        if not principal:
+            # Look up the Kerberos principal given the service type and hostname, and extract
+            # the realm and a service principal value for later use.
+            try:
+                principal = kerberos.getServerPrincipalDetails(type, hostname)
+            except kerberos.KrbError, ex:
+                logging.err("getServerPrincipalDetails: %s" % (ex[0],), system="NegotiateCredentialFactory")
+                raise ValueError('Authentication System Failure: %s' % (ex[0],))
+
+        try:
+            splits = principal.split("/")
+            servicetype = splits[0]
+            splits = splits[1].split("@")
+            realm = splits[1]
+        except IndexError:
+            logging.err("Invalid Kerberos principal: %s" % (principal,), system="NegotiateCredentialFactory")
+            raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
+                
+        self.service = "%s@%s" % (servicetype, realm,)
         self.realm = realm
 
-    def getChallenge(self, peer):
+    def getChallenge(self, _ignore_peer):
         return {}
 
     def decode(self, base64data, request):
         
         # Init GSSAPI first
         try:
-            result, context = kerberos.authGSSServerInit(self.service);
+            _ignore_result, context = kerberos.authGSSServerInit(self.service);
         except kerberos.GSSError, ex:
             logging.err("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],), system="NegotiateCredentialFactory")
             raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
@@ -191,7 +261,7 @@ class NegotiateCredentialFactory:
 
         # Close the context
         try:
-            result = kerberos.authGSSServerClean(context);
+            kerberos.authGSSServerClean(context);
         except kerberos.GSSError, ex:
             logging.err("authGSSServerClean: %s" % (ex[0][0], ex[1][0],), system="NegotiateCredentialFactory")
             raise error.LoginFailed('Authentication System Failure %s(%s)' % (ex[0][0], ex[1][0],))

@@ -413,6 +413,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         """
         self.config['Authentication']['Digest']['Enabled'] = True
         self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello@bob'
         self.config['Authentication']['Basic']['Enabled'] = True
 
         self.writeConfig()
@@ -432,23 +433,18 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.assertEquals(len(expectedSchemes),
                           len(authWrapper.credentialFactories))
 
-    def test_servicePrincipalNoRealm(self):
+    def test_servicePrincipalNone(self):
         """
-        Test that the Kerberos Realm defaults to the ServerHostName when
-        the principal is not in the form of proto/host@realm
+        Test that the Kerberos principal look is attempted if the principal is empty.
         """
-        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello'
+        self.config['Authentication']['Kerberos']['ServicePrincipal'] = ''
         self.config['Authentication']['Kerberos']['Enabled'] = True
         self.writeConfig()
-        site = self.getSite()
+        self.assertRaises(
+            ValueError,
+            self.getSite)
 
-        authWrapper = site.resource.resource
-
-        ncf = authWrapper.credentialFactories['negotiate']
-        self.assertEquals(ncf.service, 'http/hello')
-        self.assertEquals(ncf.realm, 'localhost')
-
-    def test_servicePrincipalWithRealm(self):
+    def test_servicePrincipal(self):
         """
         Test that the kerberos realm is the realm portion of a principal
         in the form proto/host@realm
@@ -461,7 +457,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         authWrapper = site.resource.resource
 
         ncf = authWrapper.credentialFactories['negotiate']
-        self.assertEquals(ncf.service, 'http/hello@bob')
+        self.assertEquals(ncf.service, 'http@bob')
         self.assertEquals(ncf.realm, 'bob')
 
     def test_AuthWrapperPartialEnabled(self):

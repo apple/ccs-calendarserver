@@ -415,17 +415,11 @@ class CalDAVServiceMaker(object):
                         log.msg("Kerberos support not available")
                         continue
 
-                    service = schemeConfig['ServicePrincipal']
-
-                    if '@' in service:
-                        rest, kerbRealm = service.split('@', 1)
+                    principal = schemeConfig['ServicePrincipal']
+                    if not principal:
+                        credFactory = NegotiateCredentialFactory(type="http", hostname=config.ServerHostName)
                     else:
-                        kerbRealm = config.ServerHostName
-
-                    credFactory = NegotiateCredentialFactory(
-                        service,
-                        kerbRealm
-                    )
+                        credFactory = NegotiateCredentialFactory(principal=principal)
 
                 elif scheme == 'digest':
                     credFactory = QopDigestCredentialFactory(
