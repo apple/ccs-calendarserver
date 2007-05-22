@@ -64,6 +64,7 @@ class BaseFormatter(object):
             reportPrinter(report)
 
         else:
+            print "No report printer found for report type %r" % (report,)
             self.report_default(report)
     
     def report_default(self, report):

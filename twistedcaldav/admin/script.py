@@ -120,6 +120,9 @@ def run():
 
         print "%s: %s" % (cmd, ue)
 
+    except OSError, osErr:
+        print osErr
+        sys.exit(1)
 
     except KeyboardInterrupt:
         sys.exit(1)
