@@ -43,6 +43,7 @@ class StatsAction(object):
             self.getAccountCount,
             self.getGroupCount,
             self.getResourceCount,
+            self.getLocationCount,
             self.getDiskUsage]
 
     def getDiskUsage(self):
@@ -53,19 +54,25 @@ class StatsAction(object):
         return ("accountCount", 
                 len(util.getPrincipalList(
                     self.principalCollection,
-                    'user')))
+                    'users')))
 
     def getGroupCount(self):
         return ("groupCount", 
                 len(util.getPrincipalList(
                     self.principalCollection,
-                    'group')))
+                    'groups')))
 
     def getResourceCount(self):
         return ("resourceCount", 
                 len(util.getPrincipalList(
                     self.principalCollection,
-                    'resource')))
+                    'resources')))
+
+    def getLocationCount(self):
+        return ("locationCount", 
+                len(util.getPrincipalList(
+                    self.principalCollection,
+                    'locations')))
 
     def run(self):
         assert self.root.exists()

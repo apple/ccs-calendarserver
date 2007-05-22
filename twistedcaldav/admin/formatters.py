@@ -133,19 +133,22 @@ class PlainFormatter(BaseFormatter):
 
         self.writeTable(report, fields, headings)
 
-    report_user = report_group = report_resource = report_principals
+    report_users = report_groups = report_resources = report_locations = report_principals
 
     def report_stats(self, report):
-        fields = ('accountCount', 'groupCount', 'calendarCount', 'eventCount', 
+        fields = ('accountCount', 'groupCount', 'resourceCount', 'locationCount',
+                  'calendarCount', 'eventCount', 
                   'todoCount', 'diskUsage')
 
         headings = {
-            'accountCount': '# Accounts',
-            'groupCount': '# Groups',
+            'accountCount':  '# Accounts ',
+            'groupCount':    '# Groups   ',
+            'resourceCount': '# Resources',
+            'locationCount': '# Locations',
             'calendarCount': '# Calendars',
-            'eventCount': '# Events',
-            'todoCount': '# Todos',
-            'diskUsage': 'Disk Usage',
+            'eventCount':    '# Events   ',
+            'todoCount':     '# Todos    ',
+            'diskUsage':     'Disk Usage ',
             }
 
         self.writeReport(report, 'Statistics', fields, headings)
@@ -199,7 +202,7 @@ class CsvFormatter(BaseFormatter):
         self.writeDict(self.options['fieldnames'],
                        report['records'])
         
-    report_user = report_group = report_resource = report_principals
+    report_users = report_groups = report_resources = report_locations = report_principals
 
     def report_stats(self, report):
         if 'fieldnames' not in self.options:
@@ -224,7 +227,7 @@ class PlistFormatter(BaseFormatter):
 
         plistlib.writePlist(plist, self.dest)
 
-    report_user = report_group = report_resource = report_principals
+    report_users = report_groups = report_resources = report_locations = report_principals
 
     def report_stats(self, report):
         plist = plistlib.Dict()
