@@ -31,13 +31,14 @@ from twisted.python import failure, log
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.fileop import copy, delete, put
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedGETContentMD5
 from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
-from twisted.web2.http import HTTPError, StatusResponse
+from twisted.web2.http import HTTPError
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -551,7 +552,7 @@ def storeCalendarObjectResource(
             diff_size = new_dest_size - old_dest_size
             if diff_size >= destquota[0]:
                 log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))
-                raise HTTPError(StatusResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, "Over quota"))
+                raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
             d = waitForDeferred(destination.quotaSizeAdjust(request, diff_size))
             yield d
             d.getResult()
