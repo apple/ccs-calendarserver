@@ -402,6 +402,10 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                             availability = availability.calendar()
                             report_common.processAvailabilityFreeBusy(availability, fbinfo, timerange)
 
+                        # Check to see if the recipient is the same calendar user as the organizer.
+                        # Needed for masked UID stuff.
+                        same_calendar_user = oprincipal.principalURL() == principal.principalURL()
+
                         # Now process free-busy set calendars
                         matchtotal = 0
                         for calURL in fbset:
@@ -420,7 +424,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                                 timerange,
                                 matchtotal,
                                 excludeuid=excludeuid,
-                                organizer=organizer))
+                                organizer=organizer,
+                                same_calendar_user=same_calendar_user))
                             yield matchtotal
                             matchtotal = matchtotal.getResult()
                     

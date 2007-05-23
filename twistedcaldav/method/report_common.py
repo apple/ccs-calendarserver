@@ -263,7 +263,8 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
 
 _namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
     
-def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, excludeuid=None, organizer=None):
+def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
+                         excludeuid=None, organizer=None, same_calendar_user=False):
     """
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
@@ -276,6 +277,8 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
         UID from contributing to free-busy.
     @param organizer:   a C{str} containing the value of the ORGANIZER proeprty in the VFREEBUSY request.
         This is used in conjunction with the UID value to process exclusions.
+    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting tyhe free-busy information
+        is the same as the calendar user being targeted.
     """
     
     # First check the privilege on this collection
@@ -342,9 +345,14 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal, ex
         
         # Ignore ones of this UID
         if excludeuid:
-            # Check that ORGANIZER's match (security requirement) and UIDs match
-            if (excludeuid == uid) and ((organizer is None) or (organizer == calendar.getOrganizer())):
-                continue
+            # See if we have a UID match
+            if (excludeuid == uid):
+                # Check that ORGANIZER's match (security requirement)
+                if (organizer is None) or (organizer == calendar.getOrganizer()):
+                    continue
+                # Check for no ORGANIZER and check by same calendar user
+                elif (calendar.getOrganizer() is None) and same_calendar_user:
+                    continue
 
         if filter.match(calendar):
             # Check size of results is within limit
