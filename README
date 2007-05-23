@@ -2,7 +2,7 @@ This is the core code base for a CalDAV/WebDAV/HTTP server.
 
 For general information about the server, see:
 
-    http://calendarserver.macosforge.org/
+    http://www.calendarserver.org/
 
 
 COPYRIGHT AND LICENSE
@@ -140,7 +140,7 @@ method works on many more platforms and file systems.
 Linux and FreeBSD users have has some success running our calendar
 server.  Check our bug tracker for status:
 
-	http://trac.macosforge.org/projects/calendarserver/report/1
+	http://trac.calendarserver.org/projects/calendarserver/report/1
 
 PYTHON 2.4
 ----------
@@ -163,12 +163,12 @@ GETTING INVOLVED
 If you are interested in getting involved with development, be sure to
 visit our home page for more information:
 
-    http://calendarserver.macosforge.org/
+    http://www.calendarserver.org/
 
 Bug reports are welcome, and contributions such as code patches and
 documentation are appreciated.  Visit our bug tracker:
 
-	http://trac.macosforge.org/projects/calendarserver/report/
+	http://trac.calendarserver.org/projects/calendarserver/report/
 
 You can chat with other users and developers on IRC on channel
 #calendarserver on the irc.freenode.net server network.
