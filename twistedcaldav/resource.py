@@ -74,10 +74,6 @@ class CalDAVResource (DAVResource):
     """
     implements(ICalDAVResource)
 
-    # A global limit for the size of calendar object resources. Either a C{int} (size in bytes) to limit
-    # resources to that size, or C{None} for no limit.
-    sizeLimit = None
-
     ##
     # HTTP
     ##
@@ -169,9 +165,9 @@ class CalDAVResource (DAVResource):
                 ))
             elif name == "max-resource-size":
                 # CalDAV-access-15, section 5.2.5
-                if CalDAVResource.sizeLimit is not None:
+                if config.MaximumAttachmentSize:
                     return succeed(caldavxml.MaxResourceSize.fromString(
-                        str(CalDAVResource.sizeLimit)
+                        str(config.MaximumAttachmentSize)
                     ))
 
         return super(CalDAVResource, self).readProperty(property, request)

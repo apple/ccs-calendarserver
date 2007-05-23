@@ -41,6 +41,7 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
 from twistedcaldav import logging
+from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
@@ -236,11 +237,11 @@ def storeCalendarObjectResource(
         """
         result = True
         message = ""
-        if CalDAVResource.sizeLimit is not None:
+        if config.MaximumAttachmentSize:
             calsize = len(str(calendar))
-            if calsize > CalDAVResource.sizeLimit:
+            if calsize > config.MaximumAttachmentSize:
                 result = False
-                message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, CalDAVResource.sizeLimit)
+                message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
 
         return result, message
 

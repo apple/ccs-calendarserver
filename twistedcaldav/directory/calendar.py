@@ -174,10 +174,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     """
     Calendar home collection resource.
     """
-    # A global quota limit for all calendar homes. Either a C{int} (size in bytes) to limit
-    # quota to that size, or C{None} for no limit.
-    quotaLimit = None
-
     def __init__(self, parent, record):
         """
         @param path: the path to the file which will back the resource.
@@ -309,7 +305,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         """
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-        return self.hasDeadProperty(TwistedQuotaRootProperty) or DirectoryCalendarHomeResource.quotaLimit is not None
+        return self.hasDeadProperty(TwistedQuotaRootProperty) or config.UserQuota
     
     def quotaRoot(self, request):
         """
@@ -319,7 +315,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         if self.hasDeadProperty(TwistedQuotaRootProperty):
             return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
         else:
-            return DirectoryCalendarHomeResource.quotaLimit
+            return config.UserQuota
 
 ##
 # Utilities
