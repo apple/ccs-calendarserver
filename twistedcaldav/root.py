@@ -115,7 +115,7 @@ class RootResource(DAVFile):
 # So CheckSACL will be parameterized
 # We do this after RootResource is defined
 try:
-    from appleauth import CheckSACL
+    from twistedcaldav._sacl import CheckSACL
     RootResource.CheckSACL = CheckSACL
 except ImportError:
     RootResource.CheckSACL = None

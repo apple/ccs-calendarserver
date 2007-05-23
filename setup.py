@@ -68,6 +68,22 @@ version_file.write('version = "%s"\n' % (version,))
 version_file.close()
 
 #
+# Set up Extension modules that need to be built
+#
+
+from distutils.core import Extension
+
+extensions = []
+
+if sys.platform == 'darwin':
+    extensions.append(
+        Extension('twistedcaldav._sacl',
+                  extra_compile_args = ['-arch', 'ppc', '-arch', 'i386'],
+                  extra_link_args    = ['-framework', 'Security',
+                                        '-arch', 'ppc', '-arch', 'i386'],
+                  sources = ['twistedcaldav/_sacl.c']))
+
+#
 # Run setup
 #
 
@@ -90,7 +106,8 @@ dist = setup(
                          "twisted" ],
     package_data     = { "twisted": ["plugins/caldav.py"] },
     scripts          = [ "bin/caldavd", "bin/caladmin" ],
-    data_files = [("caldavd", ["conf/caldavd.plist",])]
+    data_files       = [("caldavd", ["conf/caldavd.plist",])],
+    ext_modules      = extensions,
 )
 
 if 'install' in dist.commands:
