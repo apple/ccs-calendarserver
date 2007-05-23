@@ -132,7 +132,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise HTTPError(status)
     
             # Initialize CTag on the calendar collection
-            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            self.updateCTag()
             
             # Create the index so its ready when the first PUTs come in
             self.index().create()
@@ -280,6 +280,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
             child for child in super(CalDAVFile, self).listChildren()
             if child != db_basename
         ]
+
+    def updateCTag(self):
+        assert self.isCollection()
+        self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
 
     ##
     # Quota
@@ -579,7 +583,7 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
                 self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             # Initialize CTag on the calendar collection
-            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            self.updateCTag()
 
         return super(ScheduleInboxFile, self).provision()
 
@@ -597,7 +601,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def provision(self):
         if self.provisionFile():
             # Initialize CTag on the calendar collection
-            self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            self.updateCTag()
 
         return super(ScheduleOutboxFile, self).provision()
 

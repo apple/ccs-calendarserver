@@ -22,8 +22,6 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["storeCalendarObjectResource"]
 
-import datetime
-
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import maybeDeferred
 from twisted.internet.defer import waitForDeferred
@@ -46,7 +44,6 @@ from twistedcaldav import logging
 from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav import customxml
 from twistedcaldav.ical import Component
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.resource import CalDAVResource
@@ -534,7 +531,7 @@ def storeCalendarObjectResource(
 
             if sourcecal:
                 # Change CTag on the parent calendar collection
-                sourceparent.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+                sourceparent.updateCTag()
 
         if destinationcal:
             result = doDestinationIndex(calendar)
@@ -560,7 +557,7 @@ def storeCalendarObjectResource(
 
         if destinationcal:
             # Change CTag on the parent calendar collection
-            destinationparent.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+            destinationparent.updateCTag()
 
         # Can now commit changes and forget the rollback details
         rollback.Commit()
