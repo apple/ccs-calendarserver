@@ -3,11 +3,11 @@
 
 Calendar Server Extension                                       C. Daboo
                                                                    Apple
-                                                             May 3, 2007
+                                                            May 23, 2007
 
 
        Masking existing meetings in iCalendar free busy requests
-                         icalendar-maskuids-02
+                         icalendar-maskuids-03
 
 Abstract
 
@@ -28,11 +28,11 @@ Table of Contents
      4.2.  Free/Busy Component . . . . . . . . . . . . . . . . . . . . 3
      4.3.  iTIP  . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
    5.  Interaction with CalDAV Servers . . . . . . . . . . . . . . . . 4
-   6.  Security Considerations . . . . . . . . . . . . . . . . . . . . 4
+   6.  Security Considerations . . . . . . . . . . . . . . . . . . . . 5
    7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 5
    8.  Normative References  . . . . . . . . . . . . . . . . . . . . . 5
-   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 5
-   Appendix B.  Change History . . . . . . . . . . . . . . . . . . . . 5
+   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 6
+   Appendix B.  Change History . . . . . . . . . . . . . . . . . . . . 6
    Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 6
 
 
@@ -191,9 +191,22 @@ Daboo                                                           [Page 3]
    X-CALENDARSERVER-MASK-UID property, it processes the free-busy
    request as usual with the exception that any components that would
    contribute busy time to the free-busy response MUST have their UIDs
-   checked, and if they match the value of the X-CALENDARSERVER-MASK-UID
-   property, and they have an ORGANIZER property value that is the same
-   as the ORGANIZER property value on the VFREEBUSY request component,
+   checked, and if:
+
+      they have a UID that matches the value of the X-CALENDARSERVER-
+      MASK-UID property;
+
+      and
+
+         they have an ORGANIZER property value that is the same as the
+         ORGANIZER property value on the VFREEBUSY request component;
+
+         or
+
+         they do not have an ORGANIZER property and the calendar user
+         whose free-busy is being checked is the same as the ORGANIZER
+         property value in the VFREEBUSY request component;
+
    then they should be ignored and not contribute busy time.
 
 
@@ -204,6 +217,13 @@ Daboo                                                           [Page 3]
    based calendar and scheduling protocol.  The scheduling portion of
    that uses iTIP messaging to send requests and get responses from
    calendar users.
+
+
+
+Daboo                                                           [Page 4]
+
+                           iCalendar Mask UIDs                  May 2007
+
 
    CalDAV servers MAY support the X-CALENDARSERVER-MASK-UID property on
    any iTIP VFREEBUSY requests sent to the server.  To do that, a server
@@ -217,19 +237,14 @@ Daboo                                                           [Page 3]
    Calendar user agents processing a VFREEBUSY request with a
    X-CALENDARSERVER-MASK-UID property present MUST ensure that only
    components whose ORGANIZER property value matches that of the
-
-
-
-Daboo                                                           [Page 4]
-
-                           iCalendar Mask UIDs                  May 2007
-
-
    VFREEBUSY request component are ignored when calculating free-busy
-   time.  This ensures that organizers can only mask out meetings that
-   they themselves have scheduled, rather than meetings proposed by
-   other people.  This also ensures that only the original organizer of
-   a meeting can determine whether that meeting actually appears on
+   time, or ensure that there is no ORGANIZER property in the component
+   to be ignored and the requesting calendar user is the same as the
+   responding calendar user.  This ensures that organizers can only mask
+   out meetings that they themselves have scheduled, rather than
+   meetings proposed by other people, or unscheduled events on their own
+   calendars.  This also ensures that only the original organizer of a
+   meeting can determine whether that meeting actually appears on
    someone else's calendar by using the free-busy time requests with and
    without a masked UID as a probe.
 
@@ -258,6 +273,14 @@ Daboo                                                           [Page 4]
               (iTIP) Scheduling Events, BusyTime, To-dos and Journal
               Entries", RFC 2446, November 1998.
 
+
+
+
+Daboo                                                           [Page 5]
+
+                           iCalendar Mask UIDs                  May 2007
+
+
    [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
@@ -271,15 +294,13 @@ Appendix A.  Acknowledgments
 
 Appendix B.  Change History
 
+   Changes since -02
+
+   1.  Allowing masking of ORGANIZER-less events for the case where the
+       ORGANIZER of the REQUEST is the same as the ATTENDEE being
+       requested.
+
    Changes since -01
-
-
-
-
-Daboo                                                           [Page 5]
-
-                           iCalendar Mask UIDs                  May 2007
-
 
    1.  Added section for support in CalDAV servers.
 
@@ -300,27 +321,6 @@ Author's Address
 
    Email: cyrus@daboo.name
    URI:   http://www.apple.com/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
