@@ -177,6 +177,10 @@ class PlainFormatter(BaseFormatter):
         fields = (
             'method',
             'num',
+            'numOK',
+            'numBAD',
+            'numISE',
+            'numOther',
             'minbytes',
             'avbytes',
             'maxbytes',
@@ -185,8 +189,12 @@ class PlainFormatter(BaseFormatter):
             'maxtime',
         )
         headings = {
-            'method':        'Method ',
-            'num':           '# Requests   ',
+            'method':        'Method',
+            'num':           '# Requests',
+            'numOK':         '     # OK',
+            'numBAD':        '    # BAD',
+            'numISE':        ' # Failed',
+            'numOther':      '  # Other',
             'minbytes':      'Min. bytes',
             'avbytes':       ' Av. bytes',
             'maxbytes':      'Max. bytes',

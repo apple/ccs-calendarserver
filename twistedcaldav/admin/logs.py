@@ -56,10 +56,18 @@ class Stats(object):
     def addBytes(self, bytes):
         self._data.bytesOut += bytes
 
-    def addRequestStats(self, request, bytes, time):
+    def addRequestStats(self, request, status, bytes, time):
         if request in self._data.requestStats:
             old_num = self._data.requestStats[request]['num']
             self._data.requestStats[request]['num'] = old_num + 1
+            if status >= 200 and status < 300:
+                self._data.requestStats[request]['numOK'] = self._data.requestStats[request]['numOK'] + 1
+            elif status == 500:
+                self._data.requestStats[request]['numISE'] = self._data.requestStats[request]['numISE'] + 1
+            elif status >= 400 and status < 600:
+                self._data.requestStats[request]['numBAD'] = self._data.requestStats[request]['numBAD'] + 1
+            else:
+                self._data.requestStats[request]['numOther'] = self._data.requestStats[request]['numOther'] + 1
             if bytes < self._data.requestStats[request]['minbytes']:
                 self._data.requestStats[request]['minbytes'] = bytes
             if bytes > self._data.requestStats[request]['maxbytes']:
@@ -73,6 +81,18 @@ class Stats(object):
         else:
             self._data.requestStats[request] = {}
             self._data.requestStats[request]['num'] = 1
+            self._data.requestStats[request]['numOK'] = 0
+            self._data.requestStats[request]['numBAD'] = 0
+            self._data.requestStats[request]['numISE'] = 0
+            self._data.requestStats[request]['numOther'] = 0
+            if status >= 200 and status < 300:
+                self._data.requestStats[request]['numOK'] = 1
+            elif status == 500:
+                self._data.requestStats[request]['numISE'] = 1
+            elif status >= 400 and status < 600:
+                self._data.requestStats[request]['numBAD'] = 1
+            else:
+                self._data.requestStats[request]['numOther'] = 1
             self._data.requestStats[request]['minbytes'] = bytes
             self._data.requestStats[request]['maxbytes'] = bytes
             self._data.requestStats[request]['avbytes'] = bytes
@@ -159,7 +179,7 @@ class LogAction(object):
                     pline = parseCLFLine(line)
                     
                     self.stats.addBytes(int(pline[6]))
-                    self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[6]), float(pline[9][:-3]))
+                    self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
 
                     if len(pline) > 7:
                         self.stats.addUserAgent(pline[8])
