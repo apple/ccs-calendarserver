@@ -28,10 +28,16 @@ import plistlib
 
 from twistedcaldav.admin import util
 
+PLIST_VERSION = 1
+
 statsTemplate = plistlib.Dict(
-    bytesOut=0, 
+    version=PLIST_VERSION,
+    bytesOut="0",
+    startDate="",
+    endDate="",
     requestStats=plistlib.Dict(
-        ), 
+        ),
+    timeOfDayStats=[0] * 96,
     invitations=plistlib.Dict(
         day=0, 
         week=0, 
@@ -43,18 +49,30 @@ statsTemplate = plistlib.Dict(
 class Stats(object):
     def __init__(self, fp):
         self.fp = fp
+        self._data = None
 
         if self.fp.exists():
             self._data = plistlib.readPlist(self.fp.path)
-        else:
+            if self._data.version != PLIST_VERSION:
+                self._data = None
+        
+        if self._data is None:
             self._data = statsTemplate
             self.save()
 
+    def addDate(self, date):
+        if not self._data.startDate:
+            self._data.startDate = date
+        self._data.endDate = date
+
+    def getDateRange(self):
+        return (self._data.startDate, self._data.endDate)
+
     def getBytes(self):
-        return self._data.bytesOut
+        return long(self._data.bytesOut)
 
     def addBytes(self, bytes):
-        self._data.bytesOut += bytes
+        self._data.bytesOut = str(long(self._data.bytesOut) + bytes)
 
     def addRequestStats(self, request, status, bytes, time):
         if request in self._data.requestStats:
@@ -102,6 +120,14 @@ class Stats(object):
     
     def getRequestStats(self):
         return self._data.requestStats
+
+    def addTimeOfDayStats(self, request, time):
+        hour, minute = time.split(":")
+        bucket = int(hour) * 4 + divmod(int(minute), 15)[0]
+        self._data.timeOfDayStats[bucket] = self._data.timeOfDayStats[bucket] + 1
+    
+    def getTimeOfDayStats(self):
+        return self._data.timeOfDayStats
 
     def addUserAgent(self, useragent):
         if useragent in self._data.userAgents:
@@ -171,18 +197,33 @@ class LogAction(object):
     def run(self):
 
         if not self.readOnly:
-            for line in self.logfile.open():
+            total_count = -1
+            for total_count, line in enumerate(self.logfile.open()):
+                pass
+            total_count += 1
+            print "Reading file: %s (%d lines)" % (self.logfile.basename(), total_count,)
+            print "|" + "--" * 48 + "|"
+            last_count = 0
+            for line_count, line in enumerate(self.logfile.open()):
                 if (line.startswith('Log opened') or 
                     line.startswith('Log closed')):
                     continue
                 else:
                     pline = parseCLFLine(line)
                     
+                    self.stats.addDate(pline[3])
                     self.stats.addBytes(int(pline[6]))
                     self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
+                    self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
 
                     if len(pline) > 7:
                         self.stats.addUserAgent(pline[8])
+                        
+                if (50 * line_count) / total_count > last_count:
+                    print ".",
+                    last_count = (50 * line_count) / total_count
+
+            print "\n\n"
 
             self.stats.save()    
 
@@ -190,9 +231,11 @@ class LogAction(object):
             report = {
                 'type': 'logs',
                 'data': {
+                    'dateRange': self.stats.getDateRange(),
                     'bytesOut': util.prepareByteValue(self.config, 
                                                       self.stats.getBytes()),
                     'requestStats': self.stats.getRequestStats(),
+                    'timeOfDayStats': self.stats.getTimeOfDayStats(),
                     'userAgents': self.stats.getUserAgents(),
                     }
                 }

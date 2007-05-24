@@ -119,6 +119,28 @@ class PlainFormatter(BaseFormatter):
             values += tuple(value[f] for f in fields[1:])
             self.writeLine(values)
 
+    def writeFrequencies(self, frequencies):
+        
+        width = len(frequencies)
+        plot = [[" "] * width for ignore in range(20)]
+        plot.append(["|---"] * 24)
+        plot.append(["%02d  " % d for d in range(24)])
+        
+        max_count = 0
+        for freq in frequencies:
+            max_count = max(freq, max_count)
+            
+        for column, freq in enumerate(frequencies):
+            if freq == 0:
+                continue
+            scaled = (20 * freq) / max_count
+            for row in range(20):
+                if row <= scaled:
+                    plot[19 - row][column] = "*"
+        
+        self.write("\n".join(["".join(p) for p in plot]))
+        self.write("\n")
+
     def writeReport(self, report, name, fields, headings):
         if self.options.has_key('fields'):
             fields = self.options.get('fields', '').split(',')
@@ -169,9 +191,11 @@ class PlainFormatter(BaseFormatter):
         self.writeReport(report, 'Statistics', fields, headings)
 
     def report_logs(self, report):
-        self.write('Log Statistics:\n')
+        self.write('Log Statistics:\n\n')
 
-        self.write('  Bytes Out: %s\n' % (report['data']['bytesOut'],))
+        self.write('  Start Date: %s\n  End Date  :%s\n\n' % report['data']['dateRange'])
+
+        self.write('  Bytes Out: %s\n\n' % (report['data']['bytesOut'],))
         self.write('  # Requests:\n')
 
         fields = (
@@ -203,6 +227,11 @@ class PlainFormatter(BaseFormatter):
             'maxtime':       'Max. time',
         }
         self.writeMap(report['data']['requestStats'], fields, headings)
+        self.write('\n')
+
+        self.write('  # Requests by time of day:\n')
+        self.writeFrequencies(report['data']['timeOfDayStats'])
+        self.write('\n')
 
         self.write('  User Agents:\n')
 
