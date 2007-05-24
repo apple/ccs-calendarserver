@@ -419,7 +419,7 @@ class OpenDirectoryService(DirectoryService):
                             break
 
                     if not enabled:
-                        log.err("Record %s is not enabled" % ())
+                        log.err("Record is not enabled")
                         continue
 
                 # Now get useful record info.
