@@ -30,7 +30,7 @@ from twistedcaldav.admin import util
 
 statsTemplate = plistlib.Dict(
     bytesOut=0, 
-    requestCounts=plistlib.Dict(
+    requestStats=plistlib.Dict(
         ), 
     invitations=plistlib.Dict(
         day=0, 
@@ -56,14 +56,32 @@ class Stats(object):
     def addBytes(self, bytes):
         self._data.bytesOut += bytes
 
-    def addRequest(self, request):
-        if request in self._data.requestCounts:
-            self._data.requestCounts[request] += 1
+    def addRequestStats(self, request, bytes, time):
+        if request in self._data.requestStats:
+            old_num = self._data.requestStats[request]['num']
+            self._data.requestStats[request]['num'] = old_num + 1
+            if bytes < self._data.requestStats[request]['minbytes']:
+                self._data.requestStats[request]['minbytes'] = bytes
+            if bytes > self._data.requestStats[request]['maxbytes']:
+                self._data.requestStats[request]['maxbytes'] = bytes
+            self._data.requestStats[request]['avbytes'] = (self._data.requestStats[request]['avbytes'] * old_num + bytes) / (old_num + 1)
+            if time < self._data.requestStats[request]['mintime']:
+                self._data.requestStats[request]['mintime'] = time
+            if time > self._data.requestStats[request]['maxtime']:
+                self._data.requestStats[request]['maxtime'] = time
+            self._data.requestStats[request]['avtime'] = (self._data.requestStats[request]['avtime'] * old_num + time) / (old_num + 1)
         else:
-            self._data.requestCounts[request] = 1
+            self._data.requestStats[request] = {}
+            self._data.requestStats[request]['num'] = 1
+            self._data.requestStats[request]['minbytes'] = bytes
+            self._data.requestStats[request]['maxbytes'] = bytes
+            self._data.requestStats[request]['avbytes'] = bytes
+            self._data.requestStats[request]['mintime'] = time
+            self._data.requestStats[request]['maxtime'] = time
+            self._data.requestStats[request]['avtime'] = time
     
-    def getRequests(self):
-        return self._data.requestCounts
+    def getRequestStats(self):
+        return self._data.requestStats
 
     def addUserAgent(self, useragent):
         if useragent in self._data.userAgents:
@@ -141,7 +159,7 @@ class LogAction(object):
                     pline = parseCLFLine(line)
                     
                     self.stats.addBytes(int(pline[6]))
-                    self.stats.addRequest(pline[4].split(' ')[0])
+                    self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[6]), float(pline[9][:-3]))
 
                     if len(pline) > 7:
                         self.stats.addUserAgent(pline[8])
@@ -154,7 +172,7 @@ class LogAction(object):
                 'data': {
                     'bytesOut': util.prepareByteValue(self.config, 
                                                       self.stats.getBytes()),
-                    'requestCounts': self.stats.getRequests(),
+                    'requestStats': self.stats.getRequestStats(),
                     'userAgents': self.stats.getUserAgents(),
                     }
                 }

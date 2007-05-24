@@ -91,8 +91,14 @@ class PlainFormatter(BaseFormatter):
             spacing = self.options.get('spacing', 16)
 
         for f in fields:
-            self.write(str(f))
-            self.write(' '*(int(spacing) - len(str(f))))
+            if isinstance(f, float):
+                p = "% 9.2f" % (f,)
+            elif isinstance(f, int):
+                p = "% 9d" % (f,)
+            else:
+                p = str(f)
+            self.write(p)
+            self.write(' '*(int(spacing) - len(p)))
 
         self.write('\n')
 
@@ -104,6 +110,14 @@ class PlainFormatter(BaseFormatter):
 
         for record in report['records']:
             self.writeLine((record[f] for f in fields))
+
+    def writeMap(self, reportmap, fields, headings):
+        self.writeLine((headings[f] for f in fields))
+
+        for key, value in reportmap.iteritems():
+            values = (key,)
+            values += tuple(value[f] for f in fields[1:])
+            self.writeLine(values)
 
     def writeReport(self, report, name, fields, headings):
         if self.options.has_key('fields'):
@@ -160,8 +174,27 @@ class PlainFormatter(BaseFormatter):
         self.write('  Bytes Out: %s\n' % (report['data']['bytesOut'],))
         self.write('  # Requests:\n')
 
-        for req, count in report['data']['requestCounts'].iteritems():
-            self.write('    %s: %s\n' % (req, count))
+        fields = (
+            'method',
+            'num',
+            'minbytes',
+            'avbytes',
+            'maxbytes',
+            'mintime',
+            'avtime',
+            'maxtime',
+        )
+        headings = {
+            'method':        'Method ',
+            'num':           '# Requests   ',
+            'minbytes':      'Min. bytes',
+            'avbytes':       ' Av. bytes',
+            'maxbytes':      'Max. bytes',
+            'mintime':       'Min. time',
+            'avtime':        ' Av. time',
+            'maxtime':       'Max. time',
+        }
+        self.writeMap(report['data']['requestStats'], fields, headings)
 
         self.write('  User Agents:\n')
 
