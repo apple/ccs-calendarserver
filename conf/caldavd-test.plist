@@ -216,7 +216,7 @@ limitations under the License.
     <key>Digest</key>
     <dict>
       <key>Enabled</key>
-      <false/>
+      <true/>
       <key>Algorithm</key>
       <string>md5</string>
       <key>Qop</key>
@@ -227,7 +227,7 @@ limitations under the License.
     <key>Kerberos</key>
     <dict>
       <key>Enabled</key>
-      <false/>
+      <true/>
       <key>ServicePrincipal</key>
       <string></string>
     </dict>
