@@ -440,9 +440,11 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.config['Authentication']['Kerberos']['ServicePrincipal'] = ''
         self.config['Authentication']['Kerberos']['Enabled'] = True
         self.writeConfig()
-        self.assertRaises(
-            ValueError,
-            self.getSite)
+        site = self.getSite()
+
+        authWrapper = site.resource.resource
+
+        self.assertFalse(authWrapper.credentialFactories.has_key('negotiate'))
 
     def test_servicePrincipal(self):
         """
