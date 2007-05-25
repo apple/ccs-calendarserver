@@ -47,7 +47,7 @@ from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
 from twistedcaldav.directory.sudo import SudoDirectoryService
-
+from twistedcaldav.directory.directory import DirectoryService
 
 class SudoAuthIDMixin(object):
     """
@@ -69,6 +69,75 @@ class SudoAuthIDMixin(object):
                 return principal
 
         return super(SudoAuthIDMixin, self).findPrincipalForAuthID(authid)
+
+    def authorizationPrincipal(self, request, authid, authnPrincipal):
+        """
+        Determine the authorization principal for the given request and authentication principal.
+        This implementation looks for an X-Authorize-As header value to use as the authoization principal.
+        
+        @param request: the L{IRequest} for the request in progress.
+        @param authid: a string containing the uthentication/authorization identifier
+            for the principal to lookup.
+        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
+        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
+            resource and URI respectively.
+        """
+        # FIXME: Unroll defgen
+
+        # Look for X-Authorize-As Header
+        authz = request.headers.getRawHeaders("x-authorize-as")
+
+        if authz is not None and (len(authz) == 1):
+            # Substitute the authz value for principal look up
+            authz = authz[0]
+
+        def getPrincipalForType(type, name):
+            for collection in self.principalCollections():
+                principal = collection.principalForShortName(type, name)
+                if principal:
+                    return principal
+
+        def isSudoPrincipal(authid):
+            if getPrincipalForType(SudoDirectoryService.recordType_sudoers, 
+                                   authid):
+                return True
+            return False
+
+        if isSudoPrincipal(authid):
+            if authz:
+                if isSudoPrincipal(authz):
+                    log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authid, authz))
+                    raise HTTPError(responsecode.FORBIDDEN)
+                else:
+                    authzPrincipal = getPrincipalForType(
+                        DirectoryService.recordType_groups, authz)
+
+                    if not authzPrincipal:
+                        authzPrincipal = self.findPrincipalForAuthID(authz)
+
+                    if authzPrincipal is not None:
+                        log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
+                        yield authzPrincipal
+                        return
+                    else:
+                        log.msg("Could not find authorization user id: '%s'" % 
+                                (authz,))
+                        raise HTTPError(responsecode.FORBIDDEN)
+            else:
+                log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authid, ))
+                raise HTTPError(responsecode.BAD_REQUEST)
+        elif authz:
+            log.msg("Cannot proxy: user '%s' as '%s'" % (authid, authz,))
+            raise HTTPError(responsecode.FORBIDDEN)
+        else:
+            # No proxy - do default behavior
+            d = waitForDeferred(super(SudoAuthIDMixin, self).authorizationPrincipal(request, authid, authnPrincipal))
+            yield d
+            yield d.getResult()
+            return
+
+    authorizationPrincipal = deferredGenerator(authorizationPrincipal)
+
 
 
 class DAVResource (SudoAuthIDMixin, SuperDAVResource):
