@@ -156,7 +156,7 @@ limitations under the License.
     <key>Basic</key>
     <dict>
       <key>Enabled</key>
-      <false/>
+      <true/>
     </dict>
 
     <!-- Digest challenge/response -->
