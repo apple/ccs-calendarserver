@@ -124,13 +124,22 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDSNAttrRecordName,
             dsattributes.kDS1AttrXMLPlist,
             dsattributes.kDSNAttrMetaNodeLocation,
+            'dsAttrTypeNative:apple-serviceinfo',
         ]
 
-        records = opendirectory.queryRecordsWithAttribute(
+        from dsquery import expression, match
+
+        records = opendirectory.queryRecordsWithAttributes(
             self.directory,
-            dsattributes.kDS1AttrXMLPlist,
-            vhostname,
-            dsattributes.eDSContains,
+            expression(
+                expression.OR,
+                (
+                    match(dsattributes.kDS1AttrXMLPlist,
+                          vhostname,
+                          dsattributes.eDSContains),
+                    match('dsAttrTypeNative:apple-serviceinfo',
+                          vhostname,
+                          dsattributes.eDSContains))).generate(),
             True,    # case insentive for hostnames
             dsattributes.kDSStdRecordTypeComputers,
             attrs
@@ -157,10 +166,16 @@ class OpenDirectoryService(DirectoryService):
         _remoteNode = None
 
         for recordname, record in records.iteritems():
-            # Must have XMLPlist value
-            plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
+            # May have an apple-serviceinfo
+            plist = record.get('dsAttrTypeNative:apple-serviceinfo', None)
+
             if not plist:
-                continue
+                # May have XMLPlist value
+                plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
+
+                # Must have one of the other
+                if not plist:
+                    continue
 
             # XXX: Parse the plist so we can find only calendar vhosts with our hostname.
             plistDict = readPlistFromString(plist)
