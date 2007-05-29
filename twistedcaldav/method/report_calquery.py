@@ -29,12 +29,13 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twisted.web2.dav.method.report import max_number_of_matches
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method import report_common
+
+max_number_of_results = 1000
 
 def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
     """
@@ -115,7 +116,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             if query_ok or filter.match(calendar):
                 # Check size of results is within limit
                 matchcount[0] += 1
-                if matchcount[0] > max_number_of_matches:
+                if matchcount[0] > max_number_of_results:
                     raise NumberOfMatchesWithinLimits
 
                 if name:
