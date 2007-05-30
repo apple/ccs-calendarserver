@@ -48,7 +48,7 @@ class RootResource(DAVFile):
                 self.useSacls = True
             else:
                 log.msg(("RootResource.CheckSACL is unset but "
-                         "config.EnableSACLs is True, SACLs will not be"
+                         "config.EnableSACLs is True, SACLs will not be "
                          "turned on."))
 
         self.contentFilters = []
@@ -83,6 +83,10 @@ class RootResource(DAVFile):
                         request.remoteAddr)))
 
         def _checkSACLCb((authnUser, authzUser)):
+            # Cache the authentication details
+            request.authnUser = authnUser
+            request.authzUser = authzUser
+
             # Figure out the "username" from the davxml.Principal object
             username = authzUser.children[0].children[0].data
             username = username.rstrip('/').split('/')[-1]
@@ -91,6 +95,8 @@ class RootResource(DAVFile):
                 log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
                 return Failure(HTTPError(403))
 
+            # Mark SACL's as having been checked so we can avoid doing it multiple times
+            request.checkedSACL = True
             return True
             
         d = defer.maybeDeferred(self.authenticate, request)
@@ -102,7 +108,7 @@ class RootResource(DAVFile):
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-        if self.useSacls:
+        if self.useSacls and not hasattr(request, "checkedSACL"):
             d = self.checkSacl(request)
             d.addCallback(lambda _: super(RootResource, self
                                           ).locateChild(request, segments))

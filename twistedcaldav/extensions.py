@@ -24,7 +24,7 @@ __all__ = [
     "DAVResource",
     "DAVFile",
     "ReadOnlyResourceMixIn",
-    "SudoAuthIDMixin",
+    "SudoSACLMixin",
 ]
 
 import cPickle as pickle
@@ -49,11 +49,21 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 
-class SudoAuthIDMixin(object):
+class SudoSACLMixin(object):
     """
     Mixin class to let DAVResource, and DAVFile subclasses below know
     about sudoer principals and how to find their AuthID
     """
+
+    def authenticate(self, request):
+        # Bypass normal authentication if its already been done (by SACL check)
+        if (hasattr(request, "authnUser") and
+            hasattr(request, "authzUser") and
+            request.authnUser is not None and
+            request.authzUser is not None):
+            return (request.authnUser, request.authzUser)
+        else:
+            return super(SudoSACLMixin, self).authenticate(request)
 
     def findPrincipalForAuthID(self, authid):
         """
@@ -68,7 +78,7 @@ class SudoAuthIDMixin(object):
             if principal is not None:
                 return principal
 
-        return super(SudoAuthIDMixin, self).findPrincipalForAuthID(authid)
+        return super(SudoSACLMixin, self).findPrincipalForAuthID(authid)
 
     def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
@@ -131,7 +141,7 @@ class SudoAuthIDMixin(object):
             raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
-            d = waitForDeferred(super(SudoAuthIDMixin, self).authorizationPrincipal(request, authid, authnPrincipal))
+            d = waitForDeferred(super(SudoSACLMixin, self).authorizationPrincipal(request, authid, authnPrincipal))
             yield d
             yield d.getResult()
             return
@@ -139,8 +149,7 @@ class SudoAuthIDMixin(object):
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
 
-
-class DAVResource (SudoAuthIDMixin, SuperDAVResource):
+class DAVResource (SudoSACLMixin, SuperDAVResource):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
@@ -335,7 +344,7 @@ class DAVPrincipalResource (SuperDAVPrincipalResource):
             return davxml.ResourceType(davxml.Principal())
 
 
-class DAVFile (SudoAuthIDMixin, SuperDAVFile):
+class DAVFile (SudoSACLMixin, SuperDAVFile):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
