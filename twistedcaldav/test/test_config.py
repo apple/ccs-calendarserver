@@ -71,7 +71,7 @@ class ConfigTests(unittest.TestCase):
         _testVerbose(self)
 
     def testReloading(self):
-        self.assertEquals(config.HTTPPort, -1)
+        self.assertEquals(config.HTTPPort, 0)
 
         config.loadConfig(self.testConfig)
 
@@ -81,10 +81,10 @@ class ConfigTests(unittest.TestCase):
 
         config.reload()
 
-        self.assertEquals(config.HTTPPort, -1)
+        self.assertEquals(config.HTTPPort, 0)
 
     def testUpdateAndReload(self):
-        self.assertEquals(config.HTTPPort, -1)
+        self.assertEquals(config.HTTPPort, 0)
 
         config.loadConfig(self.testConfig)
 
@@ -108,7 +108,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEquals(config.BindAddresses, ['127.0.0.1'])
 
     def testUpdating(self):
-        self.assertEquals(config.SSLPort, -1)
+        self.assertEquals(config.SSLPort, 0)
 
         config.update({'SSLPort': 8443})
 
@@ -181,7 +181,7 @@ class ConfigTests(unittest.TestCase):
     testDirectoryService_unknownType.todo = "unimplemented"
 
     def testUpdateDefaults(self):
-        self.assertEquals(config.SSLPort, -1)
+        self.assertEquals(config.SSLPort, 0)
 
         config.loadConfig(self.testConfig)
 
@@ -193,7 +193,7 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEquals(config.SSLPort, 8009)
 
-        config.updateDefaults({'SSLPort': -1})
+        config.updateDefaults({'SSLPort': 0})
 
     def testMergeDefaults(self):
         config.updateDefaults({'MultiProcess': {}})
@@ -207,7 +207,7 @@ class ConfigTests(unittest.TestCase):
 
         config.reload()
 
-        self.assertEquals(config.SSLPort, -1)
+        self.assertEquals(config.SSLPort, 0)
 
     def testCopiesDefaults(self):
         config.updateDefaults({'Foo': 'bar'})

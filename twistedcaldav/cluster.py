@@ -85,8 +85,6 @@ class TwistdSlaveProcess(object):
         if config.GroupName:
             args.extend(('-g', config.GroupName))
 
-        import pdb; pdb.set_trace()
-
         args.extend(
             ['-n', self.tapname,
              '-f', self.configFile,
