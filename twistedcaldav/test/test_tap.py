@@ -248,6 +248,8 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         validServices = ['Slave', 'Master', 'Combined']
 
+        self.config['HTTPPort'] = 80
+
         for service in validServices:
             self.config['ServerType'] = service
             self.writeConfig()
