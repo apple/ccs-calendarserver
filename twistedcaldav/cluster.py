@@ -85,17 +85,29 @@ class TwistdSlaveProcess(object):
         if config.GroupName:
             args.extend(('-g', config.GroupName))
 
+        import pdb; pdb.set_trace()
+
         args.extend(
             ['-n', self.tapname,
              '-f', self.configFile,
              '-o', 'ProcessType=Slave',
              '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-             '-o', 'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),),
-             '-o', 'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),),
              '-o', 'PIDFile=None',
              '-o', 'ErrorLogFile=None',
              '-o', 'MultiProcess/ProcessCount=%d' % (
                     config.MultiProcess['ProcessCount'],)])
+
+        if self.ports:
+            args.extend([
+                    '-o',
+                    'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),)])
+
+        if self.sslPorts:
+            args.extend([
+                    '-o', 
+                    'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),)])
+
+
 
 
         return args
@@ -156,6 +168,12 @@ def makeService_Combined(self, options):
         if config.BindSSLPorts:
             sslPort = config.BindSSLPorts
 
+    if port[0] == 0:
+        port = None
+
+    if sslPort[0] == 0:
+        sslPort = None
+
     # If the load balancer isn't enabled, or if we only have one process
     # We listen directly on the interfaces.
 
@@ -165,8 +183,11 @@ def makeService_Combined(self, options):
 
     for p in xrange(0, config.MultiProcess['ProcessCount']):
         if config.MultiProcess['ProcessCount'] > 1:
-            port = [port[0] + 1]
-            sslPort = [sslPort[0] + 1]
+            if port is not None:
+                port = [port[0] + 1]
+
+            if sslPort is not None:
+                sslPort = [sslPort[0] + 1]
 
         process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      self.tapname,
@@ -205,11 +226,13 @@ def makeService_Combined(self, options):
 
             httpPorts = config.BindHTTPPorts
             if not httpPorts:
-                httpPorts = (config.HTTPPort,)
+                if config.HTTPPort != 0:
+                    httpPorts = (config.HTTPPort,)
 
             sslPorts = config.BindSSLPorts
             if not sslPorts:
-                sslPorts = (config.SSLPort,)
+                if config.SSLPort != 0:
+                    sslPorts = (config.SSLPort,)
 
             for ports, listeners in ((httpPorts, httpListeners),
                                      (sslPorts, sslListeners)):

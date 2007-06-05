@@ -520,15 +520,15 @@ class CalDAVServiceMaker(object):
 
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
-                if config.HTTPPort == -1:
+                if config.HTTPPort == 0:
                     raise UsageError("HTTPPort required if BindHTTPPorts is not empty")
-            elif config.HTTPPort != -1:
+            elif config.HTTPPort != 0:
                     config.BindHTTPPorts = [config.HTTPPort]
 
             if config.BindSSLPorts:
-                if config.SSLPort == -1:
+                if config.SSLPort == 0:
                     raise UsageError("SSLPort required if BindSSLPorts is not empty")
-            elif config.SSLPort != -1:
+            elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
             if config.BindSSLPorts:
