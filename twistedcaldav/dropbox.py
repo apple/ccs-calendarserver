@@ -210,6 +210,10 @@ class DropBoxCollectionResource (DAVResource):
         Handle subscribe/unsubscribe requests only.
         """
         
+        if not self.fp.exists():
+            log.err("File not found: %s" % (self.fp.path,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
         # Read request body
         try:
             doc = waitForDeferred(davXMLFromStream(request.stream))
