@@ -87,7 +87,7 @@ class XMLDirectoryService(DirectoryService):
              yield entry.shortName, entry
 
     def _accounts(self):
-#        self.xmlFile.restat()
+        self.xmlFile.restat()
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
         if fileInfo != self._fileInfo:
             parser = XMLAccountsParser(self.xmlFile)
