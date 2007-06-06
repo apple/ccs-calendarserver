@@ -169,9 +169,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 # CalDAV:schedule for associated write proxies
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write"))),
-                    davxml.Grant(
-                        davxml.Privilege(caldavxml.Schedule()),
-                    ),
+                    davxml.Grant(davxml.Privilege(caldavxml.Schedule()),),
+                    davxml.Protected(),
                 ),
             )
         else:
@@ -191,10 +190,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         issues which the other approach would have with large numbers of recipients.
         """
         # Check authentication and access controls
-        parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-        yield parent
-        parent = parent.getResult()
-        x = waitForDeferred(parent.authorize(request, (caldavxml.Schedule(),)))
+        x = waitForDeferred(self.authorize(request, (caldavxml.Schedule(),)))
         yield x
         x.getResult()
 
@@ -223,6 +219,11 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             log.err("Could not find inbox for originator: %s" % (originator,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
     
+        # Verify that Originator matches the authenticated user
+        if davxml.Principal(davxml.HRef(oprincipal.principalURL())) != self.currentPrincipal(request):
+            log.err("Originator: %s does not match authorized user: %s" % (originator, self.currentPrincipal(request).children[0],))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+
         # Get list of Recipient headers
         rawrecipients = request.headers.getRawHeaders("recipient")
         if rawrecipients is None or (len(rawrecipients) == 0):
