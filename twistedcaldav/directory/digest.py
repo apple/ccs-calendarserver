@@ -337,7 +337,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             username, a nonce, an opaque, or if the opaque is invalid.
         """
         def unq(s):
-            if s[0] == s[-1] == '"':
+            if len(s) != 0 and s[0] == s[-1] == '"':
                 return s[1:-1]
             return s
         response = ' '.join(response.splitlines())

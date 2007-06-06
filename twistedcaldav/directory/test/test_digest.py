@@ -60,6 +60,8 @@ authRequest3 = ('username="username", realm="test realm", nonce="%s", '
 
 namelessAuthRequest = 'realm="test realm",nonce="doesn\'t matter"'
 
+emtpyAttributeAuthRequest = 'realm=,nonce="doesn\'t matter"'
+
 
 class DigestAuthTestCase(unittest.TestCase):
     """
@@ -232,6 +234,20 @@ class DigestAuthTestCase(unittest.TestCase):
                                   'realm="Test",username="Foo",opaque="bar"',
                                   _trivial_GET)
             self.assertEquals(str(e), "Invalid response, no nonce given.")
+
+    def test_emptyAttribute(self):
+        """
+        Test that login fails when our response contains an attribute
+        with no value,
+        """
+
+        # Check for no username
+        for factory in self.credentialFactories:
+            e = self.assertRaises(error.LoginFailed,
+                                  factory.decode,
+                                  emtpyAttributeAuthRequest,
+                                  _trivial_GET)
+            self.assertEquals(str(e), "Invalid response, no username given.")
 
     def test_checkHash(self):
         """
