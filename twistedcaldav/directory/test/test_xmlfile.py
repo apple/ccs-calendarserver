@@ -89,6 +89,8 @@ class XMLFile (
         return XMLDirectoryService(self.xmlFile())
 
     def test_changedXML(self):
+        service = self.service()
+
         self.xmlFile().open("w").write(
 """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
@@ -108,6 +110,6 @@ class XMLFile (
             ( DirectoryService.recordType_resources , ()         ),
         ):
             self.assertEquals(
-                set(r.shortName for r in self.service().listRecords(recordType)),
+                set(r.shortName for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
