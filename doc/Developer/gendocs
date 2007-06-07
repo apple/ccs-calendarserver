@@ -22,9 +22,9 @@ set -e
 set -u
 
  wd="$(cd "$(dirname "$0")" && pwd -P)";
-top="$(cd "${wd}/../.." && pwd -L)"
+top="$(cd "${wd}/../../.." && pwd -L)"
 
-export PYTHONPATH="$("${wd}/../run" -p)";
+export PYTHONPATH="$("${wd}/../../run" -p)";
 
 ##
 # Download and set up dependancies
@@ -38,7 +38,7 @@ if [ ! -d "${epydoc}" ]; then
 fi;
 
 if [ ! -d "${epydoc}/build/lib" ]; then
-   cd "${epydoc}" && python2.4 ./setup.py build;
+   cd "${epydoc}" && python ./setup.py build;
 fi;
 
 pydoctor="${top}/pydoctor";
@@ -49,7 +49,7 @@ if [ ! -d "${pydoctor}" ]; then
 fi;
 
 if [ ! -d "${pydoctor}/build/lib" ]; then
-   cd "${pydoctor}" && python2.4 ./setup.py build;
+   cd "${pydoctor}" && python ./setup.py build;
 fi;
 
 nevow="${top}/Nevow";
@@ -60,7 +60,7 @@ fi;
 
 export PYTHONPATH="${PYTHONPATH}:${epydoc}/build/lib:${pydoctor}/build/lib/:${nevow}";
 
-python_version="$(python2.4 -V 2>&1)";
+python_version="$(python -V 2>&1)";
 python_version="${python_version#Python }";
 python_version="${python_version%*.*}";
 
