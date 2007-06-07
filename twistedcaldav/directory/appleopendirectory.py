@@ -213,7 +213,8 @@ class OpenDirectoryService(DirectoryService):
 
         else:
             raise OpenDirectoryInitError(
-                "Open Directory (node=%s) no /Computers records with an enabled and valid calendar service were found matching virtual hostname: %s"
+                "Open Directory (node=%s) no /Computers records with an enabled and valid "
+                "calendar service were found matching virtual hostname: %s"
                 % (self.realmName, vhostname,)
             )
 
@@ -343,132 +344,171 @@ class OpenDirectoryService(DirectoryService):
         type.  Keys are short names and values are the cooresponding
         OpenDirectoryRecord for the given record type.
         """
-        def reloadCache():
-            log.msg("Reloading %s record cache" % (recordType,))
+        try:
+            storage = self._records[recordType]
+        except KeyError:
+            self.reloadCache(recordType)
+        else:
+            if storage["status"] == "stale":
+                storage["status"] = "loading"
 
-            attrs = [
-                dsattributes.kDS1AttrGeneratedUID,
-                dsattributes.kDS1AttrDistinguishedName,
-                dsattributes.kDSNAttrEMailAddress,
-                dsattributes.kDSNAttrServicesLocator,
-            ]
+                def onError(f):
+                    storage["status"] = "stale" # Keep trying
+                    log.err("Unable to load records of type %s from OpenDirectory due to unexpected error: %s"
+                            % (recordType, f))
 
-            query = None
-            if recordType == DirectoryService.recordType_users:
-                listRecordType = dsattributes.kDSStdRecordTypeUsers
+                d = deferToThread(self.reloadCache, recordType)
+                d.addErrback(onError)
 
-            elif recordType == DirectoryService.recordType_groups:
-                listRecordType = dsattributes.kDSStdRecordTypeGroups
-                attrs.append(dsattributes.kDSNAttrGroupMembers)
+        return self._records[recordType]["records"]
 
-            elif recordType == DirectoryService.recordType_locations:
-                listRecordType = dsattributes.kDSStdRecordTypeResources
-                query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
-            
-            elif recordType == DirectoryService.recordType_resources:
-                listRecordType = dsattributes.kDSStdRecordTypeResources
-                query = dsquery.expression(dsquery.expression.OR, (
-                    dsquery.match(dsattributes.kDSNAttrResourceType, "0", dsattributes.eDSExact),
-                    dsquery.match(dsattributes.kDSNAttrResourceType, "2", dsattributes.eDSExact),
-                    dsquery.match(dsattributes.kDSNAttrResourceType, "3", dsattributes.eDSExact),
-                    dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
-                    dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
-                ))
-            
+    def listRecords(self, recordType):
+        return self.recordsForType(recordType).itervalues()
+
+    def recordWithShortName(self, recordType, shortName):
+        try:
+            return self.recordsForType(recordType)[shortName]
+        except KeyError:
+            # Cache miss; try looking the record up, in case it is new
+            # FIXME: This is a blocking call (hopefully it's a fast one)
+            self.reloadCache(recordType, shortName)
+            return self.recordsForType(recordType)[shortName]
+
+    def reloadCache(self, recordType, shortName=None):
+        log.msg("Reloading %s record cache" % (recordType,))
+
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDS1AttrDistinguishedName,
+            dsattributes.kDSNAttrEMailAddress,
+            dsattributes.kDSNAttrServicesLocator,
+        ]
+
+        query = None
+        if recordType == DirectoryService.recordType_users:
+            listRecordType = dsattributes.kDSStdRecordTypeUsers
+
+        elif recordType == DirectoryService.recordType_groups:
+            listRecordType = dsattributes.kDSStdRecordTypeGroups
+            attrs.append(dsattributes.kDSNAttrGroupMembers)
+
+        elif recordType == DirectoryService.recordType_locations:
+            listRecordType = dsattributes.kDSStdRecordTypeResources
+            query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
+        
+        elif recordType == DirectoryService.recordType_resources:
+            listRecordType = dsattributes.kDSStdRecordTypeResources
+            query = dsquery.expression(dsquery.expression.OR, (
+                dsquery.match(dsattributes.kDSNAttrResourceType, "0", dsattributes.eDSExact),
+                dsquery.match(dsattributes.kDSNAttrResourceType, "2", dsattributes.eDSExact),
+                dsquery.match(dsattributes.kDSNAttrResourceType, "3", dsattributes.eDSExact),
+                dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
+                dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
+            ))
+        
+        else:
+            raise UnknownRecordTypeError("Unknown Open Directory record type: %s"
+                                         % (recordType,))
+
+        if self.requireComputerRecord:
+            cprecord = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
+            if query:
+                query = dsquery.expression(dsquery.expression.AND, (cprecord, query))
             else:
-                raise UnknownRecordTypeError("Unknown Open Directory record type: %s"
-                                             % (recordType,))
+                query = cprecord
+            
+        if shortName is not None:
+            query = dsquery.expression(dsquery.expression.AND,
+                (dsquery.match(dsattributes.kDSNAttrResourceType, shortName, dsattributes.eDSExact), query)
+            )
 
-            if self.requireComputerRecord:
-                cprecord = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
-                if query:
-                    query = dsquery.expression(dsquery.expression.AND, (cprecord, query))
-                else:
-                    query = cprecord
-                
-            records = {}
+        records = {}
 
-            try:
-                if query:
-                    if isinstance(query, dsquery.match):
-                        results = opendirectory.queryRecordsWithAttribute(
-                            self.directory,
-                            query.attribute,
-                            query.value,
-                            query.matchType,
-                            False,
-                            listRecordType,
-                            attrs,
-                        )
-                    else:
-                        results = opendirectory.queryRecordsWithAttributes(
-                            self.directory,
-                            query.generate(),
-                            False,
-                            listRecordType,
-                            attrs,
-                        )
-                else:
-                    results = opendirectory.listAllRecordsWithAttributes(
+        try:
+            if query:
+                if isinstance(query, dsquery.match):
+                    results = opendirectory.queryRecordsWithAttribute(
                         self.directory,
+                        query.attribute,
+                        query.value,
+                        query.matchType,
+                        False,
                         listRecordType,
                         attrs,
                     )
-            except opendirectory.ODError, ex:
-                log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
-                raise
-
-            for (key, value) in results.iteritems():
-                if self.requireComputerRecord:
-                    # Make sure this record has service enabled.
-                    enabled = True
-
-                    services = value.get(dsattributes.kDSNAttrServicesLocator)
-                    if isinstance(services, str):
-                        services = [services]
-
-                    for service in services:
-                        if service.startswith(self.servicetag):
-                            if service.endswith(":disabled"):
-                                enabled = False
-                            break
-
-                    if not enabled:
-                        log.err("Record is not enabled")
-                        continue
-
-                # Now get useful record info.
-                shortName = key
-                guid = value.get(dsattributes.kDS1AttrGeneratedUID)
-                if not guid:
-                    continue
-                realName = value.get(dsattributes.kDS1AttrDistinguishedName)
-
-                # Get calendar user addresses from directory record.
-                cuaddrset = self._getCalendarUserAddresses(recordType, key, value)
-
-                # Special case for groups.
-                if recordType == DirectoryService.recordType_groups:
-                    memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
-                    if memberGUIDs is None:
-                        memberGUIDs = ()
-                    elif type(memberGUIDs) is str:
-                        memberGUIDs = (memberGUIDs,)
                 else:
-                    memberGUIDs = ()
-
-                records[shortName] = OpenDirectoryRecord(
-                    service               = self,
-                    recordType            = recordType,
-                    guid                  = guid,
-                    shortName             = shortName,
-                    fullName              = realName,
-                    calendarUserAddresses = cuaddrset,
-                    memberGUIDs           = memberGUIDs,
+                    results = opendirectory.queryRecordsWithAttributes(
+                        self.directory,
+                        query.generate(),
+                        False,
+                        listRecordType,
+                        attrs,
+                    )
+            else:
+                results = opendirectory.listAllRecordsWithAttributes(
+                    self.directory,
+                    listRecordType,
+                    attrs,
                 )
+        except opendirectory.ODError, ex:
+            log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            raise
 
-                #log.debug("Populated record: %s" % (records[shortName],))
+        for (key, value) in results.iteritems():
+            if self.requireComputerRecord:
+                # Make sure this record has service enabled.
+                enabled = True
 
+                services = value.get(dsattributes.kDSNAttrServicesLocator)
+                if isinstance(services, str):
+                    services = [services]
+
+                for service in services:
+                    if service.startswith(self.servicetag):
+                        if service.endswith(":disabled"):
+                            enabled = False
+                        break
+
+                if not enabled:
+                    log.err("Record is not enabled")
+                    continue
+
+            # Now get useful record info.
+            recordShortName = key
+            guid = value.get(dsattributes.kDS1AttrGeneratedUID)
+            if not guid:
+                continue
+            realName = value.get(dsattributes.kDS1AttrDistinguishedName)
+
+            # Get calendar user addresses from directory record.
+            cuaddrset = self._getCalendarUserAddresses(recordType, key, value)
+
+            # Special case for groups.
+            if recordType == DirectoryService.recordType_groups:
+                memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
+                if memberGUIDs is None:
+                    memberGUIDs = ()
+                elif type(memberGUIDs) is str:
+                    memberGUIDs = (memberGUIDs,)
+            else:
+                memberGUIDs = ()
+
+            records[recordShortName] = OpenDirectoryRecord(
+                service               = self,
+                recordType            = recordType,
+                guid                  = guid,
+                shortName             = recordShortName,
+                fullName              = realName,
+                calendarUserAddresses = cuaddrset,
+                memberGUIDs           = memberGUIDs,
+            )
+
+            #log.debug("Populated record: %s" % (records[recordShortName],))
+
+        if shortName is None:
+            #
+            # Replace the entire cache
+            #
             storage = {
                 "status": "new",
                 "records": records,
@@ -486,30 +526,15 @@ class OpenDirectoryService(DirectoryService):
             self._delayedCalls.add(callLater(recordListCacheTimeout, rot))
 
             self._records[recordType] = storage
-
-        try:
-            storage = self._records[recordType]
-        except KeyError:
-            reloadCache()
         else:
-            if storage["status"] == "stale":
-                storage["status"] = "loading"
-
-                def onError(f):
-                    storage["status"] = "stale" # Keep trying
-                    log.err("Unable to load records of type %s from OpenDirectory due to unexpected error: %s"
-                            % (recordType, f))
-
-                d = deferToThread(reloadCache)
-                d.addErrback(onError)
-
-        return self._records[recordType]["records"]
-
-    def listRecords(self, recordType):
-        return self.recordsForType(recordType).itervalues()
-
-    def recordWithShortName(self, recordType, shortName):
-        return self.recordsForType(recordType).get(shortName, None)
+            #
+            # Update one record, if found
+            #
+            if records:
+                assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
+                self._records[recordType]["records"][shortName] = records[shortName]
+            else:
+                self._records[recordType]["records"][shortName] = None
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
