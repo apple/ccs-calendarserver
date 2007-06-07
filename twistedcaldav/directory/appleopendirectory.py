@@ -461,9 +461,7 @@ class OpenDirectoryService(DirectoryService):
                 services = value.get(dsattributes.kDSNAttrServicesLocator)
 
                 if not services:
-                    log.err("No ServicesLocator attribute: %s" % (key,))
-                    log.err("The ServicesLocator attribute was requested in query.  "
-                            "Your directory server appears to be broken.")
+                    log.err("Directory (incorrectly) returned a record with no ServicesLocator attribute: %s" % (key,))
                     continue
 
             # Now get useful record info.
