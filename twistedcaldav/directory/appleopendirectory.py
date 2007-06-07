@@ -582,13 +582,18 @@ class OpenDirectoryRecord(DirectoryRecord):
                 # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
                 # picky about exactly what it receives.
                 
-                challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
-                response = ('Digest username="%(username)s", '
-                            'realm="%(realm)s", '
-                            'nonce="%(nonce)s", '
-                            'uri="%(uri)s", '
-                            'response="%(response)s",'
-                            'algorithm=%(algorithm)s') % credentials.fields
+                try:
+                    challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
+                    response = ('Digest username="%(username)s", '
+                                'realm="%(realm)s", '
+                                'nonce="%(nonce)s", '
+                                'uri="%(uri)s", '
+                                'response="%(response)s",'
+                                'algorithm=%(algorithm)s') % credentials.fields
+                except KeyError:
+                    log.err("Open Directory (node=%s) error while performing digest authentication for user %s: missing digest response fields: %s"
+                            % (self.service.realmName, self.shortName, credentials.fields))
+                    return False
 
                 return opendirectory.authenticateUserDigest(
                     self.service.directory,

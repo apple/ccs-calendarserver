@@ -23,6 +23,7 @@ except ImportError:
 else:
     from twistedcaldav.directory.directory import DirectoryService
     import twistedcaldav.directory.test.util
+    import twisted.web2.auth.digest
 
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):
@@ -59,3 +60,18 @@ else:
         def service(self):
             return self._service
 
+        def test_invalidODDigest(self):
+            record = twistedcaldav.directory.appleopendirectory.OpenDirectoryRecord(
+                self.service(),
+                DirectoryService.recordType_users,
+                "GUID-123",
+                "guidify",
+                "GUID",
+                set("mailtoguid@example.com",),
+                []
+            )
+
+            digestFields = {}
+            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields)
+
+            self.assertFalse(record.verifyCredentials(digested))
