@@ -411,16 +411,18 @@ class OpenDirectoryService(DirectoryService):
                                          % (recordType,))
 
         if self.requireComputerRecord:
-            cprecord = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
+            subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
             if query:
-                query = dsquery.expression(dsquery.expression.AND, (cprecord, query))
+                query = dsquery.expression(dsquery.expression.AND, (subquery, query))
             else:
-                query = cprecord
+                query = subquery
             
         if shortName is not None:
-            query = dsquery.expression(dsquery.expression.AND,
-                (dsquery.match(dsattributes.kDSNAttrResourceType, shortName, dsattributes.eDSExact), query)
-            )
+            subquery = dsquery.match(dsattributes.kDSNAttrResourceType, shortName, dsattributes.eDSExact)
+            if query is None:
+                query = subquery
+            else:
+                query = dsquery.expression(dsquery.expression.AND, (subquery, query))
 
         records = {}
 
