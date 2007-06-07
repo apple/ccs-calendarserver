@@ -411,7 +411,7 @@ class OpenDirectoryService(DirectoryService):
                                          % (recordType,))
 
         if self.requireComputerRecord:
-            subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSStartsWith)
+            subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSExact)
             if query is None:
                 query = subquery
             else:
@@ -458,21 +458,12 @@ class OpenDirectoryService(DirectoryService):
 
         for (key, value) in results.iteritems():
             if self.requireComputerRecord:
-                # Make sure this record has service enabled.
-                enabled = True
-
                 services = value.get(dsattributes.kDSNAttrServicesLocator)
-                if isinstance(services, str):
-                    services = [services]
 
-                for service in services:
-                    if service.startswith(self.servicetag):
-                        if service.endswith(":disabled"):
-                            enabled = False
-                        break
-
-                if not enabled:
-                    log.err("Record is not enabled")
+                if not services:
+                    log.err("No ServicesLocator attribute: %s" % (key,))
+                    log.err("The ServicesLocator attribute was requested in query.  "
+                            "Your directory server appears to be broken.")
                     continue
 
             # Now get useful record info.
