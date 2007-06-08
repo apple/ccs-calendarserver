@@ -25,10 +25,12 @@
 """
 
 import plistlib
+import sys
+import time
 
 from twistedcaldav.admin import util
 
-PLIST_VERSION = 1
+PLIST_VERSION = 2
 
 statsTemplate = plistlib.Dict(
     version=PLIST_VERSION,
@@ -45,6 +47,9 @@ statsTemplate = plistlib.Dict(
         ),
     userAgents=plistlib.Dict(),
     )
+
+def _strAdd(value, add):
+    return str(long(value) + add)
 
 class Stats(object):
     def __init__(self, fp):
@@ -72,51 +77,53 @@ class Stats(object):
         return long(self._data.bytesOut)
 
     def addBytes(self, bytes):
-        self._data.bytesOut = str(long(self._data.bytesOut) + bytes)
+        self._data.bytesOut = _strAdd(self._data.bytesOut, bytes)
 
     def addRequestStats(self, request, status, bytes, time):
         if request in self._data.requestStats:
-            old_num = self._data.requestStats[request]['num']
-            self._data.requestStats[request]['num'] = old_num + 1
+            request_stat = self._data.requestStats[request]
+            old_num = long(request_stat['num'])
+            request_stat['num'] = _strAdd(request_stat['num'], 1)
             if status >= 200 and status < 300:
-                self._data.requestStats[request]['numOK'] = self._data.requestStats[request]['numOK'] + 1
+                request_stat['numOK'] = _strAdd(request_stat['numOK'], 1)
             elif status == 500:
-                self._data.requestStats[request]['numISE'] = self._data.requestStats[request]['numISE'] + 1
+                request_stat['numISE'] = _strAdd(request_stat['numISE'], 1)
             elif status >= 400 and status < 600:
-                self._data.requestStats[request]['numBAD'] = self._data.requestStats[request]['numBAD'] + 1
+                request_stat['numBAD'] = _strAdd(request_stat['numBAD'], 1)
             else:
-                self._data.requestStats[request]['numOther'] = self._data.requestStats[request]['numOther'] + 1
-            if bytes < self._data.requestStats[request]['minbytes']:
-                self._data.requestStats[request]['minbytes'] = bytes
-            if bytes > self._data.requestStats[request]['maxbytes']:
-                self._data.requestStats[request]['maxbytes'] = bytes
-            self._data.requestStats[request]['avbytes'] = (self._data.requestStats[request]['avbytes'] * old_num + bytes) / (old_num + 1)
-            if time < self._data.requestStats[request]['mintime']:
-                self._data.requestStats[request]['mintime'] = time
-            if time > self._data.requestStats[request]['maxtime']:
-                self._data.requestStats[request]['maxtime'] = time
-            self._data.requestStats[request]['avtime'] = (self._data.requestStats[request]['avtime'] * old_num + time) / (old_num + 1)
+                request_stat['numOther'] = _strAdd(request_stat['numOther'], 1)
+            if bytes < request_stat['minbytes']:
+                request_stat['minbytes'] = str(bytes)
+            if bytes > request_stat['maxbytes']:
+                request_stat['maxbytes'] = str(bytes)
+            request_stat['avbytes'] = str((long(request_stat['avbytes']) * old_num + bytes) / (old_num + 1))
+            if time < request_stat['mintime']:
+                request_stat['mintime'] = time
+            if time > request_stat['maxtime']:
+                request_stat['maxtime'] = time
+            request_stat['avtime'] = (request_stat['avtime'] * old_num + time) / (old_num + 1)
         else:
             self._data.requestStats[request] = {}
-            self._data.requestStats[request]['num'] = 1
-            self._data.requestStats[request]['numOK'] = 0
-            self._data.requestStats[request]['numBAD'] = 0
-            self._data.requestStats[request]['numISE'] = 0
-            self._data.requestStats[request]['numOther'] = 0
+            request_stat = self._data.requestStats[request]
+            request_stat['num'] = "1"
+            request_stat['numOK'] = "0"
+            request_stat['numBAD'] = "0"
+            request_stat['numISE'] = "0"
+            request_stat['numOther'] = "0"
             if status >= 200 and status < 300:
-                self._data.requestStats[request]['numOK'] = 1
+                request_stat['numOK'] = "1"
             elif status == 500:
-                self._data.requestStats[request]['numISE'] = 1
+                request_stat['numISE'] = "1"
             elif status >= 400 and status < 600:
-                self._data.requestStats[request]['numBAD'] = 1
+                request_stat['numBAD'] = "1"
             else:
-                self._data.requestStats[request]['numOther'] = 1
-            self._data.requestStats[request]['minbytes'] = bytes
-            self._data.requestStats[request]['maxbytes'] = bytes
-            self._data.requestStats[request]['avbytes'] = bytes
-            self._data.requestStats[request]['mintime'] = time
-            self._data.requestStats[request]['maxtime'] = time
-            self._data.requestStats[request]['avtime'] = time
+                request_stat['numOther'] = "1"
+            request_stat['minbytes'] = str(bytes)
+            request_stat['maxbytes'] = str(bytes)
+            request_stat['avbytes'] = str(bytes)
+            request_stat['mintime'] = time
+            request_stat['maxtime'] = time
+            request_stat['avtime'] = time
     
     def getRequestStats(self):
         return self._data.requestStats
@@ -202,8 +209,9 @@ class LogAction(object):
                 pass
             total_count += 1
             print "Reading file: %s (%d lines)" % (self.logfile.basename(), total_count,)
-            print "|" + "--" * 48 + "|"
+            print "|" + "----|" * 10 + "\n.",
             last_count = 0
+            start_time = time.time()
             for line_count, line in enumerate(self.logfile.open()):
                 if (line.startswith('Log opened') or 
                     line.startswith('Log closed')):
@@ -220,10 +228,11 @@ class LogAction(object):
                         self.stats.addUserAgent(pline[8])
                         
                 if (50 * line_count) / total_count > last_count:
-                    print ".",
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
                     last_count = (50 * line_count) / total_count
 
-            print "\n\n"
+            print ".\nTime taken: %.1f secs\n" % (time.time() - start_time)
 
             self.stats.save()    
 

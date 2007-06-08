@@ -92,9 +92,9 @@ class PlainFormatter(BaseFormatter):
 
         for f in fields:
             if isinstance(f, float):
-                p = "% 9.2f" % (f,)
-            elif isinstance(f, int):
-                p = "% 9d" % (f,)
+                p = ("% " + str(spacing - 1) + ".2f") % (f,)
+            elif isinstance(f, int) or isinstance(f, long):
+                p = ("% " + str(spacing - 1) + "d") % (f,)
             else:
                 p = str(f)
             self.write(p)
@@ -111,12 +111,15 @@ class PlainFormatter(BaseFormatter):
         for record in report['records']:
             self.writeLine((record[f] for f in fields))
 
-    def writeMap(self, reportmap, fields, headings):
+    def writeMap(self, reportmap, fields, types, headings):
         self.writeLine((headings[f] for f in fields))
+        spacing = self.options.get('spacing', 16)
+        self.write(('-' * (spacing - 1) + ' ') * len(fields) + '\n')
 
         for key, value in reportmap.iteritems():
             values = (key,)
             values += tuple(value[f] for f in fields[1:])
+            values = [types[i](value) for i, value in enumerate(values)]
             self.writeLine(values)
 
     def writeFrequencies(self, frequencies):
@@ -193,10 +196,12 @@ class PlainFormatter(BaseFormatter):
     def report_logs(self, report):
         self.write('Log Statistics:\n\n')
 
-        self.write('  Start Date: %s\n  End Date  :%s\n\n' % report['data']['dateRange'])
+        self.write('  Start Date: %s\n  End Date  : %s\n\n' % report['data']['dateRange'])
 
-        self.write('  Bytes Out: %s\n\n' % (report['data']['bytesOut'],))
+        self.write('  Bytes Out: %s (%.2f GB)\n\n' % (report['data']['bytesOut'], report['data']['bytesOut'] / (1024.0 * 1024 * 1024)))
         self.write('  # Requests:\n')
+
+        title_spacing = self.options.get('spacing', 16) - 1
 
         fields = (
             'method',
@@ -212,21 +217,35 @@ class PlainFormatter(BaseFormatter):
             'avtime',
             'maxtime',
         )
+        types = (
+            str,
+            long,
+            long,
+            long,
+            long,
+            long,
+            long,
+            long,
+            long,
+            float,
+            float,
+            float,
+        )
         headings = {
             'method':        'Method',
-            'num':           '# Requests',
-            'numOK':         '     # OK',
-            'numBAD':        '    # BAD',
-            'numISE':        ' # Failed',
-            'numOther':      '  # Other',
-            'minbytes':      'Min. bytes',
-            'avbytes':       ' Av. bytes',
-            'maxbytes':      'Max. bytes',
-            'mintime':       'Min. time',
-            'avtime':        ' Av. time',
-            'maxtime':       'Max. time',
+            'num':           '# Requests'.rjust(title_spacing),
+            'numOK':         '# OK'.rjust(title_spacing),
+            'numBAD':        '# BAD'.rjust(title_spacing),
+            'numISE':        '# Failed'.rjust(title_spacing),
+            'numOther':      '# Other'.rjust(title_spacing),
+            'minbytes':      'Min. bytes'.rjust(title_spacing),
+            'avbytes':       'Av. bytes'.rjust(title_spacing),
+            'maxbytes':      'Max. bytes'.rjust(title_spacing),
+            'mintime':       'Min. time (ms)'.rjust(title_spacing),
+            'avtime':        'Av. time (ms)'.rjust(title_spacing),
+            'maxtime':       'Max. time (ms)'.rjust(title_spacing),
         }
-        self.writeMap(report['data']['requestStats'], fields, headings)
+        self.writeMap(report['data']['requestStats'], fields, types, headings)
         self.write('\n')
 
         self.write('  # Requests by time of day:\n')
