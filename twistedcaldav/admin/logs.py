@@ -30,16 +30,16 @@ import time
 
 from twistedcaldav.admin import util
 
-PLIST_VERSION = 2
+PLIST_VERSION = 3
 
 statsTemplate = plistlib.Dict(
     version=PLIST_VERSION,
     bytesOut="0",
     startDate="",
     endDate="",
-    requestStats=plistlib.Dict(
-        ),
+    requestStats=plistlib.Dict(),
     timeOfDayStats=[0] * 96,
+    requestByTimeOfDayStats=plistlib.Dict(),
     invitations=plistlib.Dict(
         day=0, 
         week=0, 
@@ -132,9 +132,15 @@ class Stats(object):
         hour, minute = time.split(":")
         bucket = int(hour) * 4 + divmod(int(minute), 15)[0]
         self._data.timeOfDayStats[bucket] = self._data.timeOfDayStats[bucket] + 1
+        if request not in self._data.requestByTimeOfDayStats:
+            self._data.requestByTimeOfDayStats[request] = [0] * 96
+        self._data.requestByTimeOfDayStats[request][bucket] = self._data.requestByTimeOfDayStats[request][bucket] + 1
     
     def getTimeOfDayStats(self):
         return self._data.timeOfDayStats
+
+    def getRequestByTimeOfDayStats(self):
+        return self._data.requestByTimeOfDayStats
 
     def addUserAgent(self, useragent):
         if useragent in self._data.userAgents:
@@ -245,6 +251,7 @@ class LogAction(object):
                                                       self.stats.getBytes()),
                     'requestStats': self.stats.getRequestStats(),
                     'timeOfDayStats': self.stats.getTimeOfDayStats(),
+                    'requestByTimeOfDayStats': self.stats.getRequestByTimeOfDayStats(),
                     'userAgents': self.stats.getUserAgents(),
                     }
                 }
