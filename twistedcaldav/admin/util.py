@@ -23,7 +23,7 @@ import commands
 from twisted.web import microdom
 
 from twistedcaldav import ical
- 
+
 def prepareByteValue(config, value):
     if config.get('human', None):
         KB = value/1024.0
@@ -61,16 +61,17 @@ def getPrincipalList(principalCollection, type, disabled=False):
     typeRoot = principalCollection.child(type)
 
     pl = []
-    
-    for child in typeRoot.listdir():
-        if child not in ['.db.sqlite']:
-            p = typeRoot.child(child)
 
-            if disabled:
-                if isPrincipalDisabled(p):
+    if typeRoot.exists():
+        for child in typeRoot.listdir():
+            if child not in ['.db.sqlite']:
+                p = typeRoot.child(child)
+
+                if disabled:
+                    if isPrincipalDisabled(p):
+                        pl.append(p)
+                else:
                     pl.append(p)
-            else:
-                pl.append(p)
 
     return pl
 
@@ -78,7 +79,7 @@ def getPrincipalList(principalCollection, type, disabled=False):
 def getDiskUsage(config, fp):
     status, output = commands.getstatusoutput(
         ' '.join(['/usr/bin/du', '-s', fp.path]))
-    
+
     if status != 0:
         return 0
 
@@ -90,7 +91,7 @@ def getResourceType(fp):
     x = xattr.xattr(fp.path)
     if not x.has_key(rt):
         return None
-    
+
     collection = False
 
     type = None
@@ -123,14 +124,14 @@ def getCalendarDataCounts(calendarCollection):
             except ValueError:
                 # not a calendar file
                 continue
-            
+
             if component.resourceType() == 'VEVENT':
                 eventCount += 1
-                
+
             elif component.resourceType() == 'VTODO':
                 todoCount += 1
 
-    return {'calendarCount': calCount, 
+    return {'calendarCount': calCount,
             'eventCount': eventCount,
             'todoCount': todoCount}
 
@@ -184,11 +185,11 @@ def getQuotaStatsForPrincipal(config, principal, defaultQuota=None, depth=2):
     principalUsed = getQuotaUsed(principal)
     if not principalUsed:
         principalUsed = 0
-        
+
     principalAvail = principalQuota - principalUsed
     principalFree = (float(principalAvail)/principalQuota)*100
 
-    return {'quotaRoot': prepareByteValue(config, principalQuota), 
+    return {'quotaRoot': prepareByteValue(config, principalQuota),
             'quotaUsed': prepareByteValue(config, principalUsed),
             'quotaAvail': prepareByteValue(config, principalAvail),
             'quotaFree': principalFree}
