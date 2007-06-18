@@ -35,6 +35,8 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method import report_common
 
+import urllib
+
 max_number_of_results = 1000
 
 def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
@@ -174,15 +176,16 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 x.getResult()
                 
                 for child, child_uri in ok_resources:
-                    child_name = child_uri[child_uri.rfind("/") + 1:]
+                    child_uri_name = child_uri[child_uri.rfind("/") + 1:]
+                    child_path_name = urllib.unquote(child_uri_name)
                     
                     if generate_calendar_data or not index_query_ok:
-                        calendar = calresource.iCalendar(child_name)
-                        assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_name, self)
+                        calendar = calresource.iCalendar(child_path_name)
+                        assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
                     
-                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_name, calendar, query_ok = index_query_ok))
+                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok))
                     yield d
                     d.getResult()
         else:
