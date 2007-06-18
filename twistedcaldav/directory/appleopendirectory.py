@@ -372,7 +372,7 @@ class OpenDirectoryService(DirectoryService):
             # Cache miss; try looking the record up, in case it is new
             # FIXME: This is a blocking call (hopefully it's a fast one)
             self.reloadCache(recordType, shortName)
-            return self.recordsForType(recordType)[shortName]
+            return self.recordsForType(recordType).get(shortName, None)
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
@@ -517,15 +517,13 @@ class OpenDirectoryService(DirectoryService):
             self._delayedCalls.add(callLater(recordListCacheTimeout, rot))
 
             self._records[recordType] = storage
-        else:
+
+        elif records:
             #
             # Update one record, if found
             #
-            if records:
-                assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
-                self._records[recordType]["records"][shortName] = records[shortName]
-            else:
-                self._records[recordType]["records"][shortName] = None
+            assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
+            self._records[recordType]["records"][shortName] = records[shortName]
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
