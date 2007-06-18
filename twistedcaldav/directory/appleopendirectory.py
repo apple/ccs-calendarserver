@@ -579,9 +579,9 @@ class OpenDirectoryRecord(DirectoryRecord):
                                 'uri="%(uri)s", '
                                 'response="%(response)s",'
                                 'algorithm=%(algorithm)s') % credentials.fields
-                except KeyError:
-                    log.err("Open Directory (node=%s) error while performing digest authentication for user %s: missing digest response fields: %s"
-                            % (self.service.realmName, self.shortName, credentials.fields))
+                except KeyError, e:
+                    log.err("Open Directory (node=%s) error while performing digest authentication for user %s: missing digest response field: %s in: %s"
+                            % (self.service.realmName, self.shortName, e.message, credentials.fields))
                     return False
 
                 return opendirectory.authenticateUserDigest(
