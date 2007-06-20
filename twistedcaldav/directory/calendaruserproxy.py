@@ -261,11 +261,11 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     
     dbType = "CALENDARUSERPROXY"
     dbFilename = ".db.calendaruserproxy"
-    dbFormatVersion = "2"
+    dbFormatVersion = "3"
 
     def __init__(self, path):
         path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
-        super(CalendarUserProxyDatabase, self).__init__(path, CalendarUserProxyDatabase.dbFormatVersion)
+        super(CalendarUserProxyDatabase, self).__init__(path)
 
     def setGroupMembers(self, principalGUID, members):
         """
@@ -330,6 +330,12 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         """
         self._db_execute("delete from GROUPS where GROUPNAME = :1", principalGUID)
     
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return CalendarUserProxyDatabase.dbFormatVersion
+        
     def _db_type(self):
         """
         @return: the collection type assigned to this index.

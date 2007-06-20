@@ -1136,7 +1136,7 @@ class TextMatch (CalDAVTextElement):
         else:
             values = item
 
-        test = str(self)
+        test = unicode(str(self), "utf-8")
         if self.caseless:
             test = test.lower()
 

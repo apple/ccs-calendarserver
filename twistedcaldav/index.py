@@ -24,13 +24,12 @@ change.
 """
 
 __all__ = [
-    "AbstractIndex",
     "Index",
     "IndexSchedule",
 ]
 
-import os
 import datetime
+import os
 
 try:
     import sqlite3 as sqlite
@@ -41,12 +40,13 @@ from twisted.python import log
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
+from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav import caldavxml
 
 from vobject.icalendar import utc
 
 db_basename = ".db.sqlite"
-schema_version = "4"
+schema_version = "5"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 #
@@ -79,7 +79,7 @@ class ReservationError(LookupError):
     which is not reserved.
     """
 
-class AbstractIndex(object):
+class AbstractCalendarIndex(AbstractSQLDatabase):
     """
     Calendar collection index abstract base class that defines the apis for the index.
     This will be subclassed for the two types of index behaviour we need: one for
@@ -93,6 +93,8 @@ class AbstractIndex(object):
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
         self.resource = resource
+        db_filename = os.path.join(self.resource.fp.path, db_basename)
+        super(AbstractCalendarIndex, self).__init__(db_filename)
 
     def create(self):
         """
@@ -152,7 +154,8 @@ class AbstractIndex(object):
         #
         resources = []
         for name in names:
-            if name is not None and self.resource.getChild(name) is None:
+            name_utf8 = name.encode("utf-8")
+            if name is not None and self.resource.getChild(name_utf8) is None:
                 # Clean up
                 log.err("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
                 self._delete_from_db(name, uid)
@@ -272,137 +275,19 @@ class AbstractIndex(object):
             
         for row in rowiter:
             name = row[0]
-            if self.resource.getChild(name):
+            if self.resource.getChild(name.encode("utf-8")):
                 yield row
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
 
-    def _db_type(self):
+    def _db_version(self):
         """
-        @return: the collection type assigned to this index.
+        @return: the schema version assigned to this index.
         """
-        raise NotImplementedError
+        return schema_version
         
-    def _db(self):
-        """
-        Access the underlying database.
-        @return: a db2 connection object for this index's underlying data store.
-        """
-        if not hasattr(self, "_db_connection"):
-            db_filename = os.path.join(self.resource.fp.path, db_basename)
-            try:
-                self._db_connection = sqlite.connect(db_filename)
-            except:
-                log.err("Unable to open database file: %s" % (db_filename,))
-                raise
-
-            #
-            # Set up the schema
-            #
-            q = self._db_connection.cursor()
-            try:
-                # Create CALDAV table if needed
-                q.execute(
-                    """
-                    select (1) from SQLITE_MASTER
-                     where TYPE = 'table' and NAME = 'CALDAV'
-                    """)
-                caldav = q.fetchone()
-
-                if caldav:
-                    q.execute(
-                        """
-                        select VALUE from CALDAV
-                         where KEY = 'SCHEMA_VERSION'
-                        """)
-                    version = q.fetchone()
-
-                    if version is not None: version = version[0]
-
-                    q.execute(
-                        """
-                        select VALUE from CALDAV
-                         where KEY = 'TYPE'
-                        """)
-                    type = q.fetchone()
-
-                    if type is not None: type = type[0]
-
-                    if (version != schema_version) or (type != self._db_type()):
-                        if version != schema_version:
-                            log.err("Index %s has different schema (v.%s vs. v.%s)"
-                                    % (db_filename, version, schema_version))
-                        if type != self._db_type():
-                            log.err("Index %s has different type (%s vs. %s)"
-                                    % (db_filename, type, self._db_type()))
-
-                        # Delete this index and start over
-                        q.close()
-                        q = None
-                        self._db_connection.close()
-                        del(self._db_connection)
-                        os.remove(db_filename)
-                        return self._db()
-
-                else:
-                    self._db_init(db_filename, q)
-
-                self._db_connection.commit()
-            finally:
-                if q is not None: q.close()
-        return self._db_connection
-
-    def _db_init(self, db_filename, q):
-        """
-        Initialise the underlying database tables.
-        @param db_filename: the file name of the index database.
-        @param q:           a database cursor to use.
-        """
-        log.msg("Initializing index %s" % (db_filename,))
-
-        self._db_init_schema_table(q)
-        self._db_init_data_tables(q)
-
-    def _db_init_schema_table(self, q):
-        """
-        Initialise the underlying database tables.
-        @param db_filename: the file name of the index database.
-        @param q:           a database cursor to use.
-        """
-
-        #
-        # CALDAV table keeps track of our schema version and type
-        #
-        q.execute(
-            """
-            create table CALDAV (
-                KEY text unique, VALUE text unique
-            )
-            """
-        )
-        q.execute(
-            """
-            insert into CALDAV (KEY, VALUE)
-            values ('SCHEMA_VERSION', :1)
-            """, [schema_version]
-        )
-        q.execute(
-            """
-            insert into CALDAV (KEY, VALUE)
-            values ('TYPE', :1)
-            """, [self._db_type()]
-        )
-
-    def _db_init_data_tables(self, q):
-        """
-        Initialise the underlying database tables.
-        @param db_filename: the file name of the index database.
-        @param q:           a database cursor to use.
-        """
-        raise NotImplementedError
-
     def _add_to_db(self, name, calendar, cursor = None):
         """
         Records the given calendar resource in the index with the given name.
@@ -424,55 +309,7 @@ class AbstractIndex(object):
         """
         raise NotImplementedError
     
-    def _db_values_for_sql(self, sql, *query_params):
-        """
-        Execute an SQL query and obtain the resulting values.
-        @param sql: the SQL query to execute.
-        @param query_params: parameters to C{sql}.
-        @return: an interable of values in the first column of each row
-            resulting from executing C{sql} with C{query_params}.
-        @raise AssertionError: if the query yields multiple columns.
-        """
-        return (row[0] for row in self._db_execute(sql, *query_params))
-
-    def _db_value_for_sql(self, sql, *query_params):
-        """
-        Execute an SQL query and obtain a single value.
-        @param sql: the SQL query to execute.
-        @param query_params: parameters to C{sql}.
-        @return: the value resulting from the executing C{sql} with
-            C{query_params}.
-        @raise AssertionError: if the query yields multiple rows or columns.
-        """
-        value = None
-        for row in self._db_values_for_sql(sql, *query_params):
-            assert value is None, "Multiple values in DB for %s %s" % (sql, query_params)
-            value = row
-        return value
-
-    def _db_execute(self, sql, *query_params):
-        """
-        Execute an SQL query and obtain the resulting values.
-        @param sql: the SQL query to execute.
-        @param query_params: parameters to C{sql}.
-        @return: an interable of tuples for each row resulting from executing
-            C{sql} with C{query_params}.
-        """
-        q = self._db().cursor()
-        try:
-            try:
-                q.execute(sql, query_params)
-            except:
-                log.err("Exception while executing SQL: %r %r" % (sql, query_params))
-                raise
-            return q.fetchall()
-        finally:
-            q.close()
-
-    def _db_commit  (self): self._db_connection.commit()
-    def _db_rollback(self): self._db_connection.rollback()
-
-class CalendarIndex (AbstractIndex):
+class CalendarIndex (AbstractCalendarIndex):
     """
     Calendar index - abstract class for indexer that indexes calendar objects in a collection.
     """
@@ -676,6 +513,11 @@ class Index (CalendarIndex):
         # Create database where the RESOURCE table has unique UID column.
         self._db_init_data_tables_base(q, True)
 
+    def _db_recreate(self):
+        """
+        Re-create the database tables from existing calendar data.
+        """
+        
         #
         # Populate the DB with data from already existing resources.
         # This allows for index recovery if the DB file gets
@@ -782,6 +624,11 @@ class IndexSchedule (CalendarIndex):
         # Create database where the RESOURCE table has a UID column that is not unique.
         self._db_init_data_tables_base(q, False)
 
+    def _db_recreate(self):
+        """
+        Re-create the database tables from existing calendar data.
+        """
+        
         #
         # Populate the DB with data from already existing resources.
         # This allows for index recovery if the DB file gets

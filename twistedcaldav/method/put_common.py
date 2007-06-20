@@ -348,7 +348,7 @@ def storeCalendarObjectResource(
                 if not result:
                     log.err(message)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
-                        NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(destination_uri), rname)))
+                        NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(destination_uri), rname.encode("utf-8"))))
                     ))
             
             # Reserve UID

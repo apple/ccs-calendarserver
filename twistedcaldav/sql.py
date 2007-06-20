@@ -38,15 +38,20 @@ class AbstractSQLDatabase(object):
     A generic SQL database.
     """
 
-    def __init__(self, dbpath, version):
+    def __init__(self, dbpath):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
-            index. C{resource} must be a calendar collection (ie.
-            C{resource.isPseudoCalendarCollection()} returns C{True}.)
+        
+        @param dbpath: the path where the db file is stored.
+        @type dbpath: str
         """
         self.dbpath = dbpath
-        self.version = version
 
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        raise NotImplementedError
+        
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
@@ -94,10 +99,10 @@ class AbstractSQLDatabase(object):
 
                     if type is not None: type = type[0]
 
-                    if (version != self.version) or (type != self._db_type()):
-                        if version != self.version:
+                    if (version != self._db_version()) or (type != self._db_type()):
+                        if version != self._db_version():
                             log.err("Database %s has different schema (v.%s vs. v.%s)"
-                                    % (db_filename, version, self.version))
+                                    % (db_filename, version, self._db_version()))
                         if type != self._db_type():
                             log.err("Database %s has different type (%s vs. %s)"
                                     % (db_filename, type, self._db_type()))
@@ -128,6 +133,7 @@ class AbstractSQLDatabase(object):
 
         self._db_init_schema_table(q)
         self._db_init_data_tables(q)
+        self._db_recreate()
 
     def _db_init_schema_table(self, q):
         """
@@ -150,7 +156,7 @@ class AbstractSQLDatabase(object):
             """
             insert into CALDAV (KEY, VALUE)
             values ('SCHEMA_VERSION', :1)
-            """, [self.version]
+            """, [self._db_version()]
         )
         q.execute(
             """
@@ -166,6 +172,12 @@ class AbstractSQLDatabase(object):
         @param q:           a database cursor to use.
         """
         raise NotImplementedError
+
+    def _db_recreate(self):
+        """
+        Recreate the database tables.
+        """
+        pass
 
     def _db_values_for_sql(self, sql, *query_params):
         """

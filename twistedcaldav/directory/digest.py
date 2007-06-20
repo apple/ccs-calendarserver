@@ -149,13 +149,13 @@ class DigestCredentialsDB(AbstractSQLDatabase):
     
     dbType = "DIGESTCREDENTIALSCACHE"
     dbFilename = ".db.digestcredentialscache"
-    dbFormatVersion = "1"
+    dbFormatVersion = "2"
 
     def __init__(self, path):
         db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
         if os.path.exists(db_path):
             os.remove(db_path)
-        super(DigestCredentialsDB, self).__init__(db_path, DigestCredentialsDB.dbFormatVersion)
+        super(DigestCredentialsDB, self).__init__(db_path)
         self.db = {}
     
     def has_key(self, key):
@@ -230,6 +230,12 @@ class DigestCredentialsDB(AbstractSQLDatabase):
         """
         self._db_execute("delete from DIGESTCREDENTIALS where KEY = :1", key)
     
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return DigestCredentialsDB.dbFormatVersion
+        
     def _db_type(self):
         """
         @return: the collection type assigned to this index.

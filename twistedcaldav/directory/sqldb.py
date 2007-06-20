@@ -57,11 +57,11 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     """
     dbType = "DIRECTORYSERVICE"
     dbFilename = ".db.accounts"
-    dbFormatVersion = "2"
+    dbFormatVersion = "3"
 
     def __init__(self, path):
         path = os.path.join(path, SQLDirectoryManager.dbFilename)
-        super(SQLDirectoryManager, self).__init__(path, SQLDirectoryManager.dbFormatVersion)
+        super(SQLDirectoryManager, self).__init__(path)
 
     def loadFromXML(self, xmlFile):
         parser = XMLAccountsParser(xmlFile)
@@ -209,6 +209,12 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         self._db_execute("delete from GROUPS    where MEMBER_SHORT_NAME = :1", shortName)
         self._db_execute("delete from ADDRESSES where SHORT_NAME        = :1", shortName)
     
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return SQLDirectoryManager.dbFormatVersion
+        
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
