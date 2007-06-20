@@ -16,17 +16,15 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
-from twisted.python import log
-
 from twisted.internet import defer
+from twisted.python import log
 from twisted.python.failure import Failure
-from twisted.cred.error import LoginFailed
-from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
+from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.auth.wrapper import UnauthorizedResponse
-
-from twisted.web2.dav import davxml
 
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.config import config
@@ -117,6 +115,9 @@ class RootResource(DAVFile):
 
         return super(RootResource, self).locateChild(request, segments)
 
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
 
 # So CheckSACL will be parameterized
 # We do this after RootResource is defined

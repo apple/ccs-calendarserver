@@ -19,24 +19,23 @@
 import os
 
 from twistedcaldav.root import RootResource
-
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
 
+from twisted.cred.portal import Portal
+
 from twisted.internet import defer
 
-from twisted.web2.http import HTTPError
-
-from twisted.web2.dav import auth
-from twisted.web2.dav import davxml
-
+from twisted.web2 import http_headers
+from twisted.web2 import responsecode
 from twisted.web2 import server
 from twisted.web2.auth import basic
-from twisted.web2 import http_headers
-
-from twisted.cred.portal import Portal
+from twisted.web2.dav import auth
+from twisted.web2.dav import davxml
+from twisted.web2.http import HTTPError
+from twisted.web2.iweb import IResponse
 
 from twisted.web2.test.test_server import SimpleRequest
 
@@ -236,3 +235,44 @@ class RootTests(TestCase):
         d.addErrback(_Eb)
 
         return d
+
+    def test_DELETE(self):
+        def do_test(response):
+            response = IResponse(response)
+
+            if response.code != responsecode.FORBIDDEN:
+                self.fail("Incorrect response for DELETE /: %s" % (response.code,))
+            
+        request = SimpleRequest(self.site, "DELETE", "/")
+        return self.send(request, do_test)
+
+    def test_COPY(self):
+        def do_test(response):
+            response = IResponse(response)
+
+            if response.code != responsecode.FORBIDDEN:
+                self.fail("Incorrect response for COPY /: %s" % (response.code,))
+            
+        request = SimpleRequest(
+            self.site,
+            "COPY",
+            "/",
+            headers=http_headers.Headers({"Destination":"/copy/"})
+        )
+        return self.send(request, do_test)
+
+    def test_MOVE(self):
+        def do_test(response):
+            response = IResponse(response)
+
+            if response.code != responsecode.FORBIDDEN:
+                self.fail("Incorrect response for MOVE /: %s" % (response.code,))
+            
+        request = SimpleRequest(
+            self.site,
+            "MOVE",
+            "/",
+            headers=http_headers.Headers({"Destination":"/copy/"})
+        )
+        return self.send(request, do_test)
+        
