@@ -410,7 +410,7 @@ put_setuptools () {
     local where="$1"; shift;
 
     if ! "${disable_setup}"; then
-      cp "${caldav}/support/setuptools-0.6c5-py2.5.egg" "${where}/";
+      cp "${caldav}/support/setuptools-0.6c6-py2.5.egg" "${where}/";
     fi;
 }
 
@@ -511,7 +511,7 @@ fi;
 if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
-  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.4 992;
+  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.5 1013;
   put_setuptools "${xattr}";
   py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
