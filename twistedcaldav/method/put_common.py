@@ -570,19 +570,6 @@ def storeCalendarObjectResource(
         yield response
         return
 
-    except Exception, e:
-        if reserved:
-            destination_index.unreserveUID(uid)
-            reserved = False
-
-        # Roll back changes to original server state. Note this may do nothing
-        # if the rollback has already ocurred or changes already committed.
-        rollback.Rollback()
-        raise
-
-    # FIXME: remove this bare except once we move to only supporting Python 2.5.
-    # This is only here now because at least one dependent library was raising a string exception
-    # which was not caught and did not result on resource rollback.
     except:
         if reserved:
             destination_index.unreserveUID(uid)
