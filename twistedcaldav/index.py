@@ -542,7 +542,7 @@ class Index (CalendarIndex):
                 except ValueError:
                     log.err("Non-calendar resource: %s" % (name,))
                 else:
-                    log.msg("Indexing resource: %s" % (name,))
+                    #log.msg("Indexing resource: %s" % (name,))
                     self.addResource(name, calendar, True)
             finally:
                 stream.close()
@@ -654,7 +654,7 @@ class IndexSchedule (CalendarIndex):
                 except ValueError:
                     log.err("Non-calendar resource: %s" % (name,))
                 else:
-                    log.msg("Indexing resource: %s" % (name,))
+                    #log.msg("Indexing resource: %s" % (name,))
                     self.addResource(name, calendar)
             finally:
                 stream.close()
