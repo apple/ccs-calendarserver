@@ -38,10 +38,14 @@ limitations under the License.
       <member type="users">test</member>
     </members>
   </group>
-  <resource>
+  <location>
     <uid>mercury</uid>
     <password>mercury</password>
     <name>Mecury Conference Room, Building 1, 2nd Floor</name>
-  </resource>
+    <auto-schedule/>
+    <proxies>
+      <member type="users">test</member>
+    </proxies>
+  </location>
 </accounts>
 

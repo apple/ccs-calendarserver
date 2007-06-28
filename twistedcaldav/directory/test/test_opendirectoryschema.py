@@ -903,7 +903,7 @@ else:
             dsattributes.kDSNAttrRecordName       : "computer1.apple.com",
             dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
             dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
-       })
+        })
         record_good_other = ("computer2.apple.com", {
             dsattributes.kDS1AttrGeneratedUID     : "GUID1",
             dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
@@ -989,3 +989,100 @@ else:
 
             for recordlist, title, guid in records:
                 _doParseRecords(recordlist, title, guid)
+
+    class ODResourceInfoParse (twisted.trial.unittest.TestCase):
+
+        plist_good_false = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <dict>
+        <key>AutoAcceptsInvitation</key>
+        <false/>
+        <key>Label</key>
+        <string>Location</string>
+        <key>CalendaringDelegate</key>
+        <string>1234-GUID-5678</string>
+    </dict>
+</dict>
+</plist>
+"""
+
+        plist_good_true = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <dict>
+        <key>AutoAcceptsInvitation</key>
+        <true/>
+        <key>Label</key>
+        <string>Location</string>
+        <key>CalendaringDelegate</key>
+        <string></string>
+    </dict>
+</dict>
+</plist>
+"""
+
+        plist_good_missing = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <dict>
+        <key>Label</key>
+        <string>Location</string>
+    </dict>
+</dict>
+</plist>
+"""
+
+        plist_bad = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <string>bogus</string>
+</dict>
+</plist>
+"""
+
+        plist_wrong = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.YellowPagesFramework</key>
+    <dict>
+        <key>AutoAcceptsInvitation</key>
+        <true/>
+        <key>Label</key>
+        <string>Location</string>
+        <key>CalendaringDelegate</key>
+        <string>1234-GUID-5678</string>
+    </dict>
+</dict>
+</plist>
+"""
+
+        test_bool = (
+            (plist_good_false, False, "1234-GUID-5678"),
+            (plist_good_true, True, ""),
+            (plist_good_missing, False, None),
+            (plist_wrong, False, None),
+        )
+
+        test_exception = (
+            (plist_bad, AttributeError),
+        )
+
+        def test_plists(self):
+            service = OpenDirectoryService(node="/Search", dosetup=False)
+            
+            for item in ODResourceInfoParse.test_bool:
+                self.assertEqual(service._parseResourceInfo(item[0])[0], item[1])
+                self.assertEqual(service._parseResourceInfo(item[0])[1], item[2])
+            
+            for item in ODResourceInfoParse.test_exception:
+                self.assertRaises(item[1], service._parseResourceInfo, item[0])

@@ -16,31 +16,30 @@ limitations under the License.
 DRI: Cyrus Daboo, cdaboo@apple.com
  -->
 
-<!ELEMENT accounts (user*, group*, resource*) >
+<!ELEMENT accounts (user*, group*, resource*, location*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid, guid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
+  <!ELEMENT user (uid, guid, password, name, cuaddr*)>
     <!ATTLIST user repeat CDATA "1">
 
-  <!ELEMENT group (uid, guid, password, name, members, cuaddr*, calendar*, quota?)>
+  <!ELEMENT group (uid, guid, password, name, members, cuaddr*)>
     <!ATTLIST group repeat CDATA "1">
 
-  <!ELEMENT resource (uid, guid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
+  <!ELEMENT resource (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?)>
     <!ATTLIST resource repeat CDATA "1">
 
-  <!ELEMENT location (uid, guid, password, name, cuaddr*, calendar*, quota?, autorespond?)>
+  <!ELEMENT location (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?)>
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>
     <!ATTLIST member type (users|groups|locations|resources) "users">
 
-  <!ELEMENT uid         (#PCDATA)>
-  <!ELEMENT guid        (#PCDATA)>
-  <!ELEMENT password    (#PCDATA)>
-  <!ELEMENT name        (#PCDATA)>
-  <!ELEMENT cuaddr      (#PCDATA)>
-  <!ELEMENT calendar    (#PCDATA)>
-  <!ELEMENT quota       (#PCDATA)>
-  <!ELEMENT autorespond EMPTY>
-  <!ELEMENT members     (member*)>
+  <!ELEMENT uid           (#PCDATA)>
+  <!ELEMENT guid          (#PCDATA)>
+  <!ELEMENT password      (#PCDATA)>
+  <!ELEMENT name          (#PCDATA)>
+  <!ELEMENT cuaddr        (#PCDATA)>
+  <!ELEMENT members       (member*)>
+  <!ELEMENT auto-schedule EMPTY>
+  <!ELEMENT proxies       (member*)>
 >

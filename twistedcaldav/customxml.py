@@ -91,14 +91,6 @@ class TwistedGroupMemberGUIDs(davxml.WebDAVElement):
 
     allowed_children = { (twisted_dav_namespace, "guid"): (0, None) }
 
-class TwistedScheduleAutoRespond(davxml.WebDAVEmptyElement):
-    """
-    When set on an Inbox, scheduling requests are automatically handled.
-    """
-    namespace = twisted_dav_namespace
-    name = "schedule-auto-respond"
-    hidden = True
-
 class DropBoxHome (davxml.WebDAVEmptyElement):
     """
     Denotes a drop box home collection (a collection that will contain drop boxes).

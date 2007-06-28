@@ -155,7 +155,7 @@ class DirectoryRecord(object):
             self.fullName
         )
 
-    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses):
+    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, autoSchedule):
         assert service.realmName is not None
         assert recordType
         assert shortName
@@ -171,6 +171,7 @@ class DirectoryRecord(object):
         self.shortName             = shortName
         self.fullName              = fullName
         self.calendarUserAddresses = calendarUserAddresses
+        self.autoSchedule          = autoSchedule
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -193,6 +194,15 @@ class DirectoryRecord(object):
 
     def groups(self):
         return ()
+
+    def proxies(self):
+        return ()
+
+    def proxyFor(self):
+        return ()
+
+    def hasEditableProxyMembership(self):
+        return self.recordType in (DirectoryService.recordType_users, DirectoryService.recordType_groups)
 
     def verifyCredentials(self, credentials):
         return False

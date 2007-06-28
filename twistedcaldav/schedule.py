@@ -35,10 +35,9 @@ from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
 from twisted.web2.dav.resource import AccessDeniedError
-from twisted.web2.dav.util import joinURL, parentForURL
+from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
-from twistedcaldav import customxml
 from twistedcaldav import itip
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
@@ -481,8 +480,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Store CALDAV:schedule-state property
                         child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.NotProcessed()))
                     
-                        # Look for auto-respond option
-                        if inbox.hasDeadProperty(customxml.TwistedScheduleAutoRespond):
+                        # Look for auto-schedule option
+                        if principal.autoSchedule():
                             autoresponses.append((principal, inbox, child))
                     except:
                         log.err("Could not store data in Inbox : %s" % (inbox,))

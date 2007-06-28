@@ -113,3 +113,114 @@ class XMLFile (
                 set(r.shortName for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
+
+    def test_okAutoSchedule(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <location>
+    <uid>my office</uid>
+    <password>nimda</password>
+    <name>Super User</name>
+    <auto-schedule/>
+  </location>
+</accounts>
+"""
+        )
+        for recordType, expectedRecords in (
+            ( DirectoryService.recordType_users     , ()             ),
+            ( DirectoryService.recordType_groups    , ()             ),
+            ( DirectoryService.recordType_locations , ("my office",) ),
+            ( DirectoryService.recordType_resources , ()             ),
+        ):
+            self.assertEquals(
+                set(r.shortName for r in service.listRecords(recordType)),
+                set(expectedRecords)
+            )
+        self.assertTrue(service.recordWithShortName(DirectoryService.recordType_locations, "my office").autoSchedule)
+
+    def test_badAutoSchedule(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <user>
+    <uid>my office</uid>
+    <password>nimda</password>
+    <name>Super User</name>
+    <auto-schedule/>
+  </user>
+</accounts>
+"""
+        )
+        
+        def _findRecords():
+            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+
+        self.assertRaises(ValueError, _findRecords)
+
+    def test_okProxies(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <user>
+    <uid>test</uid>
+    <password>nimda</password>
+    <name>Test</name>
+  </user>
+  <location>
+    <uid>my office</uid>
+    <password>nimda</password>
+    <name>Super User</name>
+    <auto-schedule/>
+    <proxies>
+        <member>test</member>
+    </proxies>
+  </location>
+</accounts>
+"""
+        )
+        for recordType, expectedRecords in (
+            ( DirectoryService.recordType_users     , ("test",)      ),
+            ( DirectoryService.recordType_groups    , ()             ),
+            ( DirectoryService.recordType_locations , ("my office",) ),
+            ( DirectoryService.recordType_resources , ()             ),
+        ):
+            self.assertEquals(
+                set(r.shortName for r in service.listRecords(recordType)),
+                set(expectedRecords)
+            )
+        self.assertEqual(set([("users", "test",)],), service.recordWithShortName(DirectoryService.recordType_locations, "my office")._proxies)
+        self.assertEqual(set([("locations", "my office",)],), service.recordWithShortName(DirectoryService.recordType_users, "test")._proxyFor)
+
+    def test_badProxies(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <user>
+    <uid>my office</uid>
+    <password>nimda</password>
+    <name>Super User</name>
+    <proxies>
+        <member>12345-GUID-67890</member>
+    </proxies>
+  </user>
+</accounts>
+"""
+        )
+        
+        def _findRecords():
+            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+
+        self.assertRaises(ValueError, _findRecords)
