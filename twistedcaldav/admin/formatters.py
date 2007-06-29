@@ -260,10 +260,17 @@ class PlainFormatter(BaseFormatter):
             self.writeFrequencies(freqs)
             self.write('\n')
 
-        self.write('  User Agents:\n')
+        self.write('  User Agents: total=%d\n' % (len(report['data']['userAgents']),))
 
         for ua, count in report['data']['userAgents'].iteritems():
             self.write('    %s: %s\n' % (ua, count))
+
+        self.write('  Active Users: total=%d\n' % (len(report['data']['activeUsers']),))
+
+        sorted_list = [item for item in report['data']['activeUsers'].iteritems()]
+        sorted_list.sort(cmp=lambda x,y: x[1] - y[1])
+        for user, count in sorted_list:
+            self.write('    %s: %s\n' % (user, count))
 
 registerFormatter(PlainFormatter)
 
@@ -565,12 +572,23 @@ class HTMLFormatter(BaseFormatter):
             self.writeFrequencies(freqs)
             self.write('<br>\n')
 
-        self.write('<h3>User Agents:</h3>\n')
+        self.write('<h3>User Agents: total=%d</h3>\n' % (len(report['data']['userAgents']),))
 
         self.write("<table border='1'>")
         self.write('  <tr><td>User Agent</td><td># Requests</td></tr>\n')
         for ua, count in report['data']['userAgents'].iteritems():
             self.write('  <tr><td>%s:</td><td align=\'right\'>%s</td></tr>\n' % (ua, count))
+        self.write('</table>\n')
+
+        self.write('<h3>Active Users: total=%d</h3>\n' % (len(report['data']['activeUsers']),))
+
+        self.write("<table border='1'>")
+        self.write('  <tr><td>User Principal</td><td># Requests</td></tr>\n')
+
+        sorted_list = [item for item in report['data']['activeUsers'].iteritems()]
+        sorted_list.sort(cmp=lambda x,y: y[1] - x[1],)
+        for user, count in sorted_list:
+            self.write('  <tr><td>%s:</td><td align=\'right\'>%s</td></tr>\n' % (user, count))
         self.write('</table>\n')
         
         self.write('</body>\n</html>\n')

@@ -30,22 +30,23 @@ import time
 
 from twistedcaldav.admin import util
 
-PLIST_VERSION = 3
+PLIST_VERSION = 4
 
 statsTemplate = plistlib.Dict(
     version=PLIST_VERSION,
     bytesOut="0",
     startDate="",
     endDate="",
-    requestStats=plistlib.Dict(),
+    requestStats={},
     timeOfDayStats=[0] * 96,
-    requestByTimeOfDayStats=plistlib.Dict(),
-    invitations=plistlib.Dict(
-        day=0, 
-        week=0, 
-        month=0, 
-        ),
-    userAgents=plistlib.Dict(),
+    requestByTimeOfDayStats={},
+    invitations={
+        "day":0, 
+        "week":0, 
+        "month":0, 
+        },
+    userAgents={},
+    activeUsers={},
     )
 
 def _strAdd(value, add):
@@ -151,6 +152,15 @@ class Stats(object):
     def getUserAgents(self):
         return self._data.userAgents
 
+    def addActiveUser(self, principal):
+        if principal in self._data.activeUsers:
+            self._data.activeUsers[principal] += 1
+        else:
+            self._data.activeUsers[principal] = 1
+
+    def getActiveUsers(self):
+        return self._data.activeUsers
+
     def save(self):
         plistlib.writePlist(self._data, self.fp.path)
 
@@ -232,6 +242,9 @@ class LogAction(object):
 
                     if len(pline) > 7:
                         self.stats.addUserAgent(pline[8])
+
+                    if pline[2] != "-":
+                        self.stats.addActiveUser(pline[2])
                         
                 if (50 * line_count) / total_count > last_count:
                     sys.stdout.write(".")
@@ -253,6 +266,7 @@ class LogAction(object):
                     'timeOfDayStats': self.stats.getTimeOfDayStats(),
                     'requestByTimeOfDayStats': self.stats.getRequestByTimeOfDayStats(),
                     'userAgents': self.stats.getUserAgents(),
+                    'activeUsers': self.stats.getActiveUsers(),
                     }
                 }
 
