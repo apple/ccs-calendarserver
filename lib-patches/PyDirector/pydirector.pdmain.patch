@@ -17,8 +17,8 @@
 +        self._connections = {}
          self.createManager()
          self.createListeners()
-+        reactor.listenUNIX(self.conf.socket,
-+                           pdamp.PDControlFactory(self))
++        if hasattr(self.conf, "socket"):
++            reactor.listenUNIX(self.conf.socket, pdamp.PDControlFactory(self))
 +
 +    def getClientAddress(self, host, port):
 +        return self._connections.get((host, port), (None, None))
