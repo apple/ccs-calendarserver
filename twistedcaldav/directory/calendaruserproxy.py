@@ -38,6 +38,7 @@ from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import AutoProvisioningFileMixIn
+from twistedcaldav.directory.util import uuidFromName
 
 import os
 
@@ -97,7 +98,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         self._url = joinURL(parent.principalURL(), proxyType)
         if self.isCollection():
             self._url += "/"
-        self.guid = self.parent.principalUID() + "-" + proxyType
+        self.guid = uuidFromName(self.parent.principalUID(), proxyType)
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
@@ -202,7 +203,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                 """<pre><blockquote>"""
                 """Directory Information\n"""
                 """---------------------\n"""
-                """Parent Directory GUID: %s\n"""  % (self.parent.record.service.guid,),
+                """Directory GUID: %s\n"""         % (self.parent.record.service.guid,),
                 """Realm: %s\n"""                  % (self.parent.record.service.realmName,),
                 """\n"""
                 """Parent Principal Information\n"""
@@ -216,6 +217,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                 """\n"""
                 """Proxy Principal Information\n"""
                 """---------------------\n"""
+                """GUID: %s\n"""                   % (self.guid,),
                 """Principal UID: %s\n"""          % (self.principalUID(),),
                 """Principal URL: %s\n"""          % (link(self.principalURL()),),
                 """\nAlternate URIs:\n"""          , format_list(self.alternateURIs()),
