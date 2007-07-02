@@ -104,6 +104,7 @@ def processRequest(request, principal, inbox, calendar, child):
                       2. add to f-b-s calendar
           2. If not,
               1. remove the one we got - its 'stale'
+          3. Delete the request from the Inbox.
     
     @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
@@ -246,9 +247,15 @@ def processRequest(request, principal, inbox, calendar, child):
             newchild = newchild.getResult()
             newInboxResource(child, newchild)
 
-        # Store CALDAV:schedule-state property
-        assert child.fp.exists()
-        child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.Processed()))
+        # Remove the now processed incoming request.
+        try:
+            d = waitForDeferred(deleteResource(inbox, child.fp.basename()))
+            yield d
+            d.getResult()
+            logging.info("[ITIP]: deleted new iTIP message %s in Inbox because it has been processed." % (child.fp.basename(),))
+        except:
+            log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
+            raise iTipException
         yield None
         return
     else:
@@ -286,6 +293,7 @@ def processCancel(request, principal, inbox, calendar, child):
       2. Remove existing ones in Inbox.
       3. See if this updates existing ones in free-busy-set calendars.
       4. Remove existing ones in those calendars.
+      5. Remove the incoming request.
 
     NB Removal can be complex as we need to take RECURRENCE-ID into account - i.e a single
     instance may be cancelled. What we need to do for this is:
@@ -383,7 +391,7 @@ def processCancel(request, principal, inbox, calendar, child):
             cal = updatecal.iCalendar(calmatch[0])
             info = getSyncInfo(calmatch[0], cal)
             if compareSyncInfo(info, newinfo) < 0:
-                # Re-write existing resource with new one
+                # Delete existing resource which has been cancelled
                 try:
                     d = waitForDeferred(deleteResource(updatecal, calmatch[0],))
                     yield d
@@ -408,13 +416,15 @@ def processCancel(request, principal, inbox, calendar, child):
             # Nothing to do
             pass
         
-        # If we get here we have a new iTIP message that we want to process. Any previous ones
-        # have been removed (so we won't run in to problems when we check that there is free time
-        # to book the new one). 
-
-        # Store CALDAV:schedule-state property
-        assert child.fp.exists()
-        child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.Processed()))
+        # Remove the now processed incoming request.
+        try:
+            d = waitForDeferred(deleteResource(inbox, child.fp.basename()))
+            yield d
+            d.getResult()
+            logging.info("[ITIP]: deleted new iTIP message %s in Inbox because it has been processed." % (child.fp.basename(),))
+        except:
+            log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
+            raise iTipException
         yield None
         return
     else:
@@ -631,7 +641,7 @@ writeResource = deferredGenerator(writeResource)
 
 def newInboxResource(child, newchild):
     """
-    Copy recipient and orgnaizer properties from one iTIP resource, to another,
+    Copy recipient and organizer properties from one iTIP resource, to another,
     switching them as appropriate for a reply, and also set the state.
     
     @param child: the L{CalDAVFile} for the original iTIP message.
@@ -650,9 +660,6 @@ def newInboxResource(child, newchild):
         if orig.children:
             # Store CALDAV:originator property
             newchild.writeDeadProperty(caldavxml.Recipient(davxml.HRef.fromString(str(orig.children[0]))))
-    
-    # Store CALDAV:schedule-state property
-    newchild.writeDeadProperty(caldavxml.ScheduleState(caldavxml.NotProcessed()))
   
 def deleteResource(collection, name):
     """
