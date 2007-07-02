@@ -568,12 +568,14 @@ fi;
 # dateutil
 #
 
-dateutil="${top}/python-dateutil-1.2";
+if ! py_have_module dateutil; then
+    dateutil="${top}/python-dateutil-1.2";
 
-www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.2.tar.bz2;
-py_install "dateutil" "${dateutil}";
+    www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.2.tar.bz2;
+    py_install "dateutil" "${dateutil}";
 
-export PYTHONPATH="${PYTHONPATH}:${dateutil}";
+    export PYTHONPATH="${PYTHONPATH}:${dateutil}";
+fi;
 
 #
 # vobject
