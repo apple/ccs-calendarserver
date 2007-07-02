@@ -477,9 +477,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Store CALDAV:recipient property
                         child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient)))
                     
-                        # Store CALDAV:schedule-state property
-                        child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.NotProcessed()))
-                    
                         # Look for auto-schedule option
                         if principal.autoSchedule():
                             autoresponses.append((principal, inbox, child))

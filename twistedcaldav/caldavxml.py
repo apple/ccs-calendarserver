@@ -1443,34 +1443,6 @@ class Recipient (CalDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, None) } # NB Minimum is zero because this is a property name
 
-class ScheduleState (CalDAVElement):
-    """
-    A property on a schedule message in a schedule Inbox that indicates whether processing has taken place.
-    (CalDAV-schedule, section x.x.x)
-    """
-    name = "schedule-state"
-    hidden = True
-    protected = True
-
-    allowed_children = {
-        (caldav_namespace, "processed"): (0, 1),
-        (caldav_namespace, "not-processed"): (0, 1)
-    }
-
-class Processed (CalDAVEmptyElement):
-    """
-    Indicates that a schedule message in a schedule Inbox has been processed.
-    (CalDAV-schedule, section x.x.x)
-    """
-    name = "processed"
-
-class NotProcessed (CalDAVEmptyElement):
-    """
-    Indicates that a schedule message in a schedule Inbox has not been processed.
-    (CalDAV-schedule, section x.x.x)
-    """
-    name = "not-processed"
-
 class ScheduleInbox (CalDAVEmptyElement):
     """
     Denotes the resource type of a calendar schedule Inbox.
