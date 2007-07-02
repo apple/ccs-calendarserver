@@ -1,5 +1,5 @@
---- pydirector/pdnetworktwisted.py	2004-12-14 05:31:39.000000000 -0800
-+++ pydirector/pdnetworktwisted.py	2007-04-10 17:25:44.000000000 -0700
+--- pydirector/pdnetworktwisted.py	2007-06-27 11:42:28.000000000 -0700
++++ pydirector/pdnetworktwisted.py	2007-06-27 11:40:37.000000000 -0700
 @@ -28,10 +28,13 @@
          attribute .listening_address: read - a tuple of (host,port)
      """
@@ -16,6 +16,15 @@
          self.setScheduler(scheduler)
          reactor.listenTCP(bindport, self.rfactory, interface=bindhost)
  
+@@ -58,7 +61,7 @@
+         """
+         if self.receiver is not None:
+             if reason.type is twisted.internet.error.ConnectionDone:
+-                return
++                pass
+             elif reason.type is twisted.internet.error.ConnectionLost:
+                 pass
+             else:
 @@ -79,6 +82,14 @@
              it's ok to send any buffered data from the client.
          """
