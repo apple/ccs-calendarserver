@@ -44,6 +44,8 @@ ELEMENT_NAME         = "name"
 ELEMENT_MEMBERS      = "members"
 ELEMENT_MEMBER       = "member"
 ELEMENT_CUADDR       = "cuaddr"
+ELEMENT_AUTOSCHEDULE = "auto-schedule"
+ELEMENT_PROXIES      = "proxies"
 
 ATTRIBUTE_REALM      = "realm"
 ATTRIBUTE_REPEAT     = "repeat"
@@ -101,6 +103,13 @@ class XMLAccountsParser(object):
                 if item is not None:
                     item.groups.add(group.shortName)
 
+        def updateProxyFor(proxier):
+            # Update proxy membership
+            for recordType, shortName in proxier.proxies:
+                item = self.items[recordType].get(shortName, None)
+                if item is not None:
+                    item.proxyFor.add((proxier.recordType, proxier.shortName))
+
         for child in node._get_childNodes():
             child_name = child._get_localName()
             if child_name is None:
@@ -123,9 +132,11 @@ class XMLAccountsParser(object):
                     newprincipal = principal.repeat(i)
                     self.items[recordType][newprincipal.shortName] = newprincipal
                     updateMembership(newprincipal)
+                    updateProxyFor(newprincipal)
             else:
                 self.items[recordType][principal.shortName] = principal
                 updateMembership(principal)
+                updateProxyFor(principal)
 
 class XMLAccountRecord (object):
     """
@@ -143,6 +154,9 @@ class XMLAccountRecord (object):
         self.members = set()
         self.groups = set()
         self.calendarUserAddresses = set()
+        self.autoSchedule = False
+        self.proxies = set()
+        self.proxyFor = set()
 
     def repeat(self, ctr):
         """
@@ -175,6 +189,8 @@ class XMLAccountRecord (object):
         result.name = name
         result.members = self.members
         result.calendarUserAddresses = calendarUserAddresses
+        result.autoSchedule = self.autoSchedule
+        result.proxies = self.proxies
         return result
 
     def parseXML(self, node):
@@ -195,14 +211,24 @@ class XMLAccountRecord (object):
                 if child.firstChild is not None:
                     self.name = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_MEMBERS:
-                self._parseMembers(child)
+                self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
+            elif child_name == ELEMENT_AUTOSCHEDULE:
+                # Only Resources & Locations
+                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
+                self.autoSchedule = True
+            elif child_name == ELEMENT_PROXIES:
+                # Only Resources & Locations
+                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
+                self._parseMembers(child, self.proxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 
-    def _parseMembers(self, node):
+    def _parseMembers(self, node, addto):
         for child in node._get_childNodes():
             if child._get_localName() == ELEMENT_MEMBER:
                 if child.hasAttribute(ATTRIBUTE_RECORDTYPE):
@@ -210,4 +236,4 @@ class XMLAccountRecord (object):
                 else:
                     recordType = DirectoryService.recordType_users
                 if child.firstChild is not None:
-                    self.members.add((recordType, child.firstChild.data.encode("utf-8")))
+                    addto.add((recordType, child.firstChild.data.encode("utf-8")))

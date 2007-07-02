@@ -25,6 +25,7 @@ __all__ = [
     "OpenDirectoryInitError",
 ]
 
+import itertools
 import sys
 
 import opendirectory
@@ -329,6 +330,21 @@ class OpenDirectoryService(DirectoryService):
                 
         return result
 
+    def _parseResourceInfo(self, plist):
+        """
+        Parse OD ResourceInfo attribute and extract information that the server needs.
+
+        @param plist: the plist that is the attribute value.
+        @type plist: str
+        @return: a C{tuple} of C{bool} for auto-accept and C{str} for proxy GUID.
+        """
+        plist = readPlistFromString(plist)
+        wpframework = plist.get("com.apple.WhitePagesFramework", {})
+        autoaccept = wpframework.get("AutoAcceptsInvitation", False)
+        proxy= wpframework.get("CalendaringDelegate")
+        
+        return (autoaccept, proxy,)
+
     def recordTypes(self):
         return (
             DirectoryService.recordType_users,
@@ -395,6 +411,7 @@ class OpenDirectoryService(DirectoryService):
         elif recordType == DirectoryService.recordType_locations:
             listRecordType = dsattributes.kDSStdRecordTypeResources
             query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
+            attrs.append(dsattributes.kDSNAttrResourceInfo)
         
         elif recordType == DirectoryService.recordType_resources:
             listRecordType = dsattributes.kDSStdRecordTypeResources
@@ -405,6 +422,7 @@ class OpenDirectoryService(DirectoryService):
                 dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
                 dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
             ))
+            attrs.append(dsattributes.kDSNAttrResourceInfo)
         
         else:
             raise UnknownRecordTypeError("Unknown Open Directory record type: %s"
@@ -484,6 +502,16 @@ class OpenDirectoryService(DirectoryService):
             else:
                 memberGUIDs = ()
 
+            # Special case for resources and locations
+            autoSchedule = False
+            proxyGUIDs = ()
+            if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    autoSchedule, proxy = self._parseResourceInfo(resourceInfo)
+                    if proxy:
+                        proxyGUIDs = (proxy,)
+
             records[recordShortName] = OpenDirectoryRecord(
                 service               = self,
                 recordType            = recordType,
@@ -492,6 +520,8 @@ class OpenDirectoryService(DirectoryService):
                 fullName              = realName,
                 calendarUserAddresses = cuaddrset,
                 memberGUIDs           = memberGUIDs,
+                autoSchedule          = autoSchedule,
+                proxyGUIDs            = proxyGUIDs,
             )
 
             #log.debug("Populated record: %s" % (records[recordShortName],))
@@ -529,7 +559,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, memberGUIDs):
+    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, memberGUIDs, autoSchedule, proxyGUIDs):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
@@ -537,8 +567,10 @@ class OpenDirectoryRecord(DirectoryRecord):
             shortName             = shortName,
             fullName              = fullName,
             calendarUserAddresses = calendarUserAddresses,
+            autoSchedule          = autoSchedule,
         )
         self._memberGUIDs = tuple(memberGUIDs)
+        self._proxyGUIDs = tuple(proxyGUIDs)
 
     def members(self):
         if self.recordType != DirectoryService.recordType_groups:
@@ -555,6 +587,25 @@ class OpenDirectoryRecord(DirectoryRecord):
         for groupRecord in self.service.recordsForType(DirectoryService.recordType_groups).itervalues():
             if self.guid in groupRecord._memberGUIDs:
                 yield groupRecord
+
+    def proxies(self):
+        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            return
+
+        for guid in self._proxyGUIDs:
+            proxyRecord = self.service.recordWithGUID(guid)
+            if proxyRecord is None:
+                log.err("No record for proxy in %s with GUID %s" % (self.shortName, guid))
+            else:
+                yield proxyRecord
+
+    def proxyFor(self):
+        for proxyRecord in itertools.chain(
+                                  self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
+                                  self.service.recordsForType(DirectoryService.recordType_locations).itervalues()
+                              ):
+            if self.guid in proxyRecord._proxyGUIDs:
+                yield proxyRecord
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

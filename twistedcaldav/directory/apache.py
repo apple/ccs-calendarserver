@@ -132,6 +132,7 @@ class AbstractDirectoryRecord(DirectoryRecord):
             shortName             = shortName,
             fullName              = None,
             calendarUserAddresses = set(),
+            autoSchedule          = False,
         )
 
 class AbstractUserRecord(AbstractDirectoryRecord):

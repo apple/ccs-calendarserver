@@ -40,11 +40,16 @@ limitations under the License.
     <uid>location%02d</uid>
     <password>location%02d</password>
     <name>Room %02d</name>
+    <auto-schedule/>
   </location>
   <resource repeat="10">
     <uid>resource%02d</uid>
     <password>resource%02d</password>
     <name>Resource %02d</name>
+    <auto-schedule/>
+    <proxies>
+      <member type="users">user01</member>
+    </proxies>
   </resource>
   <group>
     <uid>group01</uid>

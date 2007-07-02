@@ -68,7 +68,9 @@ else:
                 "guidify",
                 "GUID",
                 set("mailtoguid@example.com",),
-                []
+                [],
+                False,
+                ()
             )
 
             digestFields = {}

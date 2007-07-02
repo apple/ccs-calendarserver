@@ -191,6 +191,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(principal is None)
                 self.assertEquals(record, principal.record)
 
+    def test_autoSchedule(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principal = provisioningResource.principalForRecord(record)
+            self.failIf(principal is None)
+            self.assertEquals(record.autoSchedule, principal.autoSchedule())
+            if record.shortName == "gemini":
+                self.assertTrue(principal.autoSchedule())
+
     # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeResource also
 
     ##
@@ -216,7 +227,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.groupMemberships()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(set(record.groups()).issubset(set(r.record for r in recordResource.groupMemberships())))
+            self.failUnless(set(record.groups()).issubset(set(r.record for r in recordResource.groupMemberships() if hasattr(r, "record"))))
+
+    def test_proxies(self):
+        """
+        DirectoryPrincipalResource.proxies()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(set(record.proxies()).issubset(set(r.record for r in recordResource.proxies())))
+            self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
 
     def test_principalUID(self):
         """

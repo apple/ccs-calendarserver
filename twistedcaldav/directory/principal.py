@@ -359,7 +359,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     def principalURL(self):
         return self._url
 
-    def _getRelatives(self, method, record=None, relatives=None, records=None):
+    def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=False):
         if record is None:
             record = self.record
         if relatives is None:
@@ -373,9 +373,14 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             for relative in getattr(record, method)():
                 if relative not in records:
                     if relative.recordType == myRecordType: 
-                        relatives.add(self.parent.getChild(None, record=relative))
+                        found = self.parent.getChild(None, record=relative)
                     else:
-                        relatives.add(self.parent.parent.getChild(relative.recordType).getChild(None, record=relative))
+                        found = self.parent.parent.getChild(relative.recordType).getChild(None, record=relative)
+                    
+                    if proxy:
+                        found = found.getChild("calendar-proxy-write")
+                    relatives.add(found)
+
                     self._getRelatives(method, relative, relatives, records)
 
         return relatives
@@ -426,10 +431,15 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
     def groupMemberships(self):
         groups = self._getRelatives("groups")
+
         if config.EnableProxyPrincipals:
+            # Get any directory specified proxies
+            groups.update(self._getRelatives("proxyFor", proxy=True))
+
             # Get proxy group GUIDs and map to principal resources
             proxies = self._map_calendar_user_proxy_guids(self._calendar_user_proxy_index().getMemberships(self.principalUID()))
             groups.update(proxies)
+
         return groups
 
     def principalCollections(self):
@@ -454,6 +464,15 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         addresses.add("urn:uuid:%s" % (self.principalUID(),))
         
         return addresses
+
+    def autoSchedule(self):
+        return self.record.autoSchedule
+    
+    def proxies(self):
+        return self._getRelatives("proxies")
+
+    def hasEditableProxyMembership(self):
+        return self.record.hasEditableProxyMembership()
 
     def scheduleInbox(self, request):
         home = self._calendarHome()

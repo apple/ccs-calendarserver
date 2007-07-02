@@ -575,12 +575,6 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
 
     def provision(self):
         if self.provisionFile():
-            # FIXME: This should probably be a directory record option that
-            # maps to the property value directly without the need to store one.
-            if self.parent.record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources,):
-                # Resources should have autorespond turned on by default,
-                # since they typically don't have someone responding for them.
-                self.writeDeadProperty(customxml.TwistedScheduleAutoRespond())
 
             # Initialize CTag on the calendar collection
             self.updateCTag()

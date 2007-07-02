@@ -130,7 +130,8 @@ class SudoDirectoryRecord(DirectoryRecord):
             guid=None,
             shortName=shortName,
             fullName=shortName,
-            calendarUserAddresses=set())
+            calendarUserAddresses=set(),
+            autoSchedule=False)
 
         self.password = entry['password']
 
