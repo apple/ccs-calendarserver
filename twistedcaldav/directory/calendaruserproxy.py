@@ -77,6 +77,8 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     Calendar user proxy principal resource.
     """
 
+    guidMapper = {}    # dict to map a GUID to a proxy principal
+
     def davComplianceClasses(self):
         return tuple(super(CalendarUserProxyPrincipalResource, self).davComplianceClasses()) + (
             "calendar-access",
@@ -99,6 +101,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         if self.isCollection():
             self._url += "/"
         self.guid = uuidFromName(self.parent.principalUID(), proxyType)
+        self.guidMapper[self.guid] = self
 
         # Provision in __init__() because principals are used prior to request
         # lookups.
@@ -115,6 +118,10 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         if not hasattr(self.pcollection, "calendar_user_proxy_db"):
             setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(self.pcollection.fp.path))
         return self.pcollection.calendar_user_proxy_db
+
+    @classmethod
+    def principalForGUID(cls, guid):
+        return cls.guidMapper.get(guid)
 
     def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
