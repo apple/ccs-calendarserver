@@ -437,7 +437,7 @@ def checkForReply(request, principal, calendar):
     Check whether a reply to the given iTIP message is needed. A reply will be needed if the
     RSVP=TRUE. A reply will either be positive (accepted
     invitation) or negative (denied invitation). In addition we will modify calendar to reflect
-    any new state (e.g. remove RSVP, set PART-STAT to ACCEPTED or DECLINED).
+    any new state (e.g. remove RSVP, set PARTSTAT to ACCEPTED or DECLINED).
 
     @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
@@ -501,16 +501,13 @@ def checkForReply(request, principal, calendar):
         return
 
     # Look for specific parameters
+    rsvp = False
     if "RSVP" in attendeeProp.params():
-        if attendeeProp.params()["RSVP"][0] != "TRUE":
-            yield False, None, accepted
-            return
-    else:
-        yield False, None, accepted
-        return
+        if attendeeProp.params()["RSVP"][0] == "TRUE":
+            rsvp = True
     
-    # Now modify the original component
-    del attendeeProp.params()["RSVP"]
+            # Now modify the original component
+            del attendeeProp.params()["RSVP"]
 
     if accepted:
         partstat = "ACCEPTED"
@@ -544,7 +541,7 @@ def checkForReply(request, principal, calendar):
         if (attendee.value() != attendeeProp.value()):
             replycal.mainComponent().removeProperty(attendee)
 
-    yield True, replycal, accepted
+    yield rsvp, replycal, accepted
 
 checkForReply = deferredGenerator(checkForReply)
 
