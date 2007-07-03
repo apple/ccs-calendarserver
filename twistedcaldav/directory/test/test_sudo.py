@@ -23,6 +23,7 @@ import twistedcaldav.directory.test.util
 from twistedcaldav.directory.sudo import SudoDirectoryService
 
 plistFile = FilePath(os.path.join(os.path.dirname(__file__), "sudoers.plist"))
+plistFile2 = FilePath(os.path.join(os.path.dirname(__file__), "sudoers2.plist"))
 
 class SudoTestCase(
     twistedcaldav.directory.test.util.BasicTestCase,
@@ -35,8 +36,9 @@ class SudoTestCase(
     recordTypes = set(('sudoers',))
     recordType = 'sudoers'
 
-    sudoers = {'alice': {'password': 'alice',},
-             }
+    sudoers = {
+        'alice': {'password': 'alice',},
+    }
 
     locations = {}
 
@@ -65,3 +67,20 @@ class SudoTestCase(
 
         record = service.recordWithShortName(self.recordType, 'bob')
         self.failIf(record)
+
+    def test_recordChanges(self):
+        service = self.service()
+
+        record = service.recordWithShortName(self.recordType, 'alice')
+        self.assertEquals(record.password, 'alice')
+
+        record = service.recordWithShortName(self.recordType, 'bob')
+        self.failIf(record)
+
+        plistFile2.copyTo(self._plistFile)
+
+        record = service.recordWithShortName(self.recordType, 'alice')
+        self.assertEquals(record.password, 'alice')
+
+        record = service.recordWithShortName(self.recordType, 'bob')
+        self.assertEquals(record.password, 'bob')

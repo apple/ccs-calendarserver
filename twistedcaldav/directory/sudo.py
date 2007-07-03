@@ -64,9 +64,11 @@ class SudoDirectoryService(DirectoryService):
         self._accounts()
 
     def _accounts(self):
+        self.plistFile.restat()
         fileInfo = (self.plistFile.getmtime(), self.plistFile.getsize())
         if fileInfo != self._fileInfo:
             self._plist = readPlist(self.plistFile.path)
+            self._fileInfo = fileInfo
 
         return self._plist
 
