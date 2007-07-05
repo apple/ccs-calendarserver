@@ -3,6 +3,8 @@
 set -e
 set -u
 
+merged="";
+
 for revision; do
     revision="${revision#r}"; # Remove leading 'r'
 
@@ -15,5 +17,9 @@ for revision; do
 
     echo "Pulling up r${revision}...";
     svn merge "-r${previous}:${revision}" http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk;
-    svn commit -m "Pulled up r${revision} from trunk.";
+
+    merged="${merged} r${revision}";
 done;
+
+echo svn commit -m \"Pulled up${merged} from trunk.\";
+echo svn commit -m \"Pulled up${merged} from trunk.\" | pbcopy;
