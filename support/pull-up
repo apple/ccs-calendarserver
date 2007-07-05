@@ -15,4 +15,5 @@ for revision; do
 
     echo "Pulling up r${revision}...";
     svn merge "-r${previous}:${revision}" http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk;
+    svn commit -m "Pulled up r${revision} from trunk.";
 done;
