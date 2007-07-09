@@ -1,0 +1,16 @@
+Index: twisted/web2/dav/method/propfind.py
+===================================================================
+--- twisted/web2/dav/method/propfind.py	(revision 19773)
++++ twisted/web2/dav/method/propfind.py	(working copy)
+@@ -200,7 +200,7 @@
+ 
+ def propertyName(name):
+     property_namespace, property_name = name
+-    class PropertyName (davxml.WebDAVEmptyElement):
+-        namespace = property_namespace
+-        name = property_name
+-    return PropertyName()
++    pname = davxml.WebDAVUnknownElement()
++    pname.namespace = property_namespace
++    pname.name = property_name
++    return pname
