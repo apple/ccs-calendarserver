@@ -187,6 +187,7 @@ class AbstractSQLDatabase(object):
 
     def _db_close(self):
         if hasattr(self, "_db_connection"):
+            self._db_connection.close()
             del self._db_connection
 
     def _db_values_for_sql(self, sql, *query_params):
