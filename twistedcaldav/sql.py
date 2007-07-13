@@ -38,13 +38,16 @@ class AbstractSQLDatabase(object):
     A generic SQL database.
     """
 
-    def __init__(self, dbpath):
+    def __init__(self, dbpath, autocommit=False):
         """
         
         @param dbpath: the path where the db file is stored.
         @type dbpath: str
+        @param autocommit: C{True} if auto-commit mode is desired, C{False} otherwise
+        @type autocommit: bool
         """
         self.dbpath = dbpath
+        self.autocommit = autocommit
 
     def _db_version(self):
         """
@@ -65,7 +68,10 @@ class AbstractSQLDatabase(object):
         """
         if not hasattr(self, "_db_connection"):
             db_filename = self.dbpath
-            self._db_connection = sqlite.connect(db_filename)
+            if self.autocommit:
+                self._db_connection = sqlite.connect(db_filename, isolation_level=None)
+            else:
+                self._db_connection = sqlite.connect(db_filename)
 
             #
             # Set up the schema
@@ -178,6 +184,11 @@ class AbstractSQLDatabase(object):
         Recreate the database tables.
         """
         pass
+
+    def _db_close(self):
+        if hasattr(self, "_db_connection"):
+            self._db_connection.close()
+            del self._db_connection
 
     def _db_values_for_sql(self, sql, *query_params):
         """
