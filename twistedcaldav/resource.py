@@ -130,6 +130,7 @@ class CalDAVResource (DAVResource):
             "calendar-schedule",
             "calendar-availability",
             "inbox-availability",
+            "calendar-proxy",
         )
 
     liveProperties = DAVResource.liveProperties + (
@@ -493,6 +494,8 @@ class CalendarPrincipalResource (DAVPrincipalResource):
             "calendar-access",
             "calendar-schedule",
             "calendar-availability",
+            "inbox-availability",
+            "calendar-proxy",
         )
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
