@@ -18,15 +18,21 @@
 
 from twistedcaldav.sql import AbstractSQLDatabase
 
+from twisted.cred import error
+from twisted.python import log
 from twisted.web2.auth.digest import DigestCredentialFactory
+from twisted.web2.auth.digest import DigestedCredentials
 
 from zope.interface import implements, Interface
 
 import cPickle as pickle
-from twisted.cred import error
-from twisted.web2.auth.digest import DigestedCredentials
-import time
 import os
+import time
+
+try:
+    from sqlite3 import OperationalError
+except ImportError:
+    from pysqlite2.dbapi2 import OperationalError
 
 """
 Overrides twisted.web2.auth.digest to allow specifying a qop value as a configuration parameter.
@@ -151,76 +157,117 @@ class DigestCredentialsDB(AbstractSQLDatabase):
     dbFilename = ".db.digestcredentialscache"
     dbFormatVersion = "2"
 
+    exceptionLimit = 10
+
     def __init__(self, path):
         db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
         if os.path.exists(db_path):
             os.remove(db_path)
-        super(DigestCredentialsDB, self).__init__(db_path)
-        self.db = {}
+        super(DigestCredentialsDB, self).__init__(db_path, autocommit=True)
+        self.exceptions = 0
     
     def has_key(self, key):
         """
         See IDigestCredentialsDatabase.
         """
-        for ignore_key in self._db_execute(
-            "select KEY from DIGESTCREDENTIALS where KEY = :1",
-            key
-        ):
-            return True
-        else:
-            return False
+        try:
+            for ignore_key in self._db_execute(
+                "select KEY from DIGESTCREDENTIALS where KEY = :1",
+                key
+            ):
+                return True
+            else:
+                return False
+            self.exceptions = 0
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
 
     def set(self, key, value):
         """
         See IDigestCredentialsDatabase.
         """
-        self._delete_from_db(key)
-        pvalue = pickle.dumps(value)
-        self._add_to_db(key, pvalue)
-        self._db_commit()
+        try:
+            pvalue = pickle.dumps(value)
+            self._set_in_db(key, pvalue)
+            self.exceptions = 0
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
 
     def get(self, key):
         """
         See IDigestCredentialsDatabase.
         """
-        for pvalue in self._db_execute(
-            "select VALUE from DIGESTCREDENTIALS where KEY = :1",
-            key
-        ):
-            return pickle.loads(str(pvalue[0]))
-        else:
-            return None
+        try:
+            for pvalue in self._db_execute(
+                "select VALUE from DIGESTCREDENTIALS where KEY = :1",
+                key
+            ):
+                self.exceptions = 0
+                return pickle.loads(str(pvalue[0]))
+            else:
+                self.exceptions = 0
+                return None
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
 
     def delete(self, key):
         """
         See IDigestCredentialsDatabase.
         """
-        self._delete_from_db(key)
-        self._db_commit()
+        try:
+            self._delete_from_db(key)
+            self.exceptions = 0
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
 
     def keys(self):
         """
         See IDigestCredentialsDatabase.
         """
-        result = []
-        for key in self._db_execute("select KEY from DIGESTCREDENTIALS"):
-            result.append(str(key[0]))
-        
-        return result
+        try:
+            result = []
+            for key in self._db_execute("select KEY from DIGESTCREDENTIALS"):
+                result.append(str(key[0]))
+            
+            self.exceptions = 0
+            return result
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
 
-    def _add_to_db(self, key, value):
+    def _set_in_db(self, key, value):
         """
-        Insert the specified entry into the database.
+        Insert the specified entry into the database, replacing any that might already exist.
 
         @param key:   the key to add.
         @param value: the value to add.
         """
-        self._db_execute(
+        self._db().execute(
             """
-            insert into DIGESTCREDENTIALS (KEY, VALUE)
+            insert or replace into DIGESTCREDENTIALS (KEY, VALUE)
             values (:1, :2)
-            """, key, value
+            """, (key, value,)
         )
+        self._db_commit()
        
     def _delete_from_db(self, key):
         """
@@ -228,7 +275,8 @@ class DigestCredentialsDB(AbstractSQLDatabase):
 
         @param key: the key to remove.
         """
-        self._db_execute("delete from DIGESTCREDENTIALS where KEY = :1", key)
+        self._db().execute("delete from DIGESTCREDENTIALS where KEY = :1", (key,))
+        self._db_commit()
     
     def _db_version(self):
         """
@@ -254,7 +302,7 @@ class DigestCredentialsDB(AbstractSQLDatabase):
         q.execute(
             """
             create table DIGESTCREDENTIALS (
-                KEY         text,
+                KEY         text unique,
                 VALUE       text
             )
             """
