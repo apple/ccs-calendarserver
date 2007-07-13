@@ -84,6 +84,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
             "calendar-access",
             "calendar-schedule",
             "calendar-availability",
+            "calendar-proxy",
         )
 
     def __init__(self, path, parent, proxyType):
