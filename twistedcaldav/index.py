@@ -30,6 +30,7 @@ __all__ = [
 
 import datetime
 import os
+import time
 
 try:
     import sqlite3 as sqlite
@@ -48,6 +49,8 @@ from vobject.icalendar import utc
 db_basename = ".db.sqlite"
 schema_version = "5"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
+
+reservation_timeout_secs = 5 * 60
 
 #
 # Duration into the future through which recurrances are expanded in the index
@@ -374,6 +377,21 @@ class CalendarIndex (AbstractCalendarIndex):
             """
         )
 
+        if uidunique:
+            #
+            # RESERVED table tracks reserved UIDs
+            #   UID: The UID being reserved
+            #   TIME: When the reservation was made
+            #
+            q.execute(
+                """
+                create table RESERVED (
+                    UID  text unique,
+                    TIME date
+                )
+                """
+            )
+
     def _add_to_db(self, name, calendar, cursor = None):
         """
         Records the given calendar resource in the index with the given name.
@@ -436,7 +454,6 @@ class Index (CalendarIndex):
     # A dict of sets. The dict keys are calendar collection paths,
     # and the sets contains reserved UIDs for each path.
     #
-    _reservations = {}
     
     def reserveUID(self, uid):
         """
@@ -444,18 +461,20 @@ class Index (CalendarIndex):
         @param uid: the UID to reserve
         @raise ReservationError: if C{uid} is already reserved
         """
-        fpath = self.resource.fp.path
 
-        if fpath in self._reservations and uid in self._reservations[fpath]:
+        try:
+            self._db_execute("insert into RESERVED (UID, TIME) values (:1, :2)", uid, datetime.datetime.now())
+            self._db_commit()
+        except sqlite.IntegrityError:
+            self._db_rollback()
             raise ReservationError(
                 "UID %s already reserved for calendar collection %s."
                 % (uid, self.resource)
             )
-
-        if fpath not in self._reservations:
-            self._reservations[fpath] = set()
-
-        self._reservations[fpath].add(uid)
+        except sqlite.Error, e:
+            log.err("Unable to reserve UID: %s", (e,))
+            self._db_rollback()
+            raise
     
     def unreserveUID(self, uid):
         """
@@ -463,15 +482,20 @@ class Index (CalendarIndex):
         @param uid: the UID to reserve
         @raise ReservationError: if C{uid} is not reserved
         """
-        fpath = self.resource.fp.path
-
-        if fpath not in self._reservations or uid not in self._reservations[fpath]:
+        
+        if not self.isReservedUID(uid):
             raise ReservationError(
                 "UID %s is not reserved for calendar collection %s."
                 % (uid, self.resource)
             )
 
-        self._reservations[fpath].remove(uid)
+        try:
+            self._db_execute("delete from RESERVED where UID = :1", uid)
+            self._db_commit()
+        except sqlite.Error, e:
+            log.err("Unable to unreserve UID: %s", (e,))
+            self._db_rollback()
+            raise
     
     def isReservedUID(self, uid):
         """
@@ -479,16 +503,32 @@ class Index (CalendarIndex):
         @param uid: the UID to check
         @return: True if C{uid} is reserved, False otherwise.
         """
-        fpath = self.resource.fp.path
+        
+        rowiter = self._db_execute("select UID, TIME from RESERVED where UID = :1", uid)
+        for uid, attime in rowiter:
+            # Double check that the time is within a reasonable period of now
+            # otherwise we probably have a stale reservation
+            tm = time.strptime(attime[:19], "%Y-%m-%d %H:%M:%S")
+            dt = datetime.datetime(year=tm.tm_year, month=tm.tm_mon, day=tm.tm_mday, hour=tm.tm_hour, minute=tm.tm_min, second = tm.tm_sec)
+            if datetime.datetime.now() - dt > datetime.timedelta(seconds=reservation_timeout_secs):
+                try:
+                    self._db_execute("delete from RESERVED where UID = :1", uid)
+                    self._db_commit()
+                except sqlite.Error, e:
+                    log.err("Unable to unreserve UID: %s", (e,))
+                    self._db_rollback()
+                    raise
+                return False
+            else:
+                return True
 
-        return fpath in self._reservations and uid in self._reservations[fpath]
+        return False
         
     def isAllowedUID(self, uid, *names):
         """
-        Checks to see whether to allow an operation with adds the the specified
-        UID is allowed to the index.  Specifically, the operation may not
-        violate the constraint that UIDs must be unique, and the UID must not
-        be reserved.
+        Checks to see whether to allow an operation which would add the
+        specified UID to the index.  Specifically, the operation may not
+        violate the constraint that UIDs must be unique.
         @param uid: the UID to check
         @param names: the names of resources being replaced or deleted by the
             operation; UIDs associated with these resources are not checked.
@@ -496,7 +536,7 @@ class Index (CalendarIndex):
             False otherwise.
         """
         rname = self.resourceNameForUID(uid)
-        return not self.isReservedUID(uid) and (rname is None or rname in names)
+        return (rname is None or rname in names)
  
     def _db_type(self):
         """
