@@ -368,7 +368,7 @@ def storeCalendarObjectResource(
                 reactor.callLater(0.1, _timedDeferred)
                 pause = waitForDeferred(d)
                 yield pause
-                _ignore = pause.getResult()
+                pause.getResult()
             
             if not reserved:
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (destination_uri,)))
