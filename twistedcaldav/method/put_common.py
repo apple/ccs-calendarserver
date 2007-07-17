@@ -22,8 +22,11 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["storeCalendarObjectResource"]
 
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import succeed
 from twisted.internet.defer import waitForDeferred
 from twisted.python import failure, log
 from twisted.python.filepath import FilePath
@@ -37,6 +40,7 @@ from twisted.web2.dav.resource import TwistedGETContentMD5
 from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
 from twisted.web2.http import HTTPError
+from twisted.web2.http import StatusResponse
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -46,6 +50,7 @@ from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component
+from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.resource import CalDAVResource
 
@@ -342,7 +347,34 @@ def storeCalendarObjectResource(
                 log.err(message)
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
 
-            # uid conflict check
+            # Reserve UID
+            destination_index = destinationparent.index()
+            
+            # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
+            # time to whoever has the reservation to finish and release it.
+            failure_count = 0
+            while(failure_count < 5):
+                try:
+                    destination_index.reserveUID(uid)
+                    reserved = True
+                    break
+                except ReservationError:
+                    reserved = False
+                failure_count += 1
+                
+                d = Deferred()
+                def _timedDeferred():
+                    d.callback(True)
+                reactor.callLater(0.1, _timedDeferred)
+                pause = waitForDeferred(d)
+                yield pause
+                pause.getResult()
+            
+            if not reserved:
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (destination_uri,)))
+        
+            # uid conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+            # try to write the same calendar data to two different resource URIs.
             if not isiTIP:
                 result, message, rname = noUIDConflict(uid)
                 if not result:
@@ -351,15 +383,6 @@ def storeCalendarObjectResource(
                         NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(destination_uri), rname.encode("utf-8"))))
                     ))
             
-            # Reserve UID
-            # FIXME: A race-condition could exist here if a deferred action were to be inserted between this statement
-            # and the isAllowedUID statement above. It would probably be best to merge isAllowedUID and reserveUID
-            # into a single 'atomic' 'test-and-set' operation to avoid this. Right now just make sure there are no
-            # deferreds.
-            destination_index = destinationparent.index()
-            destination_index.reserveUID(uid)
-            reserved = True
-        
         """
         Handle rollback setup here.
         """
