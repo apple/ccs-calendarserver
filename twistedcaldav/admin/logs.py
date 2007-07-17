@@ -93,9 +93,9 @@ class Stats(object):
                 request_stat['numBAD'] = _strAdd(request_stat['numBAD'], 1)
             else:
                 request_stat['numOther'] = _strAdd(request_stat['numOther'], 1)
-            if bytes < request_stat['minbytes']:
+            if bytes < long(request_stat['minbytes']):
                 request_stat['minbytes'] = str(bytes)
-            if bytes > request_stat['maxbytes']:
+            if bytes > long(request_stat['maxbytes']):
                 request_stat['maxbytes'] = str(bytes)
             request_stat['avbytes'] = str((long(request_stat['avbytes']) * old_num + bytes) / (old_num + 1))
             if time < request_stat['mintime']:
