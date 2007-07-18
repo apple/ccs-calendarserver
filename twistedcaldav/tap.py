@@ -347,7 +347,7 @@ class CalDAVServiceMaker(object):
             sudoDirectory.realmName = baseDirectory.realmName
 
             CalDAVResource.sudoDirectory = sudoDirectory
-            directories.append(sudoDirectory)
+            directories.insert(0, sudoDirectory)
         else:
             log.msg("Not using SudoDirectoryService; file doesn't exist: %s"
                     % (config.SudoersFile,))
@@ -355,7 +355,7 @@ class CalDAVServiceMaker(object):
         directory = AggregateDirectoryService(directories)
 
         if sudoDirectory:
-            directory.userRecordTypes.append(
+            directory.userRecordTypes.insert(0,
                 SudoDirectoryService.recordType_sudoers)
 
         #
