@@ -47,7 +47,7 @@ from twistedcaldav import caldavxml
 from vobject.icalendar import utc
 
 db_basename = ".db.sqlite"
-schema_version = "5"
+schema_version = "6"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 reservation_timeout_secs = 5 * 60
