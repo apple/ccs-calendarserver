@@ -341,7 +341,13 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             continue
 
         calendar = calresource.iCalendar(name)
-        assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (name, calresource)
+        
+        # The calendar may come back as None if the resource is being changed, or was deleted
+        # between our initial index query and getting here. For now we will ignore this errror, but in
+        # the longer term we need to simplement some form of locking, perhaps.
+        if calendar is None:
+            log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
+            continue
         
         # Ignore ones of this UID
         if excludeuid:
