@@ -545,7 +545,7 @@ class OpenDirectoryService(DirectoryService):
             # Update one record, if found
             #
             assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
-            self._records[recordType]["records"][shortName] = records[shortName]
+            self._records[recordType]["records"][shortName] = records[recordShortName]
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
