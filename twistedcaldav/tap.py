@@ -304,6 +304,25 @@ class CalDAVOptions(Options):
                 raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
                              % (description, path, pathstat[stat.ST_GID], gname))
 
+from OpenSSL import SSL
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
+
+class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
+    def __init__(self, privateKeyFileName, certificateFileName,
+                 sslmethod=SSL.SSLv23_METHOD, certificateChainFile=None):
+        self.certificateChainFile = certificateChainFile
+
+        DefaultOpenSSLContextFactory.__init__(self,
+                                              privateKeyFileName,
+                                              certificateFileName,
+                                              sslmethod=sslmethod)
+
+    def cacheContext(self):
+        DefaultOpenSSLContextFactory.cacheContext(self)
+
+        if self.certificateChainFile != '':
+            self._context.use_certificate_chain_file(self.certificateChainFile)
+
 
 class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
@@ -531,9 +550,6 @@ class CalDAVServiceMaker(object):
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
-            if config.BindSSLPorts:
-                from twisted.internet.ssl import DefaultOpenSSLContextFactory
-
             for port in config.BindHTTPPorts:
                 log.msg("Adding server at %s:%s" % (bindAddress, port))
 
@@ -543,7 +559,7 @@ class CalDAVServiceMaker(object):
             for port in config.BindSSLPorts:
                 log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
 
-                contextFactory = DefaultOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate)
+                contextFactory = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
                 httpsService = internet.SSLServer(int(port), channel, contextFactory, interface=bindAddress)
                 httpsService.setServiceParent(service)
 

@@ -117,6 +117,7 @@ defaultConfig = {
     #
     "SSLCertificate": "/etc/certificates/Default.crt", # Public key
     "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
+    "SSLAuthorityChain": "",                           # Certificate Authority Chain
 
     #
     # Process management
