@@ -23,6 +23,7 @@ import commands
 from twisted.web import microdom
 
 from twistedcaldav import ical
+from twistedcaldav.sql import db_prefix
 
 def prepareByteValue(config, value):
     if config.get('human', None):
@@ -64,7 +65,7 @@ def getPrincipalList(principalCollection, type, disabled=False):
 
     if typeRoot.exists():
         for child in typeRoot.listdir():
-            if child not in ['.db.sqlite']:
+            if not child.startswith(db_prefix):
                 p = typeRoot.child(child)
 
                 if disabled:

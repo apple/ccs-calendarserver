@@ -33,6 +33,8 @@ except ImportError:
 
 from twisted.python import log
 
+db_prefix = ".db."
+
 class AbstractSQLDatabase(object):
     """
     A generic SQL database.

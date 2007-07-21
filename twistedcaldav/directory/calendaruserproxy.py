@@ -37,6 +37,7 @@ from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.sql import db_prefix
 from twistedcaldav.static import AutoProvisioningFileMixIn
 from twistedcaldav.directory.util import uuidFromName
 
@@ -296,7 +297,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     """
     
     dbType = "CALENDARUSERPROXY"
-    dbFilename = ".db.calendaruserproxy"
+    dbFilename = db_prefix + "calendaruserproxy"
     dbFormatVersion = "3"
 
     def __init__(self, path):

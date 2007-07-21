@@ -60,7 +60,7 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
-from twistedcaldav.index import Index, IndexSchedule, db_basename
+from twistedcaldav.index import Index, IndexSchedule
 from twistedcaldav.notifications import NotificationsCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
@@ -69,6 +69,7 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningRe
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.sql import db_prefix
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
@@ -278,7 +279,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     def listChildren(self):
         return [
             child for child in super(CalDAVFile, self).listChildren()
-            if child != db_basename
+            if not child.startswith(db_prefix)
         ]
 
     def updateCTag(self):
@@ -310,7 +311,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 for f in top.listdir():
     
                     # Ignore the database
-                    if f == db_basename:
+                    if f.startswith(db_prefix):
                         continue
     
                     child = top.child(f)

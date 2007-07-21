@@ -42,11 +42,12 @@ from twisted.python import log
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.sql import db_prefix
 from twistedcaldav import caldavxml
 
 from vobject.icalendar import utc
 
-db_basename = ".db.sqlite"
+db_basename = db_prefix + "sqlite"
 schema_version = "6"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
@@ -565,7 +566,7 @@ class Index (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name == db_basename:
+            if name.startswith(db_prefix):
                 continue
 
             try:
@@ -676,7 +677,7 @@ class IndexSchedule (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name == db_basename:
+            if name.startswith(db_prefix):
                 continue
 
             try:

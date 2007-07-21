@@ -17,6 +17,7 @@
 ##
 
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.sql import db_prefix
 
 from twisted.cred import error
 from twisted.python import log
@@ -154,7 +155,7 @@ class DigestCredentialsDB(AbstractSQLDatabase):
     """
     
     dbType = "DIGESTCREDENTIALSCACHE"
-    dbFilename = ".db.digestcredentialscache"
+    dbFilename = db_prefix + "digestcredentialscache"
     dbFormatVersion = "2"
 
     exceptionLimit = 10
