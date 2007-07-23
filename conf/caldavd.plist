@@ -262,17 +262,5 @@ limitations under the License.
   <true/>
 
 
-  <!--
-    Miscellaneous items
-  -->
-
-  <!-- A unix socket used for communication between the child and master processes. -->
-  <key>ControlSocket</key>
-  <string>/var/run/caldavd.sock</string>
-
-  <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
-  <key>ResponseCompression</key>
-  <true/>
-
 </dict>
 </plist>
