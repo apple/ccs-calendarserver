@@ -18,6 +18,8 @@
 
 import datetime
 
+from twistedcaldav.sql import db_prefix
+
 def purgeEvents(collection, purgeDate):
     """
     Recursively purge all events older than purgeDate.
@@ -36,7 +38,7 @@ def purgeEvents(collection, purgeDate):
     directories = []
 
     for child in collection.children():
-        if child.basename() == '.db.sqlite':
+        if child.basename().startswith(db_prefix):
             continue
 
         if child.isdir():

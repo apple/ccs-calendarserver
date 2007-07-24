@@ -47,6 +47,7 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.sql import db_prefix
 
 import os
 
@@ -56,7 +57,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     and record dumping. This can be used as a standalong DB management tool.
     """
     dbType = "DIRECTORYSERVICE"
-    dbFilename = ".db.accounts"
+    dbFilename = db_prefix + "accounts"
     dbFormatVersion = "3"
 
     def __init__(self, path):
