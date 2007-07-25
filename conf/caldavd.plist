@@ -214,11 +214,11 @@ limitations under the License.
 
   <!-- Public key -->
   <key>SSLCertificate</key>
-  <string>/etc/certificates/Default.crt</string>
+  <string></string>
 
   <!-- Private key -->
   <key>SSLPrivateKey</key>
-  <string>/etc/certificates/Default.key</string>
+  <string></string>
 
 
   <!--

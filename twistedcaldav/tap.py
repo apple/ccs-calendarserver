@@ -206,18 +206,23 @@ class CalDAVOptions(Options):
 
         # Verify that ssl certs exist if needed
         if config.SSLPort:
-            self.checkFile(
-                config.SSLPrivateKey,
-                "SSL Private key",
-                access=os.R_OK,
-                #permissions=0640
-            )
-            self.checkFile(
-                config.SSLCertificate,
-                "SSL Public key",
-                access=os.R_OK,
-                #permissions=0644
-            )
+            try:
+                self.checkFile(
+                    config.SSLPrivateKey,
+                    "SSL Private key",
+                    access=os.R_OK,
+                    #permissions=0640
+                )
+                self.checkFile(
+                    config.SSLCertificate,
+                    "SSL Public key",
+                    access=os.R_OK,
+                    #permissions=0644
+                )
+            except ConfigurationError, e:
+                log.err(str(e))
+                log.err("Disabling SSL port")
+                config.SSLPort = 0
 
         #
         # Nuke the file log observer's time format.
