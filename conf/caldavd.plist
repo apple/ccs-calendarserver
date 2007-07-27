@@ -39,8 +39,11 @@ limitations under the License.
   <integer>8008</integer>
 
   <!-- SSL port [0 = disable HTTPS] -->
+  <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
+  <!--
   <key>SSLPort</key>
   <integer>8443</integer>
+  -->
 
 
   <!--
