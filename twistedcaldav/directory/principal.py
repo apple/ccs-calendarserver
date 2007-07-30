@@ -58,12 +58,41 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class DirectoryPrincipalProvisioningResource (
+class DirectoryProvisioningResource(
     AutoProvisioningFileMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
 ):
+    def principalForShortName(self, type, name):
+        raise NotImplementedError("Subclass must implement principalForShortName()")
+
+    def principalForUser(self, user):
+        return self.principalForShortName(DirectoryService.recordType_users, user)
+
+    def principalForGUID(self, guid):
+        record = self.directory.recordWithGUID(guid)
+        if record:
+            return self.principalForRecord(record)
+        else:
+            return None
+
+    def principalForUID(self, uid):
+        if "#" in uid:
+            # This UID belongs to a sub-principal
+            parent_uid, subType = uid.split("#")
+            return self.principalForGUID(parent_uid).getChild(subType)
+        else:
+            # This UID belongs to a primary principal (UID == GUID)
+            return self.principalForGUID(uid)
+
+    def principalForRecord(self, record):
+        return self.principalForShortName(record.recordType, record.shortName)
+
+    def principalForCalendarUserAddress(self, address):
+        raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
+
+class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals as its children.
     """
@@ -92,21 +121,6 @@ class DirectoryPrincipalProvisioningResource (
         if typeResource is None:
             return None
         return typeResource.getChild(name)
-
-    def principalForUser(self, user):
-        return self.principalForShortName(DirectoryService.recordType_users, user)
-
-    def principalForGUID(self, guid):
-        record = self.directory.recordWithGUID(guid)
-        if record:
-            return self.principalForRecord(record)
-        elif config.EnableProxyPrincipals:
-            return CalendarUserProxyPrincipalResource.principalForGUID(guid)
-        else:
-            return None
-
-    def principalForRecord(self, record):
-        return self.principalForShortName(record.recordType, record.shortName)
 
     def _principalForURI(self, uri):
         scheme, netloc, path, params, query, fragment = urlparse(uri)
@@ -194,12 +208,7 @@ class DirectoryPrincipalProvisioningResource (
     def principalCollections(self):
         return (self,)
 
-class DirectoryPrincipalTypeResource (
-    AutoProvisioningFileMixIn,
-    PermissionsMixIn,
-    CalendarPrincipalCollectionResource,
-    DAVFile,
-):
+class DirectoryPrincipalTypeResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals of a specific type as its children.
     """
@@ -218,15 +227,6 @@ class DirectoryPrincipalTypeResource (
 
     def principalForShortName(self, type, name):
         return self.parent.principalForShortName(type, name)
-
-    def principalForUser(self, user):
-        return self.parent.principalForUser(user)
-
-    def principalForRecord(self, record):
-        return self.parent.principalForRecord(record)
-
-    def principalForGUID(self, guid):
-        return self.parent.principalForGUID(guid)
 
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
@@ -412,8 +412,13 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             # Get any directory specified proxies
             groups.update(self._getRelatives("proxyFor", proxy=True))
 
-            # Get proxy group GUIDs and map to principal resources
-            proxies = [self.parent.principalForGUID(guid) for guid in self._calendar_user_proxy_index().getMemberships(self.principalUID())]
+            # Get proxy group UIDs and map to principal resources
+            proxies = []
+            for uid in self._calendar_user_proxy_index().getMemberships(self.principalUID()):
+                subprincipal = self.parent.principalForUID(uid)
+                if subprincipal:
+                    proxies.append(subprincipal)
+
             groups.update(proxies)
 
         return groups
@@ -437,8 +442,8 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
             addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, self.principalURL(),))
         if config.SSLPort:
             addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, self.principalURL(),))
-        addresses.add("urn:uuid:%s" % (self.principalUID(),))
-        
+        addresses.add("urn:uuid:%s" % (self.record.guid,))
+
         return addresses
 
     def autoSchedule(self):
