@@ -46,8 +46,8 @@ defaultConfig = {
     #    proxy which forwards connections to the server.
     #
     "ServerHostName": "localhost", # Network host name.
-    "HTTPPort": 0,                # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0,                # SSL port (0 to disable HTTPS)
+    "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
+    "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
 
     # Note: we'd use None above, but that confuses the command-line parser.
 
