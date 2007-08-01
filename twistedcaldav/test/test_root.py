@@ -141,7 +141,7 @@ class RootTests(TestCase):
 
             self.assertEquals(request.authzUser, 
                               davxml.Principal(
-                    davxml.HRef('/principals/users/dreid/')))
+                    davxml.HRef('/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/')))
             
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
         d.addCallback(_Cb)
@@ -169,6 +169,7 @@ class RootTests(TestCase):
                                          ['principals'])
 
         def _Eb(failure):
+            failure.trap(HTTPError)
             self.assertEquals(failure.value.response.code, 403)
             
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
@@ -198,7 +199,6 @@ class RootTests(TestCase):
 
         def _Eb(failure):
             failure.trap(HTTPError)
-
             self.assertEquals(failure.value.response.code, 401)
 
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
@@ -229,6 +229,7 @@ class RootTests(TestCase):
                                          ['principals'])
 
         def _Eb(failure):
+            failure.trap(HTTPError)
             self.assertEquals(failure.value.response.code, 401)
             
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])

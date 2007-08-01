@@ -24,6 +24,8 @@ __all__ = [
     "CalendarUserProxyPrincipalResource",
 ]
 
+from cgi import escape
+
 from twisted.internet.defer import succeed
 from twisted.python import log
 from twisted.python.failure import Failure
@@ -91,14 +93,19 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         @param parent: the parent of this resource.
         @param proxyType: a C{str} containing the name of the resource.
         """
-        super(CalendarUserProxyPrincipalResource, self).__init__(path, joinURL(parent.principalURL(), proxyType))
-
-        self.parent = parent
-        self.pcollection = self.parent.parent.parent
-        self.proxyType = proxyType
-        self._url = joinURL(parent.principalURL(), proxyType)
         if self.isCollection():
-            self._url += "/"
+            slash = "/"
+        else:
+            slash = ""
+
+        url = joinURL(parent.principalURL(), proxyType) + slash
+
+        super(CalendarUserProxyPrincipalResource, self).__init__(path, url)
+
+        self.parent      = parent
+        self.proxyType   = proxyType
+        self.pcollection = self.parent.parent.parent # FIXME: if this is supposed to be public, it needs a better name
+        self._url        = url
 
         # Not terribly useful at present because we don't have a way
         # to map a GUID back to the correct principal.
@@ -108,9 +115,18 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         # can easily map back to a principal.
         self.uid = "%s#%s" % (self.parent.principalUID(), proxyType)
 
+        self._alternate_urls = tuple(
+            joinURL(url, proxyType) + slash
+            for url in parent.alternateURIs()
+            if url.startswith("/")
+        )
+
         # Provision in __init__() because principals are used prior to request
         # lookups.
         self.provision()
+
+    def __str__(self):
+        return "%s [%s]" % (self.parent, self.proxyType)
 
     def _index(self):
         """
@@ -187,6 +203,8 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     ##
 
     def renderDirectoryBody(self, request):
+        # FIXME: Too much code duplication here from principal.py
+
         def format_list(items, *args):
             def genlist():
                 try:
@@ -203,6 +221,12 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
 
         def link(url):
             return """<a href="%s">%s</a>""" % (url, url)
+
+        def format_principals(principals):
+            return format_list(
+                """<a href="%s">%s</a>""" % (principal.principalURL(), escape(str(principal)))
+                for principal in principals
+            )
 
         def gotSuper(output):
             return "".join((
@@ -228,9 +252,10 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                #"""GUID: %s\n"""                   % (self.guid,),
                 """Principal UID: %s\n"""          % (self.principalUID(),),
                 """Principal URL: %s\n"""          % (link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(self.alternateURIs()),
-                """\nGroup members (%s):\n"""      % ({False:"Locked", True:"Editable"}[self.hasEditableMembership()]), format_list(link(p.principalURL()) for p in self.groupMembers()),
-                """\nGroup memberships:\n"""       , format_list(link(p.principalURL()) for p in self.groupMemberships()),
+                """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
+                """\nGroup members (%s):\n""" % ({False:"Locked", True:"Editable"}[self.hasEditableMembership()])
+                                                   , format_principals(self.groupMembers()),
+                """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
                 """</pre></blockquote></div>""",
                 output
             ))
@@ -252,7 +277,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
 
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
-        return ()
+        return self._alternate_urls
 
     def principalURL(self):
         return self._url

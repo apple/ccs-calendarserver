@@ -83,8 +83,11 @@ class XMLDirectoryService(DirectoryService):
         return None
 
     def _entriesForRecordType(self, recordType):
-        for entry in self._accounts()[recordType].itervalues():
-             yield entry.shortName, entry
+        try:
+            for entry in self._accounts()[recordType].itervalues():
+                yield entry.shortName, entry
+        except KeyError:
+            return
 
     def _accounts(self):
         self.xmlFile.restat()
