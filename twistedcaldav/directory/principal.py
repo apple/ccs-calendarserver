@@ -520,14 +520,18 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         return self.record.guid
         
     def calendarUserAddresses(self):
-        # Add the principal URL and GUID to whatever calendar user addresses
-        # the directory record provides.
+        # Get any CUAs defined by the directory implementation.
         addresses = set(self.record.calendarUserAddresses)
-        addresses.add(self.principalURL())
-        if config.HTTPPort:
-            addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, self.principalURL(),))
-        if config.SSLPort:
-            addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, self.principalURL(),))
+
+        # Add the principal URL and alternate URIs to the list.
+        for uri in ((self.principalURL(),) + tuple(self.alternateURIs())):
+            addresses.add(uri)
+            if config.HTTPPort:
+                addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, uri))
+            if config.SSLPort:
+                addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
+
+        # Add a UUID URI based on the record's GUID to the list.
         addresses.add("urn:uuid:%s" % (self.record.guid,))
 
         return addresses
