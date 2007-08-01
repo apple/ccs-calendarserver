@@ -36,6 +36,8 @@ src="$(cd "${wd}/.." && pwd)";
 
 build=false;
 
+submission_enabled=false;
+
 usage ()
 {
   program="$(basename "$0")";
@@ -64,6 +66,11 @@ shift $((${OPTIND} - 1));
 if ! "${build}"; then
     if [ $# == 0 ]; then usage "No release specified"; fi;
     release="$1"; shift;
+
+    if ! "${submission_enabled}"; then
+        echo "Submissions from this branch are not enabled.";
+        exit 1;
+    fi;
 fi;
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
