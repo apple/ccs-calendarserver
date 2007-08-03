@@ -185,7 +185,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         for uri in members:
             principal = self.pcollection._principalForURI(uri)
             # Invalid principals MUST result in an error.
-            if principal is None:
+            if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
                     "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
