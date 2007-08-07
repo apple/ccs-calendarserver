@@ -24,6 +24,7 @@
 
 """
 
+import datetime
 import plistlib
 import sys
 import time
@@ -54,7 +55,7 @@ def _strAdd(value, add):
     return str(long(value) + add)
 
 class Stats(object):
-    def __init__(self, fp):
+    def __init__(self, fp, days):
         self.fp = fp
         self._data = None
 
@@ -66,11 +67,38 @@ class Stats(object):
         if self._data is None:
             self._data = statsTemplate
             self.save()
+            
+        self.earliest_date = datetime.date.today() - datetime.timedelta(days=days)
+
+    MONTH_MAP = {
+        'Jan':1,
+        'Feb':2,
+        'Mar':3,
+        'Apr':4,
+        'May':5,
+        'Jun':6,
+        'Jul':7,
+        'Aug':8,
+        'Sep':9,
+        'Oct':10,
+        'Nov':11,
+        'Dec':12,
+    }
 
     def addDate(self, date):
+        # Check that log entry is within our earliest date bound
+        day = int(date[0:2])
+        month = Stats.MONTH_MAP[date[3:6]]
+        year = int(date[7:11])
+        log_date = datetime.date(year=year, month=month, day=day)
+        if log_date < self.earliest_date:
+            return False
+
         if not self._data.startDate:
             self._data.startDate = date
         self._data.endDate = date
+        
+        return True
 
     def getDateRange(self):
         return (self._data.startDate, self._data.endDate)
@@ -221,9 +249,10 @@ class LogAction(object):
 
         self.noOutput = self.config['nooutput']
         self.readOnly = self.config['readonly']
+        self.days = self.config['days']
 
         self.logfile = self.config['logfile']
-        self.stats = Stats(self.config['statsfile'])
+        self.stats = Stats(self.config['statsfile'], self.days)
 
     def run(self):
 
@@ -244,17 +273,17 @@ class LogAction(object):
                     else:
                         pline = parseCLFLine(line)
                         
-                        self.stats.addDate(pline[3])
-                        self.stats.addBytes(int(pline[6]))
-                        self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
-                        self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
-                        self.stats.addStatusStats(int(pline[5]))
-    
-                        if len(pline) > 7:
-                            self.stats.addUserAgent(pline[8])
-    
-                        if pline[2] != "-":
-                            self.stats.addActiveUser(pline[2])
+                        if self.stats.addDate(pline[3]):
+                            self.stats.addBytes(int(pline[6]))
+                            self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
+                            self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
+                            self.stats.addStatusStats(int(pline[5]))
+        
+                            if len(pline) > 7:
+                                self.stats.addUserAgent(pline[8])
+        
+                            if pline[2] != "-":
+                                self.stats.addActiveUser(pline[2])
                             
                     if (50 * line_count) / total_count > last_count:
                         sys.stdout.write(".")

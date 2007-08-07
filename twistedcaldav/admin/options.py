@@ -106,6 +106,10 @@ class LogOptions(SubCommand):
         PARAM_MEGA,
         PARAM_GIGA,
         ]
+
+    optParameters = [
+        ['days', 'd', 30, 'Age threshold for log analysis.'],
+        ]
     
     def __init__(self):
         SubCommand.__init__(self)
