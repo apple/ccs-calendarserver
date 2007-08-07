@@ -40,6 +40,7 @@ statsTemplate = plistlib.Dict(
     requestStats={},
     timeOfDayStats=[0] * 96,
     requestByTimeOfDayStats={},
+    statusStats={},
     invitations={
         "day":0, 
         "week":0, 
@@ -74,11 +75,11 @@ class Stats(object):
     def getDateRange(self):
         return (self._data.startDate, self._data.endDate)
 
-    def getBytes(self):
-        return long(self._data.bytesOut)
-
     def addBytes(self, bytes):
         self._data.bytesOut = _strAdd(self._data.bytesOut, bytes)
+
+    def getBytes(self):
+        return long(self._data.bytesOut)
 
     def addRequestStats(self, request, status, bytes, time):
         if request in self._data.requestStats:
@@ -142,6 +143,13 @@ class Stats(object):
 
     def getRequestByTimeOfDayStats(self):
         return self._data.requestByTimeOfDayStats
+
+    def addStatusStats(self, status):
+        old = self._data.statusStats.get(str(status), "0")
+        self._data.statusStats[str(status)] = _strAdd(old, 1)
+
+    def getStatusStats(self):
+        return self._data.statusStats
 
     def addUserAgent(self, useragent):
         if useragent in self._data.userAgents:
@@ -240,6 +248,7 @@ class LogAction(object):
                         self.stats.addBytes(int(pline[6]))
                         self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
                         self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
+                        self.stats.addStatusStats(int(pline[5]))
     
                         if len(pline) > 7:
                             self.stats.addUserAgent(pline[8])
@@ -269,6 +278,7 @@ class LogAction(object):
                     'requestStats': self.stats.getRequestStats(),
                     'timeOfDayStats': self.stats.getTimeOfDayStats(),
                     'requestByTimeOfDayStats': self.stats.getRequestByTimeOfDayStats(),
+                    'statusStats': self.stats.getStatusStats(),
                     'userAgents': self.stats.getUserAgents(),
                     'activeUsers': self.stats.getActiveUsers(),
                     }

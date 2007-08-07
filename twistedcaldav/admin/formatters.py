@@ -260,10 +260,19 @@ class PlainFormatter(BaseFormatter):
             self.writeFrequencies(freqs)
             self.write('\n')
 
+        self.write('  Response Status: total=%d\n' % (len(report['data']['statusStats']),))
+
+        sorted_list = [item for item in report['data']['statusStats'].iteritems()]
+        sorted_list.sort(cmp=lambda x,y: int(x[0]) - int(y[0]))
+        for status, count in sorted_list:
+            self.write('    %s: %s\n' % (status, count))
+        self.write('\n')
+
         self.write('  User Agents: total=%d\n' % (len(report['data']['userAgents']),))
 
         for ua, count in report['data']['userAgents'].iteritems():
             self.write('    %s: %s\n' % (ua, count))
+        self.write('\n')
 
         self.write('  Active Users: total=%d\n' % (len(report['data']['activeUsers']),))
 
@@ -571,6 +580,17 @@ class HTMLFormatter(BaseFormatter):
             self.write('<h3># %s requests by time of day:</h3>\n' % (request,))
             self.writeFrequencies(freqs)
             self.write('<br>\n')
+
+        self.write('<h3>Response Status: total=%d</h3>\n' % (len(report['data']['statusStats']),))
+
+        self.write("<table border='1'>")
+        self.write('  <tr><td>Status</td><td># Responses</td></tr>\n')
+
+        sorted_list = [item for item in report['data']['statusStats'].iteritems()]
+        sorted_list.sort(cmp=lambda x,y: int(x[0]) - int(y[0]))
+        for status, count in sorted_list:
+            self.write('  <tr><td>%s:</td><td align=\'right\'>%s</td></tr>\n' % (status, count))
+        self.write('</table>\n')
 
         self.write('<h3>User Agents: total=%d</h3>\n' % (len(report['data']['userAgents']),))
 
