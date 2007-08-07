@@ -228,28 +228,32 @@ class LogAction(object):
             print "|" + "----|" * 10 + "\n.",
             last_count = 0
             start_time = time.time()
-            for line_count, line in enumerate(self.logfile.open()):
-                if (line.startswith('Log opened') or 
-                    line.startswith('Log closed')):
-                    continue
-                else:
-                    pline = parseCLFLine(line)
-                    
-                    self.stats.addDate(pline[3])
-                    self.stats.addBytes(int(pline[6]))
-                    self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
-                    self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
-
-                    if len(pline) > 7:
-                        self.stats.addUserAgent(pline[8])
-
-                    if pline[2] != "-":
-                        self.stats.addActiveUser(pline[2])
+            try:
+                for line_count, line in enumerate(self.logfile.open()):
+                    if (line.startswith('Log opened') or 
+                        line.startswith('Log closed')):
+                        continue
+                    else:
+                        pline = parseCLFLine(line)
                         
-                if (50 * line_count) / total_count > last_count:
-                    sys.stdout.write(".")
-                    sys.stdout.flush()
-                    last_count = (50 * line_count) / total_count
+                        self.stats.addDate(pline[3])
+                        self.stats.addBytes(int(pline[6]))
+                        self.stats.addRequestStats(pline[4].split(' ')[0], int(pline[5]), int(pline[6]), float(pline[9][:-3]))
+                        self.stats.addTimeOfDayStats(pline[4].split(' ')[0], pline[3][pline[3].find(":") + 1:][:5])
+    
+                        if len(pline) > 7:
+                            self.stats.addUserAgent(pline[8])
+    
+                        if pline[2] != "-":
+                            self.stats.addActiveUser(pline[2])
+                            
+                    if (50 * line_count) / total_count > last_count:
+                        sys.stdout.write(".")
+                        sys.stdout.flush()
+                        last_count = (50 * line_count) / total_count
+            except Exception, e:
+                print "Problem at line: %d, %s" % (line_count, e)
+                raise
 
             print ".\nTime taken: %.1f secs\n" % (time.time() - start_time)
 
