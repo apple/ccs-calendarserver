@@ -55,11 +55,11 @@ def _strAdd(value, add):
     return str(long(value) + add)
 
 class Stats(object):
-    def __init__(self, fp, days):
+    def __init__(self, fp, append, days):
         self.fp = fp
         self._data = None
 
-        if self.fp.exists():
+        if self.fp.exists() and append:
             self._data = plistlib.readPlist(self.fp.path)
             if self._data.version != PLIST_VERSION:
                 self._data = None
@@ -249,10 +249,9 @@ class LogAction(object):
 
         self.noOutput = self.config['nooutput']
         self.readOnly = self.config['readonly']
-        self.days = self.config['days']
 
         self.logfile = self.config['logfile']
-        self.stats = Stats(self.config['statsfile'], self.days)
+        self.stats = Stats(self.config['statsfile'], self.config['append'], self.config['days'])
 
     def run(self):
 

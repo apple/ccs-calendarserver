@@ -101,6 +101,7 @@ class LogOptions(SubCommand):
     optFlags = [
         ['nooutput', 'n', 'Do not output anything to stdout'],
         ['readonly', 'r', 'Just read the current stats in the statistics file'],
+        ['append',   'a', 'Append to current stats in the statistics file'],
         PARAM_HUMAN,
         PARAM_KILO,
         PARAM_MEGA,
