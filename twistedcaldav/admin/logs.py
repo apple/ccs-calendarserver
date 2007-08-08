@@ -208,37 +208,38 @@ def parseCLFLine(line):
     state = NORMAL
     elements = []
     
-    rest = []
+    rest = ""
 
     for c in line:
-        if c == ' ':
-            if state == NORMAL:
-                elements.append(''.join(rest))
-                rest = []
-
-            elif state == INSTRING or state == INDATE:
-                rest.append(c)
-                    
-        elif c == '[':
-            if state != INSTRING:
-                state = INDATE
+        if c in (' ', '[', ']', '"', '\n'):
+            if c == ' ':
+                if state == NORMAL:
+                    elements.append(rest)
+                    rest = ""
+    
+                elif state == INSTRING or state == INDATE:
+                    rest += c
                         
-        elif c == ']':
-            if state == INDATE:
-                state = NORMAL
-
-        elif c == '"':
-            if state == INSTRING:
-                state = NORMAL
-            else:
-                state = INSTRING
-        elif c == '\n':
-            if state == NORMAL:
-                elements.append(''.join(rest))
-                rest = []
+            elif c == '[':
+                if state != INSTRING:
+                    state = INDATE
+                            
+            elif c == ']':
+                if state == INDATE:
+                    state = NORMAL
+    
+            elif c == '"':
+                if state == INSTRING:
+                    state = NORMAL
+                else:
+                    state = INSTRING
+            elif c == '\n':
+                if state == NORMAL:
+                    elements.append(rest)
+                    rest = ""
 
         else:
-            rest.append(c)
+            rest += c
 
     return elements
 
