@@ -56,10 +56,14 @@ class TestIndex (twistedcaldav.test.util.TestCase):
 
     def test_reserve_uid_timeout(self):
         uid = "test-test-test"
+        old_timeout = twistedcaldav.index.reservation_timeout_secs
         twistedcaldav.index.reservation_timeout_secs = 2
-        db = Index(self.site.resource)
-        self.assertFalse(db.isReservedUID(uid))
-        db.reserveUID(uid)
-        self.assertTrue(db.isReservedUID(uid))
-        time.sleep(3)
-        self.assertFalse(db.isReservedUID(uid))
+        try:
+            db = Index(self.site.resource)
+            self.assertFalse(db.isReservedUID(uid))
+            db.reserveUID(uid)
+            self.assertTrue(db.isReservedUID(uid))
+            time.sleep(3)
+            self.assertFalse(db.isReservedUID(uid))
+        finally:
+            twistedcaldav.index.reservation_timeout_secs = old_timeout
