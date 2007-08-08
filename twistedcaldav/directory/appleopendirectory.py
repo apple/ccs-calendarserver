@@ -353,13 +353,7 @@ class OpenDirectoryService(DirectoryService):
             DirectoryService.recordType_resources,
         )
 
-    def recordsForType(self, recordType):
-        """
-        @param recordType: a record type
-        @return: a dictionary containing all records for the given record
-        type.  Keys are short names and values are the cooresponding
-        OpenDirectoryRecord for the given record type.
-        """
+    def _storage(self, recordType):
         try:
             storage = self._records[recordType]
         except KeyError:
@@ -376,7 +370,16 @@ class OpenDirectoryService(DirectoryService):
                 d = deferToThread(self.reloadCache, recordType)
                 d.addErrback(onError)
 
-        return self._records[recordType]["records"]
+        return storage
+
+    def recordsForType(self, recordType):
+        """
+        @param recordType: a record type
+        @return: a dictionary containing all records for the given record
+        type.  Keys are short names and values are the cooresponding
+        OpenDirectoryRecord for the given record type.
+        """
+        self._storage(recordType)["records"]
 
     def listRecords(self, recordType):
         return self.recordsForType(recordType).itervalues()
@@ -389,6 +392,26 @@ class OpenDirectoryService(DirectoryService):
             # FIXME: This is a blocking call (hopefully it's a fast one)
             self.reloadCache(recordType, shortName)
             return self.recordsForType(recordType).get(shortName, None)
+
+    def recordWithGUID(self, guid):
+        #
+        # Override super's implementation with something faster.
+        #
+        for recordType in self.recordTypes():
+            storage = self._storage(recordType)
+
+            try:
+                guidCache = storage["guids"]
+            except KeyError:
+                guidCache = {}
+                for record in storage["records"]:
+                    guidCache[record.guid] = record
+                storage["guids"] = guidCache
+
+            if guid in guidCache:
+                return guidCache[guid]
+
+        return None
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
