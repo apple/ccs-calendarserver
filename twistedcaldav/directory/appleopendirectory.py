@@ -394,24 +394,8 @@ class OpenDirectoryService(DirectoryService):
             return self.recordsForType(recordType).get(shortName, None)
 
     def recordWithGUID(self, guid):
-        #
         # Override super's implementation with something faster.
-        #
-        for recordType in self.recordTypes():
-            storage = self._storage(recordType)
-
-            try:
-                guidCache = storage["guids"]
-            except KeyError:
-                guidCache = {}
-                for record in storage["records"]:
-                    guidCache[record.guid] = record
-                storage["guids"] = guidCache
-
-            if guid in guidCache:
-                return guidCache[guid]
-
-        return None
+        return self._storage(recordType)["guids"].get(guid, None)
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
@@ -457,8 +441,6 @@ class OpenDirectoryService(DirectoryService):
             else:
                 query = dsquery.expression(dsquery.expression.AND, (subquery, query))
 
-        records = {}
-
         try:
             if query:
                 if isinstance(query, dsquery.match):
@@ -488,6 +470,9 @@ class OpenDirectoryService(DirectoryService):
         except opendirectory.ODError, ex:
             log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
+
+        records = {}
+        guids   = {}
 
         for (key, value) in results.iteritems():
             if self.requireComputerRecord:
@@ -527,7 +512,7 @@ class OpenDirectoryService(DirectoryService):
                     if proxy:
                         proxyGUIDs = (proxy,)
 
-            records[recordShortName] = OpenDirectoryRecord(
+            record = OpenDirectoryRecord(
                 service               = self,
                 recordType            = recordType,
                 guid                  = guid,
@@ -538,6 +523,7 @@ class OpenDirectoryService(DirectoryService):
                 autoSchedule          = autoSchedule,
                 proxyGUIDs            = proxyGUIDs,
             )
+            records[recordShortName] = guids[guid] record
 
             #log.debug("Populated record: %s" % (records[recordShortName],))
 
@@ -546,8 +532,9 @@ class OpenDirectoryService(DirectoryService):
             # Replace the entire cache
             #
             storage = {
-                "status": "new",
+                "status" : "new",
                 "records": records,
+                "guids"  : guids,
             }
 
             def rot():
@@ -568,9 +555,9 @@ class OpenDirectoryService(DirectoryService):
             # Update one record, if found
             #
             assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
-            self._records[recordType]["records"][shortName] = records[recordShortName]
-            if "guids" in self._records[recordType]:
-                self._records[recordType]["guids"][record.guid] = record
+            storage = self._records[recordType]
+            storage["records"][shortName] = records[recordShortName]
+            storage["guids"][record.guid] = records[recordShortName]
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
