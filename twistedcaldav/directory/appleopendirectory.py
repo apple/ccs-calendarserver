@@ -569,6 +569,8 @@ class OpenDirectoryService(DirectoryService):
             #
             assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
             self._records[recordType]["records"][shortName] = records[recordShortName]
+            if "guids" in self._records[recordType]:
+                self._records[recordType]["guids"][record.guid] = record
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
