@@ -409,19 +409,11 @@ class OpenDirectoryService(DirectoryService):
             attrs.append(dsattributes.kDSNAttrGroupMembers)
 
         elif recordType == DirectoryService.recordType_locations:
-            listRecordType = dsattributes.kDSStdRecordTypeResources
-            query = dsquery.match(dsattributes.kDSNAttrResourceType, "1", dsattributes.eDSExact)
+            listRecordType = dsattributes.kDSStdRecordTypePlaces
             attrs.append(dsattributes.kDSNAttrResourceInfo)
         
         elif recordType == DirectoryService.recordType_resources:
             listRecordType = dsattributes.kDSStdRecordTypeResources
-            query = dsquery.expression(dsquery.expression.OR, (
-                dsquery.match(dsattributes.kDSNAttrResourceType, "0", dsattributes.eDSExact),
-                dsquery.match(dsattributes.kDSNAttrResourceType, "2", dsattributes.eDSExact),
-                dsquery.match(dsattributes.kDSNAttrResourceType, "3", dsattributes.eDSExact),
-                dsquery.match(dsattributes.kDSNAttrResourceType, "4", dsattributes.eDSExact),
-                dsquery.match(dsattributes.kDSNAttrResourceType, "5", dsattributes.eDSExact),
-            ))
             attrs.append(dsattributes.kDSNAttrResourceInfo)
         
         else:
