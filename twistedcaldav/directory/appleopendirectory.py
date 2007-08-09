@@ -523,7 +523,7 @@ class OpenDirectoryService(DirectoryService):
                 autoSchedule          = autoSchedule,
                 proxyGUIDs            = proxyGUIDs,
             )
-            records[recordShortName] = guids[guid] record
+            records[recordShortName] = guids[guid] = record
 
             #log.debug("Populated record: %s" % (records[recordShortName],))
 
@@ -556,8 +556,8 @@ class OpenDirectoryService(DirectoryService):
             #
             assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
             storage = self._records[recordType]
-            storage["records"][shortName] = records[recordShortName]
-            storage["guids"][record.guid] = records[recordShortName]
+            storage["records"][shortName] = record
+            storage["guids"][record.guid] = record
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
