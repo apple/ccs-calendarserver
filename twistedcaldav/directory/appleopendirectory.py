@@ -395,7 +395,8 @@ class OpenDirectoryService(DirectoryService):
 
     def recordWithGUID(self, guid):
         # Override super's implementation with something faster.
-        return self._storage(recordType)["guids"].get(guid, None)
+        for recordType in self.recordTypes():
+            return self._storage(recordType)["guids"].get(guid, None)
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
