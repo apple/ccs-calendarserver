@@ -514,7 +514,7 @@ class CalDAVServiceMaker(object):
         log.msg("Setting up service")
 
         if config.ProcessType == 'Slave':
-            if config.MultiProcess['ProcessCount'] > 1:
+            if config.MultiProcess['ProcessCount'] > 1 and config.MultiProcess['LoadBalancer']['Enabled']:
                 realRoot = pdmonster.PDClientAddressWrapper(
                     logWrapper,
                     config.PythonDirector['ControlSocket'],
