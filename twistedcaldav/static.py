@@ -69,7 +69,6 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningRe
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
-from twistedcaldav.sql import db_prefix
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """
@@ -279,7 +278,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     def listChildren(self):
         return [
             child for child in super(CalDAVFile, self).listChildren()
-            if not child.startswith(db_prefix)
+            if not child.startswith(".")
         ]
 
     def updateCTag(self):
@@ -311,7 +310,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 for f in top.listdir():
     
                     # Ignore the database
-                    if f.startswith(db_prefix):
+                    if f.startswith("."):
                         continue
     
                     child = top.child(f)
