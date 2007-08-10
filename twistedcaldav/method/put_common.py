@@ -182,6 +182,19 @@ def storeCalendarObjectResource(
     
     rollback = RollbackState()
 
+    def validResourceName():
+        """
+        Make sure that the resource name for the new resource is valid.
+        """
+        result = True
+        message = ""
+        filename = destination.fp.basename()
+        if filename.startswith("."):
+            result = False
+            message = "File name %s not allowed in calendar collection" % (filename,)
+
+        return result, message
+        
     def validContentType():
         """
         Make sure that the content-type of the source resource is text/calendar.
@@ -298,6 +311,12 @@ def storeCalendarObjectResource(
         """
         reserved = False
         if destinationcal:
+            # Valid resource name check
+            result, message = validResourceName()
+            if not result:
+                log.err(message)
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+
             if not sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
                 if source is not None:

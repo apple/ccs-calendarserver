@@ -160,3 +160,50 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
         return self.send(request, mkcalendar_cb)
+
+    def test_ignore_dot_files(self):
+        """
+        Make sure database files are not listed as children.
+        """
+        colpath = self.site.resource.fp.path
+        fd = open(os.path.join(colpath, "._bogus"), "w")
+        fd.close()
+        fd = open(os.path.join(colpath, "bogus"), "w")
+        fd.close()
+        children = self.site.resource.listChildren()
+        self.assertTrue("bogus" in children)
+        self.assertFalse("._bogus" in children)
+
+    def test_fail_dot_file_put_in_calendar(self):
+        """
+        Make (regular) collection in calendar
+        """
+        calendar_path, calendar_uri = self.mkdtemp("dot_file_in_calendar")
+        os.rmdir(calendar_path)
+
+        def mkcalendar_cb(response):
+            response = IResponse(response)
+
+            if response.code != responsecode.CREATED:
+                self.fail("MKCALENDAR failed: %s" % (response.code,))
+
+            def put_cb(response):
+                response = IResponse(response)
+
+                if response.code != responsecode.FORBIDDEN:
+                    self.fail("Incorrect response to dot file PUT: %s" % (response.code,))
+
+            stream = file(os.path.join(self.data_dir, "Holidays", "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"))
+            try: calendar = str(Component.fromStream(stream))
+            finally: stream.close()
+
+            event_uri  = os.path.join(calendar_uri, ".event.ics")
+
+            request = SimpleRequest(self.site, "PUT", event_uri)
+            request.headers.setHeader("content-type", MimeType("text", "calendar"))
+            request.stream = MemoryStream(calendar)
+            self.send(request, put_cb)
+
+        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        return self.send(request, mkcalendar_cb)
+

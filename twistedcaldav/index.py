@@ -566,7 +566,7 @@ class Index (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name.startswith(db_prefix):
+            if name.startswith("."):
                 continue
 
             try:
@@ -677,7 +677,7 @@ class IndexSchedule (CalendarIndex):
         #
         fp = self.resource.fp
         for name in fp.listdir():
-            if name.startswith(db_prefix):
+            if name.startswith("."):
                 continue
 
             try:
