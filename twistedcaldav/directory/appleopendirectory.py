@@ -358,6 +358,7 @@ class OpenDirectoryService(DirectoryService):
             storage = self._records[recordType]
         except KeyError:
             self.reloadCache(recordType)
+            storage = self._records[recordType]
         else:
             if storage["status"] == "stale":
                 storage["status"] = "loading"
@@ -379,7 +380,7 @@ class OpenDirectoryService(DirectoryService):
         type.  Keys are short names and values are the cooresponding
         OpenDirectoryRecord for the given record type.
         """
-        self._storage(recordType)["records"]
+        return self._storage(recordType)["records"]
 
     def listRecords(self, recordType):
         return self.recordsForType(recordType).itervalues()
@@ -396,7 +397,11 @@ class OpenDirectoryService(DirectoryService):
     def recordWithGUID(self, guid):
         # Override super's implementation with something faster.
         for recordType in self.recordTypes():
-            return self._storage(recordType)["guids"].get(guid, None)
+            record = self._storage(recordType)["guids"].get(guid, None)
+            if record:
+                return record
+        else:
+            return None
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
