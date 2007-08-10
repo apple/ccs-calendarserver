@@ -7,12 +7,17 @@ from twisted.web2.resource import WrapperResource
 from twistedcaldav import logging
 
 class PDClientAddressWrapper(WrapperResource):
-    def __init__(self, resource, socket):
+    def __init__(self, resource, socket, directory):
         super(PDClientAddressWrapper, self).__init__(resource)
 
         self.socket = socket
         self.client = None
         self.protocol = None
+        
+        self.directory = directory
+        
+    def getDirectory(self):
+        return self.directory
 
     def hook(self, request):
         from twisted.internet import reactor

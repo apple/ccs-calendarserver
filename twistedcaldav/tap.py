@@ -38,7 +38,6 @@ from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.channel import http
 
-from twisted.web2.log import LogWrapperResource
 from twisted.web2.server import Site
 
 from twistedcaldav import logging
@@ -506,7 +505,7 @@ class CalDAVServiceMaker(object):
             (auth.IPrincipal,)
         )
 
-        logWrapper = LogWrapperResource(authWrapper)
+        logWrapper = logging.DirectoryLogWrapperResource(authWrapper, directory)
 
         #
         # Configure the service
@@ -518,7 +517,8 @@ class CalDAVServiceMaker(object):
             if config.MultiProcess['ProcessCount'] > 1:
                 realRoot = pdmonster.PDClientAddressWrapper(
                     logWrapper,
-                    config.PythonDirector['ControlSocket']
+                    config.PythonDirector['ControlSocket'],
+                    directory
                 )
             else:
                 realRoot = logWrapper

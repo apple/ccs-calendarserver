@@ -30,8 +30,10 @@ from twisted.internet import protocol
 from twisted.web2 import iweb
 from twisted.web2.dav import davxml
 from twisted.web2.log import BaseCommonAccessLoggingObserver
+from twisted.web2.log import LogWrapperResource
 
 from twistedcaldav.config import config
+from twistedcaldav.directory.directory import DirectoryService
 
 #
 # Logging levels:
@@ -100,6 +102,15 @@ def debug(message, **kwargs):
     if canLog("debug"):
         log.msg(message, debug=True, **kwargs)
 
+class DirectoryLogWrapperResource(LogWrapperResource):
+    
+    def __init__(self, resource, directory):
+        super(DirectoryLogWrapperResource, self).__init__(resource)
+        
+        self.directory = directory
+        
+    def getDirectory(self):
+        return self.directory
 
 class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
     """
@@ -122,9 +133,31 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
         uid = "-"
         if hasattr(request, "authnUser"):
             if isinstance(request.authnUser.children[0], davxml.HRef):
-                uid = str(request.authnUser.children[0])
-                if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uid:
-                    uid = '"%s as %s"' % (uid, request.authzUser.children[0])
+                uidn = str(request.authnUser.children[0])
+                uidz = None
+                if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
+                    uidz = str(request.authzUser.children[0])
+                    
+                def convertUIDtoShortName(uid):
+                    uid = uid.rstrip("/")
+                    uid = uid[uid.rfind("/") + 1:]
+                    record = request.site.resource.getDirectory().recordWithGUID(uid)
+                    if record:
+                        if record.recordType == DirectoryService.recordType_users:
+                            return record.shortName
+                        else:
+                            return "(%s)%s" % (record.recordType, record.shortName,)
+                    else:
+                        return uid
+                    
+                uidn = convertUIDtoShortName(uidn)
+                if uidz:
+                    uidz = convertUIDtoShortName(uidz)
+                    
+                if uidn and uidz:
+                    uid = '"%s as %s"' % (uidn, uidz,)
+                else:
+                    uid = uidn
 
         self.logMessage(
             '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]' %(
