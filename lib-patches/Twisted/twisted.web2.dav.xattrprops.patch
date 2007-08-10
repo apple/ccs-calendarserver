@@ -31,8 +31,21 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -109,7 +104,16 @@
-         return doc.root_element
+@@ -104,12 +99,27 @@
+                 "No such property: {%s}%s" % qname
+             ))
+ 
+-        doc = davxml.WebDAVDocument.fromString(value)
++        try:
++            doc = davxml.WebDAVDocument.fromString(value)
+ 
+-        return doc.root_element
++            return doc.root_element
++        except ValueError:
++            raise HTTPError(StatusResponse(
++                responsecode.BAD_REQUEST,
++                "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value,)
++            ))
  
      def set(self, property):
 -        self.attrs[self._encode(property.qname())] = property.toxml()
@@ -40,8 +53,8 @@ Index: twisted/web2/dav/xattrprops.py
 +            try:
 +                self.attrs[self._encode(property.qname())] = property.toxml()
 +            except IOError, error:
-+		if error.errno != EAGAIN:
-+		    raise
++                if error.errno != EAGAIN:
++                    raise
 +                sleep(random() / 10) # OMG Brutal Hax
 +            else:
 +                break
