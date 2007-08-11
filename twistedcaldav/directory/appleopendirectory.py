@@ -353,17 +353,12 @@ class OpenDirectoryService(DirectoryService):
             DirectoryService.recordType_resources,
         )
 
-    def recordsForType(self, recordType):
-        """
-        @param recordType: a record type
-        @return: a dictionary containing all records for the given record
-        type.  Keys are short names and values are the cooresponding
-        OpenDirectoryRecord for the given record type.
-        """
+    def _storage(self, recordType):
         try:
             storage = self._records[recordType]
         except KeyError:
             self.reloadCache(recordType)
+            storage = self._records[recordType]
         else:
             if storage["status"] == "stale":
                 storage["status"] = "loading"
@@ -376,7 +371,16 @@ class OpenDirectoryService(DirectoryService):
                 d = deferToThread(self.reloadCache, recordType)
                 d.addErrback(onError)
 
-        return self._records[recordType]["records"]
+        return storage
+
+    def recordsForType(self, recordType):
+        """
+        @param recordType: a record type
+        @return: a dictionary containing all records for the given record
+        type.  Keys are short names and values are the cooresponding
+        OpenDirectoryRecord for the given record type.
+        """
+        return self._storage(recordType)["records"]
 
     def listRecords(self, recordType):
         return self.recordsForType(recordType).itervalues()
@@ -389,6 +393,15 @@ class OpenDirectoryService(DirectoryService):
             # FIXME: This is a blocking call (hopefully it's a fast one)
             self.reloadCache(recordType, shortName)
             return self.recordsForType(recordType).get(shortName, None)
+
+    def recordWithGUID(self, guid):
+        # Override super's implementation with something faster.
+        for recordType in self.recordTypes():
+            record = self._storage(recordType)["guids"].get(guid, None)
+            if record:
+                return record
+        else:
+            return None
 
     def reloadCache(self, recordType, shortName=None):
         log.msg("Reloading %s record cache" % (recordType,))
@@ -434,8 +447,6 @@ class OpenDirectoryService(DirectoryService):
             else:
                 query = dsquery.expression(dsquery.expression.AND, (subquery, query))
 
-        records = {}
-
         try:
             if query:
                 if isinstance(query, dsquery.match):
@@ -465,6 +476,9 @@ class OpenDirectoryService(DirectoryService):
         except opendirectory.ODError, ex:
             log.msg("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
+
+        records = {}
+        guids   = {}
 
         for (key, value) in results.iteritems():
             if self.requireComputerRecord:
@@ -504,7 +518,7 @@ class OpenDirectoryService(DirectoryService):
                     if proxy:
                         proxyGUIDs = (proxy,)
 
-            records[recordShortName] = OpenDirectoryRecord(
+            record = OpenDirectoryRecord(
                 service               = self,
                 recordType            = recordType,
                 guid                  = guid,
@@ -515,6 +529,7 @@ class OpenDirectoryService(DirectoryService):
                 autoSchedule          = autoSchedule,
                 proxyGUIDs            = proxyGUIDs,
             )
+            records[recordShortName] = guids[guid] = record
 
             #log.debug("Populated record: %s" % (records[recordShortName],))
 
@@ -523,8 +538,9 @@ class OpenDirectoryService(DirectoryService):
             # Replace the entire cache
             #
             storage = {
-                "status": "new",
+                "status" : "new",
                 "records": records,
+                "guids"  : guids,
             }
 
             def rot():
@@ -545,7 +561,9 @@ class OpenDirectoryService(DirectoryService):
             # Update one record, if found
             #
             assert len(records) == 1, "shortName = %r, records = %r" % (shortName, len(records))
-            self._records[recordType]["records"][shortName] = records[recordShortName]
+            storage = self._records[recordType]
+            storage["records"][shortName] = record
+            storage["guids"][record.guid] = record
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
