@@ -31,7 +31,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -104,12 +99,27 @@
+@@ -104,12 +99,26 @@
                  "No such property: {%s}%s" % qname
              ))
  
@@ -42,10 +42,9 @@ Index: twisted/web2/dav/xattrprops.py
 -        return doc.root_element
 +            return doc.root_element
 +        except ValueError:
-+            raise HTTPError(StatusResponse(
-+                responsecode.BAD_REQUEST,
-+                "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value,)
-+            ))
++            msg = "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value)
++            log.err(msg)
++            raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
  
      def set(self, property):
 -        self.attrs[self._encode(property.qname())] = property.toxml()
