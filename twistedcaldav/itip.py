@@ -536,7 +536,7 @@ def checkForReply(request, principal, calendar):
         replycal.mainComponent().addProperty(Property(name="REQUEST-STATUS", value="4.0; Event conflict. Date/time is busy."))
 
     # Remove all attendees other than ourselves
-    attendees = replycal.mainComponent().properties("ATTENDEE")
+    attendees = tuple(replycal.mainComponent().properties("ATTENDEE"))
     for attendee in attendees:
         if (attendee.value() != attendeeProp.value()):
             replycal.mainComponent().removeProperty(attendee)
