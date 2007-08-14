@@ -208,15 +208,15 @@ Index: twisted/web2/dav/element/base.py
 +        # Do escaping/CDATA behavior
 +        if "\r" in self.data or "\n" in self.data:
 +            # Do CDATA
-+            cdata = "<![CDATA[%s]]>" % (self.data.replace("]]>", "]]&lt;"),)
++            cdata = "<![CDATA[%s]]>" % (self.data.replace("]]>", "]]&gt;"),)
 +        else:
 +            cdata = self.data
 +            if "&" in cdata:
 +                cdata = cdata.replace("&", "&amp;")
 +            if "<" in cdata:
-+                cdata = cdata.replace("&", "&lt;")
-+            if "]]>" in cdata:
-+                cdata = cdata.replace("]]>", "]]&lt;")
++                cdata = cdata.replace("<", "&lt;")
++            if ">" in cdata:
++                cdata = cdata.replace(">", "&gt;")
 +
 +        output.write(cdata)
 +
