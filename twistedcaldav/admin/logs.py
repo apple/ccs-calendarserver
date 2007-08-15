@@ -252,7 +252,7 @@ class LogAction(object):
         self.readOnly = self.config['readonly']
 
         self.logfile = self.config['logfile']
-        self.stats = Stats(self.config['statsfile'], self.config['append'], self.config['days'])
+        self.stats = Stats(self.config['statsfile'], self.config['append'], int(self.config['days']))
 
     def run(self):
 
