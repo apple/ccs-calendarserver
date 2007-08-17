@@ -169,14 +169,8 @@ class OpenDirectoryService(DirectoryService):
         for recordname, record in records.iteritems():
             # May have an apple-serviceinfo
             plist = record.get('dsAttrTypeNative:apple-serviceinfo', None)
-
             if not plist:
-                # May have XMLPlist value
-                plist = record.get(dsattributes.kDS1AttrXMLPlist, None)
-
-                # Must have one of the other
-                if not plist:
-                    continue
+                continue
 
             # XXX: Parse the plist so we can find only calendar vhosts with our hostname.
             plistDict = readPlistFromString(plist)
