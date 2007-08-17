@@ -901,25 +901,25 @@ else:
         record_good = ("computer1.apple.com", {
             dsattributes.kDS1AttrGeneratedUID     : "GUID1",
             dsattributes.kDSNAttrRecordName       : "computer1.apple.com",
-            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            'dsAttrTypeNative:apple-serviceinfo'  : PlistParse.plist_good,
             dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
         })
         record_good_other = ("computer2.apple.com", {
             dsattributes.kDS1AttrGeneratedUID     : "GUID1",
             dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
-            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good_other,
+            'dsAttrTypeNative:apple-serviceinfo'  : PlistParse.plist_good_other,
             dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
         })
         record_good_duplicate = ("computer3.apple.com", {
             dsattributes.kDS1AttrGeneratedUID     : "GUID2",
             dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
-            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            'dsAttrTypeNative:apple-serviceinfo'  : PlistParse.plist_good,
             dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/directory.apple.com",
         })
         record_good_local_duplicate = ("ServiceInformation", {
             dsattributes.kDS1AttrGeneratedUID     : "GUID3",
             dsattributes.kDSNAttrRecordName       : "computer2.apple.com",
-            dsattributes.kDS1AttrXMLPlist         : PlistParse.plist_good,
+            'dsAttrTypeNative:apple-serviceinfo'  : PlistParse.plist_good,
             dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
         })
 
