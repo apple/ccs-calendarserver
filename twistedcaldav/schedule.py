@@ -503,7 +503,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Now do the actual auto response
         for principal, inbox, child in autoresponses:
             # Add delayed reactor task to handle iTIP responses
-            reactor.callLater(5.0, itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
+            reactor.callLater(0.0, itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
             #reactor.callInThread(itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
 
         # Return with final response if we are done
