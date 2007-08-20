@@ -240,7 +240,7 @@ limitations under the License.
   <key>MultiProcess</key>
   <dict>
     <key>ProcessCount</key>
-    <integer>4</integer>
+    <integer>0</integer> <!-- 0 = one per CPU core -->
   </dict>
 
 
