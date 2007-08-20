@@ -414,6 +414,7 @@ class OpenDirectoryService(DirectoryService):
         elif recordType == DirectoryService.recordType_groups:
             listRecordType = dsattributes.kDSStdRecordTypeGroups
             attrs.append(dsattributes.kDSNAttrGroupMembers)
+            attrs.append(dsattributes.kDSNAttrNestedGroups)
 
         elif recordType == DirectoryService.recordType_locations:
             listRecordType = dsattributes.kDSStdRecordTypePlaces
@@ -499,6 +500,11 @@ class OpenDirectoryService(DirectoryService):
                     memberGUIDs = ()
                 elif type(memberGUIDs) is str:
                     memberGUIDs = (memberGUIDs,)
+                nestedGUIDs = value.get(dsattributes.kDSNAttrNestedGroups)
+                if nestedGUIDs:
+                    if type(nestedGUIDs) is str:
+                        nestedGUIDs = (nestedGUIDs,)
+                    memberGUIDs += tuple(nestedGUIDs)
             else:
                 memberGUIDs = ()
 
