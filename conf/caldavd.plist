@@ -204,7 +204,7 @@ limitations under the License.
 
   <!-- Server statistics file -->
   <key>ServerStatsFile</key>
-  <string>/var/log/caldavd/stats.plist</string>
+  <string>/var/run/caldavd/stats.plist</string>
 
   <!-- Server process ID file -->
   <key>PIDFile</key>

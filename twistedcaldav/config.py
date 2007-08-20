@@ -108,7 +108,7 @@ defaultConfig = {
     "Verbose": False,
     "AccessLogFile"  : "/var/log/caldavd/access.log",                   # Apache-style access log
     "ErrorLogFile"   : "/var/log/caldavd/error.log",                    # Server activity log
-    "ServerStatsFile": "/var/log/caldavd/stats.plist",
+    "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
     "RotateAccessLog": False,
 
