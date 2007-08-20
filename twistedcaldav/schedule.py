@@ -138,7 +138,15 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 ))
 
         elif property.qname() == (caldav_namespace, "calendar-free-busy-set"):
-            for href in property.children:
+            # Verify that the calendars added in the PROPPATCH are valid. We do not check
+            # whether existing items in the property are still valid - only new ones.
+            new_calendars = set([str(href) for href in property.children])
+            if not self.hasDeadProperty(property):
+                old_calendars = set()
+            else:
+                old_calendars = set([str(href) for href in self.readDeadProperty(property).children])
+            added_calendars = new_calendars.difference(old_calendars)
+            for href in added_calendars:
                 cal = waitForDeferred(request.locateResource(str(href)))
                 yield cal
                 cal = cal.getResult()
