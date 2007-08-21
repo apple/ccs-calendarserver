@@ -38,7 +38,7 @@ from twistedcaldav.directory.test.test_apache import basicUserFile, digestUserFi
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.principal import DirectoryPrincipalTypeResource
+from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 import twistedcaldav.test.util
@@ -80,10 +80,10 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalProvisioningResource.principalCollectionURL(),
         DirectoryPrincipalProvisioningResource.principalCollections()
 
-        DirectoryPrincipalTypeResource.listChildren(),
-        DirectoryPrincipalTypeResource.getChildren(),
-        DirectoryPrincipalTypeResource.principalCollectionURL(),
-        DirectoryPrincipalTypeResource.principalCollections()
+        DirectoryPrincipalTypeProvisioningResource.listChildren(),
+        DirectoryPrincipalTypeProvisioningResource.getChildren(),
+        DirectoryPrincipalTypeProvisioningResource.principalCollectionURL(),
+        DirectoryPrincipalTypeProvisioningResource.principalCollections()
 
         DirectoryPrincipalResource.principalURL(),
         """
@@ -103,7 +103,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             for recordType in recordTypes:
                 #print "   -> %s" % (recordType,)
                 typeResource = provisioningResource.getChild(recordType)
-                self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeResource))
+                self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeProvisioningResource))
 
                 typeURL = provisioningURL + recordType + "/"
                 self.assertEquals(typeURL, typeResource.principalCollectionURL())
@@ -120,7 +120,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
 
                     recordURL = typeURL + shortName + "/"
-                    self.assertEquals(recordURL, recordResource.principalURL())
+                    self.assertIn(recordURL, (recordResource.principalURL(),) + tuple(recordResource.alternateURIs()))
 
                     principalCollections = recordResource.principalCollections()
                     self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
@@ -202,7 +202,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             if record.shortName == "gemini":
                 self.assertTrue(principal.autoSchedule())
 
-    # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeResource also
+    # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeProvisioningResource also
 
     ##
     # DirectoryPrincipalResource

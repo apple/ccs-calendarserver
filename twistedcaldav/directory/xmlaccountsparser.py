@@ -168,6 +168,10 @@ class XMLAccountRecord (object):
             shortName = self.shortName % ctr
         else:
             shortName = self.shortName
+        if self.guid and self.guid.find("%") != -1:
+            guid = self.guid % ctr
+        else:
+            guid = self.guid
         if self.password.find("%") != -1:
             password = self.password % ctr
         else:
@@ -185,6 +189,7 @@ class XMLAccountRecord (object):
         
         result = XMLAccountRecord(self.recordType)
         result.shortName = shortName
+        result.guid = guid
         result.password = password
         result.name = name
         result.members = self.members

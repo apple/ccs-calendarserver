@@ -86,17 +86,24 @@ class RootResource(DAVFile):
             request.authzUser = authzUser
 
             # Figure out the "username" from the davxml.Principal object
-            username = authzUser.children[0].children[0].data
-            username = username.rstrip('/').split('/')[-1]
+            request.checkingSACL = True
+            d = request.locateResource(authzUser.children[0].children[0].data)
             
-            if RootResource.CheckSACL(username, self.saclService) != 0:
-                log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
-                return Failure(HTTPError(403))
+            def _checkedSACLCb(principal):
+                delattr(request, "checkingSACL")
+                username = principal.record.shortName
+                
+                if RootResource.CheckSACL(username, self.saclService) != 0:
+                    log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
+                    return Failure(HTTPError(403))
+    
+                # Mark SACL's as having been checked so we can avoid doing it multiple times
+                request.checkedSACL = True
+                return True
+            
+            d.addCallback(_checkedSACLCb)
+            return d
 
-            # Mark SACL's as having been checked so we can avoid doing it multiple times
-            request.checkedSACL = True
-            return True
-            
         d = defer.maybeDeferred(self.authenticate, request)
         d.addCallbacks(_authCb, _authEb)
         d.addCallback(_checkSACLCb)
@@ -106,7 +113,7 @@ class RootResource(DAVFile):
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-        if self.useSacls and not hasattr(request, "checkedSACL"):
+        if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             d = self.checkSacl(request)
             d.addCallback(lambda _: super(RootResource, self
                                           ).locateChild(request, segments))

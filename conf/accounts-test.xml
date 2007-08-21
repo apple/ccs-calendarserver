@@ -21,29 +21,34 @@ limitations under the License.
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
+    <guid>admin</guid>
     <password>admin</password>
     <name>Super User</name>
   </user>
   <user repeat="99">
     <uid>user%02d</uid>
+    <guid>user%02d</guid>
     <password>user%02d</password>
     <name>User %02d</name>
     <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
+    <guid>public%02d</guid>
     <password>public%02d</password>
     <name>Public %02d</name>
     <cuaddr>mailto:public%02d@example.com</cuaddr>
   </user>
   <location repeat="10">
     <uid>location%02d</uid>
+    <guid>location%02d</guid>
     <password>location%02d</password>
     <name>Room %02d</name>
     <auto-schedule/>
   </location>
   <resource repeat="10">
     <uid>resource%02d</uid>
+    <guid>resource%02d</guid>
     <password>resource%02d</password>
     <name>Resource %02d</name>
     <auto-schedule/>
@@ -53,6 +58,7 @@ limitations under the License.
   </resource>
   <group>
     <uid>group01</uid>
+    <guid>group01</guid>
     <password>group01</password>
     <name>Group 01</name>
     <members>
