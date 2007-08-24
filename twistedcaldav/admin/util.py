@@ -23,7 +23,8 @@ import commands
 from twisted.web import microdom
 
 from twistedcaldav import ical
-from twistedcaldav.sql import db_prefix
+from twistedcaldav.sql import db_prefix, AbstractSQLDatabase
+from twistedcaldav.index import schema_version, collection_types
 
 def prepareByteValue(config, value):
     if config.get('human', None):
@@ -109,6 +110,28 @@ def getResourceType(fp):
     return (collection, type)
 
 
+class EventCountingDatabase(AbstractSQLDatabase):
+    def __init__(self, fp):
+        super(EventCountingDatabase, self).__init__(fp.path)
+
+    def _db_version(self):
+        return schema_version
+
+    def _db_type(self):
+        return collection_types['Calendar']
+
+    def _countType(self, type):
+        return self._db_value_for_sql(
+                    "SELECT COUNT(UID) FROM RESOURCE WHERE TYPE = (?)",
+                    type)
+
+    def countEvents(self):
+        return self._countType('VEVENT')
+
+    def countTodos(self):
+        return self._countType('VTODO')
+
+
 def getCalendarDataCounts(calendarCollection):
     calCount = 0
     eventCount = 0
@@ -119,18 +142,11 @@ def getCalendarDataCounts(calendarCollection):
             if getResourceType(child) == (True, 'calendar'):
                 calCount += 1
 
-        elif child.isfile():
-            try:
-                component = ical.Component.fromStream(child.open())
-            except ValueError:
-                # not a calendar file
-                continue
+                db = EventCountingDatabase(child.child(db_prefix+'sqlite'))
 
-            if component.resourceType() == 'VEVENT':
-                eventCount += 1
+                eventCount += db.countEvents()
 
-            elif component.resourceType() == 'VTODO':
-                todoCount += 1
+                todoCount += db.countTodos()
 
     return {'calendarCount': calCount,
             'eventCount': eventCount,
