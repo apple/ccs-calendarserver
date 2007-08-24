@@ -84,12 +84,13 @@ class KerberosCredentialFactoryBase(object):
             splits = principal.split("/")
             servicetype = splits[0]
             splits = splits[1].split("@")
+            service = splits[0].upper()
             realm = splits[1]
         except IndexError:
             logging.err("Invalid Kerberos principal: %s" % (principal,), system="KerberosCredentialFactoryBase")
             raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
                 
-        self.service = "%s@%s" % (servicetype, realm,)
+        self.service = "%s@%s" % (servicetype, service,)
         self.realm = realm
 
 class BasicKerberosCredentials(credentials.UsernamePassword):

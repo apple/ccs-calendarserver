@@ -461,7 +461,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         authWrapper = site.resource.resource
 
         ncf = authWrapper.credentialFactories['negotiate']
-        self.assertEquals(ncf.service, 'http@bob')
+        self.assertEquals(ncf.service, 'http@HELLO')
         self.assertEquals(ncf.realm, 'bob')
 
     def test_AuthWrapperPartialEnabled(self):
