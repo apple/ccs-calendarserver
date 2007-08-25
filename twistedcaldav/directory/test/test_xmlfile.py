@@ -58,6 +58,10 @@ class XMLFileBase(object):
                                                                                                (DirectoryService.recordType_users , "lecroy")) },
         "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
                                                                                                (DirectoryService.recordType_groups, "left_coast"))           },
+        "recursive1_coasts": { "password": "recursive1_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
+                                                                                               (DirectoryService.recordType_users, "wsanchez"))           },
+        "recursive2_coasts": { "password": "recursive2_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
+                                                                                               (DirectoryService.recordType_users, "cdaboo"))           },
     }
 
     locations = {
