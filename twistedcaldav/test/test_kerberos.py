@@ -69,6 +69,11 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
         else:
             self.fail(msg="NegotiateCredentialFactory decode did not fail")
 
+    def test_NegotiateCredentialFactoryDifferentRealm(self):
+        factory = authkerb.NegotiateCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
+        self.assertEquals(factory.realm, "EXAMPLE.COM")
+        self.assertEquals(factory.service, "http@SERVER.EXAMPLE.COM")
+
     def test_NegotiateCredentialFactoryInvalidPrincipal(self):
         self.assertRaises(
             ValueError,
