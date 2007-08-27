@@ -92,6 +92,14 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Chris Lecroy', 'David Reid', 'Wilfredo Sanchez', 'West Coast', 'East Coast', 'Cyrus Daboo', 'Both Coasts',)))
 
+    def test_groupMembersProxySingleGroupWithNestedRecursiveGroups(self):
+        """
+        DirectoryPrincipalResource.groupMembers()
+        """
+        members = self._getRecordByShortName(DirectoryService.recordType_locations, "orion").getChild("calendar-proxy-write").groupMembers()
+        members = set([p.displayName() for p in members])
+        self.assertEquals(members, set(('Wilfredo Sanchez', 'Cyrus Daboo', 'Recursive1 Coasts', 'Recursive2 Coasts',)))
+
     def _getRecordByShortName(self, type, name):
         """
         @return: an iterable of tuples

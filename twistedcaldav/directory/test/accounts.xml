@@ -157,6 +157,15 @@ limitations under the License.
       <member type="groups">both_coasts</member>
     </proxies>
   </location>
+  <location>
+    <uid>orion</uid>
+    <password>orion</password>
+    <name>Orion</name>
+    <cuaddr>mailto:orion@example.com</cuaddr>
+    <proxies>
+      <member type="groups">recursive1_coasts</member>
+    </proxies>
+  </location>
   <resource>
     <uid>transporter</uid>
     <password>transporter</password>

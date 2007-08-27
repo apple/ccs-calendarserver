@@ -68,6 +68,7 @@ class XMLFileBase(object):
         "mercury": { "password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",) },
         "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",)  },
         "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",)  },
+        "orion"  : { "password": "orion",   "guid": None, "addresses": ("mailto:orion@example.com",)  },
     }
 
     resources = {
