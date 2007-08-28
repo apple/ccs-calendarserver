@@ -288,7 +288,29 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     def principalCollections(self):
         return self.parent.principalCollections()
 
-    def groupMembers(self):
+    def _expandMemberUIDs(self, uid=None, relatives=None, uids=None):
+        if uid is None:
+            uid = self.principalUID()
+        if relatives is None:
+            relatives = set()
+        if uids is None:
+            uids = set()
+
+        if uid not in uids:
+            from twistedcaldav.directory.principal import DirectoryPrincipalResource
+            uids.add(uid)
+            principal = self.parent.parent.principalForUID(uid)
+            if isinstance(principal, CalendarUserProxyPrincipalResource):
+                for member in self._directGroupMembers():
+                    if member.principalUID() not in uids:
+                        relatives.add(member)
+                        self._expandMemberUIDs(member.principalUID(), relatives, uids)
+            elif isinstance(principal, DirectoryPrincipalResource):
+                relatives.update(principal.groupMembers())
+
+        return relatives
+
+    def _directGroupMembers(self):
         if self.hasEditableMembership():
             # Get member UIDs from database and map to principal resources
             members = self._index().getMembers(self.uid)
@@ -299,6 +321,10 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                 return self.parent.proxies()
             else:
                 return ()
+
+
+    def groupMembers(self):
+        return self._expandMemberUIDs()
 
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
