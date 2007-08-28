@@ -111,11 +111,32 @@ limitations under the License.
       <member type="groups">left_coast</member>
     </members>
   </group>
+  <group>
+    <uid>recursive1_coasts</uid>
+    <password>recursive1_coasts</password>
+    <name>Recursive1 Coasts</name>
+    <members>
+      <member type="groups">recursive2_coasts</member>
+      <member>wsanchez</member>
+    </members>
+  </group>
+  <group>
+    <uid>recursive2_coasts</uid>
+    <password>recursive2_coasts</password>
+    <name>Recursive2 Coasts</name>
+    <members>
+      <member type="groups">recursive1_coasts</member>
+      <member>cdaboo</member>
+    </members>
+  </group>
   <location>
     <uid>mercury</uid>
     <password>mercury</password>
     <name>Mecury Seven</name>
     <cuaddr>mailto:mercury@example.com</cuaddr>
+    <proxies>
+      <member type="groups">left_coast</member>
+    </proxies>
   </location>
   <location>
     <uid>gemini</uid>
@@ -132,6 +153,18 @@ limitations under the License.
     <password>apollo</password>
     <name>Apollo Eleven</name>
     <cuaddr>mailto:apollo@example.com</cuaddr>
+    <proxies>
+      <member type="groups">both_coasts</member>
+    </proxies>
+  </location>
+  <location>
+    <uid>orion</uid>
+    <password>orion</password>
+    <name>Orion</name>
+    <cuaddr>mailto:orion@example.com</cuaddr>
+    <proxies>
+      <member type="groups">recursive1_coasts</member>
+    </proxies>
   </location>
   <resource>
     <uid>transporter</uid>

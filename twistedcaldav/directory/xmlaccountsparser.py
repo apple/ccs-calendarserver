@@ -131,13 +131,15 @@ class XMLAccountsParser(object):
                 for i in xrange(1, repeat+1):
                     newprincipal = principal.repeat(i)
                     self.items[recordType][newprincipal.shortName] = newprincipal
-                    updateMembership(newprincipal)
-                    updateProxyFor(newprincipal)
             else:
                 self.items[recordType][principal.shortName] = principal
+
+        # Do reverse membership mapping only after all records have been read in
+        for records in self.items.itervalues():
+            for principal in records.itervalues():
                 updateMembership(principal)
                 updateProxyFor(principal)
-
+                
 class XMLAccountRecord (object):
     """
     Contains provision information for one user.
