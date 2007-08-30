@@ -26,9 +26,11 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
+from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
+from twisted.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
@@ -203,6 +205,14 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             child = self.provisionChild(name)
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
+
+    def provision(self):
+        # If an ACL property does not currently exist, create one from
+        # the defaultACL
+        if not self.hasDeadProperty(davxml.ACL):
+            self.writeDeadProperty(self.defaultAccessControlList())
+        
+        super(DirectoryCalendarHomeResource, self).provision()
 
     def provisionDefaultCalendars(self):
         self.provision()
