@@ -209,14 +209,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def provision(self):
         # If an ACL property does not currently exist, create one from
         # the defaultACL
-        try:
-            _ignore_acl = self.readDeadProperty(davxml.ACL)
-        except HTTPError, e:
-            assert (
-                e.response.code == responsecode.NOT_FOUND,
-                "Expected %s response from readDeadProperty() exception, not %s"
-                % (responsecode.NOT_FOUND, e.response.code)
-            )
+        if not self.hasDeadProperty(davxml.ACL):
             self.writeDeadProperty(self.defaultAccessControlList())
         
         super(DirectoryCalendarHomeResource, self).provision()
