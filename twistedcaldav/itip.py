@@ -670,7 +670,15 @@ def deleteResource(collection, name):
     delchild = collection.getChild(name)
     index = collection.index()
     index.deleteResource(delchild.fp.basename())
+    
+    def _deletedResourced(result):
+        # Change CTag on the parent calendar collection
+        collection.updateCTag()
+        
+        return result
+
     d = maybeDeferred(delete, "", delchild.fp, "0")
+    d.addCallback(_deletedResourced)
     return d
 
 def canAutoRespond(calendar):
