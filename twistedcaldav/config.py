@@ -145,8 +145,9 @@ defaultConfig = {
     #
     # Non-standard CalDAV extensions
     #
-    "EnableDropBox"      : False, # Calendar Drop Box
-    "EnableNotifications": False, # Drop Box Notifications
+    "EnableDropBox"       : False, # Calendar Drop Box
+    "EnableNotifications" : False, # Drop Box Notifications
+    "EnableServerToServer": False, # Server-to-server protocol
 
     #
     # Implementation details

@@ -330,6 +330,10 @@ limitations under the License.
   <key>EnableNotifications</key>
   <true/>
 
+  <!-- Server to server protocol -->
+  <key>EnableServerToServer</key>
+  <true/>
+
 
   <!--
     Twisted
