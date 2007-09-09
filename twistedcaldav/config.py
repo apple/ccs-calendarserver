@@ -147,7 +147,12 @@ defaultConfig = {
     #
     "EnableDropBox"       : False, # Calendar Drop Box
     "EnableNotifications" : False, # Drop Box Notifications
-    "EnableServerToServer": False, # Server-to-server protocol
+    
+    "ServerToServer": {
+        "Enabled"         : False, # Server-to-server protocol
+        "Email Domain"    : "",    # Domain for mailto calendar user addresses on this server
+        "HTTP Domain"     : "",    # Domain for http calendar user addresses on this server
+    },
 
     #
     # Implementation details

@@ -415,7 +415,7 @@ class CalDAVServiceMaker(object):
         root.putChild('principals', principalCollection)
         root.putChild('calendars', calendarCollection)
 
-        if config.EnableServerToServer:
+        if config.ServerToServer["Enabled"]:
             log.msg("Setting up server-to-server resource: %r" % (self.servertoserverResourceClass,))
     
             servertoserver = self.servertoserverResourceClass(

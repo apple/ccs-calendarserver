@@ -39,6 +39,7 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav import caldavxml
 from twistedcaldav import itip
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
@@ -48,324 +49,697 @@ from twistedcaldav.resource import isCalendarCollectionResource
 import md5
 import time
 
-@deferredGenerator
-def doSchedulingViaPOST(self, request, local):
-    """
-    The CalDAV POST method.
-
-    This uses a generator function yielding either L{waitForDeferred} objects or L{Response} objects.
-    This allows for code that follows a 'linear' execution pattern rather than having to use nested
-    L{Deferred} callbacks. The logic is easier to follow this way plus we don't run into deep nesting
-    issues which the other approach would have with large numbers of recipients.
-    """
-
-    # Must be content-type text/calendar
-    content_type = request.headers.getHeader("content-type")
-    if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
-        log.err("MIME type %s not allowed in calendar collection" % (content_type,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
-
-    # Must have Originator header
-    originator = request.headers.getRawHeaders("originator")
-    if originator is None or (len(originator) != 1):
-        log.err("POST request must have Originator header")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
-    else:
-        originator = originator[0]
-
-    # Verify that Originator is a valid calendar user (has an INBOX)
-    oprincipal = self.principalForCalendarUserAddress(originator)
-    if oprincipal is None:
-        log.err("Could not find principal for originator: %s" % (originator,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-
-    inboxURL = oprincipal.scheduleInboxURL()
-    if inboxURL is None:
-        log.err("Could not find inbox for originator: %s" % (originator,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-
-    # Verify that Originator matches the authenticated user
-    if davxml.Principal(davxml.HRef(oprincipal.principalURL())) != self.currentPrincipal(request):
-        log.err("Originator: %s does not match authorized user: %s" % (originator, self.currentPrincipal(request).children[0],))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-
-    # Get list of Recipient headers
-    rawrecipients = request.headers.getRawHeaders("recipient")
-    if rawrecipients is None or (len(rawrecipients) == 0):
-        log.err("POST request must have at least one Recipient header")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
-
-    # Recipient header may be comma separated list
-    recipients = []
-    for rawrecipient in rawrecipients:
-        for r in rawrecipient.split(","):
-            r = r.strip()
-            if len(r):
-                recipients.append(r)
-
-    timerange = TimeRange(start="20000101", end="20000102")
-    recipients_state = {"OK":0, "BAD":0}
-
-    # Parse the calendar object from the HTTP request stream
-    try:
-        d = waitForDeferred(Component.fromIStream(request.stream))
-        yield d
-        calendar = d.getResult()
-    except:
-        log.err("Error while handling POST: %s" % (Failure(),))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
- 
-        # Must be a valid calendar
-    try:
-        calendar.validCalendarForCalDAV()
-    except ValueError:
-        log.err("POST request calendar component is not valid: %s" % (calendar,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-
-    # Must have a METHOD
-    if not calendar.isValidMethod():
-        log.err("POST request must have valid METHOD property in calendar component: %s" % (calendar,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+class Scheduler(object):
     
-    # Verify iTIP behaviour
-    if not calendar.isValidITIP():
-        log.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (calendar,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+    class CalendarUser(object):
+        def __init__(self, cuaddr):
+            self.cuaddr = cuaddr
+            
+    class LocalCalendarUser(CalendarUser):
+        def __init__(self, cuaddr, principal, inbox=None, inboxURL=None):
+            self.cuaddr = cuaddr
+            self.principal = principal
+            self.inbox = inbox
+            self.inboxURL = inboxURL
 
-    # Verify that the ORGANIZER's cu address maps to the request.uri
-    outboxURL = None
-    organizer = calendar.getOrganizer()
-    if organizer is not None:
-        oprincipal = self.principalForCalendarUserAddress(organizer)
-        if oprincipal is not None:
-            outboxURL = oprincipal.scheduleOutboxURL()
-    if outboxURL is None:
-        log.err("ORGANIZER in calendar data is not valid: %s" % (calendar,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
-
-    # Prevent spoofing of ORGANIZER with specific METHODs
-    if (calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER")) and (outboxURL != request.uri):
-        log.err("ORGANIZER in calendar data does not match owner of Outbox: %s" % (calendar,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
-
-    # Prevent spoofing when doing reply-like METHODs
-    if calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
-        # Verify that there is a single ATTENDEE property and that the Originator has permission
-        # to send on behalf of that ATTENDEE
-        attendees = calendar.getAttendees()
-    
-        # Must have only one
-        if len(attendees) != 1:
-            log.err("ATTENDEE list in calendar data is wrong: %s" % (calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+    class RemoteCalendarUser(CalendarUser):
+        def __init__(self, cuaddr):
+            self.cuaddr = cuaddr
+            self.extractDomain()
         
-        # Attendee's Outbox MUST be the request URI
-        aoutboxURL = None
-        aprincipal = self.principalForCalendarUserAddress(attendees[0])
-        if aprincipal is not None:
-            aoutboxURL = aprincipal.scheduleOutboxURL()
-        if aoutboxURL is None or aoutboxURL != request.uri:
-            log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-
-    # For free-busy do immediate determination of iTIP result rather than fan-out
-    if (calendar.propertyValue("METHOD") == "REQUEST") and (calendar.mainType() == "VFREEBUSY"):
-        # Extract time range from VFREEBUSY object
-        vfreebusies = [v for v in calendar.subcomponents() if v.name() == "VFREEBUSY"]
-        if len(vfreebusies) != 1:
-            log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-        dtstart = vfreebusies[0].getStartDateUTC()
-        dtend = vfreebusies[0].getEndDateUTC()
-        if dtstart is None or dtend is None:
-            log.err("VFREEBUSY start/end not valid: %s" % (calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-        timerange.start = dtstart
-        timerange.end = dtend
-
-        # Look for maksed UID
-        excludeuid = calendar.getMaskUID()
-
-        # Do free busy operation
-        freebusy = True
-    else:
-        # Do regular invite (fan-out)
-        freebusy = False
-
-    # Prepare for multiple responses
-    responses = ScheduleResponseQueue("POST", responsecode.OK)
-
-    # Extract the ORGANIZER property and UID value from the calendar data for use later
-    organizerProp = calendar.getOrganizerProperty()
-    uid = calendar.resourceUID()
-
-    # Loop over each recipient and do appropriate action.
-    autoresponses = []
-    for recipient in recipients:
-        # Get the principal resource for this recipient
-        principal = self.principalForCalendarUserAddress(recipient)
-
-        # Map recipient to their inbox
-        inbox = None
-        if principal is None:
-            log.err("No principal for calendar user address: %s" % (recipient,))
-        else:
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = waitForDeferred(request.locateResource(inboxURL))
-                yield inbox
-                inbox = inbox.getResult()
+        def extractDomain(self):
+            if self.cuaddr.startswith("mailto:"):
+                splits = self.cuaddr[7:].split("?")
+                self.domain = splits[0].split("@")[1]
+            elif self.cuaddr.startswith("http://") or self.cuaddr.startswith("https://"):
+                splits = self.cuaddr.split(":")[0][2:].split("?")
+                self.domain = splits[0]
             else:
-                log.err("No schedule inbox for principal: %s" % (principal,))
+                self.domain = ""
 
-        if inbox is None:
-            err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
-            responses.add(recipient, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
-            recipients_state["BAD"] += 1
-        
-            # Process next recipient
-            continue
+    class InvalidCalendarUser(CalendarUser):
+        pass
+
+            
+    def __init__(self, request, resource):
+        self.request = request
+        self.resource = resource
+        self.originator = None
+        self.recipients = None
+        self.calendar = None
+        self.organizer = None
+    
+    @deferredGenerator
+    def doSchedulingViaPOST(self):
+        """
+        The Scheduling POST operation.
+        """
+    
+        # Do some extra authorization checks
+        self.checkAuthorization()
+
+        # Load various useful bits doing some basic checks on those
+        self.loadOriginator()
+        self.loadRecipients()
+        d = waitForDeferred(self.loadCalendar())
+        yield d
+        d.getResult()
+
+        # Check validity of Originator header.
+        self.checkOriginator()
+    
+        # Get recipient details.
+        d = waitForDeferred(self.checkRecipients())
+        yield d
+        d.getResult()
+    
+        # Check calendar data.
+        self.checkCalendarData()
+    
+        # Check validity of ORGANIZER
+        self.checkOrganizer()
+    
+        # Do security checks (e.g. spoofing)
+        self.securityChecks()
+    
+        # Do scheduling tasks
+        d = waitForDeferred(self.generateSchedulingResponse())
+        yield d
+        yield d.getResult()
+
+    def loadOriginator(self):
+        # Must have Originator header
+        originator = self.request.headers.getRawHeaders("originator")
+        if originator is None or (len(originator) != 1):
+            log.err("POST request must have Originator header")
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
         else:
-            #
-            # Check access controls
-            #
-            try:
-                d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(oprincipal.principalURL()))))
-                yield d
-                d.getResult()
-            except AccessDeniedError:
-                log.err("Could not access Inbox for recipient: %s" % (recipient,))
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permisions")))
-                responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
-                recipients_state["BAD"] += 1
+            self.originator = originator[0]
+    
+    def loadRecipients(self):
+        # Get list of Recipient headers
+        rawrecipients = self.request.headers.getRawHeaders("recipient")
+        if rawrecipients is None or (len(rawrecipients) == 0):
+            log.err("POST request must have at least one Recipient header")
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
+    
+        # Recipient header may be comma separated list
+        self.recipients = []
+        for rawrecipient in rawrecipients:
+            for r in rawrecipient.split(","):
+                r = r.strip()
+                if len(r):
+                    self.recipients.append(r)
+        
+    @deferredGenerator
+    def loadCalendar(self):
+        # Must be content-type text/calendar
+        content_type = self.request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
+            log.err("MIME type %s not allowed in calendar collection" % (content_type,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+    
+        # Parse the calendar object from the HTTP request stream
+        try:
+            d = waitForDeferred(Component.fromIStream(self.request.stream))
+            yield d
+            self.calendar = d.getResult()
+        except:
+            log.err("Error while handling POST: %s" % (Failure(),))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+
+    def checkAuthorization(self):
+        raise NotImplementedError
+
+    def checkOriginator(self):
+        raise NotImplementedError
+
+    def checkRecipient(self):
+        raise NotImplementedError
+
+    def checkOrganizer(self):
+        raise NotImplementedError
+
+    def checkOrganizerAsOriginator(self):
+        raise NotImplementedError
+
+    def checkAttendeeAsOriginator(self):
+        raise NotImplementedError
+
+    def checkCalendarData(self):
+        # Must be a valid calendar
+        try:
+            self.calendar.validCalendarForCalDAV()
+        except ValueError:
+            log.err("POST request calendar component is not valid: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+    
+        # Must have a METHOD
+        if not self.calendar.isValidMethod():
+            log.err("POST request must have valid METHOD property in calendar component: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+        
+        # Verify iTIP behaviour
+        if not self.calendar.isValidITIP():
+            log.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+
+    def checkForFreeBusy(self):
+        if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
+            # Extract time range from VFREEBUSY object
+            vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
+            if len(vfreebusies) != 1:
+                log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            dtstart = vfreebusies[0].getStartDateUTC()
+            dtend = vfreebusies[0].getEndDateUTC()
+            if dtstart is None or dtend is None:
+                log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            self.timerange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
+            self.timerange.start = dtstart
+            self.timerange.end = dtend
+    
+            # Look for maksed UID
+            self.excludeuid = self.calendar.getMaskUID()
+    
+            # Do free busy operation
+            return True
+        else:
+            # Do regular invite (fan-out)
+            return False
+    
+    def securityChecks(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def isCalendarUserAddressInMyDomain(cuaddr):
+        """
+        Check whether the supplied calendar user address corresponds to one that ought to be within
+        this server's domain.
+        
+        For now we will try to match email and http domains against ones in our config.
+         
+        @param cuaddr: the calendar user address to check.
+        @type cuaddr: C{str}
+        
+        @return: C{True} if the address is within the server's domain,
+            C{False} otherwise.
+        """
+        
+        if cuaddr.startswith("mailto:"):
+            splits = cuaddr[7:].split("?")
+            domain = config.ServerToServer["Email Domain"]
+            if not domain:
+                domain = config.ServerHostName
+            return splits[0].endswith(domain)
+        elif cuaddr.startswith("http://") or cuaddr.startswith("https://"):
+            splits = cuaddr.split(":")[0][2:].split("?")
+            domain = config.ServerToServer["HTTP Domain"]
+            if not domain:
+                domain = config.ServerHostName
+            return splits[0].endswith(domain)
+        else:
+            return False
+    
+    @deferredGenerator
+    def generateSchedulingResponse(self):
+
+        # For free-busy do immediate determination of iTIP result rather than fan-out
+        freebusy = self.checkForFreeBusy()
+    
+        # Prepare for multiple responses
+        responses = ScheduleResponseQueue("POST", responsecode.OK)
+    
+        # Extract the ORGANIZER property and UID value from the calendar data for use later
+        organizerProp = self.calendar.getOrganizerProperty()
+        uid = self.calendar.resourceUID()
+    
+        # Loop over each recipient and do appropriate action.
+        autoresponses = []
+        for recipient in self.recipients:
+    
+            if isinstance(recipient, Scheduler.InvalidCalendarUser):
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
             
                 # Process next recipient
                 continue
-
-            # Different behaviour for free-busy vs regular invite
-            if freebusy:
-                # Extract the ATTENDEE property matching current recipient from the calendar data
-                cuas = principal.calendarUserAddresses()
-                attendeeProp = calendar.getAttendeeProperty(cuas)
-        
-                # Find the current recipients calendar-free-busy-set
-                fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
-                yield fbset
-                fbset = fbset.getResult()
-
-                # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-                fbinfo = ([], [], [])
+            elif isinstance(recipient, Scheduler.RemoteCalendarUser):
+                # TODO: support remote recipients when server-to-server is enabled
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
             
-                try:
-                    # Process the availability property from the Inbox.
-                    has_prop = waitForDeferred(inbox.hasProperty((calendarserver_namespace, "calendar-availability"), request))
-                    yield has_prop
-                    has_prop = has_prop.getResult()
-                    if has_prop:
-                        availability = waitForDeferred(inbox.readProperty((calendarserver_namespace, "calendar-availability"), request))
-                        yield availability
-                        availability = availability.getResult()
-                        availability = availability.calendar()
-                        report_common.processAvailabilityFreeBusy(availability, fbinfo, timerange)
-
-                    # Check to see if the recipient is the same calendar user as the organizer.
-                    # Needed for masked UID stuff.
-                    same_calendar_user = oprincipal.principalURL() == principal.principalURL()
-
-                    # Now process free-busy set calendars
-                    matchtotal = 0
-                    for calURL in fbset:
-                        cal = waitForDeferred(request.locateResource(calURL))
-                        yield cal
-                        cal = cal.getResult()
-                        if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
-                            # We will ignore missing calendars. If the recipient has failed to
-                            # properly manage the free busy set that should not prevent us from working.
-                            continue
-                     
-                        matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
-                            request,
-                            cal,
-                            fbinfo,
-                            timerange,
-                            matchtotal,
-                            excludeuid=excludeuid,
-                            organizer=organizer,
-                            same_calendar_user=same_calendar_user))
-                        yield matchtotal
-                        matchtotal = matchtotal.getResult()
-                
-                    # Build VFREEBUSY iTIP reply for this recipient
-                    fbresult = report_common.buildFreeBusyResult(fbinfo, timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
-
-                    responses.add(recipient, responsecode.OK, reqstatus="2.0;Success", calendar=fbresult)
-                    recipients_state["OK"] += 1
-            
-                except:
-                    log.err("Could not determine free busy information: %s" % (recipient,))
-                    err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-                    responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
-                    recipients_state["BAD"] += 1
-            
-            else:
-                # Hash the iCalendar data for use as the last path element of the URI path
-                name = md5.new(str(calendar) + str(time.time()) + inbox.fp.path).hexdigest() + ".ics"
-            
-                # Get a resource for the new item
-                childURL = joinURL(inboxURL, name)
-                child = waitForDeferred(request.locateResource(childURL))
-                yield child
-                child = child.getResult()
-        
-                # Copy calendar to inbox (doing fan-out)
-                d = waitForDeferred(
-                        maybeDeferred(
-                            storeCalendarObjectResource,
-                            request=request,
-                            sourcecal = False,
-                            destination = child,
-                            destination_uri = childURL,
-                            calendardata = str(calendar),
-                            destinationparent = inbox,
-                            destinationcal = True,
-                            isiTIP = True
-                        )
-                     )
-                yield d
-                try:
-                    d.getResult()
-                    responses.add(recipient, responsecode.OK, reqstatus="2.0;Success")
-                    recipients_state["OK"] += 1
+                # Process next recipient
+                continue
+            elif isinstance(recipient, Scheduler.LocalCalendarUser):
+                #
+                # Check access controls
+                #
+                if isinstance(self.organizer, Scheduler.LocalCalendarUser):
+                    try:
+                        d = waitForDeferred(recipient.inbox.checkPrivileges(self.request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(self.organizer.principal.principalURL()))))
+                        yield d
+                        d.getResult()
+                    except AccessDeniedError:
+                        log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
+                        err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permisions")))
+                        responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+                    
+                        # Process next recipient
+                        continue
+                else:
+                    # TODO: need to figure out how best to do server-to-server authorization.
+                    # First thing would be to checkk for DAV:unauthenticated privilege.
+                    # Next would be to allow the calendar user address of the organizer/originator to be used
+                    # as a principal. 
+                    pass
     
-                    # Store CALDAV:originator property
-                    child.writeDeadProperty(caldavxml.Originator(davxml.HRef(originator)))
-                
-                    # Store CALDAV:recipient property
-                    child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient)))
-                
-                    # Look for auto-schedule option
-                    if principal.autoSchedule():
-                        autoresponses.append((principal, inbox, child))
-                except:
-                    log.err("Could not store data in Inbox : %s" % (inbox,))
-                    err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-                    responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
-                    recipients_state["BAD"] += 1
+                # Different behaviour for free-busy vs regular invite
+                if freebusy:
+                    d = waitForDeferred(self.generateLocalFreeBusyResponse(recipient, responses, organizerProp, uid))
+                else:
+                    d = waitForDeferred(self.generateLocalResponse(recipient, responses, autoresponses))
+                yield d
+                d.getResult()
+    
+        # Now we have to do auto-respond
+        if len(autoresponses) != 0:
+            # First check that we have a method that we can auto-respond to
+            if not itip.canAutoRespond(self.calendar):
+                autoresponses = []
+            
+        # Now do the actual auto response
+        for principal, inbox, child in autoresponses:
+            # Add delayed reactor task to handle iTIP responses
+            reactor.callLater(0.0, itip.handleRequest, *(self.request, principal, inbox, self.calendar.duplicate(), child)) #@UndefinedVariable
+    
+        # Return with final response if we are done
+        yield responses.response()
+    
+    @deferredGenerator
+    def generateLocalResponse(self, recipient, responses, autoresponses):
+        # Hash the iCalendar data for use as the last path element of the URI path
+        calendar_str = str(self.calendar)
+        name = md5.new(calendar_str + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
+    
+        # Get a resource for the new item
+        childURL = joinURL(recipient.inboxURL, name)
+        child = waitForDeferred(self.request.locateResource(childURL))
+        yield child
+        child = child.getResult()
 
-    # Now we have to do auto-respond
-    if len(autoresponses) != 0:
-        # First check that we have a method that we can auto-respond to
-        if not itip.canAutoRespond(calendar):
-            autoresponses = []
+        # Copy calendar to inbox (doing fan-out)
+        try:
+            d = waitForDeferred(
+                    maybeDeferred(
+                        storeCalendarObjectResource,
+                        request=self.request,
+                        sourcecal = False,
+                        destination = child,
+                        destination_uri = childURL,
+                        calendardata = calendar_str,
+                        destinationparent = recipient.inbox,
+                        destinationcal = True,
+                        isiTIP = True
+                    )
+                 )
+            yield d
+            d.getResult()
+            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+
+            # Store CALDAV:originator property
+            child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.originator.cuaddr)))
         
-    # Now do the actual auto response
-    for principal, inbox, child in autoresponses:
-        # Add delayed reactor task to handle iTIP responses
-        reactor.callLater(0.0, itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
-        #reactor.callInThread(itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
+            # Store CALDAV:recipient property
+            child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
+        
+            # Look for auto-schedule option
+            if recipient.principal.autoSchedule():
+                autoresponses.append((recipient.principal, recipient.inbox, child))
+                
+            yield True
+        except:
+            log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+            yield False
+    
+    @deferredGenerator
+    def generateLocalFreeBusyResponse(self, recipient, responses, organizerProp, uid):
 
-    # Return with final response if we are done
-    yield responses.response()
+        # Extract the ATTENDEE property matching current recipient from the calendar data
+        cuas = recipient.principal.calendarUserAddresses()
+        attendeeProp = self.calendar.getAttendeeProperty(cuas)
+
+        remote = isinstance(self.organizer, Scheduler.RemoteCalendarUser)
+
+        # Find the current recipients calendar-free-busy-set
+        fbset = waitForDeferred(recipient.principal.calendarFreeBusyURIs(self.request))
+        yield fbset
+        fbset = fbset.getResult()
+
+        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
+        fbinfo = ([], [], [])
+    
+        try:
+            # Process the availability property from the Inbox.
+            has_prop = waitForDeferred(recipient.inbox.hasProperty((calendarserver_namespace, "calendar-availability"), self.request))
+            yield has_prop
+            has_prop = has_prop.getResult()
+            if has_prop:
+                availability = waitForDeferred(recipient.inbox.readProperty((calendarserver_namespace, "calendar-availability"), self.request))
+                yield availability
+                availability = availability.getResult()
+                availability = availability.calendar()
+                report_common.processAvailabilityFreeBusy(availability, fbinfo, self.timerange)
+
+            # Check to see if the recipient is the same calendar user as the organizer.
+            # Needed for masked UID stuff.
+            if isinstance(self.organizer, Scheduler.LocalCalendarUser):
+                same_calendar_user = self.organizer.principal.principalURL() == recipient.principal.principalURL()
+            else:
+                same_calendar_user = False
+
+            # Now process free-busy set calendars
+            matchtotal = 0
+            for calURL in fbset:
+                cal = waitForDeferred(self.request.locateResource(calURL))
+                yield cal
+                cal = cal.getResult()
+                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+                    # We will ignore missing calendars. If the recipient has failed to
+                    # properly manage the free busy set that should not prevent us from working.
+                    continue
+             
+                matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
+                    self.request,
+                    cal,
+                    fbinfo,
+                    self.timerange,
+                    matchtotal,
+                    excludeuid=self.excludeuid,
+                    organizer=self.organizer.cuaddr,
+                    same_calendar_user=same_calendar_user,
+                    servertoserver=remote))
+                yield matchtotal
+                matchtotal = matchtotal.getResult()
+        
+            # Build VFREEBUSY iTIP reply for this recipient
+            fbresult = report_common.buildFreeBusyResult(fbinfo, self.timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
+
+            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success", calendar=fbresult)
+            
+            yield True
+        except:
+            log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
+            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+            
+            yield False
+    
+    def generateRemoteResponse(self):
+        raise NotImplementedError
+    
+    def generateRemoteFreeBusyResponse(self):
+        raise NotImplementedError
+        
+class CalDAVScheduler(Scheduler):
+
+    def checkAuthorization(self):
+        # Must have an authenticated user
+        if self.resource.currentPrincipal(self.request) == davxml.Principal(davxml.Unauthenticated()):
+            log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+
+    def checkOriginator(self):
+        """
+        Check the validity of the Originator header. Extract the corresponding principal.
+        """
+    
+        # Verify that Originator is a valid calendar user
+        originator_principal = self.resource.principalForCalendarUserAddress(self.originator)
+        if originator_principal is None:
+            # Local requests MUST have a principal.
+            log.err("Could not find principal for originator: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+        else:
+            # Must have a valid Inbox.
+            inboxURL = originator_principal.scheduleInboxURL()
+            if inboxURL is None:
+                log.err("Could not find inbox for originator: %s" % (self.originator,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+        
+            # Verify that Originator matches the authenticated user.
+            authn_principal = self.resource.currentPrincipal(self.request)
+            if davxml.Principal(davxml.HRef(originator_principal.principalURL())) != authn_principal:
+                log.err("Originator: %s does not match authorized user: %s" % (self.originator, authn_principal.children[0],))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+
+            self.originator = Scheduler.LocalCalendarUser(self.originator, originator_principal)
+
+    @deferredGenerator
+    def checkRecipients(self):
+        """
+        Check the validity of the Recipient header values. Map these into local or
+        remote CalendarUsers.
+        """
+        
+        results = []
+        for recipient in self.recipients:
+            # Get the principal resource for this recipient
+            principal = self.resource.principalForCalendarUserAddress(recipient)
+            
+            # If no principal we may have a remote recipient but we should check whether
+            # the address is one that ought to be on our server and treat that as a missing
+            # user. Also if server-to-server is not enabled then remote addresses are not allowed.
+            if principal is None:
+                if self.isCalendarUserAddressInMyDomain(recipient):
+                    log.err("No principal for calendar user address: %s" % (recipient,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+                elif not config.ServerToServer["Enabled"]:
+                    log.err("Unknown calendar user address: %s" % (recipient,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+                else:
+                    results.append(Scheduler.RemoteCalendarUser(recipient))
+            else:
+                # Map recipient to their inbox
+                inbox = None
+                inboxURL = principal.scheduleInboxURL()
+                if inboxURL:
+                    inbox = waitForDeferred(self.request.locateResource(inboxURL))
+                    yield inbox
+                    inbox = inbox.getResult()
+
+                if inbox:
+                    results.append(Scheduler.LocalCalendarUser(recipient, principal, inbox, inboxURL))
+                else:
+                    log.err("No schedule inbox for principal: %s" % (principal,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+        
+        self.recipients = results
+
+    def checkOrganizer(self):
+        """
+        Check the validity of the ORGANIZER value. ORGANIZER must be local.
+        """
+        
+        # Verify that the ORGANIZER's cu address maps to a valid user
+        organizer = self.calendar.getOrganizer()
+        if organizer:
+            orgprincipal = self.resource.principalForCalendarUserAddress(organizer)
+            if orgprincipal:
+                outboxURL = orgprincipal.scheduleOutboxURL()
+                if outboxURL:
+                    self.organizer = Scheduler.LocalCalendarUser(organizer, orgprincipal)
+                else:
+                    log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            else:
+                log.err("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+        else:
+            log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+
+    def checkOrganizerAsOriginator(self):
+        # Make sure that the ORGANIZER's Outbox is the request URI
+        if self.organizer.principal.scheduleOutboxURL() != self.request.uri:
+            log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+
+    def checkAttendeeAsOriginator(self):
+        """
+        Check the validity of the ATTENDEE value as this is the originator of the iTIP message.
+        Only local attendees are allowed for message originating from this server.
+        """
+        
+        # Verify that there is a single ATTENDEE property
+        attendees = self.calendar.getAttendees()
+    
+        # Must have only one
+        if len(attendees) != 1:
+            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+        attendee = attendees[0]
+    
+        # Attendee's Outbox MUST be the request URI
+        aprincipal = self.resource.principalForCalendarUserAddress(attendee)
+        if aprincipal:
+            aoutboxURL = aprincipal.scheduleOutboxURL()
+            if aoutboxURL is None or aoutboxURL != self.request.uri:
+                log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+        else:
+            log.err("Unkown ATTENDEE in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+    
+    def securityChecks(self):
+        """
+        Check that the orginator has the appropriate rights to send this type of iTIP message.
+        """
+    
+        # Prevent spoofing of ORGANIZER with specific METHODs when local
+        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+            self.checkOrganizerAsOriginator()
+    
+        # Prevent spoofing when doing reply-like METHODs
+        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
+            self.checkAttendeeAsOriginator()
+            
+        else:
+            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+
+class ServerToServerScheduler(Scheduler):
+
+    def checkAuthorization(self):
+        # Must have an unauthenticated user
+        if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):
+            log.err("Authenticated originators not allowed: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+
+    def checkOriginator(self):
+        """
+        Check the validity of the Originator header.
+        """
+    
+        # For remote requests we do not allow the originator to be a local user or one within our domain
+        originator_principal = self.resource.principalForCalendarUserAddress(self.originator)
+        if originator_principal or self.isCalendarUserAddressInMyDomain(self.originator):
+            log.err("Cannot use originator that is on this server: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+        else:
+            self.originator = Scheduler.RemoteCalendarUser(self.originator)
+
+    @deferredGenerator
+    def checkRecipients(self):
+        """
+        Check the validity of the Recipient header values. These must all be local as there
+        is no concept of server-to-server relaying.
+        """
+        
+        results = []
+        for recipient in self.recipients:
+            # Get the principal resource for this recipient
+            principal = self.resource.principalForCalendarUserAddress(recipient)
+            
+            # If no principal we may have a remote recipient but we should check whether
+            # the address is one that ought to be on our server and treat that as a missing
+            # user. Also if server-to-server is not enabled then remote addresses are not allowed.
+            if principal is None:
+                if self.isCalendarUserAddressInMyDomain(recipient):
+                    log.err("No principal for calendar user address: %s" % (recipient,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+                else:
+                    log.err("Unknown calendar user address: %s" % (recipient,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+            else:
+                # Map recipient to their inbox
+                inbox = None
+                inboxURL = principal.scheduleInboxURL()
+                if inboxURL:
+                    inbox = waitForDeferred(self.request.locateResource(inboxURL))
+                    yield inbox
+                    inbox = inbox.getResult()
+
+                if inbox:
+                    results.append(Scheduler.LocalCalendarUser(recipient, principal, inbox, inboxURL))
+                else:
+                    log.err("No schedule inbox for principal: %s" % (principal,))
+                    results.append(Scheduler.InvalidCalendarUser(recipient))
+        
+        self.recipients = results
+
+    def checkOrganizer(self):
+        """
+        Delay ORGANIZER check until we know what their role is.
+        """
+        pass
+
+    def checkOrganizerAsOriginator(self):
+        """
+        Check the validity of the ORGANIZER value. ORGANIZER must not be local.
+        """
+        
+        # Verify that the ORGANIZER's cu address does not map to a valid user
+        organizer = self.calendar.getOrganizer()
+        if organizer:
+            orgprincipal = self.resource.principalForCalendarUserAddress(organizer)
+            if orgprincipal:
+                log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            elif self.isCalendarUserAddressInMyDomain(organizer):
+                log.err("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            else:
+                self.organizer = Scheduler.RemoteCalendarUser(organizer)
+        else:
+            log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+
+    def checkAttendeeAsOriginator(self):
+        """
+        Check the validity of the ATTENDEE value as this is the originator of the iTIP message.
+        Only local attendees are allowed for message originating from this server.
+        """
+        
+        # Verify that there is a single ATTENDEE property
+        attendees = self.calendar.getAttendees()
+    
+        # Must have only one
+        if len(attendees) != 1:
+            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+        attendee = attendees[0]
+    
+        # Attendee cannot be local.
+        aprincipal = self.resource.principalForCalendarUserAddress(attendee)
+        if aprincipal:
+            log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+        elif self.isCalendarUserAddressInMyDomain(attendee):
+            log.err("Unkown ATTENDEE in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+    
+        # TODO: in this case we should check that the ORGANIZER is the sole recipient.
+
+    def securityChecks(self):
+        """
+        Check that the orginator has the appropriate rights to send this type of iTIP message.
+        """
+
+        # Prevent spoofing of ORGANIZER with specific METHODs when local
+        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+            self.checkOrganizerAsOriginator()
+    
+        # Prevent spoofing when doing reply-like METHODs
+        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
+            self.checkAttendeeAsOriginator()
+            
+        else:
+            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
 class ScheduleResponseResponse (Response):
     """

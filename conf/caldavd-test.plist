@@ -331,8 +331,15 @@ limitations under the License.
   <true/>
 
   <!-- Server to server protocol -->
-  <key>EnableServerToServer</key>
-  <true/>
+  <key>ServerToServer</key>
+  <dict>
+  	<key>Enabled</key>
+  	<true/>
+  	<key>Email Domain</key>
+  	<string>example.com</string>
+  	<key>HTTP Domain</key>
+  	<string>example.com</string>
+  </dict>
 
 
   <!--

@@ -40,7 +40,8 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.schedule_common import doSchedulingViaPOST
+from twistedcaldav.schedule_common import CalDAVScheduler
+from twistedcaldav.schedule_common import ServerToServerScheduler
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """
@@ -192,8 +193,11 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         yield x
         x.getResult()
 
-        # Do the POST processing treating this as a local schedule
-        x = waitForDeferred(doSchedulingViaPOST(self, request, True))
+        # This is a local CALDAV scheduling operation.
+        scheduler = CalDAVScheduler(request, self)
+
+        # Do the POST processing treating
+        x = waitForDeferred(scheduler.doSchedulingViaPOST())
         yield x
         yield x.getResult()
 
@@ -265,7 +269,10 @@ class ScheduleServerToServerResource (CalDAVResource):
         yield x
         x.getResult()
 
+        # This is a server-to-server scheduling operation.
+        scheduler = ServerToServerScheduler(request, self)
+
         # Do the POST processing treating this as a non-local schedule
-        x = waitForDeferred(doSchedulingViaPOST(self, request, False))
+        x = waitForDeferred(scheduler.doSchedulingViaPOST())
         yield x
         yield x.getResult()
