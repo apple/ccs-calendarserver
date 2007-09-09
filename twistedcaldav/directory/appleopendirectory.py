@@ -27,6 +27,7 @@ __all__ = [
 
 import itertools
 import sys
+import os
 
 import opendirectory
 import dsattributes
@@ -42,7 +43,10 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 
-from plistlib import readPlistFromString
+from plistlib import readPlistFromString, readPlist
+
+_serverPreferences = '/Library/Preferences/com.apple.servermgr_info.plist'
+_saclGroup = 'com.apple.access_calendar'
 
 recordListCacheTimeout = 60 * 30 # 30 minutes
 
@@ -78,6 +82,8 @@ class OpenDirectoryService(DirectoryService):
         self._records = {}
         self._delayedCalls = set()
 
+        self.isWorkgroupServer = False
+
         if dosetup:
             if self.requireComputerRecord:
                 try:
@@ -86,8 +92,46 @@ class OpenDirectoryService(DirectoryService):
                     log.err("Unable to locate virtual host record: %s" % (e,))
                     raise
 
+                if os.path.exists(_serverPreferences):
+                    serverInfo = readPlist(_serverPreferences)
+
+                    self.isWorkgroupServer = serverInfo.get(
+                        'ServiceConfig', {}).get(
+                        'IsWorkgroupServer', False)
+
+                    if self.isWorkgroupServer:
+                        log.msg("Enabling Workgroup Server compatibility mode")
+
             for recordType in self.recordTypes():
                 self.recordsForType(recordType)
+
+    def _expandGroupMembership(self, members, nestedGroups):
+        if isinstance(members, str):
+            members = [members]
+
+        if isinstance(nestedGroups, str):
+            nestedGroups = [nestedGroups]
+
+        for memberGUID in members:
+            yield memberGUID
+
+        for groupGUID in nestedGroups:
+            result = opendirectory.queryRecordsWithAttribute(
+                self.directory,
+                dsattributes.kDS1AttrGeneratedUID,
+                groupGUID,
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeGroups,
+                [dsattributes.kDSNAttrGroupMembers,
+                 dsattributes.kDSNAttrNestedGroups])
+
+            group = result.values()[0]
+
+            for GUID in self._expandGroupMembership(
+                group.get(dsattributes.kDSNAttrGroupMembers, []),
+                group.get(dsattributes.kDSNAttrNestedGroups, [])):
+                yield GUID
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -429,12 +473,40 @@ class OpenDirectoryService(DirectoryService):
                                          % (recordType,))
 
         if self.requireComputerRecord:
-            subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSExact)
-            if query is None:
-                query = subquery
+            if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
+                results = opendirectory.queryRecordsWithAttribute(
+                    self.directory,
+                    dsattributes.kDSNAttrRecordName,
+                    _saclGroup,
+                    dsattributes.eDSExact,
+                    False,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    [dsattributes.kDSNAttrGroupMembers,
+                     dsattributes.kDSNAttrNestedGroups])
+
+                members = results.get(_saclGroup, {}).get(
+                    dsattributes.kDSNAttrGroupMembers, [])
+
+                nestedGroups = results.get(_saclGroup, {}).get(
+                    dsattributes.kDSNAttrNestedGroups, [])
+
+                guidQueries = []
+
+                for GUID in self._expandGroupMembership(members, nestedGroups):
+                    guidQueries.append(
+                        dsquery.match(dsattributes.kDS1AttrGeneratedUID,
+                                      GUID, dsattributes.eDSExact))
+
+
+                query = dsquery.expression(dsquery.expression.OR, guidQueries)
+
             else:
-                query = dsquery.expression(dsquery.expression.AND, (subquery, query))
-            
+                subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSExact)
+                if query is None:
+                    query = subquery
+                else:
+                    query = dsquery.expression(dsquery.expression.AND, (subquery, query))
+
         if shortName is not None:
             subquery = dsquery.match(dsattributes.kDSNAttrRecordName, shortName, dsattributes.eDSExact)
             if query is None:
@@ -564,6 +636,7 @@ class OpenDirectoryService(DirectoryService):
             storage = self._records[recordType]
             storage["records"][shortName] = record
             storage["guids"][record.guid] = record
+
 
 class OpenDirectoryRecord(DirectoryRecord):
     """
