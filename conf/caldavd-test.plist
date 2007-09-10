@@ -339,6 +339,8 @@ limitations under the License.
   	<string>example.com</string>
   	<key>HTTP Domain</key>
   	<string>example.com</string>
+  	<key>Servers</key>
+  	<string>conf/servertoserver-test.xml</string>
   </dict>
 
 

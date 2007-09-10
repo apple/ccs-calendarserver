@@ -273,6 +273,8 @@ limitations under the License.
   	<string></string>
   	<key>HTTP Domain</key>
   	<string></string>
+  	<key>Servers</key>
+  	<string>/etc/caldavd/servertoserver.xml</string>
   </dict>
 
 </dict>
