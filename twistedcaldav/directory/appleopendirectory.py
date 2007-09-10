@@ -105,7 +105,11 @@ class OpenDirectoryService(DirectoryService):
             for recordType in self.recordTypes():
                 self.recordsForType(recordType)
 
-    def _expandGroupMembership(self, members, nestedGroups):
+    def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None):
+
+        if processedGUIDs is None:
+            processedGUIDs = set()
+
         if isinstance(members, str):
             members = [members]
 
@@ -113,9 +117,14 @@ class OpenDirectoryService(DirectoryService):
             nestedGroups = [nestedGroups]
 
         for memberGUID in members:
-            yield memberGUID
+            if memberGUID not in processedGUIDs:
+                processedGUIDs.add(memberGUID)
+                yield memberGUID
 
         for groupGUID in nestedGroups:
+            if groupGUID in processedGUIDs:
+                continue
+
             result = opendirectory.queryRecordsWithAttribute(
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
@@ -132,9 +141,12 @@ class OpenDirectoryService(DirectoryService):
 
             group = result.values()[0]
 
+            processedGUIDs.add(groupGUID)
+
             for GUID in self._expandGroupMembership(
                 group.get(dsattributes.kDSNAttrGroupMembers, []),
-                group.get(dsattributes.kDSNAttrNestedGroups, [])):
+                group.get(dsattributes.kDSNAttrNestedGroups, []),
+                processedGUIDs):
                 yield GUID
 
     def __cmp__(self, other):
@@ -520,6 +532,7 @@ class OpenDirectoryService(DirectoryService):
                 query = subquery
             else:
                 query = dsquery.expression(dsquery.expression.AND, (subquery, query))
+
 
         try:
             if query:
