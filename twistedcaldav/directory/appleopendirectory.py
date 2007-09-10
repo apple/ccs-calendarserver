@@ -478,31 +478,34 @@ class OpenDirectoryService(DirectoryService):
 
         if self.requireComputerRecord:
             if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
-                results = opendirectory.queryRecordsWithAttribute(
-                    self.directory,
-                    dsattributes.kDSNAttrRecordName,
-                    _saclGroup,
-                    dsattributes.eDSExact,
-                    False,
-                    dsattributes.kDSStdRecordTypeGroups,
-                    [dsattributes.kDSNAttrGroupMembers,
-                     dsattributes.kDSNAttrNestedGroups])
+                if shortName is None:
+                    results = opendirectory.queryRecordsWithAttribute(
+                        self.directory,
+                        dsattributes.kDSNAttrRecordName,
+                        _saclGroup,
+                        dsattributes.eDSExact,
+                        False,
+                        dsattributes.kDSStdRecordTypeGroups,
+                        [dsattributes.kDSNAttrGroupMembers,
+                         dsattributes.kDSNAttrNestedGroups])
 
-                members = results.get(_saclGroup, {}).get(
-                    dsattributes.kDSNAttrGroupMembers, [])
+                    members = results.get(_saclGroup, {}).get(
+                        dsattributes.kDSNAttrGroupMembers, [])
 
-                nestedGroups = results.get(_saclGroup, {}).get(
-                    dsattributes.kDSNAttrNestedGroups, [])
+                    nestedGroups = results.get(_saclGroup, {}).get(
+                        dsattributes.kDSNAttrNestedGroups, [])
 
-                guidQueries = []
+                    guidQueries = []
 
-                for GUID in self._expandGroupMembership(members, nestedGroups):
-                    guidQueries.append(
-                        dsquery.match(dsattributes.kDS1AttrGeneratedUID,
-                                      GUID, dsattributes.eDSExact))
+                    for GUID in self._expandGroupMembership(members,
+                                                            nestedGroups):
+                        guidQueries.append(
+                            dsquery.match(dsattributes.kDS1AttrGeneratedUID,
+                                          GUID, dsattributes.eDSExact))
 
 
-                query = dsquery.expression(dsquery.expression.OR, guidQueries)
+                    query = dsquery.expression(dsquery.expression.OR,
+                                               guidQueries)
 
             else:
                 subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSExact)
