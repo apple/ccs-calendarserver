@@ -126,6 +126,10 @@ class OpenDirectoryService(DirectoryService):
                 [dsattributes.kDSNAttrGroupMembers,
                  dsattributes.kDSNAttrNestedGroups])
 
+            if not result:
+                log.err("Couldn't find group %s when trying to expand nested groups." % (groupGUID,))
+                continue
+
             group = result.values()[0]
 
             for GUID in self._expandGroupMembership(
