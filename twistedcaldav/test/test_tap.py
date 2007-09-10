@@ -190,6 +190,7 @@ class BaseServiceMakerTests(unittest.TestCase):
             }
 
         self.config['DocumentRoot'] = self.mktemp()
+        self.config['DataRoot'] = self.mktemp()
         self.config['ProcessType'] = 'Slave'
         self.config['SSLPrivateKey'] = sibpath(__file__, 'data/server.pem')
         self.config['SSLCertificate'] = sibpath(__file__, 'data/server.pem')
@@ -200,6 +201,7 @@ class BaseServiceMakerTests(unittest.TestCase):
             config_mod._mergeData(self.config, self.configOptions)
 
         os.mkdir(self.config['DocumentRoot'])
+        os.mkdir(self.config['DataRoot'])
 
         self.configFile = self.mktemp()
 
