@@ -162,8 +162,6 @@ class DigestCredentialsDB(AbstractSQLDatabase):
 
     def __init__(self, path):
         db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
-        if os.path.exists(db_path):
-            os.remove(db_path)
         super(DigestCredentialsDB, self).__init__(db_path, autocommit=True)
         self.exceptions = 0
     
@@ -268,7 +266,6 @@ class DigestCredentialsDB(AbstractSQLDatabase):
             values (:1, :2)
             """, (key, value,)
         )
-        self._db_commit()
        
     def _delete_from_db(self, key):
         """
@@ -277,7 +274,6 @@ class DigestCredentialsDB(AbstractSQLDatabase):
         @param key: the key to remove.
         """
         self._db().execute("delete from DIGESTCREDENTIALS where KEY = :1", (key,))
-        self._db_commit()
     
     def _db_version(self):
         """
@@ -336,6 +332,9 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         super(QopDigestCredentialFactory, self).__init__(algorithm, realm)
         self.qop = qop
         self.db = DigestCredentialsDB(db_path)
+        
+        # Always clean-up when we start-up
+        self.cleanup()
 
     def getChallenge(self, peer):
         """
@@ -500,6 +499,13 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         keys = self.db.keys()
         oldest_allowed = time.time() - DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
         for key in keys:
-            ignore_clientip, ignore_cnonce, db_timestamp = self.db.get(key)
-            if db_timestamp <= oldest_allowed:
-                self.invalidate(key)
+            try:
+                value = self.db.get(key)
+                if value is not None:
+                    ignore_clientip, ignore_cnonce, db_timestamp = value
+                    if db_timestamp <= oldest_allowed:
+                        self.invalidate(key)
+            except Exception, e:
+                # Clean-up errors can be logged but we should ignore them
+                log.err("Error cleaning digest credentials: %s" % (e,))
+                pass
