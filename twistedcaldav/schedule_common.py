@@ -25,6 +25,7 @@ __all__ = [
 ]
 
 from twisted.internet import reactor
+from twisted.internet.defer import DeferredList
 from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
 from twisted.python import log
 from twisted.python.failure import Failure
@@ -45,6 +46,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.servertoserver import ServerToServer
+from twistedcaldav.servertoserver import ServerToServerRequest
 
 import md5
 import time
@@ -276,6 +279,7 @@ class Scheduler(object):
         uid = self.calendar.resourceUID()
     
         # Loop over each recipient and do appropriate action.
+        remote_recipients = []
         autoresponses = []
         for recipient in self.recipients:
     
@@ -286,9 +290,8 @@ class Scheduler(object):
                 # Process next recipient
                 continue
             elif isinstance(recipient, Scheduler.RemoteCalendarUser):
-                # TODO: support remote recipients when server-to-server is enabled
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
+                # Pool remote recipients into a seperate list for processing after the local ones.
+                remote_recipients.append(recipient)
             
                 # Process next recipient
                 continue
@@ -323,6 +326,12 @@ class Scheduler(object):
                 yield d
                 d.getResult()
     
+        # Now process remote recipients
+        if remote_recipients:
+            d = waitForDeferred(self.generateRemoteSchedulingResponses(remote_recipients, responses))
+            yield d
+            d.getResult()
+
         # Now we have to do auto-respond
         if len(autoresponses) != 0:
             # First check that we have a method that we can auto-respond to
@@ -337,6 +346,45 @@ class Scheduler(object):
         # Return with final response if we are done
         yield responses.response()
     
+    @deferredGenerator
+    def generateRemoteSchedulingResponses(self, recipients, responses):
+        """
+        Generate scheduling responses for remote recipients.
+        """
+        
+        # Group recipients by server so that we can do a single request with multiple recipients
+        # to each different server.
+        groups = {}
+        servermgr = ServerToServer()
+        for recipient in recipients:
+            # Map the recipient's domain to a server
+            server = servermgr.mapDomain(recipient.domain)
+            if not server:
+                # Cannot do server-to-server for this recipient.
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
+            
+                # Process next recipient
+                continue
+            
+            groups.setdefault(server, []).append(recipient)
+        
+        if len(groups) == 0:
+            yield None
+            return
+
+        # Now we process each server: let's use a DeferredList to aggregate all the Deferred's
+        # we will generate for each request. That way we can have parallel requests in progress
+        # rather than serialize them.
+        deferreds = []
+        for server, recipients in groups.iteritems():
+            requestor = ServerToServerRequest(self, server, recipients, responses)
+            deferreds.append(requestor.doRequest())
+
+        d = waitForDeferred(DeferredList(deferreds))
+        yield d
+        d.getResult()
+
     @deferredGenerator
     def generateLocalResponse(self, recipient, responses, autoresponses):
         # Hash the iCalendar data for use as the last path element of the URI path
@@ -815,6 +863,31 @@ class ScheduleResponseQueue (object):
             children.append(error)
         if message is not None:
             children.append(davxml.ResponseDescription(message))
+        self.responses.append(caldavxml.Response(*children))
+
+    def clone(self, clone):
+        """
+        Add a response cloned from an existing caldavxml.Response element.
+        @param clone: the response to clone.
+        """
+        if not isinstance(clone, caldavxml.Response):
+            raise AssertionError("Incorrect element type: %r" % (clone,))
+
+        recipient = clone.childOfType(caldavxml.Recipient)
+        request_status = clone.childOfType(caldavxml.RequestStatus)
+        calendar_data = clone.childOfType(caldavxml.CalendarData)
+        error = clone.childOfType(davxml.Error)
+        desc = clone.childOfType(davxml.ResponseDescription)
+
+        children = []
+        children.append(recipient)
+        children.append(request_status)
+        if calendar_data is not None:
+            children.append(calendar_data)
+        if error is not None:
+            children.append(error)
+        if desc is not None:
+            children.append(desc)
         self.responses.append(caldavxml.Response(*children))
 
     def response(self):
