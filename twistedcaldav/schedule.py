@@ -23,6 +23,7 @@ CalDAV scheduling resources.
 __all__ = [
     "ScheduleInboxResource",
     "ScheduleOutboxResource",
+    "ScheduleServerToServerResource",
 ]
 
 from twisted.internet.defer import deferredGenerator, succeed, waitForDeferred
