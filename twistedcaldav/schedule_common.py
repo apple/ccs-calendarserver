@@ -21,7 +21,8 @@ CalDAV/Server-to-Server scheduling behavior.
 """
 
 __all__ = [
-    "doSchedulingViaPOST",
+    "CalDAVScheduler",
+    "ServerToServerScheduler",
 ]
 
 from twisted.internet import reactor

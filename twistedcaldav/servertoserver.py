@@ -16,6 +16,16 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
+"""
+Server to server utility functions and client requests.
+"""
+
+__all__ = [
+    "ServerToServer",
+    "ServerToServerRequest",
+]
+
+
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import waitForDeferred
 from twisted.internet.protocol import ClientCreator
@@ -34,10 +44,6 @@ from twistedcaldav.config import config
 from twistedcaldav.servertoserverparser import ServerToServerParser
 from twisted.web2.http_headers import Headers
 from twistedcaldav import caldavxml
-
-"""
-Server to server utility functions and client requests.
-"""
 
 class ServerToServer(object):
     
