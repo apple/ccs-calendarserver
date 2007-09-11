@@ -21,6 +21,7 @@ CalDAV/Server-to-Server scheduling behavior.
 """
 
 __all__ = [
+    "Scheduler",
     "CalDAVScheduler",
     "ServerToServerScheduler",
 ]
@@ -92,6 +93,8 @@ class Scheduler(object):
         self.recipients = None
         self.calendar = None
         self.organizer = None
+        self.timerange = None
+        self.excludeuid = None
     
     @deferredGenerator
     def doSchedulingViaPOST(self):
@@ -443,59 +446,16 @@ class Scheduler(object):
 
         remote = isinstance(self.organizer, Scheduler.RemoteCalendarUser)
 
-        # Find the current recipients calendar-free-busy-set
-        fbset = waitForDeferred(recipient.principal.calendarFreeBusyURIs(self.request))
-        yield fbset
-        fbset = fbset.getResult()
-
-        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-        fbinfo = ([], [], [])
-    
         try:
-            # Process the availability property from the Inbox.
-            has_prop = waitForDeferred(recipient.inbox.hasProperty((calendarserver_namespace, "calendar-availability"), self.request))
-            yield has_prop
-            has_prop = has_prop.getResult()
-            if has_prop:
-                availability = waitForDeferred(recipient.inbox.readProperty((calendarserver_namespace, "calendar-availability"), self.request))
-                yield availability
-                availability = availability.getResult()
-                availability = availability.calendar()
-                report_common.processAvailabilityFreeBusy(availability, fbinfo, self.timerange)
-
-            # Check to see if the recipient is the same calendar user as the organizer.
-            # Needed for masked UID stuff.
-            if isinstance(self.organizer, Scheduler.LocalCalendarUser):
-                same_calendar_user = self.organizer.principal.principalURL() == recipient.principal.principalURL()
-            else:
-                same_calendar_user = False
-
-            # Now process free-busy set calendars
-            matchtotal = 0
-            for calURL in fbset:
-                cal = waitForDeferred(self.request.locateResource(calURL))
-                yield cal
-                cal = cal.getResult()
-                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
-                    # We will ignore missing calendars. If the recipient has failed to
-                    # properly manage the free busy set that should not prevent us from working.
-                    continue
-             
-                matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
-                    self.request,
-                    cal,
-                    fbinfo,
-                    self.timerange,
-                    matchtotal,
-                    excludeuid=self.excludeuid,
-                    organizer=self.organizer.cuaddr,
-                    same_calendar_user=same_calendar_user,
-                    servertoserver=remote))
-                yield matchtotal
-                matchtotal = matchtotal.getResult()
-        
-            # Build VFREEBUSY iTIP reply for this recipient
-            fbresult = report_common.buildFreeBusyResult(fbinfo, self.timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
+            d = waitForDeferred(self.generateAttendeeFreeBusyResponse(
+                recipient,
+                organizerProp,
+                uid,
+                attendeeProp,
+                remote,
+            ))
+            yield d
+            fbresult = d.getResult()
 
             responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success", calendar=fbresult)
             
@@ -506,6 +466,64 @@ class Scheduler(object):
             responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
             
             yield False
+    
+    @deferredGenerator
+    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, uid, attendeeProp, remote):
+
+        # Find the current recipients calendar-free-busy-set
+        fbset = waitForDeferred(recipient.principal.calendarFreeBusyURIs(self.request))
+        yield fbset
+        fbset = fbset.getResult()
+
+        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
+        fbinfo = ([], [], [])
+    
+        # Process the availability property from the Inbox.
+        has_prop = waitForDeferred(recipient.inbox.hasProperty((calendarserver_namespace, "calendar-availability"), self.request))
+        yield has_prop
+        has_prop = has_prop.getResult()
+        if has_prop:
+            availability = waitForDeferred(recipient.inbox.readProperty((calendarserver_namespace, "calendar-availability"), self.request))
+            yield availability
+            availability = availability.getResult()
+            availability = availability.calendar()
+            report_common.processAvailabilityFreeBusy(availability, fbinfo, self.timerange)
+
+        # Check to see if the recipient is the same calendar user as the organizer.
+        # Needed for masked UID stuff.
+        if isinstance(self.organizer, Scheduler.LocalCalendarUser):
+            same_calendar_user = self.organizer.principal.principalURL() == recipient.principal.principalURL()
+        else:
+            same_calendar_user = False
+
+        # Now process free-busy set calendars
+        matchtotal = 0
+        for calURL in fbset:
+            cal = waitForDeferred(self.request.locateResource(calURL))
+            yield cal
+            cal = cal.getResult()
+            if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+                # We will ignore missing calendars. If the recipient has failed to
+                # properly manage the free busy set that should not prevent us from working.
+                continue
+         
+            matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
+                self.request,
+                cal,
+                fbinfo,
+                self.timerange,
+                matchtotal,
+                excludeuid=self.excludeuid,
+                organizer=self.organizer.cuaddr,
+                same_calendar_user=same_calendar_user,
+                servertoserver=remote))
+            yield matchtotal
+            matchtotal = matchtotal.getResult()
+    
+        # Build VFREEBUSY iTIP reply for this recipient
+        fbresult = report_common.buildFreeBusyResult(fbinfo, self.timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
+
+        yield fbresult
     
     def generateRemoteResponse(self):
         raise NotImplementedError

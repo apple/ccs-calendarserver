@@ -154,6 +154,11 @@ defaultConfig = {
         "HTTP Domain"     : "",    # Domain for http calendar user addresses on this server
     },
 
+    "FreeBusyURL": {
+        "Enabled"         : False, # Per-user free-busy-url protocol
+        "Time Period"     : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+    },
+
     #
     # Implementation details
     #

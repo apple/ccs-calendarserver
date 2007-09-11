@@ -256,11 +256,19 @@ class CalendarAvailability (davxml.WebDAVTextElement):
 
 class ServerToServerInbox (davxml.WebDAVEmptyElement):
     """
-    Denotes the resourcetype of a server-to_server Inbox.
+    Denotes the resourcetype of a server-to-server Inbox.
     (CalDAV-s2s-xx, section x.x.x)
     """
     namespace = calendarserver_namespace
     name = "server-to-server-inbox"
+
+class FreeBusyURL (davxml.WebDAVEmptyElement):
+    """
+    Denotes the resourcetype of a free-busy URL resource.
+    (CalDAV-s2s-xx, section x.x.x)
+    """
+    namespace = calendarserver_namespace
+    name = "free-busy-url"
 
 ##
 # Extensions to davxml.ResourceType
@@ -272,3 +280,4 @@ davxml.ResourceType.notifications = davxml.ResourceType(davxml.Collection(), Not
 davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
 davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())
 davxml.ResourceType.servertoserverinbox = davxml.ResourceType(ServerToServerInbox())
+davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())
