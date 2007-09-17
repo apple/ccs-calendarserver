@@ -531,7 +531,7 @@ class Scheduler(object):
             matchtotal = matchtotal.getResult()
     
         # Build VFREEBUSY iTIP reply for this recipient
-        fbresult = report_common.buildFreeBusyResult(fbinfo, self.timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
+        fbresult = report_common.buildFreeBusyResult(fbinfo, self.timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid, method="REPLY")
 
         yield fbresult
     
