@@ -51,7 +51,9 @@ from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.servertoserver import ServerToServer
 from twistedcaldav.servertoserver import ServerToServerRequest
 
+import itertools
 import md5
+import socket
 import time
 
 class Scheduler(object):
@@ -366,7 +368,15 @@ class Scheduler(object):
             if not server:
                 # Cannot do server-to-server for this recipient.
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.3;No scheduling support for user")
+            
+                # Process next recipient
+                continue
+            
+            if not server.allow_to:
+                # Cannot do server-to-server outgoing requests for this server.
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
             
                 # Process next recipient
                 continue
@@ -691,13 +701,34 @@ class ServerToServerScheduler(Scheduler):
         Check the validity of the Originator header.
         """
     
-        # For remote requests we do not allow the originator to be a local user or one within our domain
+        # For remote requests we do not allow the originator to be a local user or one within our domain.
         originator_principal = self.resource.principalForCalendarUserAddress(self.originator)
         if originator_principal or self.isCalendarUserAddressInMyDomain(self.originator):
             log.err("Cannot use originator that is on this server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
         else:
             self.originator = Scheduler.RemoteCalendarUser(self.originator)
+            
+        # We will only accept originator in known domains.
+        servermgr = ServerToServer()
+        server = servermgr.mapDomain(self.originator.domain)
+        if not server or not server.allow_from:
+            log.err("Originator not on recognized server: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+        else:
+            # Get the request IP and map to hostname.
+            clientip = self.request.remoteAddr.host
+            
+            # First compare as dotted IP
+            if clientip != server.host:
+                # Now do hostname lookup
+                host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
+                for host in itertools.chain((host,), aliases):
+                    if host == server.host:
+                        break
+                else:
+                    log.err("Originator not on allowed server: %s" % (self.originator,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
     @deferredGenerator
     def checkRecipients(self):
@@ -817,7 +848,7 @@ class ScheduleResponseResponse (Response):
         """
         @param xml_responses: an interable of davxml.Response objects.
         @param location:      the value of the location header to return in the response,
-                              or None.
+            or None.
         """
 
         Response.__init__(self, code=responsecode.OK,
@@ -847,7 +878,7 @@ class ScheduleResponseQueue (object):
     def setLocation(self, location):
         """
         @param location:      the value of the location header to return in the response,
-                              or None.
+            or None.
         """
         self.location = location
 
