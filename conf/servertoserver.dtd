@@ -18,9 +18,14 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 
 <!ELEMENT servers (server*) >
 
-	<!ELEMENT server (uri, allow-requests-from, allow-requests-to, domains*) >
+	<!ELEMENT server (uri, authentication?, allow-requests-from, allow-requests-to, domains*) >
 
 		<!ELEMENT uri (#PCDATA) >
+		<!ELEMENT authentication (user, password) >
+		    <!ATTLIST authentication type (basic) "">
+		    <!ELEMENT user (#PCDATA) >
+		    <!ELEMENT password (#PCDATA) >
+
 		<!ELEMENT allow-requests-from EMPTY >
 		<!ELEMENT allow-requests-to EMPTY >
 		<!ELEMENT domains (domain*) >

@@ -107,10 +107,12 @@ class ServerToServerRequest(object):
             yield d
             proto = d.getResult()
             
+            log.msg("Sending server-to-server POST request: %s" % (self.server.path,))
             d = waitForDeferred(proto.submitRequest(ClientRequest("POST", self.server.path, self.headers, self.data)))
             yield d
             response = d.getResult()
     
+            log.msg("Received server-to-server POST response: %s" % (response.code,))
             d = waitForDeferred(davXMLFromStream(response.stream))
             yield d
             xml = d.getResult()
@@ -127,9 +129,17 @@ class ServerToServerRequest(object):
         self.headers = Headers()
         self.headers.setHeader('Host', self.server.host + ":%s" % (self.server.port,))
         self.headers.addRawHeader('Originator', self.scheduler.originator.cuaddr)
+        self._doAuthentication()
         for recipient in self.recipients:
             self.headers.addRawHeader('Recipient', recipient.cuaddr)
         self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset":"utf-8"}))
+
+    def _doAuthentication(self):
+        if self.server.authentication and self.server.authentication[0] == "basic":
+            self.headers.setHeader(
+                'Authorization',
+                ('Basic', ("%s:%s" % (self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
+            )
 
     def _prepareData(self):
         self.data = str(self.scheduler.calendar)

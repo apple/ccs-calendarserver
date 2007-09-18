@@ -35,6 +35,11 @@ ELEMENT_ALLOW_REQUESTS_FROM     = "allow-requests-from"
 ELEMENT_ALLOW_REQUESTS_TO       = "allow-requests-to"
 ELEMENT_DOMAINS                 = "domains"
 ELEMENT_DOMAIN                  = "domain"
+ELEMENT_AUTHENTICATION          = "authentication"
+ATTRIBUTE_TYPE                  = "type"
+ATTRIBUTE_BASICAUTH             = "basic"
+ELEMENT_USER                    = "user"
+ELEMENT_PASSWORD                = "password"
 
 class ServerToServerParser(object):
     """
@@ -85,6 +90,7 @@ class ServerToServerRecord (object):
         self.allow_from = False
         self.allow_to = True
         self.domains = []
+        self.authentication = None
 
     def parseXML(self, node):
         for child in node._get_childNodes():
@@ -100,6 +106,8 @@ class ServerToServerRecord (object):
                 self.allow_to = True
             elif child_name == ELEMENT_DOMAINS:
                 self._parseDomains(child)
+            elif child_name == ELEMENT_AUTHENTICATION:
+                self._parseAuthentication(child)
             else:
                 raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child_name,))
         
@@ -110,6 +118,24 @@ class ServerToServerRecord (object):
             if child._get_localName() == ELEMENT_DOMAIN:
                 if child.firstChild is not None:
                     self.domains.append(child.firstChild.data.encode("utf-8"))
+
+    def _parseAuthentication(self, node):
+        if node.hasAttribute(ATTRIBUTE_TYPE):
+            type = node.getAttribute(ATTRIBUTE_TYPE).encode("utf-8")
+            if type != ATTRIBUTE_BASICAUTH:
+                return
+        else:
+            return
+
+        for child in node._get_childNodes():
+            if child._get_localName() == ELEMENT_USER:
+                if child.firstChild is not None:
+                    user = child.firstChild.data.encode("utf-8")
+            elif child._get_localName() == ELEMENT_PASSWORD:
+                if child.firstChild is not None:
+                    password = child.firstChild.data.encode("utf-8")
+        
+        self.authentication = ("basic", user, password,)
 
     def _parseDetails(self):
         # Extract scheme, host, port and path
