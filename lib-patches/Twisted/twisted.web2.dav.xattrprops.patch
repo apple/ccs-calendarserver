@@ -9,7 +9,7 @@ Index: twisted/web2/dav/xattrprops.py
 +from time import sleep
 +from random import random
 +from errno import EAGAIN
-+from zlib import compress, uncompress
++from zlib import compress, decompress
  
  import xattr
  
@@ -37,7 +37,7 @@ Index: twisted/web2/dav/xattrprops.py
      def get(self, qname):
          try:
 -            value = self.attrs[self._encode(qname)]
-+            value = uncompress(self.attrs[self._encode(qname)])
++            value = decompress(self.attrs[self._encode(qname)])
          except KeyError:
              raise HTTPError(StatusResponse(
                  responsecode.NOT_FOUND,
