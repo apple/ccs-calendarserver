@@ -640,9 +640,11 @@ class CalDAVScheduler(Scheduler):
                 else:
                     log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
-            else:
+            elif self.isCalendarUserAddressInMyDomain(organizer):
                 log.err("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            else:
+                self.organizer = Scheduler.RemoteCalendarUser(organizer) 
         else:
             log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
