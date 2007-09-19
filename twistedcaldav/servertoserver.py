@@ -15,6 +15,9 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
+from twisted.web2.dav.util import allDataFromStream
+from twisted.web2.stream import MemoryStream
+import logging
 
 """
 Server to server utility functions and client requests.
@@ -108,11 +111,21 @@ class ServerToServerRequest(object):
             proto = d.getResult()
             
             log.msg("Sending server-to-server POST request: %s" % (self.server.path,))
+            if logging.canLog("debug"):
+                logging.debug(self.headers, system="Server-to-server Send")
+                logging.debug(self.data, system="Server-to-server Send")
             d = waitForDeferred(proto.submitRequest(ClientRequest("POST", self.server.path, self.headers, self.data)))
             yield d
             response = d.getResult()
     
             log.msg("Received server-to-server POST response: %s" % (response.code,))
+            if logging.canLog("debug"):
+                logging.debug(response.headers, system="Server-to-server Send")
+                d = waitForDeferred(allDataFromStream(response.stream))
+                yield d
+                data = d.getResult()
+                logging.debug(data, system="Server-to-server Send")
+                response.stream = MemoryStream(data)
             d = waitForDeferred(davXMLFromStream(response.stream))
             yield d
             xml = d.getResult()

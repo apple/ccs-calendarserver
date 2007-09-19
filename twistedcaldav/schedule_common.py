@@ -61,18 +61,24 @@ class Scheduler(object):
     class CalendarUser(object):
         def __init__(self, cuaddr):
             self.cuaddr = cuaddr
-            
+
     class LocalCalendarUser(CalendarUser):
         def __init__(self, cuaddr, principal, inbox=None, inboxURL=None):
             self.cuaddr = cuaddr
             self.principal = principal
             self.inbox = inbox
             self.inboxURL = inboxURL
+        
+        def __str__(self):
+            return "Local calendar user: %s" % (self.cuaddr,)
 
     class RemoteCalendarUser(CalendarUser):
         def __init__(self, cuaddr):
             self.cuaddr = cuaddr
             self.extractDomain()
+
+        def __str__(self):
+            return "Remote calendar user: %s" % (self.cuaddr,)
         
         def extractDomain(self):
             if self.cuaddr.startswith("mailto:"):
@@ -85,7 +91,9 @@ class Scheduler(object):
                 self.domain = ""
 
     class InvalidCalendarUser(CalendarUser):
-        pass
+        
+        def __str__(self):
+            return "Invalid calendar user: %s" % (self.cuaddr,)
 
             
     def __init__(self, request, resource):
