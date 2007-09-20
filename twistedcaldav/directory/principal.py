@@ -24,6 +24,7 @@ __all__ = [
     "DirectoryPrincipalProvisioningResource",
     "DirectoryPrincipalTypeProvisioningResource",
     "DirectoryPrincipalResource",
+    "DirectoryCalendarPrincipalResource",
 ]
 
 from cgi import escape
@@ -42,7 +43,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.static import AutoProvisioningFileMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -316,7 +317,10 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             log.err("No principal found for UID: %s" % (name,))
             return None
 
-        primaryPrincipal = DirectoryPrincipalResource(self.fp.child(name).path, self, record)
+        if record.enabledForCalendaring:
+            primaryPrincipal = DirectoryCalendarPrincipalResource(self.fp.child(name).path, self, record)
+        else:
+            primaryPrincipal = DirectoryPrincipalResource(self.fp.child(name).path, self, record)
 
         if subType is None:
             return primaryPrincipal
@@ -334,7 +338,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, CalendarPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """
@@ -344,6 +348,8 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         @param parent: the parent of this resource.
         @param record: the L{IDirectoryRecord} that this resource represents.
         """
+        super(DirectoryPrincipalResource, self).__init__(path)
+
         if self.isCollection():
             slash = "/"
         else:
@@ -352,8 +358,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         assert record is not None, "Principal must have a directory record: %s" % (path,)
 
         url = joinURL(parent.principalCollectionURL(), record.guid) + slash
-
-        super(DirectoryPrincipalResource, self).__init__(path, url)
 
         self.record = record
         self.parent = parent
@@ -419,8 +423,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
                 """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
                 """\nGroup members:\n"""           , format_principals(self.groupMembers()),
                 """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
-                """\nCalendar homes:\n"""          , format_list(link(u) for u in self.calendarHomeURLs()),
-                """\nCalendar user addresses:\n""" , format_list(link(a) for a in self.calendarUserAddresses()),
                 """</pre></blockquote></div>""",
                 output
             ))
@@ -432,6 +434,9 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     ##
     # DAV
     ##
+
+    def isCollection(self):
+        return True
 
     def displayName(self):
         if self.record.fullName:
@@ -473,6 +478,98 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
         return relatives
 
+    def groupMembers(self):
+        return self._getRelatives("members")
+
+    def groupMemberships(self):
+        return self._getRelatives("groups")
+
+    def principalCollections(self):
+        return self.parent.principalCollections()
+
+    def principalUID(self):
+        return self.record.guid
+        
+    ##
+    # Static
+    ##
+
+    def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    def getChild(self, name):
+        if name == "":
+            return self
+
+        return None
+
+    def listChildren(self):
+        return ()
+
+class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPrincipalResource):
+    """
+    Directory calendar principal resource.
+    """
+    def renderDirectoryBody(self, request):
+        def format_list(items, *args):
+            def genlist():
+                try:
+                    item = None
+                    for item in items:
+                        yield " -> %s\n" % (item,)
+                    if item is None:
+                        yield " '()\n"
+                except Exception, e:
+                    log.err("Exception while rendering: %s" % (e,))
+                    Failure().printTraceback()
+                    yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+            return "".join(genlist())
+
+        def format_principals(principals):
+            return format_list(
+                """<a href="%s">%s</a>""" % (principal.principalURL(), escape(str(principal)))
+                for principal in principals
+            )
+
+        def link(url):
+            return """<a href="%s">%s</a>""" % (url, url)
+
+        def gotSuper(output):
+            return "".join((
+                """<div class="directory-listing">"""
+                """<h1>Principal Details</h1>"""
+                """<pre><blockquote>"""
+                """Directory Information\n"""
+                """---------------------\n"""
+                """Directory GUID: %s\n"""         % (self.record.service.guid,),
+                """Realm: %s\n"""                  % (self.record.service.realmName,),
+                """\n"""
+                """Principal Information\n"""
+                """---------------------\n"""
+                """GUID: %s\n"""                   % (self.record.guid,),
+                """Record type: %s\n"""            % (self.record.recordType,),
+                """Short name: %s\n"""             % (self.record.shortName,),
+                """Full name: %s\n"""              % (self.record.fullName,),
+                """Principal UID: %s\n"""          % (self.principalUID(),),
+                """Principal URL: %s\n"""          % (link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
+                """\nGroup members:\n"""           , format_principals(self.groupMembers()),
+                """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
+                """\nCalendar homes:\n"""          , format_list(link(u) for u in self.calendarHomeURLs()),
+                """\nCalendar user addresses:\n""" , format_list(link(a) for a in self.calendarUserAddresses()),
+                """</pre></blockquote></div>""",
+                output
+            ))
+
+        d = super(DirectoryPrincipalResource, self).renderDirectoryBody(request)
+        d.addCallback(gotSuper)
+        return d
+
+    ##
+    # ACL
+    ##
+
     def _calendar_user_proxy_index(self):
         """
         Return the SQL database for calendar user proxies.
@@ -487,9 +584,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
         if not hasattr(pcollection, "calendar_user_proxy_db"):
             setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
         return pcollection.calendar_user_proxy_db
-
-    def groupMembers(self):
-        return self._getRelatives("members")
 
     def groupMemberships(self):
         groups = self._getRelatives("groups")
@@ -509,16 +603,10 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
 
         return groups
 
-    def principalCollections(self):
-        return self.parent.principalCollections()
-
     ##
     # CalDAV
     ##
 
-    def principalUID(self):
-        return self.record.guid
-        
     def calendarUserAddresses(self):
         # Get any CUAs defined by the directory implementation.
         addresses = set(self.record.calendarUserAddresses)
@@ -600,10 +688,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, C
     ##
     # Static
     ##
-
-    def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
-        raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
         if name == "":
