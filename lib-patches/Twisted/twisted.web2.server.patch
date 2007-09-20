@@ -114,3 +114,12 @@ Index: twisted/web2/server.py
  
          def notFound(f):
              f.trap(http.HTTPError)
+@@ -417,7 +441,7 @@
+                 return f
+             return None
+ 
+-        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments, updatepaths=False)
++        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments[1:], updatepaths=False)
+         d.addCallback(self._rememberResource, path)
+         d.addErrback(notFound)
+         return d
