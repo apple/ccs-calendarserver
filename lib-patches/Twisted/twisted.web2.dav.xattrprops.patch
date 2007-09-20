@@ -2,10 +2,11 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -33,6 +33,10 @@
+@@ -33,6 +33,11 @@
  
  import urllib
  import sys
++import zlib
 +from time import sleep
 +from random import random
 +from errno import EAGAIN
@@ -13,7 +14,7 @@ Index: twisted/web2/dav/xattrprops.py
  
  import xattr
  
-@@ -66,16 +70,8 @@
+@@ -66,16 +71,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -32,12 +33,20 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +93,33 @@
+@@ -97,19 +94,41 @@
  
      def get(self, qname):
          try:
 -            value = self.attrs[self._encode(qname)]
-+            value = decompress(self.attrs[self._encode(qname)])
++            data = self.attrs[self._encode(qname)]
++            try:
++                value = decompress(data)
++            except zlib.error:
++                # Value is not compressed; data was stored by old
++                # code.  This is easy to handle, so let's keep
++                # compatibility here.
++                value = data
++            del data
          except KeyError:
              raise HTTPError(StatusResponse(
                  responsecode.NOT_FOUND,
