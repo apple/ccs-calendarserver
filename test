@@ -56,7 +56,7 @@ export PYTHONPATH="$("${wd}/run" -p)";
 if [ $# -gt 0 ]; then
     test_modules="$@";
 else
-    test_modules="twistedcaldav";
+    test_modules="twistedcaldav twisted";
 fi;
 
 cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${test_modules};
