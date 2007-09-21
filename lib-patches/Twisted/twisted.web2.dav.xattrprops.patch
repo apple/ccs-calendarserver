@@ -2,17 +2,19 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -33,6 +33,9 @@
+@@ -33,6 +33,11 @@
  
  import urllib
  import sys
++import zlib
 +from time import sleep
 +from random import random
 +from errno import EAGAIN
++from zlib import compress, decompress
  
  import xattr
  
-@@ -66,16 +69,8 @@
+@@ -66,16 +71,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -31,7 +33,23 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -104,12 +99,26 @@
+@@ -97,19 +94,41 @@
+ 
+     def get(self, qname):
+         try:
+-            value = self.attrs[self._encode(qname)]
++            data = self.attrs[self._encode(qname)]
++            try:
++                value = decompress(data)
++            except zlib.error:
++                # Value is not compressed; data was stored by old
++                # code.  This is easy to handle, so let's keep
++                # compatibility here.
++                value = data
++            del data
+         except KeyError:
+             raise HTTPError(StatusResponse(
+                 responsecode.NOT_FOUND,
                  "No such property: {%s}%s" % qname
              ))
  
@@ -50,7 +68,7 @@ Index: twisted/web2/dav/xattrprops.py
 -        self.attrs[self._encode(property.qname())] = property.toxml()
 +        for n in range(20):
 +            try:
-+                self.attrs[self._encode(property.qname())] = property.toxml()
++                self.attrs[self._encode(property.qname())] = compress(property.toxml())
 +            except IOError, error:
 +                if error.errno != EAGAIN:
 +                    raise
