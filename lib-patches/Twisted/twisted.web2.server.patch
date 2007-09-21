@@ -60,7 +60,7 @@ Index: twisted/web2/server.py
          
          d = defer.Deferred()
          d.addCallback(self._getChild, self.site.resource, self.postpath)
-+        d.addCallback(self._rememberResource, "/" + "/".join(self.postpath))
++        d.addCallback(self._rememberResource, "/" + "/".join(quote(s) for s in self.postpath))
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
