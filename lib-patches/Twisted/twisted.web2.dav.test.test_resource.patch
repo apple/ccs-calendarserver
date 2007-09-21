@@ -28,7 +28,25 @@ Index: twisted/web2/dav/test/test_resource.py
          d = request.locateResource('/')
          d.addCallback(_checkPrivileges)
          d.addCallback(expectOK)
-@@ -348,12 +346,12 @@
+@@ -301,6 +299,8 @@
+                       
+         return self.checkSecurity(request)
+ 
++    test_authorize.todo = "Needs refactoring"
++
+     def test_badUsernameOrPassword(self):
+         request = SimpleRequest(self.site, 'GET', '/protected')
+ 
+@@ -316,6 +316,8 @@
+ 
+         return d
+ 
++    test_badUsernameOrPassword.todo = "Needs refactoring."
++
+     def test_lacksPrivileges(self):
+         request = SimpleRequest(self.site, 'GET', '/protected')
+ 
+@@ -348,12 +350,12 @@
              davxml.Grant(davxml.Privilege(davxml.All())),
              davxml.Protected()))
  
@@ -43,7 +61,7 @@ Index: twisted/web2/dav/test/test_resource.py
          self.children = children
          self.uri = uri
  
-@@ -380,8 +378,8 @@
+@@ -380,8 +382,8 @@
          return succeed(davPrivilegeSet)
  
      def currentPrincipal(self, request):
@@ -54,7 +72,7 @@ Index: twisted/web2/dav/test/test_resource.py
          else:
              return davxml.Principal(davxml.Unauthenticated())
  
-@@ -399,18 +397,21 @@
+@@ -399,18 +401,21 @@
  
      def accessControlList(self, request, **kwargs):
          return succeed(self.acl)
