@@ -463,8 +463,13 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
 
     def provisionChild(self, name):
         record = self.directory.recordWithShortName(self.recordType, name)
+
         if record is None:
             log.msg("No directory record %r of type %r" % (name, self.recordType))
+            return None
+
+        if not record.enabledForCalendaring:
+            log.msg("Directory record %r of type %r is not enabled for calendaring" % (name, self.recordType))
             return None
 
         child = CalendarHomeFile(self.fp.child(name).path, self, record)

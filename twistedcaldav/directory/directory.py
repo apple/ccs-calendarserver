@@ -155,7 +155,10 @@ class DirectoryRecord(object):
             self.fullName
         )
 
-    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, autoSchedule):
+    def __init__(
+        self, service, recordType, guid, shortName, fullName,
+        calendarUserAddresses, autoSchedule, enabledForCalendaring=True,
+    ):
         assert service.realmName is not None
         assert recordType
         assert shortName
@@ -163,13 +166,17 @@ class DirectoryRecord(object):
         if not guid:
             guid = uuidFromName(service.guid, "%s:%s" % (recordType, shortName))
 
-        calendarUserAddresses.add("urn:uuid:%s" % (guid,))
+        if enabledForCalendaring:
+            calendarUserAddresses.add("urn:uuid:%s" % (guid,))
+        else:
+            assert len(calendarUserAddresses) == 0
 
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
         self.shortName             = shortName
         self.fullName              = fullName
+        self.enabledForCalendaring = enabledForCalendaring
         self.calendarUserAddresses = calendarUserAddresses
         self.autoSchedule          = autoSchedule
 

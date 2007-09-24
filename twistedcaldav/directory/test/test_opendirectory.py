@@ -21,9 +21,10 @@ try:
 except ImportError:
     pass
 else:
-    from twistedcaldav.directory.directory import DirectoryService
-    import twistedcaldav.directory.test.util
     import twisted.web2.auth.digest
+    import twistedcaldav.directory.test.util
+    from twistedcaldav.directory.directory import DirectoryService
+    from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
 
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):
@@ -61,16 +62,17 @@ else:
             return self._service
 
         def test_invalidODDigest(self):
-            record = twistedcaldav.directory.appleopendirectory.OpenDirectoryRecord(
-                self.service(),
-                DirectoryService.recordType_users,
-                "GUID-123",
-                "guidify",
-                "GUID",
-                set("mailtoguid@example.com",),
-                [],
-                False,
-                ()
+            record = OpenDirectoryRecord(
+                service               = self.service(),
+                recordType            = DirectoryService.recordType_users,
+                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
+                shortName             = "user",
+                fullName              = "Some user",
+                calendarUserAddresses = set(("mailtoguid@example.com",)),
+                autoSchedule          = False,
+                enabledForCalendaring = True,
+                memberGUIDs           = [],
+                proxyGUIDs            = (),
             )
 
             digestFields = {}

@@ -519,7 +519,11 @@ class OpenDirectoryService(DirectoryService):
                     query = dsquery.expression(dsquery.expression.OR,
                                                guidQueries)
 
-            else:
+            #
+            # For groups, we'll load all entries, even if they don't
+            # have a services locator for this server.
+            #
+            elif recordType != DirectoryService.recordType_groups:
                 subquery = dsquery.match(dsattributes.kDSNAttrServicesLocator, self.servicetag, dsattributes.eDSExact)
                 if query is None:
                     query = subquery
@@ -568,12 +572,16 @@ class OpenDirectoryService(DirectoryService):
         guids   = {}
 
         for (key, value) in results.iteritems():
-            if self.requireComputerRecord:
-                services = value.get(dsattributes.kDSNAttrServicesLocator)
+            enabledForCalendaring = True
 
-                if not services:
-                    log.err("Directory (incorrectly) returned a record with no ServicesLocator attribute: %s" % (key,))
-                    continue
+            if self.requireComputerRecord:
+                if not value.get(dsattributes.kDSNAttrServicesLocator):
+                    if recordType == DirectoryService.recordType_groups:
+                        enabledForCalendaring = False
+                        log.msg("Group %s is not enabled for calendaring but may be used in ACLs" % (key,))
+                    else:
+                        log.err("Directory (incorrectly) returned a record with no ServicesLocator attribute: %s" % (key,))
+                        continue
 
             # Now get useful record info.
             recordShortName = key
@@ -583,7 +591,10 @@ class OpenDirectoryService(DirectoryService):
             realName = value.get(dsattributes.kDS1AttrDistinguishedName)
 
             # Get calendar user addresses from directory record.
-            cuaddrset = self._getCalendarUserAddresses(recordType, key, value)
+            if enabledForCalendaring:
+                calendarUserAddresses = self._getCalendarUserAddresses(recordType, key, value)
+            else:
+                calendarUserAddresses = ()
 
             # Special case for groups.
             if recordType == DirectoryService.recordType_groups:
@@ -616,9 +627,10 @@ class OpenDirectoryService(DirectoryService):
                 guid                  = guid,
                 shortName             = recordShortName,
                 fullName              = realName,
-                calendarUserAddresses = cuaddrset,
-                memberGUIDs           = memberGUIDs,
+                calendarUserAddresses = calendarUserAddresses,
                 autoSchedule          = autoSchedule,
+                enabledForCalendaring = enabledForCalendaring,
+                memberGUIDs           = memberGUIDs,
                 proxyGUIDs            = proxyGUIDs,
             )
             records[recordShortName] = guids[guid] = record
@@ -662,7 +674,11 @@ class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, guid, shortName, fullName, calendarUserAddresses, memberGUIDs, autoSchedule, proxyGUIDs):
+    def __init__(
+        self, service, recordType, guid, shortName, fullName,
+        calendarUserAddresses, autoSchedule, enabledForCalendaring,
+        memberGUIDs, proxyGUIDs,
+    ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
@@ -671,6 +687,7 @@ class OpenDirectoryRecord(DirectoryRecord):
             fullName              = fullName,
             calendarUserAddresses = calendarUserAddresses,
             autoSchedule          = autoSchedule,
+            enabledForCalendaring = enabledForCalendaring,
         )
         self._memberGUIDs = tuple(memberGUIDs)
         self._proxyGUIDs = tuple(proxyGUIDs)
@@ -681,9 +698,7 @@ class OpenDirectoryRecord(DirectoryRecord):
 
         for guid in self._memberGUIDs:
             userRecord = self.service.recordWithGUID(guid)
-            if userRecord is None:
-                log.err("No record for member of group %s with GUID %s" % (self.shortName, guid))
-            else:
+            if userRecord is not None:
                 yield userRecord
 
     def groups(self):

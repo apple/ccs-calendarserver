@@ -149,7 +149,11 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
         return self.provisionChild(name)
 
     def listChildren(self):
-        return (record.shortName for record in self.directory.listRecords(self.recordType))
+        return (
+            record.shortName
+            for record in self.directory.listRecords(self.recordType)
+            if record.enabledForCalendaring
+        )
 
     ##
     # DAV

@@ -512,8 +512,12 @@ class DAVFile (SudoSACLMixin, SuperDAVFile):
                     property = waitForDeferred(self.readProperty(qname, request))
                     yield property
                     property = property.getResult()
-                    name = property.sname()
-                    value = property.toxml()
+                    if property is None:
+                        name = "{%s}%s" % qname
+                        value = "** None **"
+                    else:
+                        name = property.sname()
+                        value = property.toxml()
                 except HTTPError, e:
                     if e.response.code == responsecode.NOT_FOUND:
                         log.err("Property {%s}%s was returned by listProperties() but does not exist for resource %s."
