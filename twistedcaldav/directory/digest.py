@@ -366,6 +366,11 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             challenge['qop'] = self.qop
         else:
             del challenge['qop']
+        
+        # If stale was marked when decoding this request's Authorization header, add that to the challenge
+        if hasattr(peer, 'stale') and peer.stale:
+            challenge['stale'] = 'true'
+
         return challenge
             
 
@@ -479,6 +484,8 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         # Now check timestamp
         if db_timestamp + DigestCredentialFactory.CHALLENGE_LIFETIME_SECS <= time.time():
             self.invalidate(nonce)
+            if request.remoteAddr:
+                request.remoteAddr.stale = True
             raise error.LoginFailed('Digest credentials expired')
 
         return True

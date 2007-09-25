@@ -4,6 +4,7 @@ from twisted.cred import error
 from twisted.internet import address
 from twisted.trial import unittest
 from twisted.web2.auth import digest
+from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.test.test_server import SimpleRequest
 from twisted.web2.dav.fileop import rmdir
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -351,6 +352,11 @@ class DigestAuthTestCase(unittest.TestCase):
                 _trivial_GET
             )
 
+            factory.invalidate(factory.generateNonce())
+            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
+            self.assertTrue('stale' not in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
+
     def test_incompatibleClientIp(self):
         """
         Test that the login fails when the request comes from a client ip
@@ -376,6 +382,10 @@ class DigestAuthTestCase(unittest.TestCase):
                 clientResponse,
                 _trivial_GET
             )
+
+            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
+            self.assertTrue('stale' not in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
 
     def test_oldNonce(self):
         """
@@ -404,6 +414,11 @@ class DigestAuthTestCase(unittest.TestCase):
                 clientResponse,
                 _trivial_GET
             )
+            
+            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
+            self.assertTrue('stale' in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
+            self.assertEquals(wwwhdrs['stale'], 'true', msg="stale parameter not set to true in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
 
     def test_incompatibleCalcHA1Options(self):
         """
