@@ -183,24 +183,17 @@ class OpenDirectoryService(DirectoryService):
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrRecordName,
-            dsattributes.kDS1AttrXMLPlist,
             dsattributes.kDSNAttrMetaNodeLocation,
             'dsAttrTypeNative:apple-serviceinfo',
         ]
 
-        from dsquery import expression, match
-
         records = opendirectory.queryRecordsWithAttributes(
             self.directory,
-            expression(
-                expression.OR,
-                (
-                    match(dsattributes.kDS1AttrXMLPlist,
-                          vhostname,
-                          dsattributes.eDSContains),
-                    match('dsAttrTypeNative:apple-serviceinfo',
-                          vhostname,
-                          dsattributes.eDSContains))).generate(),
+            dsquery.match(
+                'dsAttrTypeNative:apple-serviceinfo',
+                vhostname,
+                dsattributes.eDSContains,
+            ).generate(),
             True,    # case insentive for hostnames
             dsattributes.kDSStdRecordTypeComputers,
             attrs
@@ -222,9 +215,9 @@ class OpenDirectoryService(DirectoryService):
         # Prefering the remote OD node to the local OD Node and
         # the local OD Node to the local node.
 
-        _localNode = None
-        _localODNode = None
-        _remoteNode = None
+        _localNodes = []
+        _localODNodes = []
+        _remoteNodes = []
 
         for recordname, record in records.iteritems():
             # May have an apple-serviceinfo
@@ -251,19 +244,38 @@ class OpenDirectoryService(DirectoryService):
                 continue
 
             if record[dsattributes.kDSNAttrMetaNodeLocation] == localNodePath:
-                _localNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+                _localNodes.append((recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]))
 
             elif record[dsattributes.kDSNAttrMetaNodeLocation] == localODNodePath:
-                _localODNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+                _localODNodes.append((recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]))
 
             else:
-                _remoteNode = (recordname, plist, record[dsattributes.kDS1AttrGeneratedUID])
+                _remoteNodes.append((recordname, plist, record[dsattributes.kDS1AttrGeneratedUID]))
 
-        # XXX: These calls to self._parseXMLPlist will cause the plsit to be parsed _again_
+        # Verify that we only have a single record type to match
+        if len(_remoteNodes) > 1:
+            raise OpenDirectoryInitError(
+                "Open Directory (node=%s) too many remote /Computers records (%s) were found matching virtual hostname: %s"
+                % (self.realmName, ", ".join([r[0] for r in _remoteNodes]), vhostname,)
+            )
+
+        if len(_remoteNodes) == 0 and len(_localODNodes) > 1:
+            raise OpenDirectoryInitError(
+                "Open Directory (node=%s) too many local OD /Computers records (%s) were found matching virtual hostname: %s"
+                % (self.realmName, ", ".join([r[0] for r in _localODNodes]), vhostname,)
+            )
+
+        if len(_remoteNodes) == 0 and len(_localODNodes) == 0 and len(_localNodes) > 1:
+            raise OpenDirectoryInitError(
+                "Open Directory (node=%s) too many local /Computers records (%s) were found matching virtual hostname: %s"
+                % (self.realmName, ", ".join([r[0] for r in _localNodes]), vhostname,)
+            )
+
+        # XXX: These calls to self._parseServiceInfo will cause the plist to be parsed _again_
         #      refactor later so we only ever parse it once.
 
-        for node in (_remoteNode, _localODNode, _localNode):
-            if node and self._parseXMLPlist(vhostname, *node):
+        for node in itertools.chain(_remoteNodes, _localODNodes, _localNodes):
+            if node and self._parseServiceInfo(vhostname, *node):
                 break
 
         else:
@@ -273,14 +285,14 @@ class OpenDirectoryService(DirectoryService):
                 % (self.realmName, vhostname,)
             )
 
-    def _parseXMLPlist(self, vhostname, recordname, plist, recordguid):
+    def _parseServiceInfo(self, vhostname, recordname, plist, recordguid):
         # Parse the plist and look for our special entry
         plist = readPlistFromString(plist)
         vhosts = plist.get("com.apple.macosxserver.virtualhosts", None)
         if not vhosts:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
-                "com.apple.macosxserver.virtualhosts in its XMLPlist attribute value"
+                "com.apple.macosxserver.virtualhosts in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
@@ -298,7 +310,7 @@ class OpenDirectoryService(DirectoryService):
         if not hostguid:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
-                "calendar service in its XMLPlist attribute value"
+                "calendar service in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
@@ -308,7 +320,7 @@ class OpenDirectoryService(DirectoryService):
         if not hostname:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have "
-                "any host name in its XMLPlist attribute value"
+                "any host name in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
@@ -325,7 +337,7 @@ class OpenDirectoryService(DirectoryService):
         if not hostdetails:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have "
-                "any host details in its XMLPlist attribute value"
+                "any host details in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
@@ -339,7 +351,7 @@ class OpenDirectoryService(DirectoryService):
         if not serviceInfos or not serviceInfos.has_key("calendar"):
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have a "
-                "calendar service in its XMLPlist attribute value"
+                "calendar service in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
@@ -350,7 +362,7 @@ class OpenDirectoryService(DirectoryService):
         if not enabled:
             log.msg(
                 "Open Directory (node=%s) /Computers/%s record does not have an "
-                "enabled calendar service in its XMLPlist attribute value"
+                "enabled calendar service in its ServiceInfo attribute value"
                 % (self.realmName, recordname)
             )
             return False
