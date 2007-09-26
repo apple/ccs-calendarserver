@@ -46,7 +46,7 @@ from twisted.python import log
 from twisted.web2.stream import IStream
 from twisted.web2.dav.util import allDataFromStream
 
-from twistedcaldav.dateops import normalizeToUTC, timeRangesOverlap
+from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
@@ -309,7 +309,7 @@ class Component (object):
         
         return type
     
-    def mainComponent(self):
+    def mainComponent(self, allow_multiple=False):
         """
         Return the primary iCal component in this calendar.
         @return: the L{Component} of the primary type.
@@ -321,12 +321,50 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() == "VTIMEZONE":
                 continue
-            elif (result is not None):
+            elif not allow_multiple and (result is not None):
                 raise ValueError("Calendar contains more than one primary component: %r" % (self,))
             else:
                 result = component
+                if allow_multiple:
+                    break
         
         return result
+    
+    def masterComponent(self):
+        """
+        Return the master iCal component in this calendar.
+        @return: the L{Component} for the master component,
+            or C{None} if there isn't one.
+        """
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            if not component.hasProperty("RECURRENCE-ID"):
+                return component
+        
+        return None
+    
+    def overriddenComponent(self, recurrence_id):
+        """
+        Return the overridden iCal component in this calendar matching the supplied RECURRENCE-ID property.
+
+        @param recurrence_id: The RECURRENCE-ID property value to match.
+        @type recurrence_id: L{datetime.datetime} or L{datetime.date}
+        @return: the L{Component} for the overridden component,
+            or C{None} if there isn't one.
+        """
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            rid = component.getRecurrenceIDUTC()
+            if rid and compareDateTime(rid, recurrence_id) == 0:
+                return component
+        
+        return None
     
     def duplicate(self):
         """
@@ -354,6 +392,13 @@ class Component (object):
         """
         self._vobject.add(component._vobject)
         component._parent = self
+
+    def removeComponent(self, component):
+        """
+        Removes a subcomponent from this component.
+        @param component: the L{Component} to remove.
+        """
+        self._vobject.remove(component._vobject)
 
     def hasProperty(self, name):
         """
@@ -690,8 +735,6 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
         if not hasattr(self, "_resource_uid"):
-            has_timezone = False
-
             for subcomponent in self.subcomponents():
                 if subcomponent.name() != "VTIMEZONE":
                     self._resource_uid = subcomponent.propertyValue("UID")
@@ -981,6 +1024,37 @@ class Component (object):
                     return p
 
         return None
+
+    def getAttendeeProperties(self, match):
+        """
+        Get all the attendees matching a value in each component. Works on a VCALENDAR component only.
+        
+        @param match: a C{list} of calendar user address strings to try and match.
+        @return: the string value of the Organizer property, or None
+        """
+        
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        # FIXME: we should really have a URL class and have it manage comparisons
+        # in a sensible fashion.
+        def _normalizeCUAddress(addr):
+            if addr.startswith("/") or addr.startswith("http:") or addr.startswith("https:"):
+                return addr.rstrip("/")
+            else:
+                return addr
+
+        # Need to normalize http/https cu addresses
+        test = set()
+        for item in match:
+           test.add(_normalizeCUAddress(item))
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        results = []
+        for component in self.subcomponents():
+            if component.name() != "VTIMEZONE":
+                results.append(component.getAttendeeProperty(match))
+
+        return results
 
     def getMaskUID(self):
         """
