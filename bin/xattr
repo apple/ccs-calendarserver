@@ -55,6 +55,20 @@ def usage(e=None):
     else:
         sys.exit(0)
 
+class NullsInString(Exception):
+    """Nulls in string."""
+
+_FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
+
+def _dump(src, length=16):
+    result=[]
+    for i in xrange(0, len(src), length):
+        s = src[i:i+length]
+        hexa = ' '.join(["%02X"%ord(x) for x in s])
+        printable = s.translate(_FILTER)
+        result.append("%04X   %-*s   %s\n" % (i, length*3, hexa, printable))
+    return ''.join(result)
+
 def main():
     try:
         (optargs, args) = getopt.getopt(sys.argv[1:], "hlpwd", ["help"])
@@ -74,89 +88,95 @@ def main():
         elif opt == "-l":
             long_format = True
         elif opt == "-p":
-	    read = True
+            read = True
         elif opt == "-w":
-	    write = True
+            write = True
         elif opt == "-d":
-	    delete = True
+            delete = True
 
     if write or delete:
-	if long_format:
-	    usage("-l not allowed with -w or -p")
+        if long_format:
+            usage("-l not allowed with -w or -p")
 
     if read or write or delete:
-	if not args:
-	    usage("No attr_name")
-	attr_name = args.pop(0)
+        if not args:
+            usage("No attr_name")
+        attr_name = args.pop(0)
 
     if write:
-	if not args:
-	    usage("No attr_value")
-	attr_value = args.pop(0)
+        if not args:
+            usage("No attr_value")
+        attr_value = args.pop(0)
 
     if len(args) > 1:
-	multiple_files = True
+        multiple_files = True
     else:
-	multiple_files = False
+        multiple_files = False
 
     for filename in args:
-	def onError(e):
-	    if not os.path.exists(filename):
-		sys.stderr.write("No such file: %s\n" % (filename,))
-	    else:
-		sys.stderr.write(str(e) + "\n")
-	    status = 1
+        def onError(e):
+            if not os.path.exists(filename):
+                sys.stderr.write("No such file: %s\n" % (filename,))
+            else:
+                sys.stderr.write(str(e) + "\n")
+            status = 1
 
-	try:
-	    attrs = xattr.xattr(filename)
-	except (IOError, OSError), e:
-	    onError(e)
-	    continue
+        try:
+            attrs = xattr.xattr(filename)
+        except (IOError, OSError), e:
+            onError(e)
+            continue
 
-	if write:
-	    try:
-		attrs[attr_name] = attr_value
-	    except (IOError, OSError), e:
-		onError(e)
-		continue
+        if write:
+            try:
+                attrs[attr_name] = attr_value
+            except (IOError, OSError), e:
+                onError(e)
+                continue
 
-	elif delete:
-	    try:
-		del attrs[attr_name]
-	    except (IOError, OSError), e:
-		onError(e)
-		continue
-	    except KeyError:
-		onError("No such xattr: %s" % (attr_name,))
-		continue
+        elif delete:
+            try:
+                del attrs[attr_name]
+            except (IOError, OSError), e:
+                onError(e)
+                continue
+            except KeyError:
+                onError("No such xattr: %s" % (attr_name,))
+                continue
 
-	else:
-	    try:
-		if read:
-		    attr_names = (attr_name,)
-		else:
-		    attr_names = attrs.keys()
-	    except (IOError, OSError), e:
-		onError(e)
-		continue
+        else:
+            try:
+                if read:
+                    attr_names = (attr_name,)
+                else:
+                    attr_names = attrs.keys()
+            except (IOError, OSError), e:
+                onError(e)
+                continue
 
-	    if multiple_files:
-		file_prefix = "%s: " % (filename,)
-	    else:
-		file_prefix = ""
+            if multiple_files:
+                file_prefix = "%s: " % (filename,)
+            else:
+                file_prefix = ""
 
-	    for attr_name in attr_names:
-		try:
-		    if long_format:
-			print "".join((file_prefix, "%s: " % (attr_name,), attrs[attr_name]))
-		    else:
-			if read:
-			    print "".join((file_prefix, attrs[attr_name]))
-			else:
-			    print "".join((file_prefix, attr_name))
-		except KeyError:
-		    onError("%sNo such xattr: %s" % (file_prefix, attr_name))
-		    continue
+            for attr_name in attr_names:
+                try:
+                    if long_format:
+                        try:
+                            if attrs[attr_name].find('\0') >= 0:
+                                raise NullsInString;
+                            print "".join((file_prefix, "%s: " % (attr_name,), attrs[attr_name]))
+                        except (UnicodeDecodeError, NullsInString):
+                            print "".join((file_prefix, "%s:" % (attr_name,)))
+                            print _dump(attrs[attr_name])
+                    else:
+                        if read:
+                            print "".join((file_prefix, attrs[attr_name]))
+                        else:
+                            print "".join((file_prefix, attr_name))
+                except KeyError:
+                    onError("%sNo such xattr: %s" % (file_prefix, attr_name))
+                    continue
 
     sys.exit(status)
 
