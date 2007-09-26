@@ -29,6 +29,7 @@ import sys
 import os
 import getopt
 import xattr
+import zlib
 
 def usage(e=None):
     if e:
@@ -36,9 +37,9 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [-l] file [file ...]" % (name,)
-    print "       %s -p [-l] attr_name file [file ...]" % (name,)
-    print "       %s -w attr_name attr_value file [file ...]" % (name,)
+    print "usage: %s [-lz] file [file ...]" % (name,)
+    print "       %s -p [-lz] attr_name file [file ...]" % (name,)
+    print "       %s -w [-z] attr_name attr_value file [file ...]" % (name,)
     print "       %s -d attr_name file [file ...]" % (name,)
     print ""
     print "The first form lists the names of all xattrs on the given file(s)."
@@ -49,6 +50,7 @@ def usage(e=None):
     print "options:"
     print "  -h: print this help"
     print "  -l: print long format (attr_name: attr_value)"
+    print "  -z: compress or decompress (if compressed) attribute value in zip format"
 
     if e:
         sys.exit(64)
@@ -71,7 +73,7 @@ def _dump(src, length=16):
 
 def main():
     try:
-        (optargs, args) = getopt.getopt(sys.argv[1:], "hlpwd", ["help"])
+        (optargs, args) = getopt.getopt(sys.argv[1:], "hlpwdz", ["help"])
     except getopt.GetoptError, e:
         usage(e)
 
@@ -80,6 +82,8 @@ def main():
     read        = False
     write       = False
     delete      = False
+    compress    = lambda x: x
+    decompress  = compress
     status      = 0
 
     for opt, arg in optargs:
@@ -89,10 +93,19 @@ def main():
             long_format = True
         elif opt == "-p":
             read = True
+            if write or delete:
+                usage("-p not allowed with -w or -d")
         elif opt == "-w":
             write = True
+            if read or delete:
+                usage("-w not allowed with -p or -d")
         elif opt == "-d":
             delete = True
+            if read or write:
+                usage("-d not allowed with -p or -w")
+        elif opt == "-z":
+            compress   = zlib.compress
+            decompress = zlib.decompress
 
     if write or delete:
         if long_format:
@@ -129,7 +142,7 @@ def main():
 
         if write:
             try:
-                attrs[attr_name] = attr_value
+                attrs[attr_name] = compress(attr_value)
             except (IOError, OSError), e:
                 onError(e)
                 continue
@@ -161,22 +174,27 @@ def main():
 
             for attr_name in attr_names:
                 try:
-                    if long_format:
-                        try:
-                            if attrs[attr_name].find('\0') >= 0:
-                                raise NullsInString;
-                            print "".join((file_prefix, "%s: " % (attr_name,), attrs[attr_name]))
-                        except (UnicodeDecodeError, NullsInString):
-                            print "".join((file_prefix, "%s:" % (attr_name,)))
-                            print _dump(attrs[attr_name])
-                    else:
-                        if read:
-                            print "".join((file_prefix, attrs[attr_name]))
-                        else:
-                            print "".join((file_prefix, attr_name))
+                    try:
+                        attr_value = decompress(attrs[attr_name])
+                    except zlib.error:
+                        attr_value = attrs[attr_name]
                 except KeyError:
                     onError("%sNo such xattr: %s" % (file_prefix, attr_name))
                     continue
+
+                if long_format:
+                    try:
+                        if attr_value.find('\0') >= 0:
+                            raise NullsInString;
+                        print "".join((file_prefix, "%s: " % (attr_name,), attr_value))
+                    except (UnicodeDecodeError, NullsInString):
+                        print "".join((file_prefix, "%s:" % (attr_name,)))
+                        print _dump(attr_value)
+                else:
+                    if read:
+                        print "".join((file_prefix, attr_value))
+                    else:
+                        print "".join((file_prefix, attr_name))
 
     sys.exit(status)
 
