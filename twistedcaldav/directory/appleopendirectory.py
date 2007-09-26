@@ -590,7 +590,7 @@ class OpenDirectoryService(DirectoryService):
                 if not value.get(dsattributes.kDSNAttrServicesLocator):
                     if recordType == DirectoryService.recordType_groups:
                         enabledForCalendaring = False
-                        log.msg("Group %s is not enabled for calendaring but may be used in ACLs" % (key,))
+                        #log.msg("Group %s is not enabled for calendaring but may be used in ACLs" % (key,))
                     else:
                         log.err("Directory (incorrectly) returned a record with no ServicesLocator attribute: %s" % (key,))
                         continue
