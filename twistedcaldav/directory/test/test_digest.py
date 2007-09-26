@@ -157,7 +157,7 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
-            creds = factory.decode(clientResponse, _trivial_GET)
+            creds = factory.decode(clientResponse, _trivial_GET())
             self.failUnless(creds.checkPassword('password'))
 
     def test_multiResponse(self):
@@ -174,7 +174,7 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
-            creds = factory.decode(clientResponse, _trivial_GET)
+            creds = factory.decode(clientResponse, _trivial_GET())
             self.failUnless(creds.checkPassword('password'))
     
             clientResponse = authRequest2[ctr] % (
@@ -182,7 +182,7 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000002"),
             )
     
-            creds = factory.decode(clientResponse, _trivial_GET)
+            creds = factory.decode(clientResponse, _trivial_GET())
             self.failUnless(creds.checkPassword('password'))
 
     def test_failsWithDifferentMethod(self):
@@ -214,14 +214,14 @@ class DigestAuthTestCase(unittest.TestCase):
             e = self.assertRaises(error.LoginFailed,
                                   factory.decode,
                                   namelessAuthRequest,
-                                  _trivial_GET)
+                                  _trivial_GET())
             self.assertEquals(str(e), "Invalid response, no username given.")
     
             # Check for an empty username
             e = self.assertRaises(error.LoginFailed,
                                   factory.decode,
                                   namelessAuthRequest + ',username=""',
-                                  _trivial_GET)
+                                  _trivial_GET())
             self.assertEquals(str(e), "Invalid response, no username given.")
 
     def test_noNonce(self):
@@ -233,7 +233,7 @@ class DigestAuthTestCase(unittest.TestCase):
             e = self.assertRaises(error.LoginFailed,
                                   factory.decode,
                                   'realm="Test",username="Foo",opaque="bar"',
-                                  _trivial_GET)
+                                  _trivial_GET())
             self.assertEquals(str(e), "Invalid response, no nonce given.")
 
     def test_emptyAttribute(self):
@@ -247,7 +247,7 @@ class DigestAuthTestCase(unittest.TestCase):
             e = self.assertRaises(error.LoginFailed,
                                   factory.decode,
                                   emtpyAttributeAuthRequest,
-                                  _trivial_GET)
+                                  _trivial_GET())
             self.assertEquals(str(e), "Invalid response, no username given.")
 
     def test_checkHash(self):
@@ -264,7 +264,7 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
-            creds = factory.decode(clientResponse, _trivial_GET)
+            creds = factory.decode(clientResponse, _trivial_GET())
     
             self.failUnless(creds.checkHash(
                     md5.md5('username:test realm:password').hexdigest()))
@@ -295,15 +295,15 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000002"),
             )
     
-            factory.decode(clientResponse1, _trivial_GET)
-            factory.decode(clientResponse2, _trivial_GET)
+            factory.decode(clientResponse1, _trivial_GET())
+            factory.decode(clientResponse2, _trivial_GET())
     
             if challenge.get('qop') is not None:
                 self.assertRaises(
                     error.LoginFailed,
                     factory.decode,
                     clientResponse2,
-                    _trivial_GET
+                    _trivial_GET()
                 )
                 
                 challenge = factory.getChallenge(clientAddress)
@@ -317,12 +317,12 @@ class DigestAuthTestCase(unittest.TestCase):
                     challenge['nonce'],
                     self.getDigestResponse(challenge, "00000002"),
                 )
-                factory.decode(clientResponse1, _trivial_GET)
+                factory.decode(clientResponse1, _trivial_GET())
                 self.assertRaises(
                     error.LoginFailed,
                     factory.decode,
                     clientResponse3,
-                    _trivial_GET
+                    _trivial_GET()
                 )
 
     def test_invalidNonce(self):
@@ -345,17 +345,17 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
+            request = _trivial_GET()
             self.assertRaises(
                 error.LoginFailed,
                 factory.decode,
                 clientResponse,
-                _trivial_GET
+                request
             )
 
             factory.invalidate(factory.generateNonce())
-            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            response = UnauthorizedResponse({"Digest":factory}, request.remoteAddr)
             wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
-            self.assertTrue('stale' not in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
 
     def test_incompatibleClientIp(self):
         """
@@ -376,16 +376,17 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
+            request = _trivial_GET()
             self.assertRaises(
                 error.LoginFailed,
                 factory.decode,
                 clientResponse,
-                _trivial_GET
+                request
             )
 
-            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            response = UnauthorizedResponse({"Digest":factory}, request.remoteAddr)
             wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
-            self.assertTrue('stale' not in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
+            self.assertTrue('stale' not in wwwhdrs, msg="Stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
 
     def test_oldNonce(self):
         """
@@ -408,14 +409,15 @@ class DigestAuthTestCase(unittest.TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
     
+            request = _trivial_GET()
             self.assertRaises(
                 error.LoginFailed,
                 factory.decode,
                 clientResponse,
-                _trivial_GET
+                request
             )
             
-            response = UnauthorizedResponse({"Digest":factory}, _trivial_GET.remoteAddr)
+            response = UnauthorizedResponse({"Digest":factory}, request.remoteAddr)
             wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
             self.assertTrue('stale' in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
             self.assertEquals(wwwhdrs['stale'], 'true', msg="stale parameter not set to true in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
@@ -447,5 +449,6 @@ class DigestAuthTestCase(unittest.TestCase):
                 )
 
 
+def _trivial_GET():
+    return SimpleRequest(None, 'GET', '/')
 
-_trivial_GET = SimpleRequest(None, 'GET', '/')
