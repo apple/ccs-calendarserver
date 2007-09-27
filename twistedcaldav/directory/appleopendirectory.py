@@ -126,7 +126,7 @@ class OpenDirectoryService(DirectoryService):
             if groupGUID in processedGUIDs:
                 continue
 
-            result = opendirectory.queryRecordsWithAttribute(
+            result = opendirectory.queryRecordsWithAttribute_list(
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
                 groupGUID,
@@ -188,7 +188,7 @@ class OpenDirectoryService(DirectoryService):
             'dsAttrTypeNative:apple-serviceinfo',
         ]
 
-        records = opendirectory.queryRecordsWithAttributes(
+        records = opendirectory.queryRecordsWithAttributes_list(
             self.directory,
             dsquery.match(
                 'dsAttrTypeNative:apple-serviceinfo',
@@ -611,7 +611,7 @@ class OpenDirectoryService(DirectoryService):
         if self.requireComputerRecord:
             if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
                 if shortName is None:
-                    results = opendirectory.queryRecordsWithAttribute(
+                    results = opendirectory.queryRecordsWithAttribute_list(
                         self.directory,
                         dsattributes.kDSNAttrRecordName,
                         _saclGroup,
@@ -671,7 +671,7 @@ class OpenDirectoryService(DirectoryService):
         try:
             if query:
                 if isinstance(query, dsquery.match):
-                    results = opendirectory.queryRecordsWithAttribute(
+                    results = opendirectory.queryRecordsWithAttribute_list(
                         self.directory,
                         query.attribute,
                         query.value,
@@ -681,7 +681,7 @@ class OpenDirectoryService(DirectoryService):
                         attrs,
                     )
                 else:
-                    results = opendirectory.queryRecordsWithAttributes(
+                    results = opendirectory.queryRecordsWithAttributes_list(
                         self.directory,
                         query.generate(),
                         False,
@@ -689,7 +689,7 @@ class OpenDirectoryService(DirectoryService):
                         attrs,
                     )
             else:
-                results = opendirectory.listAllRecordsWithAttributes(
+                results = opendirectory.listAllRecordsWithAttributes_list(
                     self.directory,
                     listRecordType,
                     attrs,
