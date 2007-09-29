@@ -469,10 +469,12 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
             for relative in getattr(record, method)():
                 if relative not in records:
                     found = self.parent.principalForRecord(relative)
-
-                    if proxy:
-                        found = found.getChild("calendar-proxy-write")
-                    relatives.add(found)
+                    if found is None:
+                        log.err("No principal found for directory record: %r" % (relative,))
+                    else:
+                        if proxy:
+                            found = found.getChild("calendar-proxy-write")
+                        relatives.add(found)
 
                     self._getRelatives(method, relative, relatives, records)
 
