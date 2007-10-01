@@ -17,6 +17,7 @@
 ##
 
 import xattr
+import zlib
 from zlib import decompress
 
 import commands
