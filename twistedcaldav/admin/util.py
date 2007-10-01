@@ -24,7 +24,7 @@ import commands
 
 from twisted.web import microdom
 
-from twistedcaldav import ical
+from twistedcaldav.directory.principal import RecordTypeProperty
 from twistedcaldav.sql import db_prefix, AbstractSQLDatabase
 from twistedcaldav.index import schema_version, collection_types
 
@@ -62,7 +62,7 @@ def prepareByteValue(config, value):
 
 
 def getPrincipalList(principalCollection, type, disabled=False):
-    typeRoot = principalCollection.child(type)
+    typeRoot = principalCollection.child("__uids__")
 
     pl = []
 
@@ -70,12 +70,13 @@ def getPrincipalList(principalCollection, type, disabled=False):
         for child in typeRoot.listdir():
             if not child.startswith(db_prefix):
                 p = typeRoot.child(child)
-
-                if disabled:
-                    if isPrincipalDisabled(p):
+                ptype = getPrincipalType(p)
+                if ptype == type:
+                    if disabled:
+                        if isPrincipalDisabled(p):
+                            pl.append(p)
+                    else:
                         pl.append(p)
-                else:
-                    pl.append(p)
 
     return pl
 
@@ -90,6 +91,17 @@ def getDiskUsage(config, fp):
     return prepareByteValue(config, int(output.split()[0]))
 
 
+def getPrincipalType(fp):
+    rtp = "WebDAV:" + RecordTypeProperty.sname().replace("/", "%2F")
+    x = xattr.xattr(fp.path)
+    if not x.has_key(rtp):
+        return None
+
+    dom = microdom.parseString(_getxattr_value(x, rtp))
+    rtp = microdom.getElementsByTagName(dom, 'record-type')
+
+    return rtp[0].firstChild().value
+    
 def getResourceType(fp):
     rt = 'WebDAV:{DAV:}resourcetype'
     x = xattr.xattr(fp.path)

@@ -37,6 +37,7 @@ from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
+from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.config import config
@@ -373,6 +374,13 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
 
     def __str__(self):
         return "(%s) %s" % (self.record.recordType, self.record.shortName)
+
+    def provisionFile(self):
+        
+        result = super(DirectoryPrincipalResource, self).provisionFile()
+        if result:
+            self.writeDeadProperty(RecordTypeProperty(self.record.recordType))
+        return result
 
     ##
     # HTTP
@@ -718,3 +726,9 @@ authReadACL = davxml.ACL(
         davxml.Protected(),
     ),
 )
+
+class RecordTypeProperty (davxml.WebDAVTextElement):
+    namespace = twisted_private_namespace
+    name = "record-type"
+
+davxml.registerElement(RecordTypeProperty)

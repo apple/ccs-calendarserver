@@ -19,12 +19,15 @@
 """
 Statisitcs Types:
 
- Overall Stats:
-  # of accounts
-  # of calendars
-  # of events
+    Overall Stats:
+        # of accounts
+        # of calendars
+        # of events
 
 """
+
+import os
+
 from twistedcaldav.admin import util        
 
 class StatsAction(object):
@@ -75,8 +78,8 @@ class StatsAction(object):
                     'locations')))
 
     def run(self):
-        assert self.root.exists()
-        stats = []
+        assert self.root.exists(), "Calendar server document root directory does not exist: %s" % (self.root.path,)
+        assert os.access(self.root.path, os.R_OK), "Cannot read calendar server document root directory: %s" % (self.root.path,)
 
         report = {'type': 'stats',
                   'data': {}}
