@@ -17,6 +17,8 @@
 ##
 
 import xattr
+import zlib
+from zlib import decompress
 
 import commands
 
@@ -110,7 +112,7 @@ def getResourceType(fp):
 
     type = None
 
-    dom = microdom.parseString(x[rt])
+    dom = microdom.parseString(_getxattr_value(x, rt))
     rt = microdom.getElementsByTagName(dom, 'resourcetype')
 
     for child in rt[0].childNodes:
@@ -179,7 +181,7 @@ def getQuotaRoot(fp):
     if not x.has_key(quotaRoot):
         return None
 
-    dom = microdom.parseString(x[quotaRoot])
+    dom = microdom.parseString(_getxattr_value(x, quotaRoot))
 
     qr = microdom.getElementsByTagName(dom, 'quota-root')[0]
 
@@ -191,7 +193,7 @@ def getQuotaUsed(fp):
     if not x.has_key(quotaUsed):
         return None
 
-    dom = microdom.parseString(x[quotaUsed])
+    dom = microdom.parseString(_getxattr_value(x, quotaUsed))
 
     qu = microdom.getElementsByTagName(dom, 'quota-used')[0]
 
@@ -222,3 +224,14 @@ def getQuotaStatsForPrincipal(config, principal, defaultQuota=None, depth=2):
             'quotaUsed': prepareByteValue(config, principalUsed),
             'quotaAvail': prepareByteValue(config, principalAvail),
             'quotaFree': principalFree}
+
+def _getxattr_value(x, k):
+    data = x[k]
+    try:
+        value = decompress(data)
+    except zlib.error:
+        # Value is not compressed; data was stored by old
+        # code.  This is easy to handle, so let's keep
+        # compatibility here.
+        value = data
+    return value
