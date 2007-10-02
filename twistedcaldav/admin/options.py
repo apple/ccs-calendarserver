@@ -72,7 +72,7 @@ class PurgeOptions(SubCommand):
         ['days', 'n', 30, 'Age threshold for purging events.'],
         ]
 
-registerCommand(PurgeOptions)
+#registerCommand(PurgeOptions)
 
 
 class StatsOptions(SubCommand):
