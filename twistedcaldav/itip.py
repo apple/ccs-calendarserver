@@ -392,11 +392,6 @@ def processCancel(request, principal, inbox, calendar, child):
             existing_calendar = updatecal.iCalendar(calmatch)
             existing_master = existing_calendar.masterComponent()
             exdates = []
-            max_sequence = None
-            if existing_master:
-                max_sequence = existing_master.propertyValue("SEQUENCE")
-            if max_sequence is None:
-                max_sequence = 0
 
             for component in calendar.subcomponents():
                 if component.name() == "VTIMEZONE":
@@ -411,7 +406,6 @@ def processCancel(request, principal, inbox, calendar, child):
                     if compareComponents(old_component, component) < 0:
                         # Exclude the cancelled instance
                         exdates.append(component.getRecurrenceIDUTC())
-                        max_sequence = max(max_sequence, component.propertyValue("SEQUENCE"))
                         
                         # Remove the existing component.
                         existing_calendar.removeComponent(old_component)
@@ -421,18 +415,12 @@ def processCancel(request, principal, inbox, calendar, child):
                     if compareComponents(existing_master, component) < 0:
                         # Exclude the cancelled instance
                         exdates.append(component.getRecurrenceIDUTC())
-                        max_sequence = max(max_sequence, component.propertyValue("SEQUENCE"))
 
             # If we have any EXDATEs lets add them to the existing calendar object and write
             # it back.
             if exdates:
                 if existing_master:
                     existing_master.addProperty(Property("EXDATE", exdates))
-                    seq = existing_master.getProperty("SEQUENCE")
-                    if seq:
-                        seq.setValue(max_sequence)
-                    else:
-                        existing_master.addProperty(Property("SEQUENCE", max_sequence))
 
                 # See if there are still components in the calendar - we might have deleted the last overridden instance
                 # in which case the calendar object is empty (except for VTIMEZONEs).
@@ -884,12 +872,6 @@ def mergeComponents(newcal, oldcal):
 
     # We will update the SEQUENCE on the master to the highest value of the current one on the master
     # or the ones in the components we are changing.
-    existing_master = oldcal.masterComponent()
-    max_sequence = None
-    if existing_master:
-        max_sequence = existing_master.propertyValue("SEQUENCE")
-    if max_sequence is None:
-        max_sequence = 0
 
     for component in newcal.subcomponents():
         if component.name() == "VTIMEZONE":
@@ -900,14 +882,6 @@ def mergeComponents(newcal, oldcal):
         if old_component:
             oldcal.removeComponent(old_component)
         oldcal.addComponent(component)
-        max_sequence = max(max_sequence, component.propertyValue("SEQUENCE"))
-
-    if existing_master:
-        seq = existing_master.getProperty("SEQUENCE")
-        if seq:
-            seq.setValue(max_sequence)
-        else:
-            existing_master.addProperty(Property("SEQUENCE", max_sequence))
 
 def getAllInfo(collection, calendar, ignore):
     """
