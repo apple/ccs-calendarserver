@@ -24,7 +24,7 @@ import commands
 
 from twisted.web import microdom
 
-from twistedcaldav.directory.principal import RecordTypeProperty
+from twistedcaldav.directory.principal import RecordTypeProperty, RecordNameProperty
 from twistedcaldav.sql import db_prefix, AbstractSQLDatabase
 from twistedcaldav.index import schema_version, collection_types
 
@@ -99,6 +99,17 @@ def getPrincipalType(fp):
 
     dom = microdom.parseString(_getxattr_value(x, rtp))
     rtp = microdom.getElementsByTagName(dom, 'record-type')
+
+    return rtp[0].firstChild().value
+    
+def getPrincipalName(fp):
+    rtp = "WebDAV:" + RecordNameProperty.sname().replace("/", "%2F")
+    x = xattr.xattr(fp.path)
+    if not x.has_key(rtp):
+        return None
+
+    dom = microdom.parseString(_getxattr_value(x, rtp))
+    rtp = microdom.getElementsByTagName(dom, 'record-name')
 
     return rtp[0].firstChild().value
     

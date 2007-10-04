@@ -16,11 +16,11 @@
 # DRI: David Reid, dreid@apple.com
 ##
 """
- Account Stats: 
-  # of calendars
-  # of events
-  # storage used (including things that don't count against quota?)
-  Last login?
+    Account Stats: 
+        # of calendars
+        # of events
+        # storage used (including things that don't count against quota?)
+        Last login?
 """
 
 from twistedcaldav.admin import util
@@ -64,25 +64,39 @@ class PrincipalAction(object):
                 
                 pcal = self.calendarCollection.child(
                     self.type
-                    ).child(p.basename())
+                    ).child(util.getPrincipalName(p))
             
-                precord['principalName'] = p.basename()
+                precord['principalName'] = util.getPrincipalName(p)
                 
-                precord['calendarHome'] = pcal.path
+                if pcal.exists():
+                    precord['calendarHome'] = pcal.path
+    
+                    precord.update(
+                        util.getQuotaStatsForPrincipal(
+                            self.config,
+                            pcal,
+                            self.quota))
+    
+                    precord.update(
+                        util.getCalendarDataCounts(pcal))
+    
+                    precord['diskUsage'] = util.getDiskUsage(self.config, pcal)
+                    
+                    precord['disabled'] = util.isPrincipalDisabled(p)
+                else:
+                    precord.update({
+                        'calendarHome':  "-",
+                        'quotaRoot':     "-",
+                        'quotaUsed':     "-",
+                        'quotaAvail':    "-",
+                        'quotaFree':     "-",
+                        'calendarCount': "-",
+                        'eventCount':    "-",
+                        'todoCount':     "-",
+                        'diskUsage':     "-",
+                        'disabled':      "-",
+                    })
 
-                precord.update(
-                    util.getQuotaStatsForPrincipal(
-                        self.config,
-                        pcal,
-                        self.quota))
-
-                precord.update(
-                    util.getCalendarDataCounts(pcal))
-
-                precord['diskUsage'] = util.getDiskUsage(self.config, pcal)
-                
-                precord['disabled'] = util.isPrincipalDisabled(p)
-                
                 yield precord
 
         report['records'] = _getRecords()

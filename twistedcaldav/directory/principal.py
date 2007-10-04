@@ -380,6 +380,7 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
         result = super(DirectoryPrincipalResource, self).provisionFile()
         if result:
             self.writeDeadProperty(RecordTypeProperty(self.record.recordType))
+            self.writeDeadProperty(RecordNameProperty(self.record.shortName))
         return result
 
     ##
@@ -732,3 +733,9 @@ class RecordTypeProperty (davxml.WebDAVTextElement):
     name = "record-type"
 
 davxml.registerElement(RecordTypeProperty)
+
+class RecordNameProperty (davxml.WebDAVTextElement):
+    namespace = twisted_private_namespace
+    name = "record-name"
+
+davxml.registerElement(RecordNameProperty)
