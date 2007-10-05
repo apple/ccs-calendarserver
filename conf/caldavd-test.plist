@@ -330,6 +330,27 @@ limitations under the License.
   <key>EnableNotifications</key>
   <true/>
 
+  <!-- Server to server protocol -->
+  <key>ServerToServer</key>
+  <dict>
+  	<key>Enabled</key>
+  	<true/>
+  	<key>Email Domain</key>
+  	<string>example.com</string>
+  	<key>HTTP Domain</key>
+  	<string>example.com</string>
+  	<key>Servers</key>
+  	<string>conf/servertoserver-test.xml</string>
+  </dict>
+
+  <!-- Free-busy URL protocol -->
+  <key>FreeBusyURL</key>
+  <dict>
+  	<key>Enabled</key>
+  	<true/>
+  	<key>Time Period</key>
+  	<integer>14</integer>
+  </dict>
 
   <!--
     Twisted

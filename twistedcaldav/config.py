@@ -145,8 +145,19 @@ defaultConfig = {
     #
     # Non-standard CalDAV extensions
     #
-    "EnableDropBox"      : False, # Calendar Drop Box
-    "EnableNotifications": False, # Drop Box Notifications
+    "EnableDropBox"       : False, # Calendar Drop Box
+    "EnableNotifications" : False, # Drop Box Notifications
+    
+    "ServerToServer": {
+        "Enabled"         : False, # Server-to-server protocol
+        "Email Domain"    : "",    # Domain for mailto calendar user addresses on this server
+        "HTTP Domain"     : "",    # Domain for http calendar user addresses on this server
+    },
+
+    "FreeBusyURL": {
+        "Enabled"         : False, # Per-user free-busy-url protocol
+        "Time Period"     : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+    },
 
     #
     # Implementation details

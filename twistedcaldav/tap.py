@@ -52,6 +52,7 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 
 from twistedcaldav import pdmonster
 from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.static import ServerToServerInboxFile
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -239,7 +240,7 @@ class CalDAVOptions(Options):
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None, create=None):
         if not os.path.exists(dirpath):
             if create is not None:
-            	# create is a tuple of (mode, username, groupname)
+                # create is a tuple of (mode, username, groupname)
                 try:
                     os.mkdir(dirpath)
                     os.chmod(dirpath, create[0])
@@ -341,9 +342,10 @@ class CalDAVServiceMaker(object):
     # default resource classes
     #
 
-    rootResourceClass      = RootResource
-    principalResourceClass = DirectoryPrincipalProvisioningResource
-    calendarResourceClass  = CalendarHomeProvisioningFile
+    rootResourceClass           = RootResource
+    principalResourceClass      = DirectoryPrincipalProvisioningResource
+    calendarResourceClass       = CalendarHomeProvisioningFile
+    servertoserverResourceClass = ServerToServerInboxFile
 
     def makeService_Slave(self, options):
         #
@@ -412,6 +414,15 @@ class CalDAVServiceMaker(object):
 
         root.putChild('principals', principalCollection)
         root.putChild('calendars', calendarCollection)
+
+        if config.ServerToServer["Enabled"]:
+            log.msg("Setting up server-to-server resource: %r" % (self.servertoserverResourceClass,))
+    
+            servertoserver = self.servertoserverResourceClass(
+                os.path.join(config.DocumentRoot, 'inbox'),
+                root,
+            )
+            root.putChild('inbox', servertoserver)
 
         # Configure default ACLs on the root resource
 
