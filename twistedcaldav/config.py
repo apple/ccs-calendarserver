@@ -149,9 +149,11 @@ defaultConfig = {
     "EnableNotifications" : False, # Drop Box Notifications
     
     "ServerToServer": {
-        "Enabled"         : False, # Server-to-server protocol
-        "Email Domain"    : "",    # Domain for mailto calendar user addresses on this server
-        "HTTP Domain"     : "",    # Domain for http calendar user addresses on this server
+        "Enabled"          : False, # Server-to-server protocol
+        "Email Domain"     : "",    # Domain for mailto calendar user addresses on this server
+        "HTTP Domain"      : "",    # Domain for http calendar user addresses on this server
+        "Local Addresses"  : [],    # Reg-ex patterns to match local calendar user addresses
+        "Remote Addresses" : [],    # Reg-ex patterns to match remote calendar user addresses
     },
 
     "FreeBusyURL": {

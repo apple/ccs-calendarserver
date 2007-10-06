@@ -339,6 +339,12 @@ limitations under the License.
   	<string>example.com</string>
   	<key>HTTP Domain</key>
   	<string>example.com</string>
+  	<key>Local Addresses</key>
+  	<array>
+  	</array>
+  	<key>Remote Addresses</key>
+  	<array>
+  	</array>
   	<key>Servers</key>
   	<string>conf/servertoserver-test.xml</string>
   </dict>

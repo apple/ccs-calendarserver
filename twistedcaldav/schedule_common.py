@@ -53,6 +53,7 @@ from twistedcaldav.servertoserver import ServerToServerRequest
 
 import itertools
 import md5
+import re
 import socket
 import time
 
@@ -264,20 +265,30 @@ class Scheduler(object):
             C{False} otherwise.
         """
         
-        if cuaddr.startswith("mailto:"):
+        if config.ServerToServer["Email Domain"] and cuaddr.startswith("mailto:"):
             splits = cuaddr[7:].split("?")
             domain = config.ServerToServer["Email Domain"]
             if not domain:
                 domain = config.ServerHostName
             return splits[0].endswith(domain)
-        elif cuaddr.startswith("http://") or cuaddr.startswith("https://"):
+        elif config.ServerToServer["HTTP Domain"] and (cuaddr.startswith("http://") or cuaddr.startswith("https://")):
             splits = cuaddr.split(":")[0][2:].split("?")
             domain = config.ServerToServer["HTTP Domain"]
             if not domain:
                 domain = config.ServerHostName
             return splits[0].endswith(domain)
-        else:
-            return False
+        
+        result = False
+        
+        for pattern in config.ServerToServer["Local Addresses"]:
+            if re.match(pattern, cuaddr) is not None:
+                result = True
+        
+        for pattern in config.ServerToServer["Remote Addresses"]:
+            if re.match(pattern, cuaddr) is not None:
+                result = False
+        
+        return result
     
     @deferredGenerator
     def generateSchedulingResponse(self):
