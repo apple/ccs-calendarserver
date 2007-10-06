@@ -161,6 +161,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     Extends L{DAVResource} to provide CalDAV functionality.
     """
 
+    _schedulerClass = CalDAVScheduler
+
     def defaultAccessControlList(self):
         if config.EnableProxyPrincipals:
             myPrincipal = self.parent.principalForRecord()
@@ -195,7 +197,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         x.getResult()
 
         # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(request, self)
+        scheduler = ScheduleOutboxResource._schedulerClass(request, self)
 
         # Do the POST processing treating
         x = waitForDeferred(scheduler.doSchedulingViaPOST())
@@ -209,6 +211,8 @@ class ScheduleServerToServerResource (CalDAVResource):
 
     Extends L{DAVResource} to provide Server-to-server functionality.
     """
+
+    _schedulerClass = ServerToServerScheduler
 
     def __init__(self, parent):
         """
@@ -271,7 +275,7 @@ class ScheduleServerToServerResource (CalDAVResource):
         x.getResult()
 
         # This is a server-to-server scheduling operation.
-        scheduler = ServerToServerScheduler(request, self)
+        scheduler = ScheduleServerToServerResource._schedulerClass(request, self)
 
         # Do the POST processing treating this as a non-local schedule
         x = waitForDeferred(scheduler.doSchedulingViaPOST())
