@@ -66,6 +66,7 @@ else:
                 service               = self.service(),
                 recordType            = DirectoryService.recordType_users,
                 guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
+                nodename              = "/LDAPv2/127.0.0.1",
                 shortName             = "user",
                 fullName              = "Some user",
                 calendarUserAddresses = set(("mailtoguid@example.com",)),

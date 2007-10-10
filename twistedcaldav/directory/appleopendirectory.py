@@ -444,6 +444,7 @@ class OpenDirectoryService(DirectoryService):
             if not guid:
                 continue
             realName = value.get(dsattributes.kDS1AttrDistinguishedName)
+            nodename = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             # Get calendar user addresses from directory record.
             if enabledForCalendaring:
@@ -480,6 +481,7 @@ class OpenDirectoryService(DirectoryService):
                 service               = self,
                 recordType            = recordType,
                 guid                  = guid,
+                nodename              = nodename,
                 shortName             = recordShortName,
                 fullName              = realName,
                 calendarUserAddresses = calendarUserAddresses,
@@ -585,6 +587,7 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrDistinguishedName,
             dsattributes.kDSNAttrEMailAddress,
             dsattributes.kDSNAttrServicesLocator,
+            dsattributes.kDSNAttrMetaNodeLocation,
         ]
 
         query = None
@@ -705,7 +708,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     Open Directory implementation of L{IDirectoryRecord}.
     """
     def __init__(
-        self, service, recordType, guid, shortName, fullName,
+        self, service, recordType, guid, nodename, shortName, fullName,
         calendarUserAddresses, autoSchedule, enabledForCalendaring,
         memberGUIDs, proxyGUIDs,
     ):
@@ -719,6 +722,7 @@ class OpenDirectoryRecord(DirectoryRecord):
             autoSchedule          = autoSchedule,
             enabledForCalendaring = enabledForCalendaring,
         )
+        self._nodename = nodename
         self._memberGUIDs = tuple(memberGUIDs)
         self._proxyGUIDs = tuple(proxyGUIDs)
 
@@ -758,7 +762,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
             try:
-                return opendirectory.authenticateUserBasic(self.service.directory, self.guid, self.shortName, credentials.password)
+                return opendirectory.authenticateUserBasic(self.service.directory, self._nodename, self.shortName, credentials.password)
             except opendirectory.ODError, e:
                 logging.err("Open Directory (node=%s) error while performing basic authentication for user %s: %s"
                         % (self.service.realmName, self.shortName, e), system="OpenDirectoryService")
@@ -783,7 +787,7 @@ class OpenDirectoryRecord(DirectoryRecord):
 
                 return opendirectory.authenticateUserDigest(
                     self.service.directory,
-                    self.guid,
+                    self._nodename,
                     self.shortName,
                     challenge,
                     response,
