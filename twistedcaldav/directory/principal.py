@@ -457,6 +457,21 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
     # ACL
     ##
 
+    def _calendar_user_proxy_index(self):
+        """
+        Return the SQL database for calendar user proxies.
+        
+        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        """
+        
+        # Get the principal collection we are contained in
+        pcollection = self.parent.parent
+        
+        # The db is located in the principal collection root
+        if not hasattr(pcollection, "calendar_user_proxy_db"):
+            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
+        return pcollection.calendar_user_proxy_db
+
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return self._alternate_urls
@@ -493,7 +508,23 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
         return self._getRelatives("members")
 
     def groupMemberships(self):
-        return self._getRelatives("groups")
+        groups = self._getRelatives("groups")
+
+        if config.EnableProxyPrincipals:
+            # Get any directory specified proxies
+            groups.update(self._getRelatives("proxyFor", proxy=True))
+
+            # Get proxy group UIDs and map to principal resources
+            proxies = []
+            for uid in self._calendar_user_proxy_index().getMemberships(self.principalUID()):
+                subprincipal = self.parent.principalForUID(uid)
+                if subprincipal:
+                    proxies.append(subprincipal)
+
+            groups.update(proxies)
+
+        return groups
+
 
     def principalCollections(self):
         return self.parent.principalCollections()
@@ -576,43 +607,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         d = super(DirectoryPrincipalResource, self).renderDirectoryBody(request)
         d.addCallback(gotSuper)
         return d
-
-    ##
-    # ACL
-    ##
-
-    def _calendar_user_proxy_index(self):
-        """
-        Return the SQL database for calendar user proxies.
-        
-        @return: the L{CalendarUserProxyDatabase} for the principal collection.
-        """
-        
-        # Get the principal collection we are contained in
-        pcollection = self.parent.parent
-        
-        # The db is located in the principal collection root
-        if not hasattr(pcollection, "calendar_user_proxy_db"):
-            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
-        return pcollection.calendar_user_proxy_db
-
-    def groupMemberships(self):
-        groups = self._getRelatives("groups")
-
-        if config.EnableProxyPrincipals:
-            # Get any directory specified proxies
-            groups.update(self._getRelatives("proxyFor", proxy=True))
-
-            # Get proxy group UIDs and map to principal resources
-            proxies = []
-            for uid in self._calendar_user_proxy_index().getMemberships(self.principalUID()):
-                subprincipal = self.parent.principalForUID(uid)
-                if subprincipal:
-                    proxies.append(subprincipal)
-
-            groups.update(proxies)
-
-        return groups
 
     ##
     # CalDAV

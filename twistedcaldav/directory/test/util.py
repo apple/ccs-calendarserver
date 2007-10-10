@@ -231,7 +231,8 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
             guid = record.guid
 
         addresses = set(value("addresses"))
-        addresses.add("urn:uuid:%s" % (record.guid,))
+        if record.enabledForCalendaring:
+            addresses.add("urn:uuid:%s" % (record.guid,))
 
         if hasattr(record.service, "recordTypePrefix"):
             prefix = record.service.recordTypePrefix

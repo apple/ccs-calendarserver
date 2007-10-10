@@ -22,7 +22,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT user (uid, guid, password, name, cuaddr*)>
     <!ATTLIST user repeat CDATA "1">
 
-  <!ELEMENT group (uid, guid, password, name, members, cuaddr*)>
+  <!ELEMENT group (uid, guid, password, name, members, cuaddr*, disable-calendar?)>
     <!ATTLIST group repeat CDATA "1">
 
   <!ELEMENT resource (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?)>
@@ -34,12 +34,13 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT member (#PCDATA)>
     <!ATTLIST member type (users|groups|locations|resources) "users">
 
-  <!ELEMENT uid           (#PCDATA)>
-  <!ELEMENT guid          (#PCDATA)>
-  <!ELEMENT password      (#PCDATA)>
-  <!ELEMENT name          (#PCDATA)>
-  <!ELEMENT cuaddr        (#PCDATA)>
-  <!ELEMENT members       (member*)>
-  <!ELEMENT auto-schedule EMPTY>
-  <!ELEMENT proxies       (member*)>
+  <!ELEMENT uid              (#PCDATA)>
+  <!ELEMENT guid             (#PCDATA)>
+  <!ELEMENT password         (#PCDATA)>
+  <!ELEMENT name             (#PCDATA)>
+  <!ELEMENT cuaddr           (#PCDATA)>
+  <!ELEMENT members          (member*)>
+  <!ELEMENT auto-schedule    EMPTY>
+  <!ELEMENT disable-calendar EMPTY>
+  <!ELEMENT proxies          (member*)>
 >

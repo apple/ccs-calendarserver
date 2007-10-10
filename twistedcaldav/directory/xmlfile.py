@@ -112,6 +112,7 @@ class XMLDirectoryRecord(DirectoryRecord):
             fullName              = xmlPrincipal.name,
             calendarUserAddresses = xmlPrincipal.calendarUserAddresses,
             autoSchedule          = xmlPrincipal.autoSchedule,
+            enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
         )
 
         self.password     = xmlPrincipal.password
