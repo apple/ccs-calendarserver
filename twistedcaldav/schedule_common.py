@@ -86,7 +86,7 @@ class Scheduler(object):
                 splits = self.cuaddr[7:].split("?")
                 self.domain = splits[0].split("@")[1]
             elif self.cuaddr.startswith("http://") or self.cuaddr.startswith("https://"):
-                splits = self.cuaddr.split(":")[0][2:].split("?")
+                splits = self.cuaddr.split(":")[1][2:].split("/")
                 self.domain = splits[0]
             else:
                 self.domain = ""
