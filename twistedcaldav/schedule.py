@@ -27,7 +27,6 @@ __all__ = [
 
 from twisted.internet import reactor
 from twisted.internet.defer import deferredGenerator, maybeDeferred, succeed, waitForDeferred
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response
@@ -44,6 +43,7 @@ from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
+import logging
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
@@ -204,13 +204,13 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Must be content-type text/calendar
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
-            log.err("MIME type %s not allowed in calendar collection" % (content_type,))
+            logging.err("MIME type %s not allowed in calendar collection" % (content_type,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
     
         # Must have Originator header
         originator = request.headers.getRawHeaders("originator")
         if originator is None or (len(originator) != 1):
-            log.err("POST request must have Originator header")
+            logging.err("POST request must have Originator header", system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
         else:
             originator = originator[0]
@@ -218,23 +218,23 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Verify that Originator is a valid calendar user (has an INBOX)
         oprincipal = self.principalForCalendarUserAddress(originator)
         if oprincipal is None:
-            log.err("Could not find principal for originator: %s" % (originator,))
+            logging.err("Could not find principal for originator: %s" % (originator,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
         inboxURL = oprincipal.scheduleInboxURL()
         if inboxURL is None:
-            log.err("Could not find inbox for originator: %s" % (originator,))
+            logging.err("Could not find inbox for originator: %s" % (originator,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
     
         # Verify that Originator matches the authenticated user
         if davxml.Principal(davxml.HRef(oprincipal.principalURL())) != self.currentPrincipal(request):
-            log.err("Originator: %s does not match authorized user: %s" % (originator, self.currentPrincipal(request).children[0],))
+            logging.err("Originator: %s does not match authorized user: %s" % (originator, self.currentPrincipal(request).children[0],), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
         # Get list of Recipient headers
         rawrecipients = request.headers.getRawHeaders("recipient")
         if rawrecipients is None or (len(rawrecipients) == 0):
-            log.err("POST request must have at least one Recipient header")
+            logging.err("POST request must have at least one Recipient header", system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
 
         # Recipient header may be comma separated list
@@ -254,24 +254,24 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             yield d
             calendar = d.getResult()
         except:
-            log.err("Error while handling POST: %s" % (Failure(),))
+            logging.err("Error while handling POST: %s" % (Failure(),), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
  
         # Must be a valid calendar
         try:
             calendar.validCalendarForCalDAV()
         except ValueError:
-            log.err("POST request calendar component is not valid: %s" % (calendar,))
+            logging.err("POST request calendar component is not valid: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
         # Must have a METHOD
         if not calendar.isValidMethod():
-            log.err("POST request must have valid METHOD property in calendar component: %s" % (calendar,))
+            logging.err("POST request must have valid METHOD property in calendar component: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
         
         # Verify iTIP behaviour
         if not calendar.isValidITIP():
-            log.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (calendar,))
+            logging.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
     
         # Verify that the ORGANIZER's cu address maps to the request.uri
@@ -282,12 +282,12 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             if oprincipal is not None:
                 outboxURL = oprincipal.scheduleOutboxURL()
         if outboxURL is None:
-            log.err("ORGANIZER in calendar data is not valid: %s" % (calendar,))
+            logging.err("ORGANIZER in calendar data is not valid: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
         # Prevent spoofing of ORGANIZER with specific METHODs
         if (calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER")) and (outboxURL != request.uri):
-            log.err("ORGANIZER in calendar data does not match owner of Outbox: %s" % (calendar,))
+            logging.err("ORGANIZER in calendar data does not match owner of Outbox: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
         # Prevent spoofing when doing reply-like METHODs
@@ -298,7 +298,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         
             # Must have only one
             if len(attendees) != 1:
-                log.err("ATTENDEE list in calendar data is wrong: %s" % (calendar,))
+                logging.err("ATTENDEE list in calendar data is wrong: %s" % (calendar,), system="CalDAV Outbox POST")
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
             
             # Attendee's Outbox MUST be the request URI
@@ -307,20 +307,21 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             if aprincipal is not None:
                 aoutboxURL = aprincipal.scheduleOutboxURL()
             if aoutboxURL is None or aoutboxURL != request.uri:
-                log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (calendar,))
+                logging.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (calendar,), system="CalDAV Outbox POST")
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
 
         # For free-busy do immediate determination of iTIP result rather than fan-out
+        logging.info("METHOD: %s, Component: %s" % (calendar.propertyValue("METHOD"), calendar.mainType(),), system="CalDAV Outbox POST")
         if (calendar.propertyValue("METHOD") == "REQUEST") and (calendar.mainType() == "VFREEBUSY"):
             # Extract time range from VFREEBUSY object
             vfreebusies = [v for v in calendar.subcomponents() if v.name() == "VFREEBUSY"]
             if len(vfreebusies) != 1:
-                log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (calendar,))
+                logging.err("iTIP data is not valid for a VFREEBUSY request: %s" % (calendar,), system="CalDAV Outbox POST")
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
             dtstart = vfreebusies[0].getStartDateUTC()
             dtend = vfreebusies[0].getEndDateUTC()
             if dtstart is None or dtend is None:
-                log.err("VFREEBUSY start/end not valid: %s" % (calendar,))
+                logging.err("VFREEBUSY start/end not valid: %s" % (calendar,), system="CalDAV Outbox POST")
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
             timerange.start = dtstart
             timerange.end = dtend
@@ -350,7 +351,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             # Map recipient to their inbox
             inbox = None
             if principal is None:
-                log.err("No principal for calendar user address: %s" % (recipient,))
+                logging.err("No principal for calendar user address: %s" % (recipient,), system="CalDAV Outbox POST")
             else:
                 inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
@@ -358,7 +359,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     yield inbox
                     inbox = inbox.getResult()
                 else:
-                    log.err("No schedule inbox for principal: %s" % (principal,))
+                    logging.err("No schedule inbox for principal: %s" % (principal,), system="CalDAV Outbox POST")
 
             if inbox is None:
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
@@ -376,7 +377,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     yield d
                     d.getResult()
                 except AccessDeniedError:
-                    log.err("Could not access Inbox for recipient: %s" % (recipient,))
+                    logging.err("Could not access Inbox for recipient: %s" % (recipient,), system="CalDAV Outbox POST")
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permisions")))
                     responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
                     recipients_state["BAD"] += 1
@@ -444,7 +445,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         recipients_state["OK"] += 1
                 
                     except:
-                        log.err("Could not determine free busy information: %s" % (recipient,))
+                        logging.err("Could not determine free busy information: %s" % (recipient,), system="CalDAV Outbox POST")
                         err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
                         responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
                         recipients_state["BAD"] += 1
@@ -489,7 +490,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         if principal.autoSchedule():
                             autoresponses.append((principal, inbox, child))
                     except:
-                        log.err("Could not store data in Inbox : %s" % (inbox,))
+                        logging.err("Could not store data in Inbox : %s" % (inbox,), system="CalDAV Outbox POST")
                         err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
                         responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
                         recipients_state["BAD"] += 1
@@ -518,7 +519,7 @@ class ScheduleResponseResponse (Response):
         """
         @param xml_responses: an interable of davxml.Response objects.
         @param location:      the value of the location header to return in the response,
-                              or None.
+            or None.
         """
 
         Response.__init__(self, code=responsecode.OK,
@@ -548,7 +549,7 @@ class ScheduleResponseQueue (object):
     def setLocation(self, location):
         """
         @param location:      the value of the location header to return in the response,
-                              or None.
+            or None.
         """
         self.location = location
 
@@ -572,7 +573,7 @@ class ScheduleResponseQueue (object):
             raise AssertionError("Unknown data type: %r" % (what,))
 
         if code > 400: # Error codes only
-            log.err("Error during %s for %s: %s" % (self.method, recipient, message))
+            logging.err("Error during %s for %s: %s" % (self.method, recipient, message), system="CalDAV Outbox POST")
 
         children = []
         children.append(caldavxml.Recipient(davxml.HRef.fromString(recipient)))
