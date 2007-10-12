@@ -47,6 +47,26 @@ from twistedcaldav.directory.directory import DirectoryService
 logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
 currentLogLevel = logtypes["error"]
+previousLogLevel = logtypes["debug"]
+
+def toggle():
+    """
+    Toggle between normal mode and full debug mode.
+    """
+
+    global currentLogLevel
+    global previousLogLevel
+    tempLevel = currentLogLevel
+    currentLogLevel = previousLogLevel
+    previousLogLevel = tempLevel
+    
+    for key, value in logtypes.iteritems():
+        if value == currentLogLevel:
+            log.msg("Switching to log level: %s" % (key,))
+            break
+    else:
+        log.msg("Switching to log level: %d" % (currentLogLevel,))
+            
 
 def canLog(type):
     """

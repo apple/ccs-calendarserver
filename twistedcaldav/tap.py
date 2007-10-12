@@ -239,7 +239,7 @@ class CalDAVOptions(Options):
     def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None, create=None):
         if not os.path.exists(dirpath):
             if create is not None:
-            	# create is a tuple of (mode, username, groupname)
+                # create is a tuple of (mode, username, groupname)
                 try:
                     os.mkdir(dirpath)
                     os.chmod(dirpath, create[0])
@@ -346,6 +346,12 @@ class CalDAVServiceMaker(object):
     calendarResourceClass  = CalendarHomeProvisioningFile
 
     def makeService_Slave(self, options):
+        
+        # Change log level to at least "info" as its useful to have that during startup
+        old_logging = logging.currentLogLevel
+        if logging.currentLogLevel < logging.logtypes["info"]:
+            logging.currentLogLevel = logging.logtypes["info"]
+
         #
         # Setup the Directory
         #
@@ -353,7 +359,7 @@ class CalDAVServiceMaker(object):
 
         directoryClass = namedClass(config.DirectoryService['type'])
 
-        log.msg("Configuring directory service of type: %s"
+        logging.info("Configuring directory service of type: %s"
                 % (config.DirectoryService['type'],))
 
         baseDirectory = directoryClass(**config.DirectoryService['params'])
@@ -363,7 +369,7 @@ class CalDAVServiceMaker(object):
         sudoDirectory = None
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
-            log.msg("Configuring SudoDirectoryService with file: %s"
+            logging.info("Configuring SudoDirectoryService with file: %s"
                     % (config.SudoersFile,))
 
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
@@ -372,7 +378,7 @@ class CalDAVServiceMaker(object):
             CalDAVResource.sudoDirectory = sudoDirectory
             directories.insert(0, sudoDirectory)
         else:
-            log.msg("Not using SudoDirectoryService; file doesn't exist: %s"
+            logging.info("Not using SudoDirectoryService; file doesn't exist: %s"
                     % (config.SudoersFile,))
 
         directory = AggregateDirectoryService(directories)
@@ -385,9 +391,9 @@ class CalDAVServiceMaker(object):
         # Setup Resource hierarchy
         #
 
-        log.msg("Setting up document root at: %s" % (config.DocumentRoot,))
+        logging.info("Setting up document root at: %s" % (config.DocumentRoot,))
 
-        log.msg("Setting up principal collection: %r" % (self.principalResourceClass,))
+        logging.info("Setting up principal collection: %r" % (self.principalResourceClass,))
 
         principalCollection = self.principalResourceClass(
             os.path.join(config.DocumentRoot, 'principals'),
@@ -395,7 +401,7 @@ class CalDAVServiceMaker(object):
             directory
         )
 
-        log.msg("Setting up calendar collection: %r" % (self.calendarResourceClass,))
+        logging.info("Setting up calendar collection: %r" % (self.calendarResourceClass,))
 
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, 'calendars'),
@@ -403,7 +409,7 @@ class CalDAVServiceMaker(object):
             '/calendars/'
         )
 
-        log.msg("Setting up root resource: %r" % (self.rootResourceClass,))
+        logging.info("Setting up root resource: %r" % (self.rootResourceClass,))
 
         root = self.rootResourceClass(
             config.DocumentRoot,
@@ -415,7 +421,7 @@ class CalDAVServiceMaker(object):
 
         # Configure default ACLs on the root resource
 
-        log.msg("Setting up default ACEs on root resource")
+        logging.info("Setting up default ACEs on root resource")
 
         rootACEs = [
             davxml.ACE(
@@ -424,10 +430,10 @@ class CalDAVServiceMaker(object):
             ),
         ]
 
-        log.msg("Setting up AdminPrincipals")
+        logging.info("Setting up AdminPrincipals")
 
         for principal in config.AdminPrincipals:
-            log.msg("Added %s as admin principal" % (principal,))
+            logging.info("Added %s as admin principal" % (principal,))
 
             rootACEs.append(
                 davxml.ACE(
@@ -438,7 +444,7 @@ class CalDAVServiceMaker(object):
                 )
             )
 
-        log.msg("Setting root ACL")
+        logging.info("Setting root ACL")
 
         root.setAccessControlList(davxml.ACL(*rootACEs))
 
@@ -454,7 +460,7 @@ class CalDAVServiceMaker(object):
 
         realm = directory.realmName or ""
 
-        log.msg("Configuring authentication for realm: %s" % (realm,))
+        logging.info("Configuring authentication for realm: %s" % (realm,))
 
         for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
@@ -462,11 +468,11 @@ class CalDAVServiceMaker(object):
             credFactory = None
 
             if schemeConfig['Enabled']:
-                log.msg("Setting up scheme: %s" % (scheme,))
+                logging.info("Setting up scheme: %s" % (scheme,))
 
                 if scheme == 'kerberos':
                     if not NegotiateCredentialFactory:
-                        log.msg("Kerberos support not available")
+                        logging.info("Kerberos support not available")
                         continue
 
                     try:
@@ -476,7 +482,7 @@ class CalDAVServiceMaker(object):
                         else:
                             credFactory = NegotiateCredentialFactory(principal=principal)
                     except ValueError:
-                        log.msg("Could not start Kerberos")
+                        logging.info("Could not start Kerberos")
                         continue
 
                 elif scheme == 'digest':
@@ -496,7 +502,7 @@ class CalDAVServiceMaker(object):
             if credFactory:
                 credentialFactories.append(credFactory)
 
-        log.msg("Configuring authentication wrapper")
+        logging.info("Configuring authentication wrapper")
 
         authWrapper = auth.AuthenticationWrapper(
             root,
@@ -511,7 +517,7 @@ class CalDAVServiceMaker(object):
         # Configure the service
         #
 
-        log.msg("Setting up service")
+        logging.info("Setting up service")
 
         if config.ProcessType == 'Slave':
             if config.MultiProcess['ProcessCount'] > 1 and config.MultiProcess['LoadBalancer']['Enabled']:
@@ -530,7 +536,7 @@ class CalDAVServiceMaker(object):
 
             logObserver = logging.RotatingFileAccessLoggingObserver(config.AccessLogFile)
 
-        log.msg("Configuring log observer: %s" % (
+        logging.info("Configuring log observer: %s" % (
             logObserver,))
 
         service = CalDAVService(logObserver)
@@ -556,17 +562,20 @@ class CalDAVServiceMaker(object):
                 config.BindSSLPorts = [config.SSLPort]
 
             for port in config.BindHTTPPorts:
-                log.msg("Adding server at %s:%s" % (bindAddress, port))
+                logging.info("Adding server at %s:%s" % (bindAddress, port))
 
                 httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
                 httpService.setServiceParent(service)
 
             for port in config.BindSSLPorts:
-                log.msg("Adding SSL server at %s:%s" % (bindAddress, port))
+                logging.info("Adding SSL server at %s:%s" % (bindAddress, port))
 
                 contextFactory = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
                 httpsService = internet.SSLServer(int(port), channel, contextFactory, interface=bindAddress)
                 httpsService.setServiceParent(service)
+
+        # Change log level back to what it was before
+        logging.currentLogLevel = old_logging
 
         return service
 
@@ -598,6 +607,16 @@ class CalDAVServiceMaker(object):
                     location = str(frame.f_code.co_name) + ": " + str(frame.f_lineno)
                 log.msg("SIGHUP recieved at " + location)
             signal.signal(signal.SIGHUP, sighup_handler)
+
+            def sigusr1_handler(num, frame):
+                if frame is None:
+                    location = "Unknown"
+                else:
+                    location = str(frame.f_code.co_name) + ": " + str(frame.f_lineno)
+                log.msg("SIGUSR1 recieved at " + location)
+                logging.toggle()
+
+            signal.signal(signal.SIGUSR1, sigusr1_handler)
 
             return service
 
