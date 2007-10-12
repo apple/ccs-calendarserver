@@ -22,11 +22,11 @@ Kerberos authentication module.
 
 This implements two authentication modes:
 
-  1. An alternative to password based BASIC authentication in which the BASIC credentials are
-     verified against Kerberos.
+    1. An alternative to password based BASIC authentication in which the BASIC credentials are
+        verified against Kerberos.
    
-  2. The NEGOTIATE mechanism (as defined in http://www.ietf.org/internet-drafts/draft-jaganathan-kerberos-http-01.txt)
-     that implements full GSSAPI authentication.
+    2. The NEGOTIATE mechanism (as defined in http://www.ietf.org/internet-drafts/draft-jaganathan-kerberos-http-01.txt)
+        that implements full GSSAPI authentication.
 """
 
 __all__ = [

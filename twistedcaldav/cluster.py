@@ -33,8 +33,8 @@ from twistedcaldav.util import getNCPU
 serviceTemplate = """
     <service name="%(name)s">
         %(listeningInterfaces)s
-	<group name="main" scheduler="%(scheduler)s">
-	  %(hosts)s
+    <group name="main" scheduler="%(scheduler)s">
+        %(hosts)s
         </group>
         <enable group="main" />
     </service>

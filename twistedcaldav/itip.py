@@ -33,7 +33,6 @@ iTIP (RFC2446) processing.
 #
 
 import datetime
-import logging
 import md5
 import time
 
@@ -46,6 +45,7 @@ from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.resource import AccessDeniedError
 
 from twistedcaldav import caldavxml
+from twistedcaldav import logging
 from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource

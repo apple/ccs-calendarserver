@@ -38,12 +38,12 @@ from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
 from twistedcaldav import itip
+from twistedcaldav import logging
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
-import logging
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource

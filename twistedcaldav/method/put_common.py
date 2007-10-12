@@ -26,7 +26,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import maybeDeferred
-from twisted.internet.defer import succeed
 from twisted.internet.defer import waitForDeferred
 from twisted.python import failure, log
 from twisted.python.filepath import FilePath
@@ -52,7 +51,6 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
-from twistedcaldav.resource import CalDAVResource
 
 def storeCalendarObjectResource(
     request,
@@ -68,7 +66,7 @@ def storeCalendarObjectResource(
     
     @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
     @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
-                              is to be read from the request.
+        is to be read from the request.
     @param source_uri:        the URI for the source resource.
     @param destination:       the L{CalDAVFile} for the destination resource to copy into.
     @param destination_uri:   the URI for the destination resource.
@@ -127,8 +125,7 @@ def storeCalendarObjectResource(
             """
             if self.active:
                 self.active = False
-                if logging.canLog("debug"):    
-                    logging.debug("Rollback: rollback", system="Store Resource")
+                logging.debug("Rollback: rollback", system="Store Resource")
                 try:
                     if self.source_copy and self.source_deleted:
                         self.source_copy.moveTo(source.fp)
