@@ -40,11 +40,11 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
-from twistedcaldav import itip
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
+from twistedcaldav.itip import iTipProcessor
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
@@ -360,12 +360,13 @@ class Scheduler(object):
         # Now we have to do auto-respond
         if len(autoresponses) != 0:
             # First check that we have a method that we can auto-respond to
-            if not itip.canAutoRespond(self.calendar):
+            if not iTipProcessor.canAutoRespond(self.calendar):
                 autoresponses = []
             
         # Now do the actual auto response
         for principal, inbox, child in autoresponses:
             # Add delayed reactor task to handle iTIP responses
+            itip = iTipProcessor()
             reactor.callLater(0.0, itip.handleRequest, *(self.request, principal, inbox, self.calendar.duplicate(), child)) #@UndefinedVariable
     
         # Return with final response if we are done
