@@ -264,7 +264,8 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
 _namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
     
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
-                         excludeuid=None, organizer=None, same_calendar_user=False):
+                         excludeuid=None, organizer=None, same_calendar_user=False,
+                         servertoserver=False):
     """
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
@@ -279,16 +280,19 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         This is used in conjunction with the UID value to process exclusions.
     @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting tyhe free-busy information
         is the same as the calendar user being targeted.
+    @param servertoserver:       a C{bool} indicating whether we are doing a local or remote lookup request.
     """
     
     # First check the privilege on this collection
-    try:
-        d = waitForDeferred(calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),)))
-        yield d
-        d.getResult()
-    except AccessDeniedError:
-        yield matchtotal
-        return
+    # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
+    if not servertoserver:
+        try:
+            d = waitForDeferred(calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),)))
+            yield d
+            d.getResult()
+        except AccessDeniedError:
+            yield matchtotal
+            return
 
     #
     # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
@@ -333,12 +337,14 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         yield child
         child = child.getResult()
 
-        try:
-            d = waitForDeferred(child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces))
-            yield d
-            d.getResult()
-        except AccessDeniedError:
-            continue
+        # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
+        if not servertoserver:
+            try:
+                d = waitForDeferred(child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces))
+                yield d
+                d.getResult()
+            except AccessDeniedError:
+                continue
 
         calendar = calresource.iCalendar(name)
         
@@ -567,7 +573,7 @@ def processAvailablePeriods(calendar, timerange):
     normalizePeriodList(periods)
     return periods
 
-def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None):
+def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None, method=None):
     """
     Generate a VCALENDAR object containing a single VFREEBUSY that is the
     aggregate of the free busy info passed in.
@@ -587,6 +593,8 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     # Now build a new calendar object with the free busy info we have
     fbcalendar = Component("VCALENDAR")
     fbcalendar.addProperty(Property("PRODID", iCalendarProductID))
+    if method:
+        fbcalendar.addProperty(Property("METHOD", method))
     fb = Component("VFREEBUSY")
     fbcalendar.addComponent(fb)
     if organizer is not None:

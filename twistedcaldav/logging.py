@@ -46,7 +46,7 @@ from twistedcaldav.directory.directory import DirectoryService
 
 logtypes = {"none": 0, "error": 1, "warning": 2, "info": 3, "debug": 4}
 
-currentLogLevel = logtypes["error"]
+currentLogLevel = logtypes["debug"]
 previousLogLevel = logtypes["debug"]
 
 def toggle():
