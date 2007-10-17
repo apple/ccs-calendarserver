@@ -15,9 +15,6 @@
 #
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
-from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.stream import MemoryStream
-import logging
 
 """
 Server to server utility functions and client requests.
@@ -32,7 +29,6 @@ __all__ = [
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import waitForDeferred
 from twisted.internet.protocol import ClientCreator
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -41,12 +37,14 @@ from twisted.web2.client.http import HTTPClientProtocol
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import davXMLFromStream
 from twisted.web2.http import HTTPError
+from twisted.web2.http_headers import Headers
 from twisted.web2.http_headers import MimeType
+
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.servertoserverparser import ServerToServerParser
-from twisted.web2.http_headers import Headers
 from twistedcaldav import caldavxml
+from twistedcaldav import logging
 
 class ServerToServer(object):
     
@@ -110,22 +108,19 @@ class ServerToServerRequest(object):
             yield d
             proto = d.getResult()
             
-            log.msg("Sending server-to-server POST request: %s" % (self.server.path,))
+            request = ClientRequest("POST", self.server.path, self.headers, self.data)
             if logging.canLog("debug"):
-                logging.debug(self.headers, system="Server-to-server Send")
-                logging.debug(self.data, system="Server-to-server Send")
-            d = waitForDeferred(proto.submitRequest(ClientRequest("POST", self.server.path, self.headers, self.data)))
+                d = waitForDeferred(logging.logRequest("Sending server-to-server POST request:", request, system="Server-to-server Send"))
+                yield d
+                d.getResult()
+            d = waitForDeferred(proto.submitRequest(request))
             yield d
             response = d.getResult()
     
-            log.msg("Received server-to-server POST response: %s" % (response.code,))
             if logging.canLog("debug"):
-                logging.debug(response.headers, system="Server-to-server Send")
-                d = waitForDeferred(allDataFromStream(response.stream))
+                d = waitForDeferred(logging.logResponse("Received server-to-server POST response:", response, system="Server-to-server Send"))
                 yield d
-                data = d.getResult()
-                logging.debug(data, system="Server-to-server Send")
-                response.stream = MemoryStream(data)
+                d.getResult()
             d = waitForDeferred(davXMLFromStream(response.stream))
             yield d
             xml = d.getResult()
@@ -133,7 +128,7 @@ class ServerToServerRequest(object):
             self._parseResponse(xml)
         except Exception, e:
             # Generated failed responses for each recipient
-            log.err("Could not do server-to-server request : %s %s" % (self, e))
+            logging.err("Could not do server-to-server request : %s %s" % (self, e), system="Server-to-server Send")
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")

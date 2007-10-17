@@ -23,12 +23,18 @@ Classes and functions to do better logging.
 import datetime
 import os
 import time
+from cStringIO import StringIO
 
 from twisted.python import log
 from twisted.internet import protocol
+from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import waitForDeferred
 
 from twisted.web2 import iweb
 from twisted.web2.dav import davxml
+from twisted.web2 import responsecode
+from twisted.web2.dav.util import allDataFromStream
+from twisted.web2.stream import MemoryStream
 from twisted.web2.log import BaseCommonAccessLoggingObserver
 from twisted.web2.log import LogWrapperResource
 
@@ -121,6 +127,61 @@ def debug(message, **kwargs):
 
     if canLog("debug"):
         log.msg(message, debug=True, **kwargs)
+
+@deferredGenerator
+def logRequest(message, request, **kwargs):
+    """
+    Log an HTTP request.
+    """
+    iostr = StringIO()
+    iostr.write("%s\n" % (message,))
+    if hasattr(request, "clientproto"):
+        protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
+    else:
+        protocol = "HTTP/1.1"
+    iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
+    for name, valuelist in request.headers.getAllRawHeaders():
+        for value in valuelist:
+            # Do not log authorization details
+            if name not in ("Authorization",):
+                iostr.write("%s: %s\n" % (name, value))
+    
+    iostr.write("\n")
+    data = waitForDeferred(allDataFromStream(request.stream))
+    yield data
+    data = data.getResult()
+    iostr.write(data)
+    
+    request.stream = MemoryStream(data)
+    request.stream.doStartReading = None
+
+    log.msg(iostr.getvalue(), **kwargs)
+
+@deferredGenerator
+def logResponse(message, response, **kwargs):
+    """
+    Log an HTTP request.
+    """
+    iostr = StringIO()
+    iostr.write("%s\n" % (message,))
+    code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
+    iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
+    for name, valuelist in response.headers.getAllRawHeaders():
+        for value in valuelist:
+            # Do not log authorization details
+            if name not in ("Authorization",):
+                iostr.write("%s: %s\n" % (name, value))
+    
+    iostr.write("\n")
+    data = waitForDeferred(allDataFromStream(response.stream))
+    yield data
+    data = data.getResult()
+    iostr.write(data)
+    
+    response.stream = MemoryStream(data)
+    response.stream.doStartReading = None
+
+    log.msg(iostr.getvalue(), **kwargs)
 
 class DirectoryLogWrapperResource(LogWrapperResource):
     
