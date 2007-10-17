@@ -452,11 +452,11 @@ class iTipProcessor(object):
         uid = comp.propertyValue("UID")
     
         # Now compare each instance time-range with the index and see if there is an overlap
-        fbset = waitForDeferred(self.principal.calendarFreeBusyURIs(self.request))
-        yield fbset
-        fbset = fbset.getResult()
+        calendars = waitForDeferred(self.getCalendarsToMatch())
+        yield calendars
+        calendars = calendars.getResult()
     
-        for calURL in fbset:
+        for calURL in calendars:
             testcal = waitForDeferred(self.request.locateResource(calURL))
             yield testcal
             testcal = testcal.getResult()
