@@ -140,7 +140,7 @@ method works on many more platforms and file systems.
 Linux and FreeBSD users have has some success running our calendar
 server.  Check our bug tracker for status:
 
-	http://trac.calendarserver.org/projects/calendarserver/report/1
+    http://trac.calendarserver.org/projects/calendarserver/report/1
 
 PYTHON 2.4
 ----------
@@ -168,7 +168,7 @@ visit our home page for more information:
 Bug reports are welcome, and contributions such as code patches and
 documentation are appreciated.  Visit our bug tracker:
 
-	http://trac.calendarserver.org/projects/calendarserver/report/
+    http://trac.calendarserver.org/projects/calendarserver/report/
 
 You can chat with other users and developers on IRC on channel
 #calendarserver on the irc.freenode.net server network.
@@ -188,4 +188,4 @@ You can also subscribe to our mailing lists for users and developers:
 
 Register for mailing lists on our mailing lists page:
 
-	http://lists.macosforge.org/mailman/listinfo/
+    http://lists.macosforge.org/mailman/listinfo/
