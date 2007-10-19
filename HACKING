@@ -1,0 +1,371 @@
+Developer's Guide to Hacking the Calendar Server
+================================================
+
+If you are interested in contributing to Darwin Calendar Server project,
+please read this document.
+
+Participating in the Community
+==============================
+
+Although the Calendar Server is sponsored and hosted by Apple
+Inc. (http://www.apple.com/), it's a true open-source project under a
+Apache license.  At present, the developers work for Apple, but that's
+due to the project being new and originating at Apple.  Contributions
+from other developers are welcome, and, as with all open development
+projects, may lead to "commit access" and a voice in the future of the
+project.
+
+The community exists mainly through mailing lists and a Subversion
+repository. To participate, go to:
+
+    http://trac.calendarserver.org/projects/calendarserver/wiki/MailLists
+
+and join the appropriate mailing lists.  We also use IRC, as described
+here:
+
+    http://trac.calendarserver.org/projects/calendarserver/wiki/IRC
+
+There are many ways to join the project.  One may write code, test the
+software and file bugs, write documentation, etc.
+
+The bug tracking database is here:
+
+    http://trac.calendarserver.org/projects/calendarserver/report
+
+To help manage the issues database, read over the issue summaries,
+looking and testing for issues that are either invalid, or are
+duplicates of other issues. Both kinds are very common, the first
+because bugs often get unknowingly fixed as side effects of other
+changes in the code, and the second because people sometimes file an
+issue without noticing that it has already been reported. If you are
+not sure about an issue, post a question to
+calendarserver-dev@lists.macosforge.org.
+
+Before filing bugs, please take a moment to perform a quick search to
+see if someone else has already filed your bug.  In that case, add a
+comment to the existing bug if appropriate and monitor it, rather than
+filing a duplicate.
+
+Obtaining the Code
+==================
+
+Check out the sources using Subversion from this repository URL:
+
+    http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/
+
+It is assumed here that you are familiar with and able to use
+Subversion.  More information about Subversion, including
+documentation and download instructions, is available from:
+
+    http://subversion.tigris.org/
+
+Directory Layout
+================
+
+A rough guide to the source tree:
+
+ * doc/ - User and developer documentation, including relevant
+   protocol specifications and extensions.
+
+ * bin/ - Executable programs.
+
+ * conf/ - Configuration files.
+
+ * contrib/ - Stuff that works with the Calendar Server, but that the
+   Calendar Server does not depend on.
+
+ * support/ - Support files of possible use to developers.
+
+ * twistedcaldav/ - Source code for the Calendar Server.
+
+ * lib-patches/ - Patch files which modify 3rd-party software required
+   by the Calendar Server.  In an ideal world, this would be empty.
+
+ * twisted/ - Files required to set up the Calendar Server as a
+   Twisted service.  Twisted (http://twistedmatrix.com/) is a
+   networking framework upon which the Calendar Server is built.
+
+Coding Standards
+================
+
+The vast majority of the Calendar Server is writen in the Python
+programming language.  When writing Python code for the Calendar
+Server, please observer the following conventions.
+
+Please note that all of our code at present does not follow these
+standards, but that does not mean that one shouldn't bother to do so.
+On the contrary, code changes that do nothing but reformat code to
+comply with these standards are welcome, and code chanegs that do not
+conform to these standards are discouraged.
+
+We require Python 2.4 or higher.  It is OK to write code that does not
+work with Python versions older than 2.4.  At present, adding code
+that requires Python 2.5 or newer is not allowed, but it is possible
+that we will move to require Python 2.5 in future versions.
+
+Read PEP-8:
+
+    http://www.python.org/dev/peps/pep-0008/
+
+For the most part, our code should follow PEP-8, with a few exceptions
+and a few additions.  It is also useful to review the Twisted Coding
+Standard, from which we borrow some standards, though we do't follow
+it per se:
+
+   http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/coding-standard.xhtml?format=raw
+
+Key items to follow, and specifics:
+
+ * Indent level is 4 spaces.
+
+ * Never indent code with tabs.  Always use spaces.
+
+PEP-8 items we do not follow:
+
+ * Lines need not be limited to 79 spaces, but longer lines are
+   undesirable.  If you can easily do so, try to keep lines under 80
+   columns.
+
+ * PEP-8 recommends using a backslash to break long lines up:
+
+     if width == 0 and height == 0 and \
+        color == 'red' and emphasis == 'strong' or \
+        highlight > 100:
+         raise ValueError("sorry, you lose")
+
+   Don't do that, it's gross, and the indentation for the "raise" line
+   gets confusing.  Use parentheses:
+
+     if (
+         width == 0 and
+         height == 0 and
+         color == "red" and
+         emphasis == "strong" or
+         highlight > 100
+     ):
+         raise ValueError("sorry, you lose")
+
+   Just don't do it the way PEP-8 suggests:
+
+     if width == 0 and height == 0 and (color == 'red' or
+                                        emphasis is None):
+         raise ValueError("I don't think so")
+
+   Because that's just silly.
+
+ * Lining up assignments is OK, within reason:
+
+     cars       =  4
+     motorbikes =  8
+     bicycles   = 18
+
+Additions:
+
+ * Close parentheses and brackets such as '()', '[]' and '{}' at the
+   same indent level as the line in which you opened it:
+
+     launchAtTarget(
+         target="David",
+         object=PaperWad(
+             message="Yo!",
+             crumpleFactor=0.7,
+         ),
+         speed=0.4,
+     )
+
+ * Longs lines are often due to long strings.  Try to break strings up
+   into multiple lines:
+
+     processString(
+        "This is a very long string with a lot of text. "
+        "Fortunately, it is easy to break it up into parts "
+        "like this."
+     )
+
+   Similarly, callables that take many arguments can be broken up into
+   multiple lines, as in the launchAtTarget example above.
+
+ * It's OK to break generator expressions and list comprehensions into
+   mutliple lines.  For example:
+
+     myStuff = (
+         item.obtainUsefulValue()
+         for item in someDataStore
+         if item.owner() == me
+     )
+
+ * Import symbols (especially class names) from modules instead of
+   importing modules and referencing the symbol via the module unless
+   it doesn't make sense to do so.  For example:
+
+     from subprocess import Popen
+
+     process = Popen(...)
+
+   Instead of:
+
+     import subprocess
+
+     process = subprocess.Popen(...)
+
+   This makes code shorter and removes the runtime indirection (which
+   can be relevant in tight loops).
+
+ * All files should have an __all__ specification.  Put them at the
+   top of the file, before imports (PEP-8 puts them at the top, but
+   after the imports), so you can see what the public symbols are for
+   a file right at the top.
+
+ * It is more important that symbol names are meaningful than it is
+   that they be concise.  "x" is rarely an appropriate name for a
+   variable.  "transmogrifierStatus" is more useful to the reader than
+   "trmgStat"; avoid contractions.
+
+ * A deferred that will be immediately returned may be called "d":
+
+     d = doThisAndThat()
+     d.addCallback(onResult)
+     d.addErrback(onError)
+     return d
+
+ * When using waitForDeferred() in a deferredGenerator, "x" may be
+   used to clear the deferred if the deferred result will be ignored.
+
+     x = waitForDeferred(doThisAndThat())
+     yield x
+     x.getResult()
+     del x # Optional, but should be safe
+
+ * "_" may be used to denote unused arguments in callbacks:
+
+     def onCompletion(_):
+       # Don't care about result of doThisAndThat() in here;
+       # we only care that it has completed.
+       doNextThing()
+
+     d = doThisAndThat()
+     d.addCallback(onCompletion)
+     return d
+
+ * Do not prefix symbols with "_" unless they might otherwise be
+   exposed as a public symbol: a private method name should begin with
+   "_", but a locally scoped variable should not, as there is no
+   danger of it being exposed.
+
+ * Per twisted convention, use camel-case (fuzzyWidget, doThisAndThat())
+   for symbol names instead of using underbars (fuzzy_widget,
+   do_this_and_that()).
+
+   Use of underbars is reserved for implied dispatching and the like
+   (eg. http_FOO()).  See the Twisted Coding Standard for details.
+
+ * Always use a tuple when using % formatting, even when only one
+   value is being provided:
+
+     error = "Unexpected value: %s" % (value,)
+
+   Do not use the non-tuple form:
+
+     error = "Unexpected value: %s" % value
+
+   Which is allowed in Python, but results in an programming error if
+   type(value) is tuple and len(value) != 1.
+
+ * Don't use a trailing ',' at the end of a tuple if it's on one line:
+
+     numbers = (1,2,3,) # No
+     numbers = (1,2,3)  # Yes
+
+   It's desirable on multiple lines, though, as that makes re-ordering
+   items easy, and avoids a diff on the last line when adding another:
+
+     strings = (
+       "This is a string.",
+       "And so is this one.",
+       "And here is yet another string.",
+     )
+
+ * If a callable is going to return a Deferred some of the time, it
+   should probably return a deferred all of the time.  Return
+   succeed(value) instead of value if necessary.  This avoids forcing
+   the caller to check as to whether the value is a deferred or not.
+   (eg. by using maybeDeferred())
+
+ * Doctrings are important.  All public symbols (anything declared in
+   __all__) must have a correct docstring.  The script
+   docs/Developer/gendocs will generate the API documentation using
+   pydoctor.  See the pydoctor documentation for details on the
+   formatting:
+
+     http://codespeak.net/~mwh/pydoctor/
+
+   Note: existing docstrings need a complete review.
+
+ * Use PEP-257 as a guideline for docstrings.
+
+ * Begin all multi-line docstrings with a 3 double quotes and a
+   newline:
+
+     def doThisAndThat(...):
+       """
+       Do this, and that.
+       ...
+       """
+
+Testing
+=======
+
+Be sure that all of the units tests pass before you commit new code.
+Code that breaks units tests may be reverted without further
+discussion; it is up to the committer to fix the problem and try
+again.
+
+Note that repeatedly committing code that breaks units tests presents
+a possible time sink for other developers, and is not looked upon
+favorably.
+
+Units tests can be run rather easily by executing the `test` script at
+the top of the Calendar Server source tree.  By default, it will run
+all of the `twistedcaldav` tests followed by all of the `twisted`
+tests.  Youc an run specific tests by specifying them as arguments
+like this:
+
+    ./test twistedcaldav.static
+
+All non-trivial public callables must have unit tests.  (Note we
+totally don't comply with this rule.)  All other callables should have
+unit tests.
+
+Units tests are written using the `twisted.trial` framework.  Test
+module names should start with `test_`.  Twisted has some tips on
+writing tests here:
+
+    http://twistedmatrix.com/projects/core/documentation/howto/testing.html
+    http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/test-standard.xhtml?format=raw
+
+We also use CalDAVTester (which is a companion to Calendar Server in
+the same Mac OS Forge project), which performs more "black box"-type
+testing against the server to ensure compliance with the CalDAV
+protocol.  That requires running the server with a test configuration
+and then running CalDAVTester against it.  For information about
+CalDAVTester is available here:
+
+    http://trac.calendarserver.org/projects/calendarserver/wiki/CalDAVTester
+
+Commit Policy
+=============
+
+We follow a commit-then-review policy for relatively "safe" changes to
+the code.  If you have a rather straightforward change or are working
+on new functionality that does not affect existing functionality, you
+can commit that code without review at your discretion.
+
+Developers are encouraged to monitor the commit notifications that are
+sent via email after each commit and review/critique/comment on
+modifications as appropriate.
+
+Any changes that impact existing functionality should be reviewed by
+another developer before being committed.  Large changes should be
+made on a branch and merged after review.
+
+This policy relies on the discretion of committers.
