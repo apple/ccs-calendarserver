@@ -46,7 +46,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.itip import iTipProcessor
 from twistedcaldav.method import report_common
-from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.servertoserver import ServerToServer
 from twistedcaldav.servertoserver import ServerToServerRequest
@@ -448,19 +448,16 @@ class Scheduler(object):
 
         # Copy calendar to inbox (doing fan-out)
         try:
-            d = waitForDeferred(
-                    maybeDeferred(
-                        storeCalendarObjectResource,
-                        request=self.request,
-                        sourcecal = False,
-                        destination = child,
-                        destination_uri = childURL,
-                        calendardata = calendar_str,
-                        destinationparent = recipient.inbox,
-                        destinationcal = True,
-                        isiTIP = True
-                    )
-                 )
+            storer = StoreCalendarObjectResource(
+                         request=self.request,
+                         destination = child,
+                         destination_uri = childURL,
+                         destinationparent = recipient.inbox,
+                         destinationcal = True,
+                         calendar = self.calendar,
+                         isiTIP = True
+                     )
+            d = waitForDeferred(storer.run())
             yield d
             d.getResult()
             responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")

@@ -48,7 +48,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav import logging
 from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
-from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 
 __version__ = "0.0"
@@ -615,22 +615,18 @@ class iTipProcessor(object):
             itipper = False
         
         # Now write it to the resource
-        try:
-            d = waitForDeferred(storeCalendarObjectResource(
-                    request=self.request,
-                    sourcecal = False,
-                    destination = newchild,
-                    destination_uri = newchildURL,
-                    calendardata = str(calendar),
-                    destinationparent = collection,
-                    destinationcal = True,
-                    isiTIP = itipper
-                ))
-            yield d
-            d.getResult()
-        except:
-            yield None
-            return
+        storer = StoreCalendarObjectResource(
+                     request=self.request,
+                     destination = newchild,
+                     destination_uri = newchildURL,
+                     destinationparent = collection,
+                     destinationcal = True,
+                     calendar = calendar,
+                     isiTIP = itipper
+                 )
+        d = waitForDeferred(storer.run())
+        yield d
+        d.getResult()
         
         yield newchild
     
