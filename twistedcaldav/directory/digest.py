@@ -155,7 +155,7 @@ class DigestCredentialsDB(AbstractSQLDatabase):
     """
     
     dbType = "DIGESTCREDENTIALSCACHE"
-    dbFilename = db_prefix + "digestcredentialscache"
+    dbFilename = "digest.db"
     dbFormatVersion = "2"
 
     exceptionLimit = 10
