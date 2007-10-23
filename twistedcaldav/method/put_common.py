@@ -81,7 +81,7 @@ def storeCalendarObjectResource(
     """
     
     try:
-        assert destination is not None and destinationparent is not None
+        assert destination is not None and destinationparent is not None and destination_uri is not None
         assert (source is None and sourceparent is None) or (source is not None and sourceparent is not None)
         assert (calendardata is None and source is not None) or (calendardata is not None and source is None)
         assert not deletesource or (deletesource and source is not None)
