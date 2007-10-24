@@ -25,28 +25,50 @@ import os
 # Compute the version number.
 #
 
-svnversion = os.popen("svnversion -n %r trunk" % (os.path.dirname(__file__),))
-svn_revision = svnversion.read()
-svnversion.close()
+base_version = "2.0"
 
-if "S" in svn_revision:
-    # FIXME: Get release version from svn URL.
-    print "Working copy (%s) is not trunk.  Unable to determine version number." % (svn_revision,)
-    sys.exit(1)
-elif svn_revision == "exported":
-    # Weird Apple thing: Get the B&I version number from the path
-    segments = __file__.split(os.path.sep)[:-1]
-    segments.reverse()
-    for segment in segments:
-        try:
-            version = segment[segment.rindex("-")+1:]
-            break
-        except ValueError:
-            continue
+branches = (
+    "tags/release/CalendarServer-" + base_version,
+    "branches/release/CalendarServer-" + base_version + "-dev",
+    "trunk",
+)
+
+for branch in branches:
+    svnversion = os.popen("svnversion -n %r %s" % (os.path.dirname(__file__), branch))
+    svn_revision = svnversion.read()
+    svnversion.close()
+    svn_revision = "exported" ######################################
+
+    if "S" in svn_revision:
+        continue
+
+    if branch == "trunk":
+        base_version = "trunk"
+    elif branch.endswith("-dev"):
+        base_version += "-dev"
+
+    if svn_revision == "exported":
+        if "RC_JASPER" in os.environ:
+            # Weird Apple thing: Get the B&I version number from the path
+            if __file__.startswith(os.path.sep):
+                project_name = os.path.basename(os.path.dirname(__file__))
+            else:
+                os.chdir(os.path.dirname(__file__))
+                project_name = os.path.basename(os.getcwd())
+
+            prefix = "CalendarServer-"
+
+            if project_name.startswith(prefix):
+                version = version = "%s (%s)" % (base_version, project_name[len(prefix):])
+                break
+
+        version = "%s (unknown)" % (base_version,)
     else:
-        version = "unknown"
+        version = "%s (r%s)" % (base_version, svn_revision)
+
+    break
 else:
-    version = "dev." + svn_revision
+    version = "unknown (base_version :: %s)" % (base_version, svn_revision)
 
 #
 # Options
