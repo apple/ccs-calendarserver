@@ -211,7 +211,7 @@ fi;
 svn_uri_base="$(svn info "${caldav}" --xml 2>/dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
 
 if [ -z "${svn_uri_base}" ]; then
-  svn_uri_base="http://svn.macosforge.org/repository/calendarserver";
+  svn_uri_base="http://svn.calendarserver.org/repository/calendarserver";
 fi;
 
 export PYTHONPATH="${caldav}";
@@ -464,7 +464,7 @@ if type krb5-config > /dev/null; then
   if ! py_have_module kerberos; then
     kerberos="${top}/PyKerberos";
 
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 1541;
+    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/tags/release/PyKerberos-1.0" 1793;
     py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
     py_install "PyKerberos" "${kerberos}";
 
@@ -480,7 +480,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   if ! py_have_module opendirectory; then
     opendirectory="${top}/PyOpenDirectory";
 
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 1925;
+    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/tags/release/PyOpenDirectory-1.0" 1983;
     py_build "PyOpenDirectory" "${opendirectory}" false;
     py_install "PyOpenDirectory" "${opendirectory}";
 
@@ -496,7 +496,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   if ! py_have_module appleauth; then
     appleauth="${top}/PyAppleAuth";
 
-    svn_get "PyAppleAuth" "${appleauth}" "${svn_uri_base}/PyAppleAuth/trunk" 1213;
+    svn_get "PyAppleAuth" "${appleauth}" "${svn_uri_base}/PyAppleAuth/tags/release/PyAppleAuth-1.0" 1985;
     py_build "PyAppleAuth" "${appleauth}" false;
     py_install "PyAppleAuth" "${appleauth}"
 
