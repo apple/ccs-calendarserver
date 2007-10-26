@@ -489,22 +489,6 @@ if [ "$(uname -s)" == "Darwin" ]; then
 fi;
 
 #
-# PyAppleAuth
-#
-
-if [ "$(uname -s)" == "Darwin" ]; then
-  if ! py_have_module appleauth; then
-    appleauth="${top}/PyAppleAuth";
-
-    svn_get "PyAppleAuth" "${appleauth}" "${svn_uri_base}/PyAppleAuth/tags/release/PyAppleAuth-1.0" 1985;
-    py_build "PyAppleAuth" "${appleauth}" false;
-    py_install "PyAppleAuth" "${appleauth}"
-
-    export PYTHONPATH="${PYTHONPATH}:${appleauth}/build/${py_platform_libdir}";
-  fi;
-fi;
-
-#
 # xattr
 #
 
