@@ -53,7 +53,9 @@ for branch in branches:
             if __file__.startswith(os.path.sep):
                 project_name = os.path.basename(os.path.dirname(__file__))
             else:
-                os.chdir(os.path.dirname(__file__))
+                wd = os.path.dirname(__file__)
+                if wd:
+                    os.chdir(wd)
                 project_name = os.path.basename(os.getcwd())
 
             prefix = "CalendarServer-"
