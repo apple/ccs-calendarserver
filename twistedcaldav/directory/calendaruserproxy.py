@@ -314,7 +314,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
         if self.hasEditableMembership():
             # Get member UIDs from database and map to principal resources
             members = self._index().getMembers(self.uid)
-            return [self.pcollection.principalForUID(uid) for uid in members]
+            return [p for p in [self.pcollection.principalForUID(uid) for uid in members] if p]
         else:
             # Fixed proxies are only for read-write - the read-only list is empty
             if self.proxyType == "calendar-proxy-write":
@@ -329,7 +329,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
         memberships = self._index().getMemberships(self.uid)
-        return [self.pcollection.principalForUID(uid) for uid in memberships]
+        return [p for p in [self.pcollection.principalForUID(uid) for uid in memberships] if p]
 
     def hasEditableMembership(self):
         return self.parent.hasEditableProxyMembership()
