@@ -112,6 +112,41 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         memberships = set([p.principalUID() for p in memberships])
         self.assertEquals(memberships, set(('non_calendar_proxy#calendar-proxy-write',)))
 
+    def test_groupMembersProxyMissingUser(self):
+        """
+        DirectoryPrincipalResource.groupMembers()
+        """
+        
+        # Setup the fake entry in the DB
+        proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
+        proxy_group = proxy.getChild("calendar-proxy-write")
+        members = proxy_group._index().getMembers("%s#calendar-proxy-write" % (proxy.principalUID(),))
+        members.add("12345")
+        proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (proxy.principalUID(),), members)
+
+        # Do the failing lookup
+        members = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMembers()
+        members = set([p.displayName() for p in members])
+        self.assertEquals(members, set())
+
+    def test_groupMembershipsMissingUser(self):
+        """
+        DirectoryPrincipalResource.groupMembers()
+        """
+        
+        # Setup the fake entry in the DB
+        fake_uid = "12345"
+        proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
+        proxy_group = proxy.getChild("calendar-proxy-write")
+        members = proxy_group._index().getMembers("%s#calendar-proxy-write" % (fake_uid,))
+        members.add("%s#calendar-proxy-write" % (proxy.principalUID(),))
+        proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (fake_uid,), members)
+
+        # Do the failing lookup
+        members = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMemberships()
+        members = set([p.displayName() for p in members])
+        self.assertEquals(members, set())
+
     def _getRecordByShortName(self, type, name):
         """
         @return: an iterable of tuples
