@@ -642,6 +642,9 @@ class OpenDirectoryService(DirectoryService):
                             dsquery.match(dsattributes.kDS1AttrGeneratedUID,
                                           GUID, dsattributes.eDSExact))
 
+                    if not guidQueries:
+                        logging.warn("No SACL enabled users found.", system="OpenDirectoryService")
+                        return ()
 
                     query = dsquery.expression(dsquery.expression.OR,
                                                guidQueries)
