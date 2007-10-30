@@ -129,6 +129,16 @@ limitations under the License.
       <member>cdaboo</member>
     </members>
   </group>
+  <group>
+    <uid>non_calendar_group</uid>
+    <password>non_calendar_group</password>
+    <name>Non-calendar group</name>
+    <members>
+      <member>cdaboo</member>
+      <member>lecroy</member>
+    </members>
+    <disable-calendar/>
+  </group>
   <location>
     <uid>mercury</uid>
     <password>mercury</password>
@@ -177,5 +187,15 @@ limitations under the License.
     <password>ftlcpu</password>
     <name>Faster-Than-Light Microprocessor</name>
     <cuaddr>mailto:ftlcpu@example.com</cuaddr>
+  </resource>
+  <resource>
+    <uid>non_calendar_proxy</uid>
+    <guid>non_calendar_proxy</guid>
+    <password>non_calendar_proxy</password>
+    <name>Non-calendar proxy</name>
+    <cuaddr>mailto:non_calendar_proxy@example.com</cuaddr>
+    <proxies>
+      <member type="groups">non_calendar_group</member>
+    </proxies>
   </resource>
 </accounts>

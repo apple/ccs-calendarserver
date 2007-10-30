@@ -31,25 +31,26 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService
 
-ELEMENT_ACCOUNTS     = "accounts"
-ELEMENT_USER         = "user"
-ELEMENT_GROUP        = "group"
-ELEMENT_LOCATION     = "location"
-ELEMENT_RESOURCE     = "resource"
+ELEMENT_ACCOUNTS        = "accounts"
+ELEMENT_USER            = "user"
+ELEMENT_GROUP           = "group"
+ELEMENT_LOCATION        = "location"
+ELEMENT_RESOURCE        = "resource"
 
-ELEMENT_SHORTNAME    = "uid"
-ELEMENT_GUID         = "guid"
-ELEMENT_PASSWORD     = "password"
-ELEMENT_NAME         = "name"
-ELEMENT_MEMBERS      = "members"
-ELEMENT_MEMBER       = "member"
-ELEMENT_CUADDR       = "cuaddr"
-ELEMENT_AUTOSCHEDULE = "auto-schedule"
-ELEMENT_PROXIES      = "proxies"
+ELEMENT_SHORTNAME       = "uid"
+ELEMENT_GUID            = "guid"
+ELEMENT_PASSWORD        = "password"
+ELEMENT_NAME            = "name"
+ELEMENT_MEMBERS         = "members"
+ELEMENT_MEMBER          = "member"
+ELEMENT_CUADDR          = "cuaddr"
+ELEMENT_AUTOSCHEDULE    = "auto-schedule"
+ELEMENT_DISABLECALENDAR = "disable-calendar"
+ELEMENT_PROXIES         = "proxies"
 
-ATTRIBUTE_REALM      = "realm"
-ATTRIBUTE_REPEAT     = "repeat"
-ATTRIBUTE_RECORDTYPE = "type"
+ATTRIBUTE_REALM         = "realm"
+ATTRIBUTE_REPEAT        = "repeat"
+ATTRIBUTE_RECORDTYPE    = "type"
 
 RECORD_TYPES = {
     ELEMENT_USER     : DirectoryService.recordType_users,
@@ -157,6 +158,7 @@ class XMLAccountRecord (object):
         self.groups = set()
         self.calendarUserAddresses = set()
         self.autoSchedule = False
+        self.enabledForCalendaring = True
         self.proxies = set()
         self.proxyFor = set()
 
@@ -227,6 +229,11 @@ class XMLAccountRecord (object):
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
                     raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
                 self.autoSchedule = True
+            elif child_name == ELEMENT_DISABLECALENDAR:
+                # Only Groups
+                if self.recordType not in (DirectoryService.recordType_groups):
+                    raise ValueError("<disable-calendar> element only allowed for Groups: %s" % (child_name,))
+                self.enabledForCalendaring = False
             elif child_name == ELEMENT_PROXIES:
                 # Only Resources & Locations
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):

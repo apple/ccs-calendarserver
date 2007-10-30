@@ -100,6 +100,18 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Wilfredo Sanchez', 'Cyrus Daboo', 'Recursive1 Coasts', 'Recursive2 Coasts',)))
 
+    def test_groupMembersProxySingleGroupWithNonCalendarGroup(self):
+        """
+        DirectoryPrincipalResource.groupMembers()
+        """
+        members = self._getRecordByShortName(DirectoryService.recordType_resources, "non_calendar_proxy").getChild("calendar-proxy-write").groupMembers()
+        members = set([p.displayName() for p in members])
+        self.assertEquals(members, set(('Chris Lecroy', 'Cyrus Daboo', 'Non-calendar group')))
+
+        memberships = self._getRecordByShortName(DirectoryService.recordType_groups, "non_calendar_group").groupMemberships()
+        memberships = set([p.principalUID() for p in memberships])
+        self.assertEquals(memberships, set(('non_calendar_proxy#calendar-proxy-write',)))
+
     def _getRecordByShortName(self, type, name):
         """
         @return: an iterable of tuples

@@ -58,10 +58,12 @@ class XMLFileBase(object):
                                                                                                (DirectoryService.recordType_users , "lecroy")) },
         "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
                                                                                                (DirectoryService.recordType_groups, "left_coast"))           },
-        "recursive1_coasts": { "password": "recursive1_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
+        "recursive1_coasts":  { "password": "recursive1_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
                                                                                                (DirectoryService.recordType_users, "wsanchez"))           },
-        "recursive2_coasts": { "password": "recursive2_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
+        "recursive2_coasts":  { "password": "recursive2_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
                                                                                                (DirectoryService.recordType_users, "cdaboo"))           },
+        "non_calendar_group": { "password": "non_calendar_group", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),
+                                                                                               (DirectoryService.recordType_users , "lecroy"))           },
     }
 
     locations = {
@@ -72,8 +74,9 @@ class XMLFileBase(object):
     }
 
     resources = {
-        "transporter": { "password": "transporter", "guid": None, "addresses": ("mailto:transporter@example.com",) },
-        "ftlcpu"     : { "password": "ftlcpu",      "guid": None, "addresses": ("mailto:ftlcpu@example.com",)      },
+        "transporter"        : { "password": "transporter",        "guid": None,                 "addresses": ("mailto:transporter@example.com",)        },
+        "ftlcpu"             : { "password": "ftlcpu",             "guid": None,                 "addresses": ("mailto:ftlcpu@example.com",)             },
+        "non_calendar_proxy" : { "password": "non_calendar_proxy", "guid": "non_calendar_proxy", "addresses": ("mailto:non_calendar_proxy@example.com",) },
     }
 
     def xmlFile(self):
@@ -159,6 +162,62 @@ class XMLFile (
     <password>nimda</password>
     <name>Super User</name>
     <auto-schedule/>
+  </user>
+</accounts>
+"""
+        )
+        
+        def _findRecords():
+            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+
+        self.assertRaises(ValueError, _findRecords)
+        
+    def test_okDisableCalendar(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <group>
+    <uid>enabled</uid>
+    <password>enabled</password>
+    <name>Enabled</name>
+  </group>
+  <group>
+    <uid>disabled</uid>
+    <password>disabled</password>
+    <name>Disabled</name>
+    <disable-calendar/>
+  </group>
+</accounts>
+"""
+        )
+        for recordType, expectedRecords in (
+            ( DirectoryService.recordType_users     , ()                       ),
+            ( DirectoryService.recordType_groups    , ("enabled", "disabled")  ),
+            ( DirectoryService.recordType_locations , ()                       ),
+            ( DirectoryService.recordType_resources , ()                       ),
+        ):
+            self.assertEquals(
+                set(r.shortName for r in service.listRecords(recordType)),
+                set(expectedRecords)
+            )
+        self.assertTrue(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
+        self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
+
+    def test_badDisableCalendar(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <user>
+    <uid>my office</uid>
+    <password>nimda</password>
+    <name>Super User</name>
+    <disable-calendar/>
   </user>
 </accounts>
 """

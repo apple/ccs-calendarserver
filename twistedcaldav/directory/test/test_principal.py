@@ -40,6 +40,7 @@ from twistedcaldav.directory.test.test_xmlfile import xmlFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 import twistedcaldav.test.util
 
@@ -198,9 +199,25 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
             self.failIf(principal is None)
-            self.assertEquals(record.autoSchedule, principal.autoSchedule())
-            if record.shortName == "gemini":
-                self.assertTrue(principal.autoSchedule())
+            if record.enabledForCalendaring:
+                self.assertEquals(record.autoSchedule, principal.autoSchedule())
+                if record.shortName == "gemini":
+                    self.assertTrue(principal.autoSchedule())
+                else:
+                    self.assertFalse(principal.autoSchedule())
+
+    def test_enabledForCalendaring(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principal = provisioningResource.principalForRecord(record)
+            self.failIf(principal is None)
+            if record.enabledForCalendaring:
+                self.assertTrue(isinstance(principal, DirectoryCalendarPrincipalResource))
+            else:
+                self.assertTrue(isinstance(principal, DirectoryPrincipalResource))
+                self.assertFalse(isinstance(principal, DirectoryCalendarPrincipalResource))
 
     # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeProvisioningResource also
 
@@ -234,8 +251,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.proxies()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(set(record.proxies()).issubset(set(r.record for r in recordResource.proxies())))
-            self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
+            if record.enabledForCalendaring:
+                self.failUnless(set(record.proxies()).issubset(set(r.record for r in recordResource.proxies())))
+                self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
 
     def test_principalUID(self):
         """
@@ -249,12 +267,13 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.calendarUserAddresses()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(
-                (
-                    set((recordResource.principalURL(),)) |
-                    set(record.calendarUserAddresses)
-                ).issubset(set(recordResource.calendarUserAddresses()))
-            )
+            if record.enabledForCalendaring:
+                self.failUnless(
+                    (
+                        set((recordResource.principalURL(),)) |
+                        set(record.calendarUserAddresses)
+                    ).issubset(set(recordResource.calendarUserAddresses()))
+                )
 
     def test_calendarHomeURLs(self):
         """
@@ -264,9 +283,10 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         # No calendar home provisioner should result in no calendar homes.
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failIf(tuple(recordResource.calendarHomeURLs()))
-            self.failIf(recordResource.scheduleInboxURL())
-            self.failIf(recordResource.scheduleOutboxURL())
+            if record.enabledForCalendaring:
+                self.failIf(tuple(recordResource.calendarHomeURLs()))
+                self.failIf(recordResource.scheduleInboxURL())
+                self.failIf(recordResource.scheduleOutboxURL())
 
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
@@ -285,32 +305,33 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         
         # Calendar home provisioners should result in calendar homes.
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            homeURLs = tuple(recordResource.calendarHomeURLs())
-            self.failUnless(homeURLs)
-
-            calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
-
-            inboxURL = recordResource.scheduleInboxURL()
-            outboxURL = recordResource.scheduleOutboxURL()
-
-            self.failUnless(inboxURL)
-            self.failUnless(outboxURL)
-
-            for homeURL in homeURLs:
-                self.failUnless(homeURL.startswith(calendarRootURL))
-
-                if inboxURL and inboxURL.startswith(homeURL):
-                    self.failUnless(len(inboxURL) > len(homeURL))
-                    self.failUnless(inboxURL.endswith("/"))
-                    inboxURL = None
-
-                if outboxURL and outboxURL.startswith(homeURL):
-                    self.failUnless(len(outboxURL) > len(homeURL))
-                    self.failUnless(outboxURL.endswith("/"))
-                    outboxURL = None
-
-            self.failIf(inboxURL)
-            self.failIf(outboxURL)
+            if record.enabledForCalendaring:
+                homeURLs = tuple(recordResource.calendarHomeURLs())
+                self.failUnless(homeURLs)
+    
+                calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
+    
+                inboxURL = recordResource.scheduleInboxURL()
+                outboxURL = recordResource.scheduleOutboxURL()
+    
+                self.failUnless(inboxURL)
+                self.failUnless(outboxURL)
+    
+                for homeURL in homeURLs:
+                    self.failUnless(homeURL.startswith(calendarRootURL))
+    
+                    if inboxURL and inboxURL.startswith(homeURL):
+                        self.failUnless(len(inboxURL) > len(homeURL))
+                        self.failUnless(inboxURL.endswith("/"))
+                        inboxURL = None
+    
+                    if outboxURL and outboxURL.startswith(homeURL):
+                        self.failUnless(len(outboxURL) > len(homeURL))
+                        self.failUnless(outboxURL.endswith("/"))
+                        outboxURL = None
+    
+                self.failIf(inboxURL)
+                self.failIf(outboxURL)
 
     def test_defaultAccessControlList_principals(self):
         """
