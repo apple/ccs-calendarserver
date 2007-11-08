@@ -1,28 +1,39 @@
-Computer Record - An LDAP Computer record that stores information
-    about a given server running a set of services.
+iCal Schema
+===========
 
-    Needed Attributes:
-        dsAttrTypeStandard:GeneratedUID - a GUID to be used when
-            constructing ServicesLocator entries that point to services
-            described by this computer record.
+The purpose of this document is to explain the usage of the calendar
+server and iCal for finding users, groups, locations, and resources
+provisioned on a given server.
 
-        dsAttrTypeStandard:ENetAddress - contains the MAC addresses of
-            the servers ethernet interfaces.
+Computer Record
+---------------
+An LDAP Computer record that stores information
+about a given server running a set of services.
 
-        dsAttrTypeStandard:ServicesLocator - containing '::anyService'
-            to indicate that it provides virtual host configurations.
+Needed Attributes:
+    dsAttrTypeStandard:GeneratedUID - a GUID to be used when
+        constructing ServicesLocator entries that point to services
+        described by this computer record.
 
-        dsAttrTypeNative:apple-serviceinfo - containing a "Virtual
-            Host Plist" that describes configuration information about
-            all the services provided by this server.
+    dsAttrTypeStandard:ENetAddress - contains the MAC addresses of
+        the servers ethernet interfaces.
+
+    dsAttrTypeStandard:ServicesLocator - containing '::anyService'
+        to indicate that it provides virtual host configurations.
+
+    dsAttrTypeNative:apple-serviceinfo - containing a "Virtual
+        Host Plist" that describes configuration information about
+        all the services provided by this server.
 
 
-Virtual Host Plist - Stored in the dsAttrTypeNative:apple-serviceinfo
-    attribute this plist contains some basic configuration and a
-    timestamp and a number of virtual hosts.  One of which should
-    be for the calendar server.
+Virtual Host Plist
+------------------
+Stored in the dsAttrTypeNative:apple-serviceinfo
+attribute this plist contains some basic configuration and a
+timestamp and a number of virtual hosts.  One of which should
+be for the calendar server.
 
-    Example:
+Example:
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -82,11 +93,26 @@ Virtual Host Plist - Stored in the dsAttrTypeNative:apple-serviceinfo
 </dict>
 
 
-Services Locator - An attribute on the User, Group, Resource, and
-    Location types that specifies the location of the server that his
-    hosting a given service.
+Services Locator
+----------------
+An attribute on the User, Group, Resource, and
+Location types that specifies the location of the server that his
+hosting a given service.
 
-    Of the form:
+Of the form:
+
 312395FC-363A-44D5-BA5D-98B178D5CD43:CFD9E112-9CC3-4AB7-97A6-3951C61ECECB:calendar
 \----------------------------------/ \----------------------------------/ \------/
         Computer Record GUID                Virtual Host GUID               Service name
+
+The Services Locator is used to allow the calendar server given
+a virtual host from the Virtual Host Plist to find all the
+records that have calendars provisioned on that server.  It is also
+used to allow iCal given a user record to find the following
+information:
+
+ 1) The principal URI for that user
+
+ 2) All the other records with calendars on the same server.  Which is
+    used in determing autocompletion for invitees and configuration of
+    delegates.
