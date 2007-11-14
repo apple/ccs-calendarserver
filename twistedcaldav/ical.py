@@ -1010,7 +1010,7 @@ class Component (object):
         # Need to normalize http/https cu addresses
         test = set()
         for item in match:
-           test.add(_normalizeCUAddress(item))
+            test.add(_normalizeCUAddress(item))
         
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
@@ -1035,24 +1035,13 @@ class Component (object):
         
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        # FIXME: we should really have a URL class and have it manage comparisons
-        # in a sensible fashion.
-        def _normalizeCUAddress(addr):
-            if addr.startswith("/") or addr.startswith("http:") or addr.startswith("https:"):
-                return addr.rstrip("/")
-            else:
-                return addr
-
-        # Need to normalize http/https cu addresses
-        test = set()
-        for item in match:
-           test.add(_normalizeCUAddress(item))
-        
         # Extract appropriate sub-component if this is a VCALENDAR
         results = []
         for component in self.subcomponents():
             if component.name() != "VTIMEZONE":
-                results.append(component.getAttendeeProperty(match))
+                attendee = component.getAttendeeProperty(match)
+                if attendee:
+                    results.append(attendee)
 
         return results
 
