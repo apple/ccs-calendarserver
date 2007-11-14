@@ -81,14 +81,8 @@ class AbstractSQLDatabase(object):
             q = self._db_connection.cursor()
             try:
                 # Create CALDAV table if needed
-                q.execute(
-                    """
-                    select (1) from SQLITE_MASTER
-                     where TYPE = 'table' and NAME = 'CALDAV'
-                    """)
-                caldav = q.fetchone()
 
-                if caldav:
+                if self._test_schema_table(q):
                     q.execute(
                         """
                         select VALUE from CALDAV
@@ -131,6 +125,13 @@ class AbstractSQLDatabase(object):
                 if q is not None: q.close()
         return self._db_connection
 
+    def _test_schema_table(self, q):
+        q.execute("""
+        select (1) from SQLITE_MASTER
+         where TYPE = 'table' and NAME = 'CALDAV'
+        """)
+        return q.fetchone()
+
     def _db_init(self, db_filename, q):
         """
         Initialise the underlying database tables.
@@ -139,9 +140,22 @@ class AbstractSQLDatabase(object):
         """
         log.msg("Initializing database %s" % (db_filename,))
 
-        self._db_init_schema_table(q)
-        self._db_init_data_tables(q)
-        self._db_recreate()
+        # We need an exclusive lock here as we are making a big change to the database and we don't
+        # want other processes to get stomped on or stomp on us.
+        old_isolation = self._db_connection.isolation_level
+        self._db_connection.isolation_level = None
+        q.execute("begin exclusive transaction")
+        
+        # We re-check whether the schema table is present again AFTER we've got an exclusive
+        # lock as some other server process may have snuck in and already created it
+        # before we got the lock, or whilst we were waiting for it.
+        if not self._test_schema_table(q):
+            self._db_init_schema_table(q)
+            self._db_init_data_tables(q)
+            self._db_recreate()
+
+        q.execute("commit")
+        self._db_connection.isolation_level = old_isolation
 
     def _db_init_schema_table(self, q):
         """

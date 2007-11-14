@@ -20,6 +20,8 @@ from twistedcaldav.sql import AbstractSQLDatabase
 
 import twistedcaldav.test.util
 from twistedcaldav.sql import db_prefix
+from threading import Thread
+import time
 import os
 
 class SQL (twistedcaldav.test.util.TestCase):
@@ -61,6 +63,13 @@ class SQL (twistedcaldav.test.util.TestCase):
                 )
                 """
             )
+
+    class TestDBPauseInInit(TestDB):
+        
+        def _db_init(self, db_filename, q):
+            
+            time.sleep(1)
+            super(SQL.TestDBPauseInInit, self)._db_init(db_filename, q)
 
     def test_connect(self):
         """
@@ -152,3 +161,26 @@ class SQL (twistedcaldav.test.util.TestCase):
         children = self.site.resource.listChildren()
         self.assertTrue("test" in children)
         self.assertFalse(db_prefix + "sqlite" in children)
+
+    def test_duplicate_create(self):
+        dbname = self.mktemp()
+        
+        class DBThread(Thread):
+            
+            def run(self):
+                try:
+                    db = SQL.TestDBPauseInInit(dbname)
+                    db._db()
+                    self.result = True
+                except:
+                    self.result = False
+
+        t1 = DBThread()
+        t2 = DBThread()
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        self.assertTrue(t1.result)
+        self.assertTrue(t2.result)
+
