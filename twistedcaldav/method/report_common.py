@@ -567,7 +567,7 @@ def processAvailablePeriods(calendar, timerange):
     normalizePeriodList(periods)
     return periods
 
-def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None):
+def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None, method=None):
     """
     Generate a VCALENDAR object containing a single VFREEBUSY that is the
     aggregate of the free busy info passed in.
@@ -576,6 +576,7 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     @param organizer: the L{Property} for the Organizer of the free busy request, or None.
     @param attendee:  the L{Property} for the Attendee responding to the free busy request, or None.
     @param uid:       the UID value from the free busy request.
+    @param method:    the METHOD property value to insert.
     @return:          the L{Component} containing the calendar data.
     """
     
@@ -587,6 +588,8 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     # Now build a new calendar object with the free busy info we have
     fbcalendar = Component("VCALENDAR")
     fbcalendar.addProperty(Property("PRODID", iCalendarProductID))
+    if method:
+        fbcalendar.addProperty(Property("METHOD", method))
     fb = Component("VFREEBUSY")
     fbcalendar.addComponent(fb)
     if organizer is not None:

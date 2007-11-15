@@ -439,7 +439,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                             matchtotal = matchtotal.getResult()
                     
                         # Build VFREEBUSY iTIP reply for this recipient
-                        fbresult = report_common.buildFreeBusyResult(fbinfo, timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid)
+                        fbresult = report_common.buildFreeBusyResult(fbinfo, timerange, organizer=organizerProp, attendee=attendeeProp, uid=uid, method="REPLY")
 
                         responses.add(recipient, responsecode.OK, reqstatus="2.0;Success", calendar=fbresult)
                         recipients_state["OK"] += 1
