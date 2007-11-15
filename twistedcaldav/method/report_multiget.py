@@ -146,7 +146,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
             for name in valid_names:
                 if name not in exists_names:
                     href = davxml.HRef.fromString(joinURL(request.uri, name))
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                 else:
                     checked_names.append(name)
             if not checked_names:
@@ -177,7 +177,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
-                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
     
         doCalendarResponse = deferredGenerator(doCalendarResponse)
 
@@ -214,7 +214,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     parent = parent.getResult()
     
                     if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     
                     # Check privileges on parent - must have at least DAV:read
@@ -223,7 +223,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                         yield d
                         d.getResult()
                     except AccessDeniedError:
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     
                     # Cache the last parent's inherited aces for checkPrivileges optimization
@@ -247,7 +247,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     parent = parent.getResult()
     
                     if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     child = self
             
@@ -263,7 +263,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     yield d
                     d.getResult()
                 except AccessDeniedError:
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
         
                 d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq))

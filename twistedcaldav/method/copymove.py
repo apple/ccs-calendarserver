@@ -94,7 +94,7 @@ def http_COPY(self, request):
     if self.isCollection():
         log.err("Attempt to copy a collection into a calendar collection")
         raise HTTPError(StatusResponse(
-            responsecode.NOT_ALLOWED,
+            responsecode.FORBIDDEN,
             "Cannot create collection within special collection %s" % (destination,))
         )
 
@@ -171,14 +171,14 @@ def http_MOVE(self, request):
     if destinationcal:
         # Checks for copying a calendar collection
         if self.isCalendarCollection():
-            log.err("Attempt to copy a calendar collection into another calendar collection %s" % destination)
+            log.err("Attempt to move a calendar collection into another calendar collection %s" % destination)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "calendar-collection-location-ok")))
     
         # We also do not allow regular collections in calendar collections
         if self.isCollection():
-            log.err("Attempt to copy a collection into a calendar collection")
+            log.err("Attempt to move a collection into a calendar collection")
             raise HTTPError(StatusResponse(
-                responsecode.NOT_ALLOWED,
+                responsecode.FORBIDDEN,
                 "Cannot create collection within special collection %s" % (destination,)
             ))
 
