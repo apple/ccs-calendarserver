@@ -125,13 +125,10 @@ class CalDAVResource (DAVResource):
     ##
 
     def davComplianceClasses(self):
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + (
-            "calendar-access",
-            "calendar-schedule",
-            "calendar-availability",
-            "inbox-availability",
-            "calendar-proxy",
-        )
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + extra_compliance
 
     liveProperties = DAVResource.liveProperties + (
         (caldav_namespace, "supported-calendar-component-set"),
@@ -490,13 +487,10 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     implements(ICalendarPrincipalResource)
 
     def davComplianceClasses(self):
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + (
-            "calendar-access",
-            "calendar-schedule",
-            "calendar-availability",
-            "inbox-availability",
-            "calendar-proxy",
-        )
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + extra_compliance
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),

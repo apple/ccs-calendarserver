@@ -32,6 +32,10 @@ from twistedcaldav.ical import Component as iComponent
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
 
+calendarserver_proxy_compliance = (
+    "calendar-proxy",
+)
+
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     Contains the GUID value for a directory record corresponding to a principal.
