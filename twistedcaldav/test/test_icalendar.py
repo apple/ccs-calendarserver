@@ -208,3 +208,35 @@ class iCalendar (twistedcaldav.test.util.TestCase):
         self.assertEqual(parse_duration("-P15DT5H0M20S"), datetime.timedelta(days=-15, hours=-5, minutes=0, seconds=-20))
 
         self.assertEqual(parse_duration("P7W"), datetime.timedelta(weeks=7))
+
+    def test_correct_attendee_properties(self):
+        
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+        self.assertEqual([p.value() for p in component.getAttendeeProperties(("mailto:user2@example.com",))], ["mailto:user2@example.com",])
+
+    def test_empty_attendee_properties(self):
+        
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+        self.assertEqual(component.getAttendeeProperties(("user3@example.com",)), [])
