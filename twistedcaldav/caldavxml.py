@@ -46,6 +46,13 @@ import datetime
 
 caldav_namespace = "urn:ietf:params:xml:ns:caldav"
 
+caldav_compliance = (
+    "calendar-access",
+    "calendar-schedule",
+    "calendar-availability",
+    "inbox-availability",
+)
+
 class CalDAVElement (davxml.WebDAVElement):
     """
     CalDAV XML element.

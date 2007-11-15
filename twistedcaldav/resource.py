@@ -32,8 +32,6 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
-from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
@@ -57,9 +55,6 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
-
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.sudo import SudoDirectoryService
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -125,13 +120,10 @@ class CalDAVResource (DAVResource):
     ##
 
     def davComplianceClasses(self):
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + (
-            "calendar-access",
-            "calendar-schedule",
-            "calendar-availability",
-            "inbox-availability",
-            "calendar-proxy",
-        )
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + extra_compliance
 
     liveProperties = DAVResource.liveProperties + (
         (caldav_namespace, "supported-calendar-component-set"),
@@ -490,13 +482,10 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     implements(ICalendarPrincipalResource)
 
     def davComplianceClasses(self):
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + (
-            "calendar-access",
-            "calendar-schedule",
-            "calendar-availability",
-            "inbox-availability",
-            "calendar-proxy",
-        )
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + extra_compliance
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),

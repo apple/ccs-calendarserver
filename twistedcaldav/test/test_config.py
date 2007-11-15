@@ -21,6 +21,7 @@ from twisted.trial import unittest
 from twistedcaldav.py.plistlib import writePlist
 
 from twistedcaldav.config import config, defaultConfig, ConfigurationError
+from twistedcaldav.static import CalDAVFile
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -213,3 +214,14 @@ class ConfigTests(unittest.TestCase):
         config.updateDefaults({'Foo': 'bar'})
 
         self.assertNotIn('Foo', defaultConfig)
+
+    def testComplianceClasses(self):
+        
+        resource = CalDAVFile("/")
+        
+        config.EnableProxyPrincipals = True
+        self.assertTrue("calendar-proxy" in resource.davComplianceClasses())
+        
+        config.EnableProxyPrincipals = False
+        self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
+        
