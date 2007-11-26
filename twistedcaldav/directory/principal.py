@@ -178,7 +178,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     def principalForCalendarUserAddress(self, address):
         # First see if the address is a principal URI
         principal = self._principalForURI(address)
-        if principal:
+        if principal and isinstance(principal, DirectoryCalendarPrincipalResource):
             return principal
 
         # Next try looking it up in the directory
