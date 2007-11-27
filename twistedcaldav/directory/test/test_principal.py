@@ -189,8 +189,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             for address in tuple(record.calendarUserAddresses) + (principalURL, alternateURL):
                 principal = provisioningResource.principalForCalendarUserAddress(address)
-                self.failIf(principal is None)
-                self.assertEquals(record, principal.record)
+                if record.enabledForCalendaring:
+                    self.failIf(principal is None)
+                    self.assertEquals(record, principal.record)
+                else:
+                    self.failIf(principal is not None)
 
     def test_autoSchedule(self):
         """
