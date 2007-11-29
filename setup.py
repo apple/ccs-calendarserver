@@ -34,10 +34,10 @@ branches = (
 )
 
 for branch in branches:
-    svnversion = os.popen("svnversion -n %r %s" % (os.path.dirname(__file__), branch))
+    cmd = "svnversion -n %r %s" % (os.path.dirname(__file__), branch)
+    svnversion = os.popen(cmd)
     svn_revision = svnversion.read()
     svnversion.close()
-    svn_revision = "exported" ######################################
 
     if "S" in svn_revision:
         continue
@@ -70,7 +70,7 @@ for branch in branches:
 
     break
 else:
-    version = "unknown (base_version :: %s)" % (base_version, svn_revision)
+    version = "unknown (%s :: %s)" % (base_version, svn_revision)
 
 #
 # Options
