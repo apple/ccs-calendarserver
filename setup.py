@@ -34,10 +34,10 @@ branches = (
 )
 
 for branch in branches:
-    svnversion = os.popen("svnversion -n %r %s" % (os.path.dirname(__file__), branch))
+    cmd = "svnversion -n %r %s" % (os.path.dirname(__file__), branch)
+    svnversion = os.popen(cmd)
     svn_revision = svnversion.read()
     svnversion.close()
-    svn_revision = "exported" ######################################
 
     if "S" in svn_revision:
         continue
@@ -53,7 +53,9 @@ for branch in branches:
             if __file__.startswith(os.path.sep):
                 project_name = os.path.basename(os.path.dirname(__file__))
             else:
-                os.chdir(os.path.dirname(__file__))
+                wd = os.path.dirname(__file__)
+                if wd:
+                    os.chdir(wd)
                 project_name = os.path.basename(os.getcwd())
 
             prefix = "CalendarServer-"
@@ -68,7 +70,7 @@ for branch in branches:
 
     break
 else:
-    version = "unknown (base_version :: %s)" % (base_version, svn_revision)
+    version = "unknown (%s :: %s)" % (base_version, svn_revision)
 
 #
 # Options
