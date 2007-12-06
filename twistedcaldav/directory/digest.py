@@ -17,7 +17,6 @@
 ##
 
 from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.sql import db_prefix
 
 from twisted.cred import error
 from twisted.python import log

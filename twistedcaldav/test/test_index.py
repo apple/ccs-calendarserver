@@ -19,9 +19,7 @@
 from twistedcaldav.index import Index
 
 import twistedcaldav.test.util
-from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.index import ReservationError
-import os
 import time
 
 class TestIndex (twistedcaldav.test.util.TestCase):

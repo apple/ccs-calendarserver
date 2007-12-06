@@ -26,11 +26,9 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
-from twisted.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
