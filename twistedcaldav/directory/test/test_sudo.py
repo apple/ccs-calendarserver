@@ -84,3 +84,11 @@ class SudoTestCase(
 
         record = service.recordWithShortName(self.recordType, 'bob')
         self.assertEquals(record.password, 'bob')
+
+    def test_calendaringDisabled(self):
+        service = self.service()
+
+        record = service.recordWithShortName(self.recordType, 'alice')
+
+        self.failIf(record.enabledForCalendaring,
+                    "sudoers should have enabledForCalendaring=False")
