@@ -41,13 +41,15 @@ host="$1";
 # Do The Right Thing
 ##
 
-if [ ! -s "${authority}.key" ]; then
-  echo "Not a certificate authority key: ${authority}.key";
-  exit 1;
-fi;
-if [ ! -s "${authority}.crt" ]; then
-  echo "Not a certificate authority certificate: ${authority}.crt";
-  exit 1;
+if [ "${authority}" != "NONE" ]; then
+  if [ ! -s "${authority}.key" ]; then
+    echo "Not a certificate authority key: ${authority}.key";
+    exit 1;
+  fi;
+  if [ ! -s "${authority}.crt" ]; then
+      echo "Not a certificate authority certificate: ${authority}.crt";
+      exit 1;
+  fi;
 fi;
 
 newfile ()
@@ -95,15 +97,17 @@ else
   echo "Certificate request for ${host} already exists.";
 fi;
 
-if [ ! -s "${host}.crt" ]; then
-  echo "Generating certificate...";
-  openssl x509 -req -in "${host}.csr" -out "${host}.crt" -sha1 -days 3650 \
-    -CA "${authority}.crt" -CAkey "${authority}.key" -CAcreateserial;
-  chmod 644 "${host}.crt";
-  echo "";
-else
-  echo "Certificate for ${host} already exists.";
-fi;
+if [ "${authority}" != "NONE" ]; then
+  if [ ! -s "${host}.crt" ]; then
+    echo "Generating certificate...";
+    openssl x509 -req -in "${host}.csr" -out "${host}.crt" -sha1 -days 3650 \
+	-CA "${authority}.crt" -CAkey "${authority}.key" -CAcreateserial;
+    chmod 644 "${host}.crt";
+    echo "";
+  else
+    echo "Certificate for ${host} already exists.";
+  fi;
 
-# Print the certificate
-openssl x509 -in "${host}.crt" -text -noout;
+  # Print the certificate
+  openssl x509 -in "${host}.crt" -text -noout;
+fi;
