@@ -386,7 +386,7 @@ def storeCalendarObjectResource(
                 yield pause
                 pause.getResult()
             
-            if not reserved:
+            if destination_uri and not reserved:
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (destination_uri,)))
         
             # uid conflict check - note we do this after reserving the UID to avoid a race condition where two requests
