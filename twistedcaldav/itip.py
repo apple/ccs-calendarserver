@@ -578,7 +578,7 @@ def checkForReply(request, principal, calendar):
         attendees = tuple(component.properties("ATTENDEE"))
         for attendee in attendees:
             if attendeeProp is None or (attendee.value() != attendeeProp.value()):
-                replycal.mainComponent().removeProperty(attendee)
+                component.removeProperty(attendee)
 
     yield rsvp, replycal, accepted
 
