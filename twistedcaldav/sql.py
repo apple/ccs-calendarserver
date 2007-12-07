@@ -70,10 +70,14 @@ class AbstractSQLDatabase(object):
         """
         if not hasattr(self, "_db_connection"):
             db_filename = self.dbpath
-            if self.autocommit:
-                self._db_connection = sqlite.connect(db_filename, isolation_level=None)
-            else:
-                self._db_connection = sqlite.connect(db_filename)
+            try:
+                if self.autocommit:
+                    self._db_connection = sqlite.connect(db_filename, isolation_level=None)
+                else:
+                    self._db_connection = sqlite.connect(db_filename)
+            except:
+                log.err("Unable to open database: %s" % (db_filename,))
+                raise
 
             #
             # Set up the schema
