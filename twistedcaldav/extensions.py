@@ -21,10 +21,13 @@ Extensions to web2.dav
 """
 
 __all__ = [
-    "DAVResource",
-    "DAVFile",
-    "ReadOnlyResourceMixIn",
     "SudoSACLMixin",
+    "DAVResource",
+    "DAVPrincipalResource",
+    "DAVFile",
+    "ReadOnlyWritePropertiesResourceMixIn",
+    "ReadOnlyResourceMixIn",
+    "XMLResponse",
 ]
 
 import cPickle as pickle
@@ -54,7 +57,6 @@ class SudoSACLMixin(object):
     Mixin class to let DAVResource, and DAVFile subclasses below know
     about sudoer principals and how to find their AuthID
     """
-
     def authenticate(self, request):
         # Bypass normal authentication if its already been done (by SACL check)
         if (hasattr(request, "authnUser") and
@@ -153,7 +155,6 @@ class DAVResource (SudoSACLMixin, SuperDAVResource):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
-
     def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
         """
         See L{IDAVResource.findChildren}.
