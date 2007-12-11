@@ -20,17 +20,25 @@ import twistedcaldav.test.util
 from twistedcaldav.ical import Component
 from vobject.icalendar import utc
 from vobject.icalendar import registerTzid
+from twistedcaldav.timezones import TimezoneCache
 import datetime
 import os
 
-class Timezones (twistedcaldav.test.util.TestCase):
+class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
     """
 
     data_dir = os.path.join(os.path.dirname(__file__), "data")
+    share_dir = os.path.join(os.path.dirname(__file__), "../../share")
 
-    def doTest(self, filename, dtstart, dtend):
+    def doTest(self, filename, dtstart, dtend, testEqual=True):
+        
+        if testEqual:
+            testMethod = self.assertEqual
+        else:
+            testMethod = self.assertNotEqual
+
         calendar = Component.fromStream(file(os.path.join(self.data_dir, filename)))
         if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
 
@@ -39,8 +47,8 @@ class Timezones (twistedcaldav.test.util.TestCase):
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, dtstart)
-            self.assertEqual(end, dtend)
+            testMethod(start, dtstart)
+            testMethod(end, dtend)
             break;
 
     def test_truncatedApr(self):
@@ -58,13 +66,40 @@ class Timezones (twistedcaldav.test.util.TestCase):
         registerTzid("America/New_York", None)
         self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
 
-    def test_truncatedAprThenDec(self):
+    def test_truncatedAprThenDecFail(self):
         """
         Properties in components
         """
         registerTzid("America/New_York", None)
-        self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
-        self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
+        self.doTest(
+            "TruncatedApr01.ics",
+            datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
+            datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
+        )
+        self.doTest(
+            "TruncatedDec10.ics",
+            datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
+            datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
+            testEqual=False
+        )
+
+    def test_truncatedAprThenDecOK(self):
+        """
+        Properties in components
+        """
+        registerTzid("America/New_York", None)
+        tzcache = TimezoneCache(os.path.join(self.share_dir, "zoneinfo"))
+        self.doTest(
+            "TruncatedApr01.ics",
+            datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
+            datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
+        )
+        self.doTest(
+            "TruncatedDec10.ics",
+            datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
+            datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
+        )
+        tzcache.unregister()
 
     def test_truncatedDecThenApr(self):
         """
@@ -73,3 +108,21 @@ class Timezones (twistedcaldav.test.util.TestCase):
         registerTzid("America/New_York", None)
         self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
         self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
+
+class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
+    """
+    Timezone support tests
+    """
+
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    share_dir = os.path.join(os.path.dirname(__file__), "../../share")
+
+    def test_basic(self):
+        
+        registerTzid("America/New_York", None)
+        registerTzid("US/Eastern", None)
+
+        tzcache = TimezoneCache(os.path.join(self.share_dir, "zoneinfo"))
+        self.assertTrue(tzcache.loadTimezone("America/New_York"))
+        self.assertTrue(tzcache.loadTimezone("US/Eastern"))
+        tzcache.unregister()

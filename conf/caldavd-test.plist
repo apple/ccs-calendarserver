@@ -86,6 +86,15 @@ limitations under the License.
 
 
   <!--
+    Ancillary Data
+  -->
+
+  <!-- Data root -->
+  <key>TimezoneCache</key>
+  <string>share/zoneinfo</string>
+
+
+  <!--
     Directory service
 
     A directory service provides information about principals (eg.

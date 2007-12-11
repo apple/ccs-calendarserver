@@ -87,6 +87,15 @@ limitations under the License.
 
 
   <!--
+    Ancillary Data
+  -->
+
+  <!-- Data root -->
+  <key>TimezoneCache</key>
+  <string>/usr/share/caldavd/zoneinfo</string>
+
+
+  <!--
     Directory service
 
     A directory service provides information about principals (eg.
