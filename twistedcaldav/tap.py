@@ -453,8 +453,8 @@ class CalDAVServiceMaker(object):
         # Configure ancillary data
         #
         logging.info("Setting up Timezone Cache", system="startup")
-        TimezoneCache(config.TimezoneCache)
-        
+        TimezoneCache().register()
+
         #
         # Configure the Site and Wrappers
         #

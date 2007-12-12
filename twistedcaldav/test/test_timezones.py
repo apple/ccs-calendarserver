@@ -30,7 +30,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     """
 
     data_dir = os.path.join(os.path.dirname(__file__), "data")
-    share_dir = os.path.join(os.path.dirname(__file__), "../../share")
 
     def doTest(self, filename, dtstart, dtend, testEqual=True):
         
@@ -88,7 +87,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         Properties in components
         """
         registerTzid("America/New_York", None)
-        tzcache = TimezoneCache(os.path.join(self.share_dir, "zoneinfo"))
+        tzcache = TimezoneCache()
+        tzcache.register()
         self.doTest(
             "TruncatedApr01.ics",
             datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
@@ -115,14 +115,14 @@ class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     """
 
     data_dir = os.path.join(os.path.dirname(__file__), "data")
-    share_dir = os.path.join(os.path.dirname(__file__), "../../share")
 
     def test_basic(self):
         
         registerTzid("America/New_York", None)
         registerTzid("US/Eastern", None)
 
-        tzcache = TimezoneCache(os.path.join(self.share_dir, "zoneinfo"))
+        tzcache = TimezoneCache()
+        tzcache.register()
         self.assertTrue(tzcache.loadTimezone("America/New_York"))
         self.assertTrue(tzcache.loadTimezone("US/Eastern"))
         tzcache.unregister()

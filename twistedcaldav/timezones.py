@@ -37,25 +37,17 @@ cache mechanism to use those timezone definitions instead of ones from client su
 calendar data.
 """
 
+__all__ = [
+    "TimezoneException",
+    "TimezoneCache",
+]
+
 class TimezoneException(Exception):
     pass
 
 class TimezoneCache(object):
-    
-    def __init__(self, dirname):
-        """
-        
-        @param dirname: the directory that is the root of the Olson data.
-        @type dirname: str
-        """
-        
-        assert os.path.exists(dirname), "Timezone directory %s does not exist." % (dirname,)
-        assert os.path.isdir(dirname), "%s is not a directory." % (dirname,)
-        assert os.path.exists(os.path.join(dirname, "America/New_York.ics")), "Timezone directory %s does not seem to contain timezones" % (dirname,)
-        self.dirname = dirname
-
-        self.caching = False
-        self.register()
+    def __init__(self):
+        self._caching = False
 
     def register(self):
         self.vobjectRegisterTzid = registerTzid
@@ -65,16 +57,16 @@ class TimezoneCache(object):
         vobject.icalendar.registerTzid = self.vobjectRegisterTzid
 
     def loadTimezone(self, tzid):
-        
         # Make sure it is not already loaded
         if getTzid(tzid) != None:
             return False
 
-        tzpath = os.path.join(self.dirname, tzid) + ".ics"
-        if not os.path.exists(tzpath):
-            raise TimezoneException("Timezone path %s missing" % (tzpath,))
-        
-        calendar = Component.fromStream(file(tzpath))
+        tzStream = openTZ(tzid)
+        try:
+            calendar = Component.fromStream(tzStream)
+        finally:
+            tzStream.close()
+
         if calendar.name() != "VCALENDAR":
             raise TimezoneException("%s does not contain valid iCalendar data." % (tzpath,))
 
@@ -85,10 +77,31 @@ class TimezoneCache(object):
         return True
 
     def registerTzidFromCache(self, tzid, tzinfo):
-        
-        if not self.caching:
-            self.caching = True
+        if not self._caching:
+            self._caching = True
             self.loadTimezone(tzid)
-            self.caching = False
+            self._caching = False
         else:
             self.vobjectRegisterTzid(tzid, tzinfo)
+
+try:
+    import pkg_resources
+except ImportError:
+    #
+    # We don't have pkg_resources, so assume file paths work, since that's all we have
+    #
+    dirname = os.path.join(os.path.dirname(__file__), "zoneinfo")
+    def openTZ(tzid):
+        tzpath = os.path.join(*tzid.split("/")) # Don't assume "/" from tzid is a path separator
+        tzpath = os.path.join(dirname, tzpath + ".ics")
+        try:
+            return file(tzpath)
+        except IOError:
+            raise TimezoneException("Unknown time zone: %s" % (tzid,))
+else:
+    def openTZ(tzid):
+        # Here, "/" is always the path separator
+        try:
+            return pkg_resources.resource_stream("twistedcaldav", "zoneinfo/%s.ics" % (tzid,))
+        except IOError:
+            raise TimezoneException("Unknown time zone: %s" % (tzid,))
