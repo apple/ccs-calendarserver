@@ -69,11 +69,6 @@ defaultConfig = {
     "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
     
     #
-    # Ancillary data
-    #
-    "TimezoneCache"        : "/usr/share/caldavd/zoneinfo",
-
-    #
     # Directory service
     #
     #    A directory service provides information about principals (eg.
