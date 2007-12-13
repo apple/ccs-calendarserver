@@ -285,12 +285,6 @@ Additions:
        "And here is yet another string.",
      )
 
- * If a callable is going to return a Deferred some of the time, it
-   should probably return a deferred all of the time.  Return
-   succeed(value) instead of value if necessary.  This avoids forcing
-   the caller to check as to whether the value is a deferred or not.
-   (eg. by using maybeDeferred())
-
  * Doctrings are important.  All public symbols (anything declared in
    __all__) must have a correct docstring.  The script
    docs/Developer/gendocs will generate the API documentation using
@@ -311,6 +305,36 @@ Additions:
        Do this, and that.
        ...
        """
+
+Best Practices
+==============
+
+ * If a callable is going to return a Deferred some of the time, it
+   should probably return a deferred all of the time.  Return
+   succeed(value) instead of value if necessary.  This avoids forcing
+   the caller to check as to whether the value is a deferred or not.
+   (eg. by using maybeDeferred())
+
+ * Be proactive about closing files and file-like objects.
+
+   For a lot of Python software, letting Python close the stream for
+   you works fine, but in a long-lived server that's processing many
+   data streams at a time, it is important to close them as soon as
+   possible.
+
+   On some platforms (eg. Windows), deleting a file will fail if the
+   file is still open.  By leaving it up to Python to decide when to
+   close a file, you may find yourself being unable to reliably delete
+   it.
+
+   The most reliable way to ensure that a stream is closed is to put
+   the call to `close()` in a `finally` block:
+
+     stream = file(somePath)
+     try:
+       ... do something with stream ...
+     finally:
+       stream.close()
 
 Testing
 =======
