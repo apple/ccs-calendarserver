@@ -137,7 +137,7 @@ dist = setup(
                        ],
     package_data     = {
                          "twisted": ["plugins/caldav.py"],
-                         "twistedcaldav": ["zoneinfo/*.ics", "zoneinfo/*/*.ics"],
+                         "twistedcaldav": ["zoneinfo/*.ics", "zoneinfo/*/*.ics", "zoneinfo/*/*/*.ics"],
                        },
     scripts          = [ "bin/caldavd", "bin/caladmin" ],
     data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
