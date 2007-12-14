@@ -52,6 +52,7 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 
 from twistedcaldav import pdmonster
 from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.timezones import TimezoneCache
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -441,6 +442,12 @@ class CalDAVServiceMaker(object):
         log.msg("Setting root ACL")
 
         root.setAccessControlList(davxml.ACL(*rootACEs))
+
+        #
+        # Configure ancillary data
+        #
+        logging.info("Setting up Timezone Cache", system="startup")
+        TimezoneCache().register()
 
         #
         # Configure the Site and Wrappers

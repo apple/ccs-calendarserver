@@ -99,13 +99,15 @@ from distutils.core import Extension
 
 extensions = []
 
-if sys.platform == 'darwin':
+if sys.platform == "darwin":
     extensions.append(
-        Extension('twistedcaldav._sacl',
-                  extra_compile_args = ['-arch', 'ppc', '-arch', 'i386'],
-                  extra_link_args    = ['-framework', 'Security',
-                                        '-arch', 'ppc', '-arch', 'i386'],
-                  sources = ['twistedcaldav/_sacl.c']))
+        Extension(
+            "twistedcaldav._sacl",
+            extra_compile_args = ["-arch", "ppc", "-arch", "i386"],
+            extra_link_args = ["-framework", "Security", "-arch", "ppc", "-arch", "i386"],
+            sources = ["twistedcaldav/_sacl.c"]
+        )
+    )
 
 #
 # Run setup
@@ -120,26 +122,34 @@ dist = setup(
     long_description = long_description,
     url              = None,
     classifiers      = classifiers,
-    author           = "Apple Computer, Inc.",
+    author           = "Apple Inc.",
     author_email     = None,
     license          = None,
     platforms        = [ "all" ],
-    packages         = [ "twistedcaldav", "twistedcaldav.directory", 
-                         "twistedcaldav.method", "twistedcaldav.query", 
-                         "twistedcaldav.admin", "twistedcaldav.py", 
-                         "twisted" ],
-    package_data     = { "twisted": ["plugins/caldav.py"] },
+    packages         = [
+                         "twistedcaldav",
+                         "twistedcaldav.directory", 
+                         "twistedcaldav.method",
+                         "twistedcaldav.query", 
+                         "twistedcaldav.admin",
+                         "twistedcaldav.py", 
+                         "twisted"
+                       ],
+    package_data     = {
+                         "twisted": ["plugins/caldav.py"],
+                         "twistedcaldav": ["zoneinfo/*.ics", "zoneinfo/*/*.ics", "zoneinfo/*/*/*.ics"],
+                       },
     scripts          = [ "bin/caldavd", "bin/caladmin" ],
-    data_files       = [("caldavd", ["conf/caldavd.plist",])],
+    data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
     ext_modules      = extensions,
 )
 
-if 'install' in dist.commands:
+if "install" in dist.commands:
     import os
-    install_scripts = dist.command_obj['install'].install_scripts
-    install_lib = dist.command_obj['install'].install_lib
-    root = dist.command_obj['install'].root
-    base = dist.command_obj['install'].install_base
+    install_scripts = dist.command_obj["install"].install_scripts
+    install_lib = dist.command_obj["install"].install_lib
+    root = dist.command_obj["install"].root
+    base = dist.command_obj["install"].install_base
 
     if root:
         install_lib = install_lib[len(root):]
@@ -153,37 +163,34 @@ if 'install' in dist.commands:
     
         fileType = None
 
-        for line in file(scriptPath, 'r'):
+        for line in file(scriptPath, "r"):
             if not fileType:
-                if line.startswith('#!'):
-                    if 'python' in line.lower():
-                        fileType = 'python'
-                    elif 'sh' in line.lower():
-                        fileType = 'sh'
+                if line.startswith("#!"):
+                    if "python" in line.lower():
+                        fileType = "python"
+                    elif "sh" in line.lower():
+                        fileType = "sh"
 
-            line = line.rstrip('\n')
-            if fileType == 'sh':
-                if line == '#PYTHONPATH':
-                    script.append(
-                        'PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
-                elif line == '#PATH':
-                    script.append(
-                        'PATH="%s:$PATH"' % (os.path.join(base, 'bin'),))
+            line = line.rstrip("\n")
+            if fileType == "sh":
+                if line == "#PYTHONPATH":
+                    script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+                elif line == "#PATH":
+                    script.append('PATH="%s:$PATH"' % (os.path.join(base, "bin"),))
                 else:
                     script.append(line)
 
-            elif fileType == 'python':
-                if line == '#PYTHONPATH':
+            elif fileType == "python":
+                if line == "#PYTHONPATH":
                     script.append('PYTHONPATH="%s"' % (install_lib,))
-                elif line == '#PATH':
-                    script.append(
-                        'PATH="%s"' % (os.path.join(base, 'bin'),))
+                elif line == "#PATH":
+                    script.append('PATH="%s"' % (os.path.join(base, "bin"),))
                 else:
                     script.append(line)
 
             else:
                 script.append(line)
 
-        newScript = open(scriptPath, 'w')
-        newScript.write('\n'.join(script))
+        newScript = open(scriptPath, "w")
+        newScript.write("\n".join(script))
         newScript.close()
