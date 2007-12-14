@@ -62,6 +62,7 @@ class TimezoneCache(object):
             return False
 
         tzStream = openTZ(tzid)
+        tzpath = tzStream.name
         try:
             calendar = Component.fromStream(tzStream)
         finally:
