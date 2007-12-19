@@ -782,23 +782,24 @@ class OpenDirectoryRecord(DirectoryRecord):
             return False
 
         elif isinstance(credentials, DigestedCredentials):
+            #
+            # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
+            # picky about exactly what it receives.
+            #
             try:
-                # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
-                # picky about exactly what it receives.
-                
-                try:
-                    challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
-                    response = ('Digest username="%(username)s", '
-                                'realm="%(realm)s", '
-                                'nonce="%(nonce)s", '
-                                'uri="%(uri)s", '
-                                'response="%(response)s",'
-                                'algorithm=%(algorithm)s') % credentials.fields
-                except KeyError, e:
-                    logging.err("Open Directory (node=%s) error while performing digest authentication for user %s: missing digest response field: %s in: %s"
-                            % (self.service.realmName, self.shortName, e, credentials.fields), system="OpenDirectoryService")
-                    return False
+                challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
+                response = ('Digest username="%(username)s", '
+                            'realm="%(realm)s", '
+                            'nonce="%(nonce)s", '
+                            'uri="%(uri)s", '
+                            'response="%(response)s",'
+                            'algorithm=%(algorithm)s') % credentials.fields
+            except KeyError, e:
+                logging.err("Error while performing digest authentication for record %s: missing digest response field: %s in: %s"
+                            % (self, e, credentials.fields), system="OpenDirectoryService")
+                return False
 
+            try:
                 return opendirectory.authenticateUserDigest(
                     self.service.directory,
                     self._nodename,
@@ -808,9 +809,10 @@ class OpenDirectoryRecord(DirectoryRecord):
                     credentials.method
                 )
             except opendirectory.ODError, e:
-                logging.err("Open Directory (node=%s) error while performing digest authentication for user %s: %s"
-                        % (self.service.realmName, self.shortName, e), system="OpenDirectoryService")
-                return False
+                logging.err("Open Directory error while performing digest authentication for record %s: %s"
+                            % (self, e), system="OpenDirectoryService")
+
+            return False
 
         return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
 
