@@ -31,6 +31,8 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
+from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import deferredGenerator
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
@@ -133,6 +135,7 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
         return tuple(super(CalDAVResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     liveProperties = DAVResource.liveProperties + (
+        (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
         (caldav_namespace, "supported-calendar-component-set"),
         (caldav_namespace, "supported-calendar-data"         ),
     )
@@ -149,7 +152,13 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
 
         namespace, name = qname
 
-        if namespace == caldav_namespace:
+        if namespace == dav_namespace:
+            if name == "owner":
+                d = self.owner(request)
+                d.addCallback(lambda x: davxml.Owner(x))
+                return d
+            
+        elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
                 if self.hasDeadProperty(qname):
@@ -234,6 +243,21 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
             return succeed(None)
 
         return super(CalDAVResource, self).accessControlList(*args, **kwargs)
+
+    @deferredGenerator
+    def owner(self, request):
+        """
+        Return the DAV:owner property value (MUST be a DAV:href or None).
+        """
+        d = waitForDeferred(self.locateParent(request, request.urlForResource(self)))
+        yield d
+        parent = d.getResult()
+        if parent and isinstance(parent, CalDAVResource):
+            d = waitForDeferred(parent.owner(request))
+            yield d
+            yield d.getResult()
+        else:
+            yield None
 
     ##
     # CalDAV
