@@ -34,6 +34,10 @@ calendarserver_proxy_compliance = (
     "calendar-proxy",
 )
 
+calendarserver_private_events_compliance = (
+    "calendarserver-private-events",
+)
+
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     Contains the GUID value for a directory record corresponding to a principal.

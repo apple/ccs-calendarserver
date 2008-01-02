@@ -19,6 +19,7 @@ CalDAV-aware resources.
 """
 
 __all__ = [
+    "CalDAVComplianceMixIn",
     "CalDAVResource",
     "CalendarPrincipalCollectionResource",
     "CalendarPrincipalResource",
@@ -59,7 +60,18 @@ if twistedcaldav.__version__:
 else:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/?"
 
-class CalDAVResource (DAVResource):
+class CalDAVComplianceMixIn(object):
+
+    def caldavComplianceClasses(self):
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        if config.EnablePrivateEvents:
+            extra_compliance += customxml.calendarserver_private_events_compliance
+        return extra_compliance
+
+
+class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
     """
     CalDAV resource.
 
@@ -118,10 +130,7 @@ class CalDAVResource (DAVResource):
     ##
 
     def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + extra_compliance
+        return tuple(super(CalDAVResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     liveProperties = DAVResource.liveProperties + (
         (caldav_namespace, "supported-calendar-component-set"),
@@ -471,7 +480,7 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
             ),
         )
 
-class CalendarPrincipalResource (DAVPrincipalResource):
+class CalendarPrincipalResource (DAVPrincipalResource, CalDAVComplianceMixIn):
     """
     CalDAV principal resource.
 
@@ -480,10 +489,7 @@ class CalendarPrincipalResource (DAVPrincipalResource):
     implements(ICalendarPrincipalResource)
 
     def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + extra_compliance
+        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),

@@ -25,16 +25,15 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Verbose</key>
-  <true/>
-  <key>HTTPPort</key>
-  <integer>8008</integer>
+    <key>Verbose</key>
+    <true/>
+    <key>HTTPPort</key>
+    <integer>8008</integer>
 </dict>
 </plist>
 """
 
 def _testVerbose(testCase):
-    from twistedcaldav.config import config
     testCase.assertEquals(config.Verbose, True)
 
 
@@ -222,3 +221,9 @@ class ConfigTests(unittest.TestCase):
         
         config.EnableProxyPrincipals = False
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
+        
+        config.EnablePrivateEvents = True
+        self.assertTrue("calendarserver-private-events" in resource.davComplianceClasses())
+        
+        config.EnablePrivateEvents = False
+        self.assertTrue("calendarserver-private-events" not in resource.davComplianceClasses())
