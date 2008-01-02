@@ -160,6 +160,21 @@ class Component (object):
     """
     X{iCalendar} component.
     """
+
+    # Private Event access levels.
+    ACCESS_PROPERTY     = "X-CALENDARSERVER-ACCESS"
+    ACCESS_PUBLIC       = "PUBLIC"
+    ACCESS_PRIVATE      = "PRIVATE"
+    ACCESS_CONFIDENTIAL = "CONFIDENTIAL"
+    ACCESS_RESTRICTED   = "RESTRICTED"
+
+    accessMap = {
+        "PUBLIC"       : ACCESS_PUBLIC,
+        "PRIVATE"      : ACCESS_PRIVATE,
+        "CONFIDENTIAL" : ACCESS_CONFIDENTIAL,
+        "RESTRICTED"   : ACCESS_RESTRICTED,
+    }
+
     @classmethod
     def fromString(clazz, string):
         """
@@ -363,6 +378,18 @@ class Component (object):
                 return component
         
         return None
+    
+    def accessLevel(self):
+        """
+        Return the access level for this component.
+        @return: the access level for the calendar data.
+        """
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        
+        access = self.propertyValue(Component.ACCESS_PROPERTY)
+        if access:
+            access = access.upper()
+        return Component.accessMap.get(access, Component.ACCESS_PUBLIC)
     
     def duplicate(self):
         """
