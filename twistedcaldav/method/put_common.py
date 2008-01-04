@@ -31,7 +31,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.element.base import PCDATAElement
-from twisted.web2.dav.fileop import copy, delete, put
+from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedGETContentMD5
 from twisted.web2.dav.stream import MD5StreamWrapper
@@ -46,10 +46,16 @@ from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.ical import Component
+from twistedcaldav.customxml import calendarserver_namespace 
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.fileops import copyToWithXAttrs
+from twistedcaldav.fileops import putWithXAttrs
+from twistedcaldav.fileops import copyWithXAttrs
+from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
 
+@deferredGenerator
 def storeCalendarObjectResource(
     request,
     sourcecal, destinationcal,
@@ -151,7 +157,7 @@ def storeCalendarObjectResource(
                     if self.source_index_deleted:
                         doSourceIndexRecover()
                         self.destination_index_deleted = False
-                        logging.debug("Rollback: soyurce re-indexed %s" % (source.fp.path,), system="Store Resource")
+                        logging.debug("Rollback: source re-indexed %s" % (source.fp.path,), system="Store Resource")
                 except:
                     log.err("Rollback: exception caught and not handled: %s" % failure.Failure())
 
@@ -258,6 +264,39 @@ def storeCalendarObjectResource(
 
         return result, message
 
+    @deferredGenerator
+    def validAccess():
+        """
+        Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
+        """
+        
+        if calendar.hasProperty(Component.ACCESS_PROPERTY):
+            
+            # Must be a value we know about
+            access = calendar.accessLevel(default=None)
+            if access is None:
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
+                
+            # Only DAV:owner is able to set the property to other than PUBLIC
+            d = waitForDeferred(destinationparent.owner(request))
+            yield d
+            parent_owner = d.getResult()
+            
+            authz = destinationparent.currentPrincipal(request)
+            if davxml.Principal(parent_owner) != authz and access != Component.ACCESS_PUBLIC:
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+
+            yield access, calendardata
+        else:
+            # Check whether an access property was present before and write that into the calendar data
+            newcalendardata = calendardata
+            if not source and destination.exists() and destination.hasDeadProperty(TwistedCalendarAccessProperty):
+                old_access = str(destination.readDeadProperty(TwistedCalendarAccessProperty))
+                calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
+                newcalendardata = str(calendar)
+
+            yield None, newcalendardata
+
     def noUIDConflict(uid):
         """
         Check that the UID of the new calendar object conforms to the requirements of
@@ -305,6 +344,7 @@ def storeCalendarObjectResource(
         Handle validation operations here.
         """
         reserved = False
+        access = None
         if destinationcal:
             # Valid resource name check
             result, message = validResourceName()
@@ -360,6 +400,12 @@ def storeCalendarObjectResource(
             if not result:
                 log.err(message)
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+
+            # Check access
+            if destinationcal and config.EnablePrivateEvents:
+                d = waitForDeferred(validAccess())
+                yield d
+                access, calendardata = d.getResult()
 
             # Reserve UID
             destination_index = destinationparent.index()
@@ -437,7 +483,7 @@ def storeCalendarObjectResource(
         if overwrite:
             rollback.destination_copy = FilePath(destination.fp.path)
             rollback.destination_copy.path += ".rollback"
-            destination.fp.copyTo(rollback.destination_copy)
+            copyToWithXAttrs(destination.fp, rollback.destination_copy)
             logging.debug("Rollback: backing up destination %s to %s" % (destination.fp.path, rollback.destination_copy.path), system="Store Resource")
         else:
             rollback.destination_created = True
@@ -446,7 +492,7 @@ def storeCalendarObjectResource(
         if deletesource:
             rollback.source_copy = FilePath(source.fp.path)
             rollback.source_copy.path += ".rollback"
-            source.fp.copyTo(rollback.source_copy)
+            copyToWithXAttrs(source.fp, rollback.source_copy)
             logging.debug("Rollback: backing up source %s to %s" % (source.fp.path, rollback.source_copy.path), system="Store Resource")
     
         """
@@ -465,10 +511,10 @@ def storeCalendarObjectResource(
 
         # Do put or copy based on whether source exists
         if source is not None:
-            response = maybeDeferred(copy, source.fp, destination.fp, destination_uri, "0")
+            response = maybeDeferred(copyWithXAttrs, source.fp, destination.fp, destination_uri)
         else:
             md5 = MD5StreamWrapper(MemoryStream(calendardata))
-            response = maybeDeferred(put, md5, destination.fp)
+            response = maybeDeferred(putWithXAttrs, md5, destination.fp)
         response = waitForDeferred(response)
         yield response
         response = response.getResult()
@@ -485,8 +531,18 @@ def storeCalendarObjectResource(
             md5 = md5.getMD5()
             destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
 
+        # Update calendar-access property value on the resource
+        if access:
+            destination.writeDeadProperty(TwistedCalendarAccessProperty(access))
+            
+        # Do not remove the property if access was not specified and we are storing in a calendar.
+        # This ensure that clients that do not preserve the iCalendar property do not cause access
+        # restrictions to be lost.
+        elif not destinationcal:
+            destination.removeDeadProperty(TwistedCalendarAccessProperty)                
+
         response = IResponse(response)
-        
+
         def doDestinationIndex(caltoindex):
             """
             Do destination resource indexing, replacing any index previous stored.
@@ -616,5 +672,3 @@ def storeCalendarObjectResource(
         # if the rollback has already ocurred or changes already committed.
         rollback.Rollback()
         raise
-
-storeCalendarObjectResource = deferredGenerator(storeCalendarObjectResource)

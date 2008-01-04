@@ -379,7 +379,7 @@ class Component (object):
         
         return None
     
-    def accessLevel(self):
+    def accessLevel(self, default=ACCESS_PUBLIC):
         """
         Return the access level for this component.
         @return: the access level for the calendar data.
@@ -389,7 +389,7 @@ class Component (object):
         access = self.propertyValue(Component.ACCESS_PROPERTY)
         if access:
             access = access.upper()
-        return Component.accessMap.get(access, Component.ACCESS_PUBLIC)
+        return Component.accessMap.get(access, default)
     
     def duplicate(self):
         """

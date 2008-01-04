@@ -60,6 +60,17 @@ class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
+class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
+    """
+    Contains the calendar access level (private events) for the resource.
+    """
+    namespace = twisted_dav_namespace
+    name = "calendar-access"
+    hidden = True
+
+    def getValue(self):
+        return str(self)
+
 class CalendarProxyRead (davxml.WebDAVEmptyElement):
     """
     A read-only calendar user proxy principal resource.

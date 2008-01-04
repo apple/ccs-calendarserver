@@ -50,7 +50,9 @@ import twisted.web2.server
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.config import config
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
+from twistedcaldav.ical import Component
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
@@ -238,11 +240,54 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
         return self.hasDeadProperty(AccessDisabled)
 
     # FIXME: Perhaps this is better done in authorize() instead.
-    def accessControlList(self, *args, **kwargs):
+    @deferredGenerator
+    def accessControlList(self, request, *args, **kwargs):
         if self.isDisabled():
-            return succeed(None)
+            yield None
+            return
 
-        return super(CalDAVResource, self).accessControlList(*args, **kwargs)
+        d = waitForDeferred(super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
+        yield d
+        acls = d.getResult()
+
+        # Look for private events access classification
+        if self.hasDeadProperty(TwistedCalendarAccessProperty):
+            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+            if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
+                # Need to insert ACE to prevent non-owner principals from seeing this resource
+                d = waitForDeferred(self.owner(request))
+                yield d
+                owner = d.getResult()
+                if access.getValue() == Component.ACCESS_PRIVATE:
+                    ace = davxml.ACE(
+                        davxml.Invert(
+                            davxml.Principal(owner),
+                        ),
+                        davxml.Deny(
+                            davxml.Privilege(
+                                davxml.Read(),
+                            ),
+                            davxml.Privilege(
+                                davxml.Write(),
+                            ),
+                        ),
+                        davxml.Protected(),
+                    )
+                else:
+                    ace = davxml.ACE(
+                        davxml.Invert(
+                            davxml.Principal(owner),
+                        ),
+                        davxml.Deny(
+                            davxml.Privilege(
+                                davxml.Write(),
+                            ),
+                        ),
+                        davxml.Protected(),
+                    )
+
+                acls = davxml.ACL(ace, *acls.children)
+        yield acls
 
     @deferredGenerator
     def owner(self, request):

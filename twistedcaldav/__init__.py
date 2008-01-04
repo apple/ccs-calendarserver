@@ -31,6 +31,7 @@ __all__ = [
     "directory",
     "dropbox",
     "extensions",
+    "fileops",
     "ical",
     "icaldav",
     "index",
