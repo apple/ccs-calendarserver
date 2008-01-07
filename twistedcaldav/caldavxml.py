@@ -528,6 +528,16 @@ class CalendarData (CalDAVElement):
         """
         Returns a calendar component derived from this element.
         """
+        data = self.calendarData()
+        if data:
+            return iComponent.fromString(data)
+        else:
+            return None
+
+    def calendarData(self):
+        """
+        Returns the calendar data derived from this element.
+        """
         for data in self.children:
             if not isinstance(data, davxml.PCDATAElement):
                 return None
@@ -535,7 +545,7 @@ class CalendarData (CalDAVElement):
                 # We guaranteed in __init__() that there is only one child...
                 break
 
-        return iComponent.fromString(str(data))
+        return str(data)
 
     def expandRecurrence(self, calendar):
         """

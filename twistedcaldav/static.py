@@ -795,5 +795,6 @@ bindMethods(twistedcaldav.method, CalDAVFile)
 # FIXME: Little bit of a circular dependency here...
 twistedcaldav.method.copymove.CalDAVFile = CalDAVFile
 twistedcaldav.method.delete.CalDAVFile   = CalDAVFile
+twistedcaldav.method.get.CalDAVFile      = CalDAVFile
 twistedcaldav.method.mkcol.CalDAVFile    = CalDAVFile
 twistedcaldav.method.put.CalDAVFile      = CalDAVFile
