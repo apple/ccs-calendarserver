@@ -104,7 +104,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param uri: the uri for the calendar collecton resource.
         """
         
-        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok = False):
+        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok=False, isowner=True):
             """
             Run a query on the specified calendar.
             @param resource: the L{CalDAVFile} for the calendar.
@@ -124,7 +124,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, calendar, propertiesForResource, query)
+                return report_common.responseForHref(request, responses, href, resource, calendar, propertiesForResource, query, isowner)
             else:
                 return succeed(None)
     
@@ -146,7 +146,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
             yield filteredaces
             filteredaces = filteredaces.getResult()
-        
+
+            # Check private events access status
+            d = waitForDeferred(calresource.isOwner(request))
+            yield d
+            isowner = d.getResult()
+
             # Check for disabled access
             if filteredaces is not None:
                 # See whether the filter is valid for an index only query
@@ -183,7 +188,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     else:
                         calendar = None
                     
-                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok))
+                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok, isowner=isowner))
                     yield d
                     d.getResult()
         else:
@@ -204,6 +209,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     yield tz
                     tz = tz.getResult()
                     filter.settimezone(tz)
+
+            # Check private events access status
+            d = waitForDeferred(calresource.isOwner(request))
+            yield d
+            isowner = d.getResult()
 
             calendar = calresource.iCalendar()
             d = waitForDeferred(queryCalendarObjectResource(calresource, uri, None, calendar))

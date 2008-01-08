@@ -304,6 +304,19 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
         else:
             yield None
 
+    @deferredGenerator
+    def isOwner(self, request):
+        """
+        Determine whether the DAV:owner of this resource matches the currently authorized principal
+        in the request.
+        """
+
+        d = waitForDeferred(self.owner(request))
+        yield d
+        owner = d.getResult()
+        result = (davxml.Principal(owner) == self.currentPrincipal(request))
+        yield result
+ 
     ##
     # CalDAV
     ##

@@ -475,12 +475,7 @@ class CalendarData (CalDAVElement):
         @param resource: the resource whose calendar data is to be returned.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        # Check for filtering or not
-        if self.children:
-            filtered = self.getFromICalendar(resource.iCalendar())
-            return CalendarData.fromCalendar(filtered)
-        else:
-            return resource.iCalendarXML()
+        return self.elementFromCalendar(resource.iCalendar())
 
     def elementFromCalendar(self, calendar):
         """
@@ -493,6 +488,138 @@ class CalendarData (CalDAVElement):
         # Check for filtering or not
         filtered = self.getFromICalendar(calendar)
         return CalendarData.fromCalendar(filtered)
+
+    def elementFromResourceWithAccessRestrictions(self, resource, access):
+        """
+        Return a new CalendarData element comprised of the possibly filtered
+        calendar data from the specified resource. If no filter is being applied
+        read the data directly from the resource without parsing it. If a filter
+        is required, parse the iCal data and filter using this CalendarData.
+        
+        Also, apply appropriate access restriction filtering to the data.
+
+        @param resource: the resource whose calendar data is to be returned.
+        @param access: private event access restriction level.
+        @return: an L{CalendarData} with the (filtered) calendar data.
+        """
+        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access)
+
+    def elementFromCalendarWithAccessRestrictions(self, calendar, access):
+        """
+        Return a new CalendarData element comprised of the possibly filtered
+        calendar.
+        
+        Also, apply appropriate access restriction filtering to the data.
+
+        @param calendar: the calendar that is to be filtered and returned.
+        @param access: private event access restriction level.
+        @return: an L{CalendarData} with the (filtered) calendar data.
+        """
+        
+        # Do normal filtering first
+        filtered_calendar = self.getFromICalendar(calendar)
+        
+        if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
+            # Create a CALDAV:calendar-data element with the appropriate iCalendar Component/Property
+            # filter in place for the access restriction in use
+            
+            extra_access = ()
+            if access == iComponent.ACCESS_RESTRICTED:
+                extra_access = (
+                    Property(name="SUMMARY"),
+                    Property(name="LOCATION"),
+                )
+
+            filter = CalendarData(
+                CalendarComponent(
+                    
+                    # VCALENDAR proeprties
+                    Property(name="PRODID"),
+                    Property(name="VERSION"),
+                    Property(name="CALSCALE"),
+                    Property(name=iComponent.ACCESS_PROPERTY),
+
+                    # VEVENT
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="TRANSP"),
+                        Property(name="DTSTART"),
+                        Property(name="DTEND"),
+                        Property(name="DURATION"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VEVENT"}
+                    ),
+                    
+                    # VTODO
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="DTSTART"),
+                        Property(name="COMPLETED"),
+                        Property(name="DUE"),
+                        Property(name="DURATION"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VTODO"}
+                    ),
+                    
+                    # VJOURNAL
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="TRANSP"),
+                        Property(name="DTSTART"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VJOURNAL"}
+                    ),
+                    
+                    # VFREEBUSY
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="DTSTAMP"),
+                        Property(name="DTSTART"),
+                        Property(name="DTEND"),
+                        Property(name="DURATION"),
+                        Property(name="FREEBUSY"),
+                        *extra_access,
+                        **{"name":"VFREEBUSY"}
+                    ),
+                    
+                    # VTIMEZONE
+                    CalendarComponent(
+                        AllProperties(),
+                        AllComponents(),
+                        name="VTIMEZONE",
+                    ),
+                    name="VCALENDAR",
+                ),
+            )
+
+            # Now "filter" the resource calendar data through the CALDAV:calendar-data element
+            return filter.elementFromCalendar(filtered_calendar)
+        else:
+            return CalendarData.fromCalendar(filtered_calendar)
 
     def getFromICalendar(self, calendar):
         """

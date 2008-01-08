@@ -63,17 +63,15 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
     if propertyreq.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
-        generate_calendar_data = False
 
     elif propertyreq.qname() == ("DAV:", "propname"):
         propertiesForResource = report_common.propertyNamesForResource
-        generate_calendar_data = False
 
     elif propertyreq.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
         
         # Verify that any calendar-data element matches what we can handle
-        result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
+        result, message, _ignore = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
         if not result:
             log.err(message)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
@@ -113,14 +111,21 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         # Check for disabled access
         if filteredaces is None:
             disabled = True
+            
+        # Check private events access status
+        d = waitForDeferred(self.isOwner(request))
+        yield d
+        isowner = d.getResult()
 
     elif self.isCollection():
         requestURIis = "collection"
         filteredaces = None
         lastParent = None
+        isowner = None
     else:
         requestURIis = "resource"
         filteredaces = None
+        isowner = None
 
     if not disabled:
         
@@ -169,7 +174,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
             # Get properties for all valid readable resources
             for resource, href in ok_resources:
-                d = waitForDeferred(report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, propertiesForResource, propertyreq))
+                d = waitForDeferred(report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, propertiesForResource, propertyreq, isowner=isowner))
                 yield d
                 d.getResult()
     
@@ -233,7 +238,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                         filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
                         yield filteredaces
                         filteredaces = filteredaces.getResult()
-        
+
+                        # Check private events access status
+                        d = waitForDeferred(parent.isOwner(request))
+                        yield d
+                        isowner = d.getResult()
                 else:
                     name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if (resource_uri != request.uri) or not self.exists():
@@ -254,6 +263,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     filteredaces = waitForDeferred(parent.inheritedACEsforChildren(request))
                     yield filteredaces
                     filteredaces = filteredaces.getResult()
+
+                    # Check private events access status
+                    d = waitForDeferred(parent.isOwner(request))
+                    yield d
+                    isowner = d.getResult()
         
                 # Check privileges - must have at least DAV:read
                 try:
@@ -264,7 +278,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
         
-                d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq))
+                d = waitForDeferred(report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq, isowner=isowner))
                 yield d
                 d.getResult()
 

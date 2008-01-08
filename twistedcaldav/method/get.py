@@ -48,111 +48,16 @@ def http_GET(self, request):
             d.getResult()
 
             # Non DAV:owner's have limited access to the data
-            d = waitForDeferred(self.owner(request))
+            d = waitForDeferred(self.isOwner(request))
             yield d
-            owner = d.getResult()
+            isowner = d.getResult()
             
-            authz = self.currentPrincipal(request)
-            if davxml.Principal(owner) != authz:
+            if not isowner:
 
-                # Create a CALDAV:calendar-data element with the appropriate iCalendar Component/Property
-                # filter in place for the access restriction in use
-                
-                extra_access = ()
-                if access == Component.ACCESS_RESTRICTED:
-                    extra_access = (
-                        caldavxml.Property(name="SUMMARY"),
-                        caldavxml.Property(name="LOCATION"),
-                    )
+                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
+                # access restrictions to the data.
+                caldata = caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
 
-                filter = caldavxml.CalendarData(
-                    caldavxml.CalendarComponent(
-                        
-                        # VCALENDAR proeprties
-                        caldavxml.Property(name="PRODID"),
-                        caldavxml.Property(name="VERSION"),
-                        caldavxml.Property(name="CALSCALE"),
-                        caldavxml.Property(name=Component.ACCESS_PROPERTY),
-
-                        # VEVENT
-                        caldavxml.CalendarComponent(
-                            caldavxml.Property(name="UID"),
-                            caldavxml.Property(name="RECURRENCE-ID"),
-                            caldavxml.Property(name="SEQUENCE"),
-                            caldavxml.Property(name="DTSTAMP"),
-                            caldavxml.Property(name="STATUS"),
-                            caldavxml.Property(name="TRANSP"),
-                            caldavxml.Property(name="DTSTART"),
-                            caldavxml.Property(name="DTEND"),
-                            caldavxml.Property(name="DURATION"),
-                            caldavxml.Property(name="RRULE"),
-                            caldavxml.Property(name="RDATE"),
-                            caldavxml.Property(name="EXRULE"),
-                            caldavxml.Property(name="EXDATE"),
-                            *extra_access,
-                            **{"name":"VEVENT"}
-                        ),
-                        
-                        # VTODO
-                        caldavxml.CalendarComponent(
-                            caldavxml.Property(name="UID"),
-                            caldavxml.Property(name="RECURRENCE-ID"),
-                            caldavxml.Property(name="SEQUENCE"),
-                            caldavxml.Property(name="DTSTAMP"),
-                            caldavxml.Property(name="STATUS"),
-                            caldavxml.Property(name="DTSTART"),
-                            caldavxml.Property(name="COMPLETED"),
-                            caldavxml.Property(name="DUE"),
-                            caldavxml.Property(name="DURATION"),
-                            caldavxml.Property(name="RRULE"),
-                            caldavxml.Property(name="RDATE"),
-                            caldavxml.Property(name="EXRULE"),
-                            caldavxml.Property(name="EXDATE"),
-                            *extra_access,
-                            **{"name":"VTODO"}
-                        ),
-                        
-                        # VJOURNAL
-                        caldavxml.CalendarComponent(
-                            caldavxml.Property(name="UID"),
-                            caldavxml.Property(name="RECURRENCE-ID"),
-                            caldavxml.Property(name="SEQUENCE"),
-                            caldavxml.Property(name="DTSTAMP"),
-                            caldavxml.Property(name="STATUS"),
-                            caldavxml.Property(name="TRANSP"),
-                            caldavxml.Property(name="DTSTART"),
-                            caldavxml.Property(name="RRULE"),
-                            caldavxml.Property(name="RDATE"),
-                            caldavxml.Property(name="EXRULE"),
-                            caldavxml.Property(name="EXDATE"),
-                            *extra_access,
-                            **{"name":"VJOURNAL"}
-                        ),
-                        
-                        # VFREEBUSY
-                        caldavxml.CalendarComponent(
-                            caldavxml.Property(name="UID"),
-                            caldavxml.Property(name="DTSTAMP"),
-                            caldavxml.Property(name="DTSTART"),
-                            caldavxml.Property(name="DTEND"),
-                            caldavxml.Property(name="DURATION"),
-                            caldavxml.Property(name="FREEBUSY"),
-                            *extra_access,
-                            **{"name":"VFREEBUSY"}
-                        ),
-                        
-                        # VTIMEZONE
-                        caldavxml.CalendarComponent(
-                            caldavxml.AllProperties(),
-                            caldavxml.AllComponents(),
-                            name="VTIMEZONE",
-                        ),
-                        name="VCALENDAR",
-                    ),
-                )
-
-                # Now "filter" the resource calendar data through the CALDAV:calendar-data element
-                caldata = filter.elementFromResource(self).calendarData()
                 response = Response()
                 response.stream = MemoryStream(caldata)
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
