@@ -31,6 +31,7 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.method import report_common
 
 import urllib
@@ -113,7 +114,16 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             @param calendar: the L{Component} calendar read from the resource.
             """
             
-            if query_ok or filter.match(calendar):
+            # Handle private events access restrictions
+            if not isowner:
+                try:
+                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
+                except HTTPError:
+                    access = None
+            else:
+                access = None
+
+            if query_ok or filter.match(calendar, access):
                 # Check size of results is within limit
                 matchcount[0] += 1
                 if matchcount[0] > max_number_of_results:
