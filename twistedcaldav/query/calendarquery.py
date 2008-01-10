@@ -57,6 +57,10 @@ def calendarquery(filter):
     assert vcalfilter.filter_name == "VCALENDAR"
     
     if len(vcalfilter.children) > 0:
+        # Only comp-filters are handled
+        for _ignore in [x for x in vcalfilter.children if not isinstance(x, caldavxml.ComponentFilter)]:
+            raise ValueError
+        
         return compfilterListExpression(vcalfilter.children)
     else:
         return expression.allExpression()
@@ -111,7 +115,7 @@ def compfilterExpression(compfilter):
         
     # Handle embedded components - we do not right now as our Index does not handle them
     comps = []
-    for c in [x for x in compfilter.filters if isinstance(x, caldavxml.ComponentFilter)]:
+    for _ignore in [x for x in compfilter.filters if isinstance(x, caldavxml.ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
         compsExpression = expression.orExpression[comps]
@@ -162,7 +166,7 @@ def propfilterExpression(propfilter):
     
     # Handle embedded parameters - we do not right now as our Index does not handle them
     params = []
-    for p in propfilter.filters:
+    for _ignore in propfilter.filters:
         raise ValueError
     if len(params) > 1:
         paramsExpression = expression.orExpression[params]
