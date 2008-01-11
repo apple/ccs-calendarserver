@@ -68,7 +68,21 @@ Index: twisted/web2/dav/element/parser.py
  
          self.stack.append({
              "name"       : name,
-@@ -194,6 +219,8 @@
+@@ -158,7 +183,12 @@
+         self.stack[-1]["children"].append(element)
+ 
+     def characters(self, content):
+-        self.stack[-1]["children"].append(PCDATAElement(content))
++        # Coalesce adjacent PCDATAElements
++        pcdata = PCDATAElement(content)
++        if len(self.stack[-1]["children"]) and isinstance(self.stack[-1]["children"][-1], PCDATAElement):
++            self.stack[-1]["children"][-1] = self.stack[-1]["children"][-1] + pcdata
++        else:
++            self.stack[-1]["children"].append(pcdata)
+ 
+     def ignorableWhitespace(self, whitespace):
+         self.characters(self, whitespace)
+@@ -194,6 +224,8 @@
              except xml.sax.SAXParseException, e:
                  raise ValueError(e)
  
