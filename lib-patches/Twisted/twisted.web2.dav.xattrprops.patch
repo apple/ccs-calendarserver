@@ -2,7 +2,7 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -33,6 +33,11 @@
+@@ -33,12 +33,18 @@
  
  import urllib
  import sys
@@ -14,7 +14,14 @@ Index: twisted/web2/dav/xattrprops.py
  
  import xattr
  
-@@ -66,16 +71,8 @@
+ if getattr(xattr, 'xattr', None) is None:
+     raise ImportError("wrong xattr package imported")
+ 
++from twisted.python import log
+ from twisted.web2 import responsecode
+ from twisted.web2.http import HTTPError, StatusResponse
+ from twisted.web2.dav import davxml
+@@ -66,16 +72,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -33,7 +40,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +94,41 @@
+@@ -97,19 +95,41 @@
  
      def get(self, qname):
          try:
