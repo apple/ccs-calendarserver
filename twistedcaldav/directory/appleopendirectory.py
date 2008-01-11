@@ -800,14 +800,28 @@ class OpenDirectoryRecord(DirectoryRecord):
                 return False
 
             try:
-                return opendirectory.authenticateUserDigest(
+                if self.digestcache[credentials.fields[uri]] == response:
+                    return True
+            except (AttributeError, KeyError):
+                pass
+
+            try:
+                if opendirectory.authenticateUserDigest(
                     self.service.directory,
                     self._nodename,
                     self.shortName,
                     challenge,
                     response,
                     credentials.method
-                )
+                ):
+                    try:
+                        cache = self.digestcache
+                    except AttributeError:
+                        cache = self.digestcache = {}
+
+                    cache[credentials.fields[uri]] = response
+
+                    return True
             except opendirectory.ODError, e:
                 logging.err("Open Directory error while performing digest authentication for record %s: %s"
                             % (self, e), system="OpenDirectoryService")

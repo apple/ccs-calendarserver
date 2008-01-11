@@ -295,39 +295,48 @@ class DigestTestCase (DirectoryTestCase):
 
         service = self.service()
         for user in self.users:
-            userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
+            for good in (True, True, False, False, True):
+                userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
 
-            # I'm glad this is so simple...
-            response = calcResponse(
-                calcHA1(
+                # I'm glad this is so simple...
+                response = calcResponse(
+                    calcHA1(
+                        "md5",
+                        user,
+                        service.realmName,
+                        self.users[user]["password"],
+                        "booger",
+                        "phlegm",
+                    ),
                     "md5",
-                    user,
-                    service.realmName,
-                    self.users[user]["password"],
                     "booger",
+                    None,
                     "phlegm",
-                ),
-                "md5",
-                "booger",
-                None,
-                "phlegm",
-                "auth",
-                "GET",
-                "/",
-                None,
-            )
+                    "auth",
+                    "GET",
+                    "/",
+                    None,
+                )
 
-            credentials = DigestedCredentials(
-                user,
-                "GET",
-                service.realmName,
-                {
-                    "response": response,
-                    "uri": "/",
-                    "nonce": "booger",
-                    "cnonce": "phlegm",
-                    "nc": None,
-                },
-            )
+                if good:
+                    noise = ""
+                else:
+                    noise = "blah"
 
-            self.failUnless(userRecord.verifyCredentials(credentials))
+                credentials = DigestedCredentials(
+                    user,
+                    "GET",
+                    service.realmName,
+                    {
+                        "response": response,
+                        "uri": "/",
+                        "nonce": "booger" + noise,
+                        "cnonce": "phlegm",
+                        "nc": None,
+                    },
+                )
+
+                if good:
+                    self.failUnless(userRecord.verifyCredentials(credentials))
+                else:
+                    self.failIf(userRecord.verifyCredentials(credentials))
