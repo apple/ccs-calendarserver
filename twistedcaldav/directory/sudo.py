@@ -27,13 +27,13 @@ __all__ = [
 
 from twisted.python.filepath import FilePath
 
-from twisted.cred.credentials import (IUsernamePassword, 
+from twisted.cred.credentials import (IUsernamePassword,
                                       IUsernameHashedPassword)
 
 from twisted.cred.error import UnauthorizedLogin
 
 from twistedcaldav.py.plistlib import readPlist
-from twistedcaldav.directory.directory import (DirectoryService, 
+from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
 
@@ -58,7 +58,7 @@ class SudoDirectoryService(DirectoryService):
 
         if isinstance(plistFile, (unicode, str)):
             plistFile = FilePath(plistFile)
-            
+
         self.plistFile = plistFile
         self._fileInfo = None
         self._accounts()
@@ -104,12 +104,12 @@ class SudoDirectoryService(DirectoryService):
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
         sudouser = self.recordWithShortName(
-            SudoDirectoryService.recordType_sudoers, 
+            SudoDirectoryService.recordType_sudoers,
             credentials.credentials.username)
 
         if sudouser is None:
             raise UnauthorizedLogin("No such user: %s" % (sudouser,))
-        
+
         if sudouser.verifyCredentials(credentials.credentials):
             return (
                 credentials.authnPrincipal.principalURL(),
@@ -117,7 +117,7 @@ class SudoDirectoryService(DirectoryService):
                 )
         else:
             raise UnauthorizedLogin(
-                "Incorrect credentials for %s" % (sudouser,)) 
+                "Incorrect credentials for %s" % (sudouser,))
 
 
 class SudoDirectoryRecord(DirectoryRecord):
@@ -133,7 +133,8 @@ class SudoDirectoryRecord(DirectoryRecord):
             shortName=shortName,
             fullName=shortName,
             calendarUserAddresses=set(),
-            autoSchedule=False)
+            autoSchedule=False,
+            enabledForCalendaring=False)
 
         self.password = entry['password']
 
@@ -142,5 +143,5 @@ class SudoDirectoryRecord(DirectoryRecord):
             return credentials.checkPassword(self.password)
         elif IUsernameHashedPassword.providedBy(credentials):
             return credentials.checkPassword(self.password)
-        
+
         return super(SudoDirectoryRecord, self).verifyCredentials(credentials)
