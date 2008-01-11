@@ -800,7 +800,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                 return False
 
             try:
-                if self.digestcache[credentials.fields[uri]] == response:
+                if self.digestcache[credentials.fields["uri"]] == response:
                     return True
             except (AttributeError, KeyError):
                 pass
@@ -819,7 +819,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                     except AttributeError:
                         cache = self.digestcache = {}
 
-                    cache[credentials.fields[uri]] = response
+                    cache[credentials.fields["uri"]] = response
 
                     return True
             except opendirectory.ODError, e:
