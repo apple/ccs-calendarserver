@@ -764,12 +764,25 @@ class OpenDirectoryRecord(DirectoryRecord):
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
+            # Check cached password
             try:
-                return opendirectory.authenticateUserBasic(self.service.directory, self._nodename, self.shortName, credentials.password)
+                if credentials.password == self.password:
+                    return True
+            except AttributeError:
+                pass
+
+            # Check with directory services
+            try:
+                if opendirectory.authenticateUserBasic(self.service.directory, self._nodename, self.shortName, credentials.password):
+                    # Cache the password to avoid future DS queries
+                    self.password = credentials.password
+                    return True
             except opendirectory.ODError, e:
                 logging.err("Open Directory (node=%s) error while performing basic authentication for user %s: %s"
-                        % (self.service.realmName, self.shortName, e), system="OpenDirectoryService")
-                return False
+                            % (self.service.realmName, self.shortName, e), system="OpenDirectoryService")
+
+            return False
+
         elif isinstance(credentials, DigestedCredentials):
             try:
                 # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
@@ -788,14 +801,28 @@ class OpenDirectoryRecord(DirectoryRecord):
                             % (self.service.realmName, self.shortName, e, credentials.fields), system="OpenDirectoryService")
                     return False
 
-                return opendirectory.authenticateUserDigest(
+                if self.digestcache[credentials.fields["uri"]] == response:
+                    return True
+            except (AttributeError, KeyError):
+                pass
+
+            try:
+                if opendirectory.authenticateUserDigest(
                     self.service.directory,
                     self._nodename,
                     self.shortName,
                     challenge,
                     response,
                     credentials.method
-                )
+                ):
+                    try:
+                        cache = self.digestcache
+                    except AttributeError:
+                        cache = self.digestcache = {}
+
+                    cache[credentials.fields["uri"]] = response
+
+                    return True
             except opendirectory.ODError, e:
                 logging.err("Open Directory (node=%s) error while performing digest authentication for user %s: %s"
                         % (self.service.realmName, self.shortName, e), system="OpenDirectoryService")
