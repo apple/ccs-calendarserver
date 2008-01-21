@@ -24,7 +24,7 @@ from twisted.runner import procmon
 from twisted.application import internet, service
 
 from twistedcaldav import logging
-from twistedcaldav.config import config
+from twistedcaldav.config import config, ConfigurationError
 
 from twistedcaldav.util import getNCPU
 
@@ -67,10 +67,13 @@ class TwistdSlaveProcess(object):
         self.interfaces = interfaces
 
     def getName(self):
-        return '%s-%s' % (self.prefix, self.ports[0])
+        if self.ports is not None:
+            return '%s-%s' % (self.prefix, self.ports[0])
+        elif self.sslPorts is not None:
+            return '%s-%s' % (self.prefix, self.sslPorts[0])
 
-    def getSSLName(self):
-        return '%s-%s' % (self.prefix, self.sslPorts[0])
+        raise ConfigurationError(
+            "Can't create TwistdSlaveProcess without a TCP Port")
 
     def getCommandLine(self):
         args = [
@@ -100,7 +103,7 @@ class TwistdSlaveProcess(object):
 
         if self.sslPorts:
             args.extend([
-                    '-o', 
+                    '-o',
                     'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),)])
 
 
@@ -108,17 +111,24 @@ class TwistdSlaveProcess(object):
 
         return args
 
-    def getHostLine(self, ssl=None):
+    def getHostLine(self, ssl=True):
         name = self.getName()
-        port = self.ports
+        port = None
 
-        if ssl:
-            name = self.getSSLName()
+        if self.ports is not None:
+            port = self.ports
+
+        if ssl and self.sslPorts is not None:
             port = self.sslPorts
+
+        if port is None:
+            raise ConfigurationError(
+                "Can not add a host without a port")
 
         return hostTemplate % {'name': name,
                                'port': port[0],
                                'bindAddress': '127.0.0.1'}
+
 
 def makeService_Combined(self, options):
     s = service.MultiService()
