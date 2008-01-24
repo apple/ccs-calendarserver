@@ -51,9 +51,7 @@ limitations under the License.
 
   <!-- List of IP addresses to bind to [empty = all] -->
   <key>BindAddresses</key>
-  <array>
-    <string>127.0.0.1</string>
-  </array>
+  <array></array>
 
   <!-- List of port numbers to bind to for HTTP [empty = same as "Port"] -->
   <key>BindHTTPPorts</key>
