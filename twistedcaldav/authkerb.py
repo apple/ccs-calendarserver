@@ -23,7 +23,7 @@ This implements two authentication modes:
     1. An alternative to password based BASIC authentication in which the BASIC credentials are
         verified against Kerberos.
    
-    2. The NEGOTIATE mechanism (as defined in http://www.ietf.org/internet-drafts/draft-jaganathan-kerberos-http-01.txt)
+    2. The NEGOTIATE mechanism (as defined in http://www.ietf.org/rfc/rfc4559.txt)
         that implements full GSSAPI authentication.
 """
 
@@ -189,10 +189,7 @@ class NegotiateCredentials(object):
         
 class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
     """
-    Authorizer for insecure Basic (base64-encoded plaintext) authentication.
-
-    This form of authentication is insecure and should only be used when SSL is in effect.
-    Right now we do not check for that.
+    Authorizer for Negotiate authentication (http://www.ietf.org/rfc/rfc4559.txt).
     """
 
     scheme = 'negotiate'
