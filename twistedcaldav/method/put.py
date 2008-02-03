@@ -28,7 +28,7 @@ from twisted.web2.dav.util import allDataFromStream, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 def http_PUT(self, request):
@@ -58,15 +58,15 @@ def http_PUT(self, request):
                 # Use correct DAV:error response
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
-            d = waitForDeferred(storeCalendarObjectResource(
+            storer = StoreCalendarObjectResource(
                 request = request,
-                sourcecal = False,
-                calendardata = calendardata,
                 destination = self,
                 destination_uri = request.uri,
                 destinationcal = True,
-                destinationparent = parent,)
+                destinationparent = parent,
+                calendar = calendardata,
             )
+            d = waitForDeferred(storer.run())
             yield d
             yield d.getResult()
             return

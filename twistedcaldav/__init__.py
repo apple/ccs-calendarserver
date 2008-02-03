@@ -31,6 +31,7 @@ __all__ = [
     "directory",
     "dropbox",
     "extensions",
+    "freebusyurl",
     "ical",
     "icaldav",
     "index",
@@ -42,8 +43,12 @@ __all__ = [
     "resource",
     "root",
     "schedule",
+    "schedule_common",
+    "servertoserver",
+    "servertoserverparser",
     "sql",
     "static",
+    "timezones",
 ]
 
 try:
