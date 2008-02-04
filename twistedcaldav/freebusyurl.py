@@ -77,7 +77,7 @@ class FreeBusyURLResource (CalDAVResource):
                 davxml.Protected(),
             ),
         )
-        if config.ServerToServer["Anonymous Access"]:
+        if config.FreeBusyURL["Anonymous Access"]:
             aces += (
                 # DAV:Read, for unauthenticated principals
                 davxml.ACE(
