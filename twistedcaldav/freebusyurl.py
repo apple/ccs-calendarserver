@@ -66,7 +66,7 @@ class FreeBusyURLResource (CalDAVResource):
         self.parent = parent
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
+        aces = (
             # DAV:Read, CalDAV:schedule for all principals (does not include anonymous)
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
@@ -77,6 +77,18 @@ class FreeBusyURLResource (CalDAVResource):
                 davxml.Protected(),
             ),
         )
+        if config.ServerToServer["Anonymous Access"]:
+            aces += (
+                # DAV:Read, for unauthenticated principals
+                davxml.ACE(
+                    davxml.Principal(davxml.Unauthenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
+                ),
+            )
+        return davxml.ACL(*aces)
 
     def resourceType(self):
         return davxml.ResourceType.freebusyurl

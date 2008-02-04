@@ -155,8 +155,9 @@ defaultConfig = {
     },
 
     "FreeBusyURL": {
-        "Enabled"         : False, # Per-user free-busy-url protocol
-        "Time Period"     : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "Enabled"          : False, # Per-user free-busy-url protocol
+        "Time Period"      : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "Anonymous Access" : False, # Allow anonymous read access to free-busy URL
     },
 
     #

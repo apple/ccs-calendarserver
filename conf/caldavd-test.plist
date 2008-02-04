@@ -354,6 +354,8 @@ limitations under the License.
   	<true/>
   	<key>Time Period</key>
   	<integer>14</integer>
+  	<key>Anonymous Access</key>
+  	<false/>
   </dict>
 
   <!--
