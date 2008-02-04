@@ -304,19 +304,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
                 ),
             )
 
-        if config.FreeBusyURL["Anonymous Access"]:
-            aces += (
-                # Inheritable CALDAV:read-free-busy access for unauthenticated principals.
-                davxml.ACE(
-                    davxml.Principal(davxml.Unauthenticated()),
-                    davxml.Grant(
-                        davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
-                    ),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-            )
-
         return davxml.ACL(*aces)
 
     def principalCollections(self):
