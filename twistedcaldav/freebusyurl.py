@@ -235,7 +235,7 @@ class FreeBusyURLResource (CalDAVResource):
             None,
             None,
             attendeeProp,
-            False,
+            True,
         ))
         yield d
         fbresult = d.getResult()
