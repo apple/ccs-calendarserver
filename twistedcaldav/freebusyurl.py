@@ -84,7 +84,6 @@ class FreeBusyURLResource (CalDAVResource):
                     davxml.Principal(davxml.Unauthenticated()),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(caldavxml.Schedule()),
                     ),
                     davxml.Protected(),
                 ),
