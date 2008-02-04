@@ -144,7 +144,7 @@ def logRequest(message, request, **kwargs):
             if name not in ("Authorization",):
                 iostr.write("%s: %s\n" % (name, value))
             else:
-                iostr.write("%s: xxxxxxxxx\n")
+                iostr.write("%s: xxxxxxxxx\n" % (name,))
     
     iostr.write("\n")
     data = waitForDeferred(allDataFromStream(request.stream))
@@ -172,7 +172,7 @@ def logResponse(message, response, **kwargs):
             if name not in ("WWW-Authenticate",):
                 iostr.write("%s: %s\n" % (name, value))
             else:
-                iostr.write("%s: xxxxxxxxx\n")
+                iostr.write("%s: xxxxxxxxx\n" % (name,))
     
     iostr.write("\n")
     data = waitForDeferred(allDataFromStream(response.stream))
