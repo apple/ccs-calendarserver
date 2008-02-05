@@ -29,15 +29,17 @@ import xml.dom.minidom
 ELEMENT_SERVERS                 = "servers"
 ELEMENT_SERVER                  = "server"
 ELEMENT_URI                     = "uri"
-ELEMENT_ALLOW_REQUESTS_FROM     = "allow-requests-from"
-ELEMENT_ALLOW_REQUESTS_TO       = "allow-requests-to"
-ELEMENT_DOMAINS                 = "domains"
-ELEMENT_DOMAIN                  = "domain"
 ELEMENT_AUTHENTICATION          = "authentication"
 ATTRIBUTE_TYPE                  = "type"
 ATTRIBUTE_BASICAUTH             = "basic"
 ELEMENT_USER                    = "user"
 ELEMENT_PASSWORD                = "password"
+ELEMENT_ALLOW_REQUESTS_FROM     = "allow-requests-from"
+ELEMENT_ALLOW_REQUESTS_TO       = "allow-requests-to"
+ELEMENT_DOMAINS                 = "domains"
+ELEMENT_DOMAIN                  = "domain"
+ELEMENT_CLIENT_HOSTS            = "hosts"
+ELEMENT_HOST                    = "host"
 
 class ServerToServerParser(object):
     """
@@ -85,10 +87,11 @@ class ServerToServerRecord (object):
         @param recordType: record type for directory entry.
         """
         self.uri = ""
+        self.authentication = None
         self.allow_from = False
         self.allow_to = True
         self.domains = []
-        self.authentication = None
+        self.client_hosts = []
 
     def parseXML(self, node):
         for child in node._get_childNodes():
@@ -98,24 +101,26 @@ class ServerToServerRecord (object):
             elif child_name == ELEMENT_URI:
                 if child.firstChild is not None:
                     self.uri = child.firstChild.data.encode("utf-8")
+            elif child_name == ELEMENT_AUTHENTICATION:
+                self._parseAuthentication(child)
             elif child_name == ELEMENT_ALLOW_REQUESTS_FROM:
                 self.allow_from = True
             elif child_name == ELEMENT_ALLOW_REQUESTS_TO:
                 self.allow_to = True
             elif child_name == ELEMENT_DOMAINS:
-                self._parseDomains(child)
-            elif child_name == ELEMENT_AUTHENTICATION:
-                self._parseAuthentication(child)
+                self._parseList(child, ELEMENT_DOMAIN, self.domains)
+            elif child_name == ELEMENT_CLIENT_HOSTS:
+                self._parseList(child, ELEMENT_HOST, self.client_hosts)
             else:
                 raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child_name,))
         
         self._parseDetails()
 
-    def _parseDomains(self, node):
+    def _parseList(self, node, element_name, appendto):
         for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_DOMAIN:
+            if child._get_localName() == node:
                 if child.firstChild is not None:
-                    self.domains.append(child.firstChild.data.encode("utf-8"))
+                    appendto.append(child.firstChild.data.encode("utf-8"))
 
     def _parseAuthentication(self, node):
         if node.hasAttribute(ATTRIBUTE_TYPE):

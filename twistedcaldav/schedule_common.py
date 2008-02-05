@@ -756,11 +756,12 @@ class ServerToServerScheduler(Scheduler):
             clientip = self.request.remoteAddr.host
             
             # First compare as dotted IP
-            if clientip != server.host:
+            compare_with = (server.host,) + tuple(server.client_hosts)
+            if clientip in compare_with:
                 # Now do hostname lookup
                 host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
                 for host in itertools.chain((host,), aliases):
-                    if host == server.host:
+                    if host in compare_with:
                         break
                 else:
                     logging.err("Originator not on allowed server: %s" % (self.originator,), system=self.logsystem)
