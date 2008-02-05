@@ -29,13 +29,12 @@ from twisted.internet.defer import DeferredList
 from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError, Response
-from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
-
+from twisted.web2.http import HTTPError, Response
+from twisted.web2.http_headers import MimeType
 from twistedcaldav import caldavxml
 from twistedcaldav import logging
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
@@ -48,12 +47,13 @@ from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.servertoserver import ServerToServer
 from twistedcaldav.servertoserver import ServerToServerRequest
-
 import itertools
 import md5
 import re
 import socket
 import time
+
+
 
 class Scheduler(object):
     
@@ -756,16 +756,31 @@ class ServerToServerScheduler(Scheduler):
             clientip = self.request.remoteAddr.host
             
             # First compare as dotted IP
+            matched = False
             compare_with = (server.host,) + tuple(server.client_hosts)
-            if clientip not in compare_with:
+            if clientip in compare_with:
+                matched = True
+            else:
                 # Now do hostname lookup
                 host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
                 for host in itertools.chain((host,), aliases):
+                    # Try simple match first
                     if host in compare_with:
+                        matched = True
                         break
-                else:
-                    logging.err("Originator not on allowed server: %s" % (self.originator,), system=self.logsystem)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+                    
+                    # Try pattern match next
+                    for pattern in compare_with:
+                        if re.match(pattern, cuaddr) is not None:
+                            matched = True
+                            break
+                    else:
+                        continue
+                    break
+                        
+            if not matched:
+                logging.err("Originator not on allowed server: %s" % (self.originator,), system=self.logsystem)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
     @deferredGenerator
     def checkRecipients(self):
