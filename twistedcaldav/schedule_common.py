@@ -757,7 +757,7 @@ class ServerToServerScheduler(Scheduler):
             
             # First compare as dotted IP
             compare_with = (server.host,) + tuple(server.client_hosts)
-            if clientip in compare_with:
+            if clientip not in compare_with:
                 # Now do hostname lookup
                 host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
                 for host in itertools.chain((host,), aliases):
