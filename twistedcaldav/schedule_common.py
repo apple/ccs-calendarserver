@@ -288,12 +288,18 @@ class Scheduler(object):
         result = False
         
         for pattern in config.ServerToServer["Local Addresses"]:
-            if re.match(pattern, cuaddr) is not None:
-                result = True
-        
+            try:
+                if re.match(pattern, cuaddr) is not None:
+                    result = True
+            except re.error, e:
+                logging.debug("Invalid regular expression for ServerToServer configuration 'Local Addresses': %s" % (pattern,), system=self.logsystem)
+            
         for pattern in config.ServerToServer["Remote Addresses"]:
-            if re.match(pattern, cuaddr) is not None:
-                result = False
+            try:
+                if re.match(pattern, cuaddr) is not None:
+                    result = False
+            except re.error, e:
+                logging.debug("Invalid regular expression for ServerToServer configuration 'Remote Addresses': %s" % (pattern,), system=self.logsystem)
         
         return result
     
@@ -771,9 +777,12 @@ class ServerToServerScheduler(Scheduler):
                     
                     # Try pattern match next
                     for pattern in compare_with:
-                        if re.match(pattern, host) is not None:
-                            matched = True
-                            break
+                        try:
+                            if re.match(pattern, host) is not None:
+                                matched = True
+                                break
+                        except re.error, e:
+                            logging.debug("Invalid regular expression for ServerToServer whitelist for server domain %s: %s" % (self.originator.domain, pattern,), system=self.logsystem)
                     else:
                         continue
                     break
