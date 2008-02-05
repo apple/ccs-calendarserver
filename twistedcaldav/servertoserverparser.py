@@ -118,7 +118,7 @@ class ServerToServerRecord (object):
 
     def _parseList(self, node, element_name, appendto):
         for child in node._get_childNodes():
-            if child._get_localName() == node:
+            if child._get_localName() == element_name:
                 if child.firstChild is not None:
                     appendto.append(child.firstChild.data.encode("utf-8"))
 
