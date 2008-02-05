@@ -771,7 +771,7 @@ class ServerToServerScheduler(Scheduler):
                     
                     # Try pattern match next
                     for pattern in compare_with:
-                        if re.match(pattern, cuaddr) is not None:
+                        if re.match(pattern, host) is not None:
                             matched = True
                             break
                     else:
