@@ -111,7 +111,7 @@ class TwistdSlaveProcess(object):
 
         return args
 
-    def getHostLine(self, ssl=True):
+    def getHostLine(self, ssl=False):
         name = self.getName()
         port = None
 
