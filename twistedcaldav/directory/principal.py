@@ -386,29 +386,6 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
     ##
 
     def renderDirectoryBody(self, request):
-        def format_list(items, *args):
-            def genlist():
-                try:
-                    item = None
-                    for item in items:
-                        yield " -> %s\n" % (item,)
-                    if item is None:
-                        yield " '()\n"
-                except Exception, e:
-                    log.err("Exception while rendering: %s" % (e,))
-                    Failure().printTraceback()
-                    yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-            return "".join(genlist())
-
-        def format_principals(principals):
-            return format_list(
-                """<a href="%s">%s</a>""" % (principal.principalURL(), escape(str(principal)))
-                for principal in principals
-            )
-
-        def link(url):
-            return """<a href="%s">%s</a>""" % (url, url)
-
         def gotSuper(output):
             return "".join((
                 """<div class="directory-listing">"""
@@ -426,8 +403,8 @@ class DirectoryPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, D
                 """Short name: %s\n"""             % (self.record.shortName,),
                 """Full name: %s\n"""              % (self.record.fullName,),
                 """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
+                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
                 """\nGroup members:\n"""           , format_principals(self.groupMembers()),
                 """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
                 """</pre></blockquote></div>""",
@@ -552,29 +529,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     Directory calendar principal resource.
     """
     def renderDirectoryBody(self, request):
-        def format_list(items, *args):
-            def genlist():
-                try:
-                    item = None
-                    for item in items:
-                        yield " -> %s\n" % (item,)
-                    if item is None:
-                        yield " '()\n"
-                except Exception, e:
-                    log.err("Exception while rendering: %s" % (e,))
-                    Failure().printTraceback()
-                    yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-            return "".join(genlist())
-
-        def format_principals(principals):
-            return format_list(
-                """<a href="%s">%s</a>""" % (principal.principalURL(), escape(str(principal)))
-                for principal in principals
-            )
-
-        def link(url):
-            return """<a href="%s">%s</a>""" % (url, url)
-
         def gotSuper(output):
             return "".join((
                 """<div class="directory-listing">"""
@@ -592,12 +546,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 """Short name: %s\n"""             % (self.record.shortName,),
                 """Full name: %s\n"""              % (self.record.fullName,),
                 """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
+                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
                 """\nGroup members:\n"""           , format_principals(self.groupMembers()),
                 """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
-                """\nCalendar homes:\n"""          , format_list(link(u) for u in self.calendarHomeURLs()),
-                """\nCalendar user addresses:\n""" , format_list(link(a) for a in self.calendarUserAddresses()),
+                """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
+                """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
                 """</pre></blockquote></div>""",
                 output
             ))
@@ -731,3 +685,47 @@ class RecordNameProperty (davxml.WebDAVTextElement):
     name = "record-name"
 
 davxml.registerElement(RecordNameProperty)
+
+def format_list(items, *args):
+    def genlist():
+        try:
+            item = None
+            for item in items:
+                yield " -> %s\n" % (item,)
+            if item is None:
+                yield " '()\n"
+        except Exception, e:
+            log.err("Exception while rendering: %s" % (e,))
+            Failure().printTraceback()
+            yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+    return "".join(genlist())
+
+def format_principals(principals):
+    def sort(a, b):
+        def sortkey(principal):
+            try:
+                record = principal.record
+            except AttributeError:
+                try:
+                    record = principal.parent.record
+                except:
+                    return None
+
+            return [record.recordType, record.shortName]
+
+        return cmp(sortkey(a), sortkey(b))
+
+    def describe(principal):
+        if hasattr(principal, "record"):
+            return " - %s" % (principal.record.fullName,)
+        else:
+            return ""
+
+    return format_list(
+        """<a href="%s">%s%s</a>"""
+        % (principal.principalURL(), escape(str(principal)), describe(principal))
+        for principal in sorted(principals, sort)
+    )
+
+def format_link(url):
+    return """<a href="%s">%s</a>""" % (url, url)

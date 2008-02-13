@@ -202,29 +202,7 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
 
     def renderDirectoryBody(self, request):
         # FIXME: Too much code duplication here from principal.py
-
-        def format_list(items, *args):
-            def genlist():
-                try:
-                    item = None
-                    for item in items:
-                        yield " -> %s\n" % (item,)
-                    if item is None:
-                        yield " '()\n"
-                except Exception, e:
-                    log.err("Exception while rendering: %s" % (e,))
-                    Failure().printTraceback()
-                    yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-            return "".join(genlist())
-
-        def link(url):
-            return """<a href="%s">%s</a>""" % (url, url)
-
-        def format_principals(principals):
-            return format_list(
-                """<a href="%s">%s</a>""" % (principal.principalURL(), escape(str(principal)))
-                for principal in principals
-            )
+        from twistedcaldav.directory.principal import format_list, format_principals, format_link
 
         def gotSuper(output):
             return "".join((
@@ -243,14 +221,14 @@ class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, Permissions
                 """Short name: %s\n"""             % (self.parent.record.shortName,),
                 """Full name: %s\n"""              % (self.parent.record.fullName,),
                 """Principal UID: %s\n"""          % (self.parent.principalUID(),),
-                """Principal URL: %s\n"""          % (link(self.parent.principalURL()),),
+                """Principal URL: %s\n"""          % (format_link(self.parent.principalURL()),),
                 """\n"""
                 """Proxy Principal Information\n"""
                 """---------------------\n"""
                #"""GUID: %s\n"""                   % (self.guid,),
                 """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(link(u) for u in self.alternateURIs()),
+                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
+                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
                 """\nGroup members (%s):\n""" % ({False:"Locked", True:"Editable"}[self.hasEditableMembership()])
                                                    , format_principals(self.groupMembers()),
                 """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
