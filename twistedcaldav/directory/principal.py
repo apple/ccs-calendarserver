@@ -88,7 +88,7 @@ class DirectoryProvisioningResource(
         return self.principalForShortName(DirectoryService.recordType_users, user)
 
     def principalForGUID(self, guid):
-        return self.principalForUID(guid)
+        return self.principalForRecord(self.directory.recordWithGUID(guid))
 
     def principalForUID(self, uid):
         raise NotImplementedError("Subclass must implement principalForUID()")
@@ -96,7 +96,7 @@ class DirectoryProvisioningResource(
     def principalForRecord(self, record):
         if record is None:
             return None
-        return self.principalForGUID(record.guid)
+        return self.principalForUID(record.guid)
 
     def principalForCalendarUserAddress(self, address):
         raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")

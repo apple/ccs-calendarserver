@@ -17,30 +17,35 @@
 import twisted.trial.unittest
 
 try:
-    from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+    from twistedcaldav.directory.appleopendirectory import OpenDirectoryService as RealOpenDirectoryService
     import dsattributes
 except ImportError:
     pass
 else:
     from twistedcaldav.directory.directory import DirectoryService
+    from twistedcaldav.directory.util import uuidFromName
 
-    def _queryDirectory(dir, recordType, shortName=None):
+    class OpenDirectoryService (RealOpenDirectoryService):
+        def _queryDirectory(directory, recordType, shortName=None, guid=None):
+            if shortName is None and guid is None:
+                return directory.fakerecords[recordType]
 
-        if shortName:
-            for name, record in dir.fakerecords[recordType]:
-                if name == shortName:
-                    return ((name, record),)
-            else:
-                return ()
-        else:
-            return dir.fakerecords[recordType]
+            assert shortName is None or guid is None
+            if guid is not None:
+                guid = guid.lower()
+
+            records = []
+
+            for name, record in directory.fakerecords[recordType]:
+                if name == shortName or record[dsattributes.kDS1AttrGeneratedUID] == guid:
+                    records.append((name, record))
+
+            return tuple(records)
     
     class ReloadCache(twisted.trial.unittest.TestCase):
-
         def setUp(self):
             super(ReloadCache, self).setUp()
             self._service = OpenDirectoryService(node="/Search", dosetup=False)
-            OpenDirectoryService._queryDirectory = _queryDirectory
             
         def tearDown(self):
             for call in self._service._delayedCalls:
@@ -56,82 +61,37 @@ else:
             self.assertTrue(len(missing) == 0, msg="Directory records not found: %s" % (missing,))
             self.assertTrue(len(extras) == 0, msg="Directory records not expected: %s" % (extras,))
                 
-        def _verifyDisabledRecords(self, recordType, disabled_type, expected):
-            expected = set(expected)
-            found = self._service._records[recordType]["disabled_%s" % (disabled_type,)]
+        def _verifyDisabledRecords(self, recordType, expectedNames, expectedGUIDs):
+            def check(disabledType, expected):
+                expected = set(expected)
+                found = self._service._records[recordType][disabledType]
             
-            missing = expected.difference(found)
-            extras = found.difference(expected)
+                missing = expected.difference(found)
+                extras = found.difference(expected)
 
-            self.assertTrue(len(missing) == 0, msg="Disabled directory records not found: %s" % (missing,))
-            self.assertTrue(len(extras) == 0, msg="Disabled directory records not expected: %s" % (extras,))
+                self.assertTrue(len(missing) == 0, msg="Disabled directory records not found: %s" % (missing,))
+                self.assertTrue(len(extras) == 0, msg="Disabled directory records not expected: %s" % (extras,))
 
-        def test_Normal(self):
-            
+            check("disabled names", expectedNames)
+            check("disabled guids", (guid.lower() for guid in expectedGUIDs))
+
+        def test_normal(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
                 ],
                 DirectoryService.recordType_groups: [
-                    ["group01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_group01",
-                        dsattributes.kDS1AttrDistinguishedName: "Group 01",
-                        dsattributes.kDSNAttrEMailAddress: "group01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["group02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_group02",
-                        dsattributes.kDS1AttrDistinguishedName: "Group 02",
-                        dsattributes.kDSNAttrEMailAddress: "group02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
                 ],
                 DirectoryService.recordType_resources: [
-                    ["resource01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_resource01",
-                        dsattributes.kDS1AttrDistinguishedName: "Resource 01",
-                        dsattributes.kDSNAttrEMailAddress: "resource01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["resource02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_resource02",
-                        dsattributes.kDS1AttrDistinguishedName: "Resource 02",
-                        dsattributes.kDSNAttrEMailAddress: "resource02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
                 ],
                 DirectoryService.recordType_locations: [
-                    ["location01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_location01",
-                        dsattributes.kDS1AttrDistinguishedName: "Location 01",
-                        dsattributes.kDSNAttrEMailAddress: "location01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["location02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_location02",
-                        dsattributes.kDS1AttrDistinguishedName: "Location 02",
-                        dsattributes.kDSNAttrEMailAddress: "location02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
                 ],
             }
 
@@ -140,221 +100,173 @@ else:
             self._service.reloadCache(DirectoryService.recordType_resources)
             self._service.reloadCache(DirectoryService.recordType_locations)
 
-            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ())
+            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02"))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
-            self._verifyRecords(DirectoryService.recordType_groups, ("group01", "group02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_groups, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_groups, "guids", ())
+            self._verifyRecords(DirectoryService.recordType_groups, ("group01", "group02"))
+            self._verifyDisabledRecords(DirectoryService.recordType_groups, (), ())
 
-            self._verifyRecords(DirectoryService.recordType_resources, ("resource01", "resource02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_resources, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_resources, "guids", ())
+            self._verifyRecords(DirectoryService.recordType_resources, ("resource01", "resource02"))
+            self._verifyDisabledRecords(DirectoryService.recordType_resources, (), ())
 
-            self._verifyRecords(DirectoryService.recordType_locations, ("location01", "location02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_locations, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_locations, "guids", ())
+            self._verifyRecords(DirectoryService.recordType_locations, ("location01", "location02"))
+            self._verifyDisabledRecords(DirectoryService.recordType_locations, (), ())
 
-        def test_DuplicateRecords(self):
+        def test_normalCacheMiss(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                ],
-            }
-
-            self._service.reloadCache(DirectoryService.recordType_users)
-
-            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ())
-
-
-        def test_DuplicateName(self):
-            
-            self._service.fakerecords = {
-                DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02-1",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02-2",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
                 ],
             }
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
             self._verifyRecords(DirectoryService.recordType_users, ("user01",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ("user02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ("GUID_user02-1", "GUID_user02-2", ))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
-        def test_DuplicateGUID(self):
-            
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user03", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
+                ],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users, shortName="user02")
+            self._service.reloadCache(DirectoryService.recordType_users, guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A")
+
+            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+
+        def test_duplicateRecords(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 02"),
+                ],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02"))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+
+
+        def test_duplicateName(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="A25775BB-1281-4606-98C6-2893B2D5CCD7"),
+                    fakeODRecord("User 02", guid="30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
                 ],
             }
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
             self._verifyRecords(DirectoryService.recordType_users, ("user01",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ("user02", "user03",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ("GUID_user02", ))
+            self._verifyDisabledRecords(
+                DirectoryService.recordType_users,
+                ("user02",),
+                ("A25775BB-1281-4606-98C6-2893B2D5CCD7", "30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
+            )
 
-        def test_DuplicateCombo(self):
-            
+        def test_duplicateGUID(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user03", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02-2",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
+                    fakeODRecord("User 03", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                 ],
             }
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
             self._verifyRecords(DirectoryService.recordType_users, ("user01",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ("user02", "user03",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ("GUID_user02", "GUID_user02-2"))
+            self._verifyDisabledRecords(
+                DirectoryService.recordType_users,
+                ("user02", "user03"),
+                ("113D7F74-F84A-4F17-8C96-CE8F10D68EF8",),
+            )
 
-        def test_DuplicateGUIDCacheMiss(self):
-            
+        def test_duplicateCombo(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8", shortName="user03"),
+                    fakeODRecord("User 02", guid="136E369F-DB40-4135-878D-B75D38242D39"),
                 ],
             }
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
-            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ())
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ())
-            
+            self._verifyRecords(DirectoryService.recordType_users, ("user01",))
+            self._verifyDisabledRecords(
+                DirectoryService.recordType_users,
+                ("user02", "user03"),
+                ("113D7F74-F84A-4F17-8C96-CE8F10D68EF8", "136E369F-DB40-4135-878D-B75D38242D39"),
+            )
+
+        def test_duplicateGUIDCacheMiss(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    ["user01", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user01",
-                        dsattributes.kDS1AttrDistinguishedName: "User 01",
-                        dsattributes.kDSNAttrEMailAddress: "user01@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user02", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
-                    ["user03", {
-                        dsattributes.kDS1AttrGeneratedUID: "GUID_user02",
-                        dsattributes.kDS1AttrDistinguishedName: "User 02",
-                        dsattributes.kDSNAttrEMailAddress: "user02@example.com",
-                        dsattributes.kDSNAttrServicesLocator: "12345:67890:calendar",
-                        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-                    }],
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
+                    fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
             }
 
-            self._service.reloadCache(DirectoryService.recordType_users, "user03")
+            self._service.reloadCache(DirectoryService.recordType_users)
 
-            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "names", ("user03",))
-            self._verifyDisabledRecords(DirectoryService.recordType_users, "guids", ("GUID_user02", ))
+            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+            
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", shortName="user04"),
+                    fakeODRecord("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0"),
+                    fakeODRecord("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0", shortName="user05"),
+                ],
+            }
 
+            self._service.reloadCache(DirectoryService.recordType_users, shortName="user04")
+            self._service.reloadCache(DirectoryService.recordType_users, guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0")
+
+            self._verifyRecords(DirectoryService.recordType_users, ("user01",))
+            self._verifyDisabledRecords(
+                DirectoryService.recordType_users,
+                ("user02", "user03", "user04", "user05"),
+                ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
+            )
+
+def fakeODRecord(fullName, shortName=None, guid=None, email=None):
+    if shortName is None:
+        shortName = shortNameForFullName(fullName)
+
+    if guid is None:
+        guid = guidForShortName(shortName)
+    else:
+        guid = guid.lower()
+
+    if email is None:
+        email = "%s@example.com" % (shortName,)
+
+    return [
+        shortName, {
+            dsattributes.kDS1AttrDistinguishedName: fullName,
+            dsattributes.kDS1AttrGeneratedUID: guid,
+            dsattributes.kDSNAttrEMailAddress: email,
+            dsattributes.kDSNAttrServicesLocator: "FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar",
+            dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
+        }
+    ]
+
+def shortNameForFullName(fullName):
+    return fullName.lower().replace(" ", "")
+
+def guidForShortName(shortName):
+    return uuidFromName(OpenDirectoryService.baseGUID, shortName)

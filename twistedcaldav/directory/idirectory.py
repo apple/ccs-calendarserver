@@ -62,8 +62,14 @@ class IDirectoryService(Interface):
     def recordWithCalendarUserAddress(address):
         """
         @param address: the calendar user address of the record to look up.
-        @return: an L{IDirectoryRecord} provider with the given calendar user
-            address, or C{None} if no such record exists.
+        @return: an L{IDirectoryRecord} provider with the given
+            calendar user address, or C{None} if no such record is
+            found.  Note that some directory services may not be able
+            to locate records by calendar user address, or may return
+            partial results.  Note also that the calendar server may
+            add to the list of valid calendar user addresses for a
+            user, and the directory service may not be aware of these
+            addresses.
         """
 
 class IDirectoryRecord(Interface):

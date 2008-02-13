@@ -18,7 +18,12 @@
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
-random="--random=$(date "+%s")";
+set -e
+set -u
+
+    random="--random=$(date "+%s")";
+ no_colour="";
+until_fail="";
 
 usage ()
 {
@@ -26,7 +31,7 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hnr]";
+  echo "Usage: ${program} [options]";
   echo "Options:";
   echo "        -h  Print this help and exit";
   echo "        -n  Do not use color";
@@ -41,8 +46,8 @@ while getopts "nhou" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'n') no_colour="--reporter=bwverbose"; ;;
-    'o') random=""; ;;
+    'o')     random=""; ;;
+    'n')  no_colour="--reporter=bwverbose"; ;;
     'u') until_fail="--until-failure"; ;;
   esac;
 done;
@@ -59,4 +64,4 @@ else
     test_modules="twistedcaldav twisted";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} --coverage ${test_modules};

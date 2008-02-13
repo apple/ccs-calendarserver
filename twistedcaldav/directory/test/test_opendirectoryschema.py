@@ -975,7 +975,7 @@ else:
                 self.assertEqual(service.servicetags.pop(), "GUIDIFY:C18C34AC-3D9E-403C-8A33-BFC303F3840E:calendar")
 
         def test_expandcuaddrs(self):
-            def _doTest(recordName, record, result, title):
+            def doTest(recordName, record, result, title):
                 service = OpenDirectoryService(node="/Search", dosetup=False)
                 if not service._parseServiceInfo("calendar.apple.com", recordName, {
                 'dsAttrTypeNative:apple-serviceinfo'  : PlistParse.plist_good,
@@ -983,7 +983,7 @@ else:
                 dsattributes.kDSNAttrMetaNodeLocation:  "/LDAPv3/127.0.0.1"}):
                     self.fail(msg="Plist parse should not have failed: %s" % (recordName,))
                 else:
-                    expanded = service._getCalendarUserAddresses(DirectoryService.recordType_users, recordName, record)
+                    expanded = service._calendarUserAddresses(DirectoryService.recordType_users, recordName, record)
 
                     # Verify that we extracted the proper items
                     self.assertEqual(expanded, result, msg=title % (expanded, result,))
@@ -1023,7 +1023,7 @@ else:
             )
 
             for recordName, record, result, title in data:
-                _doTest(recordName, record, result, title)
+                doTest(recordName, record, result, title)
 
     class ODRecordsParse (twisted.trial.unittest.TestCase):
 
