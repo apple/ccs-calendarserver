@@ -99,7 +99,9 @@ class CalDAVOptions(Options):
                 value = value.split(',')
 
             elif isinstance(configDict[key], dict):
-                raise UsageError("Dict options not supported on the command line")
+                raise UsageError(
+                    "Dict options not supported on the command line"
+                )
 
             elif value == 'None':
                 value = None
@@ -119,13 +121,16 @@ class CalDAVOptions(Options):
         if key in configDict:
             if not isinstance(configDict[key], dict):
                 raise UsageError(
-                    "Found intermediate path element that is not a dictionary")
+                    "Found intermediate path element that is not a dictionary"
+                )
 
             if key not in overrideDict:
                 overrideDict[key] = {}
 
             self._setOverride(
-                configDict[key], path[1:], value, overrideDict[key])
+                configDict[key], path[1:],
+                value, overrideDict[key]
+            )
 
     def opt_option(self, option):
         """
@@ -135,10 +140,14 @@ class CalDAVOptions(Options):
         --option flags may be specified.
         """
 
-        if '=' in option:
+        if "=" in option:
             path, value = option.split('=')
             self._setOverride(
-                defaultConfig, path.split('/'), value, self.overrides)
+                defaultConfig,
+                path.split('/'),
+                value,
+                self.overrides
+            )
         else:
             self.opt_option('%s=True' % (option,))
 
@@ -146,8 +155,8 @@ class CalDAVOptions(Options):
 
     def postOptions(self):
         if not os.path.exists(self['config']):
-            log.msg("Config file %s not found, using defaults" % (
-                    self['config'],))
+            log.msg("Config file %s not found, using defaults"
+                    % (self['config'],))
 
         parseConfig(self['config'])
 
@@ -188,7 +197,7 @@ class CalDAVOptions(Options):
             access=os.W_OK,
             #permissions=0750,
             #uname=config.UserName,
-            #gname=config.GroupName
+            #gname=config.GroupName,
         )
 
         # Verify that data root actually exists
@@ -198,8 +207,8 @@ class CalDAVOptions(Options):
             access=os.W_OK,
             #permissions=0750,
             #uname=config.UserName,
-            #gname=config.GroupName
-            create=(0750, config.UserName, config.GroupName,)
+            #gname=config.GroupName,
+            create=(0750, config.UserName, config.GroupName,),
         )
 
         # Verify that ssl certs exist if needed
@@ -209,13 +218,13 @@ class CalDAVOptions(Options):
                     config.SSLPrivateKey,
                     "SSL Private key",
                     access=os.R_OK,
-                    #permissions=0640
+                    #permissions=0640,
                 )
                 self.checkFile(
                     config.SSLCertificate,
                     "SSL Public key",
                     access=os.R_OK,
-                    #permissions=0644
+                    #permissions=0644,
                 )
             except ConfigurationError, e:
                 log.err(str(e))
@@ -226,16 +235,20 @@ class CalDAVOptions(Options):
         # Nuke the file log observer's time format.
         #
 
-        if not config.ErrorLogFile and config.ProcessType == 'Slave':
-            log.FileLogObserver.timeFormat = ''
+        if not config.ErrorLogFile and config.ProcessType == "Slave":
+            log.FileLogObserver.timeFormat = ""
 
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)
         if oldmask != config.umask:
-            log.msg("WARNING: changing umask from: 0%03o to 0%03o" % (
-                    oldmask, config.umask,))
+            log.msg("WARNING: changing umask from: 0%03o to 0%03o"
+                    % (oldmask, config.umask,))
 
-    def checkDirectory(self, dirpath, description, access=None, fail=False, permissions=None, uname=None, gname=None, create=None):
+    def checkDirectory(
+        self, dirpath, description,
+        access=None, fail=False, permissions=None,
+        uname=None, gname=None, create=None
+    ):
         if not os.path.exists(dirpath):
             if create is not None:
                 # create is a tuple of (mode, username, groupname)
@@ -250,30 +263,63 @@ class CalDAVOptions(Options):
                         os.chown(dirpath, uid, gid)
                 except:
                     log.msg("Could not create %s" % (dirpath,))
-                    raise ConfigurationError("%s does not exist and cannot be created: %s" % (description, dirpath,))
+                    raise ConfigurationError(
+                        "%s does not exist and cannot be created: %s"
+                        % (description, dirpath,)
+                    )
 
                 log.msg("Created %s" % (dirpath,))
             else:
-                raise ConfigurationError("%s does not exist: %s" % (description, dirpath,))
+                raise ConfigurationError("%s does not exist: %s"
+                                         % (description, dirpath,))
 
         if not os.path.isdir(dirpath):
-            raise ConfigurationError("%s is not a directory: %s" % (description, dirpath,))
+            raise ConfigurationError("%s is not a directory: %s"
+                                     % (description, dirpath,))
 
         if access and not os.access(dirpath, access):
-            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, dirpath,))
+            raise ConfigurationError(
+                "Insufficient permissions for server on %s directory: %s"
+                % (description, dirpath,)
+            )
 
-        self.securityCheck(dirpath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
+        self.securityCheck(
+            dirpath, description,
+            fail=fail, permissions=permissions,
+            uname=uname, gname=gname
+        )
 
-    def checkFile(self, filepath, description, access=None, fail=False, permissions=None, uname=None, gname=None):
+    def checkFile(
+        self, filepath, description,
+        access=None, fail=False, permissions=None,
+        uname=None, gname=None
+    ):
         if not os.path.exists(filepath):
-            raise ConfigurationError("%s does not exist: %s" % (description, filepath,))
+            raise ConfigurationError(
+                "%s does not exist: %s"
+                % (description, filepath,)
+            )
         elif not os.path.isfile(filepath):
-            raise ConfigurationError("%s is not a file: %s" % (description, filepath,))
+            raise ConfigurationError(
+                "%s is not a file: %s"
+                % (description, filepath,)
+            )
         elif access and not os.access(filepath, access):
-            raise ConfigurationError("Insufficient permissions for server on %s directory: %s" % (description, filepath,))
-        self.securityCheck(filepath, description, fail=fail, permissions=permissions, uname=uname, gname=gname)
+            raise ConfigurationError(
+                "Insufficient permissions for server on %s directory: %s"
+                % (description, filepath,)
+            )
+        self.securityCheck(
+            filepath, description,
+            fail=fail, permissions=permissions,
+            uname=uname, gname=gname
+        )
 
-    def securityCheck(self, path, description, fail=False, permissions=None, uname=None, gname=None):
+    def securityCheck(
+        self, path, description,
+        fail=False, permissions=None,
+        uname=None, gname=None
+    ):
         def raiseOrPrint(txt):
             if fail:
                 raise ConfigurationError(txt)
@@ -283,48 +329,107 @@ class CalDAVOptions(Options):
         pathstat = os.stat(path)
         if permissions:
             if stat.S_IMODE(pathstat[stat.ST_MODE]) != permissions:
-                raiseOrPrint("The permisions on %s directory %s are 0%03o and do not match expected permissions: 0%03o"
-                             % (description, path, stat.S_IMODE(pathstat[stat.ST_MODE]), permissions))
+                raiseOrPrint(
+                    "The permisions on %s directory %s are 0%03o "
+                    "and do not match expected permissions: 0%03o"
+                    % (description, path,
+                       stat.S_IMODE(pathstat[stat.ST_MODE]), permissions)
+                )
         if uname:
             import pwd
             try:
                 pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
                 if pathuname not in (uname, "_" + uname):
-                    raiseOrPrint("The owner of %s directory %s is %s and does not match the expected owner: %s"
-                                 % (description, path, pathuname, uname))
+                    raiseOrPrint(
+                        "The owner of %s directory %s is %s "
+                        "and does not match the expected owner: %s"
+                        % (description, path, pathuname, uname)
+                    )
             except KeyError:
-                raiseOrPrint("The owner of %s directory %s is unknown (%s) and does not match the expected owner: %s"
-                             % (description, path, pathstat[stat.ST_UID], uname))
+                raiseOrPrint(
+                    "The owner of %s directory %s is unknown (%s) "
+                    "and does not match the expected owner: %s"
+                    % (description, path, pathstat[stat.ST_UID], uname)
+                )
 
         if gname:
             import grp
             try:
                 pathgname = grp.getgrgid(pathstat[stat.ST_GID])[0]
                 if pathgname != gname:
-                    raiseOrPrint("The group of %s directory %s is %s and does not match the expected group: %s"
-                                 % (description, path, pathgname, gname))
+                    raiseOrPrint(
+                        "The group of %s directory %s is %s "
+                        "and does not match the expected group: %s"
+                        % (description, path, pathgname, gname)
+                    )
             except KeyError:
-                raiseOrPrint("The group of %s directory %s is unknown (%s) and does not match the expected group: %s"
-                             % (description, path, pathstat[stat.ST_GID], gname))
+                raiseOrPrint(
+                    "The group of %s directory %s is unknown (%s) "
+                    "and does not match the expected group: %s"
+                    % (description, path, pathstat[stat.ST_GID], gname)
+                )
 
 from OpenSSL import SSL
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
 
-class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
-    def __init__(self, privateKeyFileName, certificateFileName,
-                 sslmethod=SSL.SSLv23_METHOD, certificateChainFile=None):
-        self.certificateChainFile = certificateChainFile
+def _getSSLPassphrase(*args):
+    sslPrivKey = open(config.SSLPrivateKey)
 
-        DefaultOpenSSLContextFactory.__init__(self,
-                                              privateKeyFileName,
-                                              certificateFileName,
-                                              sslmethod=sslmethod)
+    type = None
+    for line in sslPrivKey.readlines():
+        if "-----BEGIN RSA PRIVATE KEY-----" in line:
+            type = "RSA"
+            break
+        elif "-----BEGIN DSA PRIVATE KEY-----" in line:
+            type = "DSA"
+            break
+
+    sslPrivKey.close()
+
+    if type is None:
+        logging.err("Could not get private key type for %s"
+                    % (config.SSLPrivateKey,))
+        return False
+
+    import commands
+    return commands.getoutput("%s %s:%s %s" % (
+        config.SSLPassPhraseDialog,
+        config.ServerHostName,
+        config.SSLPort,
+        type
+    ))
+
+
+class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
+    def __init__(
+        self, privateKeyFileName, certificateFileName,
+        sslmethod=SSL.SSLv23_METHOD, certificateChainFile=None,
+        passwdCallback=None
+    ):
+        self.certificateChainFile = certificateChainFile
+        self.passwdCallback = passwdCallback
+
+        DefaultOpenSSLContextFactory.__init__(
+            self,
+            privateKeyFileName,
+            certificateFileName,
+            sslmethod=sslmethod
+        )
 
     def cacheContext(self):
-        DefaultOpenSSLContextFactory.cacheContext(self)
+        # Unfortunate code duplication.
+        ctx = SSL.Context(self.sslmethod)
 
-        if self.certificateChainFile != '':
-            self._context.use_certificate_chain_file(self.certificateChainFile)
+        if self.passwdCallback is not None:
+            ctx.set_passwd_cb(self.passwdCallback)
+
+        ctx.use_certificate_file(self.certificateFileName)
+        ctx.use_privatekey_file(self.privateKeyFileName)
+
+        if self.certificateChainFile != "":
+            ctx.use_certificate_chain_file(self.certificateChainFile)
+
+        self._context = ctx
 
 
 class CalDAVServiceMaker(object):
@@ -346,7 +451,8 @@ class CalDAVServiceMaker(object):
 
     def makeService_Slave(self, options):
         
-        # Change log level to at least "info" as its useful to have that during startup
+        # Change log level to at least "info" as its useful to have
+        # that during startup
         old_logging = logging.currentLogLevel
         if logging.currentLogLevel < logging.logtypes["info"]:
             logging.currentLogLevel = logging.logtypes["info"]
@@ -356,12 +462,12 @@ class CalDAVServiceMaker(object):
         #
         directories = []
 
-        directoryClass = namedClass(config.DirectoryService['type'])
+        directoryClass = namedClass(config.DirectoryService["type"])
 
         logging.info("Configuring directory service of type: %s"
-                % (config.DirectoryService['type'],), system="startup")
+                     % (config.DirectoryService['type'],), system="startup")
 
-        baseDirectory = directoryClass(**config.DirectoryService['params'])
+        baseDirectory = directoryClass(**config.DirectoryService["params"])
 
         directories.append(baseDirectory)
 
@@ -369,7 +475,7 @@ class CalDAVServiceMaker(object):
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
             logging.info("Configuring SudoDirectoryService with file: %s"
-                    % (config.SudoersFile,), system="startup")
+                         % (config.SudoersFile,), system="startup")
 
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
@@ -378,7 +484,7 @@ class CalDAVServiceMaker(object):
             directories.insert(0, sudoDirectory)
         else:
             logging.info("Not using SudoDirectoryService; file doesn't exist: %s"
-                    % (config.SudoersFile,), system="startup")
+                         % (config.SudoersFile,), system="startup")
 
         directory = AggregateDirectoryService(directories)
 
@@ -390,25 +496,27 @@ class CalDAVServiceMaker(object):
         # Setup Resource hierarchy
         #
 
-        logging.info("Setting up document root at: %s" % (config.DocumentRoot,), system="startup")
+        logging.info("Setting up document root at: %s"
+                     % (config.DocumentRoot,), system="startup")
 
-        logging.info("Setting up principal collection: %r" % (self.principalResourceClass,), system="startup")
+        logging.info("Setting up principal collection: %r"
+                     % (self.principalResourceClass,), system="startup")
 
         principalCollection = self.principalResourceClass(
-            os.path.join(config.DocumentRoot, 'principals'),
-            '/principals/',
-            directory
+            os.path.join(config.DocumentRoot, "principals"),
+            "/principals/", directory
         )
 
-        logging.info("Setting up calendar collection: %r" % (self.calendarResourceClass,), system="startup")
+        logging.info("Setting up calendar collection: %r"
+                     % (self.calendarResourceClass,), system="startup")
 
         calendarCollection = self.calendarResourceClass(
-            os.path.join(config.DocumentRoot, 'calendars'),
-            directory,
-            '/calendars/'
+            os.path.join(config.DocumentRoot, "calendars"),
+            directory, "/calendars/"
         )
 
-        logging.info("Setting up root resource: %r" % (self.rootResourceClass,), system="startup")
+        logging.info("Setting up root resource: %r"
+                     % (self.rootResourceClass,), system="startup")
 
         root = self.rootResourceClass(
             config.DocumentRoot,
@@ -420,7 +528,8 @@ class CalDAVServiceMaker(object):
 
         # Configure default ACLs on the root resource
 
-        logging.info("Setting up default ACEs on root resource", system="startup")
+        logging.info("Setting up default ACEs on root resource",
+                     system="startup")
 
         rootACEs = [
             davxml.ACE(
@@ -432,7 +541,8 @@ class CalDAVServiceMaker(object):
         logging.info("Setting up AdminPrincipals", system="startup")
 
         for principal in config.AdminPrincipals:
-            logging.info("Added %s as admin principal" % (principal,), system="startup")
+            logging.info("Added %s as admin principal"
+                         % (principal,), system="startup")
 
             rootACEs.append(
                 davxml.ACE(
@@ -465,29 +575,38 @@ class CalDAVServiceMaker(object):
 
         realm = directory.realmName or ""
 
-        logging.info("Configuring authentication for realm: %s" % (realm,), system="startup")
+        logging.info("Configuring authentication for realm: %s"
+                     % (realm,), system="startup")
 
         for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
 
             credFactory = None
 
-            if schemeConfig['Enabled']:
-                logging.info("Setting up scheme: %s" % (scheme,), system="startup")
+            if schemeConfig["Enabled"]:
+                logging.info("Setting up scheme: %s"
+                             % (scheme,), system="startup")
 
-                if scheme == 'kerberos':
+                if scheme == "kerberos":
                     if not NegotiateCredentialFactory:
-                        logging.info("Kerberos support not available", system="startup")
+                        logging.info("Kerberos support not available",
+                                     system="startup")
                         continue
 
                     try:
-                        principal = schemeConfig['ServicePrincipal']
+                        principal = schemeConfig["ServicePrincipal"]
                         if not principal:
-                            credFactory = NegotiateCredentialFactory(type="http", hostname=config.ServerHostName)
+                            credFactory = NegotiateCredentialFactory(
+                                type="http",
+                                hostname=config.ServerHostName
+                            )
                         else:
-                            credFactory = NegotiateCredentialFactory(principal=principal)
+                            credFactory = NegotiateCredentialFactory(
+                                principal=principal
+                            )
                     except ValueError:
-                        logging.info("Could not start Kerberos", system="startup")
+                        logging.info("Could not start Kerberos",
+                                     system="startup")
                         continue
 
                 elif scheme == 'digest':
@@ -502,7 +621,8 @@ class CalDAVServiceMaker(object):
                     credFactory = BasicCredentialFactory(realm)
 
                 else:
-                    logging.err("Unknown scheme: %s" % (scheme,), system="startup")
+                    logging.err("Unknown scheme: %s"
+                                % (scheme,), system="startup")
 
             if credFactory:
                 credentialFactories.append(credFactory)
@@ -516,7 +636,10 @@ class CalDAVServiceMaker(object):
             (auth.IPrincipal,)
         )
 
-        logWrapper = logging.DirectoryLogWrapperResource(authWrapper, directory)
+        logWrapper = logging.DirectoryLogWrapperResource(
+            authWrapper,
+            directory
+        )
 
         #
         # Configure the service
@@ -524,25 +647,32 @@ class CalDAVServiceMaker(object):
 
         logging.info("Setting up service", system="startup")
 
-        if config.ProcessType == 'Slave':
-            if config.MultiProcess['ProcessCount'] > 1 and config.MultiProcess['LoadBalancer']['Enabled']:
+        if config.ProcessType == "Slave":
+            if (
+                config.MultiProcess["ProcessCount"] > 1 and
+                config.MultiProcess["LoadBalancer"]["Enabled"]
+            ):
                 realRoot = pdmonster.PDClientAddressWrapper(
                     logWrapper,
-                    config.PythonDirector['ControlSocket'],
+                    config.PythonDirector["ControlSocket"],
                     directory
                 )
             else:
                 realRoot = logWrapper
 
-            logObserver = logging.AMPCommonAccessLoggingObserver(config.ControlSocket)
+            logObserver = logging.AMPCommonAccessLoggingObserver(
+                config.ControlSocket
+            )
 
-        elif config.ProcessType == 'Single':
+        elif config.ProcessType == "Single":
             realRoot = logWrapper
 
-            logObserver = logging.RotatingFileAccessLoggingObserver(config.AccessLogFile)
+            logObserver = logging.RotatingFileAccessLoggingObserver(
+                config.AccessLogFile
+            )
 
-        logging.info("Configuring log observer: %s" % (
-            logObserver,), system="startup")
+        logging.info("Configuring log observer: %s"
+                     % (logObserver,), system="startup")
 
         service = CalDAVService(logObserver)
 
@@ -556,27 +686,45 @@ class CalDAVServiceMaker(object):
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
                 if config.HTTPPort == 0:
-                    raise UsageError("HTTPPort required if BindHTTPPorts is not empty")
+                    raise UsageError(
+                        "HTTPPort required if BindHTTPPorts is not empty"
+                    )
             elif config.HTTPPort != 0:
                     config.BindHTTPPorts = [config.HTTPPort]
 
             if config.BindSSLPorts:
                 if config.SSLPort == 0:
-                    raise UsageError("SSLPort required if BindSSLPorts is not empty")
+                    raise UsageError(
+                        "SSLPort required if BindSSLPorts is not empty"
+                    )
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
             for port in config.BindHTTPPorts:
-                logging.info("Adding server at %s:%s" % (bindAddress, port), system="startup")
+                logging.info("Adding server at %s:%s"
+                             % (bindAddress, port), system="startup")
 
-                httpService = internet.TCPServer(int(port), channel, interface=bindAddress)
+                httpService = internet.TCPServer(
+                    int(port), channel,
+                    interface=bindAddress
+                )
                 httpService.setServiceParent(service)
 
             for port in config.BindSSLPorts:
-                logging.info("Adding SSL server at %s:%s" % (bindAddress, port), system="startup")
+                logging.info("Adding SSL server at %s:%s"
+                             % (bindAddress, port), system="startup")
 
-                contextFactory = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
-                httpsService = internet.SSLServer(int(port), channel, contextFactory, interface=bindAddress)
+                contextFactory = ChainingOpenSSLContextFactory(
+                    config.SSLPrivateKey,
+                    config.SSLCertificate,
+                    certificateChainFile=config.SSLAuthorityChain,
+                    passwdCallback=_getSSLPassphrase
+                )
+
+                httpsService = internet.SSLServer(
+                    int(port), channel,
+                    contextFactory, interface=bindAddress
+                )
                 httpsService.setServiceParent(service)
 
         # Change log level back to what it was before
@@ -594,34 +742,39 @@ class CalDAVServiceMaker(object):
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
 
         if not serviceMethod:
-            raise UsageError("Unknown server type %s.  Please choose: Master, Slave or Combined"
-                             % (serverType,))
+            raise UsageError(
+                "Unknown server type %s. "
+                "Please choose: Master, Slave or Combined"
+                % (serverType,)
+            )
         else:
             service = serviceMethod(options)
 
+            #
             # Temporary hack to work around SIGHUP problem
-            # If there is a stopped process in the same session as the calendar server
-            # and the calendar server is the group leader then when twistd forks to drop
-            # privelages a SIGHUP may be sent by the kernel. This SIGHUP should be ignored.
-            # Note that this handler is not unset, so any further SIGHUPs are also ignored.
+            # If there is a stopped process in the same session as the
+            # calendar server and the calendar server is the group
+            # leader then when twistd forks to drop privelages a
+            # SIGHUP may be sent by the kernel. This SIGHUP should be
+            # ignored.
+            # Note that this handler is not unset, so any further
+            # SIGHUPs are also ignored.
+            #
+
+            def location(frame):
+                if frame is None:
+                    return "Unknown"
+                else:
+                    return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
+
             import signal
             def sighup_handler(num, frame):
-                if frame is None:
-                    location = "Unknown"
-                else:
-                    location = str(frame.f_code.co_name) + ": " + str(frame.f_lineno)
-                log.msg("SIGHUP recieved at " + location)
+                log.msg("SIGHUP recieved at %s" % (location(frame),))
             signal.signal(signal.SIGHUP, sighup_handler)
 
             def sigusr1_handler(num, frame):
-                if frame is None:
-                    location = "Unknown"
-                else:
-                    location = str(frame.f_code.co_name) + ": " + str(frame.f_lineno)
-                log.msg("SIGUSR1 recieved at " + location)
+                log.msg("SIGUSR1 recieved at %s" % (location(frame),))
                 logging.toggle()
-
             signal.signal(signal.SIGUSR1, sigusr1_handler)
 
             return service
-
