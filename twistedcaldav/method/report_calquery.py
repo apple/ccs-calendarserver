@@ -31,6 +31,7 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.method import report_common
 
 import urllib
@@ -104,7 +105,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param uri: the uri for the calendar collecton resource.
         """
         
-        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok = False):
+        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok=False, isowner=True):
             """
             Run a query on the specified calendar.
             @param resource: the L{CalDAVFile} for the calendar.
@@ -113,7 +114,16 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             @param calendar: the L{Component} calendar read from the resource.
             """
             
-            if query_ok or filter.match(calendar):
+            # Handle private events access restrictions
+            if not isowner:
+                try:
+                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
+                except HTTPError:
+                    access = None
+            else:
+                access = None
+
+            if query_ok or filter.match(calendar, access):
                 # Check size of results is within limit
                 matchcount[0] += 1
                 if matchcount[0] > max_number_of_results:
@@ -124,7 +134,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, calendar, propertiesForResource, query)
+                return report_common.responseForHref(request, responses, href, resource, calendar, propertiesForResource, query, isowner)
             else:
                 return succeed(None)
     
@@ -146,7 +156,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
             yield filteredaces
             filteredaces = filteredaces.getResult()
-        
+
+            # Check private events access status
+            d = waitForDeferred(calresource.isOwner(request))
+            yield d
+            isowner = d.getResult()
+
             # Check for disabled access
             if filteredaces is not None:
                 # See whether the filter is valid for an index only query
@@ -183,7 +198,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     else:
                         calendar = None
                     
-                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok))
+                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok, isowner=isowner))
                     yield d
                     d.getResult()
         else:
@@ -204,6 +219,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     yield tz
                     tz = tz.getResult()
                     filter.settimezone(tz)
+
+            # Check private events access status
+            d = waitForDeferred(calresource.isOwner(request))
+            yield d
+            isowner = d.getResult()
 
             calendar = calresource.iCalendar()
             d = waitForDeferred(queryCalendarObjectResource(calresource, uri, None, calendar))

@@ -33,11 +33,10 @@ from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav import caldavxml
-from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
+from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.static import AutoProvisioningFileMixIn
@@ -74,16 +73,10 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Calendar user proxy principal resource.
     """
-
-    def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        return tuple(super(CalendarUserProxyPrincipalResource, self).davComplianceClasses()) + extra_compliance
 
     def __init__(self, path, parent, proxyType):
         """
