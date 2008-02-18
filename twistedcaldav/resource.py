@@ -66,16 +66,16 @@ else:
 
 class CalDAVComplianceMixIn(object):
 
-    def caldavComplianceClasses(self):
+    def davComplianceClasses(self):
         extra_compliance = caldavxml.caldav_compliance
         if config.EnableProxyPrincipals:
             extra_compliance += customxml.calendarserver_proxy_compliance
         if config.EnablePrivateEvents:
             extra_compliance += customxml.calendarserver_private_events_compliance
-        return extra_compliance
+        return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
 
-class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
+class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
     """
     CalDAV resource.
 
@@ -132,9 +132,6 @@ class CalDAVResource (DAVResource, CalDAVComplianceMixIn):
     ##
     # WebDAV
     ##
-
-    def davComplianceClasses(self):
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     liveProperties = DAVResource.liveProperties + (
         (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
@@ -562,16 +559,13 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
             ),
         )
 
-class CalendarPrincipalResource (DAVPrincipalResource, CalDAVComplianceMixIn):
+class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     """
     CalDAV principal resource.
 
     Extends L{DAVPrincipalResource} to provide CalDAV functionality.
     """
     implements(ICalendarPrincipalResource)
-
-    def davComplianceClasses(self):
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),

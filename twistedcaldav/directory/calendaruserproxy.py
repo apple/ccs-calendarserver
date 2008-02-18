@@ -73,13 +73,10 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile, CalDAVComplianceMixIn):
+class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Calendar user proxy principal resource.
     """
-
-    def davComplianceClasses(self):
-        return tuple(super(CalendarUserProxyPrincipalResource, self).davComplianceClasses()) + self.caldavComplianceClasses()
 
     def __init__(self, path, parent, proxyType):
         """
