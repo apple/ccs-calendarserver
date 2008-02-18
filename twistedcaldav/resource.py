@@ -19,6 +19,7 @@ CalDAV-aware resources.
 """
 
 __all__ = [
+    "CalDAVComplianceMixIn",
     "CalDAVResource",
     "CalendarPrincipalCollectionResource",
     "CalendarPrincipalResource",
@@ -30,6 +31,8 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
+from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import deferredGenerator
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
@@ -47,7 +50,9 @@ import twisted.web2.server
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.config import config
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
+from twistedcaldav.ical import Component
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
@@ -59,7 +64,18 @@ if twistedcaldav.__version__:
 else:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/?"
 
-class CalDAVResource (DAVResource):
+class CalDAVComplianceMixIn(object):
+
+    def davComplianceClasses(self):
+        extra_compliance = caldavxml.caldav_compliance
+        if config.EnableProxyPrincipals:
+            extra_compliance += customxml.calendarserver_proxy_compliance
+        if config.EnablePrivateEvents:
+            extra_compliance += customxml.calendarserver_private_events_compliance
+        return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
+
+
+class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
     """
     CalDAV resource.
 
@@ -117,13 +133,8 @@ class CalDAVResource (DAVResource):
     # WebDAV
     ##
 
-    def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        return tuple(super(CalDAVResource, self).davComplianceClasses()) + extra_compliance
-
     liveProperties = DAVResource.liveProperties + (
+        (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
         (caldav_namespace, "supported-calendar-component-set"),
         (caldav_namespace, "supported-calendar-data"         ),
     )
@@ -140,7 +151,13 @@ class CalDAVResource (DAVResource):
 
         namespace, name = qname
 
-        if namespace == caldav_namespace:
+        if namespace == dav_namespace:
+            if name == "owner":
+                d = self.owner(request)
+                d.addCallback(lambda x: davxml.Owner(x))
+                return d
+            
+        elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
                 if self.hasDeadProperty(qname):
@@ -220,12 +237,83 @@ class CalDAVResource (DAVResource):
         return self.hasDeadProperty(AccessDisabled)
 
     # FIXME: Perhaps this is better done in authorize() instead.
-    def accessControlList(self, *args, **kwargs):
+    @deferredGenerator
+    def accessControlList(self, request, *args, **kwargs):
         if self.isDisabled():
-            return succeed(None)
+            yield None
+            return
 
-        return super(CalDAVResource, self).accessControlList(*args, **kwargs)
+        d = waitForDeferred(super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
+        yield d
+        acls = d.getResult()
 
+        # Look for private events access classification
+        if self.hasDeadProperty(TwistedCalendarAccessProperty):
+            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+            if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
+                # Need to insert ACE to prevent non-owner principals from seeing this resource
+                d = waitForDeferred(self.owner(request))
+                yield d
+                owner = d.getResult()
+                if access.getValue() == Component.ACCESS_PRIVATE:
+                    ace = davxml.ACE(
+                        davxml.Invert(
+                            davxml.Principal(owner),
+                        ),
+                        davxml.Deny(
+                            davxml.Privilege(
+                                davxml.Read(),
+                            ),
+                            davxml.Privilege(
+                                davxml.Write(),
+                            ),
+                        ),
+                        davxml.Protected(),
+                    )
+                else:
+                    ace = davxml.ACE(
+                        davxml.Invert(
+                            davxml.Principal(owner),
+                        ),
+                        davxml.Deny(
+                            davxml.Privilege(
+                                davxml.Write(),
+                            ),
+                        ),
+                        davxml.Protected(),
+                    )
+
+                acls = davxml.ACL(ace, *acls.children)
+        yield acls
+
+    @deferredGenerator
+    def owner(self, request):
+        """
+        Return the DAV:owner property value (MUST be a DAV:href or None).
+        """
+        d = waitForDeferred(self.locateParent(request, request.urlForResource(self)))
+        yield d
+        parent = d.getResult()
+        if parent and isinstance(parent, CalDAVResource):
+            d = waitForDeferred(parent.owner(request))
+            yield d
+            yield d.getResult()
+        else:
+            yield None
+
+    @deferredGenerator
+    def isOwner(self, request):
+        """
+        Determine whether the DAV:owner of this resource matches the currently authorized principal
+        in the request.
+        """
+
+        d = waitForDeferred(self.owner(request))
+        yield d
+        owner = d.getResult()
+        result = (davxml.Principal(owner) == self.currentPrincipal(request))
+        yield result
+ 
     ##
     # CalDAV
     ##
@@ -471,19 +559,13 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
             ),
         )
 
-class CalendarPrincipalResource (DAVPrincipalResource):
+class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     """
     CalDAV principal resource.
 
     Extends L{DAVPrincipalResource} to provide CalDAV functionality.
     """
     implements(ICalendarPrincipalResource)
-
-    def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        return tuple(super(CalendarPrincipalResource, self).davComplianceClasses()) + extra_compliance
 
     liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
         (caldav_namespace, "calendar-home-set"        ),

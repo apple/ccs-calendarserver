@@ -160,6 +160,31 @@ class Component (object):
     """
     X{iCalendar} component.
     """
+
+    # Private Event access levels.
+    ACCESS_PROPERTY     = "X-CALENDARSERVER-ACCESS"
+    ACCESS_PUBLIC       = "PUBLIC"
+    ACCESS_PRIVATE      = "PRIVATE"
+    ACCESS_CONFIDENTIAL = "CONFIDENTIAL"
+    ACCESS_RESTRICTED   = "RESTRICTED"
+
+    accessMap = {
+        "PUBLIC"       : ACCESS_PUBLIC,
+        "PRIVATE"      : ACCESS_PRIVATE,
+        "CONFIDENTIAL" : ACCESS_CONFIDENTIAL,
+        "RESTRICTED"   : ACCESS_RESTRICTED,
+    }
+
+    confidentialPropertiesMap = {
+        "VCALENDAR": ("PRODID", "VERSION", "CALSCALE", ACCESS_PROPERTY),
+        "VEVENT":    ("UID", "RECURRENCE-ID", "SEQUENCE", "DTSTAMP", "STATUS", "TRANSP", "DTSTART", "DTEND", "DURATION", "RRULE", "RDATE", "EXRULE", "EXDATE", ),
+        "VTODO":     ("UID", "RECURRENCE-ID", "SEQUENCE", "DTSTAMP", "STATUS", "DTSTART", "COMPLETED", "DUE", "DURATION", "RRULE", "RDATE", "EXRULE", "EXDATE", ),
+        "VJOURNAL":  ("UID", "RECURRENCE-ID", "SEQUENCE", "DTSTAMP", "STATUS", "DTSTART", "RRULE", "RDATE", "EXRULE", "EXDATE", ),
+        "VFREEBUSY": ("UID", "DTSTAMP", "DTSTART", "DTEND", "DURATION", "FREEBUSY", ),
+        "VTIMEZONE": None,
+    }
+    extraRestrictedProperties = ("SUMMARY", "LOCATION",)
+
     @classmethod
     def fromString(clazz, string):
         """
@@ -363,6 +388,18 @@ class Component (object):
                 return component
         
         return None
+    
+    def accessLevel(self, default=ACCESS_PUBLIC):
+        """
+        Return the access level for this component.
+        @return: the access level for the calendar data.
+        """
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        
+        access = self.propertyValue(Component.ACCESS_PROPERTY)
+        if access:
+            access = access.upper()
+        return Component.accessMap.get(access, default)
     
     def duplicate(self):
         """

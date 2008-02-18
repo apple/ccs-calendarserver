@@ -41,6 +41,7 @@ from twisted.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
@@ -93,7 +94,7 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
 
 applyToCalendarCollections = deferredGenerator(applyToCalendarCollections)
 
-def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq):
+def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq, isowner=True):
     """
     Create an appropriate property status response for the given resource.
 
@@ -102,10 +103,12 @@ def responseForHref(request, responses, href, resource, calendar, propertiesForR
     @param href: the L{HRef} element of the resource being targetted.
     @param resource: the L{CalDAVFile} for the targetted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
-                     if the calendar has not already been read in, in which case the resource
-                     will be used to get the calendar if needed.
+        if the calendar has not already been read in, in which case the resource
+        will be used to get the calendar if needed.
     @param propertiesForResource: the method to use to get the list of properties to return.
     @param propertyreq: the L{PropertyContainer} element for the properties of interest.
+    @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
+        C{False} otherwise.
     """
 
     def _defer(properties_by_status):
@@ -122,38 +125,42 @@ def responseForHref(request, responses, href, resource, calendar, propertiesForR
                     )
                 )
 
-    d = propertiesForResource(request, propertyreq, resource, calendar)
+    d = propertiesForResource(request, propertyreq, resource, calendar, isowner)
     d.addCallback(_defer)
     return d
 
-def allPropertiesForResource(request, prop, resource, calendar=None): #@UnusedVariable
+def allPropertiesForResource(request, prop, resource, calendar=None, isowner=True): #@UnusedVariable
     """
     Return all (non-hidden) properties for the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
     @param resource: the L{CalDAVFile} for the targetted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
-                     if the calendar has not already been read in, in which case the resource
-                     will be used to get the calendar if needed.
+        if the calendar has not already been read in, in which case the resource
+        will be used to get the calendar if needed.
+    @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
+        C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
 
     def _defer(props):
-        return _namedPropertiesForResource(request, props, resource, calendar)
+        return _namedPropertiesForResource(request, props, resource, calendar, isowner)
 
     d = resource.listAllprop(request)
     d.addCallback(_defer)
     return d
 
-def propertyNamesForResource(request, prop, resource, calendar=None): #@UnusedVariable
+def propertyNamesForResource(request, prop, resource, calendar=None, isowner=True): #@UnusedVariable
     """
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
     @param resource: the L{CalDAVFile} for the targetted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
-                     if the calendar has not already been read in, in which case the resource
-                     will be used to get the calendar if needed.
+        if the calendar has not already been read in, in which case the resource
+        will be used to get the calendar if needed.
+    @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
+        C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
 
@@ -167,19 +174,21 @@ def propertyNamesForResource(request, prop, resource, calendar=None): #@UnusedVa
     d.addCallback(_defer)
     return d
 
-def propertyListForResource(request, prop, resource, calendar=None):
+def propertyListForResource(request, prop, resource, calendar=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
     @param resource: the L{CalDAVFile} for the targetted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
-                     if the calendar has not already been read in, in which case the resource
-                     will be used to get the calendar if needed.
+        if the calendar has not already been read in, in which case the resource
+        will be used to get the calendar if needed.
+    @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
+        C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
     
-    return _namedPropertiesForResource(request, prop.children, resource, calendar)
+    return _namedPropertiesForResource(request, prop.children, resource, calendar, isowner)
 
 def validPropertyListCalendarDataTypeVersion(prop):
     """
@@ -204,15 +213,17 @@ def validPropertyListCalendarDataTypeVersion(prop):
 
     return result, message, generate_calendar_data
 
-def _namedPropertiesForResource(request, props, resource, calendar=None):
+def _namedPropertiesForResource(request, props, resource, calendar=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param props: a list of property elements or qname tuples for the properties of interest.
     @param resource: the L{CalDAVFile} for the targetted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
-                     if the calendar has not already been read in, in which case the resource
-                     will be used to get the calendar if needed.
+        if the calendar has not already been read in, in which case the resource
+        will be used to get the calendar if needed.
+    @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
+        C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
     properties_by_status = {
@@ -222,10 +233,19 @@ def _namedPropertiesForResource(request, props, resource, calendar=None):
     
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
-            if calendar:
-                propvalue = property.elementFromCalendar(calendar)
+            # Handle private events access restrictions
+            if not isowner:
+                try:
+                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
+                except HTTPError:
+                    access = None
             else:
-                propvalue = property.elementFromResource(resource)
+                access = None
+
+            if calendar:
+                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access)
+            else:
+                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access)
             if propvalue is None:
                 raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
             properties_by_status[responsecode.OK].append(propvalue)
@@ -358,7 +378,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                 elif (calendar.getOrganizer() is None) and same_calendar_user:
                     continue
 
-        if filter.match(calendar):
+        if filter.match(calendar, None):
             # Check size of results is within limit
             matchtotal += 1
             if matchtotal > max_number_of_matches:

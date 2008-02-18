@@ -145,6 +145,7 @@ defaultConfig = {
     #
     "EnableDropBox"      : False, # Calendar Drop Box
     "EnableNotifications": False, # Drop Box Notifications
+    "EnablePrivateEvents": False, # Private Events
 
     #
     # Implementation details

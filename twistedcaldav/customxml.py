@@ -34,6 +34,10 @@ calendarserver_proxy_compliance = (
     "calendar-proxy",
 )
 
+calendarserver_private_events_compliance = (
+    "calendarserver-private-events",
+)
+
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     Contains the GUID value for a directory record corresponding to a principal.
@@ -51,6 +55,17 @@ class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
     """
     namespace = twisted_dav_namespace
     name = "last-modified"
+    hidden = True
+
+    def getValue(self):
+        return str(self)
+
+class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
+    """
+    Contains the calendar access level (private events) for the resource.
+    """
+    namespace = twisted_dav_namespace
+    name = "calendar-access"
     hidden = True
 
     def getValue(self):
