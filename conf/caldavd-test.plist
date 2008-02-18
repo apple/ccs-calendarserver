@@ -330,10 +330,6 @@ limitations under the License.
   <key>EnableNotifications</key>
   <true/>
 
-  <!-- Private Events -->
-  <key>EnablePrivateEvents</key>
-  <true/>
-
 
   <!--
     Twisted

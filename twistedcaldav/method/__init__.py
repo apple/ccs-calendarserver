@@ -26,7 +26,6 @@ bind methods to CalDAVFile.
 __all__ = [
     "copymove",
     "delete",
-    "get",
     "mkcalendar",
     "mkcol",
     "put",
