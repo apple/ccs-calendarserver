@@ -26,7 +26,7 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.web2 import responsecode
+from twisted.internet.defer import succeed
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
@@ -258,6 +258,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     ##
     # ACL
     ##
+
+    def owner(self, request):
+        return succeed(davxml.HRef(self.principalForRecord().principalURL()))
 
     def defaultAccessControlList(self):
         # FIXME: directory.principalCollection smells like a hack

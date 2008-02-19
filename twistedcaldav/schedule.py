@@ -38,6 +38,7 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
+from twistedcaldav import customxml
 from twistedcaldav import itip
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
@@ -273,6 +274,11 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         if not calendar.isValidITIP():
             log.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+
+        # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
+        if calendar.hasProperty(Component.ACCESS_PROPERTY):
+            logging.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component POST request: %s" % (calendar,), system="CalDAV Outbox POST")
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
         # Verify that the ORGANIZER's cu address maps to the request.uri
         outboxURL = None

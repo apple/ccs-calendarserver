@@ -193,7 +193,7 @@ class CalDAVFilterElement (CalDAVElement):
             self.filter_name = self.filter_name.encode("utf-8")
         self.defined     = not self.qualifier or (self.qualifier.qname() != (caldav_namespace, "is-not-defined"))
 
-    def match(self, item):
+    def match(self, item, access=None):
         """
         Returns True if the given calendar item (either a component, property or parameter value)
         matches this filter, False otherwise.
@@ -203,11 +203,11 @@ class CalDAVFilterElement (CalDAVElement):
         # be negated by the caller
         if not self.defined: return True
 
-        if self.qualifier and not self.qualifier.match(item): return False
+        if self.qualifier and not self.qualifier.match(item, access): return False
 
         if len(self.filters) > 0:
             for filter in self.filters:
-                if filter._match(item):
+                if filter._match(item, access):
                     return True
             return False
         else:
@@ -477,12 +477,7 @@ class CalendarData (CalDAVElement):
         @param resource: the resource whose calendar data is to be returned.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        # Check for filtering or not
-        if self.children:
-            filtered = self.getFromICalendar(resource.iCalendar())
-            return CalendarData.fromCalendar(filtered)
-        else:
-            return resource.iCalendarXML()
+        return self.elementFromCalendar(resource.iCalendar())
 
     def elementFromCalendar(self, calendar):
         """
@@ -495,6 +490,138 @@ class CalendarData (CalDAVElement):
         # Check for filtering or not
         filtered = self.getFromICalendar(calendar)
         return CalendarData.fromCalendar(filtered)
+
+    def elementFromResourceWithAccessRestrictions(self, resource, access):
+        """
+        Return a new CalendarData element comprised of the possibly filtered
+        calendar data from the specified resource. If no filter is being applied
+        read the data directly from the resource without parsing it. If a filter
+        is required, parse the iCal data and filter using this CalendarData.
+        
+        Also, apply appropriate access restriction filtering to the data.
+
+        @param resource: the resource whose calendar data is to be returned.
+        @param access: private event access restriction level.
+        @return: an L{CalendarData} with the (filtered) calendar data.
+        """
+        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access)
+
+    def elementFromCalendarWithAccessRestrictions(self, calendar, access):
+        """
+        Return a new CalendarData element comprised of the possibly filtered
+        calendar.
+        
+        Also, apply appropriate access restriction filtering to the data.
+
+        @param calendar: the calendar that is to be filtered and returned.
+        @param access: private event access restriction level.
+        @return: an L{CalendarData} with the (filtered) calendar data.
+        """
+        
+        # Do normal filtering first
+        filtered_calendar = self.getFromICalendar(calendar)
+        
+        if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
+            # Create a CALDAV:calendar-data element with the appropriate iCalendar Component/Property
+            # filter in place for the access restriction in use
+            
+            extra_access = ()
+            if access == iComponent.ACCESS_RESTRICTED:
+                extra_access = (
+                    Property(name="SUMMARY"),
+                    Property(name="LOCATION"),
+                )
+
+            filter = CalendarData(
+                CalendarComponent(
+                    
+                    # VCALENDAR proeprties
+                    Property(name="PRODID"),
+                    Property(name="VERSION"),
+                    Property(name="CALSCALE"),
+                    Property(name=iComponent.ACCESS_PROPERTY),
+
+                    # VEVENT
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="TRANSP"),
+                        Property(name="DTSTART"),
+                        Property(name="DTEND"),
+                        Property(name="DURATION"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VEVENT"}
+                    ),
+                    
+                    # VTODO
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="DTSTART"),
+                        Property(name="COMPLETED"),
+                        Property(name="DUE"),
+                        Property(name="DURATION"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VTODO"}
+                    ),
+                    
+                    # VJOURNAL
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="RECURRENCE-ID"),
+                        Property(name="SEQUENCE"),
+                        Property(name="DTSTAMP"),
+                        Property(name="STATUS"),
+                        Property(name="TRANSP"),
+                        Property(name="DTSTART"),
+                        Property(name="RRULE"),
+                        Property(name="RDATE"),
+                        Property(name="EXRULE"),
+                        Property(name="EXDATE"),
+                        *extra_access,
+                        **{"name":"VJOURNAL"}
+                    ),
+                    
+                    # VFREEBUSY
+                    CalendarComponent(
+                        Property(name="UID"),
+                        Property(name="DTSTAMP"),
+                        Property(name="DTSTART"),
+                        Property(name="DTEND"),
+                        Property(name="DURATION"),
+                        Property(name="FREEBUSY"),
+                        *extra_access,
+                        **{"name":"VFREEBUSY"}
+                    ),
+                    
+                    # VTIMEZONE
+                    CalendarComponent(
+                        AllProperties(),
+                        AllComponents(),
+                        name="VTIMEZONE",
+                    ),
+                    name="VCALENDAR",
+                ),
+            )
+
+            # Now "filter" the resource calendar data through the CALDAV:calendar-data element
+            return filter.elementFromCalendar(filtered_calendar)
+        else:
+            return CalendarData.fromCalendar(filtered_calendar)
 
     def getFromICalendar(self, calendar):
         """
@@ -530,6 +657,16 @@ class CalendarData (CalDAVElement):
         """
         Returns a calendar component derived from this element.
         """
+        data = self.calendarData()
+        if data:
+            return iComponent.fromString(data)
+        else:
+            return None
+
+    def calendarData(self):
+        """
+        Returns the calendar data derived from this element.
+        """
         for data in self.children:
             if not isinstance(data, davxml.PCDATAElement):
                 return None
@@ -537,7 +674,7 @@ class CalendarData (CalDAVElement):
                 # We guaranteed in __init__() that there is only one child...
                 break
 
-        return iComponent.fromString(str(data))
+        return str(data)
 
     def expandRecurrence(self, calendar):
         """
@@ -758,12 +895,16 @@ class Filter (CalDAVElement):
 
     allowed_children = { (caldav_namespace, "comp-filter"): (1, 1) }
 
-    def match(self, component):
+    def match(self, component, access=None):
         """
         Returns True if the given calendar component matches this filter, False
         otherwise.
         """
         
+        # We only care about certain access restrictions.
+        if access not in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
+            access = None
+
         # We need to prepare ourselves for a time-range query by pre-calculating
         # the set of instances up to the latest time-range limit. That way we can
         # avoid having to do some form of recurrence expansion for each query sub-part.
@@ -775,7 +916,7 @@ class Filter (CalDAVElement):
         self.children[0].setInstances(instances)
 
         # <filter> contains exactly one <comp-filter>
-        return self.children[0].match(component)
+        return self.children[0].match(component, access)
 
     def valid(self):
         """
@@ -827,7 +968,7 @@ class ComponentFilter (CalDAVFilterElement):
     }
     allowed_attributes = { "name": True }
 
-    def match(self, item):
+    def match(self, item, access):
         """
         Returns True if the given calendar item (which is a component)
         matches this filter, False otherwise.
@@ -843,20 +984,26 @@ class ComponentFilter (CalDAVFilterElement):
 
         if len(self.filters) > 0:
             for filter in self.filters:
-                if filter._match(item):
+                if filter._match(item, access):
                     return True
             return False
         else:
             return True
 
-    def _match(self, component):
+    def _match(self, component, access):
         # At least one subcomponent must match (or is-not-defined is set)
         for subcomponent in component.subcomponents():
+            # If access restrictions are in force, restrict matching to specific components only.
+            # In particular do not match VALARM.
+            if access and subcomponent.name() not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VTIMEZONE",):
+                continue
+            
+            # Try to match the component name
             if isinstance(self.filter_name, str):
                 if subcomponent.name() != self.filter_name: continue
             else:
                 if subcomponent.name() not in self.filter_name: continue
-            if self.match(subcomponent): break
+            if self.match(subcomponent, access): break
         else:
             return not self.defined
         return self.defined
@@ -982,10 +1129,22 @@ class PropertyFilter (CalDAVFilterElement):
     }
     allowed_attributes = { "name": True }
 
-    def _match(self, component):
+    def _match(self, component, access):
+        # When access restriction is in force, we need to only allow matches against the properties
+        # allowed by the access restriction level.
+        if access:
+            allowedProperties = iComponent.confidentialPropertiesMap.get(component.name(), None)
+            if allowedProperties and access == iComponent.ACCESS_RESTRICTED:
+                allowedProperties += iComponent.extraRestrictedProperties
+        else:
+            allowedProperties = None
+
         # At least one property must match (or is-not-defined is set)
         for property in component.properties():
-            if property.name() == self.filter_name and self.match(property): break
+            # Apply access restrictions, if any.
+            if allowedProperties is not None and property.name() not in allowedProperties:
+                continue
+            if property.name() == self.filter_name and self.match(property, access): break
         else:
             return not self.defined
         return self.defined
@@ -1038,7 +1197,7 @@ class ParameterFilter (CalDAVFilterElement):
     }
     allowed_attributes = { "name": True }
 
-    def _match(self, property):
+    def _match(self, property, access):
         # We have to deal with the problem that the 'Native' form of a property
         # will be missing the TZID parameter due to the conversion performed. Converting
         # to non-native for the entire calendar object causes problems elsewhere, so its
@@ -1051,7 +1210,7 @@ class ParameterFilter (CalDAVFilterElement):
         # At least one property must match (or is-not-defined is set)
         result = not self.defined
         for parameterName in property.params().keys():
-            if parameterName == self.filter_name and self.match(property.params()[parameterName]):
+            if parameterName == self.filter_name and self.match(property.params()[parameterName], access):
                 result = self.defined
                 break
 
@@ -1065,7 +1224,7 @@ class IsDefined (CalDAVEmptyElement):
     """
     name = "is-defined"
 
-    def match(self, component):
+    def match(self, component, access):
         return component is not None
 
 class IsNotDefined (CalDAVEmptyElement):
@@ -1075,7 +1234,7 @@ class IsNotDefined (CalDAVEmptyElement):
     """
     name = "is-not-defined"
 
-    def match(self, component):
+    def match(self, component, access):
         # Oddly, this needs always to return True so that it appears there is
         # a match - but we then "negate" the result if is-not-defined is set.
         # Actually this method should never be called as we special case the
@@ -1130,7 +1289,7 @@ class TextMatch (CalDAVTextElement):
         else:
             self.negate = False
 
-    def match(self, item):
+    def match(self, item, access):
         """
         Match the text for the item.
         If the item is a property, then match the property value,
@@ -1221,7 +1380,7 @@ class TimeRange (CalDAVTimeRangeElement):
         # No other tests
         return True
 
-    def match(self, property):
+    def match(self, property, access):
         """
         NB This is only called when doing a time-range match on a property.
         """

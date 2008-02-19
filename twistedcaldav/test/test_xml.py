@@ -48,7 +48,7 @@ class XML (twistedcaldav.test.util.TestCase):
                     name=component_name
                 ),
                 name="VCALENDAR"
-            ).match(self.calendar):
+            ).match(self.calendar, None):
                 self.fail("Calendar has %s%s?" % (no, component_name))
 
     def test_PropertyFilter(self):
@@ -70,7 +70,7 @@ class XML (twistedcaldav.test.util.TestCase):
                     name="VEVENT"
                 ),
                 name="VCALENDAR"
-            ).match(self.calendar):
+            ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with %s?" % (no, property_name))
 
     def test_ParameterFilter(self):
@@ -101,7 +101,7 @@ class XML (twistedcaldav.test.util.TestCase):
                     name="VEVENT"
                 ),
                 name="VCALENDAR"
-            ).match(self.calendar):
+            ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with UID %s? (caseless=%s)" % (no, uid, caseless))
 
     def test_TimeRange(self):
