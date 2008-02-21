@@ -947,6 +947,8 @@ def getComponentSyncInfo(component):
         # Extract items from component
         uid = component.propertyValue("UID")
         seq = component.propertyValue("SEQUENCE")
+        if seq:
+            seq = int(seq)
         dtstamp = component.propertyValue("DTSTAMP")
         rid = component.propertyValue("RECURRENCE-ID")
         
