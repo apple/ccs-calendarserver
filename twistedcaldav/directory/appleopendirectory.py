@@ -146,7 +146,8 @@ class OpenDirectoryService(DirectoryService):
             for GUID in self._expandGroupMembership(
                 group.get(dsattributes.kDSNAttrGroupMembers, []),
                 group.get(dsattributes.kDSNAttrNestedGroups, []),
-                processedGUIDs):
+                processedGUIDs
+            ):
                 yield GUID
 
     def __cmp__(self, other):
@@ -184,13 +185,13 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrRecordName,
             dsattributes.kDSNAttrMetaNodeLocation,
-            'dsAttrTypeNative:apple-serviceinfo',
+            "dsAttrTypeNative:apple-serviceinfo",
         ]
 
         records = opendirectory.queryRecordsWithAttributes_list(
             self.directory,
             dsquery.match(
-                'dsAttrTypeNative:apple-serviceinfo',
+                "dsAttrTypeNative:apple-serviceinfo",
                 vhostname,
                 dsattributes.eDSContains,
             ).generate(),
@@ -239,7 +240,7 @@ class OpenDirectoryService(DirectoryService):
         recordlocation = "%s/Computers/%s" % (record[dsattributes.kDSNAttrMetaNodeLocation], recordname)
 
         # First check for apple-serviceinfo attribute
-        plist = record.get('dsAttrTypeNative:apple-serviceinfo', None)
+        plist = record.get("dsAttrTypeNative:apple-serviceinfo", None)
         if not plist:
             return False
 
@@ -454,21 +455,46 @@ class OpenDirectoryService(DirectoryService):
             enabledForCalendaring = True
 
             if self.requireComputerRecord:
-                if not value.get(dsattributes.kDSNAttrServicesLocator):
-                    if (
-                        recordType == DirectoryService.recordType_users or
-                        recordType == DirectoryService.recordType_groups
-                    ):
-                        enabledForCalendaring = False
-                        logging.debug(
-                            "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                            % (recordType, recordShortName), system="OpenDirectoryService"
-                        )
+                servicesLocators = value.get(dsattributes.kDSNAttrServicesLocator)
+
+                def allowForACLs():
+                    return recordType in (
+                        DirectoryService.recordType_users,
+                        DirectoryService.recordType_groups,
+                    )
+
+                def disableForCalendaring():
+                    logging.debug(
+                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
+                        % (recordType, recordShortName), system="OpenDirectoryService"
+                    )
+                    enabledForCalendaring = False
+
+                def invalidRecord():
+                    logging.err(
+                        "Directory (incorrectly) returned a record with no applicable "
+                        "ServicesLocator attribute: (%s) %s"
+                        % (recordType, recordShortName), system="OpenDirectoryService"
+                    )
+
+                if servicesLocators:
+                    if type(servicesLocators) is str:
+                        servicesLocators = (servicesLocators,)
+
+                    for locator in servicesLocators:
+                        if locator in self.servicetags:
+                            break
                     else:
-                        logging.err(
-                            "Directory (incorrectly) returned a record with no ServicesLocator attribute: (%s) %s"
-                            % (recordType, recordShortName), system="OpenDirectoryService"
-                        )
+                        if allowForACLs():
+                            disableForCalendaring()
+                        else:
+                            invalidRecord()
+                            continue
+                else:
+                    if allowForACLs():
+                        disableForCalendaring()
+                    else:
+                        invalidRecord()
                         continue
 
             # Now get useful record info.
@@ -487,7 +513,7 @@ class OpenDirectoryService(DirectoryService):
             else:
                 calendarUserAddresses = ()
 
-            # Special case for groups.
+            # Special case for groups, which have members.
             if recordType == DirectoryService.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                 if memberGUIDs is None:
@@ -525,9 +551,6 @@ class OpenDirectoryService(DirectoryService):
                 memberGUIDs           = memberGUIDs,
                 proxyGUIDs            = proxyGUIDs,
             )
-
-            del recordShortName
-            del recordGUID
 
             def disableRecord(record):
                 logging.warn("Record disabled due to conflict: %s" % (record,), system="OpenDirectoryService")
@@ -654,10 +677,13 @@ class OpenDirectoryService(DirectoryService):
                     query = dsquery.expression(dsquery.expression.OR, guidQueries)
 
             #
-            # For groups, we'll load all entries, even if they don't
-            # have a services locator for this server.
+            # For users and groups, we'll load all entries, even if
+            # they don't have a services locator for this server.
             #
-            elif recordType != DirectoryService.recordType_groups:
+            elif (
+                recordType != DirectoryService.recordType_users and
+                recordType != DirectoryService.recordType_groups
+            ):
                 tag_queries = []
 
                 for tag in self.servicetags:
