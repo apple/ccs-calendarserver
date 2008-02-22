@@ -575,8 +575,8 @@ case "${USER}" in
     base="http://svn.osafoundation.org";
     ;;
 esac;
-svn_uri="${base}/vobject/branches/users/cdaboo/vavailability-190";
-svn_get "vObject" "${vobject}" "${svn_uri}" 192;
+svn_uri="${base}/vobject/trunk";
+svn_get "vObject" "${vobject}" "${svn_uri}" 193;
 put_setuptools "${vobject}";
 
 py_install "vObject" "${vobject}";
