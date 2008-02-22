@@ -468,7 +468,6 @@ class OpenDirectoryService(DirectoryService):
                         "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
                         % (recordType, recordShortName), system="OpenDirectoryService"
                     )
-                    enabledForCalendaring = False
 
                 def invalidRecord():
                     logging.err(
@@ -487,12 +486,14 @@ class OpenDirectoryService(DirectoryService):
                     else:
                         if allowForACLs():
                             disableForCalendaring()
+                            enabledForCalendaring = False
                         else:
                             invalidRecord()
                             continue
                 else:
                     if allowForACLs():
                         disableForCalendaring()
+                        enabledForCalendaring = False
                     else:
                         invalidRecord()
                         continue
