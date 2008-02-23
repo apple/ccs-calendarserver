@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
+<!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc2445 PUBLIC '' 'bibxml/reference.RFC.2445.xml'>
+<!ENTITY rfc2446 PUBLIC '' 'bibxml/reference.RFC.2446.xml'>
+<!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
+]> 
+<?rfc toc="yes"?>
+<?rfc tocdepth="4"?>
+<?rfc strict="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<?rfc private="Calendar Server Extension"?>
+<rfc ipr="none" docName='icalendar-maskuids-03'>
+    <front>
+        <title abbrev="iCalendar Mask UIDs">Masking existing meetings in iCalendar free busy requests</title> 
+        <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
+            <organization abbrev="Apple">
+                Apple Inc.
+            </organization>
+            <address>
+                <postal>
+                    <street>1 Infinite Loop</street>
+                    <city>Cupertino</city>
+                    <region>CA</region>
+                    <code>95014</code> 
+                    <country>USA</country>
+                </postal>
+                <email>cyrus@daboo.name</email>
+                <uri>http://www.apple.com/</uri>
+            </address>
+        </author>
+        <date year='2007'/>
+        <abstract>
+            <t>
+                This document defines an extension to the iTIP calendar scheduling protocol to allow an organizer to have a specific event that may exist on an attendee's calendar ignored when the attendee calculates and returns their free-busy information after a request from the organizer.
+            </t>
+        </abstract>
+    </front>
+    <middle>
+        <section title='Introduction'>
+            <t>
+                Internet calendaring and scheduling standards are defined by <xref target="RFC2445">iCalendar</xref> and <xref target="RFC2446">iTIP</xref>. One of the scheduling operations supported by iTIP is the ability of a meeting organizer to request free-busy time information from attendees of a meeting. To do that, the organizer creates an iCalendar VFREEBUSY component with start and end times corresponding to the interval over which free-busy time needs to be known, and then sends that component in an iTIP REQUEST message to each attendee. Attendees determine their own free-busy information over the specified interval and return that in a VFREEBUSY component sent back to the organizer.
+            </t>
+            <t>
+                It is often the case that an existing meeting that has previously been "booked" with attendees, needs to be re-scheduled. To do that the organizer may again check free-busy status for each attendee to try and determine a suitable time for the re-scheduled meeting. One problem with this is that with the current protocol, free-busy information returned by attendees will include a block of busy time corresponding to the meeting that has already been booked. Whilst the organizer could choose to treat that time as free for each attendee given that a known meeting exists, that would not take into account the possibility that an attendee choose to be double-booked for some reason.
+            </t>
+            <t>
+            	What would be useful is a way for an organizer to ask attendees to ignore a certain meeting (specifically the one being re-scheduled) when asking for free-busy time in order to determine when to re-schedule a meeting.
+            </t>
+            <t>
+            	This specification defines a new iCalendar property that an organizer can include in a VFREEBUSY request that instructs an attendee's calendar user agent to ignore any matching events when calculating free-busy information sent back in a response.
+            </t>
+        </section>
+        <section title='Conventions Used in This Document'>
+            <t>
+                The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <xref target='RFC2119' />. 
+            </t>
+        </section>
+         
+        <section title="Open Issues">
+            <t>
+                <list style="numbers">
+                    <t>
+                        Do we want some kind of indicator in the iTIP reply so that the organizer's CUA knows whether X-CALENDARSERVER-MASK-UID was used (supported) or not?
+                    </t>
+                </list>
+            </t>
+        </section>
+            
+        <section title='New features in iCalendar' anchor='changes'>
+            <section title='Mask UID Property'>
+   				<t>Property Name: X-CALENDARSERVER-MASK-UID</t>
+
+   				<t>Purpose: This property indicates the unique identifier for a calendar component that is to be ignored when calculating free-busy time.</t>
+
+   				<t>Value Type: TEXT</t>
+
+   				<t>Property Parameters: Non-standard property parameters can be specified on this property.</t>
+
+   				<t>Conformance: The property MAY be specified in a "VFREEBUSY" calendar component, but MUST occur only once. It only has significance when used in an iTIP VFREEBUSY request.</t>
+
+				<t>The value of this property MUST be a unique identifier of another iCalendar component that an organizer might believe exists on an attendee's calendar.</t>
+
+				<t>As per the iCalendar UID property, implementations MUST be able to receive and persist values of at least 255 characters for this property.</t>
+
+				<t>Formal Definition: The property is defined by the following notation:</t>
+
+				<t>maskuid = "X-CALENDARSERVER-MASK-UID" maskuidparam ":" text CRLF</t>
+
+     			<t>maskuidparam   = *(";" xparam)</t>
+
+				<t>Example: The following is an example of this property:</t>
+
+				<t>X-CALENDARSERVER-MASK-UID:4000F192713-0052@example.com</t>
+
+            </section>
+            <section title='Free/Busy Component'>
+            <t>This specification extends the definition of the VFREEBUSY component (see Section 4.6.4 of <xref target="RFC2445"/>) to allow zero or one X-CALENDARSERVER-MASK-UID properties to be present.</t>
+			<figure>
+		    	<preamble>Formal Definition: (extends <xref target="RFC2445"/>)</preamble>
+		            <artwork>
+     fbprop     /= *(
+
+                ; the following are optional,
+                ; but MUST NOT occur more than once
+
+                maskuid
+
+                )
+		            </artwork>
+			</figure>
+
+
+            </section>
+            <section title='iTIP'>
+            <t>This specification extends the VFREEBUSY request requirements (see Section 3.3.2 of <xref target="RFC2446"/>) to allow zero or one X-CALENDARSERVER-MASK-UID properties to be present in a VFREEBUSY component sent in a METHOD:REQUEST iTIP message.</t>
+            <t>When a calendar user agent receives a VFREEBUSY request containing a X-CALENDARSERVER-MASK-UID property, it processes the free-busy request as usual with the exception that any components that would contribute busy time to the free-busy response MUST have their UIDs checked, and if:
+            
+            <list>
+            	<t>they have a UID that matches the value of the X-CALENDARSERVER-MASK-UID property;</t>
+            	<t>and
+            	<list>
+            		<t>they have an ORGANIZER property value that is the same as the ORGANIZER property value on the VFREEBUSY request component;</t>
+            		<t>or</t>
+            		<t>they do not have an ORGANIZER property and the calendar user whose free-busy is being checked is the same as the ORGANIZER property value in the VFREEBUSY request component;</t>
+            	</list>
+            	</t>
+            </list>
+           	then they should be ignored and not contribute busy time.</t>
+            </section>
+
+        </section>
+
+		<section title="Interaction with CalDAV Servers">
+			<t>
+				The CalDAV <xref target="RFC4791">access</xref> and <xref target="I-D.desruisseaux-caldav-sched">scheduling</xref> extensions to WebDAV define a server-based calendar and scheduling protocol. The scheduling portion of that uses iTIP messaging to send requests and get responses from calendar users.
+			</t>
+			<t>
+				CalDAV servers MAY support the X-CALENDARSERVER-MASK-UID property on any iTIP VFREEBUSY requests sent to the server. To do that, a server simply follows the procedure described above to remove the matching UID from the free busy result, applying the appropriate restrictions with respect to ORGANIZER property.
+			</t>
+		</section>
+
+        <section title='Security Considerations'>
+            <t>
+                Calendar user agents processing a VFREEBUSY request with a X-CALENDARSERVER-MASK-UID property present MUST ensure that only components whose ORGANIZER property value matches that of the VFREEBUSY request component are ignored when calculating free-busy time, or ensure that there is no ORGANIZER property in the component to be ignored and the requesting calendar user is the same as the responding calendar user. This ensures that organizers can only mask out meetings that they themselves have scheduled, rather than meetings proposed by other people, or unscheduled events on their own calendars. This also ensures that only the original organizer of a meeting can determine whether that meeting actually appears on someone else's calendar by using the free-busy time requests with and without a masked UID as a probe.
+            </t>
+        </section>
+        <section title='IANA Considerations'>
+            <t>
+                This document does not require any actions on the part of IANA.
+            </t>
+        </section>
+    </middle>
+    <back>
+        <references title='Normative References'>
+            &rfc2119;
+            &rfc2445;
+            &rfc2446;
+            &rfc4791;
+            &I-D.desruisseaux-caldav-sched;
+        </references>
+<!--
+<references title='Informative References'>
+</references>
+-->
+        <section title='Acknowledgments'>
+            <t>
+                This specification is the result of discussions between the Apple calendar server and client teams.
+            </t>
+        </section>
+        <section title='Change History'>
+            <t>Changes since -02
+				<list style="numbers">
+					<t>Allowing masking of ORGANIZER-less events for the case where the ORGANIZER of the REQUEST is the same as the ATTENDEE being requested.</t>
+				</list>
+            </t>
+            <t>Changes since -01
+				<list style="numbers">
+					<t>Added section for support in CalDAV servers.</t>
+				</list>
+            </t>
+            <t>Changes since -00
+				<list style="numbers">
+					<t>Change to allow at most one X-CALENDARSERVER-MASK-UID property.</t>
+					<t>Change name to X-CALENDARSERVER-MASK-UID.</t>
+				</list>
+            </t>
+        </section>
+    </back>
+</rfc>

@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
+<!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc2518 PUBLIC '' 'bibxml/reference.RFC.2518.xml'>
+<!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
+<!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY I-D.dusseault-caldav PUBLIC '' 'bibxml3/reference.I-D.dusseault-caldav.xml'>
+<!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
+]> 
+<?rfc toc="yes"?>
+<?rfc tocdepth="4"?>
+<?rfc strict="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<?rfc private="Calendar Server Extension"?>
+<rfc ipr="none" docName='caldav-cu-proxy-02'>
+    <front>
+        <title abbrev="CalDAV Proxy">Calendar User Proxy Functionality in CalDAV</title> 
+        <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
+            <organization abbrev="Apple Computer">
+                Apple Computer, Inc.
+            </organization>
+            <address>
+                <postal>
+                    <street>1 Infinite Loop</street>
+                    <city>Cupertino</city>
+                    <region>CA</region>
+                    <code>95014</code> 
+                    <country>USA</country>
+                </postal>
+                <email>cyrus@daboo.name</email>
+                <uri>http://www.apple.com/</uri>
+            </address>
+        </author>
+        <date year='2007'/>
+        <abstract>
+            <t>
+                This specification defines an extension to CalDAV that makes it easy for clients to setup and manage calendar user proxies, using the WebDAV Access Control List extension as a basis.
+            </t>
+        </abstract>
+    </front>
+    <middle>
+        <section title='Introduction'>
+            <t>
+                <xref target="RFC4791">CalDAV</xref> provides a way for calendar users to store calendar data and exchange this data via scheduling operations. Based on the WebDAV protocol <xref target='RFC2518' />, it also includes the ability to manage access to calendar data via the WebDAV ACL extension <xref target='RFC3744' />.
+            </t>
+            <t>
+                It is often common for a calendar user to delegate some form of responsibility for their calendar and schedules to another calendar user (e.g., a boss allows an assistant to check a calendar or to send and accept scheduling invites on his behalf). The user handling the calendar data on behalf of someone else is often referred to as a "calendar user proxy".
+            </t>
+            <t>
+                Whilst CalDAV does have fine-grained access control features that can be used to setup complex sharing and management of calendars, often the proxy behavior required is an "all-or-nothing" approach - i.e. the proxy has access to all the calendars or to no calendars (in which case they are of course not a proxy). So a simple way to manage access to an entire set of calendars and scheduling ability would be handy.
+            </t>
+            <t>
+                In addition, calendar user agents will often want to display to a user who has proxy access to their calendars, or to whom they are acting as a proxy. Again, CalDAV's access control discovery and report features can be used to do that, but with fine-grained control that exists, it can be hard to tell who is a "real" proxy as opposed to someone just granted rights to some subset of calendars. Again, a simple way to discover proxy information would be handy.
+            </t>
+        </section>
+        <section title='Conventions Used in This Document'>
+            <t>
+                The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <xref target='RFC2119' />. 
+            </t>
+            <t>
+                When XML element types in the namespace "DAV:" are referenced in this document outside of the context of an XML fragment, the string "DAV:" will be prefixed to the element type names. 
+            </t>
+            <t>
+                When XML element types in the namespaces "DAV:" and "urn:ietf:params:xml:ns:caldav" are referenced in this document outside of the context of an XML fragment, the string "DAV:" and "CALDAV:" will be prefixed to the element type names respectively. 
+            </t>
+            <t>
+                The namespace "http://calendarserver.org/ns/" is used for XML elements defined in this specification.  When XML element types in this namespace are referenced in this document outside of the context of an XML fragment, the string "CS:" will be prefixed to the element type names respectively. 
+            </t>
+        </section>
+         
+        <section title='Overview' anchor='overview'>
+            <section title='Server'>
+                <t>
+                    For each calendar user principal on the server, the server will generate two group principals - "proxy groups". One is used to hold the list of principals who have read-only proxy access to the main principal's calendars, the other holds the list of principals who have read-write and scheduling proxy access. NB these new group principals would have no equivalent in Open Directory.
+                </t>
+                <t>
+                    Privileges on each "proxy group" principal will be set so that the "owner" has the ability to change property values.
+                </t>
+                <t>
+                    The "proxy group" principals will be child resources of the user principal resource with specific resource types and thus are easy to discover. As a result the user principal resources will also be collection resources.
+                </t>
+                <t>
+                    When provisioning the calendar user home collection, the server will:
+                    <list style='letters'>
+                        <t>
+                            Add an ACE to the calendar home collection giving the read-only "proxy group" inheritable read access.
+                        </t>
+                        <t>
+                            Add an ACE to the calendar home collection giving the read-write "proxy group" inheritable read-write access.
+                        </t>
+                        <t>
+                            Add an ACE to each of the calendar Inbox and Outbox collections giving the <xref target='I-D.desruisseaux-caldav-sched'>CALDAV:schedule privilege</xref> to the read-write "proxy group".
+                        </t>
+                    </list>
+                </t>
+            </section>
+            <section title='Client'>
+                <t>
+                    A client can see who the proxies are for the current principal by examining the principal resource for the two "proxy group" properties and then looking at the DAV:group-member-set property of each.
+                </t>
+                <t>
+                    The client can edit the list of proxies for the current principal by editing the DAV:group-member-set property on the relevant "proxy group" principal resource.
+                </t>
+                <t>
+                    The client can find out who the current principal is a proxy for by running a DAV:principal-match REPORT on the principal collection.
+                </t>
+                <t>
+                    Alternatively, the client can find out who the current principal is a proxy for by examining the DAV:group-membership property on the current principal resource looking for membership in other users' "proxy groups".
+                </t>
+            </section>
+        </section>
+
+        <section title="Open Issues">
+            <t>
+                <list style="numbers">
+                    <t>
+                        Do we want to separate read-write access to calendars vs the ability to schedule as a proxy?
+                    </t>
+                    <t>
+                        We may want to restrict changing properties on the proxy group collections to just the DAV:group-member-set property?
+                    </t>
+                    <t>
+                        There is no way for a proxy to be able to manage the list of proxies. We could allow the main calendar user DAV:write-acl on their "proxy group" principals, in which case they could grant others the right to modify the group membership.
+                    </t>
+                    <t>
+                        Should the "proxy group" principals also be collections given that the regular principal resources will be?
+                    </t>
+                </list>
+            </t>
+        </section>
+            
+        <section title='New features in CalDAV' anchor='changes'>
+            <section title='Proxy Principal Resource'>
+                <t>
+                    Each "regular" principal resource that needs to allow calendar user proxy support MUST be a collection resource. i.e. in addition to including the DAV:principal XML element in the DAV:resourcetype property on the resource, it MUST also include the DAV:collection XML element.
+                </t>
+                <t>
+                    Each "regular" principal resource MUST contain two child resources with names "calendar-proxy-read" and "calendar-proxy-write" (note that these are only suggested names - the server could choose any unique name for these). These resources are themselves principal resources that are groups contain the list of principals for calendar users who can act as a read-only or read-write proxy respectively.
+                </t>
+                <t>
+                    The server MUST include the CS:calendar-proxy-read or CS:calendar-proxy-write XML elements in the DAV:resourcetype property of the child resources, respectively. This allows clients to discover the "proxy group" principals by using a PROPFIND, Depth:1 request on the current user's principal resource and requesting the DAV:resourcetype property be returned. The element type declarations are:
+                        <figure>
+                            <artwork><![CDATA[
+<!ELEMENT calendar-proxy-read EMPTY>
+
+<!ELEMENT calendar-proxy-write EMPTY>
+                            ]]></artwork>
+                        </figure>
+                </t>
+                <t>
+                    The server MUST allow the "parent" principal to change the DAV:group-member-set property on each of the "child" "proxy group" principal resources. When a principal is listed as a member of the "child" resource, the server MUST include the "child" resource URI in the DAV:group-membership property on the included principal resource. Note that this is just "normal" behavior for a group principal.
+                </t>
+                <t>
+                    An example principal resource layout might be:
+                    <figure>
+                        <artwork><![CDATA[
+        + /
+          + principals/
+            + users/
+              + cyrus/
+                  calendar-proxy-read
+                  calendar-proxy-write
+              + red/
+                  calendar-proxy-read
+                  calendar-proxy-write
+              + wilfredo/
+                  calendar-proxy-read
+                  calendar-proxy-write
+                        ]]></artwork>
+                    </figure>
+                    If the principal "cyrus" wishes to have the principal "red" act as a calendar user proxy on his behalf and have the ability to change items on his calendar or schedule meetings on his behalf, then he would add the principal resource URI for "red" to the DAV:group-member-set property of the principal resource /principals/users/cyrus/calendar-proxy-write, giving:
+                    <figure>
+                        <artwork><![CDATA[
+<DAV:group-member-set>
+  <DAV:href>/principals/users/red/</DAV:href>
+</DAV:group-member-set>
+                        ]]></artwork>
+                    </figure>
+                    The DAV:group-membership property on the resource /principals/users/red/ would be:
+                    <figure>
+                        <artwork><![CDATA[
+<DAV:group-membership>
+  <DAV:href>/principals/users/cyrus/calendar-proxy-write</DAV:href>
+</DAV:group-membership>
+                        ]]></artwork>
+                    </figure>
+                </t>
+                <t>
+                    If the principal "red" was also a read-only proxy for the principal "wilfredo", then the DA:group-membership property on the resource /principals/users/red/ would be:
+                    <figure>
+                        <artwork><![CDATA[
+<DAV:group-membership>
+  <DAV:href>/principals/users/cyrus/calendar-proxy-write</DAV:href>
+  <DAV:href>/principals/users/wilfredo/calendar-proxy-read</DAV:href>
+</DAV:group-membership>
+                        ]]></artwork>
+                    </figure>
+                    Thus a client can discover to which principals a particular principal is acting as a calendar user proxy for by examining the DAV:group-membership property.
+                </t>
+                <t>
+                    An alternative to discovering which principals a user can proxy as is to use the WebDAV ACL principal-match report, targeted at the principal collections available on the server.
+                </t>
+                <t>Example:
+                  <figure>
+                    <preamble>&gt;&gt; Request &lt;&lt;</preamble>
+                    <artwork><![CDATA[
+REPORT /principals/ HTTP/1.1
+Host: cal.example.com
+Depth: 0
+Content-Type: application/xml; charset="utf-8"
+Content-Length: xxxx
+Authorization: Digest username="red",
+ realm="cal.example.com", nonce="...",
+ uri="/principals/", response="...", opaque="..."
+
+<?xml version="1.0" encoding="utf-8" ?>
+<D:principal-match xmlns:D="DAV:">
+  <D:self/>
+  <D:prop>
+    <D:resourcetype/>
+  </D:prop>
+</D:principal-match>
+                    ]]></artwork>
+                  </figure>
+                  <figure>
+                    <preamble>&gt;&gt; Response &lt;&lt;</preamble>
+                    <artwork><![CDATA[
+HTTP/1.1 207 Multi-Status
+Date: Fri, 10 Nov 2006 09:32:12 GMT
+Content-Type: application/xml; charset="utf-8"
+Content-Length: xxxx
+
+<?xml version="1.0" encoding="utf-8" ?>
+<D:multistatus xmlns:D="DAV:"
+               xmlns:A="http://calendarserver.org/ns/">
+  <D:response>
+    <D:href>/principals/users/red/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:principal/>
+          <D:collection/>
+        </D:resourcetype>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/principals/users/cyrus/calendar-proxy-write</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:principal/>
+          <A:calendar-proxy-write/>
+        </D:resourcetype>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/principals/users/wilfredo/calendar-proxy-read</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:principal/>
+          <A:calendar-proxy-read/>
+        </D:resourcetype>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>
+                    ]]></artwork>
+                  </figure>
+                </t>
+            </section>
+            <section title='Privilege Provisioning'>
+                <t>
+                    In order for a calendar user proxy to be able to access the calendars of the user they are proxying for the server MUST ensure that the privileges on the relevant calendars are setup accordingly:
+                    <list>
+                        <t>The DAV:read privilege MUST be granted for read-only and read-write calendar user proxy principals</t>
+                        <t>The DAV:write privilege MUST be granted for read-write calendar user proxy principals.</t>
+                    </list>
+                    Additionally, the  CalDAV scheduling Inbox and Outbox calendar collections for the user allowing proxy access, MUST have the <xref target='I-D.desruisseaux-caldav-sched'>CALDAV:schedule privilege</xref> granted for read-write calendar user proxy principals.
+                </t>
+                <t>
+                    Note that with a suitable repository layout, a server may be able to grant the appropriate privileges on a parent collection  and ensure that all the contained collections and resources inherit that. For example, given the following repository layout:
+                    <figure>
+                        <artwork><![CDATA[
+        + /
+          + calendars/
+            + users/
+              + cyrus/
+                  inbox
+                  outbox
+                  home
+                  work
+              + red/
+                  inbox
+                  outbox
+                  work
+                  soccer
+              + wilfredo/
+                  inbox
+                  outbox
+                  home
+                  work
+                  flying
+                        ]]></artwork>
+                    </figure>
+                    In order for the principal "red" to act as a read-write proxy for the principal "cyrus", the following WebDAV ACE will need to be granted on the resource /calendars/users/cyrus/ and all children of that resource:
+                    <figure>
+                        <artwork><![CDATA[
+<DAV:ace>
+  <DAV:principal>
+    <DAV:href>/principals/users/cyrus/calendar-proxy-write</DAV:href>
+  </DAV:principal>
+  <DAV:privileges>
+    <DAV:grant><DAV:read/><DAV:write/></DAV:grant>
+  </DAV:privileges>
+</DAV:ace>
+                        ]]></artwork>
+                    </figure>
+                </t>
+
+            </section>
+        </section>
+
+        <section title='Security Considerations'>
+            <t>
+                TBD
+            </t>
+        </section>
+        <section title='IANA Considerations'>
+            <t>
+                This document does not require any actions on the part of IANA.
+            </t>
+        </section>
+    </middle>
+    <back>
+        <references title='Normative References'>
+            &rfc2119;
+            &rfc2518;
+            &rfc3744;
+            &rfc4791;
+            &I-D.desruisseaux-caldav-sched; 
+        </references>
+<!--
+<references title='Informative References'>
+</references>
+-->
+        <section title='Acknowledgments'>
+            <t>
+                This specification is the result of discussions between the Apple calendar server and client teams.
+            </t>
+        </section>
+        <section title='Change History'>
+            <t>Changes from -00:
+                <list style='numbers'>
+                    <t>
+                        Updated to RFC 4791 reference.
+                    </t>
+                </list>
+            </t>
+            <t>Changes from -00:
+                <list style='numbers'>
+                    <t>
+                        Added more details on actual CalDAV protocol changes.
+                    </t>
+                    <t>
+                        Changed namespace from http://apple.com/ns/calendarserver/ to http://calendarserver.org/ns/.
+                    </t>
+                    <t>
+                        Made "proxy group" principals child resources of their "owner" principals.
+                    </t>
+                    <t>
+                        The "proxy group" principals now have their own resourcetype.
+                    </t>
+                </list>
+            </t>
+        </section>
+    </back>
+</rfc>
