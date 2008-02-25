@@ -90,20 +90,20 @@ else:
         def test_normal(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
                 ],
                 DirectoryService.recordType_groups: [
-                    fakeODRecordWithServicesLocator("Group 01"),
-                    fakeODRecordWithServicesLocator("Group 02"),
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
                 ],
                 DirectoryService.recordType_resources: [
-                    fakeODRecordWithServicesLocator("Resource 01"),
-                    fakeODRecordWithServicesLocator("Resource 02"),
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
                 ],
                 DirectoryService.recordType_locations: [
-                    fakeODRecordWithServicesLocator("Location 01"),
-                    fakeODRecordWithServicesLocator("Location 02"),
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
                 ],
             }
 
@@ -127,28 +127,28 @@ else:
         def test_normal_disabledusers(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02"),
-                    fakeODRecordWithoutServicesLocator("User 03"),
-                    fakeODRecordWithoutServicesLocator("User 04"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03", addLocator=False),
+                    fakeODRecord("User 04", addLocator=False),
                 ],
                 DirectoryService.recordType_groups: [
-                    fakeODRecordWithServicesLocator("Group 01"),
-                    fakeODRecordWithServicesLocator("Group 02"),
-                    fakeODRecordWithoutServicesLocator("Group 03"),
-                    fakeODRecordWithoutServicesLocator("Group 04"),
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03", addLocator=False),
+                    fakeODRecord("Group 04", addLocator=False),
                 ],
                 DirectoryService.recordType_resources: [
-                    fakeODRecordWithServicesLocator("Resource 01"),
-                    fakeODRecordWithServicesLocator("Resource 02"),
-                    fakeODRecordWithoutServicesLocator("Resource 03"),
-                    fakeODRecordWithoutServicesLocator("Resource 04"),
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03", addLocator=False),
+                    fakeODRecord("Resource 04", addLocator=False),
                 ],
                 DirectoryService.recordType_locations: [
-                    fakeODRecordWithServicesLocator("Location 01"),
-                    fakeODRecordWithServicesLocator("Location 02"),
-                    fakeODRecordWithoutServicesLocator("Location 03"),
-                    fakeODRecordWithoutServicesLocator("Location 04"),
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03", addLocator=False),
+                    fakeODRecord("Location 04", addLocator=False),
                 ],
             }
 
@@ -172,7 +172,7 @@ else:
         def test_normalCacheMiss(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
+                    fakeODRecord("User 01"),
                 ],
             }
 
@@ -183,9 +183,9 @@ else:
 
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02"),
-                    fakeODRecordWithServicesLocator("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
             }
 
@@ -198,9 +198,9 @@ else:
         def test_duplicateRecords(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02"),
-                    fakeODRecordWithServicesLocator("User 02"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 02"),
                 ],
             }
 
@@ -214,9 +214,9 @@ else:
         def test_duplicateName(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02", guid="A25775BB-1281-4606-98C6-2893B2D5CCD7"),
-                    fakeODRecordWithServicesLocator("User 02", guid="30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="A25775BB-1281-4606-98C6-2893B2D5CCD7"),
+                    fakeODRecord("User 02", guid="30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
                 ],
             }
 
@@ -232,9 +232,9 @@ else:
         def test_duplicateGUID(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
-                    fakeODRecordWithServicesLocator("User 03", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
+                    fakeODRecord("User 03", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                 ],
             }
 
@@ -250,10 +250,10 @@ else:
         def test_duplicateCombo(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
-                    fakeODRecordWithServicesLocator("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8", shortName="user03"),
-                    fakeODRecordWithServicesLocator("User 02", guid="136E369F-DB40-4135-878D-B75D38242D39"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
+                    fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8", shortName="user03"),
+                    fakeODRecord("User 02", guid="136E369F-DB40-4135-878D-B75D38242D39"),
                 ],
             }
 
@@ -269,9 +269,9 @@ else:
         def test_duplicateGUIDCacheMiss(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
-                    fakeODRecordWithServicesLocator("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
+                    fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
             }
 
@@ -282,11 +282,11 @@ else:
             
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
-                    fakeODRecordWithServicesLocator("User 01"),
-                    fakeODRecordWithServicesLocator("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
-                    fakeODRecordWithServicesLocator("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", shortName="user04"),
-                    fakeODRecordWithServicesLocator("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0"),
-                    fakeODRecordWithServicesLocator("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0", shortName="user05"),
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
+                    fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", shortName="user04"),
+                    fakeODRecord("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0"),
+                    fakeODRecord("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0", shortName="user05"),
                 ],
             }
 
@@ -300,7 +300,7 @@ else:
                 ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
             )
 
-def fakeODRecordWithServicesLocator(fullName, shortName=None, guid=None, email=None):
+def fakeODRecord(fullName, shortName=None, guid=None, email=None, addLocator=True):
     if shortName is None:
         shortName = shortNameForFullName(fullName)
 
@@ -312,36 +312,17 @@ def fakeODRecordWithServicesLocator(fullName, shortName=None, guid=None, email=N
     if email is None:
         email = "%s@example.com" % (shortName,)
 
-    return [
-        shortName, {
-            dsattributes.kDS1AttrDistinguishedName: fullName,
-            dsattributes.kDS1AttrGeneratedUID: guid,
-            dsattributes.kDSNAttrEMailAddress: email,
-            dsattributes.kDSNAttrServicesLocator: "FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar",
-            dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-        }
-    ]
+    attrs = {
+        dsattributes.kDS1AttrDistinguishedName: fullName,
+        dsattributes.kDS1AttrGeneratedUID: guid,
+        dsattributes.kDSNAttrEMailAddress: email,
+        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
+    }
 
-def fakeODRecordWithoutServicesLocator(fullName, shortName=None, guid=None, email=None):
-    if shortName is None:
-        shortName = shortNameForFullName(fullName)
+    if addLocator:
+        attrs[dsattributes.kDSNAttrServicesLocator] = "FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar"
 
-    if guid is None:
-        guid = guidForShortName(shortName)
-    else:
-        guid = guid.lower()
-
-    if email is None:
-        email = "%s@example.com" % (shortName,)
-
-    return [
-        shortName, {
-            dsattributes.kDS1AttrDistinguishedName: fullName,
-            dsattributes.kDS1AttrGeneratedUID: guid,
-            dsattributes.kDSNAttrEMailAddress: email,
-            dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-        }
-    ]
+    return [ shortName, attrs ]
 
 def shortNameForFullName(fullName):
     return fullName.lower().replace(" ", "")
