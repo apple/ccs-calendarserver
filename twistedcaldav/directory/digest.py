@@ -87,11 +87,28 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
+    def deleteMany(self, keys):
+        """
+        Remove the records associated with the supplied keys.
+
+        @param key:        the key to remove.
+        @type key:         C{str}
+        """
+        pass
+
     def keys(self):
         """
         Return all the keys currently available.
         
         @return:    a C{list} of C{str} for each key currently in the database.
+        """
+        pass
+    
+    def items(self):
+        """
+        Return all the key/value pairs currently available.
+        
+        @return:    a C{list} of C{tuple} for each key/value currently in the database.
         """
         pass
     
@@ -130,11 +147,25 @@ class DigestCredentialsMap(object):
         if self.db.has_key(key):
             del self.db[key]
 
+    def deleteMany(self, keys):
+        """
+        See IDigestCredentialsDatabase.
+        """
+        for key in keys:
+            if self.db.has_key(key):
+                del self.db[key]
+
     def keys(self):
         """
         See IDigestCredentialsDatabase.
         """
         return self.db.keys()
+
+    def items(self):
+        """
+        See IDigestCredentialsDatabase.
+        """
+        return self.db.items()
 
 class DigestCredentialsDB(AbstractSQLDatabase):
 
@@ -159,7 +190,7 @@ class DigestCredentialsDB(AbstractSQLDatabase):
 
     def __init__(self, path):
         db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
-        super(DigestCredentialsDB, self).__init__(db_path, autocommit=True)
+        super(DigestCredentialsDB, self).__init__(db_path, autocommit=False)
         self.exceptions = 0
     
     def has_key(self, key):
@@ -189,8 +220,10 @@ class DigestCredentialsDB(AbstractSQLDatabase):
         try:
             pvalue = pickle.dumps(value)
             self._set_in_db(key, pvalue)
+            self._db_commit()
             self.exceptions = 0
         except OperationalError, e:
+            self._db_rollback()
             self.exceptions += 1
             if self.exceptions >= self.exceptionLimit:
                 self._db_close()
@@ -224,8 +257,27 @@ class DigestCredentialsDB(AbstractSQLDatabase):
         """
         try:
             self._delete_from_db(key)
+            self._db_commit()
             self.exceptions = 0
         except OperationalError, e:
+            self._db_rollback()
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
+
+    def deleteMany(self, keys):
+        """
+        See IDigestCredentialsDatabase.
+        """
+        try:
+            for key in keys:
+                self._delete_from_db(key)
+            self._db_commit()
+            self.exceptions = 0
+        except OperationalError, e:
+            self._db_rollback()
             self.exceptions += 1
             if self.exceptions >= self.exceptionLimit:
                 self._db_close()
@@ -240,6 +292,24 @@ class DigestCredentialsDB(AbstractSQLDatabase):
             result = []
             for key in self._db_execute("select KEY from DIGESTCREDENTIALS"):
                 result.append(str(key[0]))
+            
+            self.exceptions = 0
+            return result
+        except OperationalError, e:
+            self.exceptions += 1
+            if self.exceptions >= self.exceptionLimit:
+                self._db_close()
+                log.err("Reset digest credentials database connection: %s" % (e,))
+            raise
+
+    def items(self):
+        """
+        See IDigestCredentialsDatabase.
+        """
+        try:
+            result = []
+            for key in self._db_execute("select KEY, VALUE from DIGESTCREDENTIALS"):
+                result.append((str(key[0]), pickle.loads(str(key[1])),))
             
             self.exceptions = 0
             return result
@@ -500,16 +570,16 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
         This should be called at regular intervals to remove expired credentials from the cache.
         """
-        keys = self.db.keys()
+        items = self.db.items()
         oldest_allowed = time.time() - DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
-        for key in keys:
-            try:
-                value = self.db.get(key)
-                if value is not None:
-                    ignore_clientip, ignore_cnonce, db_timestamp = value
-                    if db_timestamp <= oldest_allowed:
-                        self.invalidate(key)
-            except Exception, e:
-                # Clean-up errors can be logged but we should ignore them
-                log.err("Error cleaning digest credentials: %s" % (e,))
-                pass
+        delete_keys = []
+        for key, value in items:
+            ignore_clientip, ignore_cnonce, db_timestamp = value
+            if db_timestamp <= oldest_allowed:
+                delete_keys.append(key)
+
+        try:
+            self.db.deleteMany(delete_keys)
+        except Exception, e:
+            # Clean-up errors can be logged but we should ignore them
+            log.err("Failed to clean digest credentials: %s" % (e,))
