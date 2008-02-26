@@ -272,6 +272,10 @@ def _mergeData(oldData, newData):
 def _cleanup(configDict):
     cleanDict = copy.deepcopy(configDict)
 
+    def obsolete(key, reason="obsolete"):
+        log.err("Ignoring %s configuration option: %r" % (reason, key))
+        del cleanDict[key]
+
     def deprecated(oldKey, newKey):
         log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
 
@@ -280,71 +284,41 @@ def _cleanup(configDict):
         cleanDict[newKey] = configDict[oldKey]
         del cleanDict[oldKey]
 
+    obsoleteOptions = (
+        "BindAddress",
+        "CalendarUserProxyEnabled",
+        "DropBoxEnabled",
+        "MaximumAttachmentSizeBytes",
+        "NotificationsEnabled",
+        "SACLEnable",
+        "ServerLogFile",
+        "ServerType",
+        "UserQuotaBytes",
+    )
+
     renamedOptions = {
-        "BindAddress"                : "BindAddresses",
-        "ServerLogFile"              : "AccessLogFile",
-        "MaximumAttachmentSizeBytes" : "MaximumAttachmentSize",
-        "UserQuotaBytes"             : "UserQuota",
-        "DropBoxEnabled"             : "EnableDropBox",
-        "NotificationsEnabled"       : "EnableNotifications",
-        "CalendarUserProxyEnabled"   : "EnableProxyPrincipals",
-        "SACLEnable"                 : "EnableSACLs",
-        "ServerType"                 : "ProcessType",
+#       "BindAddress": "BindAddresses",
     }
 
     for key in configDict:
         if key in defaultConfig:
             continue
 
-        if key == "SSLOnly":
-            deprecated(key, "HTTPPort")
-            if configDict["SSLOnly"]:
-                cleanDict["HTTPPort"] = None
-            del cleanDict["SSLOnly"]
-
-        elif key == "SSLEnable":
-            deprecated(key, "SSLPort")
-            if not configDict["SSLEnable"]:
-                cleanDict["SSLPort"] = None
-            del cleanDict["SSLEnable"]
-
-        elif key == "Port":
-            deprecated(key, "HTTPPort")
-            if not configDict.get("SSLOnly", False):
-                cleanDict["HTTPPort"] = cleanDict["Port"]
-            del cleanDict["Port"]
-
-        elif key == "twistdLocation":
-            deprecated(key, "Twisted -> twistd")
-            if "Twisted" not in cleanDict:
-                cleanDict["Twisted"] = {}
-            cleanDict["Twisted"]["twistd"] = cleanDict["twistdLocation"]
-            del cleanDict["twistdLocation"]
-
-        elif key == "pydirLocation":
-            deprecated(key, "PythonDirector -> pydir")
-            if "PythonDirector" not in cleanDict:
-                cleanDict["PythonDirector"] = {}
-            cleanDict["PythonDirector"]["pydir"] = cleanDict["pydirLocation"]
-            del cleanDict["pydirLocation"]
-
-        elif key == "pydirConfig":
-            deprecated(key, "PythonDirector -> pydir")
-            if "PythonDirector" not in cleanDict:
-                cleanDict["PythonDirector"] = {}
-            cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
-            del cleanDict["pydirConfig"]
+        elif key in obsoleteOptions:
+            obsolete(key)
 
         elif key in renamedOptions:
             renamed(key, renamedOptions[key])
 
-        elif key == "RunStandalone":
-            log.err("Ignoring obsolete configuration option: %s" % (key,))
-            del cleanDict[key]
+#       elif key == "pydirConfig":
+#           deprecated(key, "PythonDirector -> pydir")
+#           if "PythonDirector" not in cleanDict:
+#               cleanDict["PythonDirector"] = {}
+#           cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
+#           del cleanDict["pydirConfig"]
 
         else:
-            log.err("Ignoring unknown configuration option: %s" % (key,))
-            del cleanDict[key]
+            obsolete(key, reason="unknown")
 
     return cleanDict
 
