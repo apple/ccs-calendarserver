@@ -272,8 +272,8 @@ def _mergeData(oldData, newData):
 def _cleanup(configDict):
     cleanDict = copy.deepcopy(configDict)
 
-    def obsolete(key, reason="obsolete"):
-        log.err("Ignoring %s configuration option: %r" % (reason, key))
+    def unknown(key):
+        log.err("Ignoring unknown configuration option: %r" % (key,))
         del cleanDict[key]
 
     def deprecated(oldKey, newKey):
@@ -284,18 +284,6 @@ def _cleanup(configDict):
         cleanDict[newKey] = configDict[oldKey]
         del cleanDict[oldKey]
 
-    obsoleteOptions = (
-        "BindAddress",
-        "CalendarUserProxyEnabled",
-        "DropBoxEnabled",
-        "MaximumAttachmentSizeBytes",
-        "NotificationsEnabled",
-        "SACLEnable",
-        "ServerLogFile",
-        "ServerType",
-        "UserQuotaBytes",
-    )
-
     renamedOptions = {
 #       "BindAddress": "BindAddresses",
     }
@@ -303,9 +291,6 @@ def _cleanup(configDict):
     for key in configDict:
         if key in defaultConfig:
             continue
-
-        elif key in obsoleteOptions:
-            obsolete(key)
 
         elif key in renamedOptions:
             renamed(key, renamedOptions[key])
@@ -318,7 +303,7 @@ def _cleanup(configDict):
 #           del cleanDict["pydirConfig"]
 
         else:
-            obsolete(key, reason="unknown")
+            unknown(key,)
 
     return cleanDict
 
