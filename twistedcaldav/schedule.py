@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         if qname == (caldav_namespace, "calendar-free-busy-set"):
             # Always return at least an empty list
             if not self.hasDeadProperty(property):
-                return succeed(())
+                return succeed(caldavxml.CalendarFreeBusySet())
             
         return super(ScheduleInboxResource, self).readProperty(property, request)
 
