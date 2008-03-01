@@ -251,11 +251,11 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config['HTTPPort'] = 80
 
         for service in validServices:
-            self.config['ServerType'] = service
+            self.config['ProcessType'] = service
             self.writeConfig()
             self.makeService()
 
-        self.config['ServerType'] = 'Unknown Service'
+        self.config['ProcessType'] = 'Unknown Service'
         self.writeConfig()
         self.assertRaises(UsageError, self.makeService)
 
