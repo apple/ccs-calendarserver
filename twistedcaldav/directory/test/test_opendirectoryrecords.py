@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 import twisted.trial.unittest
@@ -48,6 +46,7 @@ else:
         def setUp(self):
             super(ReloadCache, self).setUp()
             self._service = OpenDirectoryService(node="/Search", dosetup=False)
+            self._service.servicetags.add("FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar")
             
         def tearDown(self):
             for call in self._service._delayedCalls:
@@ -56,6 +55,17 @@ else:
         def _verifyRecords(self, recordType, expected):
             expected = set(expected)
             found = set(self._service._records[recordType]["records"].keys())
+            
+            missing = expected.difference(found)
+            extras = found.difference(expected)
+
+            self.assertTrue(len(missing) == 0, msg="Directory records not found: %s" % (missing,))
+            self.assertTrue(len(extras) == 0, msg="Directory records not expected: %s" % (extras,))
+                
+        def _verifyRecordsCheckEnabled(self, recordType, expected, enabled):
+            expected = set(expected)
+            found = set([item for item in self._service._records[recordType]["records"].iterkeys()
+                         if self._service._records[recordType]["records"][item].enabledForCalendaring == enabled])
             
             missing = expected.difference(found)
             extras = found.difference(expected)
@@ -113,6 +123,51 @@ else:
 
             self._verifyRecords(DirectoryService.recordType_locations, ("location01", "location02"))
             self._verifyDisabledRecords(DirectoryService.recordType_locations, (), ())
+
+        def test_normal_disabledusers(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03", addLocator=False),
+                    fakeODRecord("User 04", addLocator=False),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03", addLocator=False),
+                    fakeODRecord("Group 04", addLocator=False),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03", addLocator=False),
+                    fakeODRecord("Resource 04", addLocator=False),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03", addLocator=False),
+                    fakeODRecord("Location 04", addLocator=False),
+                ],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users)
+            self._service.reloadCache(DirectoryService.recordType_groups)
+            self._service.reloadCache(DirectoryService.recordType_resources)
+            self._service.reloadCache(DirectoryService.recordType_locations)
+
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_users, ("user01", "user02"), True)
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_users, ("user03", "user04"), False)
+
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group01", "group02"), True)
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group03", "group04"), False)
+
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_resources, ("resource01", "resource02"), True)
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_resources, (), False)
+
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_locations, ("location01", "location02"), True)
+            self._verifyRecordsCheckEnabled(DirectoryService.recordType_locations, (), False)
 
         def test_normalCacheMiss(self):
             self._service.fakerecords = {
@@ -245,7 +300,7 @@ else:
                 ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
             )
 
-def fakeODRecord(fullName, shortName=None, guid=None, email=None):
+def fakeODRecord(fullName, shortName=None, guid=None, email=None, addLocator=True):
     if shortName is None:
         shortName = shortNameForFullName(fullName)
 
@@ -257,15 +312,17 @@ def fakeODRecord(fullName, shortName=None, guid=None, email=None):
     if email is None:
         email = "%s@example.com" % (shortName,)
 
-    return [
-        shortName, {
-            dsattributes.kDS1AttrDistinguishedName: fullName,
-            dsattributes.kDS1AttrGeneratedUID: guid,
-            dsattributes.kDSNAttrEMailAddress: email,
-            dsattributes.kDSNAttrServicesLocator: "FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar",
-            dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
-        }
-    ]
+    attrs = {
+        dsattributes.kDS1AttrDistinguishedName: fullName,
+        dsattributes.kDS1AttrGeneratedUID: guid,
+        dsattributes.kDSNAttrEMailAddress: email,
+        dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
+    }
+
+    if addLocator:
+        attrs[dsattributes.kDSNAttrServicesLocator] = "FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar"
+
+    return [ shortName, attrs ]
 
 def shortNameForFullName(fullName):
     return fullName.lower().replace(" ", "")
