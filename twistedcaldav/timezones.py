@@ -18,6 +18,8 @@
 
 from twistedcaldav.ical import Component
 
+from twisted.python import log
+
 from vobject.icalendar import getTzid
 from vobject.icalendar import registerTzid
 
@@ -79,7 +81,12 @@ class TimezoneCache(object):
     def registerTzidFromCache(self, tzid, tzinfo):
         if not self._caching:
             self._caching = True
-            self.loadTimezone(tzid)
+            try:
+                self.loadTimezone(tzid)
+            except TimezoneException:
+                # Fallback to vobject processing the actual tzdata
+                log.err("Cannot load timezone data for %s from timezone cache" % (tzid,))
+                self.vobjectRegisterTzid(tzid, tzinfo)
             self._caching = False
         else:
             self.vobjectRegisterTzid(tzid, tzinfo)

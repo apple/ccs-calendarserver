@@ -126,3 +126,50 @@ class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
         self.assertTrue(tzcache.loadTimezone("America/New_York"))
         self.assertTrue(tzcache.loadTimezone("US/Eastern"))
         tzcache.unregister()
+
+    def test_not_in_cache(self):
+        
+        tzcache = TimezoneCache()
+        tzcache.register()
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:US-Eastern
+LAST-MODIFIED:19870101T000000Z
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:Eastern Standard Time (US & Canada)
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:Eastern Daylight Time (US & Canada)
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID="US-Eastern":20071225T000000
+DTEND;TZID="US-Eastern":20071225T010000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar = Component.fromString(data)
+        if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
+        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        for key in instances:
+            instance = instances[key]
+            start = instance.start
+            end = instance.end
+            self.assertEqual(start, datetime.datetime(2007, 12, 25, 05, 0, 0, tzinfo=utc))
+            self.assertEqual(end, datetime.datetime(2007, 12, 25, 06, 0, 0, tzinfo=utc))
+            break;
+        tzcache.unregister()
