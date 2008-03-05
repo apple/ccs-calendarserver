@@ -39,6 +39,15 @@ Index: twisted/web2/dav/element/rfc3744.py
          if self.principal is None:
              raise ValueError(
                  "One of DAV:principal or DAV:invert is required in %s, got: %s"
+@@ -456,7 +465,7 @@
+     """
+     name = "self"
+ 
+-class Invert (WebDAVEmptyElement):
++class Invert (WebDAVElement):
+     """
+     Principal which matches a user if the user does not match the principal
+     contained by this principal. (RFC 3744, section 5.5.1)
 @@ -551,8 +560,8 @@
          (dav_namespace, "property"       ): (0, None),
      }
