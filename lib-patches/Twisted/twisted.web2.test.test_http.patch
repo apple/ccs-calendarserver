@@ -1,0 +1,13 @@
+Index: twisted/web2/test/test_http.py
+===================================================================
+--- twisted/web2/test/test_http.py	(revision 19773)
++++ twisted/web2/test/test_http.py	(working copy)
+@@ -1017,6 +1017,8 @@
+         response = TestResponse()
+         if self.uri == "/error":
+             response.code=402
++        elif self.uri == "/forbidden":
++            response.code=403
+         else:
+             response.code=404
+             response.write("URI %s unrecognized." % self.uri)
