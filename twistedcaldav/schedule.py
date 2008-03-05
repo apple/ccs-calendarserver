@@ -277,7 +277,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
         if calendar.hasProperty(Component.ACCESS_PROPERTY):
-            logging.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component POST request: %s" % (calendar,), system="CalDAV Outbox POST")
+            log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component POST request: %s" % (calendar,), system="CalDAV Outbox POST")
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
         # Verify that the ORGANIZER's cu address maps to the request.uri
