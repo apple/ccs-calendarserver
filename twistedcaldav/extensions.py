@@ -620,10 +620,6 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
-
 class XMLResponse (Response):
     """
     XML L{Response} object.
