@@ -42,8 +42,8 @@ class AutoProvisioningResourceMixIn (object):
         """
         Creates the child object with the given name.
         This is basically akin to L{File.createSimilarFile}, but here we know we're
-        creating a child of this resource, and take take certain actions to ensure that
-        it's prepared appropriately.
+        creating a child of this resource, and can take certain actions to ensure that
+        it's prepared appropriately and is of the correct class.
         @param name: the name of the child resource.
         @return: the newly created (optionally deferred) child, or None of no resource
             is bound as a child of this resource with the given C{name}.
