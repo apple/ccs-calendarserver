@@ -22,11 +22,7 @@ __all__ = [
     "CalendarUserProxyPrincipalResource",
 ]
 
-from cgi import escape
-
 from twisted.internet.defer import succeed
-from twisted.python import log
-from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
