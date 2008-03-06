@@ -35,7 +35,6 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav import caldavxml
-from twistedcaldav import customxml
 from twistedcaldav import itip
 from twistedcaldav import logging
 from twistedcaldav.resource import CalDAVResource
@@ -355,7 +354,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             # Map recipient to their inbox
             inbox = None
             if principal is None:
-                logging.err("No principal for calendar user address: %s" % (recipient,), system="CalDAV Outbox POST")
+                logging.err("No schedulable principal for calendar user address: %r" % (recipient,), system="CalDAV Outbox POST")
             else:
                 inboxURL = principal.scheduleInboxURL()
                 if inboxURL:

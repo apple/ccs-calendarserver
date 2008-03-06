@@ -19,8 +19,10 @@ Implements a directory-backed calendar hierarchy.
 """
 
 __all__ = [
+    "uidsResourceName",
     "DirectoryCalendarHomeProvisioningResource",
     "DirectoryCalendarHomeTypeProvisioningResource",
+    "DirectoryCalendarHomeUIDProvisioningResource",
     "DirectoryCalendarHomeResource",
 ]
 
@@ -38,6 +40,9 @@ from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+
+# Use __underbars__ convention to avoid conflicts with directory resource types.
+uidsResourceName = "__uids__"
 
 class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
     """
@@ -59,9 +64,16 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
         # FIXME: Smells like a hack
         directory.calendarHomesCollection = self
 
+        #
         # Create children
+        #
+        def provisionChild(name):
+            self.putChild(name, self.provisionChild(name))
+
         for recordType in self.directory.recordTypes():
-            self.putChild(recordType, self.provisionChild(recordType))
+            provisionChild(recordType)
+
+        provisionChild(uidsResourceName)
 
     def provisionChild(self, recordType):
         raise NotImplementedError("Subclass must implement provisionChild()")
@@ -86,11 +98,11 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
         return self.directory.principalCollection.principalForRecord(record)
 
     def homeForDirectoryRecord(self, record):
-        typeResource = self.getChild(record.recordType)
-        if typeResource is None:
+        uidResource = self.getChild(uidsResourceName)
+        if uidResource is None:
             return None
         else:
-            return typeResource.getChild(record.shortName)
+            return uidResource.getChild(record.guid)
 
     ##
     # DAV
@@ -113,8 +125,7 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
     """
     def __init__(self, parent, recordType):
         """
-        @param path: the path to the file which will back the resource.
-        @param directory: an L{IDirectoryService} to provision calendars from.
+        @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         assert parent is not None
@@ -131,7 +142,6 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
 
     def getChild(self, name, record=None):
         self.provision()
-
         if name == "":
             return self
 
@@ -139,11 +149,8 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
             record = self.directory.recordWithShortName(self.recordType, name)
             if record is None:
                 return None
-        else:
-            assert name is None
-            name = record.shortName
 
-        return self.provisionChild(name)
+        return self._parent.homeForDirectoryRecord(record)
 
     def listChildren(self):
         return (
@@ -173,6 +180,61 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
         return self._parent.principalForRecord(record)
 
 
+class DirectoryCalendarHomeUIDProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
+    def __init__(self, parent):
+        """
+        @param parent: the parent of this resource
+        """
+        assert parent is not None
+
+        DAVResource.__init__(self)
+
+        self.directory = parent.directory
+        self.parent = parent
+
+    def url(self):
+        return joinURL(self.parent.url(), uidsResourceName)
+
+    def getChild(self, name, record=None):
+        self.provision()
+        if name == "":
+            return self
+
+        if record is None:
+            record = self.directory.recordWithGUID(name)
+            if record is None:
+                return None
+
+        return self.provisionChild(name)
+
+    def listChildren(self):
+        return (
+            record.guid
+            for record in self.directory.listRecords(self.recordType)
+            if record.enabledForCalendaring
+        )
+
+    ##
+    # DAV
+    ##
+    
+    def isCollection(self):
+        return True
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        return readOnlyACL
+
+    def principalCollections(self):
+        return self.parent.principalCollections()
+
+    def principalForRecord(self, record):
+        return self.parent.principalForRecord(record)
+
+
 class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResource):
     """
     Calendar home collection resource.
@@ -187,7 +249,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         CalDAVResource.__init__(self)
 
         self.record = record
-        self._parent = parent
+        self.parent = parent
 
         # Cache children which must be of a specific type
         childlist = (
@@ -243,7 +305,13 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         raise NotImplementedError("Subclass must implement provisionChild()")
 
     def url(self):
-        return joinURL(self._parent.url(), self.record.shortName)
+        return joinURL(self.parent.url(), self.record.guid)
+        ##
+        ## While the underlying primary location is GUID-based, we want
+        ## the canonical user-facing location to be recordType &
+        ## shortName-based, because that's friendlier.
+        ##
+        #return joinURL(self.parent.parent.getChild(self.record.recordType).url(), self.record.shortName)
 
     ##
     # DAV
@@ -260,8 +328,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         return succeed(davxml.HRef(self.principalForRecord().principalURL()))
 
     def defaultAccessControlList(self):
-        # FIXME: directory.principalCollection smells like a hack
-        # See DirectoryPrincipalProvisioningResource.__init__()
         myPrincipal = self.principalForRecord()
 
         aces = (
@@ -306,10 +372,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         return davxml.ACL(*aces)
 
     def principalCollections(self):
-        return self._parent.principalCollections()
+        return self.parent.principalCollections()
 
     def principalForRecord(self):
-        return self._parent.principalForRecord(self.record)
+        return self.parent.principalForRecord(self.record)
 
     ##
     # Quota

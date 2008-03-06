@@ -22,7 +22,9 @@ __all__ = [
     "CalDAVFile",
     "AutoProvisioningFileMixIn",
     "CalendarHomeProvisioningFile",
+    "CalendarHomeUIDProvisioningFile",
     "CalendarHomeFile",
+    "ScheduleFile",
     "ScheduleInboxFile",
     "ScheduleOutboxFile",
     "DropBoxHomeFile",
@@ -62,8 +64,10 @@ from twistedcaldav.notifications import NotificationsCollectionResource, Notific
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource, DropBoxChildResource
+from twistedcaldav.directory.calendar import uidsResourceName
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
@@ -439,43 +443,68 @@ class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendar
         DirectoryCalendarHomeProvisioningResource.__init__(self, directory, url)
 
     def provisionChild(self, name):
+        if name == uidsResourceName:
+            return CalendarHomeUIDProvisioningFile(self.fp.child(name).path, self)
+
         return CalendarHomeTypeProvisioningFile(self.fp.child(name).path, self, name)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
 class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
-    """
-    Resource which provisions calendar home collections of a specific
-    record type as needed.
-    """
     def __init__(self, path, parent, recordType):
         """
         @param path: the path to the file which will back the resource.
-        @param directory: an L{IDirectoryService} to provision calendars from.
+        @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
+class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeUIDProvisioningResource, DAVFile):
+    def __init__(self, path, parent):
+        """
+        @param path: the path to the file which will back the resource.
+        """
+        DAVFile.__init__(self, path)
+        DirectoryCalendarHomeUIDProvisioningResource.__init__(self, parent)
+
     def provisionChild(self, name):
-        record = self.directory.recordWithShortName(self.recordType, name)
+        record = self.directory.recordWithGUID(name)
 
         if record is None:
-            log.msg("No directory record %r of type %r" % (name, self.recordType))
+            log.msg("No directory record with GUID %r" % (name,))
             return None
 
         if not record.enabledForCalendaring:
-            log.msg("Directory record %r of type %r is not enabled for calendaring" % (name, self.recordType))
+            log.msg("Directory record %r is not enabled for calendaring" % (record,))
             return None
 
-        child = CalendarHomeFile(self.fp.child(name).path, self, record)
+        childPath = self.fp.child(name)
+        child = CalendarHomeFile(childPath.path, self, record)
         if not child.exists():
-            # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
-            # The result being that the default calendars will be present at some point
-            # in the future, not necessarily right now, and we don't have a way to wait
-            # on that to finish.
-            child.provisionDefaultCalendars()
+            #
+            # Find out if the child exists at the old (pre-1.2)
+            # location (ie. in the types hierarchy instead of the GUID
+            # hierarchy).
+            #
+            oldPath = self.parent.getChild(record.recordType).fp.child(record.shortName)
+            if oldPath.exists():
+                log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
+                try:
+                    oldPath.moveTo(childPath)
+                except (OSError, IOError), e:
+                    log.err("Error moving calendar home %r: %s" % (oldPath, e))
+                    raise HTTPError(StatusResponse(
+                        responsecode.INTERNAL_SERVER_ERROR,
+                        "Unable to move calendar home."
+                    ))
+            else:
+                # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
+                # The result being that the default calendars will be present at some point
+                # in the future, not necessarily right now, and we don't have a way to wait
+                # on that to finish.
+                child.provisionDefaultCalendars()
         return child
 
     def createSimilarFile(self, path):
@@ -674,7 +703,7 @@ class NotificationsCollectionFile (AutoProvisioningFileMixIn, NotificationsColle
     http_MKCOL =               NotificationsCollectionResource.http_MKCOL
     http_MKCALENDAR =          NotificationsCollectionResource.http_MKCALENDAR
 
-class NotificationFile(NotificationResource, DAVFile):
+class NotificationFile (NotificationResource, DAVFile):
     def __init__(self, path, parent):
         super(NotificationFile, self).__init__(path, principalCollections=parent.principalCollections())
 
