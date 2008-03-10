@@ -224,4 +224,3 @@ class ConfigTests(unittest.TestCase):
         
         config.EnableProxyPrincipals = False
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
-        

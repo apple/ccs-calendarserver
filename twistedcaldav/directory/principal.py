@@ -21,8 +21,10 @@ Implements a directory-backed principal hierarchy.
 """
 
 __all__ = [
+    "DirectoryProvisioningResource",
     "DirectoryPrincipalProvisioningResource",
     "DirectoryPrincipalTypeProvisioningResource",
+    "DirectoryPrincipalUIDProvisioningResource",
     "DirectoryPrincipalResource",
     "DirectoryCalendarPrincipalResource",
 ]
@@ -64,7 +66,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class DirectoryProvisioningResource(
+class DirectoryProvisioningResource (
     AutoProvisioningFileMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
@@ -185,6 +187,8 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         record = self.directory.recordWithCalendarUserAddress(address)
         if record is not None:
             return self.principalForRecord(record)
+
+        log.err("No principal for calendar user address: %r" % (address,))
 
         return None
 
