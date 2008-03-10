@@ -82,9 +82,6 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
         # free-busy report not allowed
         return result
 
-    def http_PUT(self, request):
-        return responsecode.FORBIDDEN
-
 class ScheduleInboxResource (CalendarSchedulingCollectionResource):
     """
     CalDAV schedule Inbox resource.
