@@ -27,7 +27,9 @@ __all__ = [
 ]
 
 from twisted.internet.defer import succeed
+from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.http import HTTPError
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
 
@@ -208,11 +210,8 @@ class DirectoryCalendarHomeUIDProvisioningResource (AutoProvisioningResourceMixI
         return self.provisionChild(name)
 
     def listChildren(self):
-        return (
-            record.guid
-            for record in self.directory.listRecords(self.recordType)
-            if record.enabledForCalendaring
-        )
+        # Not a listable collection
+        raise HTTPError(responsecode.FORBIDDEN)
 
     ##
     # DAV
