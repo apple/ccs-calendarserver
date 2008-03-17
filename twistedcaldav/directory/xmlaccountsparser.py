@@ -197,6 +197,7 @@ class XMLAccountRecord (object):
         result.members = self.members
         result.calendarUserAddresses = calendarUserAddresses
         result.autoSchedule = self.autoSchedule
+        result.enabledForCalendaring = self.enabledForCalendaring
         result.proxies = self.proxies
         return result
 
@@ -228,9 +229,9 @@ class XMLAccountRecord (object):
                     raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
                 self.autoSchedule = True
             elif child_name == ELEMENT_DISABLECALENDAR:
-                # Only Groups
-                if self.recordType not in (DirectoryService.recordType_groups):
-                    raise ValueError("<disable-calendar> element only allowed for Groups: %s" % (child_name,))
+                # Only Users or Groups
+                if self.recordType not in (DirectoryService.recordType_users, DirectoryService.recordType_groups):
+                    raise ValueError("<disable-calendar> element only allowed for Users or Groups: %s" % (child_name,))
                 self.enabledForCalendaring = False
             elif child_name == ELEMENT_PROXIES:
                 # Only Resources & Locations
