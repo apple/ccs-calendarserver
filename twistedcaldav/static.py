@@ -414,8 +414,12 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
         if hasattr(self, "parent"):
             parent = self.parent
-            assert parent.exists()
-            assert parent.isCollection()
+
+            if not parent.exists() and isinstance(parent, AutoProvisioningFileMixIn):
+                parent.provision()
+                
+            assert parent.exists(), "Parent %s of %s does not exist" % (parent, self)
+            assert parent.isCollection(), "Parent %s of %s is not a collection" % (parent, self)
 
         if self.isCollection():
             try:
