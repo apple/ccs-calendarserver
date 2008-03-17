@@ -211,12 +211,12 @@ class XMLFile (
 """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 <accounts realm="Test Realm">
-  <user>
+  <location>
     <uid>my office</uid>
     <password>nimda</password>
     <name>Super User</name>
     <disable-calendar/>
-  </user>
+  </location>
 </accounts>
 """
         )
