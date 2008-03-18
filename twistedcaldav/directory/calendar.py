@@ -161,6 +161,9 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
             if record.enabledForCalendaring
         )
 
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
     ##
     # DAV
     ##
