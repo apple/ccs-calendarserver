@@ -411,6 +411,16 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
             )
             """
         )
+        q.execute(
+            """
+            create index GROUPNAMES on GROUPS (GROUPNAME)
+            """
+        )
+        q.execute(
+            """
+            create index MEMBERS on GROUPS (MEMBER)
+            """
+        )
 
 ##
 # Utilities
