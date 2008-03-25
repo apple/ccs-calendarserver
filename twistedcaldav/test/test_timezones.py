@@ -69,6 +69,9 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         """
         Properties in components
         """
+        if TimezoneCache.activeCache:
+            TimezoneCache.activeCache.unregister()
+
         registerTzid("America/New_York", None)
         self.doTest(
             "TruncatedApr01.ics",

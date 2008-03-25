@@ -48,6 +48,15 @@ class TimezoneException(Exception):
     pass
 
 class TimezoneCache(object):
+    
+    activeCache = None
+
+    @staticmethod
+    def create():
+        if TimezoneCache.activeCache is None:
+            TimezoneCache.activeCache = TimezoneCache()
+            TimezoneCache.activeCache.register()
+        
     def __init__(self):
         self._caching = False
 
