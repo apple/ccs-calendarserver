@@ -96,7 +96,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         """
         self.resource = resource
         db_filename = os.path.join(self.resource.fp.path, db_basename)
-        super(AbstractCalendarIndex, self).__init__(db_filename)
+        super(AbstractCalendarIndex, self).__init__(db_filename, False)
 
     def create(self):
         """

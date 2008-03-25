@@ -29,14 +29,15 @@ class SQL (twistedcaldav.test.util.TestCase):
     
     class TestDB(AbstractSQLDatabase):
         
-        def __init__(self, path, autocommit=False):
-            super(SQL.TestDB, self).__init__(path, autocommit=autocommit)
+        def __init__(self, path, persistent=False, autocommit=False, version="1"):
+            self.version = version
+            super(SQL.TestDB, self).__init__(path, persistent, autocommit=autocommit)
 
         def _db_version(self):
             """
             @return: the schema version assigned to this index.
             """
-            return 1
+            return self.version
             
         def _db_type(self):
             """
@@ -59,6 +60,31 @@ class SQL (twistedcaldav.test.util.TestCase):
                     KEY         text unique,
                     VALUE       text
                 )
+                """
+            )
+
+    class TestDBRecreateUpgrade(TestDB):
+        
+        class RecreateDBException(Exception):
+            pass
+        class UpgradeDBException(Exception):
+            pass
+
+        def __init__(self, path, persistent=False, autocommit=False):
+            super(SQL.TestDBRecreateUpgrade, self).__init__(path, persistent, autocommit=autocommit, version="2")
+
+        def _db_recreate(self):
+            raise self.RecreateDBException()
+
+    class TestDBCreateIndexOnUpgrade(TestDB):
+        
+        def __init__(self, path, persistent=False, autocommit=False):
+            super(SQL.TestDBCreateIndexOnUpgrade, self).__init__(path, persistent, autocommit=autocommit, version="2")
+
+        def _db_upgrade_data_tables(self, q, old_version):
+            q.execute(
+                """
+                create index TESTING on TESTTYPE (VALUE)
                 """
             )
 
@@ -182,3 +208,61 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(t1.result)
         self.assertTrue(t2.result)
 
+    def test_version_upgrade_nonpersistent(self):
+        """
+        Connect to database and create table
+        """
+        db = SQL.TestDB(self.mktemp(), autocommit=True)
+        self.assertTrue(db._db() is not None)
+        db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
+        db = None
+
+        db = SQL.TestDBRecreateUpgrade(self.mktemp(), autocommit=True)
+        self.assertRaises(SQL.TestDBRecreateUpgrade.RecreateDBException, db._db)
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [])
+
+    def test_version_upgrade_persistent(self):
+        """
+        Connect to database and create table
+        """
+        db_file = self.mktemp()
+        db = SQL.TestDB(db_file, persistent=True, autocommit=True)
+        self.assertTrue(db._db() is not None)
+        db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
+        db = None
+
+        db = SQL.TestDBRecreateUpgrade(db_file, persistent=True, autocommit=True)
+        self.assertRaises(NotImplementedError, db._db)
+        self.assertTrue(os.path.exists(db_file))
+        db._db_close()
+        db = None
+
+        db = SQL.TestDB(db_file, persistent=True, autocommit=True)
+        self.assertTrue(db._db() is not None)
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [("FOO", "BAR")])
+
+    def test_version_upgrade_persistent_add_index(self):
+        """
+        Connect to database and create table
+        """
+        db_file = self.mktemp()
+        db = SQL.TestDB(db_file, persistent=True, autocommit=True)
+        self.assertTrue(db._db() is not None)
+        db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
+        db = None
+
+        db = SQL.TestDBCreateIndexOnUpgrade(db_file, persistent=True, autocommit=True)
+        self.assertTrue(db._db() is not None)
+        items = db._db_execute("SELECT * from TESTTYPE")
+        self.assertEqual(items, [("FOO", "BAR")])

@@ -60,7 +60,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
 
     def __init__(self, path):
         path = os.path.join(path, SQLDirectoryManager.dbFilename)
-        super(SQLDirectoryManager, self).__init__(path)
+        super(SQLDirectoryManager, self).__init__(path, True)
 
     def loadFromXML(self, xmlFile):
         parser = XMLAccountsParser(xmlFile)

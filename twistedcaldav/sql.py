@@ -38,15 +38,19 @@ class AbstractSQLDatabase(object):
     A generic SQL database.
     """
 
-    def __init__(self, dbpath, autocommit=False):
+    def __init__(self, dbpath, persistent, autocommit=False):
         """
         
         @param dbpath: the path where the db file is stored.
         @type dbpath: str
+        @param persistent: C{True} if the data in the DB must be perserved during upgrades,
+            C{False} if the DB data can be re-created from an external source.
+        @type persistent: bool
         @param autocommit: C{True} if auto-commit mode is desired, C{False} otherwise
         @type autocommit: bool
         """
         self.dbpath = dbpath
+        self.persistent = persistent
         self.autocommit = autocommit
 
     def _db_version(self):
@@ -104,20 +108,27 @@ class AbstractSQLDatabase(object):
                     if type is not None: type = type[0]
 
                     if (version != self._db_version()) or (type != self._db_type()):
-                        if version != self._db_version():
-                            log.err("Database %s has different schema (v.%s vs. v.%s)"
-                                    % (db_filename, version, self._db_version()))
-                        if type != self._db_type():
-                            log.err("Database %s has different type (%s vs. %s)"
-                                    % (db_filename, type, self._db_type()))
 
-                        # Delete this index and start over
+                        # Clean-up first
                         q.close()
                         q = None
                         self._db_connection.close()
                         del(self._db_connection)
-                        os.remove(db_filename)
-                        return self._db()
+
+                        if version != self._db_version():
+                            log.err("Database %s has different schema (v.%s vs. v.%s)"
+                                    % (db_filename, version, self._db_version()))
+                            
+                            # Upgrade the DB
+                            return self._db_upgrade(version)
+
+                        if type != self._db_type():
+                            log.err("Database %s has different type (%s vs. %s)"
+                                    % (db_filename, type, self._db_type()))
+
+                            # Delete this index and start over
+                            os.remove(db_filename)
+                            return self._db()
 
                 else:
                     self._db_init(db_filename, q)
@@ -202,6 +213,43 @@ class AbstractSQLDatabase(object):
         Recreate the database tables.
         """
         pass
+
+    def _db_upgrade(self, old_version):
+        """
+        Upgrade the database tables.
+        """
+        
+        if self.persistent:
+            self._db_connection = sqlite.connect(self.dbpath, isolation_level=None)
+            q = self._db_connection.cursor()
+            self._db_upgrade_data_tables(q, old_version)
+            self._db_upgrade_schema(q)
+            self._db_close()
+            return self._db()
+        else:
+            # Non-persistent DB's by default can be removed and re-created. However, for simple
+            # DB upgrades they SHOULD override this method and handle those for better performance.
+            os.remove(self.dbpath)
+            return self._db()
+    
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        """
+        # Persistent DB's MUST override this method and do a proper upgrade. Their data
+        # cannot be thrown away.
+        raise NotImplementedError("Persistent databases MUST support an upgrade method.")
+
+    def _db_upgrade_schema(self, q):
+        """
+        Upgrade the stored schema version to the current one.
+        """
+        q.execute(
+            """
+            insert or replace into CALDAV (KEY, VALUE)
+            values ('SCHEMA_VERSION', :1)
+            """, [self._db_version()]
+        )
 
     def _db_close(self):
         if hasattr(self, "_db_connection"):

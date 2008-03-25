@@ -190,7 +190,7 @@ class DigestCredentialsDB(AbstractSQLDatabase):
 
     def __init__(self, path):
         db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
-        super(DigestCredentialsDB, self).__init__(db_path, autocommit=False)
+        super(DigestCredentialsDB, self).__init__(db_path, False, autocommit=False)
         self.exceptions = 0
     
     def has_key(self, key):

@@ -313,11 +313,11 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     
     dbType = "CALENDARUSERPROXY"
     dbFilename = db_prefix + "calendaruserproxy"
-    dbFormatVersion = "3"
+    dbFormatVersion = "4"
 
     def __init__(self, path):
         path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
-        super(CalendarUserProxyDatabase, self).__init__(path)
+        super(CalendarUserProxyDatabase, self).__init__(path, True)
 
     def setGroupMembers(self, principalUID, members):
         """
@@ -421,6 +421,27 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
             create index MEMBERS on GROUPS (MEMBER)
             """
         )
+
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        @param q: a database cursor to use.
+        @param old_version: existing DB's version number
+        @type old_version: str
+        """
+
+        # Add index if old version is less than "4"
+        if int(old_version) < 4:
+            q.execute(
+                """
+                create index GROUPNAMES on GROUPS (GROUPNAME)
+                """
+            )
+            q.execute(
+                """
+                create index MEMBERS on GROUPS (MEMBER)
+                """
+            )
 
 ##
 # Utilities

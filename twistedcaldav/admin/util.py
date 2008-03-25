@@ -135,7 +135,7 @@ def getResourceType(fp):
 
 class EventCountingDatabase(AbstractSQLDatabase):
     def __init__(self, fp):
-        super(EventCountingDatabase, self).__init__(fp.path)
+        super(EventCountingDatabase, self).__init__(fp.path, False)
 
     def _db_version(self):
         return schema_version
