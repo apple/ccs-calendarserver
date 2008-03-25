@@ -26,7 +26,7 @@ __all__ = [
 import itertools
 import sys
 import os
-from random import randint
+from random import random
 
 import opendirectory
 import dsattributes
@@ -609,13 +609,18 @@ class OpenDirectoryService(DirectoryService):
                 for item in removals:
                     self._delayedCalls.remove(item)
 
-            cacheTimeout = self.cacheTimeout * 60 # Convert to seconds
-            cacheTimeout += randint(-int(cacheTimeout/2), int(cacheTimeout/2)) # Add fuzz factor
+            #
+            # Add jitter/fuzz factor to avoid stampede for large OD query
+            # Max out the jitter at 60 minutes
+            #
+            cacheTimeout = min(self.cacheTimeout, 60) * 60
+            cacheTimeout = (cacheTimeout * random()) - (cacheTimeout / 2)
+            cacheTimeout += self.cacheTimeout * 60
             self._delayedCalls.add(callLater(cacheTimeout, rot))
 
             self._records[recordType] = storage
 
-            logging.err(
+            logging.info(
                 "Added %d records to %s OD record cache; expires in %d seconds"
                 % (len(self._records[recordType]["guids"]), recordType, cacheTimeout),
                 system="OpenDirectoryService"
