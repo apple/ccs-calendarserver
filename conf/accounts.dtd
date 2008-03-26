@@ -19,7 +19,7 @@ DRI: Cyrus Daboo, cdaboo@apple.com
 <!ELEMENT accounts (user*, group*, resource*, location*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid, guid, password, name, cuaddr*)>
+  <!ELEMENT user (uid, guid, password, name, cuaddr*, disable-calendar?)>
     <!ATTLIST user repeat CDATA "1">
 
   <!ELEMENT group (uid, guid, password, name, members, cuaddr*, disable-calendar?)>
