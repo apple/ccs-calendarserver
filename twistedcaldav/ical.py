@@ -206,7 +206,10 @@ class Component (object):
             C{stream}.
         """
         try:
-            return clazz(None, vobject=readComponents(stream).next())
+            return clazz(None, vobject=readComponents(stream, findBegin=False).next())
+        except UnicodeDecodeError, e:
+            stream.seek(0)
+            raise ValueError("%s: %s" % (e, stream.read()))
         except vParseError, e:
             raise ValueError(e)
         except StopIteration, e:
