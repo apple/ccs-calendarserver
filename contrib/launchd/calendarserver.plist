@@ -44,5 +44,17 @@ limitations under the License.
   <key>StandardErrorPath</key>
   <string>/var/log/caldavd/error.log</string>
 
+  <key>HardResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>12000</integer>
+  </dict>
+
+  <key>SoftResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>12000</integer>
+  </dict>
+
 </dict>
 </plist>
