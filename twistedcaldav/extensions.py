@@ -83,10 +83,10 @@ class SudoSACLMixin(object):
     def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
         Determine the authorization principal for the given request and authentication principal.
-        This implementation looks for an X-Authorize-As header value to use as the authoization principal.
+        This implementation looks for an X-Authorize-As header value to use as the authorization principal.
         
         @param request: the L{IRequest} for the request in progress.
-        @param authid: a string containing the uthentication/authorization identifier
+        @param authid: a string containing the authentication/authorization identifier
             for the principal to lookup.
         @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
         @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
@@ -175,6 +175,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource):
 
         if depth == "0" or not self.isCollection():
             yield None
+            return
 
         # First find all depth 1 children
         #children = []
@@ -229,10 +230,13 @@ class DAVResource (SudoSACLMixin, SuperDAVResource):
                     for resource, url in items[2]:
                         badcallback(resource, url)
 
-        # TODO: Depth: inifinity support
+        # TODO: Depth: infinity support
         if depth == "infinity":
             for collection, url in allowed_collections:
-                d = waitForDeferred(collection.findChildrenFaster(request, depth, okcallback, badcallback, names, privileges, inherited_aces=None))
+                collection_inherited_aces = waitForDeferred(collection.inheritedACEsforChildren(request))
+                yield collection_inherited_aces
+                collection_inherited_aces = collection_inherited_aces.getResult()
+                d = waitForDeferred(collection.findChildrenFaster(depth, request, okcallback, badcallback, names, privileges, inherited_aces=collection_inherited_aces))
                 yield d
                 d.getResult()
                 
@@ -242,6 +246,10 @@ class DAVResource (SudoSACLMixin, SuperDAVResource):
 
     def checkACLPrivilege(self, request, acl, privyset, privileges, inherited_aces):
         
+        if acl is None:
+            yield False
+            return
+
         principal = self.currentPrincipal(request)
 
         # Other principal types don't make sense as actors.
