@@ -2,7 +2,7 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -33,12 +33,18 @@
+@@ -33,12 +33,19 @@
  
  import urllib
  import sys
@@ -11,6 +11,7 @@ Index: twisted/web2/dav/xattrprops.py
 +from random import random
 +from errno import EAGAIN
 +from zlib import compress, decompress
++from cPickle import dumps as pickle, loads as unpickle, PicklingError, UnpicklingError
  
  import xattr
  
@@ -21,7 +22,7 @@ Index: twisted/web2/dav/xattrprops.py
  from twisted.web2 import responsecode
  from twisted.web2.http import HTTPError, StatusResponse
  from twisted.web2.dav import davxml
-@@ -66,16 +72,8 @@
+@@ -66,16 +73,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -40,20 +41,12 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +95,41 @@
+@@ -97,20 +96,51 @@
  
      def get(self, qname):
          try:
 -            value = self.attrs[self._encode(qname)]
 +            data = self.attrs[self._encode(qname)]
-+            try:
-+                value = decompress(data)
-+            except zlib.error:
-+                # Value is not compressed; data was stored by old
-+                # code.  This is easy to handle, so let's keep
-+                # compatibility here.
-+                value = data
-+            del data
          except KeyError:
              raise HTTPError(StatusResponse(
                  responsecode.NOT_FOUND,
@@ -62,20 +55,37 @@ Index: twisted/web2/dav/xattrprops.py
  
 -        doc = davxml.WebDAVDocument.fromString(value)
 +        try:
-+            doc = davxml.WebDAVDocument.fromString(value)
++            return unpickle(data)
++        except UnpicklingError:
++            try:
++                # Data is not pickled; try reading as compressed XML text
++                value = decompress(data)
++            except zlib.error:
++                # Value is not compressed; try reading as XML text
++                value = data
++            del data
  
 -        return doc.root_element
-+            return doc.root_element
-+        except ValueError:
-+            msg = "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value)
-+            log.err(msg)
-+            raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
++            try:
++                doc = davxml.WebDAVDocument.fromString(value)
++                return doc.root_element
++            except ValueError:
++                msg = "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value)
++                log.err(msg)
++                raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
  
      def set(self, property):
 -        self.attrs[self._encode(property.qname())] = property.toxml()
 +        for n in range(20):
 +            try:
-+                self.attrs[self._encode(property.qname())] = compress(property.toxml())
++                data = pickle(property)
++            except PicklingError, e:
++                log.err("Unable to pickle property %r: %s" % (property, e))
+ 
++                # Can't pickle this for some reason; fall back to XML serialization
++                data = compress(property.toxml())
++            try:
++                self.attrs[self._encode(property.qname())] = data
 +            except IOError, error:
 +                if error.errno != EAGAIN:
 +                    raise
@@ -83,6 +93,7 @@ Index: twisted/web2/dav/xattrprops.py
 +            else:
 +                break
 +    
- 
++
          # Update the resource because we've modified it
          self.resource.fp.restat()
+ 
