@@ -844,6 +844,7 @@ class Component (object):
         component_id  = None
         timezone_refs = set()
         timezones     = set()
+        got_master    = False
         
         for subcomponent in self.subcomponents():
             # Disallowed in CalDAV-Access-08, section 4.1
@@ -874,8 +875,11 @@ class Component (object):
                         raise ValueError("Calendar resources may not contain components with different UIDs " +
                                          "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
                     elif subcomponent.propertyValue("Recurrence-ID") is None:
-                        raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs" +
-                                         "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
+                        if got_master:
+                            raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs" +
+                                             "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
+                        else:
+                            got_master = True
         
                 timezone_refs.update(subcomponent.timezoneIDs())
         
