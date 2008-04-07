@@ -178,6 +178,10 @@ defaultConfig = {
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
     "ResponseCompression": True,
+
+
+    # Set the maximum number of outstanding requests to this server.
+    "MaxRequests": 600,
 }
 
 class Config (object):

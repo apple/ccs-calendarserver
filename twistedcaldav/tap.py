@@ -678,7 +678,7 @@ class CalDAVServiceMaker(object):
 
         site = Site(realRoot)
 
-        channel = http.HTTPFactory(site)
+        channel = http.HTTPFactory(site, maxRequests=config.MaxRequests)
 
         if not config.BindAddresses:
             config.BindAddresses = [""]
