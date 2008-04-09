@@ -350,7 +350,15 @@ Index: twisted/web2/dav/resource.py
      def setAccessControlList(self, acl):
          """
          See L{IDAVResource.setAccessControlList}.
-@@ -1038,9 +1108,9 @@
+@@ -755,6 +825,7 @@
+         # Check disabled
+         if old_acl is None:
+             yield None
++            return
+ 
+         # Need to get list of supported privileges
+         supported = []
+@@ -1038,9 +1109,9 @@
  
              if myURL == "/":
                  # If we get to the root without any ACLs, then use the default.
@@ -362,7 +370,7 @@ Index: twisted/web2/dav/resource.py
  
          # Dynamically update privileges for those ace's that are inherited.
          if inheritance:
-@@ -1076,7 +1146,7 @@
+@@ -1076,7 +1147,7 @@
                                  # Adjust ACE for inherit on this resource
                                  children = list(ace.children)
                                  children.remove(TwistedACLInheritable())
@@ -371,7 +379,7 @@ Index: twisted/web2/dav/resource.py
                                  aces.append(davxml.ACE(*children))
              else:
                  aces.extend(inherited_aces)
-@@ -1128,7 +1198,7 @@
+@@ -1128,7 +1199,7 @@
                  # Adjust ACE for inherit on this resource
                  children = list(ace.children)
                  children.remove(TwistedACLInheritable())
@@ -380,7 +388,7 @@ Index: twisted/web2/dav/resource.py
                  aces.append(davxml.ACE(*children))
                  
          # Filter out those that do not have a principal match with the current principal
-@@ -1152,49 +1222,69 @@
+@@ -1152,49 +1223,69 @@
  
          This implementation returns an empty set.
          """
@@ -478,7 +486,7 @@ Index: twisted/web2/dav/resource.py
      def samePrincipal(self, principal1, principal2):
          """
          Check whether the two prinicpals are exactly the same in terms of
-@@ -1219,7 +1309,6 @@
+@@ -1219,7 +1310,6 @@
              return False
                  
      def matchPrincipal(self, principal1, principal2, request):
@@ -486,7 +494,7 @@ Index: twisted/web2/dav/resource.py
          """
          Check whether the principal1 is a principal in the set defined by
          principal2.
-@@ -1244,6 +1333,9 @@
+@@ -1244,6 +1334,9 @@
              if isinstance(principal1, davxml.Unauthenticated):
                  yield False
                  return
@@ -496,7 +504,7 @@ Index: twisted/web2/dav/resource.py
              else:
                  yield True
                  return
-@@ -1271,7 +1363,6 @@
+@@ -1271,7 +1364,6 @@
  
          assert principal2 is not None, "principal2 is None"
  
@@ -504,7 +512,7 @@ Index: twisted/web2/dav/resource.py
          # Compare two HRefs and do group membership test as well
          if principal1 == principal2:
              yield True
-@@ -1302,9 +1393,9 @@
+@@ -1302,9 +1394,9 @@
          def testGroup(group):
              # Get principal resource for principal2
              if group and isinstance(group, DAVPrincipalResource):
@@ -517,7 +525,7 @@ Index: twisted/web2/dav/resource.py
                  
              return False
  
-@@ -1351,11 +1442,16 @@
+@@ -1351,11 +1443,16 @@
          @return C{True} if C{href_principal} is valid, C{False} otherwise.
  
          This implementation tests for a href element that corresponds to
@@ -537,7 +545,7 @@ Index: twisted/web2/dav/resource.py
          return d
  
      def resolvePrincipal(self, principal, request):
-@@ -1432,7 +1528,7 @@
+@@ -1432,7 +1529,7 @@
                  log.err("DAV:self ACE is set on non-principal resource %r" % (self,))
                  yield None
                  return
@@ -546,7 +554,7 @@ Index: twisted/web2/dav/resource.py
  
          if isinstance(principal, davxml.HRef):
              yield principal
-@@ -1517,6 +1613,270 @@
+@@ -1517,6 +1614,270 @@
          return None
  
      ##
@@ -817,7 +825,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1567,7 +1927,7 @@
+@@ -1567,7 +1928,7 @@
      def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
          return succeed(None)
  
@@ -826,7 +834,7 @@ Index: twisted/web2/dav/resource.py
      """
      Resource representing a WebDAV principal.  (RFC 3744, section 2)
      """
-@@ -1577,7 +1937,7 @@
+@@ -1577,7 +1938,7 @@
      # WebDAV
      ##
  
@@ -835,7 +843,7 @@ Index: twisted/web2/dav/resource.py
          (dav_namespace, "alternate-URI-set"),
          (dav_namespace, "principal-URL"    ),
          (dav_namespace, "group-member-set" ),
-@@ -1585,14 +1945,11 @@
+@@ -1585,14 +1946,11 @@
      )
  
      def davComplianceClasses(self):
@@ -851,7 +859,7 @@ Index: twisted/web2/dav/resource.py
      def readProperty(self, property, request):
          def defer():
              if type(property) is tuple:
-@@ -1610,10 +1967,10 @@
+@@ -1610,10 +1968,10 @@
                      return davxml.PrincipalURL(davxml.HRef(self.principalURL()))
  
                  if name == "group-member-set":
@@ -864,7 +872,7 @@ Index: twisted/web2/dav/resource.py
  
                  if name == "resourcetype":
                      if self.isCollection():
-@@ -1677,8 +2034,27 @@
+@@ -1677,8 +2035,27 @@
          if self.principalURL() == uri:
              return True
          else:
@@ -893,7 +901,7 @@ Index: twisted/web2/dav/resource.py
  class AccessDeniedError(Exception):
      def __init__(self, errors):
          """ 
-@@ -1718,6 +2094,37 @@
+@@ -1718,6 +2095,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
