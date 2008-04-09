@@ -16,3 +16,12 @@ Index: twisted/web2/dav/http.py
  
          output = davxml.Error(error).toxml()
  
+@@ -227,7 +226,7 @@
+ 
+         if len(property.children) > 0:
+             # Re-instantiate as empty element.
+-            property = property.__class__()
++            property = property.emptyCopy()
+ 
+         if code > 400: # Error codes only
+             log.err("Error during %s for %s: %s" % (self.method, property, message))
