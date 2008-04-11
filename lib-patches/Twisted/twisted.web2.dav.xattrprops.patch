@@ -55,7 +55,7 @@ Index: twisted/web2/dav/xattrprops.py
  
 -        doc = davxml.WebDAVDocument.fromString(value)
 +        try:
-+            return decompress(unpickle(data))
++            return unpickle(decompress(data))
 +        except UnpicklingError:
 +            try:
 +                # Data is not pickled; try reading as compressed XML text
