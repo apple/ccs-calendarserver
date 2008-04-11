@@ -55,7 +55,7 @@ Index: twisted/web2/dav/xattrprops.py
  
 -        doc = davxml.WebDAVDocument.fromString(value)
 +        try:
-+            return unpickle(data)
++            return decompress(unpickle(data))
 +        except UnpicklingError:
 +            try:
 +                # Data is not pickled; try reading as compressed XML text
@@ -78,7 +78,7 @@ Index: twisted/web2/dav/xattrprops.py
 -        self.attrs[self._encode(property.qname())] = property.toxml()
 +        for n in range(20):
 +            try:
-+                data = pickle(property)
++                data = compress(pickle(property))
 +            except PicklingError, e:
 +                log.err("Unable to pickle property %r: %s" % (property, e))
  
