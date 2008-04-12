@@ -1248,23 +1248,30 @@ else:
 </plist>
 """
 
+        plist_invalid = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <string>bogus</string>
+    <string>another bogon</string>
+</dict>
+</plist>
+"""
+
         test_bool = (
             (plist_good_false, False, "1234-GUID-5678"),
             (plist_good_true, True, ""),
             (plist_good_missing, False, None),
             (plist_wrong, False, None),
-        )
-
-        test_exception = (
-            (plist_bad, AttributeError),
+            (plist_bad, False, None),
+            (plist_invalid, False, None),
         )
 
         def test_plists(self):
             service = OpenDirectoryService(node="/Search", dosetup=False)
             
             for item in ODResourceInfoParse.test_bool:
-                self.assertEqual(service._parseResourceInfo(item[0])[0], item[1])
-                self.assertEqual(service._parseResourceInfo(item[0])[1], item[2])
-            
-            for item in ODResourceInfoParse.test_exception:
-                self.assertRaises(item[1], service._parseResourceInfo, item[0])
+                item1, item2 = service._parseResourceInfo(item[0], "guid", "name")
+                self.assertEqual(item1, item[1])
+                self.assertEqual(item2, item[2])
