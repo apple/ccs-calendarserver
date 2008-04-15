@@ -55,11 +55,11 @@ class AutoProvisioningResourceMixIn (object):
         This implementation calls L{provision}, then super's L{locateChild}, thereby
         ensuring that looked-up resources are provisioned.
         """
+        d = maybeDeferred(self.provision)
+
         name = segments[0]
-        if name == "":
-            d = succeed(None)
-        else:
-            d = maybeDeferred(self.provisionChild, name)
-        d.addCallback(lambda _: self.provision())
+        if name != "":
+            d.addCallback(lambda _: self.provisionChild(name))
+
         d.addCallback(lambda _: super(AutoProvisioningResourceMixIn, self).locateChild(request, segments))
         return d
