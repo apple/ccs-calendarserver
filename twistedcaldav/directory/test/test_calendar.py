@@ -14,19 +14,10 @@
 # limitations under the License.
 ##
 
-#from twisted.web2 import responsecode
-#from twisted.web2.iweb import IResponse
-#from twisted.web2.dav import davxml
-#from twisted.web2.dav.util import davXMLFromStream
-#from twisted.web2.test.test_server import SimpleRequest
-#from twistedcaldav import caldavxml
-
 import os
 
-from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
-from twisted.web2.iweb import IResponse
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource

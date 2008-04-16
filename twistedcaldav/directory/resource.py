@@ -20,7 +20,7 @@ Implements a directory-backed principal hierarchy.
 
 __all__ = ["AutoProvisioningResourceMixIn"]
 
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import maybeDeferred
 
 class AutoProvisioningResourceMixIn (object):
     """
