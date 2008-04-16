@@ -19,7 +19,7 @@ import stat
 
 from zope.interface import implements
 
-from twisted.python import log
+from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 
@@ -51,6 +51,10 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav import pdmonster
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.timezones import TimezoneCache
+
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -236,7 +240,7 @@ class CalDAVOptions(Options):
         #
 
         if not config.ErrorLogFile and config.ProcessType == "Slave":
-            log.FileLogObserver.timeFormat = ""
+            FileLogObserver.timeFormat = ""
 
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)

@@ -33,7 +33,6 @@ import urllib
 import cgi
 import time
 
-from twisted.python import log
 from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -47,8 +46,12 @@ from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
+
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class SudoSACLMixin(object):
     """

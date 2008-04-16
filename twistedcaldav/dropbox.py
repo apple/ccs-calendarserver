@@ -30,7 +30,6 @@ import md5
 import time
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import HTTPError, ErrorResponse, StatusResponse
@@ -40,6 +39,9 @@ from twisted.web2.dav.util import davXMLFromStream, parentForURL
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class DropBoxHomeResource (DAVResource):
     """

@@ -27,7 +27,6 @@ WebDAV PROPFIND method
 
 __all__ = ["http_PROPFIND"]
 
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2.http import HTTPError
@@ -36,6 +35,10 @@ from twisted.web2.http import StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import MultiStatusResponse, statusForFailure
 from twisted.web2.dav.util import normalizeURL, davXMLFromStream
+
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 """
 This is a direct copy of the twisted implementation of PROPFIND except that it uses the

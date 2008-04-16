@@ -29,7 +29,6 @@ __all__ = ["http_REPORT"]
 
 import string
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
@@ -39,6 +38,9 @@ from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import davXMLFromStream
 
 from twistedcaldav import caldavxml
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 max_number_of_matches = 500
 

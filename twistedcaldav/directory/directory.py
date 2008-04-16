@@ -30,13 +30,15 @@ import sys
 
 from zope.interface import implements
 
-from twisted.python import log
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class DirectoryService(object):
     implements(IDirectoryService, ICredentialsChecker)

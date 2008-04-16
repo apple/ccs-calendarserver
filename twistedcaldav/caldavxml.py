@@ -25,7 +25,9 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from twisted.python import log
+import datetime
+
+from vobject.icalendar import utc
 
 from twisted.web2.dav import davxml
 
@@ -33,10 +35,9 @@ from twistedcaldav.dateops import clipPeriod, timeRangesOverlap
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.ical import parse_date_or_datetime
+from twistedcaldav.log import Logger
 
-from vobject.icalendar import utc
-
-import datetime
+log = Logger()
 
 ##
 # CalDAV objects

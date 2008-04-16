@@ -40,12 +40,14 @@ from vobject.icalendar import TimezoneComponent
 from vobject.icalendar import stringToDate, stringToDateTime, stringToDurations
 from vobject.icalendar import utc
 
-from twisted.python import log
 from twisted.web2.stream import IStream
 from twisted.web2.dav.util import allDataFromStream
 
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 

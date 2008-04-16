@@ -25,7 +25,7 @@ from twisted.internet.defer import Deferred
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import maybeDeferred
 from twisted.internet.defer import waitForDeferred
-from twisted.python import failure, log
+from twisted.python import failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -54,6 +54,9 @@ from twistedcaldav.fileops import copyWithXAttrs
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 @deferredGenerator
 def storeCalendarObjectResource(

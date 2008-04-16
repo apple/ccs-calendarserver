@@ -21,7 +21,6 @@ CalDAV freebusy report
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
@@ -32,6 +31,9 @@ from twisted.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.method import report_common
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy): #@UnusedVariable
     """

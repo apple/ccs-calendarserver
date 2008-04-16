@@ -22,7 +22,6 @@ import datetime
 import os
 import time
 
-from twisted.python import log
 from twisted.internet import protocol
 
 from twisted.web2 import iweb
@@ -32,6 +31,9 @@ from twisted.web2.log import LogWrapperResource
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 #
 # Logging levels:

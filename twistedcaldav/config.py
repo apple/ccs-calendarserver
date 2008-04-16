@@ -17,9 +17,11 @@
 import os
 import copy
 
-from twisted.python import log
 
 from twistedcaldav.py.plistlib import readPlist
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 

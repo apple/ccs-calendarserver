@@ -17,7 +17,6 @@
 from twistedcaldav.sql import AbstractSQLDatabase
 
 from twisted.cred import error
-from twisted.python import log
 from twisted.web2.auth.digest import DigestCredentialFactory
 from twisted.web2.auth.digest import DigestedCredentials
 
@@ -31,6 +30,10 @@ try:
     from sqlite3 import OperationalError
 except ImportError:
     from pysqlite2.dbapi2 import OperationalError
+
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 """
 Overrides twisted.web2.auth.digest to allow specifying a qop value as a configuration parameter.
