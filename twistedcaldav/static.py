@@ -465,12 +465,16 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
 
 class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeUIDProvisioningResource, DAVFile):
-    def __init__(self, path, parent):
+    def __init__(self, path, parent, homeResourceClass=None):
         """
         @param path: the path to the file which will back the resource.
         """
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeUIDProvisioningResource.__init__(self, parent)
+        if homeResourceClass is None:
+            self.homeResourceClass = CalendarHomeFile
+        else:
+            self.homeResourceClass = homeResourceClass
 
     def provisionChild(self, name):
         record = self.directory.recordWithGUID(name)
@@ -484,7 +488,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
             return None
 
         childPath = self.fp.child(name)
-        child = CalendarHomeFile(childPath.path, self, record)
+        child = self.homeResourceClass(childPath.path, self, record)
         if not child.exists():
             self.provision()
 
