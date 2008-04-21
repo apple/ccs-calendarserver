@@ -62,39 +62,25 @@ class PrincipalAction(object):
                 
                 pcal = self.calendarCollection.child(
                     "__uids__"
-                    ).child(util.getPrincipalName(p))
+                    ).child(p.basename())
             
-                precord['principalName'] = util.getPrincipalName(p)
+                precord['principalName'] = p.basename()
                 
-                if pcal.exists():
-                    precord['calendarHome'] = pcal.path
-    
-                    precord.update(
-                        util.getQuotaStatsForPrincipal(
-                            self.config,
-                            pcal,
-                            self.quota))
-    
-                    precord.update(
-                        util.getCalendarDataCounts(pcal))
-    
-                    precord['diskUsage'] = util.getDiskUsage(self.config, pcal)
-                    
-                    precord['disabled'] = util.isPrincipalDisabled(p)
-                else:
-                    precord.update({
-                        'calendarHome':  "-",
-                        'quotaRoot':     "-",
-                        'quotaUsed':     "-",
-                        'quotaAvail':    "-",
-                        'quotaFree':     "-",
-                        'calendarCount': "-",
-                        'eventCount':    "-",
-                        'todoCount':     "-",
-                        'diskUsage':     "-",
-                        'disabled':      "-",
-                    })
+                precord['calendarHome'] = pcal.path
 
+                precord.update(
+                    util.getQuotaStatsForPrincipal(
+                        self.config,
+                        pcal,
+                        self.quota))
+
+                precord.update(
+                    util.getCalendarDataCounts(pcal))
+
+                precord['diskUsage'] = util.getDiskUsage(self.config, pcal)
+                
+                precord['disabled'] = util.isPrincipalDisabled(p)
+                
                 yield precord
 
         report['records'] = _getRecords()
