@@ -61,7 +61,7 @@ class PrincipalAction(object):
                 precord = {}
                 
                 pcal = self.calendarCollection.child(
-                    self.type
+                    "__uids__"
                     ).child(util.getPrincipalName(p))
             
                 precord['principalName'] = util.getPrincipalName(p)

@@ -17,6 +17,8 @@
 import xattr
 import zlib
 from zlib import decompress
+from cPickle import loads as unpickle, UnpicklingError
+import os
 
 import commands
 
@@ -66,7 +68,9 @@ def getPrincipalList(principalCollection, type, disabled=False):
 
     if typeRoot.exists():
         for child in typeRoot.listdir():
-            if not child.startswith(db_prefix):
+            if (not child.startswith(db_prefix) and
+                not child.endswith("#calendar-proxy-write") and
+                not child.endswith("#calendar-proxy-read")):
                 p = typeRoot.child(child)
                 ptype = getPrincipalType(p)
                 if ptype == type:
@@ -101,16 +105,8 @@ def getPrincipalType(fp):
     return rtp[0].firstChild().value
     
 def getPrincipalName(fp):
-    rtp = "WebDAV:" + RecordNameProperty.sname().replace("/", "%2F")
-    x = xattr.xattr(fp.path)
-    if not x.has_key(rtp):
-        return None
+    return os.path.basename(fp.path)
 
-    dom = microdom.parseString(_getxattr_value(x, rtp))
-    rtp = microdom.getElementsByTagName(dom, 'record-name')
-
-    return rtp[0].firstChild().value
-    
 def getResourceType(fp):
     rt = 'WebDAV:{DAV:}resourcetype'
     x = xattr.xattr(fp.path)
@@ -237,10 +233,14 @@ def getQuotaStatsForPrincipal(config, principal, defaultQuota=None, depth=2):
 def _getxattr_value(x, k):
     data = x[k]
     try:
-        value = decompress(data)
+        try:
+            return unpickle(decompress(data)).toxml()
+        except UnpicklingError:
+            pass
+        return decompress(data)
     except zlib.error:
         # Value is not compressed; data was stored by old
         # code.  This is easy to handle, so let's keep
         # compatibility here.
-        value = data
-    return value
+        pass
+    return data
