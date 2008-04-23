@@ -39,6 +39,9 @@ from twisted.web2.channel import http
 from twisted.web2.server import Site
 
 from twistedcaldav import logging
+from twistedcaldav.accesslog import DirectoryLogWrapperResource
+from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
+from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.cluster import makeService_Combined, makeService_Master
 from twistedcaldav.config import config, parseConfig, defaultConfig, ConfigurationError
 from twistedcaldav.root import RootResource
@@ -640,7 +643,7 @@ class CalDAVServiceMaker(object):
             (auth.IPrincipal,)
         )
 
-        logWrapper = logging.DirectoryLogWrapperResource(
+        logWrapper = DirectoryLogWrapperResource(
             authWrapper,
             directory
         )
@@ -664,14 +667,14 @@ class CalDAVServiceMaker(object):
             else:
                 realRoot = logWrapper
 
-            logObserver = logging.AMPCommonAccessLoggingObserver(
+            logObserver = AMPCommonAccessLoggingObserver(
                 config.ControlSocket
             )
 
         elif config.ProcessType == "Single":
             realRoot = logWrapper
 
-            logObserver = logging.RotatingFileAccessLoggingObserver(
+            logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile
             )
 
