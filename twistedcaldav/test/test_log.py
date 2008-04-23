@@ -19,14 +19,17 @@ from twistedcaldav.log import Logger, LoggingMixIn, logLevels
 import twisted.trial.unittest
 
 class TestLogger (Logger):
-    def __init__(self, namespace=None, test_emit=None):
+    def __init__(self, namespace=None):
         super(TestLogger, self).__init__(namespace)
-        self._test_emit = test_emit
 
     def emit(self, level, message, **kwargs):
-        if self._test_emit is not None:
-            self._test_emit(level, message, **kwargs)
         super(TestLogger, self).emit(level, message, **kwargs)
+
+        self.emitted = {
+            "level"  : level,
+            "message": message,
+            "kwargs" : kwargs,
+        }
 
 class LoggingEnabledObject (LoggingMixIn):
     pass
@@ -56,20 +59,13 @@ class Logging (twisted.trial.unittest.TestCase):
         for level in logLevels:
             message = "This is a %s message" % (level,)
 
-            def test_emit(emit_level, emit_message, **kwargs):
-                emitted["level"  ] = emit_level
-                emitted["message"] = emit_message
-                emitted["junk"   ] = kwargs["junk"]
-
-            log = TestLogger(test_emit=test_emit)
+            log = TestLogger()
             object.logger = log
 
             for method in (getattr(log, level), getattr(object, "log_" + level)):
-                emitted = {}
-
                 method(message, junk=message)
 
                 # Ensure that test_emit got called with expected arguments
-                self.failUnless(emitted["level"  ] == level  )
-                self.failUnless(emitted["message"] == message)
-                self.failUnless(emitted["junk"   ] == message)
+                self.failUnless(log.emitted["level"] == level)
+                self.failUnless(log.emitted["message"] == message)
+                self.failUnless(log.emitted["kwargs"]["junk"] == message)
