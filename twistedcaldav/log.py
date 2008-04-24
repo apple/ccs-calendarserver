@@ -64,6 +64,10 @@ defaultLogLevel = "info"
 logLevelsByNamespace = {}
 
 def logLevelForNamespace(namespace):
+    """
+    @param namespace: a logging namespace
+    @return: the log level for the given namespace.
+    """
     if namespace in logLevelsByNamespace:
         return logLevelsByNamespace[namespace]
 
@@ -79,10 +83,18 @@ def logLevelForNamespace(namespace):
     return defaultLogLevel
 
 def setLogLevelForNamespace(namespace, level):
+    """
+    Sets the log level for a logging namespace.
+    @param namespace: a logging namespace
+    @param level: the log level for the given namespace.
+    """
     assert level in logLevels
     logLevelsByNamespace[namespace] = level
 
 def clearLogLevels():
+    """
+    Clears all log levels to the default.
+    """
     logLevelsByNamespace.clear()
 
 ##
@@ -110,6 +122,9 @@ class Logger (object):
         self.namespace = namespace
 
     def emit(self, level, message, **kwargs):
+        """
+        Called internally to emit log messages at a given log level.
+        """
         log.msg(
             str(message),
             isError = (level == "error"),
@@ -142,12 +157,29 @@ class LoggingMixIn (object):
     logger = property(_getLogger, _setLogger)
 
 for level in logLevels:
+    doc = """
+    Emit a log message at log level C{%s}.
+    @param message: The message to emit.
+    """ % (level,)
+
+    #
+    # Attach methods to Logger
+    #
     def log_level(self, message, level=level, **kwargs):
         self.emit(level, message, **kwargs)
+
+    log_level.__doc__ = doc
+
     setattr(Logger, level, log_level)
 
+    #
+    # Attach methods to LoggingMixIn
+    #
     def log_level(self, message, level=level, **kwargs):
         self.logger.emit(level, message, **kwargs)
+
+    log_level.__doc__ = doc
+
     setattr(LoggingMixIn, "log_%s" % (level,), log_level)
 
 del level, log_level
