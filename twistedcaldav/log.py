@@ -125,9 +125,10 @@ class Logger (object):
         """
         Called internally to emit log messages at a given log level.
         """
+        assert level in logLevels
         log.msg(
             str(message),
-            isError = (level == "error"),
+            isError = (logLevelIndexes[level] >= logLevelIndexes["error"]),
             level = level,
             namespace = self.namespace,
             **kwargs
