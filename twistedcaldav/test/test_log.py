@@ -36,6 +36,21 @@ class LoggingEnabledObject (LoggingMixIn):
     pass
 
 class Logging (twisted.trial.unittest.TestCase):
+    def test_cmpLogLevels(self):
+        self.assertEquals(cmpLogLevels("info" , "error"), -1)
+        self.assertEquals(cmpLogLevels("debug", "debug"),  0)
+        self.assertEquals(cmpLogLevels("warn" , "debug"),  1)
+
+    def test_lowestLogLevel(self):
+        self.assertEquals(lowestLogLevel(*logLevels), "debug")
+        self.assertEquals(lowestLogLevel(*reversed(logLevels)), "debug")
+        self.assertEquals(lowestLogLevel("warn", "info"), "info")
+
+    def test_highestLogLevel(self):
+        self.assertEquals(highestLogLevel(*logLevels), "error")
+        self.assertEquals(highestLogLevel(*reversed(logLevels)), "error")
+        self.assertEquals(highestLogLevel("warn", "info"), "warn")
+
     def test_namespace_default(self):
         """
         Default namespace is module name.

@@ -35,6 +35,9 @@ Or in a class:
 
 __all__ = [
     "logLevels",
+    "cmpLogLevels",
+    "lowestLogLevel",
+    "highestLogLevel",
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
@@ -55,6 +58,15 @@ logLevels = (
 
 logLevelIndexes = dict(zip(logLevels, xrange(0, len(logLevels))))
 
+def cmpLogLevels(a, b):
+    return cmp(logLevelIndexes[a], logLevelIndexes[b])
+
+def lowestLogLevel(*levels):
+    return sorted(levels, cmpLogLevels)[0]
+
+def highestLogLevel(*levels):
+    return sorted(levels, cmpLogLevels, reverse=True)[0]
+
 ##
 # Tools for manageing log levels
 ##
@@ -68,6 +80,9 @@ def logLevelForNamespace(namespace):
     @param namespace: a logging namespace
     @return: the log level for the given namespace.
     """
+    if not namespace:
+        return defaultLogLevel
+
     if namespace in logLevelsByNamespace:
         return logLevelsByNamespace[namespace]
 
@@ -89,6 +104,11 @@ def setLogLevelForNamespace(namespace, level):
     @param level: the log level for the given namespace.
     """
     assert level in logLevels
+
+    if not namespace:
+        global defaultLogLevel
+        defaultLogLevel = level
+
     logLevelsByNamespace[namespace] = level
 
 def clearLogLevels():
@@ -128,7 +148,7 @@ class Logger (object):
         assert level in logLevels
         log.msg(
             str(message),
-            isError = (logLevelIndexes[level] >= logLevelIndexes["error"]),
+            isError = (cmpLogLevels(level, "error") >= 0),
             level = level,
             namespace = self.namespace,
             **kwargs
