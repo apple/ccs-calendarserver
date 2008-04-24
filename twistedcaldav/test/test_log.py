@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.log import Logger, LoggingMixIn, logLevels
+from twistedcaldav.log import *
+from twistedcaldav.log import defaultLogLevel
 
 import twisted.trial.unittest
 
@@ -66,6 +67,43 @@ class Logging (twisted.trial.unittest.TestCase):
                 method(message, junk=message)
 
                 # Ensure that test_emit got called with expected arguments
-                self.failUnless(log.emitted["level"] == level)
-                self.failUnless(log.emitted["message"] == message)
-                self.failUnless(log.emitted["kwargs"]["junk"] == message)
+                self.assertEquals(log.emitted["level"], level)
+                self.assertEquals(log.emitted["message"], message)
+                self.assertEquals(log.emitted["kwargs"]["junk"], message)
+
+    def test_defaultLogLevel(self):
+        """
+        Default log level is used.
+        """
+        clearLogLevels()
+        self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
+
+    def test_logLevel(self):
+        """
+        Setting and retrieving log levels.
+        """
+        clearLogLevels()
+
+        setLogLevelForNamespace("twisted.web2", "debug")
+        setLogLevelForNamespace("twisted.web2.dav", "error")
+
+        self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted.web2"                ), "debug")
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav"            ), "error")
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test"       ), "error")
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test1.test2"), "error")
+
+    def test_clearLogLevel(self):
+        """
+        Clearing log levels.
+        """
+        setLogLevelForNamespace("twisted.web2", "debug")
+        setLogLevelForNamespace("twisted.web2.dav", "error")
+
+        clearLogLevels()
+
+        self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted.web2"                ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav"            ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test"       ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test1.test2"), defaultLogLevel)

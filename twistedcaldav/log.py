@@ -35,6 +35,9 @@ Or in a class:
 
 __all__ = [
     "logLevels",
+    "logLevelForNamespace",
+    "setLogLevelForNamespace",
+    "clearLogLevels",
     "Logger",
     "LoggingMixIn",
 ]
@@ -51,6 +54,40 @@ logLevels = (
 )
 
 logLevelIndexes = dict(zip(logLevels, xrange(0, len(logLevels))))
+
+##
+# Tools for manageing log levels
+##
+
+defaultLogLevel = "info"
+
+logLevelsByNamespace = {}
+
+def logLevelForNamespace(namespace):
+    if namespace in logLevelsByNamespace:
+        return logLevelsByNamespace[namespace]
+
+    segments = namespace.split(".")
+    index = len(segments) - 1
+
+    while index > 0:
+        namespace = ".".join(segments[:index])
+        if namespace in logLevelsByNamespace:
+            return logLevelsByNamespace[namespace]
+        index -= 1
+
+    return defaultLogLevel
+
+def setLogLevelForNamespace(namespace, level):
+    assert level in logLevels
+    logLevelsByNamespace[namespace] = level
+
+def clearLogLevels():
+    logLevelsByNamespace.clear()
+
+##
+# Loggers
+##
 
 class Logger (object):
     """
