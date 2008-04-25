@@ -47,9 +47,9 @@ from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
 
+from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.log import Logger
 
 log = Logger()
 
@@ -152,7 +152,7 @@ class SudoSACLMixin(object):
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
 
-class DAVResource (SudoSACLMixin, SuperDAVResource):
+class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
@@ -352,7 +352,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource):
             
         yield match
 
-class DAVPrincipalResource (SuperDAVPrincipalResource):
+class DAVPrincipalResource (SuperDAVPrincipalResource, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
@@ -377,7 +377,7 @@ class DAVPrincipalResource (SuperDAVPrincipalResource):
             return davxml.ResourceType(davxml.Principal())
 
 
-class DAVFile (SudoSACLMixin, SuperDAVFile):
+class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
