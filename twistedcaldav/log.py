@@ -28,9 +28,9 @@ Or in a class:
 
     from twistedcaldav.log import LoggingMixIn
 
-    class Foo (object, LoggingMixIn):
+    class Foo (LoggingMixIn):
         def oops(self):
-            self.log_error("Oops!")
+            self.log_erroror("Oops!")
 """
 
 __all__ = [
