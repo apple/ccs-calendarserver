@@ -739,14 +739,12 @@ class CalDAVServiceMaker(object):
             service = serviceMethod(options)
 
             #
-            # Temporary hack to work around SIGHUP problem
-            # If there is a stopped process in the same session as the
-            # calendar server and the calendar server is the group
-            # leader then when twistd forks to drop privelages a
-            # SIGHUP may be sent by the kernel. This SIGHUP should be
+            # Note: if there is a stopped process in the same session
+            # as the calendar server and the calendar server is the
+            # group leader then when twistd forks to drop privileges a
+            # SIGHUP may be sent by the kernel, which can cause the
+            # process to exit. This SIGHUP should be, at a minimum,
             # ignored.
-            # Note that this handler is not unset, so any further
-            # SIGHUPs are also ignored.
             #
 
             def location(frame):
@@ -755,12 +753,14 @@ class CalDAVServiceMaker(object):
                 else:
                     return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
 
-            # FIXME: SIGHUP should cause us to reload the config file
+            import signal
+            def sighup_handler(num, frame):
+                log.error("SIGHUP recieved at %s" % (location(frame),))
 
-            #import signal
-            #def sighup_handler(num, frame):
-            #    log.debug("SIGHUP recieved at %s" % (location(frame),))
-            #signal.signal(signal.SIGHUP, sighup_handler)
+                # Reload the config file
+                config.reload()
+
+            signal.signal(signal.SIGHUP, sighup_handler)
 
             #def sigusr1_handler(num, frame):
             #    log.debug("SIGUSR1 recieved at %s" % (location(frame),))
