@@ -24,6 +24,7 @@ from twisted.web2.static import File, loadMimeTypes
 
 __all__ = [
     "accesslog",
+    "accounting",
     "authkerb",
     "caldavxml",
     "customxml",
@@ -39,7 +40,6 @@ __all__ = [
     "instance",
     "itip",
     "log",
-    "logging",
     "notifications",
     "principalindex",
     "resource",
