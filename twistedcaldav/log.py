@@ -103,7 +103,8 @@ def setLogLevelForNamespace(namespace, level):
     @param namespace: a logging namespace
     @param level: the log level for the given namespace.
     """
-    assert level in logLevels
+    if level not in logLevels:
+        raise InvalidLogLevelError(level)
 
     if not namespace:
         global defaultLogLevel
@@ -208,3 +209,12 @@ del level, log_level
 # Add some compatibility with twisted's log module
 Logger.msg = Logger.info
 Logger.err = Logger.error
+
+##
+# Errors
+##
+
+class InvalidLogLevelError (RuntimeError):
+    def __init__(self, level):
+        super(InvalidLogLevelError, self).__init__(str(level))
+        self.level = level
