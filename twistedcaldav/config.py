@@ -113,8 +113,13 @@ defaultConfig = {
     "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
     "RotateAccessLog": False,
-    "DefaultLogLevel": None,
+    "DefaultLogLevel": "",
     "LogLevels": {},
+    "AccountingCategories": {
+        "iTIP": False,
+    },
+    "AccountingPrincipals": (),
+    "AccountingLogRoot": "/var/log/caldavd/accounting",
 
     #
     # SSL/TLS

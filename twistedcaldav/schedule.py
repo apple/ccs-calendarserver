@@ -40,6 +40,7 @@ from twisted.web2.dav.util import joinURL
 from twistedcaldav import caldavxml
 from twistedcaldav import itip
 from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
@@ -337,6 +338,21 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         else:
             # Do regular invite (fan-out)
             freebusy = False
+
+        #
+        # Accounting
+        #
+        # Note that we associate logging with the organizer, not the
+        # originator, which is good for looking for why something
+        # shows up in a given principal's calendars, rather than
+        # tracking the activities of a specific user.
+        #
+        if accountingEnabled("iTIP", organizerPrincipal):
+            emitAccounting(
+                "iTIP", organizerPrincipal,
+                "Originator: %s\nRecipients: %s\n\n%s"
+                % (originator, ", ".join(recipients), str(calendar))
+            )
 
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)
