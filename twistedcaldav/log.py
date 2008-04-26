@@ -158,13 +158,36 @@ class Logger (object):
         Called internally to emit log messages at a given log level.
         """
         assert level in logLevels
-        log.msg(
-            str(message),
-            isError = (cmpLogLevels(level, "error") >= 0),
-            level = level,
-            namespace = self.namespace,
-            **kwargs
-        )
+
+        if self.willLogAtLevel(level):
+            log.msg(
+                "[#%s] %s" % (level, message),
+                isError = (cmpLogLevels(level, "error") >= 0),
+                level = level,
+                namespace = self.namespace,
+                **kwargs
+            )
+
+    def level(self):
+        """
+        @return: the logging level for this logger's namespace.
+        """
+        return logLevelForNamespace(self.namespace)
+
+    def setLevel(self, level):
+        """
+        Set the logging level for this logger's namespace.
+        @param level: a logging level
+        """
+        setLogLevelForNamespace(self.namespace, level)
+
+    def willLogAtLevel(self, level):
+        """
+        @param level: a logging level
+        @return: C{True} if this logger will log at the given logging
+            level.
+        """
+        return cmpLogLevels(self.level(), level) <= 0
 
 class LoggingMixIn (object):
     """
