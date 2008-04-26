@@ -202,6 +202,10 @@ limitations under the License.
   <key>ErrorLogFile</key>
   <string>/var/log/caldavd/error.log</string>
 
+  <!-- Log Levels -->
+  <key>DefaultLogLevel</key>
+  <string>info</string> <!-- debug, info, warn, error -->
+
   <!-- Server statistics file -->
   <key>ServerStatsFile</key>
   <string>/var/run/caldavd/stats.plist</string>

@@ -17,7 +17,7 @@
 from twisted.trial import unittest
 
 from twistedcaldav.py.plistlib import writePlist
-
+from twistedcaldav.log import logLevelForNamespace
 from twistedcaldav.config import config, defaultConfig, ConfigurationError
 from twistedcaldav.static import CalDAVFile
 
@@ -25,10 +25,21 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+
   <key>Verbose</key>
   <true/>
+
   <key>HTTPPort</key>
   <integer>8008</integer>
+
+  <key>DefaultLogLevel</key>
+  <string>warn</string>
+  <key>LogLevels</key>
+  <dict>
+    <key>some.namespace</key>
+    <string>debug</string>
+  </dict>
+
 </dict>
 </plist>
 """
@@ -214,7 +225,6 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn('Foo', defaultConfig)
 
     def testComplianceClasses(self):
-        
         resource = CalDAVFile("/")
         
         config.EnableProxyPrincipals = True
@@ -222,3 +232,21 @@ class ConfigTests(unittest.TestCase):
         
         config.EnableProxyPrincipals = False
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
+
+    def test_logging(self):
+        """
+        Logging module configures properly.
+        """
+        self.assertEquals(logLevelForNamespace(None), "info")
+        self.assertEquals(logLevelForNamespace("some.namespace"), "info")
+
+        config.loadConfig(self.testConfig)
+
+        self.assertEquals(logLevelForNamespace(None), "warn")
+        self.assertEquals(logLevelForNamespace("some.namespace"), "debug")
+
+        writePlist({}, self.testConfig)
+        config.reload()
+
+        self.assertEquals(logLevelForNamespace(None), "info")
+        self.assertEquals(logLevelForNamespace("some.namespace"), "info")

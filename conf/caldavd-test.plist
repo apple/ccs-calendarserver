@@ -250,6 +250,14 @@ limitations under the License.
   <key>ErrorLogFile</key>
   <string>logs/error.log</string>
 
+  <!-- Log Levels -->
+  <key>DefaultLogLevel</key>
+  <string>info</string> <!-- debug, info, warn, error -->
+
+  <key>LogLevels</key>
+  <dict>
+  </dict>
+
   <!-- Server statistics file -->
   <key>ServerStatsFile</key>
   <string>logs/stats.plist</string>
