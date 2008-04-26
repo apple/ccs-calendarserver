@@ -30,7 +30,7 @@ Or in a class:
 
     class Foo (LoggingMixIn):
         def oops(self):
-            self.log_erroror("Oops!")
+            self.log_error("Oops!")
 """
 
 __all__ = [
