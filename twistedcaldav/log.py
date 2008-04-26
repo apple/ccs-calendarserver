@@ -31,6 +31,16 @@ Or in a class:
     class Foo (LoggingMixIn):
         def oops(self):
             self.log_error("Oops!")
+
+C{Logger}s have namespaces, for which logging can be configured
+independently.  Namespaces may be specified by passing in a
+C{namespace} argument to L{Logger} when instantiating it, but if none
+is given, the logger will derive its own namespace by using the module
+name of the callable that instantiating it, or, in the case of a
+L{LoggingMixIn}, by using the fully qualified name of the class.
+
+In the first example above, the namespace would be C{some.module}, and
+in the second example, it would be C{some.module.Foo}.
 """
 
 __all__ = [
@@ -77,7 +87,8 @@ logLevelsByNamespace = {}
 
 def logLevelForNamespace(namespace):
     """
-    @param namespace: a logging namespace
+    @param namespace: a logging namespace, or C{None} to set the
+        default log level.
     @return: the log level for the given namespace.
     """
     if not namespace:
@@ -187,24 +198,24 @@ for level in logLevels:
     #
     # Attach methods to Logger
     #
-    def log_level(self, message, level=level, **kwargs):
+    def log_emit(self, message, level=level, **kwargs):
         self.emit(level, message, **kwargs)
 
-    log_level.__doc__ = doc
+    log_emit.__doc__ = doc
 
-    setattr(Logger, level, log_level)
+    setattr(Logger, level, log_emit)
 
     #
     # Attach methods to LoggingMixIn
     #
-    def log_level(self, message, level=level, **kwargs):
+    def log_emit(self, message, level=level, **kwargs):
         self.logger.emit(level, message, **kwargs)
 
-    log_level.__doc__ = doc
+    log_emit.__doc__ = doc
 
-    setattr(LoggingMixIn, "log_%s" % (level,), log_level)
+    setattr(LoggingMixIn, "log_%s" % (level,), log_emit)
 
-del level, log_level
+del level, log_emit
 
 # Add some compatibility with twisted's log module
 Logger.msg = Logger.info
