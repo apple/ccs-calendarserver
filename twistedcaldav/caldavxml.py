@@ -795,6 +795,13 @@ class CalendarComponent (CalDAVElement):
         result = iComponent(self.type)
 
         xml_components = self.components
+        xml_properties = self.properties
+
+        # Empty element means do all properties and components
+        if xml_components is None and xml_properties is None:
+            xml_components = AllComponents()
+            xml_properties = AllProperties()
+
         if xml_components is not None:
             if xml_components == AllComponents():
                 for ical_subcomponent in component.subcomponents():
@@ -805,7 +812,6 @@ class CalendarComponent (CalDAVElement):
                         if ical_subcomponent.name() == xml_subcomponent.type:
                             result.addComponent(xml_subcomponent.getFromICalendar(ical_subcomponent))
 
-        xml_properties = self.properties
         if xml_properties is not None:
             if xml_properties == AllProperties():
                 for ical_property in component.properties():
