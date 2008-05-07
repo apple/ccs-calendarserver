@@ -29,7 +29,9 @@ try:
 except ImportError:
     from pysqlite2 import dbapi2 as sqlite
 
-from twisted.python import log
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 db_prefix = ".db."
 

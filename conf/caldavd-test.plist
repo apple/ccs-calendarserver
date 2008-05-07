@@ -184,7 +184,7 @@ limitations under the License.
   <!-- Principals with "DAV:all" access (relative URLs) -->
   <key>AdminPrincipals</key>
   <array>
-    <string>/principals/__uids__/admin/</string>
+    <string>/principals/users/admin/</string>
   </array>
 
   <!-- Principals that can pose as other principals -->
@@ -237,9 +237,6 @@ limitations under the License.
     Logging
   -->
 
-  <key>Verbose</key>
-  <false/>
-
   <!-- Apache-style access log -->
   <key>AccessLogFile</key>
   <string>logs/access.log</string>
@@ -249,6 +246,25 @@ limitations under the License.
   <!-- Server activity log -->
   <key>ErrorLogFile</key>
   <string>logs/error.log</string>
+
+  <!-- Log Levels -->
+  <key>DefaultLogLevel</key>
+  <string>info</string> <!-- debug, info, warn, error -->
+
+  <key>LogLevels</key>
+  <dict>
+  </dict>
+
+  <!-- Accounting -->
+  <key>AccountingCategories</key>
+  <dict>
+    <key>iTIP</key><false/>
+  </dict>
+
+  <key>AccountingPrincipals</key>
+  <array>
+    <!--<string>/principals/users/foo/</string>-->
+  </array>
 
   <!-- Server statistics file -->
   <key>ServerStatsFile</key>

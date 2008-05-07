@@ -40,7 +40,6 @@ import errno
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -70,6 +69,9 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioni
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class CalDAVFile (CalDAVResource, DAVFile):
     """

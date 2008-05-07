@@ -18,15 +18,15 @@ import os
 import sys
 import tempfile
 
-from twisted.python import log
-
 from twisted.runner import procmon
 from twisted.application import internet, service
 
-from twistedcaldav import logging
+from twistedcaldav.accesslog import AMPLoggingFactory, RotatingFileAccessLoggingObserver
 from twistedcaldav.config import config, ConfigurationError
-
 from twistedcaldav.util import getNCPU
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 serviceTemplate = """
     <service name="%(name)s">
@@ -281,8 +281,8 @@ def makeService_Combined(self, options):
                                      fname],
                            env=parentEnv)
 
-    logger = logging.AMPLoggingFactory(
-        logging.RotatingFileAccessLoggingObserver(config.AccessLogFile))
+    logger = AMPLoggingFactory(
+        RotatingFileAccessLoggingObserver(config.AccessLogFile))
 
     loggingService = internet.UNIXServer(config.ControlSocket, logger)
 

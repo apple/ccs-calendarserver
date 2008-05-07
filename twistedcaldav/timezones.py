@@ -16,15 +16,16 @@
 # DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
-from twistedcaldav.ical import Component
+import os
 
-from twisted.python import log
-
+import vobject
 from vobject.icalendar import getTzid
 from vobject.icalendar import registerTzid
 
-import os
-import vobject
+from twistedcaldav.ical import Component
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 """
 Timezone caching.

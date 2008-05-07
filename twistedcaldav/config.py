@@ -17,9 +17,12 @@
 import os
 import copy
 
-from twisted.python import log
 
 from twistedcaldav.py.plistlib import readPlist
+from twistedcaldav.log import Logger
+from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError
+
+log = Logger()
 
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
@@ -89,8 +92,8 @@ defaultConfig = {
     # Authentication
     #
     "Authentication": {
-        "Basic"   : { "Enabled": False },   # Clear text; best avoided
-        "Digest"  : {                       # Digest challenge/response
+        "Basic": { "Enabled": False },     # Clear text; best avoided
+        "Digest": {                        # Digest challenge/response
             "Enabled": True,
             "Algorithm": "md5",
             "Qop": "",
@@ -104,12 +107,18 @@ defaultConfig = {
     #
     # Logging
     #
-    "Verbose": False,
-    "AccessLogFile"  : "/var/log/caldavd/access.log",                   # Apache-style access log
-    "ErrorLogFile"   : "/var/log/caldavd/error.log",                    # Server activity log
+    "AccessLogFile"  : "/var/log/caldavd/access.log",  # Apache-style access log
+    "ErrorLogFile"   : "/var/log/caldavd/error.log",   # Server activity log
     "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
     "RotateAccessLog": False,
+    "DefaultLogLevel": "",
+    "LogLevels": {},
+    "AccountingCategories": {
+        "iTIP": False,
+    },
+    "AccountingPrincipals": [],
+    "AccountingLogRoot": "/var/log/caldavd/accounting",
 
     #
     # SSL/TLS
@@ -218,19 +227,31 @@ class Config (object):
             if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
                 del self._data["DirectoryService"]["params"][param]
 
-        self.updateServerCapabilities()
-
-    def updateServerCapabilities(self):
-        """
-        Change server capabilities based on the current config parameters.
-        Here are the "features" in the config that need special treatment:
-        
-        EnableDropBox
-        EnableNotifications
-        """
+        #
+        # FIXME: Use the config object instead of doing this here
+        #
         from twistedcaldav.resource import CalendarPrincipalResource
         CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
         CalendarPrincipalResource.enableNotifications(self.EnableNotifications)
+
+        self.updateLogLevels()
+
+    def updateLogLevels(self):
+        clearLogLevels()
+
+        try:
+            if "DefaultLogLevel" in self._data:
+                level = self._data["DefaultLogLevel"]
+                if not level:
+                    level = "info"
+                setLogLevelForNamespace(None, level)
+
+            if "LogLevels" in self._data:
+                for namespace in self._data["LogLevels"]:
+                    setLogLevelForNamespace(namespace, self._data["LogLevels"][namespace])
+
+        except InvalidLogLevelError, e:
+            raise ConfigurationError("Invalid log level: %s" % (e.level))
 
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
@@ -240,7 +261,7 @@ class Config (object):
         self._defaults = copy.deepcopy(defaults)
 
     def __setattr__(self, attr, value):
-        if '_data' in self.__dict__ and attr in self.__dict__['_data']:
+        if "_data" in self.__dict__ and attr in self.__dict__["_data"]:
             self._data[attr] = value
         else:
             self.__dict__[attr] = value

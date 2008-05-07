@@ -20,8 +20,9 @@ CalDAV multiget report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
 
+from urllib import unquote
+
 from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
@@ -32,8 +33,9 @@ from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method import report_common
+from twistedcaldav.log import Logger
 
-from urllib import unquote
+log = Logger()
 
 max_number_of_multigets = 5000
 

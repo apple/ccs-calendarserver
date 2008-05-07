@@ -30,15 +30,15 @@ import sys
 
 from zope.interface import implements
 
-from twisted.python import log
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 
+from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
 
-class DirectoryService(object):
+class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
 
     ##
@@ -59,10 +59,10 @@ class DirectoryService(object):
             assert self.baseGUID, "Class %s must provide a baseGUID attribute" % (self.__class__.__name__,)
 
             if realmName is None:
-                log.err("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
+                self.log_error("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
                 realmName = ""
             else:
-                log.err("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
+                self.log_error("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
 
             self._guid = uuidFromName(self.baseGUID, realmName)
 
@@ -139,7 +139,7 @@ class DirectoryService(object):
                 yield record
 
 
-class DirectoryRecord(object):
+class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
     def __repr__(self):

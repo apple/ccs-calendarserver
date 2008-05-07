@@ -16,6 +16,10 @@
 
 import sys
 
+##
+# getNCPU
+##
+
 try:
     from ctypes import *
     import ctypes.util
@@ -23,29 +27,24 @@ try:
 except ImportError:
     hasCtypes = False
 
-if sys.platform == 'darwin' and hasCtypes:
-    from ctypes import *
-    import ctypes.util
-
-    libc = cdll.LoadLibrary(ctypes.util.find_library('libc'))
+if sys.platform == "darwin" and hasCtypes:
+    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
 
     def getNCPU():
         ncpu = c_int(0)
-
         size = c_int(sizeof(ncpu))
 
-        libc.sysctlbyname('hw.ncpu',
-                          c_voidp(addressof(ncpu)),
-                          addressof(size),
-                          None, 0)
+        libc.sysctlbyname(
+            "hw.ncpu",
+            c_voidp(addressof(ncpu)),
+            addressof(size),
+            None, 0
+        )
 
         return int(ncpu.value)
 
-elif sys.platform == 'linux2' and hasCtypes:
-    from ctypes import *
-    import ctypes.util
-
-    libc = cdll.LoadLibrary(ctypes.util.find_library('libc'))
+elif sys.platform == "linux2" and hasCtypes:
+    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
 
     def getNCPU():
         return libc.get_nprocs()
@@ -53,9 +52,25 @@ elif sys.platform == 'linux2' and hasCtypes:
 else:
     def getNCPU():
         if not hasCtypes:
-            msg = "without ctypes"
+            msg = " without ctypes"
         else:
             msg = ""
 
-        raise NotImplementedError(
-            "getNCPU not supported on %s %s" % (sys.platform, msg))
+        raise NotImplementedError("getNCPU not supported on %s%s" % (sys.platform, msg))
+
+##
+#
+##
+
+def submodule(module, name):
+    fullname = module.__name__ + "." + name
+
+    try:
+        submodule = __import__(fullname)
+    except ImportError, e:
+        raise ImportError("Unable to import submodule %s from module %s: %s" % (name, module, e))
+
+    for m in fullname.split(".")[1:]:
+        submodule = getattr(submodule, m)
+
+    return submodule

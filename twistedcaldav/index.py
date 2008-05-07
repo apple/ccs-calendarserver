@@ -35,15 +35,16 @@ try:
 except ImportError:
     from pysqlite2 import dbapi2 as sqlite
 
-from twisted.python import log
+from vobject.icalendar import utc
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav import caldavxml
+from twistedcaldav.log import Logger
 
-from vobject.icalendar import utc
+log = Logger()
 
 db_basename = db_prefix + "sqlite"
 schema_version = "6"

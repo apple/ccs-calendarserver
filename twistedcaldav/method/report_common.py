@@ -26,8 +26,13 @@ __all__ = [
     "buildFreeBusyResult",
 ]
 
+import datetime
+import md5
+import time
+
+from vobject.icalendar import utc
+
 from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -45,12 +50,9 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
+from twistedcaldav.log import Logger
 
-from vobject.icalendar import utc
-
-import datetime
-import md5
-import time
+log = Logger()
 
 def applyToCalendarCollections(resource, request, request_uri, depth, apply, privileges):
     """

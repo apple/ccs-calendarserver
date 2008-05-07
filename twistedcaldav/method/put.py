@@ -21,7 +21,6 @@ CalDAV PUT method.
 __all__ = ["http_PUT"]
 
 from twisted.internet.defer import deferredGenerator, waitForDeferred
-from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
@@ -30,6 +29,9 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 def http_PUT(self, request):
 
