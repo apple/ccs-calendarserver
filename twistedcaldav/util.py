@@ -16,6 +16,10 @@
 
 import sys
 
+##
+# getNCPU
+##
+
 try:
     from ctypes import *
     import ctypes.util
@@ -59,3 +63,20 @@ else:
 
         raise NotImplementedError(
             "getNCPU not supported on %s %s" % (sys.platform, msg))
+
+##
+#
+##
+
+def submodule(module, name):
+    fullname = module.__name__ + "." + name
+
+    try:
+        submodule = __import__(fullname)
+    except ImportError, e:
+        raise ImportError("Unable to import submodule %s from module %s: %s" % (name, module, e))
+
+    for m in fullname.split(".")[1:]:
+        submodule = getattr(submodule, m)
+
+    return submodule
