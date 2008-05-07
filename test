@@ -64,4 +64,4 @@ else
     test_modules="twistedcaldav twisted";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} --coverage ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${test_modules};
