@@ -189,9 +189,6 @@ limitations under the License.
     Logging
   -->
 
-  <key>Verbose</key>
-  <false/>
-
   <!-- Apache-style access log -->
   <key>AccessLogFile</key>
   <string>/var/log/caldavd/access.log</string>

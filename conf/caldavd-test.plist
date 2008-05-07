@@ -237,9 +237,6 @@ limitations under the License.
     Logging
   -->
 
-  <key>Verbose</key>
-  <false/>
-
   <!-- Apache-style access log -->
   <key>AccessLogFile</key>
   <string>logs/access.log</string>
