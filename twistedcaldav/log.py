@@ -153,6 +153,9 @@ class Logger (object):
 
         self.namespace = namespace
 
+    def __repr__(self):
+        return "<%s %r>" % (self.__class__.__name__, self.namespace)
+
     def emit(self, level, message, **kwargs):
         """
         Called internally to emit log messages at a given log level.
