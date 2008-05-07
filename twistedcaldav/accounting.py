@@ -53,6 +53,9 @@ def accountingEnabledForPrincipal(principal):
     """
     enabledPrincipalURIs = config.AccountingPrincipals
 
+    if "*" in enabledPrincipalURIs:
+        return True
+
     if principal.principalURL() in enabledPrincipalURIs:
         return True
 
