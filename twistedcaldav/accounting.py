@@ -56,8 +56,9 @@ def accountingEnabledForPrincipal(principal):
     if principal.principalURL() in enabledPrincipalURIs:
         return True
 
-    if principal.alternateURIs() in enabledPrincipalURIs:
-        return True
+    for principal in principal.alternateURIs():
+        if principal in enabledPrincipalURIs:
+            return True
 
     return False
 
