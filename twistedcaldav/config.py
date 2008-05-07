@@ -117,7 +117,7 @@ defaultConfig = {
     "AccountingCategories": {
         "iTIP": False,
     },
-    "AccountingPrincipals": (),
+    "AccountingPrincipals": [],
     "AccountingLogRoot": "/var/log/caldavd/accounting",
 
     #
