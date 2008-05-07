@@ -27,7 +27,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
 
   <key>ResponseCompression</key>
-  <true/>
+  <false/>
 
   <key>HTTPPort</key>
   <integer>8008</integer>
@@ -46,7 +46,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 
 def _testResponseCompression(testCase):
     from twistedcaldav.config import config
-    testCase.assertEquals(config.ResponseCompression, True)
+    testCase.assertEquals(config.ResponseCompression, False)
 
 
 class ConfigTests(unittest.TestCase):
@@ -65,18 +65,18 @@ class ConfigTests(unittest.TestCase):
             self.assertEquals(getattr(config, key), value)
 
     def testLoadConfig(self):
-        self.assertEquals(config.ResponseCompression, False)
+        self.assertEquals(config.ResponseCompression, True)
 
         config.loadConfig(self.testConfig)
 
-        self.assertEquals(config.ResponseCompression, True)
+        self.assertEquals(config.ResponseCompression, False)
 
     def testScoping(self):
-        self.assertEquals(config.ResponseCompression, False)
+        self.assertEquals(config.ResponseCompression, True)
 
         config.loadConfig(self.testConfig)
 
-        self.assertEquals(config.ResponseCompression, True)
+        self.assertEquals(config.ResponseCompression, False)
 
         _testResponseCompression(self)
 
