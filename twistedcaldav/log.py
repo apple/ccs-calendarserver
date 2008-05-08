@@ -200,13 +200,12 @@ class LoggingMixIn (object):
         try:
             return self._logger
         except AttributeError:
-            namespace = repr(self.__class__)[8:-2]
-
-            assert repr(self.__class__)[:8] == "<class '"
-            assert repr(self.__class__)[-2:] == "'>"
-            assert namespace.find("'") == -1
-
-            self._logger = Logger(namespace)
+            self._logger = Logger(
+                "%s.%s" % (
+                    self.__class__.__module__,
+                    self.__class__.__name__,
+                )
+            )
 
         return self._logger
 
