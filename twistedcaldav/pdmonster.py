@@ -31,10 +31,10 @@ class PDClientAddressWrapper(WrapperResource, LoggingMixIn):
             result.trap(amp.RemoteAmpError)
             if result.value.errorCode != 'UNKNOWN_PORT':
                 return result
-            self.log_error('Unknown Port: %s' % (request.remoteAddr,), system="PDClientAddressWrapper")
+            self.log_error('Unknown Port: %s' % (request.remoteAddr,))
 
         def _gotAddress(result):
-            self.log_debug('result = %r' % (result,), system="PDClientAddressWrapper")
+            self.log_debug('result = %r' % (result,))
             request.remoteAddr = address.IPv4Address(
                 'TCP',
                 result['host'],
@@ -46,7 +46,7 @@ class PDClientAddressWrapper(WrapperResource, LoggingMixIn):
                 return
 
             host, port = request.remoteAddr.host, request.remoteAddr.port
-            self.log_debug("GetClientAddress(host=%r, port=%r)" % (host, port), system="PDClientAddressWrapper")
+            self.log_debug("GetClientAddress(host=%r, port=%r)" % (host, port))
             d = self.protocol.callRemoteString("GetClientAddress",
                                                   host=host,
                                                   port=str(port))
