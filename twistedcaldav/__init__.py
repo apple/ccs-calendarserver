@@ -40,7 +40,6 @@ __all__ = [
     "instance",
     "itip",
     "log",
-    "notifications",
     "principalindex",
     "resource",
     "root",

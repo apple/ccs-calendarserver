@@ -582,14 +582,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         elif not enable and qname in clz.liveProperties:
             clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
-    @classmethod
-    def enableNotifications(clz, enable):
-        qname = (calendarserver_namespace, "notifications-URL" )
-        if enable and qname not in clz.liveProperties:
-            clz.liveProperties += (qname,)
-        elif not enable and qname in clz.liveProperties:
-            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
-
     def isCollection(self):
         return True
 
@@ -634,13 +626,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                         return None
                     else:
                         return customxml.DropBoxHomeURL(davxml.HRef(url))
-
-                if name == "notifications-URL" and config.EnableNotifications:
-                    url = self.notificationsURL()
-                    if url is None:
-                        return None
-                    else:
-                        return customxml.NotificationsURL(davxml.HRef(url))
 
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 
@@ -724,16 +709,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         else:
             return None
         
-    def notificationsURL(self):
-        """
-        @return: the notifications collection URL for this principal.
-        """
-        if self.hasDeadProperty((calendarserver_namespace, "notifications-URL")):
-            inbox = self.readDeadProperty((caldav_namespace, "notifications-URL"))
-            return str(inbox.children[0])
-        else:
-            return None
-
 ##
 # Utilities
 ##

@@ -18,7 +18,6 @@ import xattr
 import zlib
 from zlib import decompress
 from cPickle import loads as unpickle, UnpicklingError
-import os
 
 import commands
 

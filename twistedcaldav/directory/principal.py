@@ -625,12 +625,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         else:
             return None
 
-    def notificationsURL(self):
-        if config.EnableNotifications:
-            return self._homeChildURL("notifications/")
-        else:
-            return None
-
     def _homeChildURL(self, name):
         home = self._calendarHome()
         if home is None:

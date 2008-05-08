@@ -30,8 +30,6 @@ __all__ = [
     "DropBoxHomeFile",
     "DropBoxCollectionFile",
     "DropBoxChildFile",
-    "NotificationsCollectionFile",
-    "NotificationFile",
 ]
 
 import datetime
@@ -46,7 +44,6 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
-from twisted.web2.dav.method import put_common as put_common_base
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, bindMethods
@@ -59,7 +56,6 @@ from twistedcaldav.extensions import DAVFile
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
-from twistedcaldav.notifications import NotificationsCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource, DropBoxChildResource
@@ -538,16 +534,11 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
             DropBoxHomeFileClass = DropBoxHomeFile
         else:
             DropBoxHomeFileClass = None
-        if config.EnableNotifications:
-            NotificationsCollectionFileClass = NotificationsCollectionFile
-        else:
-            NotificationsCollectionFileClass = None
             
         cls = {
             "inbox"        : ScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
             "dropbox"      : DropBoxHomeFileClass,
-            "notifications": NotificationsCollectionFileClass,
         }.get(name, None)
 
         if cls is not None:
@@ -674,11 +665,6 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
     def __repr__(self):
         return "<%s (dropbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-    http_DELETE =              DropBoxCollectionResource.http_DELETE
-    http_PUT =                 DropBoxCollectionResource.http_PUT
-    http_MKCALENDAR =          DropBoxCollectionResource.http_MKCALENDAR
-    http_POST =                DropBoxCollectionResource.http_POST
-
 class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
     def __init__(self, path, parent):
         DropBoxChildResource.__init__(self)
@@ -691,54 +677,6 @@ class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
-
-    http_MKCOL =      DropBoxChildResource.http_MKCOL
-    http_MKCALENDAR = DropBoxChildResource.http_MKCALENDAR
-    http_PUT =        DropBoxChildResource.http_PUT
-
-class NotificationsCollectionFile (AutoProvisioningFileMixIn, NotificationsCollectionResource, CalDAVFile):
-    def __init__(self, path, parent):
-        NotificationsCollectionResource.__init__(self)
-        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
-        self._parent = parent
-
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-        else:
-            return NotificationFile(path, self)
-
-    def __repr__(self):
-        return "<%s (notifications collection): %s>" % (self.__class__.__name__, self.fp.path)
-
-    http_PUT =                 NotificationsCollectionResource.http_PUT
-    http_MKCOL =               NotificationsCollectionResource.http_MKCOL
-    http_MKCALENDAR =          NotificationsCollectionResource.http_MKCALENDAR
-
-class NotificationFile (NotificationResource, DAVFile):
-    def __init__(self, path, parent):
-        super(NotificationFile, self).__init__(path, principalCollections=parent.principalCollections())
-
-    def create(self, request, timestamp, parentURL):
-        """
-        Create the resource, fill out the body, and add properties.
-        """
-        # Create body XML
-        elements = []
-        elements.append(customxml.TimeStamp.fromString(timestamp))
-        elements.append(customxml.Changed(davxml.HRef.fromString(parentURL)))
-                          
-        xml = customxml.Notification(*elements)
-        
-        d = waitForDeferred(put_common_base.storeResource(request, data=xml.toxml(), destination=self, destination_uri=request.urlForResource(self)))
-        yield d
-        d.getResult()
-
-        # Write properties
-        for element in elements:
-            self.writeDeadProperty(element)
-
-    create = deferredGenerator(create)
 
 ##
 # Utilities

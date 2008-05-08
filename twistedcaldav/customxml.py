@@ -124,14 +124,6 @@ class DropBox (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "dropbox"
 
-class Notifications (davxml.WebDAVEmptyElement):
-    """
-    Denotes a notifications collection.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "notifications"
-
 class DropBoxHomeURL (davxml.WebDAVElement):
     """
     A principal property to indicate the location of the drop box home.
@@ -143,81 +135,6 @@ class DropBoxHomeURL (davxml.WebDAVElement):
     protected = True
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
-
-class NotificationsURL (davxml.WebDAVElement):
-    """
-    A principal property to indicate the location of the notification collection.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "notifications-URL"
-    hidden = True
-    protected = True
-
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
-
-class Notification(davxml.WebDAVElement):
-    """
-    Root element for XML data in a notification resource.
-    """
-    namespace = calendarserver_namespace
-    name = "notification"
-
-    allowed_children = {
-        (calendarserver_namespace, "time-stamp" ): (1, 1),
-        (calendarserver_namespace, "changed"    ): (1, 1),
-    }
-
-class TimeStamp (davxml.WebDAVTextElement):
-    """
-    A property to indicate the timestamp of a notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "time-stamp"
-    hidden = True
-    protected = True
-
-class Changed (davxml.WebDAVElement):
-    """
-    A property to indicate the URI of the drop box that generated
-    notification resource.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "changed"
-    hidden = True
-    protected = True
-
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
-
-class Subscribed (davxml.WebDAVElement):
-    """
-    A property to indicate which principals will receive notifications.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "subscribed"
-    hidden = True
-    protected = True
-
-    allowed_children = { (davxml.dav_namespace, "principal"): (0, None) }
-
-class Subscribe (davxml.WebDAVEmptyElement):
-    """
-    Used in the body of a POST to subscribe to notifications.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "subscribe"
-
-class Unsubscribe (davxml.WebDAVEmptyElement):
-    """
-    Used in the body of a POST to unsubscribe from notifications.
-    (Apple Extension to CalDAV)
-    """
-    namespace = calendarserver_namespace
-    name = "unsubscribe"
 
 class GETCTag (davxml.WebDAVTextElement):
     """
@@ -277,6 +194,5 @@ class CalendarAvailability (davxml.WebDAVTextElement):
 
 davxml.ResourceType.dropboxhome = davxml.ResourceType(davxml.Collection(), DropBoxHome())
 davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
-davxml.ResourceType.notifications = davxml.ResourceType(davxml.Collection(), Notifications())
 davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
 davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())

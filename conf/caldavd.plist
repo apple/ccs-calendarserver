@@ -261,10 +261,6 @@ limitations under the License.
   <key>EnableDropBox</key>
   <true/>
 
-  <!-- Drop Box Notifications -->
-  <key>EnableNotifications</key>
-  <true/>
-
   <!-- Private Events -->
   <key>EnablePrivateEvents</key>
   <true/>

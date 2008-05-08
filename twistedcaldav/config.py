@@ -155,7 +155,6 @@ defaultConfig = {
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"      : False, # Calendar Drop Box
-    "EnableNotifications": False, # Drop Box Notifications
     "EnablePrivateEvents": False, # Private Events
 
     #
@@ -232,7 +231,6 @@ class Config (object):
         #
         from twistedcaldav.resource import CalendarPrincipalResource
         CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
-        CalendarPrincipalResource.enableNotifications(self.EnableNotifications)
 
         self.updateLogLevels()
 
