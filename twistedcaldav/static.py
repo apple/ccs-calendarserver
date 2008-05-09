@@ -58,7 +58,7 @@ from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
-from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource, DropBoxChildResource
+from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directory.calendar import uidsResourceName
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
@@ -665,11 +665,8 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
     def __repr__(self):
         return "<%s (dropbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-    http_MKCALENDAR = DropBoxCollectionResource.http_MKCALENDAR
-
-class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
+class DropBoxChildFile (CalDAVFile):
     def __init__(self, path, parent):
-        DropBoxChildResource.__init__(self)
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
 
         assert self.fp.isfile() or not self.fp.exists()
@@ -679,9 +676,6 @@ class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
-
-    http_MKCOL =      DropBoxChildResource.http_MKCOL 
-    http_MKCALENDAR = DropBoxChildResource.http_MKCALENDAR
 
 ##
 # Utilities
@@ -775,6 +769,11 @@ calendarPrivilegeSet = _calendarPrivilegeSet()
 import twistedcaldav.method
 
 bindMethods(twistedcaldav.method, CalDAVFile)
+
+# Some resources do not support some methods
+setattr(DropBoxCollectionFile, "http_MKCALENDAR", None)
+setattr(DropBoxChildFile, "http_MKCOL", None)
+setattr(DropBoxChildFile, "http_MKCALENDAR", None)
 
 # FIXME: Little bit of a circular dependency here...
 twistedcaldav.method.copymove.CalDAVFile = CalDAVFile
