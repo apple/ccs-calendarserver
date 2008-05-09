@@ -665,6 +665,8 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
     def __repr__(self):
         return "<%s (dropbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
+    http_MKCALENDAR = DropBoxCollectionResource.http_MKCALENDAR
+
 class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
     def __init__(self, path, parent):
         DropBoxChildResource.__init__(self)
@@ -677,6 +679,9 @@ class DropBoxChildFile (DropBoxChildResource, CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
+
+    http_MKCOL =      DropBoxChildResource.http_MKCOL 
+    http_MKCALENDAR = DropBoxChildResource.http_MKCALENDAR
 
 ##
 # Utilities

@@ -83,9 +83,21 @@ class DropBoxCollectionResource (DAVResource):
             (calendarserver_namespace, "valid-drop-box")
         )
 
+    def http_MKCALENDAR (self, request): 
+        return ErrorResponse( 
+            responsecode.FORBIDDEN, 
+            (calendarserver_namespace, "valid-drop-box") 
+        ) 
+
 class DropBoxChildResource (DAVResource):
     def http_MKCOL(self, request):
         return ErrorResponse(
             responsecode.FORBIDDEN,
             (calendarserver_namespace, "valid-drop-box-resource")
         )
+
+    def http_MKCALENDAR (self, request): 
+        return ErrorResponse( 
+            responsecode.FORBIDDEN, 
+            (calendarserver_namespace, "valid-drop-box-resource") 
+        ) 
