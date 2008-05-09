@@ -41,7 +41,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,20 +96,51 @@
+@@ -97,20 +96,81 @@
  
      def get(self, qname):
          try:
@@ -54,26 +54,56 @@ Index: twisted/web2/dav/xattrprops.py
              ))
  
 -        doc = davxml.WebDAVDocument.fromString(value)
-+        try:
-+            return unpickle(decompress(data))
-+        except UnpicklingError:
-+            try:
-+                # Data is not pickled; try reading as compressed XML text
-+                value = decompress(data)
-+            except zlib.error:
-+                # Value is not compressed; try reading as XML text
-+                value = data
-+            del data
++        #
++        # Serialize XML data to an xattr.  The storage format has
++        # changed over time:
++        #
++        #  1- Started with XML
++        #  2- Started compressing the XML due to limits on xattr size
++        #  3- Switched to pickle which is faster, still compressing
++        #
++        # We only write the current format, but we also read the old
++        # ones for compatibility.
++        #
++        legacy = False
  
 -        return doc.root_element
++        try:
++            data = decompress(data)
++        except zlib.error:
++            legacy = True
+ 
++        try:
++            result = unpickle(data)
++        except UnpicklingError:
++            legacy = True
++
 +            try:
-+                doc = davxml.WebDAVDocument.fromString(value)
-+                return doc.root_element
++                doc = davxml.WebDAVDocument.fromString(data)
++                result = doc.root_element
 +            except ValueError:
-+                msg = "Invalid property value stored on server: {%s}%s %s" % (qname[0], qname[1], value)
++                msg = ("Invalid property value stored on server: {%s}%s %s"
++                       % (qname[0], qname[1], data))
 +                log.err(msg)
 +                raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
- 
++
++        if legacy:
++            # Try to upgrade the property to the current format
++            try:
++                log.msg("Upgrading property %r on resource %r"
++                        % (qname, self.resource.fp.path))
++                self.set(result)
++            except Exception, e:
++                #
++                # Hrm, that failed.  No need to re-raise here, since
++                # we can do what we were asked to do, but let's
++                # complain about it.
++                #
++                log.err("Error while upgrading property %r on resource %r: %s"
++                        % (qname, self.resource.fp.path, e))
++
++        return result
++
      def set(self, property):
 -        self.attrs[self._encode(property.qname())] = property.toxml()
 +        for n in range(20):
