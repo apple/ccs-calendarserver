@@ -185,7 +185,7 @@ Index: twisted/web2/dav/resource.py
 -            raise HTTPError(UnauthorizedResponse(
 +            failure.trap(UnauthorizedLogin, LoginFailed)
 +
-+            log.err("Authentication failed: %s" % (failure.value,))
++            log.msg("Authentication failed: %s" % (failure.value,))
 +            return Failure(HTTPError(UnauthorizedResponse(
                  request.credentialFactories,
                  request.remoteAddr
