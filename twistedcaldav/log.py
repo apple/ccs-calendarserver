@@ -162,9 +162,11 @@ class Logger (object):
         """
         assert level in logLevels
 
+        # FIXME: Filtering should be done by the log observer(s)
         if self.willLogAtLevel(level):
             log.msg(
-                "[#%s] %s" % (level, message),
+                # FIXME: This formatting should be done by the log observer(s)
+                "[%s#%s] %s" % (self.namespace, level, message),
                 isError = (cmpLogLevels(level, "error") >= 0),
                 level = level,
                 namespace = self.namespace,
