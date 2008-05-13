@@ -51,6 +51,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.static import ServerToServerInboxFile
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav import pdmonster
 
@@ -448,9 +449,10 @@ class CalDAVServiceMaker(object):
     # default resource classes
     #
 
-    rootResourceClass      = RootResource
-    principalResourceClass = DirectoryPrincipalProvisioningResource
-    calendarResourceClass  = CalendarHomeProvisioningFile
+    rootResourceClass           = RootResource
+    principalResourceClass      = DirectoryPrincipalProvisioningResource
+    calendarResourceClass       = CalendarHomeProvisioningFile
+    servertoserverResourceClass = ServerToServerInboxFile
 
     def makeService_Slave(self, options):
         #
@@ -523,6 +525,15 @@ class CalDAVServiceMaker(object):
 
         root.putChild('principals', principalCollection)
         root.putChild('calendars', calendarCollection)
+
+        if config.ServerToServer["Enabled"]:
+            log.msg("Setting up server-to-server resource: %r" % (self.servertoserverResourceClass,))
+    
+            servertoserver = self.servertoserverResourceClass(
+                os.path.join(config.DocumentRoot, 'inbox'),
+                root,
+            )
+            root.putChild('inbox', servertoserver)
 
         # Configure default ACLs on the root resource
 

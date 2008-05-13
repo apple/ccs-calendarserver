@@ -31,7 +31,7 @@ from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import StatusResponse, HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.method.put_common import storeCalendarObjectResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.log import Logger
 
@@ -101,7 +101,7 @@ def http_COPY(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    x = waitForDeferred(storeCalendarObjectResource(
+    storer = StoreCalendarObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
@@ -111,7 +111,8 @@ def http_COPY(self, request):
         destination_uri = destination_uri,
         destinationparent = destinationparent,
         destinationcal = destinationcal,
-    ))
+    )
+    x = waitForDeferred(storer.run())
     yield x
     yield x.getResult()
 
@@ -185,18 +186,19 @@ def http_MOVE(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    x = waitForDeferred(storeCalendarObjectResource(
+    storer = StoreCalendarObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
         sourceparent = sourceparent,
         sourcecal = sourcecal,
+        deletesource = True,
         destination = destination,
         destination_uri = destination_uri,
         destinationparent = destinationparent,
         destinationcal = destinationcal,
-        deletesource = True,
-    ))
+    )
+    x = waitForDeferred(storer.run())
     yield x
     yield x.getResult()
 
@@ -209,15 +211,15 @@ def checkForCalendarAction(self, request):
     if that is the case.
     @return: tuple::
         result:           True if special CalDAV processing required, False otherwise
-                          NB If there is any type of error with the request, return False
-                          and allow normal COPY/MOVE processing to return the error.
+            NB If there is any type of error with the request, return False
+            and allow normal COPY/MOVE processing to return the error.
         sourcecal:        True if source is in a calendar collection, False otherwise
         sourceparent:     The parent resource for the source
         destination_uri:  The URI of the destination resource
         destination:      CalDAVFile of destination if special proccesing required,
         None otherwise
         destinationcal:   True if the destination is in a calendar collection,
-                          False otherwise
+            False otherwise
         destinationparent:The parent resource for the destination
         
     """
