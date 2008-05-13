@@ -904,6 +904,16 @@ class OpenDirectoryRecord(DirectoryRecord):
                     cache[credentials.fields["uri"]] = response
 
                     return True
+                else:
+                    self.log_debug(
+"""Open Directory digest authentication failed with:
+    Nodename:  %s
+    Username:  %s
+    Challenge: %s
+    Response:  %s
+    Method:    %s
+""" % (self.nodeName, self.shortName, challenge, response, credentials.method))
+
             except opendirectory.ODError, e:
                 self.log_error(
                     "Open Directory (node=%s) error while performing digest authentication for user %s: %s"
