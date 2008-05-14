@@ -152,8 +152,6 @@ class ResponseCache(LoggingMixIn):
 
             if key not in self._responses:
                 self.log_debug("Not in cache: %r" % (key,))
-                self.log_debug("  Cache Keys: %r" % (
-                        self._responses.keys(),))
                 return None
 
             principalToken, uriToken, accessTime, response = self._responses[key]
