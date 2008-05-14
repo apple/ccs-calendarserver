@@ -158,14 +158,23 @@ class ResponseCache(LoggingMixIn):
 
             principalToken, uriToken, accessTime, response = self._responses[key]
 
-            if self._tokenForURI(principalURI) != principalToken:
-                self.log_debug("Principal token changed: %r" % (
-                        key,))
+            newPrincipalToken = self._tokenForURI(principalURI)
+            newURIToken = self._tokenForURI(request.uri)
+
+            if newPrincipalToken != principalToken:
+                self.log_debug("Principal token changed on %r from %r to %r" % (
+                        key,
+                        principalToken,
+                        newPrincipalToken
+                        ))
                 return None
 
-            elif self._tokenForURI(request.uri) != uriToken:
-                self.log_debug("URI token changed: %r" % (
-                        key,))
+            elif newURIToken != uriToken:
+                self.log_debug("URI token changed on %r from %r to %r" % (
+                        key,
+                        uriToken,
+                        newURIToken
+                        ))
                 return None
 
             response[1].removeHeader('date')
