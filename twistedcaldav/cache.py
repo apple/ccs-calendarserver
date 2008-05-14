@@ -83,8 +83,6 @@ class ResponseCache(LoggingMixIn):
         if cacheSize is not None:
             self.CACHE_SIZE = cacheSize
 
-        self._accessTimes = None
-
 
     def _tokenForURI(self, uri):
         """
@@ -241,6 +239,9 @@ class ResponseCache(LoggingMixIn):
                     if leastRecentlyUsedTime < cacheEntry[2]:
                         leastRecentlyUsedTime = cacheEntry[2]
                         leastRecentlyUsedKey = cacheKey
+
+                self.log_warn("Expiring from cache: %r" % (
+                        leastRecentlyUsedKey,))
 
                 del self._responses[leastRecentlyUsedKey]
 
