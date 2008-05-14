@@ -64,11 +64,11 @@ class RootTests(TestCase):
             '/principals/',
             directory)
 
-        # Otherwise the tests that never touch the root resource will 
+        # Otherwise the tests that never touch the root resource will
         # fail on teardown.
         principals.provision()
 
-        root = RootResource(self.docroot, 
+        root = RootResource(self.docroot,
                             principalCollections=[principals])
 
         root.putChild('principals',
@@ -78,8 +78,8 @@ class RootTests(TestCase):
         portal.registerChecker(directory)
 
         self.root = auth.AuthenticationWrapper(
-            root, 
-            portal, 
+            root,
+            portal,
             credentialFactories=(basic.BasicCredentialFactory("Test realm"),),
             loginInterfaces=(auth.IPrincipal,))
 
@@ -88,7 +88,7 @@ class RootTests(TestCase):
     def test_noSacls(self):
         """
         Test the behaviour of locateChild when SACLs are not enabled.
-        
+
         should return a valid resource
         """
         self.root.resource.useSacls = False
@@ -111,7 +111,7 @@ class RootTests(TestCase):
 
     def test_inSacls(self):
         """
-        Test the behavior of locateChild when SACLs are enabled and the 
+        Test the behavior of locateChild when SACLs are enabled and the
         user is in the SACL group
 
         should return a valid resource
@@ -125,7 +125,7 @@ class RootTests(TestCase):
             headers=http_headers.Headers({
                     'Authorization': ['basic', '%s' % (
                             'dreid:dierd'.encode('base64'),)]}))
-        
+
         resrc, segments = self.root.locateChild(request,
                                          ['principals'])
 
@@ -137,10 +137,10 @@ class RootTests(TestCase):
 
             self.assertEquals(segments, [])
 
-            self.assertEquals(request.authzUser, 
+            self.assertEquals(request.authzUser,
                               davxml.Principal(
                     davxml.HRef('/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/')))
-            
+
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
         d.addCallback(_Cb)
 
@@ -150,7 +150,7 @@ class RootTests(TestCase):
         """
         Test the behavior of locateChild when SACLs are enabled and the
         user is not in the SACL group
-        
+
         should return a 403 forbidden response
         """
         self.root.resource.useSacls = True
@@ -162,14 +162,14 @@ class RootTests(TestCase):
             headers=http_headers.Headers({
                     'Authorization': ['basic', '%s' % (
                             'wsanchez:zehcnasw'.encode('base64'),)]}))
-        
+
         resrc, segments = self.root.locateChild(request,
                                          ['principals'])
 
         def _Eb(failure):
             failure.trap(HTTPError)
             self.assertEquals(failure.value.response.code, 403)
-            
+
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
         d.addErrback(_Eb)
 
@@ -179,7 +179,7 @@ class RootTests(TestCase):
         """
         Test the behavior of locateChild when SACLs are enabled and the request
         is unauthenticated
-        
+
         should return a 401 UnauthorizedResponse
         """
 
@@ -208,7 +208,7 @@ class RootTests(TestCase):
 
     def test_badCredentials(self):
         """
-        Test the behavior of locateChild when SACLS are enabled, and 
+        Test the behavior of locateChild when SACLS are enabled, and
         incorrect credentials are given.
 
         should return a 401 UnauthorizedResponse
@@ -222,14 +222,14 @@ class RootTests(TestCase):
             headers=http_headers.Headers({
                     'Authorization': ['basic', '%s' % (
                             'dreid:dreid'.encode('base64'),)]}))
-        
+
         resrc, segments = self.root.locateChild(request,
                                          ['principals'])
 
         def _Eb(failure):
             failure.trap(HTTPError)
             self.assertEquals(failure.value.response.code, 401)
-            
+
         d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
         d.addErrback(_Eb)
 
@@ -241,7 +241,7 @@ class RootTests(TestCase):
 
             if response.code != responsecode.FORBIDDEN:
                 self.fail("Incorrect response for DELETE /: %s" % (response.code,))
-            
+
         request = SimpleRequest(self.site, "DELETE", "/")
         return self.send(request, do_test)
 
@@ -251,7 +251,7 @@ class RootTests(TestCase):
 
             if response.code != responsecode.FORBIDDEN:
                 self.fail("Incorrect response for COPY /: %s" % (response.code,))
-            
+
         request = SimpleRequest(
             self.site,
             "COPY",
@@ -266,7 +266,7 @@ class RootTests(TestCase):
 
             if response.code != responsecode.FORBIDDEN:
                 self.fail("Incorrect response for MOVE /: %s" % (response.code,))
-            
+
         request = SimpleRequest(
             self.site,
             "MOVE",
@@ -274,4 +274,3 @@ class RootTests(TestCase):
             headers=http_headers.Headers({"Destination":"/copy/"})
         )
         return self.send(request, do_test)
-        

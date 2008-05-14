@@ -40,6 +40,8 @@ from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioning
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
+from twistedcaldav.cache import CacheChangeNotifier
+
 import twistedcaldav.test.util
 
 directoryServices = (
@@ -54,7 +56,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     """
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
-        
+
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
         for directory in directoryServices:
@@ -112,7 +114,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
                 shortNames = set(typeResource.listChildren())
                 self.assertEquals(shortNames, set(r.shortName for r in directory.listRecords(recordType)))
-                
+
                 for shortName in shortNames:
                     #print "     -> %s" % (shortName,)
                     recordResource = typeResource.getChild(shortName)
@@ -226,6 +228,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     # DirectoryPrincipalResource
     ##
 
+    def test_cacheNotifier(self):
+        """
+        Each DirectoryPrincipalResource should have a cacheNotifier attribute
+        that is an instance of CacheChangeNotifier
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(isinstance(recordResource.cacheNotifier,
+                                       CacheChangeNotifier))
+
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
@@ -303,34 +314,34 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             provisioningResource = CalendarHomeProvisioningFile(path, directory, url)
 
             calendarRootResources[directory.__class__.__name__] = provisioningResource
-        
+
         # Calendar home provisioners should result in calendar homes.
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 homeURLs = tuple(recordResource.calendarHomeURLs())
                 self.failUnless(homeURLs)
-    
+
                 calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
-    
+
                 inboxURL = recordResource.scheduleInboxURL()
                 outboxURL = recordResource.scheduleOutboxURL()
-    
+
                 self.failUnless(inboxURL)
                 self.failUnless(outboxURL)
-    
+
                 for homeURL in homeURLs:
                     self.failUnless(homeURL.startswith(calendarRootURL))
-    
+
                     if inboxURL and inboxURL.startswith(homeURL):
                         self.failUnless(len(inboxURL) > len(homeURL))
                         self.failUnless(inboxURL.endswith("/"))
                         inboxURL = None
-    
+
                     if outboxURL and outboxURL.startswith(homeURL):
                         self.failUnless(len(outboxURL) > len(homeURL))
                         self.failUnless(outboxURL.endswith("/"))
                         outboxURL = None
-    
+
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
 

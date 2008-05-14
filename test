@@ -24,6 +24,7 @@ set -u
     random="--random=$(date "+%s")";
  no_colour="";
 until_fail="";
+  coverage="";
 
 usage ()
 {
@@ -37,18 +38,20 @@ usage ()
   echo "        -n  Do not use color";
   echo "        -o  Do not run tests in random order.";
   echo "        -u  Run until the tests fail.";
+  echo "        -c  Generate coverage reports.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts "nhou" option; do
+while getopts "nhouc" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'o')     random=""; ;;
     'n')  no_colour="--reporter=bwverbose"; ;;
     'u') until_fail="--until-failure"; ;;
+    'c')   coverage="--coverage"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -64,4 +67,4 @@ else
     test_modules="twistedcaldav twisted";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${test_modules};
+cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};

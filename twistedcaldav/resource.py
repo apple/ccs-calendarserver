@@ -156,7 +156,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
                 d = self.owner(request)
                 d.addCallback(lambda x: davxml.Owner(x))
                 return d
-            
+
         elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
@@ -195,7 +195,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
                         responsecode.NOT_IMPLEMENTED,
                         "Component %s is not supported by this server" % (component.toxml(),)
                     ))
-                    
+
         # Strictly speaking CalDAV:timezone is a live property in the sense that the
         # server enforces what can be stored, however it need not actually
         # exist so we cannot list it in liveProperties on this resource, since its
@@ -213,6 +213,15 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
                 ))
 
         return super(CalDAVResource, self).writeProperty(property, request)
+
+    def writeDeadProperty(self, property):
+        val = super(CalDAVResource, self).writeDeadProperty(property)
+
+        if hasattr(self, 'cacheNotifier'):
+            self.cacheNotifier.changed()
+
+        return val
+
 
     ##
     # ACL
@@ -313,7 +322,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
         owner = d.getResult()
         result = (davxml.Principal(owner) == self.currentPrincipal(request))
         yield result
- 
+
     ##
     # CalDAV
     ##
@@ -351,13 +360,13 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
 
         def checkPrivilegesError(failure):
             failure.trap(AccessDeniedError)
-            
+
             reactor.callLater(0, getChild)
 
         def checkPrivileges(child):
             if privileges is None:
                 return child
-   
+
             ca = child.checkPrivileges(request, privileges)
             ca.addCallback(lambda ign: child)
             return ca
@@ -366,7 +375,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
             if child.isCalendarCollection():
                 callback(child, childpath)
             elif child.isCollection():
-                if depth == "infinity": 
+                if depth == "infinity":
                     fc = child.findCalendarCollections(depth, request, callback, privileges)
                     fc.addCallback(lambda x: reactor.callLater(0, getChild))
                     return fc
@@ -478,10 +487,10 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
         calendar collection have the same privileges unless explicitly overridden. The same applies
         to drop box collections as we want all resources (attachments) to have the same privileges as
         the drop box collection.
-        
+
         @param newaces: C{list} of L{ACE} for ACL being set.
         """
-        
+
         # Do this only for regular calendar collections and Inbox/Outbox
         if self.isPseudoCalendarCollection():
             edited_aces = []
@@ -494,7 +503,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
                     edited_aces.append(ace)
         else:
             edited_aces = newaces
-        
+
         # Do inherited with possibly modified set of aces
         super(CalDAVResource, self).writeNewACEs(edited_aces)
 
@@ -660,14 +669,14 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             def getFreeBusy(has):
                 if not has:
                     return ()
-    
+
                 def parseFreeBusy(freeBusySet):
                     return tuple(str(href) for href in freeBusySet.children)
-        
+
                 d = inbox.readProperty((caldav_namespace, "calendar-free-busy-set"), request)
                 d.addCallback(parseFreeBusy)
                 return d
-    
+
             d = inbox.hasProperty((caldav_namespace, "calendar-free-busy-set"), request)
             d.addCallback(getFreeBusy)
             return d
@@ -695,10 +704,10 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         """
         if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
             outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
-            return str(outbox.children[0])        
+            return str(outbox.children[0])
         else:
             return None
-        
+
     def dropboxURL(self):
         """
         @return: the drop box home collection URL for this principal.
@@ -708,7 +717,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             return str(inbox.children[0])
         else:
             return None
-        
+
 ##
 # Utilities
 ##

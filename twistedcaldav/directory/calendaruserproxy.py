@@ -54,7 +54,7 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
                 davxml.Protected(),
             ),
         )
-        
+
         # Add admins
         aces += tuple([davxml.ACE(
                     davxml.Principal(davxml.HRef(principal)),
@@ -118,10 +118,10 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
     def _index(self):
         """
         Return the SQL database for this group principal.
-        
+
         @return: the L{CalendarUserProxyDatabase} for the principal collection.
         """
-        
+
         # The db is located in the principal collection root
         if not hasattr(self.pcollection, "calendar_user_proxy_db"):
             setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(self.pcollection.fp.path))
@@ -166,7 +166,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
-        
+
         # Map the URIs to principals.
         principals = []
         for uri in members:
@@ -178,11 +178,13 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
                     "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
-        
+            principal.cacheNotifier.changed()
+
         # Map the principals to UIDs.
         uids = [p.principalUID() for p in principals]
 
         self._index().setGroupMembers(self.uid, uids)
+        self.parent.cacheNotifier.changed()
         return succeed(True)
 
     ##
@@ -298,19 +300,19 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
     def hasEditableMembership(self):
         return self.parent.hasEditableProxyMembership()
-        
+
 class CalendarUserProxyDatabase(AbstractSQLDatabase):
     """
     A database to maintain calendar user proxy group memberships.
 
     SCHEMA:
-    
+
     Group Database:
-    
+
     ROW: GROUPNAME, MEMBER
-    
+
     """
-    
+
     dbType = "CALENDARUSERPROXY"
     dbFilename = db_prefix + "calendaruserproxy"
     dbFormatVersion = "4"
@@ -322,11 +324,11 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     def setGroupMembers(self, principalUID, members):
         """
         Add a group membership record.
-    
+
         @param principalUID: the UID of the group principal to add.
         @param members: a list UIDs of principals that are members of this group.
         """
-        
+
         # Remove what is there, then add it back.
         self._delete_from_db(principalUID)
         self._add_to_db(principalUID, members)
@@ -335,12 +337,12 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     def removeGroup(self, principalUID):
         """
         Remove a group membership record.
-    
+
         @param principalUID: the UID of the group principal to remove.
         """
         self._delete_from_db(principalUID)
         self._db_commit()
-    
+
     def getMembers(self, principalUID):
         """
         Return the list of group member UIDs for the specified principal.
@@ -349,7 +351,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID):
             members.add(row[0])
         return members
-    
+
     def getMemberships(self, principalUID):
         """
         Return the list of group principal UIDs the specified principal is a member of.
@@ -373,7 +375,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
                 values (:1, :2)
                 """, principalUID, member
             )
-       
+
     def _delete_from_db(self, principalUID):
         """
         Deletes the specified entry from the database.
@@ -381,19 +383,19 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         @param principalUID: the UID of the group principal to remove.
         """
         self._db_execute("delete from GROUPS where GROUPNAME = :1", principalUID)
-    
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return CalendarUserProxyDatabase.dbFormatVersion
-        
+
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return CalendarUserProxyDatabase.dbType
-        
+
     def _db_init_data_tables(self, q):
         """
         Initialise the underlying database tables.

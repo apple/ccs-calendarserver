@@ -46,7 +46,7 @@ from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
-from twisted.web2.dav.util import parentForURL, bindMethods
+from twisted.web2.dav.util import parentForURL, bindMethods, allDataFromStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
@@ -66,6 +66,8 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisionin
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.log import Logger
+
+from twistedcaldav.cache import CacheChangeNotifier, PropfindCacheMixin
 
 log = Logger()
 
@@ -115,9 +117,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     responsecode.FORBIDDEN,
                     (caldavxml.caldav_namespace, "calendar-collection-location-ok")
                 ))
-    
+
             return self.createCalendarCollection()
-            
+
         parent = self._checkParents(request, isPseudoCalendarCollectionResource)
         parent.addCallback(_defer)
         return parent
@@ -129,13 +131,13 @@ class CalDAVFile (CalDAVResource, DAVFile):
         def onCalendarCollection(status):
             if status != responsecode.CREATED:
                 raise HTTPError(status)
-    
+
             # Initialize CTag on the calendar collection
             self.updateCTag()
-            
+
             # Create the index so its ready when the first PUTs come in
             self.index().create()
-            
+
             return status
 
         d = self.createSpecialCollection(davxml.ResourceType.calendar)
@@ -149,10 +151,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
         def onCollection(status):
             if status != responsecode.CREATED:
                 raise HTTPError(status)
-    
+
             self.writeDeadProperty(resourceType)
             return status
-        
+
         def onError(f):
             try:
                 rmdir(self.fp)
@@ -165,7 +167,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             d.addCallback(onCollection)
         d.addErrback(onError)
         return d
- 
+
     def iCalendarRolledup(self, request):
         if self.isPseudoCalendarCollection():
             # Generate a monolithic calendar
@@ -187,7 +189,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     child = IDAVResource(child)
                 except TypeError:
                     child = None
-    
+
                 if child is not None:
                     # Check privileges of child - skip if access denied
                     try:
@@ -201,7 +203,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
                     for component in subcalendar.subcomponents():
                         calendar.addComponent(component)
-                        
+
             yield calendar
             return
 
@@ -254,7 +256,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             d = self.locateParent(request, request.urlForResource(self))
             d.addCallback(gotParent)
             return d
-        
+
         return super(CalDAVFile, self).supportedPrivileges(request)
 
     ##
@@ -301,17 +303,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 """
                 Recursively descend the directory tree rooted at top,
                 calling the callback function for each regular file
-                
+
                 @param top: L{FilePath} for the directory to walk.
                 """
-            
+
                 total = 0
                 for f in top.listdir():
-    
+
                     # Ignore the database
                     if f.startswith("."):
                         continue
-    
+
                     child = top.child(f)
                     if child.isdir():
                         # It's a directory, recurse into it
@@ -324,11 +326,11 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     else:
                         # Unknown file type, print a message
                         pass
-            
+
                 yield total
-            
+
             walktree = deferredGenerator(walktree)
-    
+
             return walktree(self.fp)
         else:
             return succeed(self.fp.getsize())
@@ -352,20 +354,20 @@ class CalDAVFile (CalDAVResource, DAVFile):
         #
         # Parse the URI
         #
-    
+
         (scheme, host, path, query, fragment) = urlsplit(uri) #@UnusedVariable
-    
+
         # Request hostname and child uri hostname have to be the same.
         if host and host != request.headers.getHeader("host"):
             return False
-        
+
         # Child URI must start with request uri text.
         parent = request.uri
         if not parent.endswith("/"):
             parent += "/"
-            
+
         return path.startswith(parent) and (len(path) > len(parent)) and (not immediateChild or (path.find("/", len(parent)) == -1))
-    
+
     def _checkParents(self, request, test):
         """
         @param request: the request being processed.
@@ -390,7 +392,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 return
 
         yield None
-    
+
     _checkParents = deferredGenerator(_checkParents)
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
@@ -411,7 +413,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
             parent = self.parent
             if not parent.exists() and isinstance(parent, AutoProvisioningFileMixIn):
                 parent.provision()
-                
+
             assert parent.exists(), "Parent %s of %s does not exist" % (parent, self)
             assert parent.isCollection(), "Parent %s of %s is not a collection" % (parent, self)
 
@@ -432,7 +434,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
 class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
-    Resource which provisions calendar home collections as needed.    
+    Resource which provisions calendar home collections as needed.
     """
     def __init__(self, path, directory, url):
         """
@@ -518,7 +520,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
@@ -528,6 +530,7 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
         """
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
+        self.cacheNotifier = CacheChangeNotifier(self.deadProperties())
 
     def provisionChild(self, name):
         if config.EnableDropBox:
@@ -550,7 +553,9 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
         if path == self.fp.path:
             return self
         else:
-            return CalDAVFile(path, principalCollections=self.principalCollections())
+            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            similar.cacheNotifier = self.cacheNotifier
+            return similar
 
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.
@@ -558,6 +563,7 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
             return None
 
         return super(CalendarHomeFile, self).getChild(name)
+
 
 class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
     def __init__(self, path, parent):
@@ -591,6 +597,7 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
             responsecode.FORBIDDEN,
             (caldav_namespace, "calendar-collection-location-ok")
         )
+
 
     ##
     # ACL

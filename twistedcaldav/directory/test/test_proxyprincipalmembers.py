@@ -17,11 +17,13 @@
 import os
 
 from twisted.web2.dav.fileop import rmdir
+from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 import twistedcaldav.test.util
 
@@ -33,7 +35,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
-        
+
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
         name = directoryService.__class__.__name__
@@ -114,7 +116,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        
+
         # Setup the fake entry in the DB
         proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
         proxy_group = proxy.getChild("calendar-proxy-write")
@@ -131,7 +133,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        
+
         # Setup the fake entry in the DB
         fake_uid = "12345"
         proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
@@ -157,3 +159,66 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         """
         provisioningResource = self.principalRootResources[directoryService.__class__.__name__]
         return provisioningResource.principalForShortName(type, name)
+
+
+    def test_setGroupMemberSet(self):
+        class StubMemberDB(object):
+            def __init__(self):
+                self.members = None
+
+            def setGroupMembers(self, uid, members):
+                self.members = members
+
+
+        user = self._getRecordByShortName(directoryService.recordType_users,
+                                           "cdaboo")
+
+        proxy_group = user.getChild("calendar-proxy-write")
+
+        memberdb = StubMemberDB()
+
+        proxy_group._index = (lambda: memberdb)
+
+        new_members = davxml.GroupMemberSet(
+            davxml.HRef.fromString(
+                "/XMLDirectoryService/__uids__/8B4288F6-CC82-491D-8EF9-642EF4F3E7D0/"),
+            davxml.HRef.fromString(
+                "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/"))
+
+        proxy_group.setGroupMemberSet(new_members, None)
+
+        self.assertEquals(
+            set([str(p) for p in memberdb.members]),
+            set(["5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
+                 "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"]))
+
+
+    def test_setGroupMemberSetNotifiesPrincipalCaches(self):
+        class StubCacheNotifier(object):
+            changedCount = 0
+            def changed(self):
+                self.changedCount += 1
+
+        user = self._getRecordByShortName(directoryService.recordType_users,
+                                          "cdaboo")
+
+        proxy_group = user.getChild("calendar-proxy-write")
+
+        notifier = StubCacheNotifier()
+
+        oldCacheNotifier = DirectoryPrincipalResource.cacheNotifierFactory
+
+        try:
+            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2: notifier)
+
+            self.assertEquals(notifier.changedCount, 0)
+
+            proxy_group.setGroupMemberSet(
+                davxml.GroupMemberSet(
+                    davxml.HRef.fromString(
+                        "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/")),
+                None)
+
+            self.assertEquals(notifier.changedCount, 1)
+        finally:
+            DirectoryPrincipalResource.cacheNotifierFactory = oldCacheNotifier
