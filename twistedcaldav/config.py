@@ -192,7 +192,13 @@ defaultConfig = {
     "MaxRequests": 600,
 
     # Configure the number of seconds that Propfinds should be cached for.
-    "ResponseCacheSize": 1000
+    "ResponseCacheSize": 1000,
+
+    # Profiling options
+    "Profiling": {
+        "Enabled": False,
+        "BaseDirectory": "/tmp/stats",
+    },
 }
 
 class Config (object):

@@ -86,6 +86,12 @@ class TwistdSlaveProcess(object):
         if config.GroupName:
             args.extend(('-g', config.GroupName))
 
+        if config.Profiling['Enabled']:
+            args.append('--profile=%s/%s.pstats' % (
+                config.Profiling['BaseDirectory'],
+                self.getName()))
+            args.extend(('--savestats', '--nothotshot'))
+
         args.extend(
             ['-n', self.tapname,
              '-f', self.configFile,
