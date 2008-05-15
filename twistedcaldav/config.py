@@ -194,6 +194,9 @@ defaultConfig = {
     # Configure the number of seconds that Propfinds should be cached for.
     "ResponseCacheSize": 1000,
 
+    # Define how frequently in seconds we should check the cache token.
+    "TokenCheckInterval": 60,
+
     # Profiling options
     "Profiling": {
         "Enabled": False,
