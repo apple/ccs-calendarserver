@@ -74,18 +74,14 @@ class ResponseCache(LoggingMixIn):
     """
 
     CACHE_SIZE = 1000
-    TOKEN_CHECK_INTERVAL = 60
     propertyStoreFactory = xattrPropertyStore
 
-    def __init__(self, docroot, cacheSize=None, tokenCheck=None):
+    def __init__(self, docroot, cacheSize=None):
         self._docroot = docroot
         self._responses = {}
 
         if cacheSize is not None:
             self.CACHE_SIZE = cacheSize
-
-        if tokenCheck is not None:
-            self.TOKEN_CHECK_INTERVAL = tokenCheck
 
 
     def _tokenForURI(self, uri):
@@ -156,36 +152,30 @@ class ResponseCache(LoggingMixIn):
 
             if key not in self._responses:
                 self.log_debug("Not in cache: %r" % (key,))
+                self.log_debug("  Cache Keys: %r" % (
+                        self._responses.keys(),))
                 return None
 
-            (principalToken,
-             uriToken,
-             tokenCheckTime,
-             accessTime,
-             response) = self._responses[key]
+            principalToken, uriToken, accessTime, response = self._responses[key]
 
-            if self._time() - tokenCheckTime >= self.TOKEN_CHECK_INTERVAL:
-                newPrincipalToken = self._tokenForURI(principalURI)
-                newURIToken = self._tokenForURI(request.uri)
-                tokenCheckTime = self._time()
-                if newPrincipalToken != principalToken:
-                    self.log_debug(
-                        "Principal token changed on %r from %r to %r" % (
-                            key,
-                            principalToken,
-                            newPrincipalToken
-                            ))
-                    return None
+            newPrincipalToken = self._tokenForURI(principalURI)
+            newURIToken = self._tokenForURI(request.uri)
 
-                elif newURIToken != uriToken:
-                    self.log_debug(
-                        "URI token changed on %r from %r to %r" % (
-                            key,
-                            uriToken,
-                            newURIToken
-                            ))
-                    return None
+            if newPrincipalToken != principalToken:
+                self.log_debug("Principal token changed on %r from %r to %r" % (
+                        key,
+                        principalToken,
+                        newPrincipalToken
+                        ))
+                return None
 
+            elif newURIToken != uriToken:
+                self.log_debug("URI token changed on %r from %r to %r" % (
+                        key,
+                        uriToken,
+                        newURIToken
+                        ))
+                return None
 
             response[1].removeHeader('date')
 
@@ -195,7 +185,6 @@ class ResponseCache(LoggingMixIn):
 
             self._responses[key] = (principalToken,
                                     uriToken,
-                                    tokenCheckTime,
                                     self._time(),
                                     response)
 
@@ -268,7 +257,6 @@ class ResponseCache(LoggingMixIn):
 
             self._responses[key] = (self._tokenForURI(principalURI),
                                     self._tokenForURI(request.uri),
-                                    self._time(),
                                     self._time(),
                                     (response.code,
                                      response.headers,

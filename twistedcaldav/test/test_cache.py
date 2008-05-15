@@ -96,7 +96,7 @@ class ResponseCacheTests(TestCase):
                 '/principals/users/cdaboo/': 'principalToken0',
                 '/principals/users/dreid/': 'principalTokenX'}
 
-        self.rc = ResponseCache(None, tokenCheck=0)
+        self.rc = ResponseCache(None)
         self.rc._tokenForURI = self.tokens.get
 
         self.rc._time = (lambda:0)
@@ -112,7 +112,7 @@ class ResponseCacheTests(TestCase):
                 )
 
         self.rc._responses[expected_key] = (
-            'principalToken0', 'uriToken0', 0, 0, self.expected_response)
+            'principalToken0', 'uriToken0', 0, self.expected_response)
 
         self.rc._accessList = [expected_key]
 
@@ -258,60 +258,37 @@ class ResponseCacheTests(TestCase):
         return d
 
 
-#     def test_cacheExpirationBenchmark(self):
-#         self.rc.CACHE_SIZE = 70000
-#         import time
+    def test_cacheExpirationBenchmark(self):
+        self.rc.CACHE_SIZE = 70000
+        import time
 
-#         self.rc._responses = {}
-#         self.rc._accessList = []
+        self.rc._responses = {}
+        self.rc._accessList = []
 
-#         for x in xrange(0, self.rc.CACHE_SIZE):
-#             req = StubRequest('PROPFIND',
-#                               '/principals/users/user%d' % (x,),
-#                               '/principals/users/user%d' % (x,))
-#             self.rc._responses[req] = (
-#                 'pTokenUser%d' % (x,), 'rTokenUser%d' % (x,), 0,
-#                 (200, {}, 'foobar'))
+        for x in xrange(0, self.rc.CACHE_SIZE):
+            req = StubRequest('PROPFIND',
+                              '/principals/users/user%d' % (x,),
+                              '/principals/users/user%d' % (x,))
+            self.rc._responses[req] = (
+                'pTokenUser%d' % (x,), 'rTokenUser%d' % (x,), 0,
+                (200, {}, 'foobar'))
 
-#             self.rc._accessList.append(req)
+            self.rc._accessList.append(req)
 
-#         def assertTime(result, startTime):
-#             duration = time.time() - startTime
+        def assertTime(result, startTime):
+            duration = time.time() - startTime
 
-#             self.failUnless(
-#                 duration < 0.01,
-#                 "Took to long to add to the cache: %r" % (duration,))
+            self.failUnless(
+                duration < 0.01,
+                "Took to long to add to the cache: %r" % (duration,))
 
-#         startTime = time.time()
+        startTime = time.time()
 
-#         d = self.rc.cacheResponseForRequest(
-#             StubRequest('PROPFIND',
-#                         '/principals/users/dreid/',
-#                         '/principals/users/dreid/'),
-#             StubResponse(200, {}, 'Foobar'))
+        d = self.rc.cacheResponseForRequest(
+            StubRequest('PROPFIND',
+                        '/principals/users/dreid/',
+                        '/principals/users/dreid/'),
+            StubResponse(200, {}, 'Foobar'))
 
-#         d.addCallback(assertTime, startTime)
-#         return d
-
-
-    def test_tokenCheckInterval(self):
-        self.tokens['/principals/users/cdaboo/'] = 'principalToken1'
-
-        self.rc.TOKEN_CHECK_INTERVAL = 60
-
-        req = StubRequest(
-            'PROPFIND',
-            '/calendars/users/cdaboo/',
-            '/principals/users/cdaboo/')
-
-        def _surpassInterval(result):
-            self.rc._time = (lambda: 61)
-            d1 = self.rc.getResponseForRequest(req)
-            d1.addCallback(self.assertEquals, None)
-            return d1
-
-        d = self.rc.getResponseForRequest(req)
-
-        d.addCallback(self.assertResponse, self.expected_response)
-        d.addCallback(_surpassInterval)
+        d.addCallback(assertTime, startTime)
         return d
