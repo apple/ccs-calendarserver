@@ -19,6 +19,8 @@ import stat
 
 from zope.interface import implements
 
+from twisted.internet import reactor
+
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
@@ -718,6 +720,8 @@ class CalDAVServiceMaker(object):
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
 
+        reactor.suggestThreadPoolSize(config.ThreadPoolSize)
+
         return service
 
     makeService_Combined = makeService_Combined
@@ -758,7 +762,12 @@ class CalDAVServiceMaker(object):
                 log.error("SIGHUP recieved at %s" % (location(frame),))
 
                 # Reload the config file
+                log.info("Reloading configuration file")
                 config.reload()
+
+                log.info("Suggesting size for the reactor threadpool: %r" % (
+                        config.ThreadPoolSize))
+                reactor.suggestThreadPoolSize(config.ThreadPoolSize)
 
             signal.signal(signal.SIGHUP, sighup_handler)
 

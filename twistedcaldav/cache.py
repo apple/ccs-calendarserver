@@ -31,6 +31,7 @@ from twisted.web2.stream import MemoryStream
 
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
+from twisted.internet.threads import deferToThread
 
 from twistedcaldav.log import LoggingMixIn
 
@@ -132,34 +133,18 @@ class ResponseCache(LoggingMixIn):
 
         @return: An L{IResponse} or C{None} if the response has not been cached.
         """
-        def _returnRequest(requestBody):
+        def _getTokens(pURI, rURI):
+            pToken = self._tokenForURI(pURI)
+            uToken = self._tokenForURI(rURI)
 
-            if requestBody is not None:
-                request.stream = MemoryStream(requestBody)
-                request.stream.doStartReading = None
+            return (pToken, uToken)
 
-            principalURI = self._principalURI(request.authnUser)
 
-            key = (request.method,
-                   request.uri,
-                   principalURI,
-                   request.headers.getHeader('depth'),
-                   hash(requestBody))
-
-            self.log_debug("Checking cache for: %r" % (key,))
-
-            request.cacheKey = key
-
-            if key not in self._responses:
-                self.log_debug("Not in cache: %r" % (key,))
-                self.log_debug("  Cache Keys: %r" % (
-                        self._responses.keys(),))
-                return None
-
-            principalToken, uriToken, accessTime, response = self._responses[key]
-
-            newPrincipalToken = self._tokenForURI(principalURI)
-            newURIToken = self._tokenForURI(request.uri)
+        def _checkTokens((newPrincipalToken, newURIToken), key):
+            (principalToken,
+             uriToken,
+             accessTime,
+             response) = self._responses[key]
 
             if newPrincipalToken != principalToken:
                 self.log_debug("Principal token changed on %r from %r to %r" % (
@@ -192,6 +177,36 @@ class ResponseCache(LoggingMixIn):
                                                         responseObj))
 
             return responseObj
+
+
+        def _returnRequest(requestBody):
+
+            if requestBody is not None:
+                request.stream = MemoryStream(requestBody)
+                request.stream.doStartReading = None
+
+            principalURI = self._principalURI(request.authnUser)
+
+            key = (request.method,
+                   request.uri,
+                   principalURI,
+                   request.headers.getHeader('depth'),
+                   hash(requestBody))
+
+            self.log_debug("Checking cache for: %r" % (key,))
+
+            request.cacheKey = key
+
+            if key not in self._responses:
+                self.log_debug("Not in cache: %r" % (key,))
+                return None
+
+            d1 = deferToThread(_getTokens,
+                               principalURI,
+                               request.uri)
+            d1.addCallback(_checkTokens, key)
+
+            return d1
 
         d = allDataFromStream(request.stream)
         d.addCallback(_returnRequest)

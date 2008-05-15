@@ -199,6 +199,8 @@ defaultConfig = {
         "Enabled": False,
         "BaseDirectory": "/tmp/stats",
     },
+
+    "ThreadPoolSize": 10,
 }
 
 class Config (object):

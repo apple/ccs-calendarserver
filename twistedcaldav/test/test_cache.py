@@ -55,6 +55,7 @@ class StubRequest(object):
         self.stream = MemoryStream(body)
 
 
+
 class StubResponse(object):
     def __init__(self, code, headers, body):
         self.code = code
@@ -134,6 +135,7 @@ class ResponseCacheTests(TestCase):
 
         d.addCallback(self.assertEquals, None)
         return d
+
 
     def test_getResponseForRequestInCache(self):
         d = self.rc.getResponseForRequest(StubRequest(
