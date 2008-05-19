@@ -201,6 +201,8 @@ defaultConfig = {
     },
 
     "ThreadPoolSize": 10,
+    
+    "ListenBacklog": 50,
 }
 
 class Config (object):

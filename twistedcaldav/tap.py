@@ -697,7 +697,8 @@ class CalDAVServiceMaker(object):
 
                 httpService = internet.TCPServer(
                     int(port), channel,
-                    interface=bindAddress
+                    interface=bindAddress,
+                    backlog=config.ListenBacklog
                 )
                 httpService.setServiceParent(service)
 
@@ -713,7 +714,8 @@ class CalDAVServiceMaker(object):
 
                 httpsService = internet.SSLServer(
                     int(port), channel,
-                    contextFactory, interface=bindAddress
+                    contextFactory, interface=bindAddress,
+                    backlog=config.ListenBacklog
                 )
                 httpsService.setServiceParent(service)
 

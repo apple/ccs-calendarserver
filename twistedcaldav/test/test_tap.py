@@ -399,6 +399,17 @@ class SlaveServiceTest(BaseServiceMakerTests):
         self.assertEquals(len(tcpServers), 0)
         self.assertEquals(len(sslServers), 0)
 
+    def test_listenBacklog(self):
+        """
+        Test that the backlog arguments is set in TCPServer and SSLServers
+        """
+        self.config['ListenBacklog'] = 1024
+        self.writeConfig()
+        service = self.makeService()
+
+        for s in service.services:
+            self.assertEquals(s.kwargs['backlog'], 1024)
+
 
 class ServiceHTTPFactoryTests(BaseServiceMakerTests):
     """
