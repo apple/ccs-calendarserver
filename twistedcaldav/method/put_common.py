@@ -415,7 +415,7 @@ def storeCalendarObjectResource(
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
             # time to whoever has the reservation to finish and release it.
             failure_count = 0
-            while(failure_count < 5):
+            while(failure_count < 10):
                 try:
                     destination_index.reserveUID(uid)
                     reserved = True
@@ -427,7 +427,7 @@ def storeCalendarObjectResource(
                 d = Deferred()
                 def _timedDeferred():
                     d.callback(True)
-                reactor.callLater(0.1, _timedDeferred)
+                reactor.callLater(0.5, _timedDeferred)
                 pause = waitForDeferred(d)
                 yield pause
                 pause.getResult()
