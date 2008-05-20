@@ -333,10 +333,13 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             log.err("No principal found for UID: %s" % (name,))
             return None
 
+        assert len(name) > 4
+        childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
+
         if record.enabledForCalendaring:
-            primaryPrincipal = DirectoryCalendarPrincipalResource(self.fp.child(name).path, self, record)
+            primaryPrincipal = DirectoryCalendarPrincipalResource(childPath.path, self, record)
         else:
-            primaryPrincipal = DirectoryPrincipalResource(self.fp.child(name).path, self, record)
+            primaryPrincipal = DirectoryPrincipalResource(childPath.path, self, record)
 
         if subType is None:
             return primaryPrincipal

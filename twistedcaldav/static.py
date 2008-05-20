@@ -487,26 +487,36 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
             log.msg("Directory record %r is not enabled for calendaring" % (record,))
             return None
 
-        childPath = self.fp.child(name)
+        assert len(name) > 4
+        
+        childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
         child = self.homeResourceClass(childPath.path, self, record)
+
         if not child.exists():
             self.provision()
 
-            oldPath = self.parent.getChild(record.recordType).fp.child(record.shortName)
-            if oldPath.exists():
-                #
-                # The child exists at the old (pre-1.2) location (ie. in the types
-                # hierarchy instead of the GUID hierarchy).  Move to new location.
-                #
-                log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
-                try:
-                    oldPath.moveTo(childPath)
-                except (OSError, IOError), e:
-                    log.err("Error moving calendar home %r: %s" % (oldPath, e))
-                    raise HTTPError(StatusResponse(
-                        responsecode.INTERNAL_SERVER_ERROR,
-                        "Unable to move calendar home."
-                    ))
+            if not childPath.parent().isdir():
+                childPath.parent().makedirs()
+
+            for oldPath in (
+                # Pre 2.0: All in one directory
+                self.fp.child(name),
+                # Pre 1.2: In types hierarchy instead of the GUID hierarchy
+                self.parent.getChild(record.recordType).fp.child(record.shortName),
+            ):
+                if oldPath.exists():
+                    # The child exists at an old location.  Move to new location.
+                    log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
+                    try:
+                        oldPath.moveTo(childPath)
+                    except (OSError, IOError), e:
+                        log.err("Error moving calendar home %r: %s" % (oldPath, e))
+                        raise HTTPError(StatusResponse(
+                            responsecode.INTERNAL_SERVER_ERROR,
+                            "Unable to move calendar home."
+                        ))
+                    child.fp.restat(False)
+                    break
             else:
                 #
                 # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
@@ -515,6 +525,19 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                 # on that to finish.
                 #
                 child.provisionDefaultCalendars()
+
+                #
+                # Try to work around the above a little by telling the client that something
+                # when wrong temporarily if the child isn't provisioned right away.
+                #
+                if not child.exists():
+                    raise HTTPError(StatusResponse(
+                        responsecode.SERVICE_UNAVAILABLE,
+                        "Provisioning calendar home."
+                    ))
+
+            assert child.exists()
+
         return child
 
     def createSimilarFile(self, path):
