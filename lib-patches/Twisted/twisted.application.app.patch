@@ -1,0 +1,13 @@
+Index: twisted/application/app.py
+===================================================================
+--- twisted/application/app.py	(revision 19773)
++++ twisted/application/app.py	(working copy)
+@@ -18,7 +18,7 @@
+ def runWithProfiler(reactor, config):
+     """Run reactor under standard profiler."""
+     try:
+-        import profile
++        import cProfile as profile
+     except ImportError, e:
+         s = "Failed to import module profile: %s" % e
+         s += """
