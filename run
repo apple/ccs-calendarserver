@@ -47,7 +47,7 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type] [-S statsfile]";
+  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type] [-S statsdirectory]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
@@ -62,7 +62,7 @@ usage ()
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
   echo "        -t  Select the server process type (Master, Slave or Combined)";
-  echo "        -S  Write a pstats object to the given file when the server is stopped.";
+  echo "        -S  Write a pstats object for each process to the given directory when the server is stopped.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
@@ -536,7 +536,7 @@ svn_get "Twisted" "${twisted}" "${svn_uri}" 19773;
 # PYTHONPATH, not a build directory.
 
 py_install "Twisted" "${twisted}";
- 
+
 export PYTHONPATH="${PYTHONPATH}:${twisted}";
 
 # twisted.web2 doesn't get installed by default
@@ -603,7 +603,7 @@ fi;
 
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
-    
+
   www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
   put_setuptools "${pydirector}";
   py_build "PyDirector" "${pydirector}" false;
