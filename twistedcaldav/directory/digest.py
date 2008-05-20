@@ -23,6 +23,10 @@ from twisted.web2.auth.digest import DigestedCredentials
 from zope.interface import implements, Interface
 
 import cPickle as pickle
+from twisted.web2.http_headers import tokenize
+from twisted.web2.http_headers import Token
+from twisted.web2.http_headers import split
+from twisted.web2.http_headers import parseKeyValue
 import os
 import time
 
@@ -470,13 +474,17 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
                 return s[1:-1]
             return s
         response = ' '.join(response.splitlines())
-        parts = response.split(',')
-
-        auth = {}
-
-        for (k, v) in [p.split('=', 1) for p in parts]:
-            auth[k.strip()] = unq(v.strip())
-
+        
+        try:
+            parts = split(tokenize((response,), foldCase=False), Token(","))
+    
+            auth = {}
+    
+            for (k, v) in [parseKeyValue(p) for p in parts]:
+                auth[k.strip()] = unq(v.strip())
+        except ValueError:
+            raise error.LoginFailed('Invalid response.')
+            
         username = auth.get('username')
         if not username:
             raise error.LoginFailed('Invalid response, no username given.')

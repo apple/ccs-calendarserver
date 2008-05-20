@@ -59,9 +59,16 @@ authRequest2 = (('username="username", realm="test realm", nonce="%s", '
 authRequest3 = ('username="username", realm="test realm", nonce="%s", '
                 'uri="/write/", response="%s", algorithm="md5"')
 
+authRequestComma = (('username="user,name", realm="test realm", nonce="%s", '
+                 'uri="/write/1,2.txt", response="%s", algorithm="md5", '
+                 'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000001, '
+                 'qop="auth"'),
+                ('username="user,name", realm="test realm", nonce="%s", '
+                 'uri="/write/1,2.txt", response="%s", algorithm="md5"'))
+
 namelessAuthRequest = 'realm="test realm",nonce="doesn\'t matter"'
 
-emtpyAttributeAuthRequest = 'realm=,nonce="doesn\'t matter"'
+emtpyAttributeAuthRequest = 'realm="",nonce="doesn\'t matter"'
 
 
 class DigestAuthTestCase(unittest.TestCase):
@@ -122,6 +129,36 @@ class DigestAuthTestCase(unittest.TestCase):
                                nonce,
                                cnonce),
                 algo, nonce, None, None, None, "GET", "/write/", None
+                )
+        return expected
+
+    def getDigestResponseComma(self, challenge, ncount):
+        """
+        Calculate the response for the given challenge
+        """
+        nonce = challenge.get('nonce')
+        algo = challenge.get('algorithm').lower()
+        qop = challenge.get('qop')
+
+        if qop:
+            expected = digest.calcResponse(
+                digest.calcHA1(algo,
+                               "user,name",
+                               "test realm",
+                               "password",
+                               nonce,
+                               cnonce),
+                algo, nonce, ncount, cnonce, qop, "GET", "/write/1,2.txt", None
+                )
+        else:
+            expected = digest.calcResponse(
+                digest.calcHA1(algo,
+                               "user,name",
+                               "test realm",
+                               "password",
+                               nonce,
+                               cnonce),
+                algo, nonce, None, None, None, "GET", "/write/1,2.txt", None
                 )
         return expected
 
@@ -447,6 +484,22 @@ class DigestAuthTestCase(unittest.TestCase):
                 "cnonce",
                 preHA1=preHA1
                 )
+
+    def test_commaURI(self):
+        """
+        Check that commas in valued are parsed out properly.
+        """
+
+        for ctr, factory in enumerate(self.credentialFactories):
+            challenge = factory.getChallenge(clientAddress)
+    
+            clientResponse = authRequestComma[ctr] % (
+                challenge['nonce'],
+                self.getDigestResponseComma(challenge, "00000001"),
+            )
+    
+            creds = factory.decode(clientResponse, _trivial_GET())
+            self.failUnless(creds.checkPassword('password'))
 
 
 def _trivial_GET():
