@@ -99,8 +99,13 @@ class ResponseCache(LoggingMixIn):
 
 
         fp = self._docroot
-        for childPath in uri.split('/')[:4]:
+        segments = uri.split('/')
+        for childPath in segments[:3]:
             fp = fp.child(childPath)
+
+        fp = fp.child(segments[3][:2]
+                      ).child(segments[3][2:4]
+                              ).child(segments[3])
 
         props = self.propertyStoreFactory(__FauxStaticResource(fp))
 

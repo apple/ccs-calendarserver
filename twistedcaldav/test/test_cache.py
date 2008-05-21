@@ -221,7 +221,11 @@ class ResponseCacheTests(TestCase):
 
     def test__tokenForURI(self):
         docroot = FilePath(self.mktemp())
-        principal = docroot.child('principals').child('users').child('wsanchez')
+        principal = docroot.child('principals'
+                          ).child('users'
+                          ).child('ws'
+                          ).child('an'
+                          ).child('wsanchez')
 
         expected_token = "wsanchezToken0"
 
