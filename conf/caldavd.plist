@@ -265,6 +265,10 @@ limitations under the License.
   <key>EnablePrivateEvents</key>
   <true/>
 
+  <!-- Timezone Service -->
+  <key>EnableTimezoneService</key>
+  <true/>
+
 
 </dict>
 </plist>

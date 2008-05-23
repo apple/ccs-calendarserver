@@ -188,6 +188,62 @@ class CalendarAvailability (davxml.WebDAVTextElement):
 
         return found
 
+class Timezones (davxml.WebDAVEmptyElement):
+    """
+    Denotes a timezone service resource.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "timezones"
+
+class TZIDs (davxml.WebDAVElement):
+    """
+    Wraps a list of timezone ids.
+    """
+    namespace = calendarserver_namespace
+    name = "tzids"
+    allowed_children = { (calendarserver_namespace, "tzid" ): (0, None) }
+
+class TZID (davxml.WebDAVTextElement):
+    """
+    A timezone id.
+    """
+    namespace = calendarserver_namespace
+    name = "tzid"
+
+class TZData (davxml.WebDAVElement):
+    """
+    Wraps a list of timezone observances.
+    """
+    namespace = calendarserver_namespace
+    name = "tzdata"
+    allowed_children = { (calendarserver_namespace, "observance" ): (0, None) }
+
+class Observance (davxml.WebDAVElement):
+    """
+    A timezone observance.
+    """
+    namespace = calendarserver_namespace
+    name = "observance"
+    allowed_children = {
+        (calendarserver_namespace, "onset" )     : (1, 1),
+        (calendarserver_namespace, "utc-offset" ): (1, 1),
+    }
+
+class Onset (davxml.WebDAVTextElement):
+    """
+    The onset date-time for a DST transition.
+    """
+    namespace = calendarserver_namespace
+    name = "onset"
+
+class UTCOffset (davxml.WebDAVTextElement):
+    """
+    A UTC offset value for a timezone observance.
+    """
+    namespace = calendarserver_namespace
+    name = "utc-offset"
+
 ##
 # Extensions to davxml.ResourceType
 ##
@@ -196,3 +252,4 @@ davxml.ResourceType.dropboxhome = davxml.ResourceType(davxml.Collection(), DropB
 davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
 davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
 davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())
+davxml.ResourceType.timezones = davxml.ResourceType(Timezones())

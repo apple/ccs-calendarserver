@@ -30,6 +30,7 @@ __all__ = [
     "DropBoxHomeFile",
     "DropBoxCollectionFile",
     "DropBoxChildFile",
+    "TimezoneServiceFile",
 ]
 
 import datetime
@@ -46,7 +47,7 @@ from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
-from twisted.web2.dav.util import parentForURL, bindMethods, allDataFromStream
+from twisted.web2.dav.util import parentForURL, bindMethods
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
@@ -66,6 +67,7 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisionin
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.log import Logger
+from twistedcaldav.timezoneservice import TimezoneServiceResource
 
 from twistedcaldav.cache import CacheChangeNotifier, PropfindCacheMixin
 
@@ -706,6 +708,31 @@ class DropBoxChildFile (CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
+
+class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
+    def __init__(self, path, parent):
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        TimezoneServiceResource.__init__(self, parent)
+
+        assert self.fp.isfile() or not self.fp.exists()
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return responsecode.NOT_FOUND
+
+    def http_PUT        (self, request): return responsecode.FORBIDDEN
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
+
+    def http_MKCALENDAR(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "calendar-collection-location-ok")
+        )
 
 ##
 # Utilities
