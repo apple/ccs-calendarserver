@@ -73,18 +73,15 @@ class TimezoneCache(object):
         if getTzid(tzid) != None:
             return False
 
-        tzStream = openTZ(tzid)
-        try:
-            calendar = Component.fromStream(tzStream)
+        tzData = readTZ(tzid)
+        calendar = Component.fromString(tzData)
 
-            if calendar.name() != "VCALENDAR":
-                raise TimezoneException("%s does not contain valid iCalendar data." % (tzStream.name,))
+        if calendar.name() != "VCALENDAR":
+            raise TimezoneException("%s does not contain valid iCalendar data." % (tzStream.name,))
 
-            # Check that we now have it cached
-            if getTzid(tzid) == None:
-                raise TimezoneException("Could not read timezone %s from %s." % (tzid, tzStream.name))
-        finally:
-            tzStream.close()
+        # Check that we now have it cached
+        if getTzid(tzid) == None:
+            raise TimezoneException("Could not read timezone %s from %s." % (tzid, tzStream.name))
         
         return True
 
@@ -102,23 +99,65 @@ class TimezoneCache(object):
             self.vobjectRegisterTzid(tzid, tzinfo)
 
 try:
+    # zoneinfo never changes in a running instance so cache all this data as we use it
+    cachedTZs = {}
+    cachedTZIDs = []
+
     import pkg_resources
 except ImportError:
     #
     # We don't have pkg_resources, so assume file paths work, since that's all we have
     #
+    
     dirname = os.path.join(os.path.dirname(__file__), "zoneinfo")
-    def openTZ(tzid):
-        tzpath = os.path.join(*tzid.split("/")) # Don't assume "/" from tzid is a path separator
-        tzpath = os.path.join(dirname, tzpath + ".ics")
-        try:
-            return file(tzpath)
-        except IOError:
-            raise TimezoneException("Unknown time zone: %s" % (tzid,))
+    def readTZ(tzid):
+
+        if tzid not in cachedTZs:
+            tzpath = os.path.join(*tzid.split("/")) # Don't assume "/" from tzid is a path separator
+            tzpath = os.path.join(dirname, tzpath + ".ics")
+            try:
+                cachedTZs[tzid] = file(tzpath).read()
+            except IOError:
+                raise TimezoneException("Unknown time zone: %s" % (tzid,))
+            
+        return cachedTZs[tzid]
+        
+    def listTZs(path=""):
+        if not path and cachedTZIDs:
+            return cachedTZIDs
+
+        result = []
+        for item in os.listdir(os.path.join(dirname, path)):
+            if item.find('.') == -1:
+                result.extend(listTZs(os.path.join(path, item)))
+            elif item.endswith(".ics"):
+                result.append(os.path.join(path, item[:-4]))
+                
+        if not path:
+            cachedTZIDs.extend(result)
+        return result
 else:
-    def openTZ(tzid):
-        # Here, "/" is always the path separator
-        try:
-            return pkg_resources.resource_stream("twistedcaldav", "zoneinfo/%s.ics" % (tzid,))
-        except IOError:
-            raise TimezoneException("Unknown time zone: %s" % (tzid,))
+    def readTZ(tzid):
+        if tzid not in cachedTZs:
+            # Here, "/" is always the path separator
+            try:
+                cachedTZs[tzid] = pkg_resources.resource_stream("twistedcaldav", "zoneinfo/%s.ics" % (tzid,)).read()
+            except IOError:
+                raise TimezoneException("Unknown time zone: %s" % (tzid,))
+            
+        return cachedTZs[tzid]
+
+    def listTZs(path=""):  
+        if not path and cachedTZIDs:
+            return cachedTZIDs
+
+        result = []
+        for item in pkg_resources.resource_listdir("twistedcaldav", os.path.join("zoneinfo", path)):
+            if item.find('.') == -1:
+                result.extend(listTZs(os.path.join(path, item)))
+            elif item.endswith(".ics"):
+                result.append(os.path.join(path, item[:-4]))
+                
+        if not path:
+            cachedTZIDs.extend(result)
+        return result

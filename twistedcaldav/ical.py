@@ -37,6 +37,9 @@ from vobject.base import Component as vComponent
 from vobject.base import ContentLine as vContentLine
 from vobject.base import ParseError as vParseError
 from vobject.icalendar import TimezoneComponent
+from vobject.icalendar import dateTimeToString
+from vobject.icalendar import deltaToOffset
+from vobject.icalendar import getTransition
 from vobject.icalendar import stringToDate, stringToDateTime, stringToDurations
 from vobject.icalendar import utc
 
@@ -1189,6 +1192,84 @@ def parse_duration(duration_string):
         raise ValueError("Invalid iCalendar DURATION: %r" % (duration_string,))
 
 _regex_duration = None
+
+##
+# Timezones
+##
+
+def tzexpand(tzdata, start, end):
+    """
+    Expand a timezone to get onset/utc-offset observance tuples withinthe specified
+    time range.
+
+    @param tzdata: the iCalendar data containing a VTIMEZONE.
+    @type tzdata: C{str}
+    @param start: date for the start of the expansion.
+    @type start: C{date}
+    @param end: date for the end of the expansion.
+    @type end: C{date}
+    
+    @return: a C{list} of tuples of (C{datetime}, C{str})
+    """
+    
+    start = datetime.datetime.fromordinal(start.toordinal())
+    end = datetime.datetime.fromordinal(end.toordinal())
+    icalobj = Component.fromString(tzdata)
+    tzcomp = None
+    for comp in icalobj.subcomponents():
+        if comp.name() == "VTIMEZONE":
+            tzcomp = comp
+            break
+    else:
+        raise ValueError("No VTIMEZONE component in %s" % (tzdata,))
+
+    tzinfo = tzcomp.gettzinfo()
+    
+    results = []
+    
+    # Get the start utc-offset - that is our first value
+    results.append((dateTimeToString(start), deltaToOffset(tzinfo.utcoffset(start)),))
+    last_dt = start
+    
+    while last_dt < end:
+        # Get the transitions for the current year
+        standard = getTransition("standard", last_dt.year, tzinfo)
+        daylight = getTransition("daylight", last_dt.year, tzinfo)
+        
+        # Order the transitions
+        if standard and daylight:
+            if standard < daylight:
+                first = standard
+                second = daylight
+            else:
+                first = daylight
+                second = standard
+        elif standard:
+            first = standard
+            second = None
+        else:
+            first = daylight
+            second = None
+        
+        for transition in (first, second):
+            # Terminate if the next transition is outside the time range
+            if transition and transition > end:
+                break
+            
+            # If the next transition is after the last one, then add its info if
+            # the utc-offset actually changed.
+            if transition and transition > last_dt:
+                utcoffset = deltaToOffset(tzinfo.utcoffset(transition + datetime.timedelta(days=1)))
+                if utcoffset != results[-1][1]:
+                    results.append((dateTimeToString(transition), utcoffset,))
+                last_dt = transition
+            
+        # Bump last transition up to the start of the next year
+        last_dt = datetime.datetime(last_dt.year + 1, 1, 1, 0, 0, 0)
+        if last_dt >= end:
+            break
+    
+    return results
 
 ##
 # Utilities

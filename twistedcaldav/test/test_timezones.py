@@ -20,7 +20,8 @@ import twistedcaldav.test.util
 from twistedcaldav.ical import Component
 from vobject.icalendar import utc
 from vobject.icalendar import registerTzid
-from twistedcaldav.timezones import TimezoneCache
+from twistedcaldav.timezones import TimezoneCache, TimezoneException
+from twistedcaldav.timezones import readTZ, listTZs
 import datetime
 import os
 
@@ -176,3 +177,36 @@ END:VCALENDAR
             self.assertEqual(end, datetime.datetime(2007, 12, 25, 06, 0, 0, tzinfo=utc))
             break;
         tzcache.unregister()
+
+class TimezonePackageTest (twistedcaldav.test.util.TestCase):
+    """
+    Timezone support tests
+    """
+
+    def test_ReadTZ(self):
+        
+        self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
+        self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
+
+    def test_ReadTZCached(self):
+        
+        self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
+        self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
+        self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
+        self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
+
+    def test_ListTZs(self):
+        
+        results = listTZs()
+        self.assertTrue("America/New_York" in results)
+        self.assertTrue("Europe/London" in results)
+        self.assertTrue("GB" in results)
+
+    def test_ListTZsCached(self):
+        
+        results = listTZs()
+        results = listTZs()
+        self.assertTrue("America/New_York" in results)
+        self.assertTrue("Europe/London" in results)
+        self.assertTrue("GB" in results)
+        
