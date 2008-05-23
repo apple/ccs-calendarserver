@@ -315,7 +315,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
 
         # For free-busy do immediate determination of iTIP result rather than fan-out
-        self.log_info("METHOD: %s, Component: %s" % (calendar.propertyValue("METHOD"), calendar.mainType(),))
+        self.log_debug("METHOD: %s, Component: %s" % (calendar.propertyValue("METHOD"), calendar.mainType(),))
         if (calendar.propertyValue("METHOD") == "REQUEST") and (calendar.mainType() == "VFREEBUSY"):
             # Extract time range from VFREEBUSY object
             vfreebusies = [v for v in calendar.subcomponents() if v.name() == "VFREEBUSY"]
