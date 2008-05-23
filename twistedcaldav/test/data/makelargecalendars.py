@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     
     for ctr in xrange(1, user_max + 1): 
-        path = os.path.join(document_root, "calendars/__uids__/user%02d" % (ctr,))
+        path = os.path.join(document_root, "calendars/__uids__/us/er/user%02d" % (ctr,))
     
         try: os.makedirs(path)
         except OSError: pass
