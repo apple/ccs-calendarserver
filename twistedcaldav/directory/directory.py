@@ -206,6 +206,12 @@ class DirectoryRecord(LoggingMixIn):
     def proxyFor(self):
         return ()
 
+    def readOnlyProxies(self):
+        return ()
+
+    def readOnlyProxyFor(self):
+        return ()
+
     def hasEditableProxyMembership(self):
         return self.recordType in (DirectoryService.recordType_users, DirectoryService.recordType_groups)
 

@@ -283,11 +283,11 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
             members = self._index().getMembers(self.uid)
             return [p for p in [self.pcollection.principalForUID(uid) for uid in members] if p]
         else:
-            # Fixed proxies are only for read-write - the read-only list is empty
+            # Fixed proxies
             if self.proxyType == "calendar-proxy-write":
                 return self.parent.proxies()
             else:
-                return ()
+                return self.parent.readOnlyProxies()
 
 
     def groupMembers(self):

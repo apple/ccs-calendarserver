@@ -29,26 +29,27 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService
 
-ELEMENT_ACCOUNTS        = "accounts"
-ELEMENT_USER            = "user"
-ELEMENT_GROUP           = "group"
-ELEMENT_LOCATION        = "location"
-ELEMENT_RESOURCE        = "resource"
+ELEMENT_ACCOUNTS          = "accounts"
+ELEMENT_USER              = "user"
+ELEMENT_GROUP             = "group"
+ELEMENT_LOCATION          = "location"
+ELEMENT_RESOURCE          = "resource"
 
-ELEMENT_SHORTNAME       = "uid"
-ELEMENT_GUID            = "guid"
-ELEMENT_PASSWORD        = "password"
-ELEMENT_NAME            = "name"
-ELEMENT_MEMBERS         = "members"
-ELEMENT_MEMBER          = "member"
-ELEMENT_CUADDR          = "cuaddr"
-ELEMENT_AUTOSCHEDULE    = "auto-schedule"
-ELEMENT_DISABLECALENDAR = "disable-calendar"
-ELEMENT_PROXIES         = "proxies"
+ELEMENT_SHORTNAME         = "uid"
+ELEMENT_GUID              = "guid"
+ELEMENT_PASSWORD          = "password"
+ELEMENT_NAME              = "name"
+ELEMENT_MEMBERS           = "members"
+ELEMENT_MEMBER            = "member"
+ELEMENT_CUADDR            = "cuaddr"
+ELEMENT_AUTOSCHEDULE      = "auto-schedule"
+ELEMENT_DISABLECALENDAR   = "disable-calendar"
+ELEMENT_PROXIES           = "proxies"
+ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
 
-ATTRIBUTE_REALM         = "realm"
-ATTRIBUTE_REPEAT        = "repeat"
-ATTRIBUTE_RECORDTYPE    = "type"
+ATTRIBUTE_REALM           = "realm"
+ATTRIBUTE_REPEAT          = "repeat"
+ATTRIBUTE_RECORDTYPE      = "type"
 
 RECORD_TYPES = {
     ELEMENT_USER     : DirectoryService.recordType_users,
@@ -109,6 +110,12 @@ class XMLAccountsParser(object):
                 if item is not None:
                     item.proxyFor.add((proxier.recordType, proxier.shortName))
 
+            # Update read-only proxy membership
+            for recordType, shortName in proxier.readOnlyProxies:
+                item = self.items[recordType].get(shortName, None)
+                if item is not None:
+                    item.readOnlyProxyFor.add((proxier.recordType, proxier.shortName))
+
         for child in node._get_childNodes():
             child_name = child._get_localName()
             if child_name is None:
@@ -159,6 +166,8 @@ class XMLAccountRecord (object):
         self.enabledForCalendaring = True
         self.proxies = set()
         self.proxyFor = set()
+        self.readOnlyProxies = set()
+        self.readOnlyProxyFor = set()
 
     def repeat(self, ctr):
         """
@@ -199,6 +208,7 @@ class XMLAccountRecord (object):
         result.autoSchedule = self.autoSchedule
         result.enabledForCalendaring = self.enabledForCalendaring
         result.proxies = self.proxies
+        result.readOnlyProxies = self.readOnlyProxies
         return result
 
     def parseXML(self, node):
@@ -238,6 +248,11 @@ class XMLAccountRecord (object):
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
                     raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
                 self._parseMembers(child, self.proxies)
+            elif child_name == ELEMENT_READ_ONLY_PROXIES:
+                # Only Resources & Locations
+                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
+                self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 

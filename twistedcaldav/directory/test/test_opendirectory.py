@@ -72,6 +72,7 @@ else:
                 enabledForCalendaring = True,
                 memberGUIDs           = [],
                 proxyGUIDs            = (),
+                readOnlyProxyGUIDs    = (),
             )
 
             digestFields = {}

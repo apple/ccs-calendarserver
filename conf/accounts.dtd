@@ -25,22 +25,23 @@ DRI: Cyrus Daboo, cdaboo@apple.com
   <!ELEMENT group (uid, guid, password, name, members, cuaddr*, disable-calendar?)>
     <!ATTLIST group repeat CDATA "1">
 
-  <!ELEMENT resource (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?)>
+  <!ELEMENT resource (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
     <!ATTLIST resource repeat CDATA "1">
 
-  <!ELEMENT location (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?)>
+  <!ELEMENT location (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>
     <!ATTLIST member type (users|groups|locations|resources) "users">
 
-  <!ELEMENT uid              (#PCDATA)>
-  <!ELEMENT guid             (#PCDATA)>
-  <!ELEMENT password         (#PCDATA)>
-  <!ELEMENT name             (#PCDATA)>
-  <!ELEMENT cuaddr           (#PCDATA)>
-  <!ELEMENT members          (member*)>
-  <!ELEMENT auto-schedule    EMPTY>
-  <!ELEMENT disable-calendar EMPTY>
-  <!ELEMENT proxies          (member*)>
+  <!ELEMENT uid               (#PCDATA)>
+  <!ELEMENT guid              (#PCDATA)>
+  <!ELEMENT password          (#PCDATA)>
+  <!ELEMENT name              (#PCDATA)>
+  <!ELEMENT cuaddr            (#PCDATA)>
+  <!ELEMENT members           (member*)>
+  <!ELEMENT auto-schedule     EMPTY>
+  <!ELEMENT disable-calendar  EMPTY>
+  <!ELEMENT proxies           (member*)>
+  <!ELEMENT read-only-proxies (member*)>
 >

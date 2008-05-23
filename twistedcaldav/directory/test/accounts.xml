@@ -197,5 +197,8 @@ limitations under the License.
     <proxies>
       <member type="groups">non_calendar_group</member>
     </proxies>
+    <read-only-proxies>
+      <member type="groups">recursive2_coasts</member>
+    </read-only-proxies>
   </resource>
 </accounts>

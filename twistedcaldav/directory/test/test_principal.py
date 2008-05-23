@@ -267,6 +267,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failUnless(set(record.proxies()).issubset(set(r.record for r in recordResource.proxies())))
                 self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
 
+    def test_read_only_proxies(self):
+        """
+        DirectoryPrincipalResource.proxies()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                self.failUnless(set(record.readOnlyProxies()).issubset(set(r.record for r in recordResource.readOnlyProxies())))
+                self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
+
     def test_principalUID(self):
         """
         DirectoryPrincipalResource.principalUID()

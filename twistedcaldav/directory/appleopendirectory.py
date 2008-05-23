@@ -345,13 +345,14 @@ class OpenDirectoryService(DirectoryService):
         @type guid: str
         @param shortname: the record shortname of the record being parsed.
         @type shortname: str
-        @return: a C{tuple} of C{bool} for auto-accept and C{str} for proxy GUID.
+        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
         """
         try:
             plist = readPlistFromString(plist)
             wpframework = plist.get("com.apple.WhitePagesFramework", {})
             autoaccept = wpframework.get("AutoAcceptsInvitation", False)
-            proxy = wpframework.get("CalendaringDelegate")
+            proxy = wpframework.get("CalendaringDelegate", None)
+            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
         except AttributeError:
             self.log_error(
                 "Failed to parse ResourceInfo attribute of record %s (%s): %s" %
@@ -359,8 +360,9 @@ class OpenDirectoryService(DirectoryService):
             )
             autoaccept = False
             proxy = None
+            read_only_proxy = None
 
-        return (autoaccept, proxy)
+        return (autoaccept, proxy, read_only_proxy,)
 
     def recordTypes(self):
         return (
@@ -542,12 +544,15 @@ class OpenDirectoryService(DirectoryService):
             # Special case for resources and locations
             autoSchedule = False
             proxyGUIDs = ()
+            readOnlyProxyGUIDs = ()
             if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
-                    autoSchedule, proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordShortName)
+                    autoSchedule, proxy, read_only_proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordShortName)
                     if proxy:
                         proxyGUIDs = (proxy,)
+                    if read_only_proxy:
+                        readOnlyProxyGUIDs = (read_only_proxy,)
 
             record = OpenDirectoryRecord(
                 service               = self,
@@ -561,6 +566,7 @@ class OpenDirectoryService(DirectoryService):
                 enabledForCalendaring = enabledForCalendaring,
                 memberGUIDs           = memberGUIDs,
                 proxyGUIDs            = proxyGUIDs,
+                readOnlyProxyGUIDs    = readOnlyProxyGUIDs,
             )
 
             def disableRecord(record):
@@ -772,7 +778,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     def __init__(
         self, service, recordType, guid, nodeName, shortName, fullName,
         calendarUserAddresses, autoSchedule, enabledForCalendaring,
-        memberGUIDs, proxyGUIDs,
+        memberGUIDs, proxyGUIDs, readOnlyProxyGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,
@@ -787,6 +793,7 @@ class OpenDirectoryRecord(DirectoryRecord):
         self.nodeName = nodeName
         self._memberGUIDs = tuple(memberGUIDs)
         self._proxyGUIDs = tuple(proxyGUIDs)
+        self._readOnlyProxyGUIDs = tuple(readOnlyProxyGUIDs)
 
     def __repr__(self):
         if self.service.realmName == self.nodeName:
@@ -835,6 +842,25 @@ class OpenDirectoryRecord(DirectoryRecord):
             self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
         ):
             if self.guid in proxyRecord._proxyGUIDs:
+                yield proxyRecord
+
+    def readOnlyProxies(self):
+        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            return
+
+        for guid in self._readOnlyProxyGUIDs:
+            proxyRecord = self.service.recordWithGUID(guid)
+            if proxyRecord is None:
+                self.log_error("No record for proxy in %s with GUID %s" % (self.shortName, guid))
+            else:
+                yield proxyRecord
+
+    def readOnlyProxyFor(self):
+        for proxyRecord in itertools.chain(
+            self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
+            self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
+        ):
+            if self.guid in proxyRecord._readOnlyProxyGUIDs:
                 yield proxyRecord
 
     def verifyCredentials(self, credentials):

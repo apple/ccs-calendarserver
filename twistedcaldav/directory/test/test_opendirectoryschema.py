@@ -1186,6 +1186,8 @@ else:
         <string>Location</string>
         <key>CalendaringDelegate</key>
         <string>1234-GUID-5678</string>
+        <key>ReadOnlyCalendaringDelegate</key>
+        <string>1234-GUID-5679</string>
     </dict>
 </dict>
 </plist>
@@ -1202,6 +1204,8 @@ else:
         <key>Label</key>
         <string>Location</string>
         <key>CalendaringDelegate</key>
+        <string></string>
+        <key>ReadOnlyCalendaringDelegate</key>
         <string></string>
     </dict>
 </dict>
@@ -1243,6 +1247,8 @@ else:
         <string>Location</string>
         <key>CalendaringDelegate</key>
         <string>1234-GUID-5678</string>
+        <key>ReadOnlyCalendaringDelegate</key>
+        <string>1234-GUID-5679</string>
     </dict>
 </dict>
 </plist>
@@ -1260,18 +1266,19 @@ else:
 """
 
         test_bool = (
-            (plist_good_false, False, "1234-GUID-5678"),
-            (plist_good_true, True, ""),
-            (plist_good_missing, False, None),
-            (plist_wrong, False, None),
-            (plist_bad, False, None),
-            (plist_invalid, False, None),
+            (plist_good_false, False, "1234-GUID-5678", "1234-GUID-5679"),
+            (plist_good_true, True, "", ""),
+            (plist_good_missing, False, None, None),
+            (plist_wrong, False, None, None),
+            (plist_bad, False, None, None),
+            (plist_invalid, False, None, None),
         )
 
         def test_plists(self):
             service = OpenDirectoryService(node="/Search", dosetup=False)
             
             for item in ODResourceInfoParse.test_bool:
-                item1, item2 = service._parseResourceInfo(item[0], "guid", "name")
+                item1, item2, item3 = service._parseResourceInfo(item[0], "guid", "name")
                 self.assertEqual(item1, item[1])
                 self.assertEqual(item2, item[2])
+                self.assertEqual(item3, item[3])

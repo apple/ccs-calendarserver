@@ -113,11 +113,13 @@ class XMLDirectoryRecord(DirectoryRecord):
             enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
         )
 
-        self.password     = xmlPrincipal.password
-        self._members     = xmlPrincipal.members
-        self._groups      = xmlPrincipal.groups
-        self._proxies     = xmlPrincipal.proxies
-        self._proxyFor    = xmlPrincipal.proxyFor
+        self.password          = xmlPrincipal.password
+        self._members          = xmlPrincipal.members
+        self._groups           = xmlPrincipal.groups
+        self._proxies          = xmlPrincipal.proxies
+        self._proxyFor         = xmlPrincipal.proxyFor
+        self._readOnlyProxies  = xmlPrincipal.readOnlyProxies
+        self._readOnlyProxyFor = xmlPrincipal.readOnlyProxyFor
 
     def members(self):
         for recordType, shortName in self._members:
@@ -131,8 +133,16 @@ class XMLDirectoryRecord(DirectoryRecord):
         for recordType, shortName in self._proxies:
             yield self.service.recordWithShortName(recordType, shortName)
 
-    def proxyFor(self):
+    def proxyFor(self, read_write=True):
         for recordType, shortName in self._proxyFor:
+            yield self.service.recordWithShortName(recordType, shortName)
+
+    def readOnlyProxies(self):
+        for recordType, shortName in self._readOnlyProxies:
+            yield self.service.recordWithShortName(recordType, shortName)
+
+    def readOnlyProxyFor(self, read_write=True):
+        for recordType, shortName in self._readOnlyProxyFor:
             yield self.service.recordWithShortName(recordType, shortName)
 
     def verifyCredentials(self, credentials):
