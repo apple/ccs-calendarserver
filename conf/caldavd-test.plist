@@ -184,7 +184,7 @@ limitations under the License.
   <!-- Principals with "DAV:all" access (relative URLs) -->
   <key>AdminPrincipals</key>
   <array>
-    <string>/principals/users/admin/</string>
+    <string>/principals/__uids__/admin/</string>
   </array>
 
   <!-- Principals that can pose as other principals -->
