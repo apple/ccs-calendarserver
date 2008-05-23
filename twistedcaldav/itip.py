@@ -469,13 +469,13 @@ processCancel = deferredGenerator(processCancel)
 
 def checkForReply(request, principal, calendar):
     """
-    Check whether a reply to the given iTIP message is needed. A reply will be needed if the
-    RSVP=TRUE. A reply will either be positive (accepted
+    Check whether a reply to the given iTIP message is needed. We will not process a reply
+    if RSVP=FALSE. A reply will either be positive (accepted
     invitation) or negative (denied invitation). In addition we will modify calendar to reflect
     any new state (e.g. remove RSVP, set PARTSTAT to ACCEPTED or DECLINED).
     
     BTW The incoming iTIP message may contain multiple components so we need to iterate over all those.
-    At the moment we will treat a failure on one isntances as a DECLINE of the entire set.
+    At the moment we will treat a failure on one instances as a DECLINE of the entire set.
 
     @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
@@ -483,7 +483,7 @@ def checkForReply(request, principal, calendar):
     @return: C{True} if a reply is needed, C{False} otherwise.
     """
     
-    # We need to fugure out whether the specified component will clash with any others in the f-b-set calendars
+    # We need to figure out whether the specified component will clash with any others in the f-b-set calendars
     accepted = True
         
     # First expand current one to get instances (only go 1 year into the future)
@@ -539,11 +539,11 @@ def checkForReply(request, principal, calendar):
         return
 
     # Look for specific parameters
-    rsvp = False
+    rsvp = True
     for attendeeProp in attendeeProps:
         if "RSVP" in attendeeProp.params():
-            if attendeeProp.params()["RSVP"][0] == "TRUE":
-                rsvp = True
+            if attendeeProp.params()["RSVP"][0] == "FALSE":
+                rsvp = False
     
             # Now modify the original component
             del attendeeProp.params()["RSVP"]
@@ -864,7 +864,7 @@ def findMatchingComponent(component, calendar):
 
 def mergeComponents(newcal, oldcal):
     """
-    Merge the overridden instance components in newcal into old cal replacing any
+    Merge the overridden instance components in newcal into oldcal replacing any
     matching components there.
 
     @param newcal: the new overridden instances to use.
