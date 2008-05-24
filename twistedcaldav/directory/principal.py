@@ -117,8 +117,6 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         # FIXME: Smells like a hack
         self.directory.principalCollection = self
 
-        self._provisioned = False
-
         #
         # Create children
         #
@@ -205,9 +203,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        if not self._provisioned:
-            self.provision()
-            self._provisioned = True
+        self.provision()
 
         if name == "":
             return self
@@ -296,7 +292,6 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         )
 
         self.parent = parent
-        self._provisioned = False
 
     def principalForUID(self, uid):
         return self.parent.principalForUID(uid)
@@ -313,9 +308,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        if not self._provisioned:
-            self.provision()
-            self._provisioned = True
+        self.provision()
 
         if name == "":
             return self

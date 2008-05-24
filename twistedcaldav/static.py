@@ -421,6 +421,11 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
 
     def provisionFile(self):
+        if hasattr(self, "_provisioned_file"):
+            return False
+        else:
+            self._provisioned_file = True
+
         fp = self.fp
 
         fp.restat(False)
