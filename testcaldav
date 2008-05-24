@@ -75,8 +75,6 @@ if [ ! -e "${documentroot}/calendars/__uids__/user01" ]; then
   curl "http://localhost:8008/calendars/__uids__/user01/";
 fi;
 
-rm -rf twistedcaldav/test/data/principals;
-rm -rf twistedcaldav/test/data/calendars;
 python twistedcaldav/test/data/makelargecalendars.py -n 1 -d "${documentroot}";
 
 cd "${cdt}" && python testcaldav.py -r "${documentroot}" -s "${serverinfo}" "$@";
