@@ -2,7 +2,7 @@ Index: twisted/web2/dav/method/report_principal_match.py
 ===================================================================
 --- twisted/web2/dav/method/report_principal_match.py	(revision 19773)
 +++ twisted/web2/dav/method/report_principal_match.py	(working copy)
-@@ -89,40 +89,61 @@
+@@ -89,40 +89,64 @@
          responses = []
          matchcount = 0
  
@@ -38,7 +38,10 @@ Index: twisted/web2/dav/method/report_principal_match.py
 +            selfItems = [principal,]
 +            
 +            # Get group memberships for "self" and add each of those
-+            selfItems.extend(principal.groupMemberships())
++            d = waitForDeferred(principal.groupMemberships())
++            yield d
++            memberships = d.getResult()
++            selfItems.extend(memberships)
 +            
 +            # Now add each principal found to the response provided the principal resource is a child of
 +            # the current resource.
@@ -94,12 +97,45 @@ Index: twisted/web2/dav/method/report_principal_match.py
              for child, uri in children:
                  # Try to read the requested property from this resource
                  try:
-@@ -137,7 +158,7 @@
+@@ -137,22 +161,26 @@
                          yield principal
                          principal = principal.getResult()
  
 -                        if principal and isPrincipalResource(principal) and principal.principalMatch(selfPrincipal):
-+                        if principal and isPrincipalResource(principal) and principal.principalMatch(selfPrincipalURL):
-                             # Check size of results is within limit
-                             matchcount += 1
-                             if matchcount > max_number_of_matches:
+-                            # Check size of results is within limit
+-                            matchcount += 1
+-                            if matchcount > max_number_of_matches:
+-                                raise NumberOfMatchesWithinLimits
+-
+-                            d = waitForDeferred(prop_common.responseForHref(
+-                                request,
+-                                responses,
+-                                davxml.HRef.fromString(uri),
+-                                child,
+-                                propertiesForResource,
+-                                propElement
+-                            ))
++                        if principal and isPrincipalResource(principal):
++                            d = waitForDeferred(principal.principalMatch(selfPrincipalURL))
+                             yield d
+-                            d.getResult()
++                            matched = d.getResult()
++                            if matched:
++                                # Check size of results is within limit
++                                matchcount += 1
++                                if matchcount > max_number_of_matches:
++                                    raise NumberOfMatchesWithinLimits
++    
++                                d = waitForDeferred(prop_common.responseForHref(
++                                    request,
++                                    responses,
++                                    davxml.HRef.fromString(uri),
++                                    child,
++                                    propertiesForResource,
++                                    propElement
++                                ))
++                                yield d
++                                d.getResult()
+                 except HTTPError:
+                     # Just ignore a failure to access the property. We treat this like a property that does not exist
+                     # or does not match the principal.

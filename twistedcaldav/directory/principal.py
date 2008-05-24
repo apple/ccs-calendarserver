@@ -32,7 +32,9 @@ from urllib import unquote
 from urlparse import urlparse
 
 from twisted.python.failure import Failure
+from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import succeed
+from twisted.internet.defer import waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
@@ -401,35 +403,44 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
     # HTTP
     ##
 
+    @deferredGenerator
     def renderDirectoryBody(self, request):
-        def gotSuper(output):
-            return "".join((
-                """<div class="directory-listing">"""
-                """<h1>Principal Details</h1>"""
-                """<pre><blockquote>"""
-                """Directory Information\n"""
-                """---------------------\n"""
-                """Directory GUID: %s\n"""         % (self.record.service.guid,),
-                """Realm: %s\n"""                  % (self.record.service.realmName,),
-                """\n"""
-                """Principal Information\n"""
-                """---------------------\n"""
-                """GUID: %s\n"""                   % (self.record.guid,),
-                """Record type: %s\n"""            % (self.record.recordType,),
-                """Short name: %s\n"""             % (self.record.shortName,),
-                """Full name: %s\n"""              % (self.record.fullName,),
-                """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-                """\nGroup members:\n"""           , format_principals(self.groupMembers()),
-                """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
-                """</pre></blockquote></div>""",
-                output
-            ))
 
-        d = super(DirectoryPrincipalResource, self).renderDirectoryBody(request)
-        d.addCallback(gotSuper)
-        return d
+        d = waitForDeferred(super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
+        yield d
+        output = d.getResult()
+        
+        d = waitForDeferred(self.groupMembers())
+        yield d
+        members = d.getResult()
+        
+        d = waitForDeferred(self.groupMemberships())
+        yield d
+        memberships = d.getResult()
+
+        yield "".join((
+            """<div class="directory-listing">"""
+            """<h1>Principal Details</h1>"""
+            """<pre><blockquote>"""
+            """Directory Information\n"""
+            """---------------------\n"""
+            """Directory GUID: %s\n"""         % (self.record.service.guid,),
+            """Realm: %s\n"""                  % (self.record.service.realmName,),
+            """\n"""
+            """Principal Information\n"""
+            """---------------------\n"""
+            """GUID: %s\n"""                   % (self.record.guid,),
+            """Record type: %s\n"""            % (self.record.recordType,),
+            """Short name: %s\n"""             % (self.record.shortName,),
+            """Full name: %s\n"""              % (self.record.fullName,),
+            """Principal UID: %s\n"""          % (self.principalUID(),),
+            """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
+            """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
+            """\nGroup members:\n"""           , format_principals(members),
+            """\nGroup memberships:\n"""       , format_principals(memberships),
+            """</pre></blockquote></div>""",
+            output
+        ))
 
     ##
     # DAV
@@ -499,8 +510,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
         return relatives
 
     def groupMembers(self):
-        return self._getRelatives("members")
+        return succeed(self._getRelatives("members"))
 
+    @deferredGenerator
     def groupMemberships(self):
         groups = self._getRelatives("groups")
 
@@ -511,14 +523,17 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
 
             # Get proxy group UIDs and map to principal resources
             proxies = []
-            for uid in self._calendar_user_proxy_index().getMemberships(self.principalUID()):
+            d = waitForDeferred(self._calendar_user_proxy_index().getMemberships(self.principalUID()))
+            yield d
+            memberships = d.getResult()
+            for uid in memberships:
                 subprincipal = self.parent.principalForUID(uid)
                 if subprincipal:
                     proxies.append(subprincipal)
 
             groups.update(proxies)
 
-        return groups
+        yield groups
 
 
     def principalCollections(self):
@@ -551,37 +566,46 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     """
     Directory calendar principal resource.
     """
+    @deferredGenerator
     def renderDirectoryBody(self, request):
-        def gotSuper(output):
-            return "".join((
-                """<div class="directory-listing">"""
-                """<h1>Principal Details</h1>"""
-                """<pre><blockquote>"""
-                """Directory Information\n"""
-                """---------------------\n"""
-                """Directory GUID: %s\n"""         % (self.record.service.guid,),
-                """Realm: %s\n"""                  % (self.record.service.realmName,),
-                """\n"""
-                """Principal Information\n"""
-                """---------------------\n"""
-                """GUID: %s\n"""                   % (self.record.guid,),
-                """Record type: %s\n"""            % (self.record.recordType,),
-                """Short name: %s\n"""             % (self.record.shortName,),
-                """Full name: %s\n"""              % (self.record.fullName,),
-                """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-                """\nGroup members:\n"""           , format_principals(self.groupMembers()),
-                """\nGroup memberships:\n"""       , format_principals(self.groupMemberships()),
-                """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
-                """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-                """</pre></blockquote></div>""",
-                output
-            ))
 
-        d = super(DirectoryPrincipalResource, self).renderDirectoryBody(request)
-        d.addCallback(gotSuper)
-        return d
+        d = waitForDeferred(super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
+        yield d
+        output = d.getResult()
+        
+        d = waitForDeferred(self.groupMembers())
+        yield d
+        members = d.getResult()
+        
+        d = waitForDeferred(self.groupMemberships())
+        yield d
+        memberships = d.getResult()
+        
+        yield "".join((
+            """<div class="directory-listing">"""
+            """<h1>Principal Details</h1>"""
+            """<pre><blockquote>"""
+            """Directory Information\n"""
+            """---------------------\n"""
+            """Directory GUID: %s\n"""         % (self.record.service.guid,),
+            """Realm: %s\n"""                  % (self.record.service.realmName,),
+            """\n"""
+            """Principal Information\n"""
+            """---------------------\n"""
+            """GUID: %s\n"""                   % (self.record.guid,),
+            """Record type: %s\n"""            % (self.record.recordType,),
+            """Short name: %s\n"""             % (self.record.shortName,),
+            """Full name: %s\n"""              % (self.record.fullName,),
+            """Principal UID: %s\n"""          % (self.principalUID(),),
+            """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
+            """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
+            """\nGroup members:\n"""           , format_principals(members),
+            """\nGroup memberships:\n"""       , format_principals(memberships),
+            """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
+            """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
+            """</pre></blockquote></div>""",
+            output
+        ))
 
     ##
     # CalDAV

@@ -14,15 +14,10 @@
 # limitations under the License.
 ##
 
-#from twisted.web2 import responsecode
-#from twisted.web2.iweb import IResponse
-#from twisted.web2.dav import davxml
-#from twisted.web2.dav.util import davXMLFromStream
-#from twisted.web2.test.test_server import SimpleRequest
-#from twistedcaldav import caldavxml
-
 import os
 
+from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import waitForDeferred
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav.resource import AccessDeniedError
@@ -244,19 +239,27 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             self.failUnless(recordResource.displayName())
 
+    @deferredGenerator
     def test_groupMembers(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(set(record.members()).issubset(set(r.record for r in recordResource.groupMembers())))
+            d = waitForDeferred(recordResource.groupMembers())
+            yield d
+            members = d.getResult()
+            self.failUnless(set(record.members()).issubset(set(r.record for r in members)))
 
+    @deferredGenerator
     def test_groupMemberships(self):
         """
         DirectoryPrincipalResource.groupMemberships()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(set(record.groups()).issubset(set(r.record for r in recordResource.groupMemberships() if hasattr(r, "record"))))
+            d = waitForDeferred(recordResource.groupMemberships())
+            yield d
+            memberships = d.getResult()
+            self.failUnless(set(record.groups()).issubset(set(r.record for r in memberships if hasattr(r, "record"))))
 
     def test_proxies(self):
         """

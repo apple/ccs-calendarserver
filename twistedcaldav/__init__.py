@@ -40,6 +40,8 @@ __all__ = [
     "instance",
     "itip",
     "log",
+    "memcache",
+    "memcacher",
     "principalindex",
     "resource",
     "root",

@@ -120,9 +120,20 @@ Index: twisted/web2/dav/idav.py
  class IDAVPrincipalResource (IDAVResource):
      """
      WebDAV principal resource.  (RFC 3744, section 2)
-@@ -212,3 +283,14 @@
+@@ -203,12 +274,23 @@
+         """
+         Provides the principal URLs of principals that are direct members of
+         this (group) principal.  (RFC 3744, section 4.3)
+-        @return: a iterable of principal URLs.
++        @return: a deferred returning an iterable of principal URLs.
+         """
+ 
+     def groupMemberships():
+         """
+         Provides the URLs of the group principals in which the principal is
          directly a member.  (RFC 3744, section 4.4)
-         @return: a iterable of group principal URLs.
+-        @return: a iterable of group principal URLs.
++        @return: a deferred containing an iterable of group principal URLs.
          """
 +
 +class IDAVPrincipalCollectionResource (IDAVResource):

@@ -16,6 +16,8 @@
 
 import os
 
+from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import waitForDeferred
 from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav import davxml
 
@@ -52,66 +54,90 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         self.principalRootResources[directoryService.__class__.__name__] = provisioningResource
 
+    @deferredGenerator
     def test_groupMembersRegular(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_groups, "both_coasts").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_groups, "both_coasts").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Chris Lecroy', 'David Reid', 'Wilfredo Sanchez', 'West Coast', 'East Coast', 'Cyrus Daboo',)))
 
+    @deferredGenerator
     def test_groupMembersRecursive(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_groups, "recursive1_coasts").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_groups, "recursive1_coasts").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Wilfredo Sanchez', 'Recursive2 Coasts', 'Cyrus Daboo',)))
 
+    @deferredGenerator
     def test_groupMembersProxySingleUser(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_locations, "gemini").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_locations, "gemini").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Wilfredo Sanchez',)))
 
+    @deferredGenerator
     def test_groupMembersProxySingleGroup(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_locations, "mercury").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_locations, "mercury").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Chris Lecroy', 'David Reid', 'Wilfredo Sanchez', 'West Coast',)))
 
+    @deferredGenerator
     def test_groupMembersProxySingleGroupWithNestedGroups(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_locations, "apollo").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_locations, "apollo").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Chris Lecroy', 'David Reid', 'Wilfredo Sanchez', 'West Coast', 'East Coast', 'Cyrus Daboo', 'Both Coasts',)))
 
+    @deferredGenerator
     def test_groupMembersProxySingleGroupWithNestedRecursiveGroups(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_locations, "orion").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_locations, "orion").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Wilfredo Sanchez', 'Cyrus Daboo', 'Recursive1 Coasts', 'Recursive2 Coasts',)))
 
+    @deferredGenerator
     def test_groupMembersProxySingleGroupWithNonCalendarGroup(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        members = self._getRecordByShortName(DirectoryService.recordType_resources, "non_calendar_proxy").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_resources, "non_calendar_proxy").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set(('Chris Lecroy', 'Cyrus Daboo', 'Non-calendar group')))
 
-        memberships = self._getRecordByShortName(DirectoryService.recordType_groups, "non_calendar_group").groupMemberships()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_groups, "non_calendar_group").groupMemberships())
+        yield d
+        memberships = d.getResult()
         memberships = set([p.principalUID() for p in memberships])
         self.assertEquals(memberships, set(('non_calendar_proxy#calendar-proxy-write',)))
 
+    @deferredGenerator
     def test_groupMembersProxyMissingUser(self):
         """
         DirectoryPrincipalResource.groupMembers()
@@ -120,15 +146,22 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         # Setup the fake entry in the DB
         proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
         proxy_group = proxy.getChild("calendar-proxy-write")
-        members = proxy_group._index().getMembers("%s#calendar-proxy-write" % (proxy.principalUID(),))
+        d = waitForDeferred(proxy_group._index().getMembers("%s#calendar-proxy-write" % (proxy.principalUID(),)))
+        yield d
+        members = d.getResult()
         members.add("12345")
-        proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (proxy.principalUID(),), members)
+        d = waitForDeferred(proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (proxy.principalUID(),), members))
+        yield d
+        d.getResult()
 
         # Do the failing lookup
-        members = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMembers()
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMembers())
+        yield d
+        members = d.getResult()
         members = set([p.displayName() for p in members])
         self.assertEquals(members, set())
 
+    @deferredGenerator
     def test_groupMembershipsMissingUser(self):
         """
         DirectoryPrincipalResource.groupMembers()
@@ -138,14 +171,20 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         fake_uid = "12345"
         proxy = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo")
         proxy_group = proxy.getChild("calendar-proxy-write")
-        members = proxy_group._index().getMembers("%s#calendar-proxy-write" % (fake_uid,))
+        d = waitForDeferred(proxy_group._index().getMembers("%s#calendar-proxy-write" % (fake_uid,)))
+        yield d
+        members = d.getResult()
         members.add("%s#calendar-proxy-write" % (proxy.principalUID(),))
-        proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (fake_uid,), members)
+        d = waitForDeferred(proxy_group._index().setGroupMembers("%s#calendar-proxy-write" % (fake_uid,), members))
+        yield d
+        d.getResult()
 
         # Do the failing lookup
-        members = self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMemberships()
-        members = set([p.displayName() for p in members])
-        self.assertEquals(members, set())
+        d = waitForDeferred(self._getRecordByShortName(DirectoryService.recordType_users, "cdaboo").getChild("calendar-proxy-write").groupMemberships())
+        yield d
+        memberships = d.getResult()
+        memberships = set([p.displayName() for p in memberships])
+        self.assertEquals(memberships, set())
 
     def _getRecordByShortName(self, type, name):
         """

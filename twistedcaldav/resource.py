@@ -667,10 +667,10 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         return maybeDeferred(defer)
 
     def groupMembers(self):
-        return ()
+        return succeed(())
 
     def groupMemberships(self):
-        return ()
+        return succeed(())
 
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
