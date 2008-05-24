@@ -531,7 +531,7 @@ if ! "${disable_setup}" && (
   echo "Building libevent...";
   cd "${libevent}";
   ./configure --prefix="${libevent}/_root";
-  make;
+  make CFLAGS=-m64;
   make install;
 fi;
 
@@ -548,8 +548,10 @@ if ! "${disable_setup}" && (
   echo "";
   echo "Building memcached...";
   cd "${memcached}";
-  ./configure --prefix="${memcached}/_root" --with-libevent="${libevent}/_root";
-  make;
+  ./configure --prefix="${memcached}/_root" \
+              --with-libevent="${libevent}/_root" \
+              --enable-threads CFLAGS=-m64;
+  make CFLAGS=-m64;
   make install;
 fi;
 
