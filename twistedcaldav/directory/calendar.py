@@ -266,13 +266,13 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
 
-    def provision(self):
-        # If an ACL property does not currently exist, create one from
-        # the defaultACL
-        if not self.hasDeadProperty(davxml.ACL):
-            self.writeDeadProperty(self.defaultAccessControlList())
-        
-        super(DirectoryCalendarHomeResource, self).provision()
+#    def provision(self):
+#        # If an ACL property does not currently exist, create one from
+#        # the defaultACL
+#        if not self.hasDeadProperty(davxml.ACL):
+#            self.writeDeadProperty(self.defaultAccessControlList())
+#        
+#        super(DirectoryCalendarHomeResource, self).provision()
 
     def provisionDefaultCalendars(self):
         self.provision()
