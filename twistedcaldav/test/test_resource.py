@@ -18,7 +18,6 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.resource import CalDAVResource
 
-from twistedcaldav.test.util import StubCacheChangeNotifier
 from twistedcaldav.test.util import InMemoryPropertyStore
 
 

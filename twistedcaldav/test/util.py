@@ -18,7 +18,6 @@ import twisted.web2.dav.test.util
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import succeed
-from twisted.python.filepath import FilePath
 
 from twistedcaldav.static import CalDAVFile
 
