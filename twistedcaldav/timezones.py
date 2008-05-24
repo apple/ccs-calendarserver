@@ -77,11 +77,11 @@ class TimezoneCache(object):
         calendar = Component.fromString(tzData)
 
         if calendar.name() != "VCALENDAR":
-            raise TimezoneException("%s does not contain valid iCalendar data." % (tzStream.name,))
+            raise TimezoneException("%s does not contain valid iCalendar data." % (tzid,))
 
         # Check that we now have it cached
         if getTzid(tzid) == None:
-            raise TimezoneException("Could not read timezone %s from %s." % (tzid, tzStream.name))
+            raise TimezoneException("Could not read timezone %s from timezone cache." % (tzid,))
         
         return True
 
