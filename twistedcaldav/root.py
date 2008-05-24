@@ -23,7 +23,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
-from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
 from twistedcaldav.config import config
 from twistedcaldav.cache import ResponseCache, _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
@@ -71,6 +71,12 @@ class RootResource(DAVFile):
         if config.ResponseCompression:
             from twisted.web2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
+
+    def deadProperties(self):
+        if not hasattr(self, '_dead_properties'):
+            self._dead_properties = CachingXattrPropertyStore(self)
+
+        return self._dead_properties
 
     def checkSacl(self, request):
         """
@@ -125,6 +131,7 @@ class RootResource(DAVFile):
         d.addCallbacks(_authCb, _authEb)
         d.addCallback(_checkSACLCb)
         return d
+
 
     def locateChild(self, request, segments):
         def _authCb((authnUser, authzUser)):

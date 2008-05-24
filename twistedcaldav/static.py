@@ -55,6 +55,7 @@ from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import CachingXattrPropertyStore
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
@@ -83,6 +84,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
         else:
             return super(CalDAVFile, self).__repr__()
+
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = CachingXattrPropertyStore(self)
+
+        return self._dead_properties
 
     ##
     # CalDAV
@@ -409,8 +416,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
     def provision(self):
-        self.provisionFile()
+        if hasattr(self, '_provisioned'):
+            self.provisionFile()
+            self._provisioned = True
+
         return super(AutoProvisioningFileMixIn, self).provision()
+
 
     def provisionFile(self):
         fp = self.fp

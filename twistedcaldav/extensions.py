@@ -47,6 +47,7 @@ from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
+from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule
@@ -695,6 +696,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
              contentType,
          )
 
+
 class ReadOnlyWritePropertiesResourceMixIn (object):
     """
     Read only that will allow writing of properties resource.
@@ -731,3 +733,81 @@ class XMLResponse (Response):
         """
         Response.__init__(self, code, stream=element.toxml())
         self.headers.setHeader("content-type", MimeType("text", "xml"))
+
+
+
+class CachingXattrPropertyStore(xattrPropertyStore):
+    """
+    A Property Store that caches attributes from the xattrs.
+    """
+
+    def __init__(self, resource):
+        self._cache = {}
+        self._not_found = {}
+        super(CachingXattrPropertyStore, self).__init__(resource)
+
+
+    def get(self, qname):
+        if qname in self._cache:
+            log.debug("Cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            return self._cache[qname]
+
+        if qname in self._not_found:
+            log.debug("Not found cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            raise self._not_found[qname]
+
+        log.debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+
+        try:
+            property = super(CachingXattrPropertyStore, self).get(qname)
+        except HTTPError, err:
+            self._not_found[qname] = err
+            raise err
+
+        self._cache[qname] = property
+
+        return property
+
+
+    def set(self, property):
+        super(CachingXattrPropertyStore, self).set(property)
+        log.debug("Updating cache: %r, %r, %r" % (self, self.resource.fp.path, property.qname()))
+        self._cache[property.qname()] = property
+
+        if property.qname() in self._not_found:
+            del self._not_found[property.qname()]
+
+
+    def contains(self, qname):
+        if qname in self._cache:
+            log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            return True
+
+        if qname in self._not_found:
+            log.debug("Contains not found cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            return False
+
+        log.debug("Contains cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+
+        result = super(CachingXattrPropertyStore, self).contains(qname)
+
+        if result is False:
+            self._not_found[qname] = HTTPError(
+                StatusResponse(
+                    responsecode.NOT_FOUND,
+                    "No such property: {%s}%s" % (qname,)
+                )
+            )
+
+        return result
+
+
+    def delete(self, qname):
+        del self._not_found[qname]
+        del self._cache[qname]
+
+        super(CachingXattrPropertyStore, self).delete(qname)
+
+
+    def list(self):
+        return super(CachingXattrPropertyStore, self).list()
