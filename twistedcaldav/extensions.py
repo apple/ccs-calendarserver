@@ -795,7 +795,7 @@ class CachingXattrPropertyStore(xattrPropertyStore):
             self._not_found[qname] = HTTPError(
                 StatusResponse(
                     responsecode.NOT_FOUND,
-                    "No such property: {%s}%s" % (qname,)
+                    "No such property: %s" % (qname,)
                 )
             )
 
