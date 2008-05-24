@@ -56,7 +56,7 @@ limitations under the License.
       <member type="users">user01</member>
     </proxies>
     <read-only-proxies>
-      <member type="users">user02</member>
+      <member type="users">user03</member>
     </read-only-proxies>
   </resource>
   <group>
