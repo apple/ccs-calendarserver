@@ -416,10 +416,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
     def provision(self):
-        if hasattr(self, '_provisioned'):
-            self.provisionFile()
-            self._provisioned = True
-
+        self.provisionFile()
         return super(AutoProvisioningFileMixIn, self).provision()
 
 
