@@ -16,22 +16,18 @@
 
 import uuid
 import time
-import os
 import hashlib
 import cPickle
 
 from zope.interface import implements
 
-from twisted.python.filepath import FilePath
-
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import succeed
 from twisted.internet.protocol import ClientCreator
 
 from twisted.web2.iweb import IResource
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.http import HTTPError, Response
-from twisted.web2.http_headers import Headers
 from twisted.web2.stream import MemoryStream
 
 from twisted.web2.dav.xattrprops import xattrPropertyStore
