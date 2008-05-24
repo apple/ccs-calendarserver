@@ -22,7 +22,7 @@ __all__ = [
     "CalendarUserProxyPrincipalResource",
 ]
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
@@ -154,6 +154,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
         return super(CalendarUserProxyPrincipalResource, self).writeProperty(property, request)
 
+    @inlineCallbacks
     def setGroupMemberSet(self, new_members, request):
         # FIXME: as defined right now it is not possible to specify a calendar-user-proxy group as
         # a member of any other group since the directory service does not know how to lookup
@@ -178,14 +179,15 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
                     "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
-            principal.cacheNotifier.changed()
+            changed = yield principal.cacheNotifier.changed()
 
         # Map the principals to UIDs.
         uids = [p.principalUID() for p in principals]
 
         self._index().setGroupMembers(self.uid, uids)
-        self.parent.cacheNotifier.changed()
-        return succeed(True)
+        changed = yield self.parent.cacheNotifier.changed()
+        yield True
+        return
 
     ##
     # HTTP

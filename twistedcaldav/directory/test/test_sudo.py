@@ -66,23 +66,6 @@ class SudoTestCase(
         record = service.recordWithShortName(self.recordType, 'bob')
         self.failIf(record)
 
-    def test_recordChanges(self):
-        service = self.service()
-
-        record = service.recordWithShortName(self.recordType, 'alice')
-        self.assertEquals(record.password, 'alice')
-
-        record = service.recordWithShortName(self.recordType, 'bob')
-        self.failIf(record)
-
-        plistFile2.copyTo(self._plistFile)
-
-        record = service.recordWithShortName(self.recordType, 'alice')
-        self.assertEquals(record.password, 'alice')
-
-        record = service.recordWithShortName(self.recordType, 'bob')
-        self.assertEquals(record.password, 'bob')
-
     def test_calendaringDisabled(self):
         service = self.service()
 

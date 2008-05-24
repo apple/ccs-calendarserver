@@ -17,6 +17,9 @@
 import twisted.web2.dav.test.util
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twisted.internet.defer import succeed
+from twisted.python.filepath import FilePath
+
 from twistedcaldav.static import CalDAVFile
 
 
@@ -26,7 +29,14 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
 class InMemoryPropertyStore(object):
     def __init__(self):
+        class _FauxPath(object):
+            path = ':memory:'
+
+        class _FauxResource(object):
+            fp = _FauxPath()
+
         self._properties = {}
+        self.resource = _FauxResource()
 
     def get(self, qname):
         data = self._properties.get(qname)
@@ -43,3 +53,4 @@ class StubCacheChangeNotifier(object):
 
     def changed(self):
         self.changedCount += 1
+        return succeed(True)

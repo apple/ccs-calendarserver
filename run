@@ -518,6 +518,42 @@ if ! py_have_module ctypes; then
 fi;
 
 #
+# libevent
+#
+libevent="${top}/libevent-1.4.4-stable"
+
+www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
+
+if ! "${disable_setup}" && (
+  "${force_setup}" || [ ! -d "${libevent}/_root" ]
+); then
+  echo "";
+  echo "Building libevent...";
+  cd "${libevent}";
+  ./configure --prefix="${libevent}/_root";
+  make;
+  make install;
+fi;
+
+#
+# memcached
+#
+memcached="${top}/memcached-1.2.5"
+
+www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
+
+if ! "${disable_setup}" && (
+  "${force_setup}" || [ ! -d "${memcached}/_root" ]
+); then
+  echo "";
+  echo "Building memcached...";
+  cd "${memcached}";
+  ./configure --prefix="${memcached}/_root" --with-libevent="${libevent}/_root";
+  make;
+  make install;
+fi;
+
+#
 # Twisted
 #
 

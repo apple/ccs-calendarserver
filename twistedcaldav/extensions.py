@@ -34,6 +34,7 @@ import cgi
 import time
 
 from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+from twisted.internet.defer import maybeDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
 from twisted.web2.http_headers import MimeType
@@ -185,10 +186,42 @@ class SudoSACLMixin(object):
     authorizationPrincipal = deferredGenerator(authorizationPrincipal)
 
 
+def updateCacheTokenOnCallback(f):
+    def fun(self, *args, **kwargs):
+        def _updateToken(response):
+            return self.cacheNotifier.changed().addCallback(
+                lambda _: response)
+
+        d = maybeDeferred(f, self, *args, **kwargs)
+
+        if hasattr(self, 'cacheNotifier'):
+            d.addCallback(_updateToken)
+
+        return d
+
+    return fun
+
+
 class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
+
+    @updateCacheTokenOnCallback
+    def http_PROPPATCH(self, request):
+        return super(DAVResource, self).http_PROPPATCH(request)
+
+
+    @updateCacheTokenOnCallback
+    def http_DELETE(self, request):
+        return super(DAVResource, self).http_DELETE(request)
+
+
+    @updateCacheTokenOnCallback
+    def http_ACL(self, request):
+        return super(DAVResource, self).http_ACL(request)
+
+
     def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
         """
         See L{IDAVResource.findChildren}.

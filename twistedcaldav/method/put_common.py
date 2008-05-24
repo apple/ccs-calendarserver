@@ -627,7 +627,9 @@ def storeCalendarObjectResource(
 
             if sourcecal:
                 # Change CTag on the parent calendar collection
-                sourceparent.updateCTag()
+                d = waitForDeferred(sourceparent.updateCTag())
+                yield d
+                d.getResult()
 
         if destinationcal:
             result = doDestinationIndex(calendar)
@@ -653,7 +655,9 @@ def storeCalendarObjectResource(
 
         if destinationcal:
             # Change CTag on the parent calendar collection
-            destinationparent.updateCTag()
+            d = waitForDeferred(destinationparent.updateCTag())
+            yield d
+            d.getResult()
 
         # Can now commit changes and forget the rollback details
         rollback.Commit()

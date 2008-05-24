@@ -31,28 +31,9 @@ class CalDAVResourceTests(TestCase):
     def setUp(self):
         self.resource = CalDAVResource()
         self.resource._dead_properties = InMemoryPropertyStore()
-        self.resource.cacheNotifier = StubCacheChangeNotifier()
-
-
-    def test_writeDeadPropertyNotifiesCache(self):
-        self.resource.writeDeadProperty(StubProperty())
-        self.assertEquals(self.resource.cacheNotifier.changedCount, 1)
-
 
     def test_writeDeadPropertyWritesProperty(self):
         prop = StubProperty()
         self.resource.writeDeadProperty(prop)
         self.assertEquals(self.resource._dead_properties.get("StubQname"),
                           prop)
-
-
-    def test_writeDeadPropertyFailureDoesntNotifyCache(self):
-        self.resource._dead_properties = None
-        self.assertRaises(Exception,
-                          self.resource.writeDeadProperty, StubProperty())
-        self.assertEquals(self.resource.cacheNotifier.changedCount, 0)
-
-
-    def test_writeDeadPropertyDoesntFailWithoutACacheNotifier(self):
-        del self.resource.cacheNotifier
-        self.resource.writeDeadProperty(StubProperty())

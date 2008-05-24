@@ -26,7 +26,10 @@ from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.config import config
 from twistedcaldav.cache import ResponseCache, _CachedResponseResource
+from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.log import Logger
+from twistedcaldav.static import CalendarHomeFile
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 log = Logger()
 
@@ -52,7 +55,18 @@ class RootResource(DAVFile):
 
         self.contentFilters = []
 
-        self.responseCache = ResponseCache(self.fp, config.ResponseCacheSize)
+        if config.Memcached['ClientEnabled']:
+            self.responseCache = MemcacheResponseCache(
+                self.fp,
+                config.Memcached['BindAddress'],
+                config.Memcached['Port'])
+
+            CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
+            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
+
+        else:
+            self.responseCache = ResponseCache(self.fp,
+                                               config.ResponseCacheSize)
 
         if config.ResponseCompression:
             from twisted.web2.filter import gzip
@@ -148,6 +162,7 @@ class RootResource(DAVFile):
             return _CachedResponseResource(response), []
 
         def _resourceNotInCacheEb(failure):
+            failure.trap(KeyError)
             return super(RootResource, self).locateChild(request,segments)
 
         if request.method == 'PROPFIND' and not getattr(

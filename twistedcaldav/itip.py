@@ -719,9 +719,7 @@ def deleteResource(collection, name):
     
     def _deletedResourced(result):
         # Change CTag on the parent calendar collection
-        collection.updateCTag()
-        
-        return result
+        return collection.updateCTag().addCallback(lambda _: result)
 
     d = maybeDeferred(delete, "", delchild.fp, "0")
     d.addCallback(_deletedResourced)

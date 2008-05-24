@@ -40,7 +40,7 @@ from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.config import config
-from twistedcaldav.cache import CacheChangeNotifier, PropfindCacheMixin
+from twistedcaldav.cache import XattrCacheChangeNotifier, PropfindCacheMixin
 
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
@@ -361,7 +361,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
     """
     Directory principal resource.
     """
-    cacheNotifierFactory = CacheChangeNotifier
+    cacheNotifierFactory = XattrCacheChangeNotifier
 
     def __init__(self, path, parent, record):
         """

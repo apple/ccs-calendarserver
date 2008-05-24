@@ -36,9 +36,11 @@ def http_DELETE(self, request):
                 if isPseudoCalendarCollectionResource(parent):
                     index = parent.index()
                     index.deleteResource(self.fp.basename())
-                    
+
                     # Change CTag on the parent calendar collection
-                    parent.updateCTag()
+                    d = parent.updateCTag()
+                    d.addCallback(lambda _: response)
+                    return d
 
             return response
 

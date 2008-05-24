@@ -39,6 +39,7 @@ import errno
 from urlparse import urlsplit
 
 from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
+from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -69,7 +70,7 @@ from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 
-from twistedcaldav.cache import CacheChangeNotifier, PropfindCacheMixin
+from twistedcaldav.cache import XattrCacheChangeNotifier, PropfindCacheMixin
 
 log = Logger()
 
@@ -135,12 +136,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise HTTPError(status)
 
             # Initialize CTag on the calendar collection
-            self.updateCTag()
+            d1 = self.updateCTag()
 
             # Create the index so its ready when the first PUTs come in
-            self.index().create()
-
-            return status
+            d1.addCallback(lambda _: self.index().create())
+            d1.addCallback(lambda _: status)
+            return d1
 
         d = self.createSpecialCollection(davxml.ResourceType.calendar)
         d.addCallback(onCalendarCollection)
@@ -286,7 +287,16 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
     def updateCTag(self):
         assert self.isCollection()
-        self.writeDeadProperty(customxml.GETCTag(str(datetime.datetime.now())))
+        try:
+            self.writeDeadProperty(customxml.GETCTag(
+                    str(datetime.datetime.now())))
+        except:
+            return fail(Failure())
+
+        if hasattr(self, 'cacheNotifier'):
+            return self.cacheNotifier.changed()
+
+        return succeed(True)
 
     ##
     # Quota
@@ -549,20 +559,22 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
     """
     Calendar home collection resource.
     """
+    cacheNotifierFactory = XattrCacheChangeNotifier
+
     def __init__(self, path, parent, record):
         """
         @param path: the path to the file which will back the resource.
         """
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
-        self.cacheNotifier = CacheChangeNotifier(self.deadProperties())
+        self.cacheNotifier = self.cacheNotifierFactory(self.deadProperties())
 
     def provisionChild(self, name):
         if config.EnableDropBox:
             DropBoxHomeFileClass = DropBoxHomeFile
         else:
             DropBoxHomeFileClass = None
-            
+
         cls = {
             "inbox"        : ScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
