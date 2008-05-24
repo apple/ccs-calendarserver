@@ -125,7 +125,7 @@ class MemCacheChangeNotifierTests(TestCase):
     def setUp(self):
         self.memcache = InMemoryMemcacheProtocol()
         self.ccn = MemcacheChangeNotifier(InMemoryPropertyStore())
-        self.ccn._memcacheProtocol = self.memcache
+        MemcacheChangeNotifier._memcacheProtocol = self.memcache
         self.ccn._newCacheToken = instancemethod(_newCacheToken,
                                                  self.ccn,
                                                  MemcacheChangeNotifier)
@@ -148,6 +148,9 @@ class MemCacheChangeNotifierTests(TestCase):
         d.addCallback(lambda _: self.assertToken('token1'))
         return d
 
+
+    def tearDown(self):
+        MemcacheChangeNotifier._memcacheProtocol = None
 
 
 class BaseCacheTestMixin(object):
