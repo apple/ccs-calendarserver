@@ -34,7 +34,6 @@ import datetime
 import md5
 import time
 
-from twisted.python import failure
 from twisted.internet.defer import waitForDeferred, deferredGenerator, maybeDeferred
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -180,8 +179,9 @@ def processRequest(request, principal, inbox, calendar, child):
                     newInboxResource(child, newchild)
                 processed = "processed"
             except:
-                log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-                raise iTipException
+                # FIXME: bare except
+                log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                raise iTipException()
             
     else:
         # So we have a partial update. That means we have to do partial updates to instances in
@@ -249,8 +249,9 @@ def processRequest(request, principal, inbox, calendar, child):
                     
                 processed = "processed"
             except:
-                log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-                raise iTipException
+                # FIXME: bare except
+                log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                raise iTipException()
 
     # Remove the now processed incoming request.
     try:
@@ -266,8 +267,9 @@ def processRequest(request, principal, inbox, calendar, child):
                    }[processed]
                 ))
     except:
-        log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-        raise iTipException
+        # FIXME: bare except
+        log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+        raise iTipException()
     yield None
     return
 
@@ -286,7 +288,7 @@ def processAdd(request, principal, inbox, calendar, child):
     """
     log.info("Auto-processing iTIP ADD for: %s" % (str(principal),))
 
-    raise NotImplementedError
+    raise NotImplementedError()
 
 processAdd = deferredGenerator(processAdd)
 
@@ -371,8 +373,9 @@ def processCancel(request, principal, inbox, calendar, child):
                     d.getResult()
                     log.info("Delete calendar component %s in %s as it was cancelled." % (calmatch, calURL))
                 except:
-                    log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-                    raise iTipException
+                    # FIXME: bare except
+                    log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                    raise iTipException()
                 processed = "processed"
             else:
                 processed = "older"
@@ -460,8 +463,9 @@ def processCancel(request, principal, inbox, calendar, child):
                   }[processed]
                 ))
     except:
-        log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-        raise iTipException
+        # FIXME: bare except
+        log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+        raise iTipException()
     yield None
     return
 
@@ -675,6 +679,7 @@ def writeResource(request, collURL, collection, name, calendar):
         yield d
         d.getResult()
     except:
+        # FIXME: bare except
         yield None
         return
     
@@ -757,8 +762,9 @@ def processOthersInInbox(info, newinfo, inbox, child):
                 d.getResult()
                 log.info("Deleted iTIP message %s in Inbox that was older than the new one." % (i[0],))
             except:
-                log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-                raise iTipException
+                # FIXME: bare except
+                log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                raise iTipException()
         else:
             # For any that are newer or the same, mark the new one to be deleted.
             delete_child = True
@@ -771,8 +777,9 @@ def processOthersInInbox(info, newinfo, inbox, child):
             d.getResult()
             log.info("Deleted new iTIP message %s in Inbox because it was older than existing ones." % (child.fp.basename(),))
         except:
-            log.err("Error while auto-processing iTIP: %s" % (failure.Failure(),))
-            raise iTipException
+            # FIXME: bare except
+            log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+            raise iTipException()
     
     yield delete_child
 
