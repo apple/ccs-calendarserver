@@ -23,7 +23,7 @@ __all__ = [
     "TimezoneServiceResource",
 ]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
@@ -105,21 +105,19 @@ class TimezoneServiceResource (CalDAVResource):
         # GET and POST do the same thing
         return self.http_POST(request)
 
-    @deferredGenerator
+    @inlineCallbacks
     def http_POST(self, request):
         """
         The timezone service POST method.
         """
 
         # Check authentication and access controls
-        x = waitForDeferred(self.authorize(request, (davxml.Read(),)))
-        yield x
-        x.getResult()
+        yield self.authorize(request, (davxml.Read(),))
         
         if not request.args:
             # Do normal GET behavior
-            yield self.render(request)
-            return
+            response = yield self.render(request)
+            returnValue(response)
 
         method = request.args.get("method", ("",))
         if len(method) != 1:
@@ -135,7 +133,7 @@ class TimezoneServiceResource (CalDAVResource):
         if action is None:
             raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "supported-method")))
 
-        yield action(request)
+        returnValue(action(request))
 
     def doPOSTList(self, request):
         """

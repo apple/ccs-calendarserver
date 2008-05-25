@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import waitForDeferred
-from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import index
 
 import os
@@ -78,6 +77,7 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         if os.path.exists(path):
             rmdir(path)
 
+        @inlineCallbacks
         def do_test(response):
             response = IResponse(response)
 
@@ -92,17 +92,13 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                 (davxml.DisplayName.qname(), "Lisa's Events"),
                 (caldavxml.CalendarDescription.qname(), "Calendar restricted to events."),
             ):
-                stored = waitForDeferred(resource.readProperty(qname, None))
-                yield stored
-                stored = stored.getResult()
+                stored = yield resource.readProperty(qname, None)
                 stored = str(stored)
                 if stored != value:
                     self.fail("MKCALENDAR failed to set property %s: %s != %s"
                               % (qname, stored, value))
 
-            supported_components = waitForDeferred(resource.readProperty(caldavxml.SupportedCalendarComponentSet, None))
-            yield supported_components
-            supported_components = supported_components.getResult()
+            supported_components = yield resource.readProperty(caldavxml.SupportedCalendarComponentSet, None)
             supported_components = supported_components.children
             if len(supported_components) != 1:
                 self.fail("MKCALENDAR failed to set property %s: len(%s) != 1"
@@ -112,15 +108,11 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                           % (caldavxml.SupportedCalendarComponentSet.qname(),
                              supported_components[0].toxml(), caldavxml.CalendarComponent(name="VEVENT").toxml()))
 
-            tz = waitForDeferred(resource.readProperty(caldavxml.CalendarTimeZone, None))
-            yield tz
-            tz = tz.getResult()
+            tz = yield resource.readProperty(caldavxml.CalendarTimeZone, None)
             tz = tz.calendar()
             self.failUnless(tz.resourceType() == "VTIMEZONE")
             self.failUnless(tuple(tz.subcomponents())[0].propertyValue("TZID") == "US-Eastern")
         
-        do_test = deferredGenerator(do_test)
-
         mk = caldavxml.MakeCalendar(
             davxml.Set(
                 davxml.PropertyContainer(

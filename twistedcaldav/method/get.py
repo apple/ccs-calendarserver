@@ -20,7 +20,7 @@ CalDAV GET method.
 
 __all__ = ["http_GET"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response
@@ -31,6 +31,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.ical import Component
 
+@inlineCallbacks
 def http_GET(self, request):
 
     # Look for calendar access restriction on existing resource.
@@ -43,17 +44,12 @@ def http_GET(self, request):
         if access in (Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED):
     
             # Check authorization first
-            d = waitForDeferred(self.authorize(request, (davxml.Read(),)))
-            yield d
-            d.getResult()
+            yield self.authorize(request, (davxml.Read(),))
 
             # Non DAV:owner's have limited access to the data
-            d = waitForDeferred(self.isOwner(request))
-            yield d
-            isowner = d.getResult()
+            isowner = yield self.isOwner(request)
             
             if not isowner:
-
                 # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
                 # access restrictions to the data.
                 caldata = caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
@@ -61,12 +57,8 @@ def http_GET(self, request):
                 response = Response()
                 response.stream = MemoryStream(caldata)
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
-                yield response
-                return
+                returnValue(response)
 
     # Do normal GET behavior
-    d = waitForDeferred(super(CalDAVFile, self).http_GET(request))
-    yield d
-    yield d.getResult()
-
-http_GET = deferredGenerator(http_GET)
+    response = yield super(CalDAVFile, self).http_GET(request)
+    returnValue(response)
