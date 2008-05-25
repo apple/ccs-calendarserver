@@ -38,7 +38,7 @@ import os
 import errno
 from urlparse import urlsplit
 
-from twisted.internet.defer import deferredGenerator, fail, succeed, waitForDeferred
+from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
@@ -178,6 +178,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         d.addErrback(onError)
         return d
 
+    @inlineCallbacks
     def iCalendarRolledup(self, request):
         if self.isPseudoCalendarCollection():
             # Generate a monolithic calendar
@@ -186,16 +187,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
-            filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
-            yield filteredaces
-            filteredaces = filteredaces.getResult()
+            filteredaces = yield self.inheritedACEsforChildren(request)
 
             # Must verify ACLs which means we need a request object at this point
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
-                    child = waitForDeferred(request.locateChildResource(self, name))
-                    yield child
-                    child = child.getResult()
+                    child = yield request.locateChildResource(self, name)
                     child = IDAVResource(child)
                 except TypeError:
                     child = None
@@ -203,9 +200,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 if child is not None:
                     # Check privileges of child - skip if access denied
                     try:
-                        d = waitForDeferred(child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces))
-                        yield d
-                        d.getResult()
+                        yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
                     except AccessDeniedError:
                         continue
                     subcalendar = self.iCalendar(name)
@@ -214,12 +209,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     for component in subcalendar.subcomponents():
                         calendar.addComponent(component)
 
-            yield calendar
-            return
+            returnValue(calendar)
 
-        yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
-
-    iCalendarRolledup = deferredGenerator(iCalendarRolledup)
+        raise HTTPError((ErrorResponse(responsecode.BAD_REQUEST)))
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
@@ -318,6 +310,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         @return: an L{Deferred} with a C{int} result containing the size of the resource.
         """
         if self.isCollection():
+            @inlineCallbacks
             def walktree(top):
                 """
                 Recursively descend the directory tree rooted at top,
@@ -336,9 +329,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     child = top.child(f)
                     if child.isdir():
                         # It's a directory, recurse into it
-                        result = waitForDeferred(walktree(child))
-                        yield result
-                        total += result.getResult()
+                        total += yield walktree(child)
                     elif child.isfile():
                         # It's a file, call the callback function
                         total += child.getsize()
@@ -346,9 +337,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         # Unknown file type, print a message
                         pass
 
-                yield total
-
-            walktree = deferredGenerator(walktree)
+                returnValue(total)
 
             return walktree(self.fp)
         else:
@@ -387,6 +376,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         return path.startswith(parent) and (len(path) > len(parent)) and (not immediateChild or (path.find("/", len(parent)) == -1))
 
+    @inlineCallbacks
     def _checkParents(self, request, test):
         """
         @param request: the request being processed.
@@ -402,17 +392,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
             parent_uri = parentForURL(parent_uri)
             if not parent_uri: break
 
-            parent = waitForDeferred(request.locateResource(parent_uri))
-            yield parent
-            parent = parent.getResult()
+            parent = yield request.locateResource(parent_uri)
 
             if test(parent):
-                yield parent
-                return
-
-        yield None
-
-    _checkParents = deferredGenerator(_checkParents)
+                returnValue(parent)
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
     def provision(self):
