@@ -27,7 +27,7 @@ import md5
 import time
 
 from twisted.internet import reactor
-from twisted.internet.defer import deferredGenerator, maybeDeferred, succeed, waitForDeferred
+from twisted.internet.defer import maybeDeferred, succeed, inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response
@@ -121,7 +121,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             
         return super(ScheduleInboxResource, self).readProperty(property, request)
 
-    @deferredGenerator
+    @inlineCallbacks
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -146,9 +146,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 old_calendars = set([str(href) for href in self.readDeadProperty(property).children])
             added_calendars = new_calendars.difference(old_calendars)
             for href in added_calendars:
-                cal = waitForDeferred(request.locateResource(str(href)))
-                yield cal
-                cal = cal.getResult()
+                cal = yield request.locateResource(str(href))
                 if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
                     # Validate that href's point to a valid calendar.
                     raise HTTPError(ErrorResponse(
@@ -156,9 +154,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                         (caldav_namespace, "valid-calendar-url")
                     ))
 
-        d = waitForDeferred(super(ScheduleInboxResource, self).writeProperty(property, request))
-        yield d
-        yield d.getResult()
+        yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
@@ -185,7 +181,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
 
-    @deferredGenerator
+    @inlineCallbacks
     def http_POST(self, request):
         """
         The CalDAV POST method.
@@ -196,9 +192,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         issues which the other approach would have with large numbers of recipients.
         """
         # Check authentication and access controls
-        x = waitForDeferred(self.authorize(request, (caldavxml.Schedule(),)))
-        yield x
-        x.getResult()
+        yield self.authorize(request, (caldavxml.Schedule(),))
 
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
@@ -249,9 +243,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         # Parse the calendar object from the HTTP request stream
         try:
-            d = waitForDeferred(Component.fromIStream(request.stream))
-            yield d
-            calendar = d.getResult()
+            calendar = yield Component.fromIStream(request.stream)
         except:
             self.log_error("Error while handling POST: %s" % (Failure(),))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
@@ -370,9 +362,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             else:
                 inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
-                    inbox = waitForDeferred(request.locateResource(inboxURL))
-                    yield inbox
-                    inbox = inbox.getResult()
+                    inbox = yield request.locateResource(inboxURL)
                 else:
                     self.log_error("No schedule inbox for principal: %s" % (principal,))
 
@@ -388,9 +378,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 # Check access controls
                 #
                 try:
-                    d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(organizerPrincipal.principalURL()))))
-                    yield d
-                    d.getResult()
+                    yield inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(organizerPrincipal.principalURL())))
                 except AccessDeniedError:
                     self.log_error("Could not access Inbox for recipient: %s" % (recipient,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permisions")))
@@ -407,22 +395,16 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     attendeeProp = calendar.getAttendeeProperty(cuas)
             
                     # Find the current recipients calendar-free-busy-set
-                    fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
-                    yield fbset
-                    fbset = fbset.getResult()
+                    fbset = yield principal.calendarFreeBusyURIs(request)
 
                     # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
                     fbinfo = ([], [], [])
                 
                     try:
                         # Process the availability property from the Inbox.
-                        has_prop = waitForDeferred(inbox.hasProperty((calendarserver_namespace, "calendar-availability"), request))
-                        yield has_prop
-                        has_prop = has_prop.getResult()
+                        has_prop = yield inbox.hasProperty((calendarserver_namespace, "calendar-availability"), request)
                         if has_prop:
-                            availability = waitForDeferred(inbox.readProperty((calendarserver_namespace, "calendar-availability"), request))
-                            yield availability
-                            availability = availability.getResult()
+                            availability = yield inbox.readProperty((calendarserver_namespace, "calendar-availability"), request)
                             availability = availability.calendar()
                             report_common.processAvailabilityFreeBusy(availability, fbinfo, timeRange)
 
@@ -433,15 +415,13 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Now process free-busy set calendars
                         matchtotal = 0
                         for calendarResourceURL in fbset:
-                            calendarResource = waitForDeferred(request.locateResource(calendarResourceURL))
-                            yield calendarResource
-                            calendarResource = calendarResource.getResult()
+                            calendarResource = yield request.locateResource(calendarResourceURL)
                             if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
                                 # We will ignore missing calendars. If the recipient has failed to
                                 # properly manage the free busy set that should not prevent us from working.
                                 continue
                          
-                            matchtotal = waitForDeferred(report_common.generateFreeBusyInfo(
+                            matchtotal = yield report_common.generateFreeBusyInfo(
                                 request,
                                 calendarResource,
                                 fbinfo,
@@ -450,9 +430,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                                 excludeuid = excludeUID,
                                 organizer = organizer,
                                 same_calendar_user = same_calendar_user
-                            ))
-                            yield matchtotal
-                            matchtotal = matchtotal.getResult()
+                            )
                     
                         # Build VFREEBUSY iTIP reply for this recipient
                         fbresult = report_common.buildFreeBusyResult(
@@ -479,27 +457,27 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 
                     # Get a resource for the new item
                     childURL = joinURL(inboxURL, name)
-                    child = waitForDeferred(request.locateResource(childURL))
-                    yield child
-                    child = child.getResult()
+                    child = yield request.locateResource(childURL)
             
-                    # Copy calendar to inbox (doing fan-out)
-                    d = waitForDeferred(
-                            maybeDeferred(
-                                storeCalendarObjectResource,
-                                request=request,
-                                sourcecal = False,
-                                destination = child,
-                                destination_uri = childURL,
-                                calendardata = str(calendar),
-                                destinationparent = inbox,
-                                destinationcal = True,
-                                isiTIP = True
-                            )
-                         )
-                    yield d
                     try:
-                        d.getResult()
+                        # Copy calendar to inbox (doing fan-out)
+                        yield maybeDeferred(
+                            storeCalendarObjectResource,
+                            request=request,
+                            sourcecal = False,
+                            destination = child,
+                            destination_uri = childURL,
+                            calendardata = str(calendar),
+                            destinationparent = inbox,
+                            destinationcal = True,
+                            isiTIP = True
+                        )
+                    except: # FIXME: bare except
+                        self.log_error("Could not store data in Inbox : %s" % (inbox,))
+                        err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+                        responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
+                        recipientsState["BAD"] += 1
+                    else:
                         responses.add(recipient, responsecode.OK, reqstatus="2.0;Success")
                         recipientsState["OK"] += 1
         
@@ -512,11 +490,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Look for auto-schedule option
                         if principal.autoSchedule():
                             autoresponses.append((principal, inbox, child))
-                    except:
-                        self.log_error("Could not store data in Inbox : %s" % (inbox,))
-                        err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-                        responses.add(recipient, Failure(exc_value=err), reqstatus="3.8;No authority")
-                        recipientsState["BAD"] += 1
 
         # Now we have to do auto-respond
         if len(autoresponses) != 0:
@@ -531,7 +504,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             #reactor.callInThread(itip.handleRequest, *(request, principal, inbox, calendar.duplicate(), child)) #@UndefinedVariable
 
         # Return with final response if we are done
-        yield responses.response()
+        returnValue(responses.response())
 
 class ScheduleResponseResponse (Response):
     """
