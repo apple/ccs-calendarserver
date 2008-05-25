@@ -34,7 +34,9 @@ import datetime
 import md5
 import time
 
-from twisted.internet.defer import waitForDeferred, deferredGenerator, maybeDeferred
+from twisted.python.failure import Failure
+from twisted.internet.defer import waitForDeferred, deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
@@ -62,8 +64,7 @@ class iTipException(Exception):
 
 def handleRequest(request, principal, inbox, calendar, child):
     """
-    Handle an iTIP response automatically using a deferredGenerator.
-
+    Handle an iTIP response automatically.
     @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
     @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
@@ -82,10 +83,10 @@ def handleRequest(request, principal, inbox, calendar, child):
 
     return f(request, principal, inbox, calendar, child)
 
+@inlineCallbacks
 def processRequest(request, principal, inbox, calendar, child):
     """
     Process a METHOD=REQUEST.
-    This is a deferredGenerator function so use yield whenever we have a deferred.
 
     Steps:
     
@@ -121,9 +122,7 @@ def processRequest(request, principal, inbox, calendar, child):
 
     # Next we want to try and find a match to any components on existing calendars listed as contributing
     # to free-busy as we will need to update those with the new one.
-    d = waitForDeferred(findCalendarMatch(request, principal, calendar))
-    yield d
-    calmatch, updatecal, calURL = d.getResult()
+    calmatch, updatecal, calURL = yield findCalendarMatch(request, principal, calendar)
     
     if new_master:
         # So we have a full update. That means we need to delete any existing events completely and
@@ -147,35 +146,25 @@ def processRequest(request, principal, inbox, calendar, child):
             
         if check_reply:
             # Process the reply by determining PARTSTAT and sending the reply and booking the event.
-            d = waitForDeferred(checkForReply(request, principal, calendar))
-            yield d
-            doreply, replycal, accepted = d.getResult()
+            doreply, replycal, accepted = yield checkForReply(request, principal, calendar)
             
             try:
                 if accepted:
                     if calmatch:
-                        newchild = waitForDeferred(writeResource(request, calURL, updatecal, calmatch, calendar))
-                        yield newchild
-                        newchild = newchild.getResult()
+                        newchild = yield writeResource(request, calURL, updatecal, calmatch, calendar)
                         log.info("Replaced calendar component %s with new iTIP message in %s." % (calmatch, calURL))
                     else:
-                        newchild = waitForDeferred(writeResource(request, calURL, updatecal, None, calendar))
-                        yield newchild
-                        newchild.getResult()
+                        newchild = yield writeResource(request, calURL, updatecal, None, calendar)
                         log.info("Added new calendar component in %s." % (calURL,))
                 else:
                     if calmatch:
-                        d = waitForDeferred(deleteResource(updatecal, calmatch))
-                        yield d
-                        d.getResult()
+                        yield deleteResource(updatecal, calmatch)
                         log.info("Deleted calendar component %s in %s as update was not accepted." % (calmatch, calURL))
                         
                 # Send a reply if needed. 
                 if doreply:
                     log.info("Sending iTIP REPLY %s" % (("declined","accepted")[accepted],))
-                    newchild = waitForDeferred(writeReply(request, principal, replycal, inbox))
-                    yield newchild
-                    newchild = newchild.getResult()
+                    newchild = yield writeReply(request, principal, replycal, inbox)
                     newInboxResource(child, newchild)
                 processed = "processed"
             except:
@@ -220,31 +209,23 @@ def processRequest(request, principal, inbox, calendar, child):
 
         if check_reply:
             # Process the reply by determining PARTSTAT and sending the reply and booking the event.
-            d = waitForDeferred(checkForReply(request, principal, calendar))
-            yield d
-            doreply, replycal, accepted = d.getResult()
+            doreply, replycal, accepted = yield checkForReply(request, principal, calendar)
             
             try:
                 if calmatch:
                     # Merge the new instances with the old ones
                     mergeComponents(calendar, cal)
-                    newchild = waitForDeferred(writeResource(request, calURL, updatecal, calmatch, cal))
-                    yield newchild
-                    newchild = newchild.getResult()
+                    newchild = yield writeResource(request, calURL, updatecal, calmatch, cal)
                     log.info("Merged calendar component %s with new iTIP message in %s." % (calmatch, calURL))
                 else:
                     if accepted:
-                        newchild = waitForDeferred(writeResource(request, calURL, updatecal, None, calendar))
-                        yield newchild
-                        newchild.getResult()
+                        newchild = yield writeResource(request, calURL, updatecal, None, calendar)
                         log.info("Added new calendar component in %s." % (calURL,))
                         
                 # Do reply if needed. 
                 if doreply:
                     log.info("Sending iTIP REPLY %s" % (("declined","accepted")[accepted],))
-                    newchild = waitForDeferred(writeReply(request, principal, replycal, inbox))
-                    yield newchild
-                    newchild = newchild.getResult()
+                    newchild = yield writeReply(request, principal, replycal, inbox)
                     newInboxResource(child, newchild)
                     
                 processed = "processed"
@@ -255,9 +236,7 @@ def processRequest(request, principal, inbox, calendar, child):
 
     # Remove the now processed incoming request.
     try:
-        d = waitForDeferred(deleteResource(inbox, child.fp.basename()))
-        yield d
-        d.getResult()
+        yield deleteResource(inbox, child.fp.basename())
         log.info("Deleted new iTIP message %s in Inbox because it has been %s." % (
                    child.fp.basename(),
                    {
@@ -270,15 +249,10 @@ def processRequest(request, principal, inbox, calendar, child):
         # FIXME: bare except
         log.err("Error while auto-processing iTIP: %s" % (Failure(),))
         raise iTipException()
-    yield None
-    return
-
-processRequest = deferredGenerator(processRequest)
 
 def processAdd(request, principal, inbox, calendar, child):
     """
     Process a METHOD=ADD.
-    This is a deferredGenerator function so use yield whenever we have a deferred.
 
     @param request: the L{twisted.web2.server.Request} for the current request.
     @param principal: the L{CalendarPrincipalFile} principal resource for the principal we are dealing with.
@@ -287,15 +261,12 @@ def processAdd(request, principal, inbox, calendar, child):
     @param child: the L{CalDAVFile} for the iTIP message resource already saved to the Inbox.
     """
     log.info("Auto-processing iTIP ADD for: %s" % (str(principal),))
-
     raise NotImplementedError()
 
-processAdd = deferredGenerator(processAdd)
-
+@inlineCallbacks
 def processCancel(request, principal, inbox, calendar, child):
     """
     Process a METHOD=CANCEL.
-    This is a deferredGenerator function so use yield whenever we have a deferred.
 
     Policy find all components that match UID, SEQ and R-ID and remove them.
 
@@ -346,19 +317,13 @@ def processCancel(request, principal, inbox, calendar, child):
             
     if not has_rid:
         # Compare the new one with each existing one.
-        d = waitForDeferred(processOthersInInbox(info, newinfo, inbox, child))
-        yield d
-        delete_child = d.getResult()
-
+        delete_child = yield processOthersInInbox(info, newinfo, inbox, child)
         if delete_child:
-            yield None
             return
 
         # Next we want to try and find a match to any components on existing calendars listed as contributing
         # to free-busy as we will need to update those with the new one.
-        d = waitForDeferred(findCalendarMatch(request, principal, calendar))
-        yield d
-        calmatch, updatecal, calURL = d.getResult()
+        calmatch, updatecal, calURL = yield findCalendarMatch(request, principal, calendar)
         
         # If we have a match then we need to check whether we are updating etc
         if calmatch:
@@ -368,9 +333,7 @@ def processCancel(request, principal, inbox, calendar, child):
             if compareSyncInfo(info, newinfo) < 0:
                 # Delete existing resource which has been cancelled
                 try:
-                    d = waitForDeferred(deleteResource(updatecal, calmatch,))
-                    yield d
-                    d.getResult()
+                    yield deleteResource(updatecal, calmatch)
                     log.info("Delete calendar component %s in %s as it was cancelled." % (calmatch, calURL))
                 except:
                     # FIXME: bare except
@@ -385,9 +348,7 @@ def processCancel(request, principal, inbox, calendar, child):
     else:
         # Try and find a match to any components on existing calendars listed as contributing
         # to free-busy as we will need to update those with the new one.
-        d = waitForDeferred(findCalendarMatch(request, principal, calendar))
-        yield d
-        calmatch, updatecal, calURL = d.getResult()
+        calmatch, updatecal, calURL = yield findCalendarMatch(request, principal, calendar)
         
         # If we have a match then we need to check whether we are updating etc
         if calmatch:
@@ -432,15 +393,11 @@ def processCancel(request, principal, inbox, calendar, child):
                 # in which case the calendar object is empty (except for VTIMEZONEs).
                 if existing_calendar.mainType() is None:
                     # Delete the now empty calendar object
-                    d = waitForDeferred(deleteResource(updatecal, calmatch))
-                    yield d
-                    d.getResult()
+                    yield deleteResource(updatecal, calmatch)
                     log.info("Deleted calendar component %s after cancellations from iTIP message in %s." % (calmatch, calURL))
                 else:
                     # Update the existing calendar object
-                    newchild = waitForDeferred(writeResource(request, calURL, updatecal, calmatch, existing_calendar))
-                    yield newchild
-                    newchild = newchild.getResult()
+                    newchild = yield writeResource(request, calURL, updatecal, calmatch, existing_calendar)
                     log.info("Updated calendar component %s with cancellations from iTIP message in %s." % (calmatch, calURL))
                 processed = "processed"
             else:
@@ -451,9 +408,7 @@ def processCancel(request, principal, inbox, calendar, child):
 
     # Remove the now processed incoming request.
     try:
-        d = waitForDeferred(deleteResource(inbox, child.fp.basename()))
-        yield d
-        d.getResult()
+        yield deleteResource(inbox, child.fp.basename())
         log.info("Deleted new iTIP message %s in Inbox because it has been %s." % (
                   child.fp.basename(),
                   {
@@ -466,11 +421,8 @@ def processCancel(request, principal, inbox, calendar, child):
         # FIXME: bare except
         log.err("Error while auto-processing iTIP: %s" % (Failure(),))
         raise iTipException()
-    yield None
-    return
 
-processCancel = deferredGenerator(processCancel)
-
+@inlineCallbacks
 def checkForReply(request, principal, calendar):
     """
     Check whether a reply to the given iTIP message is needed. We will not process a reply
@@ -501,14 +453,10 @@ def checkForReply(request, principal, calendar):
     uid = comp.propertyValue("UID")
 
     # Now compare each instance time-range with the index and see if there is an overlap
-    fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
-    yield fbset
-    fbset = fbset.getResult()
+    fbset = yield principal.calendarFreeBusyURIs(request)
 
     for calURL in fbset:
-        testcal = waitForDeferred(request.locateResource(calURL))
-        yield testcal
-        testcal = testcal.getResult()
+        testcal = yield request.locateResource(calURL)
         
         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
         fbinfo = ([], [], [])
@@ -519,9 +467,7 @@ def checkForReply(request, principal, calendar):
                 tr = caldavxml.TimeRange(start="20000101", end="20000101")
                 tr.start = instance.start
                 tr.end = instance.end
-                d = waitForDeferred(report_common.generateFreeBusyInfo(request, testcal, fbinfo, tr, 0, uid))
-                yield d
-                d.getResult()
+                yield report_common.generateFreeBusyInfo(request, testcal, fbinfo, tr, 0, uid)
                 
                 # If any fbinfo entries exist we have an overlap
                 if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
@@ -539,8 +485,7 @@ def checkForReply(request, principal, calendar):
     cuas = principal.calendarUserAddresses()
     attendeeProps = calendar.getAttendeeProperties(cuas)
     if not attendeeProps:
-        yield False, None, accepted
-        return
+        returnValue((False, None, accepted))
 
     # Look for specific parameters
     rsvp = True
@@ -590,9 +535,7 @@ def checkForReply(request, principal, calendar):
             if attendeeProp is None or (attendee.value() != attendeeProp.value()):
                 component.removeProperty(attendee)
 
-    yield rsvp, replycal, accepted
-
-checkForReply = deferredGenerator(checkForReply)
+    returnValue((rsvp, replycal, accepted))
 
 def writeReply(request, principal, replycal, ainbox):
     """
@@ -631,6 +574,7 @@ def writeReply(request, principal, replycal, ainbox):
 
 writeReply = deferredGenerator(writeReply)
 
+@inlineCallbacks
 def writeResource(request, collURL, collection, name, calendar):
     """
     Write out the calendar resource (iTIP) message to the specified calendar, either over-writing the named
@@ -650,9 +594,7 @@ def writeResource(request, collURL, collection, name, calendar):
 
     # Get a resource for the new item
     newchildURL = joinURL(collURL, name)
-    newchild = waitForDeferred(request.locateResource(newchildURL))
-    yield newchild
-    newchild = newchild.getResult()
+    newchild = yield request.locateResource(newchildURL)
     
     # Modify the original calendar data by removing the METHOD property - everything else is left as-is,
     # as any other needed changes (e.g. RSVP/PARTSTAT) will have been updated.
@@ -666,26 +608,21 @@ def writeResource(request, collURL, collection, name, calendar):
     
     # Now write it to the resource
     try:
-        d = waitForDeferred(storeCalendarObjectResource(
-                request=request,
-                sourcecal = False,
-                destination = newchild,
-                destination_uri = newchildURL,
-                calendardata = str(calendar),
-                destinationparent = collection,
-                destinationcal = True,
-                isiTIP = itipper
-            ))
-        yield d
-        d.getResult()
+        yield storeCalendarObjectResource(
+            request=request,
+            sourcecal = False,
+            destination = newchild,
+            destination_uri = newchildURL,
+            calendardata = str(calendar),
+            destinationparent = collection,
+            destinationcal = True,
+            isiTIP = itipper
+        )
     except:
         # FIXME: bare except
-        yield None
         return
     
-    yield newchild
-
-writeResource = deferredGenerator(writeResource)    
+    returnValue(newchild)
 
 def newInboxResource(child, newchild):
     """
@@ -750,6 +687,7 @@ def canAutoRespond(calendar):
     
     return True
 
+@inlineCallbacks
 def processOthersInInbox(info, newinfo, inbox, child):
     # Compare the new one with each existing one.
     delete_child = False
@@ -757,9 +695,7 @@ def processOthersInInbox(info, newinfo, inbox, child):
         # For any that are older, delete them.
         if compareSyncInfo(i, newinfo) < 0:
             try:
-                d = waitForDeferred(deleteResource(inbox, i[0]))
-                yield d
-                d.getResult()
+                yield deleteResource(inbox, i[0])
                 log.info("Deleted iTIP message %s in Inbox that was older than the new one." % (i[0],))
             except:
                 # FIXME: bare except
@@ -772,36 +708,29 @@ def processOthersInInbox(info, newinfo, inbox, child):
     # Delete the new one if so marked.
     if delete_child:
         try:
-            d = waitForDeferred(deleteResource(inbox, child.fp.basename()))
-            yield d
-            d.getResult()
+            yield deleteResource(inbox, child.fp.basename())
             log.info("Deleted new iTIP message %s in Inbox because it was older than existing ones." % (child.fp.basename(),))
         except:
             # FIXME: bare except
             log.err("Error while auto-processing iTIP: %s" % (Failure(),))
             raise iTipException()
     
-    yield delete_child
+    returnValue(delete_child)
 
-processOthersInInbox = deferredGenerator(processOthersInInbox)    
-
+@inlineCallbacks
 def findCalendarMatch(request, principal, calendar):
     # Try and find a match to any components on existing calendars listed as contributing
     # to free-busy as we will need to update those with the new one.
     
     # Find the current recipients calendar-free-busy-set
-    fbset = waitForDeferred(principal.calendarFreeBusyURIs(request))
-    yield fbset
-    fbset = fbset.getResult()
+    fbset = yield principal.calendarFreeBusyURIs(request)
 
     # Find the first calendar in the list with a component matching the one we are processing
     calmatch = None
     updatecal = None
     calURL = None
     for calURL in fbset:
-        updatecal = waitForDeferred(request.locateResource(calURL))
-        yield updatecal
-        updatecal = updatecal.getResult()
+        updatecal = yield request.locateResource(calURL)
         if updatecal is None or not updatecal.exists() or not isCalendarCollectionResource(updatecal):
             # We will ignore missing calendars. If the recipient has failed to
             # properly manage the free busy set that should not prevent us from working.
@@ -813,13 +742,9 @@ def findCalendarMatch(request, principal, calendar):
     
     if calmatch is None and len(fbset):
         calURL = fbset[0]
-        updatecal = waitForDeferred(request.locateResource(calURL))
-        yield updatecal
-        updatecal = updatecal.getResult()
+        updatecal = yield request.locateResource(calURL)
 
-    yield calmatch, updatecal, calURL
-
-findCalendarMatch = deferredGenerator(findCalendarMatch)    
+    returnValue((calmatch, updatecal, calURL))
 
 def matchComponentInCalendar(collection, calendar):
     """
