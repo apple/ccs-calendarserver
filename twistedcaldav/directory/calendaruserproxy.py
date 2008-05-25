@@ -189,10 +189,9 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
         # Map the principals to UIDs.
         uids = [p.principalUID() for p in principals]
 
-        _ignore = yield self._index().setGroupMembers(self.uid, uids)
+        yield self._index().setGroupMembers(self.uid, uids)
         changed = yield self.parent.cacheNotifier.changed()
-        yield True
-        return
+        returnValue(True)
 
     ##
     # HTTP
