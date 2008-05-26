@@ -1,0 +1,69 @@
+# Copyright (c) 2007 Twisted Matrix Laboratories.
+# See LICENSE for details.
+
+"""
+Test the memcacher cache abstraction.
+"""
+
+from twisted.internet.defer import inlineCallbacks
+from twisted.trial.unittest import TestCase
+
+from twistedcaldav.config import config
+from twistedcaldav.memcacher import Memcacher
+
+class MemcacherTestCase(TestCase):
+    """
+    Test Memcacher abstract cache.
+    """
+
+    @inlineCallbacks
+    def test_setget(self):
+
+        for processType in ("Single", "Combined",):
+            config.processType = processType
+
+            cacher = Memcacher("testing")
+    
+            result = yield cacher.set("akey", "avalue")
+            self.assertTrue(result)
+
+            result = yield cacher.get("akey")
+            if isinstance(cacher._memcacheProtocol, Memcacher.nullCacher):
+                self.assertEquals(None, result)
+            else:
+                self.assertEquals("avalue", result)
+
+    @inlineCallbacks
+    def test_missingget(self):
+
+        for processType in ("Single", "Combined",):
+            config.processType = processType
+
+            cacher = Memcacher("testing")
+    
+            result = yield cacher.get("akey")
+            self.assertEquals(None, result)
+
+    @inlineCallbacks
+    def test_delete(self):
+
+        for processType in ("Single", "Combined",):
+            config.processType = processType
+
+            cacher = Memcacher("testing")
+    
+            result = yield cacher.set("akey", "avalue")
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            if isinstance(cacher._memcacheProtocol, Memcacher.nullCacher):
+                self.assertEquals(None, result)
+            else:
+                self.assertEquals("avalue", result)
+    
+            result = yield cacher.delete("akey")
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            self.assertEquals(None, result)
+

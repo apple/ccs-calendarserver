@@ -24,6 +24,51 @@ from twistedcaldav.config import config
 class Memcacher(LoggingMixIn):
     _memcacheProtocol = None
 
+    class memoryCacher():
+        """
+        A class implementing the memcache client API we care about but
+        using a dict to store the results in memory. This can be used
+        for caching on a single instance server, and for tests, where
+        memcached may not be running.
+        """
+        
+        def __init__(self):
+            self._cache = {}
+
+        def set(self, key, value):
+            self._cache[key] = value
+            return succeed(True)
+            
+        def get(self, key):
+            return succeed((0, self._cache.get(key, None),))
+        
+        def delete(self, key):
+            try:
+                del self._cache[key]
+                return succeed(True)
+            except KeyError:
+                return succeed(False)
+
+    #TODO: an sqlite based cacher that can be used for multiple instance servers
+    # in the absence of memcached. This is not ideal and we may want to not implement
+    # this, but it is being documented for completeness.
+    #
+    # For now we implement a cacher that does not cache.
+    class nullCacher():
+        """
+        A class implementing the memcache client API we care about but
+        does not actually cache anything.
+        """
+        
+        def set(self, key, value):
+            return succeed(True)
+            
+        def get(self, key):
+            return succeed((0, None,))
+        
+        def delete(self, key):
+            return succeed(True)
+
     def __init__(self, namespace):
         self._namespace = namespace
         self._host = config.Memcached['BindAddress']
@@ -34,17 +79,28 @@ class Memcacher(LoggingMixIn):
 
     def _getMemcacheProtocol(self):
         if Memcacher._memcacheProtocol is not None:
-            return succeed(self._memcacheProtocol)
+            return succeed(Memcacher._memcacheProtocol)
 
-        d = ClientCreator(self._reactor, MemCacheProtocol).connectTCP(
-            self._host,
-            self._port)
+        if config.Memcached['ClientEnabled']:
+            d = ClientCreator(self._reactor, MemCacheProtocol).connectTCP(
+                self._host,
+                self._port)
+    
+            def _cacheProtocol(proto):
+                Memcacher._memcacheProtocol = proto
+                return proto
+    
+            return d.addCallback(_cacheProtocol)
 
-        def _cacheProtocol(proto):
-            Memcacher._memcacheProtocol = proto
-            return proto
+        elif config.ProcessType == "Single":
+            
+            Memcacher._memcacheProtocol = Memcacher.memoryCacher()
+            return succeed(Memcacher._memcacheProtocol)
 
-        return d.addCallback(_cacheProtocol)
+        else:
+            
+            Memcacher._memcacheProtocol = Memcacher.nullCacher()
+            return succeed(Memcacher._memcacheProtocol)
 
     def set(self, key, value):
 
