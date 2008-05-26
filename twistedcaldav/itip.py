@@ -35,7 +35,6 @@ import md5
 import time
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -537,6 +536,7 @@ def checkForReply(request, principal, calendar):
 
     returnValue((rsvp, replycal, accepted))
 
+@inlineCallbacks
 def writeReply(request, principal, replycal, ainbox):
     """
     Write an iTIP message reply into the specified Inbox.
@@ -554,25 +554,17 @@ def writeReply(request, principal, replycal, ainbox):
     assert inboxURL
     
     # Determine whether current principal has CALDAV:schedule right on that Inbox
-    inbox = waitForDeferred(request.locateResource(inboxURL))
-    yield inbox
-    inbox = inbox.getResult()
+    inbox = yield request.locateResource(inboxURL)
 
     try:
-        d = waitForDeferred(inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL()))))
-        yield d
-        d.getResult()
+        yield inbox.checkPrivileges(request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef.fromString(principal.principalURL())))
     except AccessDeniedError:
         log.info("Could not send reply as %s does not have CALDAV:schedule permission on %s Inbox." % (principal.principalURL(), organizer))
-        yield None
-        return
+        returnValue(None)
     
     # Now deposit the new calendar into the inbox
-    d = waitForDeferred(writeResource(request, inboxURL, inbox, None, replycal))
-    yield d
-    yield d.getResult()
-
-writeReply = deferredGenerator(writeReply)
+    result = yield writeResource(request, inboxURL, inbox, None, replycal)
+    returnValue(result)
 
 @inlineCallbacks
 def writeResource(request, collURL, collection, name, calendar):
