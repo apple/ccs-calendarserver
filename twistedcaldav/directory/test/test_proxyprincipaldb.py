@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 import os
 
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 import twistedcaldav.test.util
 
@@ -68,24 +68,17 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
             """
             return "51"
     
-    @deferredGenerator
+    @inlineCallbacks
     def test_normalDB(self):
     
         # Get the DB
         db_path = self.mktemp()
         os.mkdir(db_path)
         db = CalendarUserProxyDatabase(db_path)
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        yield db.setGroupMembers("A", ("B", "C", "D",))
         
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-        
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
         
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -106,23 +99,17 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         db = self.old_CalendarUserProxyDatabase(db_path)
         self.assertEqual(set([row[1] for row in db._db_execute("PRAGMA index_list(GROUPS)")]), set())
 
+    @inlineCallbacks
     def test_DBUpgrade(self):
     
         # Get the DB
         db_path = self.mktemp()
         os.mkdir(db_path)
         db = self.old_CalendarUserProxyDatabase(db_path)
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        yield db.setGroupMembers("A", ("B", "C", "D",))
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -132,13 +119,8 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         
         db = CalendarUserProxyDatabase(db_path)
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -146,23 +128,17 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         db._db_close()
         db = None
 
+    @inlineCallbacks
     def test_DBUpgradeNewer(self):
     
         # Get the DB
         db_path = self.mktemp()
         os.mkdir(db_path)
         db = self.old_CalendarUserProxyDatabase(db_path)
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        yield db.setGroupMembers("A", ("B", "C", "D",))
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -172,13 +148,8 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         
         db = self.new_CalendarUserProxyDatabase(db_path)
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -186,23 +157,17 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         db._db_close()
         db = None
 
+    @inlineCallbacks
     def test_DBNoUpgradeNewer(self):
     
         # Get the DB
         db_path = self.mktemp()
         os.mkdir(db_path)
         db = self.new_CalendarUserProxyDatabase(db_path)
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        yield db.setGroupMembers("A", ("B", "C", "D",))
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -212,13 +177,8 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         
         db = self.newer_CalendarUserProxyDatabase(db_path)
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
+        membersA = yield db.getMembers("A")
+        membershipsB = yield db.getMemberships("B")
 
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
@@ -226,140 +186,116 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
         db._db_close()
         db = None
 
+    @inlineCallbacks
     def test_cachingDBInsert(self):
     
-        # Get the DB
-        db_path = self.mktemp()
-        os.mkdir(db_path)
-        db = CalendarUserProxyDatabase(db_path)
-        
-        # Do one insert and check the result
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        for processType in ("Single", "Combined",):
+            config.processType = processType
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
+            # Get the DB
+            db_path = self.mktemp()
+            os.mkdir(db_path)
+            db = CalendarUserProxyDatabase(db_path)
+            
+            # Do one insert and check the result
+            yield db.setGroupMembers("A", ("B", "C", "D",))
+    
+            membersA = yield db.getMembers("A")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+            membershipsE = yield db.getMemberships("E")
+    
+            self.assertEqual(membersA, set(("B", "C", "D",)))
+            self.assertEqual(membershipsB, set(("A",)))
+            self.assertEqual(membershipsC, set(("A",)))
+            self.assertEqual(membershipsD, set(("A",)))
+            self.assertEqual(membershipsE, set(()))
+            
+            # Change and check the result
+            yield db.setGroupMembers("A", ("B", "C", "E",))
+    
+            membersA = yield db.getMembers("A")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+            membershipsE = yield db.getMemberships("E")
+    
+            self.assertEqual(membersA, set(("B", "C", "E",)))
+            self.assertEqual(membershipsB, set(("A",)))
+            self.assertEqual(membershipsC, set(("A",)))
+            self.assertEqual(membershipsD, set())
+            self.assertEqual(membershipsE, set(("A",)))
 
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("C"))
-        yield d
-        membershipsC = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("D"))
-        yield d
-        membershipsD = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("E"))
-        yield d
-        membershipsE = d.getResult()
-
-        self.assertEqual(membersA, set(("B", "C", "D",)))
-        self.assertEqual(membershipsB, set(("A",)))
-        self.assertEqual(membershipsC, set(("A",)))
-        self.assertEqual(membershipsD, set(("A",)))
-        self.assertEqual(membershipsE, set(()))
-        
-        # Change and check the result
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "E",)))
-        yield d
-        d.getResult()
-
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("C"))
-        yield d
-        membershipsC = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("D"))
-        yield d
-        membershipsD = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("E"))
-        yield d
-        membershipsE = d.getResult()
-
-        self.assertEqual(db.membersA, set(("B", "C", "E",)))
-        self.assertEqual(membershipsB, set(("A",)))
-        self.assertEqual(membershipsC, set(("A",)))
-        self.assertEqual(membershipsD, set())
-        self.assertEqual(membershipsE, set(("A",)))
-
+    @inlineCallbacks
     def test_cachingDBRemove(self):
     
-        # Get the DB
-        db_path = self.mktemp()
-        os.mkdir(db_path)
-        db = CalendarUserProxyDatabase(db_path)
-        
-        # Do one insert and check the result
-        d = waitForDeferred(db.setGroupMembers("A", ("B", "C", "D",)))
-        yield d
-        d.getResult()
+        for processType in ("Single", "Combined",):
+            config.processType = processType
 
-        d = waitForDeferred(db.setGroupMembers("X", ("B", "C",)))
-        yield d
-        d.getResult()
+            # Get the DB
+            db_path = self.mktemp()
+            os.mkdir(db_path)
+            db = CalendarUserProxyDatabase(db_path)
+            
+            # Do one insert and check the result
+            yield db.setGroupMembers("A", ("B", "C", "D",))
+            yield db.setGroupMembers("X", ("B", "C",))
+    
+            membersA = yield db.getMembers("A")
+            membersX = yield db.getMembers("X")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+    
+            self.assertEqual(membersA, set(("B", "C", "D",)))
+            self.assertEqual(membersX, set(("B", "C",)))
+            self.assertEqual(membershipsB, set(("A", "X",)))
+            self.assertEqual(membershipsC, set(("A", "X",)))
+            self.assertEqual(membershipsD, set(("A",)))
+            
+            # Remove and check the result
+            yield db.removeGroup("A")
+    
+            membersA = yield db.getMembers("A")
+            membersX = yield db.getMembers("X")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+    
+            self.assertEqual(membersA, set())
+            self.assertEqual(membersX, set(("B", "C",)))
+            self.assertEqual(membershipsB, set("X",))
+            self.assertEqual(membershipsC, set("X",))
+            self.assertEqual(membershipsD, set())
 
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
+    @inlineCallbacks
+    def test_cachingDBInsertUncached(self):
+    
+        for processType in ("Single", "Combined",):
+            config.processType = processType
 
-        d = waitForDeferred(db.getMembers("X"))
-        yield d
-        membersX = d.getResult()
+            # Get the DB
+            db_path = self.mktemp()
+            os.mkdir(db_path)
+            db = CalendarUserProxyDatabase(db_path)
+            
+            # Do one insert and check the result for the one we will remove
+            yield db.setGroupMembers("AA", ("BB", "CC", "DD",))
+            yield db.getMemberships("DD")
+    
+            # Change and check the result
+            yield db.setGroupMembers("AA", ("BB", "CC", "EE",))
+    
+            membersAA = yield db.getMembers("AA")
+            membershipsBB = yield db.getMemberships("BB")
+            membershipsCC = yield db.getMemberships("CC")
+            membershipsDD = yield db.getMemberships("DD")
+            membershipsEE = yield db.getMemberships("EE")
+    
+            self.assertEqual(membersAA, set(("BB", "CC", "EE",)))
+            self.assertEqual(membershipsBB, set(("AA",)))
+            self.assertEqual(membershipsCC, set(("AA",)))
+            self.assertEqual(membershipsDD, set())
+            self.assertEqual(membershipsEE, set(("AA",)))
 
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("C"))
-        yield d
-        membershipsC = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("D"))
-        yield d
-        membershipsD = d.getResult()
-
-        self.assertEqual(membersA, set(("B", "C", "D",)))
-        self.assertEqual(membersX, set(("B", "C",)))
-        self.assertEqual(membershipsB, set(("A", "X",)))
-        self.assertEqual(membershipsC, set(("A", "X",)))
-        self.assertEqual(membershipsD, set(("A",)))
-        
-        # Remove and check the result
-        d = waitForDeferred(db.removeGroup("A"))
-        yield d
-        d.getResult()
-
-        d = waitForDeferred(db.getMembers("A"))
-        yield d
-        membersA = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("B"))
-        yield d
-        membershipsB = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("C"))
-        yield d
-        membershipsC = d.getResult()
-
-        d = waitForDeferred(db.getMemberships("D"))
-        yield d
-        membershipsD = d.getResult()
-
-        self.assertEqual(membersA, set())
-        self.assertEqual(membershipsB, set("X",))
-        self.assertEqual(membershipsC, set("X",))
-        self.assertEqual(membershipsD, set())
-        

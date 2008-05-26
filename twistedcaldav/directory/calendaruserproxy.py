@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.memcacher import Memcacher
-from twisted.internet.defer import returnValue
 
 """
 Implements a calendar user proxy principal.
@@ -24,9 +22,8 @@ __all__ = [
     "CalendarUserProxyPrincipalResource",
 ]
 
+from twisted.internet.defer import returnValue
 from twisted.internet.defer import succeed, inlineCallbacks
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
@@ -36,6 +33,7 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
+from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
@@ -184,13 +182,13 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
                     "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
-            changed = yield principal.cacheNotifier.changed()
+            yield principal.cacheNotifier.changed()
 
         # Map the principals to UIDs.
         uids = [p.principalUID() for p in principals]
 
         yield self._index().setGroupMembers(self.uid, uids)
-        changed = yield self.parent.cacheNotifier.changed()
+        yield self.parent.cacheNotifier.changed()
         returnValue(True)
 
     ##
@@ -271,7 +269,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
     def principalCollections(self):
         return self.parent.principalCollections()
 
-    @deferredGenerator
+    @inlineCallbacks
     def _expandMemberUIDs(self, uid=None, relatives=None, uids=None):
         if uid is None:
             uid = self.principalUID()
@@ -285,48 +283,38 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
             uids.add(uid)
             principal = self.parent.parent.principalForUID(uid)
             if isinstance(principal, CalendarUserProxyPrincipalResource):
-                d = waitForDeferred(self._directGroupMembers())
-                yield d
-                members = d.getResult()
+                members = yield self._directGroupMembers()
                 for member in members:
                     if member.principalUID() not in uids:
                         relatives.add(member)
-                        d = waitForDeferred(self._expandMemberUIDs(member.principalUID(), relatives, uids))
-                        yield d
-                        d.getResult()
+                        yield self._expandMemberUIDs(member.principalUID(), relatives, uids)
             elif isinstance(principal, DirectoryPrincipalResource):
-                d = waitForDeferred(principal.groupMembers())
-                yield d
-                members = d.getResult()
+                members = yield principal.groupMembers()
                 relatives.update(members)
 
-        yield relatives
+        returnValue(relatives)
 
-    @deferredGenerator
+    @inlineCallbacks
     def _directGroupMembers(self):
         if self.hasEditableMembership():
             # Get member UIDs from database and map to principal resources
-            d = waitForDeferred(self._index().getMembers(self.uid))
-            yield d
-            members = d.getResult()
-            yield [p for p in [self.pcollection.principalForUID(uid) for uid in members] if p]
+            members = yield self._index().getMembers(self.uid)
+            returnValue([p for p in [self.pcollection.principalForUID(uid) for uid in members] if p])
         else:
             # Fixed proxies
             if self.proxyType == "calendar-proxy-write":
-                yield self.parent.proxies()
+                returnValue(self.parent.proxies())
             else:
-                yield self.parent.readOnlyProxies()
+                returnValue(self.parent.readOnlyProxies())
 
     def groupMembers(self):
         return self._expandMemberUIDs()
 
-    @deferredGenerator
+    @inlineCallbacks
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
-        d = waitForDeferred(self._index().getMemberships(self.uid))
-        yield d
-        memberships = d.getResult()
-        yield [p for p in [self.pcollection.principalForUID(uid) for uid in memberships] if p]
+        memberships = yield self._index().getMemberships(self.uid)
+        returnValue([p for p in [self.pcollection.principalForUID(uid) for uid in memberships] if p])
 
     def hasEditableMembership(self):
         return self.parent.hasEditableProxyMembership()
@@ -389,8 +377,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
         super(CalendarUserProxyDatabase, self).__init__(path, True)
         
-        if config.Memcached['ClientEnabled']:
-            self._memcacher = CalendarUserProxyDatabase.ProxyDBMemcacher("proxyDB")
+        self._memcacher = CalendarUserProxyDatabase.ProxyDBMemcacher("proxyDB")
 
     @inlineCallbacks
     def setGroupMembers(self, principalUID, members):
@@ -401,24 +388,25 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         @param members: a list UIDs of principals that are members of this group.
         """
 
+        # Get current members before we change them
+        current_members = yield self.getMembers(principalUID)
+        if current_members is None:
+            current_members = ()
+        current_members = set(current_members)
+
         # Remove what is there, then add it back.
         self._delete_from_db(principalUID)
         self._add_to_db(principalUID, members)
         self._db_commit()
         
-        # Update cache if present
-        if config.Memcached['ClientEnabled']:
-            current_members = yield self.getMembers(principalUID)
-            if current_members is None:
-                current_members = ()
-            current_members = set(current_members)
-            update_members = set(members)
-            
-            remove_members = current_members.difference(update_members)
-            add_members = update_members.difference(current_members)
-            for member in itertools.chain(remove_members, add_members,):
-                _ignore = yield self._memcacher.deleteMembership(member)
-            _ignore = yield self._memcacher.deleteMember(principalUID)
+        # Update cache
+        update_members = set(members)
+        
+        remove_members = current_members.difference(update_members)
+        add_members = update_members.difference(current_members)
+        for member in itertools.chain(remove_members, add_members,):
+            _ignore = yield self._memcacher.deleteMembership(member)
+        _ignore = yield self._memcacher.deleteMember(principalUID)
 
     @inlineCallbacks
     def removeGroup(self, principalUID):
@@ -431,13 +419,12 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         self._delete_from_db(principalUID)
         self._db_commit()
         
-        # Update cache if present
-        if config.Memcached['ClientEnabled']:
-            members = yield self.getMembers(principalUID)
-            if members:
-                for member in members:
-                    _ignore = yield self._memcacher.deleteMembership(member)
-                _ignore = yield self._memcacher.deleteMember(principalUID)
+        # Update cache
+        members = yield self.getMembers(principalUID)
+        if members:
+            for member in members:
+                yield self._memcacher.deleteMembership(member)
+            yield self._memcacher.deleteMember(principalUID)
 
     @inlineCallbacks
     def getMembers(self, principalUID):
@@ -453,15 +440,12 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
                 members.add(row[0])
             return members
 
-        # Pull from cache if present
-        if config.Memcached['ClientEnabled']:
-            result = yield self._memcacher.getMembers(principalUID)
-            if result is None:
-                result = _members()
-                _ignore = yield self._memcacher.setMembers(principalUID, result)
-            returnValue(result)
-        else:
-            returnValue(_members())
+        # Pull from cache
+        result = yield self._memcacher.getMembers(principalUID)
+        if result is None:
+            result = _members()
+            yield self._memcacher.setMembers(principalUID, result)
+        returnValue(result)
 
     @inlineCallbacks
     def getMemberships(self, principalUID):
@@ -477,15 +461,12 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
                 members.add(row[0])
             return members
 
-        # Pull from cache if present
-        if config.Memcached['ClientEnabled']:
-            result = yield self._memcacher.getMemberships(principalUID)
-            if result is None:
-                result = _members()
-                _ignore = yield self._memcacher.setMemberships(principalUID, result)
-            returnValue(result)
-        else:
-            returnValue(_members())
+        # Pull from cache
+        result = yield self._memcacher.getMemberships(principalUID)
+        if result is None:
+            result = _members()
+            yield self._memcacher.setMemberships(principalUID, result)
+        returnValue(result)
 
     def _add_to_db(self, principalUID, members):
         """
