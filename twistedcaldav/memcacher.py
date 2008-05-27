@@ -110,12 +110,16 @@ class Memcacher(LoggingMixIn):
 
         elif config.ProcessType == "Single" or self._noInvalidation:
             
+            # NB no need to pickle the memory cacher as it handles python types natively
             Memcacher._memcacheProtocol = Memcacher.memoryCacher()
+            self._pickle = False
             return succeed(Memcacher._memcacheProtocol)
 
         else:
             
+            # NB no need to pickle the null cacher as it handles python types natively
             Memcacher._memcacheProtocol = Memcacher.nullCacher()
+            self._pickle = False
             return succeed(Memcacher._memcacheProtocol)
 
     def set(self, key, value):
