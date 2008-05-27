@@ -22,7 +22,6 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
-            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.set("akey", "avalue")
@@ -40,7 +39,6 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
-            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.get("akey")
@@ -52,7 +50,6 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
-            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.set("akey", "avalue")
@@ -76,7 +73,6 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
-            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing", pickle=True)
     
             result = yield cacher.set("akey", ["1", "2", "3",])
@@ -100,7 +96,6 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
-            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing", no_invalidation=True)
     
             result = yield cacher.set("akey", ["1", "2", "3",])

@@ -23,7 +23,6 @@ from twistedcaldav.config import config
 import cPickle
 
 class Memcacher(LoggingMixIn):
-    _memcacheProtocol = None
 
     class memoryCacher():
         """
@@ -83,6 +82,9 @@ class Memcacher(LoggingMixIn):
             nullCacher will be used for the multi-instance case when memcached is not configured.
         @type no_invalidation: C{bool}
         """
+        
+        self._memcacheProtocol = None
+
         self._namespace = namespace
         self._pickle = pickle
         self._noInvalidation = no_invalidation
@@ -94,8 +96,8 @@ class Memcacher(LoggingMixIn):
         self._reactor = reactor
 
     def _getMemcacheProtocol(self):
-        if Memcacher._memcacheProtocol is not None:
-            return succeed(Memcacher._memcacheProtocol)
+        if self._memcacheProtocol is not None:
+            return succeed(self._memcacheProtocol)
 
         if config.Memcached['ClientEnabled']:
             d = ClientCreator(self._reactor, MemCacheProtocol).connectTCP(
@@ -103,7 +105,7 @@ class Memcacher(LoggingMixIn):
                 self._port)
     
             def _cacheProtocol(proto):
-                Memcacher._memcacheProtocol = proto
+                self._memcacheProtocol = proto
                 return proto
     
             return d.addCallback(_cacheProtocol)
@@ -111,16 +113,16 @@ class Memcacher(LoggingMixIn):
         elif config.ProcessType == "Single" or self._noInvalidation:
             
             # NB no need to pickle the memory cacher as it handles python types natively
-            Memcacher._memcacheProtocol = Memcacher.memoryCacher()
+            self._memcacheProtocol = Memcacher.memoryCacher()
             self._pickle = False
-            return succeed(Memcacher._memcacheProtocol)
+            return succeed(self._memcacheProtocol)
 
         else:
             
             # NB no need to pickle the null cacher as it handles python types natively
-            Memcacher._memcacheProtocol = Memcacher.nullCacher()
+            self._memcacheProtocol = Memcacher.nullCacher()
             self._pickle = False
-            return succeed(Memcacher._memcacheProtocol)
+            return succeed(self._memcacheProtocol)
 
     def set(self, key, value):
 
