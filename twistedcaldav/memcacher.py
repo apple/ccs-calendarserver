@@ -20,6 +20,7 @@ from twisted.internet.protocol import ClientCreator
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcache import MemCacheProtocol
 from twistedcaldav.config import config
+import cPickle
 
 class Memcacher(LoggingMixIn):
     _memcacheProtocol = None
@@ -69,8 +70,10 @@ class Memcacher(LoggingMixIn):
         def delete(self, key):
             return succeed(True)
 
-    def __init__(self, namespace):
+    def __init__(self, namespace, pickle=False):
         self._namespace = namespace
+        self._pickle = pickle
+
         self._host = config.Memcached['BindAddress']
         self._port = config.Memcached['Port']
 
@@ -105,7 +108,10 @@ class Memcacher(LoggingMixIn):
     def set(self, key, value):
 
         def _set(proto):
-            return proto.set('%s:%s' % (self._namespace, key), value)
+            my_value = value
+            if self._pickle:
+                my_value = cPickle.dumps(value)
+            return proto.set('%s:%s' % (self._namespace, key), my_value)
 
         self.log_debug("Changing Cache Token for %s" % (key,))
         d = self._getMemcacheProtocol()
@@ -116,6 +122,8 @@ class Memcacher(LoggingMixIn):
         
         def _gotit(result):
             _ignore_flags, value = result
+            if self._pickle and value is not None:
+                value = cPickle.loads(value)
             return value
 
         def _get(proto):

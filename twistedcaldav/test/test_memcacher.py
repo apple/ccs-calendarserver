@@ -67,3 +67,26 @@ class MemcacherTestCase(TestCase):
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
 
+    @inlineCallbacks
+    def test_all_pickled(self):
+
+        for processType in ("Single", "Combined",):
+            config.processType = processType
+
+            cacher = Memcacher("testing", pickle=True)
+    
+            result = yield cacher.set("akey", ["1", "2", "3",])
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            if isinstance(cacher._memcacheProtocol, Memcacher.nullCacher):
+                self.assertEquals(None, result)
+            else:
+                self.assertEquals(["1", "2", "3",], result)
+    
+            result = yield cacher.delete("akey")
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            self.assertEquals(None, result)
+
