@@ -22,6 +22,7 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
+            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.set("akey", "avalue")
@@ -39,6 +40,7 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
+            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.get("akey")
@@ -50,6 +52,7 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
+            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing")
     
             result = yield cacher.set("akey", "avalue")
@@ -73,6 +76,7 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.processType = processType
 
+            Memcacher._memcacheProtocol = None
             cacher = Memcacher("testing", pickle=True)
     
             result = yield cacher.set("akey", ["1", "2", "3",])
@@ -83,6 +87,27 @@ class MemcacherTestCase(TestCase):
                 self.assertEquals(None, result)
             else:
                 self.assertEquals(["1", "2", "3",], result)
+    
+            result = yield cacher.delete("akey")
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            self.assertEquals(None, result)
+
+    @inlineCallbacks
+    def test_all_noinvalidation(self):
+
+        for processType in ("Single", "Combined",):
+            config.processType = processType
+
+            Memcacher._memcacheProtocol = None
+            cacher = Memcacher("testing", no_invalidation=True)
+    
+            result = yield cacher.set("akey", ["1", "2", "3",])
+            self.assertTrue(result)
+    
+            result = yield cacher.get("akey")
+            self.assertEquals(["1", "2", "3",], result)
     
             result = yield cacher.delete("akey")
             self.assertTrue(result)

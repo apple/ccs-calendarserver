@@ -70,9 +70,22 @@ class Memcacher(LoggingMixIn):
         def delete(self, key):
             return succeed(True)
 
-    def __init__(self, namespace, pickle=False):
+    def __init__(self, namespace, pickle=False, no_invalidation=False):
+        """
+        @param namespace: a unique namespace for this cache's keys
+        @type namespace: C{str}
+        @param pickle: if C{True} values will be pickled/unpickled when stored/read from the cache,
+            if C{False} values will be stored directly (and therefore must be strings)
+        @type pickle: C{bool}
+        @param no_invalidation: if C{True} the cache is static - there will be no invalidations. This allows
+            Memcacher to use the memoryCacher cache instead of nullCacher for the multi-instance case when memcached
+            is not present,as there is no issue with caches in each instance getting out of sync. If C{False} the
+            nullCacher will be used for the multi-instance case when memcached is not configured.
+        @type no_invalidation: C{bool}
+        """
         self._namespace = namespace
         self._pickle = pickle
+        self._noInvalidation = no_invalidation
 
         self._host = config.Memcached['BindAddress']
         self._port = config.Memcached['Port']
@@ -95,7 +108,7 @@ class Memcacher(LoggingMixIn):
     
             return d.addCallback(_cacheProtocol)
 
-        elif config.ProcessType == "Single":
+        elif config.ProcessType == "Single" or self._noInvalidation:
             
             Memcacher._memcacheProtocol = Memcacher.memoryCacher()
             return succeed(Memcacher._memcacheProtocol)
