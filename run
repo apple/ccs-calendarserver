@@ -28,7 +28,9 @@ wd="$(cd "$(dirname "$0")" && pwd)";
 ##
 
       verbose="";
-   setup_only="false";
+       do_get="true";
+     do_setup="true";
+       do_run="true";
   force_setup="false";
 disable_setup="false";
    print_path="false";
@@ -47,45 +49,47 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvsfpndkr] [-K key] [-iI dst] [-t type] [-S statsdirectory]";
+  echo "Usage: ${program} [-hvgsfnpdkr] [-K key] [-iI dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
+  echo "	-g  Get dependencies only; don't run setup or run the server.";
   echo "	-s  Run setup only; don't run server";
   echo "	-f  Force setup to run";
-  echo "	-p  Print PYTHONPATH value for server and exit";
   echo "	-n  Do not run setup";
+  echo "	-p  Print PYTHONPATH value for server and exit";
   echo "        -d  Run caldavd as a daemon";
   echo "        -k  Stop caldavd";
   echo "        -r  Restart caldavd";
   echo "        -K  Print value of configuration key and exit";
   echo "        -i  Perform a system install into dst; implies -s";
   echo "        -I  Perform a home install into dst; implies -s";
-  echo "        -t  Select the server process type (Master, Slave or Combined)";
+  echo "        -t  Select the server process type (Master, Slave or Combined) [${service_type}]";
   echo "        -S  Write a pstats object for each process to the given directory when the server is stopped.";
+  echo "	-P  Select the twistd plugin name [${plugin_name}]";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvsfnpkrdP:i:I:t:K:S:' option; do
+while getopts 'hvgsfnpdkrK:i:I:t:S:P:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'v')       verbose="-v"; ;;
-    's')    setup_only="true"; ;;
     'f')   force_setup="true"; ;;
-    'n') disable_setup="true"; ;;
     'p')    print_path="true"; ;;
     'k')          kill="true"; ;;
     'r')       restart="true"; ;;
     'd')     daemonize=""; ;;
     'P')   plugin_name="${OPTARG}"; ;;
-    'i')    setup_only="true"; install="${OPTARG}"; install_flag="--root="; ;;
-    'I')    setup_only="true"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
     'S')       profile="-p ${OPTARG}"; ;;
+    'g') do_get="true"; do_setup="false"; do_run="false"; ;;
+    's') do_get="true"; do_setup="true" ; do_run="false"; ;;
+    'i') do_get="true"; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
+    'I') do_get="true"; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -226,7 +230,7 @@ run () {
     exit 0;
   fi;
 
-  if ! "${setup_only}"; then
+  if "${do_run}"; then
     if [ ! -f "${config}" ]; then
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
@@ -275,7 +279,7 @@ apply_patches () {
 }
 
 www_get () {
-  if "${disable_setup}"; then return 0; fi;
+  if ! "${do_get}"; then return 0; fi;
 
   local name="$1"; shift;
   local path="$1"; shift;
@@ -305,7 +309,7 @@ www_get () {
 }
 
 svn_get () {
-  if "${disable_setup}"; then return 0; fi;
+  if ! "${do_get}"; then return 0; fi;
 
   local     name="$1"; shift;
   local     path="$1"; shift;
@@ -369,7 +373,7 @@ py_build () {
     local     path="$1"; shift;
     local optional="$1"; shift;
 
-    if ! "${disable_setup}" && (
+    if "${do_setup}" && (
         "${force_setup}" || [ ! -d "${path}/build/${py_platform_libdir}" ]
     ); then
       echo "";
@@ -409,7 +413,7 @@ py_have_module () {
 put_setuptools () {
     local where="$1"; shift;
 
-    if ! "${disable_setup}"; then
+    if "${do_get}"; then
       cp "${caldav}/support/setuptools-0.6c8-py2.5.egg" "${where}/";
     fi;
 }
@@ -524,7 +528,7 @@ libevent="${top}/libevent-1.4.4-stable"
 
 www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
 
-if ! "${disable_setup}" && (
+if "${do_setup}" && (
   "${force_setup}" || [ ! -d "${libevent}/_root" ]
 ); then
   echo "";
@@ -542,7 +546,7 @@ memcached="${top}/memcached-1.2.5"
 
 www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
 
-if ! "${disable_setup}" && (
+if "${do_setup}" && (
   "${force_setup}" || [ ! -d "${memcached}/_root" ]
 ); then
   echo "";
