@@ -1,0 +1,40 @@
+Index: twisted/web2/auth/digest.py
+===================================================================
+--- twisted/web2/auth/digest.py	(revision 19773)
++++ twisted/web2/auth/digest.py	(working copy)
+@@ -11,6 +11,10 @@
+ from zope.interface import implements, Interface
+ 
+ from twisted.web2.auth.interfaces import ICredentialFactory
++from twisted.web2.http_headers import tokenize
++from twisted.web2.http_headers import Token
++from twisted.web2.http_headers import split
++from twisted.web2.http_headers import parseKeyValue
+ 
+ import md5, sha
+ import random, sys
+@@ -320,13 +324,17 @@
+                 return s[1:-1]
+             return s
+         response = ' '.join(response.splitlines())
+-        parts = response.split(',')
+-
+-        auth = {}
+-
+-        for (k, v) in [p.split('=', 1) for p in parts]:
+-            auth[k.strip()] = unq(v.strip())
+-
++        
++        try:
++            parts = split(tokenize((response,), foldCase=False), Token(","))
++    
++            auth = {}
++    
++            for (k, v) in [parseKeyValue(p) for p in parts]:
++                auth[k.strip()] = unq(v.strip())
++        except ValueError:
++            raise error.LoginFailed('Invalid response.')
++            
+         username = auth.get('username')
+         if not username:
+             raise error.LoginFailed('Invalid response, no username given.')
