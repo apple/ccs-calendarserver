@@ -39,22 +39,22 @@ GROUP = calendar
 # Build
 #
 
-.phony: $(Project) vobject Twisted setup prep
+.phony: $(Project) libevent-1.4.4-stable memcached-1.2.5 vobject Twisted build setup prep install install-ossfiles buildit
 
-PyKerberos::          $(BuildDirectory)/PyKerberos
-PyOpenDirectory::     $(BuildDirectory)/PyOpenDirectory
-PyXML-0.8.4::         $(BuildDirectory)/PyXML-0.8.4
-vobject::             $(BuildDirectory)/vobject
-Twisted::             $(BuildDirectory)/Twisted
-pydirector-1.0.0::    $(BuildDirectory)/pydirector-1.0.0
+PyKerberos::            $(BuildDirectory)/PyKerberos
+PyOpenDirectory::       $(BuildDirectory)/PyOpenDirectory
+PyXML-0.8.4::           $(BuildDirectory)/PyXML-0.8.4
+vobject::               $(BuildDirectory)/vobject
+Twisted::               $(BuildDirectory)/Twisted
+pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
 libevent-1.4.4-stable:: $(BuildDirectory)/libevent-1.4.4-stable
-memcached-1.2.5::     $(BuildDirectory)/memcached-1.2.5
-$(Project)::          $(BuildDirectory)/$(Project)
+memcached-1.2.5::       $(BuildDirectory)/memcached-1.2.5
+$(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted libevent-1.4.4-stable memcached-1.2.5 $(Project)
+build:: memcached-1.2.5 PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
 
 setup:
-	$(_v) $(Sources)/run -s
+	$(_v) $(Sources)/run -g
 
 prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz libevent-1.4.4-stable.tgz memcached-1.2.5.tgz
 
@@ -63,19 +63,21 @@ PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject $(Project)::
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 libevent-1.4.4-stable::
+	@echo "Configuring $@..."
+	$(_v) cd $(BuildDirectory)/$@ && ./configure --prefix="$(SHAREDIR)/caldavd" CFLAGS="$(RC_CFLAGS) -arch x86_64"
 	@echo "Building $@..."
-	$(_v) cd $(BuildDirectory)/$@ && \
-	./configure --prefix="$(DSTROOT)$(SHAREDIR)/caldavd" CFLAGS="${RC_CFLAGS} -arch x86_64" && \
-	make CFLAGS="${RC_CFLAGS} -arch x86_64" && \
-	make install DESTDIR="$(BuildDirectory)/$@/_root"
+	$(_v) make -C $(BuildDirectory)/$@ CFLAGS="$(RC_CFLAGS) -arch x86_64"
+	$(_v) make -C $(BuildDirectory)/$@ install DESTDIR="$(DSTROOT)"
 
-memcached-1.2.5::
-	@echo "Building $@..."
+memcached-1.2.5:: libevent-1.4.4-stable
+	@echo "Configuring $@..."
 	$(_v) cd $(BuildDirectory)/$@ && \
-	./configure --prefix="$(DSTROOT)$(SHAREDIR)/caldavd" \
-	            --enable-threads \
-	            --with-libevent="$(BuildDirectory)/libevent-1.4.4-stable/_root" CFLAGS="${RC_FLAGS} -arch x86_64" && \
-	make CFLAGS="${RC_FLAGS} -arch x86_64"
+	      ./configure --prefix="$(SHAREDIR)/caldavd" \
+	          --enable-threads \
+	          --with-libevent="$(DSTROOT)$(SHAREDIR)/caldavd" \
+	          CFLAGS="$(RC_FLAGS) -arch x86_64"
+	@echo "Building $@..."
+	$(_v) make -C $(BuildDirectory)/$@ CFLAGS="$(RC_FLAGS) -arch x86_64"
 
 TwistedSubEnvironment = $(Environment) PYTHONPATH="$(DSTROOT)$(SHAREDIR)/caldavd/lib/python"
 
@@ -91,15 +93,13 @@ install:: build
 	          $(PY_INSTALL_FLAGS)                                                      \
 	          --install-scripts="$(USRSBINDIR)"                                        \
 	          --install-data="$(ETCDIR)"
-	$(_v) cd $(BuildDirectory)/PyKerberos          && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyOpenDirectory     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pydirector-1.0.0    && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyXML-0.8.4         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/vobject             && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-
-	$(_v) cd $(BuildDirectory)/libevent-1.4.4-stable && make install
-	$(_v) cd $(BuildDirectory)/memcached-1.2.5 && make install
-
+	$(_v) cd $(BuildDirectory)/PyKerberos            && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyOpenDirectory       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/pydirector-1.0.0      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyXML-0.8.4           && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/libevent-1.4.4-stable && make install DESTDIR="$(DSTROOT)"
+	$(_v) cd $(BuildDirectory)/memcached-1.2.5       && make install DESTDIR="$(DSTROOT)"
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
