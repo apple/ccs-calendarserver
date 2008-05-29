@@ -11,7 +11,7 @@ Index: twisted/web2/dav/xattrprops.py
 +from random import random
 +from errno import EAGAIN
 +from zlib import compress, decompress
-+from cPickle import dumps as pickle, loads as unpickle, PicklingError, UnpicklingError
++from cPickle import loads as unpickle, PicklingError, UnpicklingError
  
  import xattr
  
@@ -41,7 +41,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,20 +96,81 @@
+@@ -97,19 +96,74 @@
  
      def get(self, qname):
          try:
@@ -61,6 +61,7 @@ Index: twisted/web2/dav/xattrprops.py
 +        #  1- Started with XML
 +        #  2- Started compressing the XML due to limits on xattr size
 +        #  3- Switched to pickle which is faster, still compressing
++        #  4- Back to compressed XML for interoperability, size
 +        #
 +        # We only write the current format, but we also read the old
 +        # ones for compatibility.
@@ -74,14 +75,14 @@ Index: twisted/web2/dav/xattrprops.py
 +            legacy = True
  
 +        try:
-+            result = unpickle(data)
-+        except UnpicklingError:
++            doc = davxml.WebDAVDocument.fromString(data)
++            result = doc.root_element
++        except ValueError:
 +            legacy = True
 +
 +            try:
-+                doc = davxml.WebDAVDocument.fromString(data)
-+                result = doc.root_element
-+            except ValueError:
++                result = unpickle(data)
++            except UnpicklingError:
 +                msg = ("Invalid property value stored on server: {%s}%s %s"
 +                       % (qname[0], qname[1], data))
 +                log.err(msg)
@@ -107,13 +108,7 @@ Index: twisted/web2/dav/xattrprops.py
      def set(self, property):
 -        self.attrs[self._encode(property.qname())] = property.toxml()
 +        for n in range(20):
-+            try:
-+                data = compress(pickle(property))
-+            except PicklingError, e:
-+                log.err("Unable to pickle property %r: %s" % (property, e))
- 
-+                # Can't pickle this for some reason; fall back to XML serialization
-+                data = compress(property.toxml())
++            data = compress(property.toxml())
 +            try:
 +                self.attrs[self._encode(property.qname())] = data
 +            except IOError, error:
@@ -122,8 +117,6 @@ Index: twisted/web2/dav/xattrprops.py
 +                sleep(random() / 10) # OMG Brutal Hax
 +            else:
 +                break
-+    
-+
+ 
          # Update the resource because we've modified it
          self.resource.fp.restat()
- 
