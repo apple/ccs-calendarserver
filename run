@@ -78,7 +78,6 @@ while getopts 'hvgsfnpdkrK:i:I:t:S:P:' option; do
     'h') usage -; exit 0; ;;
     'v')       verbose="-v"; ;;
     'f')   force_setup="true"; ;;
-    'p')    print_path="true"; ;;
     'k')          kill="true"; ;;
     'r')       restart="true"; ;;
     'd')     daemonize=""; ;;
@@ -86,10 +85,11 @@ while getopts 'hvgsfnpdkrK:i:I:t:S:P:' option; do
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
     'S')       profile="-p ${OPTARG}"; ;;
-    'g') do_get="true"; do_setup="false"; do_run="false"; ;;
-    's') do_get="true"; do_setup="true" ; do_run="false"; ;;
-    'i') do_get="true"; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
-    'I') do_get="true"; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+    'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
+    's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
+    'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
+    'i') do_get="true" ; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
+    'I') do_get="true" ; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
