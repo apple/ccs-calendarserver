@@ -389,5 +389,20 @@ limitations under the License.
   <key>ResponseCompression</key>
   <false/>
 
+  <!-- Support for Memcached -->
+  <key>Memcached</key>
+  <dict>
+    <key>ServerEnabled</key>
+    <true/>
+    <key>ClientEnabled</key>
+    <true/>
+    <key>memcached</key>
+    <string>../memcached-1.2.5/_root/bin/memcached</string>
+    <key>Options</key>
+    <array>
+      <string>-vv</string>
+    </array>
+  </dict>
+
 </dict>
 </plist>
