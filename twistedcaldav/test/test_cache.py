@@ -61,6 +61,7 @@ class StubRequest(object):
 
 
     def locateResource(self, uri):
+        assert uri[0] == '/', "URI path didn't begin with '/': %s" % (uri,)
         return succeed(self.resources.get(uri))
 
 
@@ -271,6 +272,14 @@ class BaseCacheTestMixin(object):
 
         d.addCallback(self.assertEquals, None)
         return d
+
+
+    def test_getResponseForUnauthenticatedRequest(self):
+        d = self.rc.getResponseForRequest(StubRequest(
+                'PROPFIND',
+                '/calendars/__uids__/cdaboo/',
+                '{DAV:}unauthenticated',
+                body='bazbax'))
 
 
     def test_cacheResponseForRequest(self):

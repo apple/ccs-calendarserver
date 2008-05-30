@@ -22,7 +22,7 @@ import cPickle
 from zope.interface import implements
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, fail
 from twisted.internet.protocol import ClientCreator
 
 from twisted.web2.iweb import IResource
@@ -133,8 +133,11 @@ class BaseResponseCache(LoggingMixIn):
             f.trap(AttributeError)
             return Failure(URINotFoundException(uri))
 
-        return request.locateResource(uri).addCallback(
-            lambda resrc: resrc.url()).addErrback(_uriNotFound)
+        try:
+            return request.locateResource(uri).addCallback(
+                lambda resrc: resrc.url()).addErrback(_uriNotFound)
+        except AssertionError:
+            return fail(Failure(URINotFoundException(uri)))
 
 
     def _getURIs(self, request):
