@@ -109,7 +109,7 @@ class StubURLResource(object):
 class MemCacheChangeNotifierTests(TestCase):
     def setUp(self):
         self.memcache = InMemoryMemcacheProtocol()
-        self.ccn = MemcacheChangeNotifier(InMemoryPropertyStore())
+        self.ccn = MemcacheChangeNotifier(StubURLResource(':memory:'))
         MemcacheChangeNotifier._memcacheProtocol = self.memcache
         self.ccn._newCacheToken = instancemethod(_newCacheToken,
                                                  self.ccn,
