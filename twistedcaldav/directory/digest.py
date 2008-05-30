@@ -469,10 +469,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @raise: L{error.LoginFailed} if the response does not contain a
             username, a nonce, an opaque, or if the opaque is invalid.
         """
-        def unq(s):
-            if len(s) != 0 and s[0] == s[-1] == '"':
-                return s[1:-1]
-            return s
+
         response = ' '.join(response.splitlines())
         
         try:
@@ -481,7 +478,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             auth = {}
     
             for (k, v) in [parseKeyValue(p) for p in parts]:
-                auth[k.strip()] = unq(v.strip())
+                auth[k.strip()] = v.strip()
         except ValueError:
             raise error.LoginFailed('Invalid response.')
             

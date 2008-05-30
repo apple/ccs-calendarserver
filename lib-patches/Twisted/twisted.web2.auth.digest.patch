@@ -13,9 +13,14 @@ Index: twisted/web2/auth/digest.py
  
  import md5, sha
  import random, sys
-@@ -320,13 +324,17 @@
-                 return s[1:-1]
-             return s
+@@ -315,18 +319,18 @@
+         @raise: L{error.LoginFailed} if the response does not contain a
+             username, a nonce, an opaque, or if the opaque is invalid.
+         """
+-        def unq(s):
+-            if s[0] == s[-1] == '"':
+-                return s[1:-1]
+-            return s
          response = ' '.join(response.splitlines())
 -        parts = response.split(',')
 -
@@ -31,7 +36,7 @@ Index: twisted/web2/auth/digest.py
 +            auth = {}
 +    
 +            for (k, v) in [parseKeyValue(p) for p in parts]:
-+                auth[k.strip()] = unq(v.strip())
++                auth[k.strip()] = v.strip()
 +        except ValueError:
 +            raise error.LoginFailed('Invalid response.')
 +            
