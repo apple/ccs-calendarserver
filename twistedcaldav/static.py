@@ -71,7 +71,7 @@ from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 
-from twistedcaldav.cache import XattrCacheChangeNotifier, PropfindCacheMixin
+from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
 log = Logger()
 
@@ -555,7 +555,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
     """
     Calendar home collection resource.
     """
-    cacheNotifierFactory = XattrCacheChangeNotifier
+    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, path, parent, record):
         """
@@ -563,7 +563,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         """
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
-        self.cacheNotifier = self.cacheNotifierFactory(self.deadProperties())
+        self.cacheNotifier = self.cacheNotifierFactory(self)
 
     def provisionChild(self, name):
         if config.EnableDropBox:

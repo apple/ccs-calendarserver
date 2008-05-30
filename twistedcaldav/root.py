@@ -25,8 +25,9 @@ from twisted.web2.auth.wrapper import UnauthorizedResponse
 
 from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
 from twistedcaldav.config import config
-from twistedcaldav.cache import ResponseCache, _CachedResponseResource
+from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
+from twistedcaldav.cache import DisabledCache
 from twistedcaldav.log import Logger
 from twistedcaldav.static import CalendarHomeFile
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
@@ -63,10 +64,8 @@ class RootResource(DAVFile):
 
             CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
             DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
-
         else:
-            self.responseCache = ResponseCache(self.fp,
-                                               config.ResponseCacheSize)
+            self.responseCache = DisabledCache()
 
         if config.ResponseCompression:
             from twisted.web2.filter import gzip
@@ -157,9 +156,13 @@ class RootResource(DAVFile):
             return d
 
         def _getCachedResource(_ign, request):
-            d = self.responseCache.getResponseForRequest(request)
-            d.addCallback(_serveResponse)
-            return d
+            if not getattr(request, 'checkingCache', False):
+                request.checkingCache = True
+                d = self.responseCache.getResponseForRequest(request)
+                d.addCallback(_serveResponse)
+                return d
+
+            return super(RootResource, self).locateChild(request, segments)
 
         def _serveResponse(response):
             if response is None:

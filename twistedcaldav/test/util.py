@@ -48,6 +48,9 @@ class InMemoryPropertyStore(object):
 
 
 class StubCacheChangeNotifier(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
     changedCount = 0
 
     def changed(self):

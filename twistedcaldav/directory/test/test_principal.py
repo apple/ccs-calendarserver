@@ -34,7 +34,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioning
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
-from twistedcaldav.cache import XattrCacheChangeNotifier
+from twistedcaldav.cache import DisabledCacheNotifier
 
 import twistedcaldav.test.util
 
@@ -229,7 +229,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             self.failUnless(isinstance(recordResource.cacheNotifier,
-                                       XattrCacheChangeNotifier))
+                                       DisabledCacheNotifier))
 
     def test_displayName(self):
         """

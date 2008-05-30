@@ -42,7 +42,7 @@ from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav.util import joinURL
 
 from twistedcaldav.config import config
-from twistedcaldav.cache import XattrCacheChangeNotifier, PropfindCacheMixin
+from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
@@ -356,7 +356,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
     """
     Directory principal resource.
     """
-    cacheNotifierFactory = XattrCacheChangeNotifier
+    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, path, parent, record):
         """
@@ -366,7 +366,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
         """
         super(DirectoryPrincipalResource, self).__init__(path)
 
-        self.cacheNotifier = self.cacheNotifierFactory(self.deadProperties())
+        self.cacheNotifier = self.cacheNotifierFactory(self)
 
         if self.isCollection():
             slash = "/"
@@ -480,6 +480,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
 
     def principalURL(self):
         return self._url
+
+    def url(self):
+        return self.principalURL()
 
     def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=None):
         if record is None:
