@@ -62,7 +62,7 @@ class DirectoryService(LoggingMixIn):
                 self.log_error("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
                 realmName = ""
             else:
-                self.log_error("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
+                self.log_info("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
 
             self._guid = uuidFromName(self.baseGUID, realmName)
 
