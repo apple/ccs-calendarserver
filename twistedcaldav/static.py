@@ -294,7 +294,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         if hasattr(self, 'cacheNotifier'):
             return self.cacheNotifier.changed()
-
+        else:
+            log.debug("%r does not have a cacheNotifier but the CTag changed"
+                      % (self,))
         return succeed(True)
 
     ##
@@ -561,9 +563,9 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         """
         @param path: the path to the file which will back the resource.
         """
+        self.cacheNotifier = self.cacheNotifierFactory(self)
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
-        self.cacheNotifier = self.cacheNotifierFactory(self)
 
     def provisionChild(self, name):
         if config.EnableDropBox:
@@ -578,7 +580,9 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         }.get(name, None)
 
         if cls is not None:
-            return cls(self.fp.child(name).path, self)
+            child = cls(self.fp.child(name).path, self)
+            child.cacheNotifier = self.cacheNotifier
+            return child
 
         return self.createSimilarFile(self.fp.child(name).path)
 
