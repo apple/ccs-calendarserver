@@ -157,6 +157,20 @@ defaultConfig = {
     "EnableDropBox"         : False, # Calendar Drop Box
     "EnablePrivateEvents"   : False, # Private Events
     "EnableTimezoneService" : False, # Timezone service
+    
+    "ServerToServer": {
+        "Enabled"          : False, # Server-to-server protocol
+        "Email Domain"     : "",    # Domain for mailto calendar user addresses on this server
+        "HTTP Domain"      : "",    # Domain for http calendar user addresses on this server
+        "Local Addresses"  : [],    # Reg-ex patterns to match local calendar user addresses
+        "Remote Addresses" : [],    # Reg-ex patterns to match remote calendar user addresses
+    },
+
+    "FreeBusyURL": {
+        "Enabled"          : False, # Per-user free-busy-url protocol
+        "Time Period"      : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "Anonymous Access" : False, # Allow anonymous read access to free-busy URL
+    },
 
     #
     # Implementation details
@@ -217,6 +231,9 @@ defaultConfig = {
 }
 
 class Config (object):
+    """
+    @DynamicAttrs
+    """
     def __init__(self, defaults):
         self.setDefaults(defaults)
         self._data = copy.deepcopy(self._defaults)
