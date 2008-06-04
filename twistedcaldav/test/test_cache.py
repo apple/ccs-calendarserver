@@ -32,7 +32,7 @@ from twisted.web2.http_headers import Headers
 from twistedcaldav.cache import MemcacheResponseCache
 from twistedcaldav.cache import MemcacheChangeNotifier
 
-from twistedcaldav.test.util import InMemoryPropertyStore
+from twistedcaldav.test.util import InMemoryMemcacheProtocol
 
 
 def _newCacheToken(self):
@@ -75,28 +75,6 @@ class StubResponse(object):
 
 
 
-class InMemoryMemcacheProtocol(object):
-    def __init__(self):
-        self._cache = {}
-
-
-    def get(self, key):
-        if key not in self._cache:
-            return succeed((0, None))
-
-        return succeed(self._cache[key])
-
-
-    def set(self, key, value, flags=0, expireTime=0):
-        try:
-            self._cache[key] = (flags, value)
-            return succeed(True)
-
-        except Exception, err:
-            return fail(Failure())
-
-
-
 class StubURLResource(object):
     def __init__(self, url):
         self._url = url
@@ -110,8 +88,10 @@ class StubURLResource(object):
 class MemCacheChangeNotifierTests(TestCase):
     def setUp(self):
         self.memcache = InMemoryMemcacheProtocol()
-        self.ccn = MemcacheChangeNotifier(StubURLResource(':memory:'))
-        MemcacheChangeNotifier._memcacheProtocol = self.memcache
+        self.ccn = MemcacheChangeNotifier(
+            StubURLResource(':memory:'),
+            cachePool=self.memcache)
+
         self.ccn._newCacheToken = instancemethod(_newCacheToken,
                                                  self.ccn,
                                                  MemcacheChangeNotifier)
@@ -319,7 +299,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         super(MemcacheResponseCacheTests, self).setUp()
 
         memcacheStub = InMemoryMemcacheProtocol()
-        self.rc = MemcacheResponseCache(None, None, None, None)
+        self.rc = MemcacheResponseCache(None, cachePool=memcacheStub)
         self.rc.logger.setLevel('debug')
         self.tokens = {}
 
@@ -350,7 +330,3 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             (self.expected_response[0],
              dict(list(self.expected_response[1].getAllRawHeaders())),
              self.expected_response[2]))))
-
-        self.rc._memcacheProtocol = memcacheStub
-
-

@@ -20,6 +20,7 @@ import stat
 from zope.interface import implements
 
 from twisted.internet import reactor
+from twisted.internet.address import IPv4Address
 
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
@@ -56,6 +57,7 @@ from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav import pdmonster
+from twistedcaldav import memcachepool
 
 log = Logger()
 
@@ -500,6 +502,17 @@ class CalDAVServiceMaker(object):
                 SudoDirectoryService.recordType_sudoers)
 
         #
+        # Configure Memcached Client Pool
+        #
+        if config.Memcached["ClientEnabled"]:
+            memcachepool.installPool(
+                IPv4Address(
+                    'TCP',
+                    config.Memcached["BindAddress"],
+                    config.Memcached["Port"]),
+                config.Memcached["MaxClients"])
+
+        #
         # Setup Resource hierarchy
         #
 
@@ -780,6 +793,10 @@ class CalDAVServiceMaker(object):
                 log.info("Suggesting size for the reactor threadpool: %r" % (
                         config.ThreadPoolSize))
                 reactor.suggestThreadPoolSize(config.ThreadPoolSize)
+
+                log.info("Suggesting new max clients for memcache.")
+                memcachepool.getCachePool().suggestMaxClients(
+                        config.Memcached["MaxClients"])
 
             signal.signal(signal.SIGHUP, sighup_handler)
 

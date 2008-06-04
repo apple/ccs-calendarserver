@@ -57,10 +57,7 @@ class RootResource(DAVFile):
         self.contentFilters = []
 
         if config.Memcached['ClientEnabled']:
-            self.responseCache = MemcacheResponseCache(
-                self.fp,
-                config.Memcached['BindAddress'],
-                config.Memcached['Port'])
+            self.responseCache = MemcacheResponseCache(self.fp)
 
             CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
             DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier

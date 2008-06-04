@@ -47,6 +47,29 @@ class InMemoryPropertyStore(object):
         self._properties[property.qname()] = property
 
 
+
+class InMemoryMemcacheProtocol(object):
+    def __init__(self):
+        self._cache = {}
+
+
+    def get(self, key):
+        if key not in self._cache:
+            return succeed((0, None))
+
+        return succeed(self._cache[key])
+
+
+    def set(self, key, value, flags=0, expireTime=0):
+        try:
+            self._cache[key] = (flags, value)
+            return succeed(True)
+
+        except Exception, err:
+            return fail(Failure())
+
+
+
 class StubCacheChangeNotifier(object):
     def __init__(self, *args, **kwargs):
         pass

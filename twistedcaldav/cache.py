@@ -36,7 +36,7 @@ from twisted.web2.dav.xattrprops import xattrPropertyStore
 from twisted.internet.threads import deferToThread
 
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcache import MemCacheProtocol
+from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
 
 
@@ -69,36 +69,14 @@ class URINotFoundException(Exception):
             self.uri)
 
 
-
-class MemcacheChangeNotifier(LoggingMixIn):
-    _memcacheProtocol = None
-
-    def __init__(self, resource):
+class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
+    def __init__(self, resource, cachePool=None):
         self._resource = resource
-        self._host = config.Memcached['BindAddress']
-        self._port = config.Memcached['Port']
-
-        from twisted.internet import reactor
-        self._reactor = reactor
+        self._cachePool = cachePool
 
 
     def _newCacheToken(self):
         return str(uuid.uuid4())
-
-
-    def _getMemcacheProtocol(self):
-        if MemcacheChangeNotifier._memcacheProtocol is not None:
-            return succeed(self._memcacheProtocol)
-
-        d = ClientCreator(self._reactor, MemCacheProtocol).connectTCP(
-            self._host,
-            self._port)
-
-        def _cacheProtocol(proto):
-            MemcacheChangeNotifier._memcacheProtocol = proto
-            return proto
-
-        return d.addCallback(_cacheProtocol)
 
 
     def changed(self):
@@ -107,14 +85,10 @@ class MemcacheChangeNotifier(LoggingMixIn):
 
         return: A L{Deferred} that fires when the token has been changed.
         """
-        def _updateCacheToken(proto):
-            return proto.set('cacheToken:%s' % (self._resource.url(),),
-                             self._newCacheToken())
-
         self.log_debug("Changing Cache Token for %r" % (self._resource.url(),))
-        d = self._getMemcacheProtocol()
-        d.addCallback(_updateCacheToken)
-        return d
+        return self.getCachePool().set(
+            'cacheToken:%s' % (self._resource.url(),),
+            self._newCacheToken())
 
 
 
@@ -183,17 +157,10 @@ class BaseResponseCache(LoggingMixIn):
 
 
 
-class MemcacheResponseCache(BaseResponseCache):
-    def __init__(self, docroot, host, port, reactor=None):
+class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
+    def __init__(self, docroot, cachePool=None):
         self._docroot = docroot
-        self._host = host
-        self._port = port
-        if reactor is None:
-            from twisted.internet import reactor
-
-        self._reactor = reactor
-
-        self._memcacheProtocol = None
+        self._cachePool = cachePool
 
 
     def _tokenForURI(self, uri):
@@ -204,8 +171,7 @@ class MemcacheResponseCache(BaseResponseCache):
         @return: A C{str} representing the token for the URI.
         """
 
-        return self._getMemcacheProtocol().addCallback(
-            lambda p: p.get('cacheToken:%s' % (uri,)))
+        return self.getCachePool().get('cacheToken:%s' % (uri,))
 
 
     def _getTokens(self, request):
@@ -221,21 +187,6 @@ class MemcacheResponseCache(BaseResponseCache):
         d = self._getURIs(request)
         d.addCallback(_tokensForURIs)
         return d
-
-
-    def _getMemcacheProtocol(self):
-        if self._memcacheProtocol is not None:
-            return succeed(self._memcacheProtocol)
-
-        d = ClientCreator(self._reactor, MemCacheProtocol).connectTCP(
-            self._host,
-            self._port)
-
-        def _cacheProtocol(proto):
-            self._memcacheProtocol = proto
-            return proto
-
-        return d.addCallback(_cacheProtocol)
 
 
     def _hashedRequestKey(self, request):
@@ -292,13 +243,10 @@ class MemcacheResponseCache(BaseResponseCache):
 
             return d2
 
-        def _getCache(proto, key):
+        def _getCached(key):
             self.log_debug("Checking cache for: %r" % (key,))
-            d1 = proto.get(key)
+            d1 = self.getCachePool().get(key)
             return d1.addCallback(_unpickleResponse, key)
-
-        def _getProtocol(key):
-            return self._getMemcacheProtocol().addCallback(_getCache, key)
 
         def _handleExceptions(f):
             f.trap(URINotFoundException)
@@ -306,17 +254,12 @@ class MemcacheResponseCache(BaseResponseCache):
             return None
 
         d = self._hashedRequestKey(request)
-        d.addCallback(_getProtocol)
+        d.addCallback(_getCached)
         d.addErrback(_handleExceptions)
         return d
 
 
     def cacheResponseForRequest(self, request, response):
-        def _setCacheEntry(proto, key, cacheEntry):
-            self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
-            return proto.set(key, cacheEntry).addCallback(
-                lambda _: response)
-
         def _makeCacheEntry((pToken, uToken), (key, responseBody)):
             cacheEntry = cPickle.dumps(
                 (pToken,
@@ -325,9 +268,9 @@ class MemcacheResponseCache(BaseResponseCache):
                   dict(list(response.headers.getAllRawHeaders())),
                   responseBody)))
 
-            d2 = self._getMemcacheProtocol()
-            d2.addCallback(_setCacheEntry, key, cacheEntry)
-            return d2
+            self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
+            return self.getCachePool().set(key, cacheEntry).addCallback(
+                lambda _: response)
 
         def _cacheResponse((key, responseBody)):
             principalURI = self._principalURI(request.authnUser)

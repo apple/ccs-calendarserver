@@ -206,6 +206,7 @@ defaultConfig = {
     "ListenBacklog": 50,
 
     "Memcached": {
+        "MaxClients": 5,
         "ClientEnabled": False,
         "ServerEnabled": False,
         "BindAddress": "127.0.0.1",
