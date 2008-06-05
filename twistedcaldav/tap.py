@@ -220,26 +220,6 @@ class CalDAVOptions(Options):
             create=(0750, config.UserName, config.GroupName,),
         )
 
-        # Verify that ssl certs exist if needed
-        if config.SSLPort:
-            try:
-                self.checkFile(
-                    config.SSLPrivateKey,
-                    "SSL Private key",
-                    access=os.R_OK,
-                    #permissions=0640,
-                )
-                self.checkFile(
-                    config.SSLCertificate,
-                    "SSL Public key",
-                    access=os.R_OK,
-                    #permissions=0644,
-                )
-            except ConfigurationError, e:
-                log.err(str(e))
-                log.err("Disabling SSL port")
-                config.SSLPort = 0
-
         #
         # Nuke the file log observer's time format.
         #
@@ -728,19 +708,23 @@ class CalDAVServiceMaker(object):
             for port in config.BindSSLPorts:
                 log.info("Adding SSL server at %s:%s" % (bindAddress, port))
 
-                contextFactory = ChainingOpenSSLContextFactory(
-                    config.SSLPrivateKey,
-                    config.SSLCertificate,
-                    certificateChainFile=config.SSLAuthorityChain,
-                    passwdCallback=_getSSLPassphrase
-                )
-
-                httpsService = internet.SSLServer(
-                    int(port), channel,
-                    contextFactory, interface=bindAddress,
-                    backlog=config.ListenBacklog
-                )
-                httpsService.setServiceParent(service)
+                try:
+                    contextFactory = ChainingOpenSSLContextFactory(
+                        config.SSLPrivateKey,
+                        config.SSLCertificate,
+                        certificateChainFile=config.SSLAuthorityChain,
+                        passwdCallback=_getSSLPassphrase
+                    )
+                except SSL.Error, e:
+                    log.error("Unable to set up SSL context factory: %s" % (e,))
+                    log.error("Disabling SSL port: %s" % (port,))
+                else:
+                    httpsService = internet.SSLServer(
+                        int(port), channel,
+                        contextFactory, interface=bindAddress,
+                        backlog=config.ListenBacklog
+                    )
+                    httpsService.setServiceParent(service)
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
