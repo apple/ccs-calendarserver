@@ -1,0 +1,728 @@
+
+
+
+Calendar Server Extension                                       C. Daboo
+                                                                   Apple
+                                                       December 18, 2007
+
+
+                 Private Calendar Components in CalDAV
+                       icalendar-privateevents-01
+
+Abstract
+
+   This document defines an extension to CalDAV that enables a client to
+   mark events with an access classification (e.g., "private") so that
+   other calendar users have restricted rights to view the data in the
+   calendar component.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  2
+   3.  Open Issues  . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   4.  New features . . . . . . . . . . . . . . . . . . . . . . . . .  3
+     4.1.  iCalendar Changes  . . . . . . . . . . . . . . . . . . . .  3
+       4.1.1.  Changes to VCALENDAR Object  . . . . . . . . . . . . .  3
+       4.1.2.  Restricted Access Property . . . . . . . . . . . . . .  3
+     4.2.  CalDAV Changes . . . . . . . . . . . . . . . . . . . . . .  4
+       4.2.1.  OPTIONS Request  . . . . . . . . . . . . . . . . . . .  4
+         4.2.1.1.  Example: Using OPTIONS for the Discovery of
+                   Private Event Support  . . . . . . . . . . . . . .  5
+       4.2.2.  Data Restrictions  . . . . . . . . . . . . . . . . . .  5
+         4.2.2.1.  Changing the X-CALENDARSERVER-ACCESS value . . . .  5
+         4.2.2.2.  X-CALENDARSERVER-ACCESS set to PUBLIC  . . . . . .  5
+         4.2.2.3.  X-CALENDARSERVER-ACCESS set to PRIVATE . . . . . .  5
+         4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONIFDENTIAL  . . .  6
+         4.2.2.5.  X-CALENDARSERVER-ACCESS set to RESTRICTED  . . . .  6
+       4.2.3.  Changes to WebDAV Privileges when
+               X-CALENDARSERVER-ACCESS is used  . . . . . . . . . . .  7
+       4.2.4.  Summary of behavior  . . . . . . . . . . . . . . . . .  8
+       4.2.5.  CalDAV Scheduling  . . . . . . . . . . . . . . . . . . 10
+       4.2.6.  New pre-conditions for PUT . . . . . . . . . . . . . . 10
+       4.2.7.  New pre-condition for POST . . . . . . . . . . . . . . 10
+   5.  Security Considerations  . . . . . . . . . . . . . . . . . . . 11
+   6.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 11
+   7.  Normative References . . . . . . . . . . . . . . . . . . . . . 11
+   Appendix A.  Acknowledgments . . . . . . . . . . . . . . . . . . . 12
+   Appendix B.  Change History  . . . . . . . . . . . . . . . . . . . 12
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+
+
+
+Daboo                                                           [Page 1]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+1.  Introduction
+
+   Internet calendaring and scheduling standards are defined by
+   iCalendar [RFC2445] and iTIP [RFC2446].  The CalDAV [RFC4791]
+   standard defines a way to access calendar data stored on a server.
+   CalDAV uses WebDAV ACLs [RFC3744] to allow a calendar user to grant
+   rights to other users to see the calendar data stored on the server.
+   This is an "all or nothing" behavior, i.e. if another user is granted
+   the DAV:read privilege to a calendar component, then that user can
+   read all the calendar data in the calendar resource stored on the
+   server.
+
+   It is often the case that a calendar user wants to give "restricted"
+   access to portions of the calendar data. e.g., allow another calendar
+   user to see only the start and end times of an event, but not other
+   information (such as summary, description, location, attendee list
+   etc).  There is currently no way to do that with CalDAV.
+
+   This specification defines a new iCalendar property that can be
+   stored in a calendar component on the CalDAV server that triggers
+   restricted access rights for other users., in addition to the
+   standard rights granted by WebDAV ACLs.  In some cases use of this
+   property will result in the server implicitly changing the WebDAV
+   ACLs granted by users.
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   When XML element types in the namespaces "DAV:" and
+   "urn:ietf:params:xml:ns:caldav" are referenced in this document
+   outside of the context of an XML fragment, the string "DAV:" and
+   "CALDAV:" will be prefixed to the element type names respectively.
+
+   The namespace "http://calendarserver.org/ns/" is used for XML
+   elements defined in this specification.  When XML element types in
+   this namespace are referenced in this document outside of the context
+   of an XML fragment, the string "CS:" will be prefixed to the element
+   type names respectively.
+
+
+3.  Open Issues
+
+
+
+
+
+
+Daboo                                                           [Page 2]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   1.  None right now.
+
+
+4.  New features
+
+4.1.  iCalendar Changes
+
+   This specification introduces a new iCalendar property
+   "X-CALENDARSERVER-ACCESS" that can be used only as a property in a
+   "VCALENDAR" object.
+
+4.1.1.  Changes to VCALENDAR Object
+
+   The definition of the properties allowed in a "VCALENDAR" object is
+   extended as follows:
+
+        calprops   /=
+
+                   ; 'access'is optional,
+                   ; but MUST NOT occur more than once
+
+                   access
+
+   Note that the property is applied to the top-level "VCALENDAR" object
+   which means that the access rights being set apply to the entire
+   iCalendar object (and thus entire CalDAV resource) when stored on a
+   CalDAV server.  This specification does not define a way to restrict
+   access on a per-component or per-instance basis within a single
+   CalDAV calendar resource.
+
+4.1.2.  Restricted Access Property
+
+   Property Name: X-CALENDARSERVER-ACCESS
+
+   Purpose: The property is used to indicate restricted access rights to
+   the iCalendar data.
+
+   Value Type: TEXT
+
+   Property Parameters: Non-standard property parameters can be
+   specified on this property.
+
+   Conformance: The property can be specified at most once in an
+   iCalendar object.
+
+   Description: The access property is used to restrict access to the
+   calendar data when it is stored on a CalDAV server only.  Note that
+   this property has no meaning when used in other types of calendar
+
+
+
+Daboo                                                           [Page 3]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   store or when sent via an iTIP message.  When used on a CalDAV
+   server, the CalDAV server guarantees that the appropriate calendar
+   data access restrictions are applied based on the value of this
+   property.
+
+   The access values are defined as follows:
+
+   +--------------+----------------------------------------------------+
+   | Access Value | Description                                        |
+   +--------------+----------------------------------------------------+
+   | PUBLIC       | All of the calendar data is visible.               |
+   |              |                                                    |
+   | PRIVATE      | None of the calendar data is visible.              |
+   |              |                                                    |
+   | CONFIDENTIAL | Only start and end time of each instance is        |
+   |              | visible.                                           |
+   |              |                                                    |
+   | RESTRICTED   | Only start and end time, summary and location of   |
+   |              | each instance is visible.                          |
+   +--------------+----------------------------------------------------+
+
+   Format Definition: The property is defined by the following notation:
+
+     access = "X-CALENDARSERVER-ACCESS" accessparam ":" accessvalue CRLF
+
+     accessparam = *(";" xparam)
+
+     accessvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / "RESTRICTED"
+                   / x-name
+     ;Default is PUBLIC
+
+   Example: The following is an example of this property:
+
+       X-CALENDARSERVER-ACCESS:PRIVATE
+
+4.2.  CalDAV Changes
+
+4.2.1.  OPTIONS Request
+
+   A server supporting the features described in this document MUST
+   include "calendarserver-private-events" as a field in the DAV
+   response header from an OPTIONS request on all calendar resources.  A
+   value of "calendarserver-private-events" in the DAV response header
+   MUST indicate that the server supports all MUST level requirements
+   specified in this document.
+
+
+
+
+
+
+Daboo                                                           [Page 4]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+4.2.1.1.  Example: Using OPTIONS for the Discovery of Private Event
+          Support
+
+      >> Request <<
+
+      OPTIONS /home/cyrus/calendars/ HTTP/1.1
+      Host: cal.example.com
+
+      >> Response <<
+
+      HTTP/1.1 200 OK
+      Allow: OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, COPY, MOVE
+      Allow: PROPFIND, PROPPATCH, LOCK, UNLOCK, REPORT, ACL
+      DAV: 1, 2, access-control, calendar-access
+      DAV: calendarserver-private-events
+      Date: Sat, 11 Nov 2006 09:32:12 GMT
+      Content-Length: 0
+
+   In this example, the OPTIONS method returns the value
+   "calendarserver-private-events" in the DAV response header to
+   indicate that the collection "/home/cyrus/calendars/" supports the
+   behavior defined in this specification.
+
+4.2.2.  Data Restrictions
+
+   The following restrictions on access to calendar data are applied
+   when the "X-CALENDARSERVER-ACCESS" is present in a calendar resource.
+
+4.2.2.1.  Changing the X-CALENDARSERVER-ACCESS value
+
+   Only the authorized principal identified by the DAV:owner property
+   value on the calendar resource is allowed to store an iCalendar
+   object with the "X-CALENDARSERVER-ACCESS" icalendar property value
+   set to anything other than "PUBLIC".  This ensures that a non-owner
+   principal cannot "lock themselves out of" access to a calendar
+   resource, with no way to undo their actions.
+
+4.2.2.2.  X-CALENDARSERVER-ACCESS set to PUBLIC
+
+   There are no additional restrictions beyond normal WebDAV access
+   control applied to the calendar resource for this access restriction.
+
+4.2.2.3.  X-CALENDARSERVER-ACCESS set to PRIVATE
+
+   There are no additional restrictions beyond normal WebDAV access
+   control applied to the calendar resource for this access restriction.
+   Note that in this case the server will explicitly set WebDAV ACLs to
+   prevent access to the data by any principal other than the one
+
+
+
+Daboo                                                           [Page 5]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   indicated in the DAV:owner property on the calendar resource.
+
+4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONIFDENTIAL
+
+   In addition to normal WebDAV access control, a calendar user
+   authorized as a principal that is not the DAV:owner of the calendar
+   resource can retrieve or match on only the following iCalendar
+   properties (assuming these properties actually occur in the calendar
+   object):
+
+   +-----------+-------------------------------------------------------+
+   | Component | Allowed Properties                                    |
+   +-----------+-------------------------------------------------------+
+   | VCALENDAR | PRODID VERSION CALSCALE X-CALENDARSERVER-ACCESS       |
+   |           |                                                       |
+   | VEVENT    | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS TRANSP      |
+   |           | DTSTART DTEND DURATION RRULE RDATE EXDATE             |
+   |           |                                                       |
+   | VTODO     | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS DTSTART     |
+   |           | COMPLETED DUE DURATION RRULE RDATE EXDATE             |
+   |           |                                                       |
+   | VJOURNAL  | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS DTSTART     |
+   |           | RRULE RDATE EXDATE                                    |
+   |           |                                                       |
+   | VFREEBUSY | UID DTSTAMP DTSTART DTEND DURATION FREEBUSY           |
+   |           |                                                       |
+   | VTIMEZONE | All Properties                                        |
+   +-----------+-------------------------------------------------------+
+
+   In addition, VALARM components MUST NOT be returned.
+
+   Note that retrieval of the iCalendar data applies to any method that
+   can return iCalendar data.  In particular, some CalDAV REPORTs are
+   able to return iCalendar data, which MUST be restricted as above.
+
+   In addition, the CALDAV:calendar-query REPORT allows for searching on
+   iCalendar data.  Searching MUST only match components, properties or
+   parameters on properties that are listed above.
+
+4.2.2.5.  X-CALENDARSERVER-ACCESS set to RESTRICTED
+
+   In addition to normal WebDAV access control, a calendar user
+   authorized as a principal that is not the DAV:owner of the calendar
+   resource can retrieve or match on only the following iCalendar
+   properties (assuming these properties actually occur in the calendar
+   object):
+
+
+
+
+
+Daboo                                                           [Page 6]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   +-----------+-------------------------------------------------------+
+   | Component | Allowed Properties                                    |
+   +-----------+-------------------------------------------------------+
+   | VCALENDAR | PRODID VERSION CALSCALE X-CALENDARSERVER-ACCESS       |
+   |           |                                                       |
+   | VEVENT    | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS TRANSP      |
+   |           | DTSTART DTEND DURATION RRULE RDATE EXDATE SUMMARY     |
+   |           | LOCATION                                              |
+   |           |                                                       |
+   | VTODO     | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS DTSTART     |
+   |           | COMPLETED DUE DURATION RRULE RDATE EXDATE SUMMARY     |
+   |           | LOCATION                                              |
+   |           |                                                       |
+   | VJOURNAL  | UID RECURRENCE-ID SEQUENCE DTSTAMP STATUS DTSTART     |
+   |           | RRULE RDATE EXDATE SUMMARY                            |
+   |           |                                                       |
+   | VFREEBUSY | UID DTSTAMP DTSTART DTEND DURATION FREEBUSY           |
+   |           |                                                       |
+   | VTIMEZONE | All Properties                                        |
+   +-----------+-------------------------------------------------------+
+
+   In addition, VALARM components MUST NOT be returned.
+
+   Note that retrieval of the iCalendar data applies to any method that
+   can return iCalendar data.  In particular, some CalDAV REPORTs are
+   able to return iCalendar data, which MUST be restricted as above.
+
+   In addition, the CALDAV:calendar-query REPORT allows for searching on
+   iCalendar data.  Searching MUST only match components, properties or
+   parameters on properties that are listed above.
+
+4.2.3.  Changes to WebDAV Privileges when X-CALENDARSERVER-ACCESS is
+        used
+
+   When a CalDAV client stores a calendar resource on a CalDAV server,
+   the CalDAV server MUST apply the following ACLs to the resource based
+   on the "X-CALENDARSERVER-ACCESS" property in the calendar data.
+
+   +--------------+----------------------------------------------------+
+   | Access Value | Applied Privileges                                 |
+   +--------------+----------------------------------------------------+
+   | PUBLIC       | Normal privileges                                  |
+   |              |                                                    |
+   | PRIVATE      | The DAV:read and DAV:write privileges MUST be      |
+   |              | denied to all principals that are not the          |
+   |              | DAV:owner.                                         |
+   |              |                                                    |
+
+
+
+
+Daboo                                                           [Page 7]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   | CONFIDENTIAL | The DAV:write privilege MUST be denied to all      |
+   |              | principals that are not the DAV:owner.             |
+   |              |                                                    |
+   | RESTRICTED   | The DAV:write privilege MUST be denied to all      |
+   |              | principals that are not the DAV:owner.             |
+   +--------------+----------------------------------------------------+
+
+   The server MUST examine the "X-CALENDARSERVER-ACCESS" property each
+   time a calendar resource is stored and re-apply any WebDAV ACL
+   restrictions based on the new value.
+
+4.2.4.  Summary of behavior
+
+   For each value of "X-CALENDARSERVER-ACCESS" different effects occur
+   based on the WebDAV request method used by a client.
+
+   +--------------+-------------------+--------------------------------+
+   | Restriction  | Method            | Affect on non-owner principals |
+   +--------------+-------------------+--------------------------------+
+   | PUBLIC       | Any Method        | Normal ACLs apply.             |
+   |              |                   |                                |
+   | PRIVATE      | Any Method        | As per Section 4.2.3 non-owner |
+   |              |                   | principals will have been      |
+   |              |                   | denied access via WebDAV ACLs  |
+   |              |                   | so will not be able to see the |
+   |              |                   | calendar resource or its data, |
+   |              |                   | or operate on it in any way.   |
+   |              |                   |                                |
+   | CONFIDENTIAL | GET               | The data returned will be      |
+   |              |                   | limited to only the calendar   |
+   |              |                   | properties listed in           |
+   |              |                   | Section 4.2.2.4.               |
+   |              | PUT               | As per Section 4.2.3,          |
+   |              |                   | non-owner principals will not  |
+   |              |                   | have the DAV:write privilege   |
+   |              |                   | to the calendar resource so    |
+   |              |                   | PUT is forbidden.              |
+   |              | DELETE            | Normal ACLs apply.             |
+   |              | PROPFIND          | Normal ACLs apply.             |
+   |              | PROPPATCH         | As per Section 4.2.3,          |
+   |              |                   | non-owner principals will not  |
+   |              |                   | have the DAV:write privilege   |
+   |              |                   | to the calendar resource so    |
+   |              |                   | PUT is forbidden.              |
+
+
+
+
+
+
+
+Daboo                                                           [Page 8]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   |              | REPORT -          | Any CALDAV:calendar-data       |
+   |              | calendar-multiget | returned in the XML response   |
+   |              |                   | MUST be limited to only the    |
+   |              |                   | calendar properties listed in  |
+   |              |                   | Section 4.2.2.4.               |
+   |              | REPORT -          | Any CALDAV:calendar-data       |
+   |              | calendar-query    | returned in the XML response   |
+   |              |                   | MUST be limited to only the    |
+   |              |                   | calendar properties listed in  |
+   |              |                   | Section 4.2.2.4.  The server   |
+   |              |                   | MUST not allow a query to      |
+   |              |                   | match a calendar property that |
+   |              |                   | is not listed in               |
+   |              |                   | Section 4.2.2.4.               |
+   |              | REPORT -          | Normal ACLs apply.             |
+   |              | free-busy-query   |                                |
+   |              |                   |                                |
+   | RESTRICTED   | GET               | The data returned will be      |
+   |              |                   | limited to only the calendar   |
+   |              |                   | properties listed in           |
+   |              |                   | Section 4.2.2.5.               |
+   |              | PUT               | As per Section 4.2.3,          |
+   |              |                   | non-owner principals will not  |
+   |              |                   | have the DAV:write privilege   |
+   |              |                   | to the calendar resource so    |
+   |              |                   | PUT is forbidden.              |
+   |              | DELETE            | Normal ACLs apply.             |
+   |              | PROPFIND          | Normal ACLs apply.             |
+   |              | PROPPATCH         | As per Section 4.2.3,          |
+   |              |                   | non-owner principals will not  |
+   |              |                   | have the DAV:write privilege   |
+   |              |                   | to the calendar resource so    |
+   |              |                   | PUT is forbidden.              |
+   |              | REPORT -          | Any CALDAV:calendar-data       |
+   |              | calendar-multiget | returned in the XML response   |
+   |              |                   | MUST be limited to only the    |
+   |              |                   | calendar properties listed in  |
+   |              |                   | Section 4.2.2.5.               |
+   |              | REPORT -          | Any CALDAV:calendar-data       |
+   |              | calendar-query    | returned in the XML response   |
+   |              |                   | MUST be limited to only the    |
+   |              |                   | calendar properties listed in  |
+   |              |                   | Section 4.2.2.5.  The server   |
+   |              |                   | MUST not allow a query to      |
+   |              |                   | match a calendar property that |
+   |              |                   | is not listed in               |
+   |              |                   | Section 4.2.2.5.               |
+
+
+
+
+Daboo                                                           [Page 9]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+   |              | REPORT -          | Normal ACLs apply.             |
+   |              | free-busy-query   |                                |
+   +--------------+-------------------+--------------------------------+
+
+4.2.5.  CalDAV Scheduling
+
+   When the CalDAV scheduling [I-D.desruisseaux-caldav-sched] feature is
+   enabled on the CalDAV server, the following behavior is required:
+
+      Clients MUST NOT include the "X-CALENDARSERVER-ACCESS" iCalendar
+      property in any calendar objects used in an HTTP POST request
+      against a calendaring Outbox collection.
+
+      Servers MUST fail an HTTP POST request on a calendar Outbox
+      collection where the calendar data contains an "X-CALENDARSERVER-
+      ACCESS" iCalendar property.
+
+4.2.6.  New pre-conditions for PUT
+
+   The following pre-conditions for a PUT request against a calendar
+   resource are defined:
+
+      (CS:valid-access-restriction-change):Only the DAV:owner principal
+      is allowed to store a calendar resource where the calendar data
+      contains an "X-CALENDARSERVER-ACCESS" property with a value other
+      than "PUBLIC".
+
+      (CS:valid-access-restriction):The "X-CALENDARSERVER-ACCESS"
+      property value in the iCalendar data in the request body has to be
+      a value recognized by the server.
+
+   If these pre-conditions are violated the server MUST return a DAV:
+   error response with the appropriate XML element indicating the pre-
+   condition being violated in the response to the PUT request.
+
+4.2.7.  New pre-condition for POST
+
+   The following pre-conditions for a POST request against a calendar
+   Outbox collection are defined:
+
+      (CS:no-access-restrictions):iCalendar data sent in a POST request
+      on a calendar Outbox collection MUST NOT contain a
+      "X-CALENDARSERVER-ACCESS" iCalendar property.
+
+   If these pre-conditions are violated the server MUST return a DAV:
+   error response with the appropriate XML element indicating the pre-
+   condition being violated in the response to the PUT request.
+
+
+
+
+Daboo                                                          [Page 10]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+5.  Security Considerations
+
+   It is not possible to have private events in a calendar Inbox
+   collection as the "X-CALENDARSERVER-ACCESS" iCalendar property cannot
+   be used in an iTIP message sent via CalDAV scheduling.  As a result,
+   any one with read access to the calendar Inbox collection will be
+   able to see all the calendar data in any calendar resource in that
+   collection.
+
+   This specification leaves open the possibility of having additional
+   standard or non-standard values for the "X-CALENDARSERVER-ACCESS"
+   iCalendar property.  This possibility requires special attention by
+   servers and clients, as detailed below:
+
+   o  Servers MUST reject any iCalendar component with an
+      "X-CALENDARSERVER-ACCESS" property value that is not recognized.
+
+   o  Clients MUST accept and preserve any "X-CALENDARSERVER-ACCESS"
+      property values in iCalendar data.  In the case of a value that
+      the client does not recognize, the following actions can be taken:
+
+      *  Present the access state to the user in an "indeterminate"
+         state and allow them to change it to any of the values known to
+         the client.  However, if the user chooses not to change it, the
+         original value MUST be preserved.
+
+      *  Treat the unknown value as "PUBLIC".
+
+   The access restrictions defined here are dependent on the value of
+   the DAV:owner property on a calendar resource.  Servers MUST ensure
+   that this property value cannot be changed by unauthorized users.
+   Ideally it could be treated as a "live" property whose value can
+   never be changed via WebDAV protocol.
+
+
+6.  IANA Considerations
+
+   This document does not require any actions on the part of IANA.
+
+
+7.  Normative References
+
+   [I-D.desruisseaux-caldav-sched]
+              Desruisseaux, B., "Scheduling Extensions to CalDAV",
+              draft-desruisseaux-caldav-sched-03 (work in progress),
+              January 2007.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+
+
+
+Daboo                                                          [Page 11]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2445]  Dawson, F. and Stenerson, D., "Internet Calendaring and
+              Scheduling Core Object Specification (iCalendar)",
+              RFC 2445, November 1998.
+
+   [RFC2446]  Silverberg, S., Mansour, S., Dawson, F., and R. Hopson,
+              "iCalendar Transport-Independent Interoperability Protocol
+              (iTIP) Scheduling Events, BusyTime, To-dos and Journal
+              Entries", RFC 2446, November 1998.
+
+   [RFC3744]  Clemm, G., Reschke, J., Sedlar, E., and J. Whitehead, "Web
+              Distributed Authoring and Versioning (WebDAV)
+              Access Control Protocol", RFC 3744, May 2004.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+
+Appendix A.  Acknowledgments
+
+   This specification is the result of discussions between the Apple
+   calendar server and client teams.
+
+
+Appendix B.  Change History
+
+   Changes since -00
+
+   1.  Added security text on how to deal with unrecognized values.
+
+   2.  Make explicit use of DAV:owner property.
+
+   3.  Added comment on keeping DAV:owner value secure.
+
+   4.  Added text about who is allowed to change the property value.
+
+   5.  Added new pre-conditions for PUT & POST.
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 12]
+
+                   CalDAV Private Calendar Components      December 2007
+
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 13]
+
