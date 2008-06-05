@@ -81,9 +81,7 @@ def highestLogLevel(*levels):
 # Tools for manageing log levels
 ##
 
-defaultLogLevel = "info"
-
-logLevelsByNamespace = {}
+logLevelsByNamespace = {None: "info"}
 
 def logLevelForNamespace(namespace):
     """
@@ -92,7 +90,7 @@ def logLevelForNamespace(namespace):
     @return: the log level for the given namespace.
     """
     if not namespace:
-        return defaultLogLevel
+        return logLevelsByNamespace[None]
 
     if namespace in logLevelsByNamespace:
         return logLevelsByNamespace[namespace]
@@ -106,7 +104,7 @@ def logLevelForNamespace(namespace):
             return logLevelsByNamespace[namespace]
         index -= 1
 
-    return defaultLogLevel
+    return logLevelsByNamespace[None]
 
 def setLogLevelForNamespace(namespace, level):
     """
@@ -117,11 +115,10 @@ def setLogLevelForNamespace(namespace, level):
     if level not in logLevels:
         raise InvalidLogLevelError(level)
 
-    if not namespace:
-        global defaultLogLevel
-        defaultLogLevel = level
-
-    logLevelsByNamespace[namespace] = level
+    if namespace:
+        logLevelsByNamespace[namespace] = level
+    else:
+        logLevelsByNamespace[None] = level
 
 def clearLogLevels():
     """
