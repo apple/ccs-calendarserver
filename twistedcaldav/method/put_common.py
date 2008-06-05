@@ -417,7 +417,9 @@ def storeCalendarObjectResource(
             failure_count = 0
             while(failure_count < 10):
                 try:
-                    destination_index.reserveUID(uid)
+                    d = waitForDeferred(destination_index.reserveUID(uid))
+                    yield d
+                    d.getResult()
                     reserved = True
                     break
                 except ReservationError:
@@ -663,18 +665,22 @@ def storeCalendarObjectResource(
         rollback.Commit()
 
         if reserved:
-            destination_index.unreserveUID(uid)
+            d = waitForDeferred(destination_index.unreserveUID(uid))
+            yield d
+            d.getResult()
             reserved = False
 
         yield response
         return
 
-    except:
+    except Exception, err:
         if reserved:
-            destination_index.unreserveUID(uid)
+            d = waitForDeferred(destination_index.unreserveUID(uid))
+            yield d
+            d.getResult()
             reserved = False
 
         # Roll back changes to original server state. Note this may do nothing
         # if the rollback has already ocurred or changes already committed.
         rollback.Rollback()
-        raise
+        raise err

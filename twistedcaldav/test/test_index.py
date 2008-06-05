@@ -15,51 +15,89 @@
 ##
 
 from twistedcaldav.index import Index
+from twistedcaldav import index
 
 import twistedcaldav.test.util
-from twistedcaldav.index import ReservationError
+from twistedcaldav.test.util import InMemoryMemcacheProtocol
+from twistedcaldav.index import ReservationError, MemcachedUIDReserver
+from twisted.web2.test.test_http import deferLater
 import time
 
-class TestIndex (twistedcaldav.test.util.TestCase):
+class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
     """
-    
+
     def setUp(self):
-        super(TestIndex, self).setUp()
+        super(SQLIndexTests, self).setUp()
         self.site.resource.isCalendarCollection = lambda: True
+        self.db = Index(self.site.resource)
+
 
     def test_reserve_uid_ok(self):
         uid = "test-test-test"
-        db = Index(self.site.resource)
-        self.assertFalse(db.isReservedUID(uid))
-        db.reserveUID(uid)
-        self.assertTrue(db.isReservedUID(uid))
-        db.unreserveUID(uid)
-        self.assertFalse(db.isReservedUID(uid))
+        d = self.db.isReservedUID(uid)
+        d.addCallback(self.assertFalse)
+        d.addCallback(lambda _: self.db.reserveUID(uid))
+        d.addCallback(lambda _: self.db.isReservedUID(uid))
+        d.addCallback(self.assertTrue)
+        d.addCallback(lambda _: self.db.unreserveUID(uid))
+        d.addCallback(lambda _: self.db.isReservedUID(uid))
+        d.addCallback(self.assertFalse)
+
+        return d
+
 
     def test_reserve_uid_twice(self):
         uid = "test-test-test"
-        db = Index(self.site.resource)
-        db.reserveUID(uid)
-        self.assertTrue(db.isReservedUID(uid))
-        self.assertRaises(ReservationError, db.reserveUID, uid)
+        d = self.db.reserveUID(uid)
+        d.addCallback(lambda _: self.db.isReservedUID(uid))
+        d.addCallback(self.assertTrue)
+        d.addCallback(lambda _:
+                      self.assertFailure(self.db.reserveUID(uid),
+                                         ReservationError))
+        return d
+
 
     def test_unreserve_unreserved(self):
         uid = "test-test-test"
-        db = Index(self.site.resource)
-        self.assertRaises(ReservationError, db.unreserveUID, uid)
+        return self.assertFailure(self.db.unreserveUID(uid),
+                                  ReservationError)
+
 
     def test_reserve_uid_timeout(self):
+        # WARNING: This test is fundamentally flawed and will fail
+        # intermittently because it uses the real clock.
         uid = "test-test-test"
         old_timeout = twistedcaldav.index.reservation_timeout_secs
-        twistedcaldav.index.reservation_timeout_secs = 2
-        try:
-            db = Index(self.site.resource)
-            self.assertFalse(db.isReservedUID(uid))
-            db.reserveUID(uid)
-            self.assertTrue(db.isReservedUID(uid))
-            time.sleep(3)
-            self.assertFalse(db.isReservedUID(uid))
-        finally:
+        twistedcaldav.index.reservation_timeout_secs = 1
+
+        def _finally(result):
             twistedcaldav.index.reservation_timeout_secs = old_timeout
+            return result
+
+        d = self.db.isReservedUID(uid)
+        d.addCallback(self.assertFalse)
+        d.addCallback(lambda _: self.db.reserveUID(uid))
+        d.addCallback(lambda _: self.db.isReservedUID(uid))
+        d.addCallback(self.assertTrue)
+        d.addCallback(lambda _: deferLater(2))
+        d.addCallback(lambda _: self.db.isReservedUID(uid))
+        d.addCallback(self.assertFalse)
+        d.addBoth(_finally)
+
+        return d
+
+
+
+class MemcacheTests(SQLIndexTests):
+    def setUp(self):
+        super(MemcacheTests, self).setUp()
+        self.memcache = InMemoryMemcacheProtocol()
+        self.db.reserver = MemcachedUIDReserver(self.db, self.memcache)
+
+
+    def tearDown(self):
+        for k, v in self.memcache._timeouts.iteritems():
+            if v.active():
+                v.cancel()

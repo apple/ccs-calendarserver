@@ -48,28 +48,6 @@ class InMemoryPropertyStore(object):
 
 
 
-class InMemoryMemcacheProtocol(object):
-    def __init__(self):
-        self._cache = {}
-
-
-    def get(self, key):
-        if key not in self._cache:
-            return succeed((0, None))
-
-        return succeed(self._cache[key])
-
-
-    def set(self, key, value, flags=0, expireTime=0):
-        try:
-            self._cache[key] = (flags, value)
-            return succeed(True)
-
-        except Exception, err:
-            return fail(Failure())
-
-
-
 class StubCacheChangeNotifier(object):
     def __init__(self, *args, **kwargs):
         pass
@@ -79,3 +57,69 @@ class StubCacheChangeNotifier(object):
     def changed(self):
         self.changedCount += 1
         return succeed(True)
+
+
+
+class InMemoryMemcacheProtocol(object):
+    def __init__(self, reactor=None):
+        self._cache = {}
+
+        if reactor is None:
+            from twisted.internet import reactor
+
+        self._reactor = reactor
+
+        self._timeouts = {}
+
+    def get(self, key):
+        if key not in self._cache:
+            return succeed((0, None))
+
+        return succeed(self._cache[key])
+
+
+    def _timeoutKey(self, expireTime, key):
+        def _removeKey():
+            del self._cache[key]
+
+        if expireTime > 0:
+            if key in self._timeouts:
+                self._timeouts[key].cancel()
+
+            from twisted.internet.base import DelayedCall
+            DelayedCall.debug = True
+
+            self._timeouts[key] = self._reactor.callLater(
+                expireTime,
+                _removeKey)
+
+
+    def set(self, key, value, flags=0, expireTime=0):
+        try:
+            self._cache[key] = (flags, value)
+
+            self._timeoutKey(expireTime, key)
+
+            return succeed(True)
+
+        except Exception, err:
+            return fail(Failure())
+
+
+    def add(self, key, value, flags=0, expireTime=0):
+        if key in self._cache:
+            return succeed(False)
+
+        return self.set(key, value, flags=flags, expireTime=expireTime)
+
+
+    def delete(self, key):
+        try:
+            del self._cache[key]
+            if key in self._timeouts:
+                self._timeouts[key].cancel()
+            return succeed(True)
+
+        except:
+            return succeed(False)
+
