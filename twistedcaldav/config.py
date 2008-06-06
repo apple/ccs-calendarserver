@@ -168,6 +168,7 @@ defaultConfig = {
     # Twisted
     "Twisted": {
         "twistd": "/usr/share/caldavd/bin/twistd",
+        "reactor": "select",
     },
 
     # Python Director

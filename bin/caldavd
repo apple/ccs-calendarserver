@@ -27,6 +27,8 @@ twistdpath="$(type -p twistd)";
 plugin_name="caldav";
 service_type="";
 profile="";
+twistd_reactor="";
+child_reactor=""
 
 py_version ()
 {
@@ -88,12 +90,13 @@ usage ()
     echo "        -T Path to twistd binary";
     echo "        -t Process type (Master, Slave or Combined)";
     echo "        -p Path to the desired pstats file.";
+    echo "        -R The Twisted Reactor to run [${reactor}]";
 
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
 }
 
-while getopts 'hXu:g:f:T:P:t:p:' option; do
+while getopts 'hXu:g:f:T:P:t:p:R:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
@@ -105,6 +108,7 @@ while getopts 'hXu:g:f:T:P:t:p:' option; do
         'P') plugin_name="${OPTARG}"; ;;
         't') service_type="-o ProcessType=${OPTARG}"; ;;
         'p') profile="-o Profiling/Enabled=True -o Profiling/BaseDirectory=${OPTARG}"; ;;
+        'R') twistd_reactor="--reactor=${OPTARG}"; child_reactor="-o Twisted/reactor=${OPTARG}"; ;;
     esac;
 done;
 
@@ -114,4 +118,6 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH
 
-exec "${python}" "${twistdpath}" ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile};
+echo exec "${python}" "${twistdpath}" "${twistd_reactor}" ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} "${child_reactor}";
+
+exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} ${child_reactor};

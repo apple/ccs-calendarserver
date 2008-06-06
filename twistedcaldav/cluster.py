@@ -93,7 +93,8 @@ class TwistdSlaveProcess(object):
             args.extend(('--savestats', '--nothotshot'))
 
         args.extend(
-            ['-n', self.tapname,
+            ['--reactor=%s' % (config.Twisted['reactor'],),
+             '-n', self.tapname,
              '-f', self.configFile,
              '-o', 'ProcessType=Slave',
              '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),

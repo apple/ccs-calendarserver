@@ -42,6 +42,7 @@ disable_setup="false";
  service_type="Combined";
      read_key="";
       profile="";
+      reactor="";
 
 usage ()
 {
@@ -49,7 +50,7 @@ usage ()
 
   if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} [-hvgsfnpdkr] [-K key] [-iI dst] [-t type] [-S statsdirectory] [-P plugin]";
+  echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iI dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
@@ -67,12 +68,13 @@ usage ()
   echo "        -t  Select the server process type (Master, Slave or Combined) [${service_type}]";
   echo "        -S  Write a pstats object for each process to the given directory when the server is stopped.";
   echo "	-P  Select the twistd plugin name [${plugin_name}]";
+  echo "        -R  Twisted Reactor plugin to execute [${reactor}]";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvgsfnpdkrK:i:I:t:S:P:' option; do
+while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -82,6 +84,7 @@ while getopts 'hvgsfnpdkrK:i:I:t:S:P:' option; do
     'r')       restart="true"; ;;
     'd')     daemonize=""; ;;
     'P')   plugin_name="${OPTARG}"; ;;
+    'R')       reactor="-R ${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
     'S')       profile="-p ${OPTARG}"; ;;
@@ -248,6 +251,7 @@ run () {
         -T "${twisted}/bin/twistd"           \
         -P "${plugin_name}"                  \
         -t "${service_type}"                 \
+        ${reactor}                         \
         ${profile};
     cd /;
   fi;
