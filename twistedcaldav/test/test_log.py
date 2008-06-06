@@ -15,9 +15,11 @@
 ##
 
 from twistedcaldav.log import *
-from twistedcaldav.log import defaultLogLevel
+from twistedcaldav.log import logLevelsByNamespace
 
 import twisted.trial.unittest
+
+defaultLogLevel = logLevelsByNamespace[None]
 
 class TestLogger (Logger):
     def __init__(self, namespace=None):
