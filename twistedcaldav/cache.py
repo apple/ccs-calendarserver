@@ -52,10 +52,10 @@ class DisabledCacheNotifier(object):
 
 class DisabledCache(object):
     def getResponseForRequest(self, request):
-        return None
+        return succeed(None)
 
     def cacheResponseForRequest(self, request, response):
-        return response
+        return succeed(response)
 
 
 class URINotFoundException(Exception):
