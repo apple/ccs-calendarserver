@@ -124,7 +124,7 @@ Index: twisted/web2/dav/xattrprops.py
 +            try:
 +                self.attrs[self._encode(property.qname())] = data
 +            except Exception, e:
-+                if e.errno == EAGAIN:
++                if e.errno == EAGAIN and n < 19:
 +                    sleep(random() / 10) # OMG Brutal Hax
 +                else:
 +                    log.error("Unable to write property %s: %s" % (property.sname(), e))
