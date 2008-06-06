@@ -250,7 +250,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
         def _handleExceptions(f):
             f.trap(URINotFoundException)
-            self.log_warn("Could not locate URI: %r" % f.value)
+            self.log_debug("Could not locate URI: %r" % f.value)
             return None
 
         d = self._hashedRequestKey(request)
