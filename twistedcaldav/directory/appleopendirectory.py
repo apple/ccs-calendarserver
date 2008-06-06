@@ -742,6 +742,15 @@ class OpenDirectoryService(DirectoryService):
         try:
             if query:
                 if isinstance(query, dsquery.match):
+                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                        self.directory,
+                        query.attribute,
+                        query.value,
+                        query.matchType,
+                        False,
+                        listRecordType,
+                        attrs,
+                    ))
                     results = opendirectory.queryRecordsWithAttribute_list(
                         self.directory,
                         query.attribute,
@@ -752,6 +761,13 @@ class OpenDirectoryService(DirectoryService):
                         attrs,
                     )
                 else:
+                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r)" % (
+                        self.directory,
+                        query.generate(),
+                        False,
+                        listRecordType,
+                        attrs,
+                    ))
                     results = opendirectory.queryRecordsWithAttributes_list(
                         self.directory,
                         query.generate(),
@@ -760,6 +776,11 @@ class OpenDirectoryService(DirectoryService):
                         attrs,
                     )
             else:
+                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                    self.directory,
+                    listRecordType,
+                    attrs,
+                ))
                 results = opendirectory.listAllRecordsWithAttributes_list(
                     self.directory,
                     listRecordType,
