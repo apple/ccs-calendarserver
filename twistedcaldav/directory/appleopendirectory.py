@@ -570,7 +570,7 @@ class OpenDirectoryService(DirectoryService):
             )
 
             def disableRecord(record):
-                self.log_warn("Record disabled due to conflict: %s" % (record,))
+                self.log_warn("Record disabled due to conflict (record name and GUID must match): %s" % (record,))
 
                 shortName = record.shortName
                 guid      = record.guid
