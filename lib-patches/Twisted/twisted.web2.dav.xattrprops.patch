@@ -2,7 +2,7 @@ Index: twisted/web2/dav/xattrprops.py
 ===================================================================
 --- twisted/web2/dav/xattrprops.py	(revision 19773)
 +++ twisted/web2/dav/xattrprops.py	(working copy)
-@@ -33,12 +33,19 @@
+@@ -33,15 +33,24 @@
  
  import urllib
  import sys
@@ -19,10 +19,15 @@ Index: twisted/web2/dav/xattrprops.py
      raise ImportError("wrong xattr package imported")
  
 +from twisted.python import log
++from twisted.python.failure import Failure
  from twisted.web2 import responsecode
  from twisted.web2.http import HTTPError, StatusResponse
  from twisted.web2.dav import davxml
-@@ -66,16 +73,8 @@
++from twisted.web2.dav.http import statusForFailure
+ 
+ class xattrPropertyStore (object):
+     """
+@@ -66,16 +75,8 @@
          deadPropertyXattrPrefix = "user."
  
      def _encode(clazz, name):
@@ -41,7 +46,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +96,74 @@
+@@ -97,19 +98,86 @@
  
      def get(self, qname):
          try:
@@ -52,6 +57,13 @@ Index: twisted/web2/dav/xattrprops.py
                  responsecode.NOT_FOUND,
                  "No such property: {%s}%s" % qname
              ))
++        except Exception, e:
++            log.error("Unable to read property {%s}%s: %s"
++                      % (qname[0], qname[1], e))
++            raise HTTPError(StatusResponse(
++                statusForFailure(Failure()),
++                "Unable to read property: {%s}%s" % qname
++            ))
  
 -        doc = davxml.WebDAVDocument.fromString(value)
 +        #
@@ -111,12 +123,53 @@ Index: twisted/web2/dav/xattrprops.py
 +            data = compress(property.toxml())
 +            try:
 +                self.attrs[self._encode(property.qname())] = data
-+            except IOError, error:
-+                if error.errno != EAGAIN:
-+                    raise
-+                sleep(random() / 10) # OMG Brutal Hax
++            except Exception, e:
++                if e.errno == EAGAIN:
++                    sleep(random() / 10) # OMG Brutal Hax
++                else:
++                    log.error("Unable to write property %s: %s" % (property.sname(), e))
++                    raise HTTPError(StatusResponse(
++                        statusForFailure(Failure()),
++                        "Unable to write property: %s" % (property.sname(),)
++                    ))
 +            else:
 +                break
  
          # Update the resource because we've modified it
          self.resource.fp.restat()
+@@ -121,15 +189,34 @@
+             # RFC 2518 Section 12.13.1 says that removal of
+             # non-existing property is not an error.
+             pass
++        except Exception, e:
++            log.error("Unable to delete property {%s}%s: %s" % (qname[0], qname[1], e))
++            raise HTTPError(StatusResponse(
++                statusForFailure(Failure()),
++                "Unable to delete property: {%s}%s" % qname
++            ))
+ 
+     def contains(self, qname):
+         try:
+             return self._encode(qname) in self.attrs
+         except TypeError:
+             return False
++        except Exception, e:
++            log.error("Unable to read properties: %s" % (e,))
++            raise HTTPError(StatusResponse(
++                statusForFailure(Failure()),
++                "Unable to read properties"
++            ))
+ 
+     def list(self):
+         prefix     = self.deadPropertyXattrPrefix
+         prefix_len = len(prefix)
+ 
+-        return [ self._decode(name) for name in self.attrs if name.startswith(prefix) ]
++        try:
++            return [ self._decode(name) for name in self.attrs if name.startswith(prefix) ]
++        except Exception, e:
++            log.error("Unable to list properties: %s" % (e,))
++            raise HTTPError(StatusResponse(
++                statusForFailure(Failure()),
++                "Unable to list properties"
++            ))
