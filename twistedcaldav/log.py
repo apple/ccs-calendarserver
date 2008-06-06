@@ -81,8 +81,6 @@ def highestLogLevel(*levels):
 # Tools for manageing log levels
 ##
 
-logLevelsByNamespace = {None: "info"}
-
 def logLevelForNamespace(namespace):
     """
     @param namespace: a logging namespace, or C{None} to set the
@@ -125,6 +123,10 @@ def clearLogLevels():
     Clears all log levels to the default.
     """
     logLevelsByNamespace.clear()
+    logLevelsByNamespace[None] = "info"
+
+logLevelsByNamespace = {}
+clearLogLevels()
 
 ##
 # Loggers
