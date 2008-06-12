@@ -253,31 +253,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
     # ACL
     ##
 
-    def disable(self, disabled=True):
-        """
-        Completely disables all access to this resource, regardless of ACL
-        settings.
-        @param disabled: If true, disabled all access. If false, enables access.
-        """
-        if disabled:
-            self.writeDeadProperty(AccessDisabled())
-        else:
-            self.removeDeadProperty(AccessDisabled())
-
-    def isDisabled(self):
-        """
-        @return: C{True} if access to this resource is disabled, C{False}
-            otherwise.
-        """
-        return self.hasDeadProperty(AccessDisabled)
-
     # FIXME: Perhaps this is better done in authorize() instead.
     @deferredGenerator
     def accessControlList(self, request, *args, **kwargs):
-        if self.isDisabled():
-            yield None
-            return
-
         d = waitForDeferred(super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
         yield d
         acls = d.getResult()
@@ -747,13 +725,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
 ##
 # Utilities
 ##
-
-class AccessDisabled (davxml.WebDAVEmptyElement):
-    namespace = davxml.twisted_private_namespace
-    name = "caldav-access-disabled"
-
-davxml.registerElement(AccessDisabled)
-
 
 def isCalendarCollectionResource(resource):
     try:
