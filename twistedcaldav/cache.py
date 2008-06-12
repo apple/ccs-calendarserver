@@ -144,8 +144,7 @@ class BaseResponseCache(LoggingMixIn):
 
             return request.cacheKey
 
-        d = self._getURIs(request)
-        d.addCallback(_getBody)
+        d = _getBody((self._principalURI(request.authnUser), request.uri))
         d.addCallback(_getKey)
         return d
 

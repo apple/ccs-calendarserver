@@ -125,6 +125,8 @@ class BaseCacheTestMixin(object):
         StubRequest.resources = {
             '/calendars/__uids__/cdaboo/': StubURLResource(
                 '/calendars/__uids__/cdaboo/'),
+            '/calendars/users/cdaboo/': StubURLResource(
+                '/calendars/__uids__/cdaboo/'),
             '/principals/__uids__/cdaboo/': StubURLResource(
                 '/principals/__uids__/cdaboo/'),
             '/calendars/__uids__/dreid/': StubURLResource(
@@ -138,6 +140,7 @@ class BaseCacheTestMixin(object):
 
 
     def assertResponse(self, response, expected):
+        self.assertNotEquals(response, None, "Got None instead of a response.")
         self.assertEquals(response.code, expected[0])
         self.assertEquals(set(response.headers.getAllRawHeaders()),
                           set(expected[1].getAllRawHeaders()))
@@ -158,7 +161,7 @@ class BaseCacheTestMixin(object):
 
         d = self.rc.getResponseForRequest(request)
 
-        d.addCallback(self.assertResponse, self.expected_response)
+        d.addCallback(self.assertEquals, None)
         return d
 
 
@@ -184,7 +187,7 @@ class BaseCacheTestMixin(object):
 
         d = self.rc.getResponseForRequest(request)
 
-        d.addCallback(self.assertResponse, self.expected_response)
+        d.addCallback(self.assertEquals, None)
         return d
 
 
@@ -330,3 +333,39 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             (self.expected_response[0],
              dict(list(self.expected_response[1].getAllRawHeaders())),
              self.expected_response[2]))))
+
+        self.memcacheStub = memcacheStub
+
+
+    def test_givenURIsForKeys(self):
+        expected_response = (200, Headers({}), "Foobarbaz")
+
+        _key = (
+                'PROPFIND',
+                '/principals/__uids__/cdaboo/',
+                '/calendars/users/cdaboo/',
+                '1',
+                hash('foobar'),
+                )
+
+        expected_key = hashlib.md5(':'.join([str(t) for t in _key])).hexdigest()
+
+        self.memcacheStub._cache[expected_key] = (
+            0, #flags
+            cPickle.dumps((
+                    'principalToken0',
+                    'uriToken0',
+                    (expected_response[0],
+                     dict(list(expected_response[1].getAllRawHeaders())),
+                     expected_response[2]))))
+
+        print self.memcacheStub._cache
+
+        d = self.rc.getResponseForRequest(
+            StubRequest('PROPFIND',
+                        '/calendars/users/cdaboo/',
+                        '/principals/__uids__/cdaboo/'))
+
+        d.addCallback(self.assertResponse, expected_response)
+        return d
+
