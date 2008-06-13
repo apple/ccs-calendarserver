@@ -46,6 +46,7 @@ from twistedcaldav.itip import iTipProcessor
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.schedule_imip import ServerToIMip
 from twistedcaldav.servertoserver import ServerToServer
 from twistedcaldav.servertoserver import ServerToServerRequest
 import itertools
@@ -385,7 +386,8 @@ class Scheduler(object):
     
         # Now process remote recipients
         if remote_recipients:
-            yield self.generateRemoteSchedulingResponses(remote_recipients, responses)
+            #yield self.generateRemoteSchedulingResponses(remote_recipients, responses, freebusy)
+            yield self.generateIMIPSchedulingResponses(remote_recipients, responses, freebusy)
 
         # Now we have to do auto-respond
         if len(autoresponses) != 0:
@@ -403,7 +405,7 @@ class Scheduler(object):
         returnValue(responses.response())
     
     @inlineCallbacks
-    def generateRemoteSchedulingResponses(self, recipients, responses):
+    def generateRemoteSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for remote recipients.
         """
@@ -445,6 +447,19 @@ class Scheduler(object):
             deferreds.append(requestor.doRequest())
 
         yield DeferredList(deferreds)
+
+    @inlineCallbacks
+    def generateIMIPSchedulingResponses(self, recipients, responses, freebusy):
+        """
+        Generate scheduling responses for iMIP recipients.
+        """
+        
+        # Now we process each server: let's use a DeferredList to aggregate all the Deferred's
+        # we will generate for each request. That way we can have parallel requests in progress
+        # rather than serialize them.
+        
+        requestor = ServerToIMip(self, recipients, responses)
+        yield requestor.doEMail(freebusy)
 
     @inlineCallbacks
     def generateLocalResponse(self, recipient, responses, autoresponses):
@@ -568,12 +583,6 @@ class Scheduler(object):
         )
 
         returnValue(fbresult)
-    
-    def generateRemoteResponse(self):
-        raise NotImplementedError
-    
-    def generateRemoteFreeBusyResponse(self):
-        raise NotImplementedError
         
 class CalDAVScheduler(Scheduler):
 

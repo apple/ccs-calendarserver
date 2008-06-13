@@ -48,6 +48,7 @@ __all__ = [
     "root",
     "schedule",
     "schedule_common",
+    "schedule_imip",
     "servertoserver",
     "servertoserverparser",
     "sql",
