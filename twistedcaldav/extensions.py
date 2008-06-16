@@ -33,7 +33,7 @@ import urllib
 import cgi
 import time
 
-from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred, DeferredList
 from twisted.internet.defer import maybeDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -50,7 +50,7 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.util import submodule
+from twistedcaldav.util import submodule, Alternator
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 
@@ -571,7 +571,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             """<tr><th>Name</th> <th>Size</th> <th>Last Modified</th> <th>MIME Type</th></tr>"""
         ]
 
-        even = False
+        even = Alternator()
         for name in sorted(self.listChildren()):
             child = self.getChild(name)
 
@@ -586,7 +586,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
                 """<td>%(type)s</td>"""
                 """</tr>"""
                 % {
-                    "even": even and "even" or "odd",
+                    "even": even.state() and "even" or "odd",
                     "url": url,
                     "name": cgi.escape(name),
                     "size": size,
@@ -594,7 +594,6 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
                     "type": contentType,
                 }
             )
-            even = not even
 
         output.append(
             """</table></div>"""
@@ -604,49 +603,63 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             """<tr><th>Name</th> <th>Value</th></tr>"""
         )
 
-        @deferredGenerator
         def gotProperties(qnames):
-            even = False
-            for qname in qnames:
-                try:
-                    property = waitForDeferred(self.readProperty(qname, request))
-                    yield property
-                    property = property.getResult()
-                    if property is None:
-                        name = "{%s}%s" % qname
-                        value = "** None **"
-                    else:
-                        name = property.sname()
-                        value = property.toxml()
-                except HTTPError, e:
-                    if e.response.code == responsecode.NOT_FOUND:
-                        log.err("Property {%s}%s was returned by listProperties() but does not exist for resource %s."
-                                % (qname[0], qname[1], self))
-                        continue
+            ds = []
 
-                    if e.response.code != responsecode.UNAUTHORIZED:
-                        log.err("Unable to read property %s for dirlist: %s" % (qname, e))
-                        raise
-
+            def gotProperty(property):
+                if property is None:
                     name = "{%s}%s" % qname
-                    value = "(access forbidden)"
+                    value = "** None **"
+                else:
+                    name = property.sname()
+                    value = property.toxml()
 
-                output.append(
+                return (name, value)
+
+            def gotError(f, qname):
+                f.trap(HTTPError)
+
+                name = "{%s}%s" % qname
+                code = f.value.response.code
+
+                if code == responsecode.NOT_FOUND:
+                    log.err("Property {%s}%s was returned by listProperties() but does not exist for resource %s."
+                            % (qname[0], qname[1], self))
+                    return (name, None)
+
+                if code == responsecode.UNAUTHORIZED:
+                    return (name, "(access forbidden)")
+
+                return f
+
+            for qname in qnames:
+                d = self.readProperty(qname, request)
+                d.addCallback(gotProperty)
+                d.addErrback(gotError, qname)
+                ds.append(d)
+
+            even = Alternator()
+
+            def gotValues(items):
+                output.append("".join(
                     """<tr class="%(even)s">"""
                     """<td valign="top">%(name)s</td>"""
                     """<td><pre>%(value)s</pre></td>"""
                     """</tr>"""
                     % {
-                        "even": even and "even" or "odd",
+                        "even": even.state() and "even" or "odd",
                         "name": name,
                         "value": cgi.escape(value),
                     }
-                )
-                even = not even
+                    for result, (name, value) in items
+                    if result and value is not None
+                ))
+                output.append("</div>")
+                return "".join(output)
 
-            output.append("</div>")
-
-            yield "".join(output)
+            d = DeferredList(ds)
+            d.addCallback(gotValues)
+            return d
 
         d = self.listProperties(request)
         d.addCallback(gotProperties)
