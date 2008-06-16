@@ -265,6 +265,27 @@ class BaseCacheTestMixin(object):
                 '{DAV:}unauthenticated',
                 body='bazbax'))
 
+        d.addCallback(self.assertEquals, None)
+        return d
+
+
+    def test_cacheUnauthenticatedResponse(self):
+        expected_response = StubResponse(401, {}, "foobar")
+
+        d = self.rc.cacheResponseForRequest(
+            StubRequest('PROPFIND',
+                        '/calendars/__uids__/cdaboo/',
+                        '{DAV:}unauthenticated'),
+            expected_response)
+
+        d.addCallback(self.assertResponse,
+                      (expected_response.code,
+                       expected_response.headers,
+                       expected_response.body))
+
+        return d
+
+
 
     def test_cacheResponseForRequest(self):
         expected_response = StubResponse(200, {}, "Foobar")

@@ -105,13 +105,13 @@ class BaseResponseCache(LoggingMixIn):
     def _canonicalizeURIForRequest(self, uri, request):
         def _uriNotFound(f):
             f.trap(AttributeError)
-            return Failure(URINotFoundException(uri))
+            raise URINotFoundException(uri)
 
         try:
             return request.locateResource(uri).addCallback(
                 lambda resrc: resrc.url()).addErrback(_uriNotFound)
         except AssertionError:
-            return fail(Failure(URINotFoundException(uri)))
+            raise URINotFoundException(uri)
 
 
     def _getURIs(self, request):
@@ -249,7 +249,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
         def _handleExceptions(f):
             f.trap(URINotFoundException)
-            self.log_debug("Could not locate URI: %r" % f.value)
+            self.log_debug("Could not locate URI: %r" % (f.value,))
             return None
 
         d = self._hashedRequestKey(request)
@@ -281,6 +281,11 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             d1.addCallback(_makeCacheEntry, (key, responseBody))
             return d1
 
+        def _handleExceptions(f):
+            f.trap(URINotFoundException)
+            self.log_debug("Could not locate URI: %r" % (f.value,))
+            return response
+
         if hasattr(request, 'cacheKey'):
             d = succeed(request.cacheKey)
         else:
@@ -288,6 +293,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
         d.addCallback(self._getResponseBody, response)
         d.addCallback(_cacheResponse)
+        d.addErrback(_handleExceptions)
         return d
 
 
