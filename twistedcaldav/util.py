@@ -74,3 +74,19 @@ def submodule(module, name):
         submodule = getattr(submodule, m)
 
     return submodule
+
+class Alternator (object):
+    """
+    Object that alternates between True and False states.
+    """
+    def __init__(self, state=False):
+        self._state = bool(state)
+
+    def state(self):
+        """
+        @return: the current state
+        """
+        state = self._state
+        self._state = not state
+        return state
+
