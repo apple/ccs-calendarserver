@@ -22,7 +22,7 @@ import cPickle
 from zope.interface import implements
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import succeed, fail, maybeDeferred
 from twisted.internet.protocol import ClientCreator
 
 from twisted.web2.iweb import IResource
@@ -307,7 +307,7 @@ class _CachedResponseResource(object):
 
 
 class PropfindCacheMixin(object):
-    def http_PROPFIND(self, request):
+    def renderHTTP(self, request):
         def _cacheResponse(responseCache, response):
             return responseCache.cacheResponseForRequest(request, response)
 
@@ -317,6 +317,8 @@ class PropfindCacheMixin(object):
             d1.addCallback(_cacheResponse, response)
             return d1
 
-        d = super(PropfindCacheMixin, self).http_PROPFIND(request)
-        d.addCallback(_getResponseCache)
+        d = maybeDeferred(super(PropfindCacheMixin, self).renderHTTP, request)
+
+        if request.method == 'PROPFIND':
+            d.addCallback(_getResponseCache)
         return d

@@ -19,7 +19,7 @@ import hashlib
 import cPickle
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import succeed, fail, maybeDeferred
 from twisted.python.failure import Failure
 
 from twisted.python.filepath import FilePath
@@ -31,6 +31,7 @@ from twisted.web2.http_headers import Headers
 
 from twistedcaldav.cache import MemcacheResponseCache
 from twistedcaldav.cache import MemcacheChangeNotifier
+from twistedcaldav.cache import PropfindCacheMixin
 
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 
@@ -359,8 +360,6 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
                      dict(list(expected_response[1].getAllRawHeaders())),
                      expected_response[2]))))
 
-        print self.memcacheStub._cache
-
         d = self.rc.getResponseForRequest(
             StubRequest('PROPFIND',
                         '/calendars/users/cdaboo/',
@@ -369,3 +368,81 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         d.addCallback(self.assertResponse, expected_response)
         return d
 
+
+
+class StubResponseCacheResource(object):
+    def __init__(self):
+        self.cache = {}
+        self.responseCache = self
+
+
+    def getResponseForRequest(self, request):
+        if request in self.cache:
+            return self.cache[request]
+
+
+    def cacheResponseForRequest(self, request, response):
+        self.cache[request] = response
+        return response
+
+
+
+class TestRenderMixin(object):
+    davHeaders = ('foo',)
+
+    def renderHTTP(self, request):
+        self.response.headers.setHeader('dav', self.davHeaders)
+
+        return self.response
+
+
+
+class TestCachingResource(PropfindCacheMixin, TestRenderMixin):
+    def __init__(self, response):
+        self.response = response
+
+
+
+class PropfindCacheMixinTests(TestCase):
+    """
+    Test the PropfindCacheMixin
+    """
+    def setUp(self):
+        self.resource = TestCachingResource(StubResponse(200, {}, "foobar"))
+        self.responseCache = StubResponseCacheResource()
+
+    def test_DAVHeaderCached(self):
+        """
+        Test that the DAV header set in renderHTTP is cached.
+        """
+        def _checkCache(response):
+            self.assertEquals(response.headers.getHeader('dav'),
+                              ('foo',))
+            self.assertEquals(
+                self.responseCache.cache[request].headers.getHeader('dav'),
+                ('foo',))
+
+        request = StubRequest('PROPFIND', '/', '/')
+        request.resources['/'] = self.responseCache
+
+        d = maybeDeferred(self.resource.renderHTTP, request)
+        d.addCallback(_checkCache)
+
+        return d
+
+
+    def test_onlyCachePropfind(self):
+        """
+        Test that we only cache the result of a propfind request.
+        """
+        def _checkCache(response):
+            self.assertEquals(self.responseCache.getResponseForRequest(request),
+                              None)
+
+        request = StubRequest('GET', '/', '/')
+        request.resources['/'] = self.responseCache
+
+        d = maybeDeferred(self.resource.renderHTTP, request)
+        d.addCallback(_checkCache)
+
+        return d
