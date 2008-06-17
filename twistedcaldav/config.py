@@ -17,6 +17,8 @@
 import os
 import copy
 
+from twisted.web2.dav import davxml
+from twisted.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.log import Logger
@@ -87,6 +89,7 @@ defaultConfig = {
     "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
     "SudoersFile": "/etc/caldavd/sudoers.plist", # Principals that can pose as other principals
     "EnableProxyPrincipals": True,               # Create "proxy access" principals
+    "EnableAnonymousReadRoot": True,             # Allow unauthenticated read access to /
 
     #
     # Authentication
@@ -236,6 +239,9 @@ class Config (object):
         return str(self._data)
 
     def update(self, items):
+        #
+        # Special handling for directory services configs
+        #
         dsType = items.get("DirectoryService", {}).get("type", None)
         if dsType is None:
             dsType = self._data["DirectoryService"]["type"]
@@ -259,6 +265,36 @@ class Config (object):
         for param in tuple(self._data["DirectoryService"]["params"]):
             if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
                 del self._data["DirectoryService"]["params"][param]
+
+        #
+        # Root ACL, derived from AdminPrincipals
+        #
+        if self.EnableAnonymousReadRoot:
+            rootReader = davxml.All()
+        else:
+            rootReader = davxml.Authenticated()
+
+        aces = [
+            # Read access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(rootReader),
+                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Protected(),
+            ),
+        ]
+
+        # FIXME: This should be added to calendar homes, not above.
+        for principal in config.AdminPrincipals:
+            aces.append(
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(principal)),
+                    davxml.Grant(davxml.Privilege(davxml.All())),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                )
+            )
+
+        self.rootACL = davxml.ACL(*aces)
 
         #
         # FIXME: Use the config object instead of doing this here

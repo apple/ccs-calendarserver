@@ -34,8 +34,6 @@ from twisted.scripts.mktap import getid
 from twisted.cred.portal import Portal
 
 from twisted.web2.dav import auth
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.channel import http
 
@@ -518,42 +516,13 @@ class CalDAVServiceMaker(object):
         root.putChild('principals', principalCollection)
         root.putChild('calendars', calendarCollection)
 
-		# Timezone service is optional
+        # Timezone service is optional
         if config.EnableTimezoneService:
             timezoneService = self.timezoneServiceResourceClass(
                 os.path.join(config.DocumentRoot, "timezones"),
                 root
             )
             root.putChild('timezones', timezoneService)
-
-        # Configure default ACLs on the root resource
-
-        log.info("Setting up default ACEs on root resource")
-
-        rootACEs = [
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
-            ),
-        ]
-
-        log.info("Setting up AdminPrincipals")
-
-        for principal in config.AdminPrincipals:
-            log.info("Added %s as admin principal" % (principal,))
-
-            rootACEs.append(
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal)),
-                    davxml.Grant(davxml.Privilege(davxml.All())),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                )
-            )
-
-        log.info("Setting root ACL")
-
-        root.setAccessControlList(davxml.ACL(*rootACEs))
 
         #
         # Configure ancillary data

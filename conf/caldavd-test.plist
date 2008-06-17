@@ -195,6 +195,10 @@ limitations under the License.
   <key>EnableProxyPrincipals</key>
   <true/>
 
+  <!-- Anonymous read access for root resource -->
+  <key>EnableAnonymousReadRoot</key>
+  <true/>
+
 
   <!--
     Authentication
