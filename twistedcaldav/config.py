@@ -294,7 +294,7 @@ class Config (object):
                 )
             )
 
-        self.rootACL = davxml.ACL(*aces)
+        self.RootResourceACL = davxml.ACL(*aces)
 
         #
         # FIXME: Use the config object instead of doing this here

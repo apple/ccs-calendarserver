@@ -42,7 +42,7 @@ log = Logger()
 
 class RootACLMixIn (object):
     def defaultAccessControlList(self):
-        return config.rootACL
+        return config.RootResourceACL
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
