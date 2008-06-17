@@ -57,8 +57,6 @@ db_basename = db_prefix + "sqlite"
 schema_version = "6"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
-reservation_timeout_secs = 5 * 60
-
 #
 # Duration into the future through which recurrances are expanded in the index
 # by default.  This is a caching parameter which affects the size of the index;
@@ -476,7 +474,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
         d = self.getCachePool().add(self._key(uid),
                                     'reserved',
-                                    expireTime=reservation_timeout_secs)
+                                    expireTime=config.UIDReservationTimeOut)
         d.addCallback(_handleFalse)
         return d
 
@@ -585,7 +583,7 @@ class SQLUIDReserver(object):
             # otherwise we probably have a stale reservation
             tm = time.strptime(attime[:19], "%Y-%m-%d %H:%M:%S")
             dt = datetime.datetime(year=tm.tm_year, month=tm.tm_mon, day=tm.tm_mday, hour=tm.tm_hour, minute=tm.tm_min, second = tm.tm_sec)
-            if datetime.datetime.now() - dt > datetime.timedelta(seconds=reservation_timeout_secs):
+            if datetime.datetime.now() - dt > datetime.timedelta(seconds=config.UIDReservationTimeOut):
                 try:
                     self.index._db_execute("delete from RESERVED where UID = :1", uid)
                     self.index._db_commit()

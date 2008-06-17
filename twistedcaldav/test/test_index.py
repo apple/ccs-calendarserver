@@ -69,11 +69,12 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         # WARNING: This test is fundamentally flawed and will fail
         # intermittently because it uses the real clock.
         uid = "test-test-test"
-        old_timeout = twistedcaldav.index.reservation_timeout_secs
-        twistedcaldav.index.reservation_timeout_secs = 1
+        from twistedcaldav.config import config
+        old_timeout = config.UIDReservationTimeOut
+        config.UIDReservationTimeOut = 1
 
         def _finally(result):
-            twistedcaldav.index.reservation_timeout_secs = old_timeout
+            config.UIDReservationTimeOut = old_timeout
             return result
 
         d = self.db.isReservedUID(uid)

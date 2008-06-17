@@ -226,6 +226,7 @@ defaultConfig = {
 
     "EnableKeepAlive": True,
     "IdleConnectionTimeOut": 15,
+    "UIDReservationTimeOut": 30 * 60
 }
 
 
