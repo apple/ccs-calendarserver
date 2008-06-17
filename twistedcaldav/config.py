@@ -69,7 +69,7 @@ defaultConfig = {
     "DocumentRoot"         : "/Library/CalendarServer/Documents",
     "UserQuota"            : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
-    
+
     #
     # Directory service
     #
@@ -220,7 +220,11 @@ defaultConfig = {
         "MaxMemory": 0, # Megabytes
         "Options": [],
     },
+
+    "EnableKeepAlive": True,
+    "IdleConnectionTimeOut": 15,
 }
+
 
 class Config (object):
     def __init__(self, defaults):

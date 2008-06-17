@@ -34,6 +34,12 @@ from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 log = Logger()
 
+def addConnectionClose(request, response):
+    response.headers.setHeader('connection', ('close',))
+    request.chanRequest.channel.setReadPersistent(False)
+    return response
+
+
 class RootResource(DAVFile):
     """
     A special root resource that contains support checking SACLs
@@ -68,11 +74,16 @@ class RootResource(DAVFile):
             from twisted.web2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
+        if not config.EnableKeepAlive:
+            self.contentFilters.append((addConnectionClose, True))
+
+
     def deadProperties(self):
         if not hasattr(self, '_dead_properties'):
             self._dead_properties = CachingXattrPropertyStore(self)
 
         return self._dead_properties
+
 
     def checkSacl(self, request):
         """
