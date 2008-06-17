@@ -7,7 +7,7 @@ Index: twisted/web2/static.py
  
          self.putChildren = {}
 -        self.fp = filepath.FilePath(path)
-+        if isinstance(path, FilePath):
++        if isinstance(path, filepath.FilePath):
 +            self.fp = path
 +        else:
 +            self.fp = filepath.FilePath(path)
