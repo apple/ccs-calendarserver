@@ -225,7 +225,7 @@ limitations under the License.
     <key>Kerberos</key>
     <dict>
       <key>Enabled</key>
-      <true/>
+      <false/>
       <key>ServicePrincipal</key>
       <string></string>
     </dict>
@@ -253,6 +253,10 @@ limitations under the License.
 
   <key>LogLevels</key>
   <dict>
+<!--
+   <key>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</key>
+   <string>debug</string>
+ -->
   </dict>
 
   <!-- Accounting -->
@@ -389,6 +393,10 @@ limitations under the License.
   <key>ResponseCompression</key>
   <false/>
 
+  <!-- Enables directory listings for principals -->
+  <key>EnablePrincipalListings</key>
+  <true/>
+
   <!-- Support for Memcached -->
   <key>Memcached</key>
   <dict>
@@ -402,7 +410,7 @@ limitations under the License.
     <string>../memcached-1.2.5/_root/bin/memcached</string>
     <key>Options</key>
     <array>
-      <string>-vv</string>
+      <!--<string>-vv</string>-->
     </array>
   </dict>
 

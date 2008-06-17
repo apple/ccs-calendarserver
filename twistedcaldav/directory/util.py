@@ -62,3 +62,144 @@ def uuidFromName(namespace, name):
     # Convert from long integer to string representation
     uuid = "%032x" % (uuid,)
     return "%s-%s-%s-%s-%s" % (uuid[:8], uuid[8:12], uuid[12:16], uuid[16:20], uuid[20:])
+
+import errno
+import time
+from twisted.python.filepath import FilePath
+
+class NotFilePath(FilePath):
+    """
+    Dummy placeholder for FilePath for when we don't actually want a file.
+    Pretends to be an empty file or directory.
+    """
+    def __init__(self, isfile=False, isdir=False, islink=False):
+        assert isfile or isdir or islink
+
+        self._isfile = isfile
+        self._isdir  = isdir
+        self._islink = islink
+
+        self._time = time.time()
+
+    def __cmp__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return cmp(
+            ( self.isdir(),  self.isfile(),  self.islink()),
+            (other.isdir(), other.isfile(), other.islink()),
+        )
+
+    def __repr__(self):
+        types = []
+        if self.isdir():
+            types.append("dir")
+        if self.isfile():
+            types.append("file")
+        if self.islink():
+            types.append("link")
+        if types:
+            return "<%s (%s)>" % (self.__class__.__name__, ",".join(types))
+        else:
+            return "<%s>" % (self.__class__.__name__,)
+
+    def _unimplemented(self, *args):
+        try:
+            raise NotImplementedError("NotFilePath isn't really a FilePath: psych!")
+        except NotImplementedError:
+            from twisted.python.failure import Failure
+            Failure().printTraceback()
+            raise
+
+    child                  = _unimplemented
+    preauthChild           = _unimplemented
+    siblingExtensionSearch = _unimplemented
+    siblingExtension       = _unimplemented
+    open                   = _unimplemented
+    clonePath              = _unimplemented # Cuz I think it's dumb
+
+    def childSearchPreauth(self, *paths):
+        return ()
+
+    def splitext(self):
+        return ("", "")
+
+    def basename(self):
+        return ""
+
+    def dirname(self):
+        return ""
+
+    def restat(self, reraise=True):
+        pass
+
+    def getsize(self):
+        return 0
+
+    def _time(self):
+        return self._time
+
+    # FIXME: Maybe we should have separate ctime, mtime, atime. Meh.
+    getModificationTime = _time
+    getStatusChangeTime = _time
+    getAccessTime       = _time
+
+    def exists(self):
+        return True
+
+    def isdir(self):
+        return self._isdir
+
+    def isfile(self):
+        return self._isfile
+
+    def islink(self):
+        return self._islink
+
+    def isabs(self):
+        return True
+
+    def listdir(self):
+        return ()
+
+    def touch(self):
+        self._time = time.time()
+
+    def _notAllowed(self):
+        raise OSError(errno.EACCES, "Permission denied")
+
+    remove     = _notAllowed
+    setContent = _notAllowed
+
+    def globChildren(self, pattern):
+        return ()
+
+    def parent(self):
+        return self.__class__(isdir=True)
+
+    def createDirectory(self):
+        if self.isdir():
+            raise OSError(errno.EEXIST, "File exists")
+        else:
+            return self._notAllowed
+
+    makedirs = createDirectory
+
+    def create(self):
+        if self.isfile():
+            raise OSError(errno.EEXIST, "File exists")
+        else:
+            return self._notAllowed
+
+    def temporarySibling(self):
+        return self.__class__(isfile=True)
+
+    def copyTo(self, destination):
+        if self.isdir():
+            if not destination.isdir():
+                destination.createDirectory()
+        elif self.isfile():
+            destination.open("w").close()
+        else:
+            raise NotImplementedError()
+
+    moveTo = _notAllowed

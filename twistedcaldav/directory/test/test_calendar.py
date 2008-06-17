@@ -44,13 +44,8 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         # Set up a principals hierarchy for each service we're testing with
         name = "principals"
         url = "/" + name + "/"
-        path = os.path.join(self.docroot, url[1:])
 
-        if os.path.exists(path):
-            rmdir(path)
-        os.mkdir(path)
-
-        provisioningResource = DirectoryPrincipalProvisioningResource(path, url, self.directoryService)
+        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
 
         self.site.resource.putChild("principals", provisioningResource)
 

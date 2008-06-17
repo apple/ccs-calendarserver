@@ -56,13 +56,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for directory in directoryServices:
             name = directory.__class__.__name__
             url = "/" + name + "/"
-            path = os.path.join(self.docroot, url[1:])
 
-            if os.path.exists(path):
-                rmdir(path)
-            os.mkdir(path)
-
-            provisioningResource = DirectoryPrincipalProvisioningResource(path, url, directory)
+            provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
 
             self.site.resource.putChild(name, provisioningResource)
 

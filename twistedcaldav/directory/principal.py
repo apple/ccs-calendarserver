@@ -40,6 +40,7 @@ from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav.util import joinURL
+from twisted.web2.dav.noneprops import NonePropertyStore
 
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
@@ -47,9 +48,9 @@ from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
-from twistedcaldav.static import AutoProvisioningFileMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
 
@@ -70,24 +71,37 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
+
 class DirectoryProvisioningResource (
-    AutoProvisioningFileMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
 ):
-    def __init__(self, path, url, directory):
+    def __init__(self, url, directory):
         """
-        @param path: the path to the file which will back the resource.
         @param url: the canonical URL for the resource.
         @param directory: an L{IDirectoryService} to provision principals from.
         """
         assert url.endswith("/"), "Collection URL must end in '/'"
 
         CalendarPrincipalCollectionResource.__init__(self, url)
-        DAVFile.__init__(self, path)
+        DAVFile.__init__(self, NotFilePath(isdir=True))
 
         self.directory = IDirectoryService(directory)
+
+    def locateChild(self, req, segments):
+        child = self.getChild(segments[0])
+        if child is not None:
+            return (child, segments[1:])
+        return (None, ())
+
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
+
+    def etag(self):
+        return None
 
     def principalForShortName(self, recordType, name):
         return self.principalForRecord(self.directory.recordWithShortName(recordType, name))
@@ -113,8 +127,8 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals as its children.
     """
-    def __init__(self, path, url, directory):
-        DirectoryProvisioningResource.__init__(self, path, url, directory)
+    def __init__(self, url, directory):
+        DirectoryProvisioningResource.__init__(self, url, directory)
 
         # FIXME: Smells like a hack
         self.directory.principalCollection = self
@@ -205,8 +219,6 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self.provision()
-
         if name == "":
             return self
         else:
@@ -229,13 +241,11 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
     """
     def __init__(self, parent, recordType):
         """
-        @param path: the path to the file which will back the resource.
         @param parent: the parent L{DirectoryPrincipalProvisioningResource}.
         @param recordType: the directory record type to provision.
         """
         DirectoryProvisioningResource.__init__(
             self,
-            parent.fp.child(recordType).path,
             joinURL(parent.principalCollectionURL(), recordType) + "/",
             parent.directory
         )
@@ -258,14 +268,17 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self.provision()
         if name == "":
             return self
         else:
             return self.principalForShortName(self.recordType, name)
 
     def listChildren(self):
-        return (record.shortName for record in self.directory.listRecords(self.recordType))
+        if config.EnablePrincipalListings:
+            return (record.shortName for record in self.directory.listRecords(self.recordType))
+        else:
+            # Not a listable collection
+            raise HTTPError(responsecode.FORBIDDEN)
 
     ##
     # ACL
@@ -279,16 +292,13 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     Collection resource which provisions directory principals indexed
     by UID.
     """
-    # FIXME: Remove path argument
     def __init__(self, parent):
         """
-        @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision calendars from.
         @param recordType: the directory record type to provision.
         """
         DirectoryProvisioningResource.__init__(
             self,
-            parent.fp.child(uidsResourceName).path,
             joinURL(parent.principalCollectionURL(), uidsResourceName) + "/",
             parent.directory
         )
@@ -310,8 +320,6 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         raise HTTPError(responsecode.NOT_FOUND)
 
     def getChild(self, name):
-        self.provision()
-
         if name == "":
             return self
 
@@ -328,13 +336,10 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             log.err("No principal found for UID: %s" % (name,))
             return None
 
-        assert len(name) > 4
-        childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-
         if record.enabledForCalendaring:
-            primaryPrincipal = DirectoryCalendarPrincipalResource(childPath.path, self, record)
+            primaryPrincipal = DirectoryCalendarPrincipalResource(self, record)
         else:
-            primaryPrincipal = DirectoryPrincipalResource(childPath.path, self, record)
+            primaryPrincipal = DirectoryPrincipalResource(self, record)
 
         if subType is None:
             return primaryPrincipal
@@ -352,19 +357,18 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """
     cacheNotifierFactory = DisabledCacheNotifier
 
-    def __init__(self, path, parent, record):
+    def __init__(self, parent, record):
         """
-        @param path: them path to the file which will back this resource.
         @param parent: the parent of this resource.
         @param record: the L{IDirectoryRecord} that this resource represents.
         """
-        super(DirectoryPrincipalResource, self).__init__(path)
+        super(DirectoryPrincipalResource, self).__init__(NotFilePath(isdir=True))
 
         self.cacheNotifier = self.cacheNotifierFactory(self)
 
@@ -373,7 +377,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
         else:
             slash = ""
 
-        assert record is not None, "Principal must have a directory record: %s" % (path,)
+        assert record is not None, "Principal must have a directory record"
 
         url = joinURL(parent.principalCollectionURL(), record.guid) + slash
 
@@ -385,10 +389,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
             joinURL(parent.parent.principalCollectionURL(), record.recordType, record.shortName) + slash,
         )
 
-        # Provision in __init__() because principals are used prior to request
-        # lookups.
-        self.provision()
-
     def __str__(self):
         return "(%s) %s" % (self.record.recordType, self.record.shortName)
 
@@ -398,6 +398,14 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
         if result:
             self.writeDeadProperty(RecordTypeProperty(self.record.recordType))
         return result
+
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
+
+    def etag(self):
+        return None
 
     ##
     # HTTP
@@ -471,7 +479,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
 
         # The db is located in the principal collection root
         if not hasattr(pcollection, "calendar_user_proxy_db"):
-            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(pcollection.fp.path))
+            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(config.DataRoot))
         return pcollection.calendar_user_proxy_db
 
     def alternateURIs(self):
@@ -538,7 +546,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
 
         yield groups
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
 
@@ -561,8 +568,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, AutoProvisioningFileMixIn,
 
     def listChildren(self):
         return ()
-
-
 
 
 class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPrincipalResource):
@@ -698,7 +703,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return self
 
         if config.EnableProxyPrincipals and name in ("calendar-proxy-read", "calendar-proxy-write"):
-            return CalendarUserProxyPrincipalResource(self.fp.child(name).path, self, name)
+            return CalendarUserProxyPrincipalResource(self, name)
         else:
             return None
 

@@ -59,7 +59,7 @@ else:
         raise NotImplementedError("getNCPU not supported on %s%s" % (sys.platform, msg))
 
 ##
-#
+# Module management
 ##
 
 def submodule(module, name):
@@ -75,6 +75,25 @@ def submodule(module, name):
 
     return submodule
 
+##
+# Tracebacks
+##
+
+from twisted.python.failure import Failure
+
+def printTracebacks(f):
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except:
+            Failure().printTraceback()
+            raise
+    return wrapper
+
+##
+# Helpers
+##
+
 class Alternator (object):
     """
     Object that alternates between True and False states.
@@ -89,4 +108,3 @@ class Alternator (object):
         state = self._state
         self._state = not state
         return state
-

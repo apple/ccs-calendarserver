@@ -41,13 +41,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         self.principalRootResources = {}
         name = directoryService.__class__.__name__
         url = "/" + name + "/"
-        path = os.path.join(self.docroot, url[1:])
 
-        if os.path.exists(path):
-            rmdir(path)
-        os.mkdir(path)
-
-        provisioningResource = DirectoryPrincipalProvisioningResource(path, url, directoryService)
+        provisioningResource = DirectoryPrincipalProvisioningResource(url, directoryService)
 
         self.site.resource.putChild(name, provisioningResource)
 
@@ -240,8 +235,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             def changed(self):
                 self.changedCount += 1
 
-        user = self._getPrincipalByShortName(directoryService.recordType_users,
-                                          "cdaboo")
+        user = self._getPrincipalByShortName(directoryService.recordType_users, "cdaboo")
 
         proxyGroup = user.getChild("calendar-proxy-write")
 

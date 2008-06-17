@@ -499,10 +499,7 @@ class CalDAVServiceMaker(object):
         log.info("Setting up document root at: %s" % (config.DocumentRoot,))
         log.info("Setting up principal collection: %r" % (self.principalResourceClass,))
 
-        principalCollection = self.principalResourceClass(
-            os.path.join(config.DocumentRoot, "principals"),
-            "/principals/", directory
-        )
+        principalCollection = self.principalResourceClass("/principals/", directory)
 
         log.info("Setting up calendar collection: %r" % (self.calendarResourceClass,))
 

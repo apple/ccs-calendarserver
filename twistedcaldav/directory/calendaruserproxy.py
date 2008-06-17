@@ -25,19 +25,20 @@ __all__ = [
 from twisted.internet.defer import returnValue
 from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.web2 import responsecode
+from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.util import joinURL
-from twisted.web2.http import HTTPError, StatusResponse
+from twisted.web2.dav.noneprops import NonePropertyStore
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
+from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
-from twistedcaldav.static import AutoProvisioningFileMixIn
 
 import itertools
 import os
@@ -72,14 +73,12 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to inherritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisioningFileMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Calendar user proxy principal resource.
     """
-
-    def __init__(self, path, parent, proxyType):
+    def __init__(self, parent, proxyType):
         """
-        @param path: the path to the file which will back this resource.
         @param parent: the parent of this resource.
         @param proxyType: a C{str} containing the name of the resource.
         """
@@ -90,7 +89,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
         url = joinURL(parent.principalURL(), proxyType) + slash
 
-        super(CalendarUserProxyPrincipalResource, self).__init__(path, url)
+        super(CalendarUserProxyPrincipalResource, self).__init__(NotFilePath(isdir=True), url)
 
         self.parent      = parent
         self.proxyType   = proxyType
@@ -111,10 +110,6 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
             if url.startswith("/")
         )
 
-        # Provision in __init__() because principals are used prior to request
-        # lookups.
-        self.provision()
-
     def __str__(self):
         return "%s [%s]" % (self.parent, self.proxyType)
 
@@ -127,7 +122,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
         # The db is located in the principal collection root
         if not hasattr(self.pcollection, "calendar_user_proxy_db"):
-            setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(self.pcollection.fp.path))
+            setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(config.DataRoot))
         return self.pcollection.calendar_user_proxy_db
 
     def resourceType(self):
@@ -140,6 +135,14 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, AutoProvisionin
 
     def isCollection(self):
         return True
+
+    def etag(self):
+        return None
+
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
@@ -332,7 +335,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     """
 
     dbType = "CALENDARUSERPROXY"
-    dbFilename = db_prefix + "calendaruserproxy"
+    dbFilename = "calendaruserproxy.sqlite"
     dbFormatVersion = "4"
 
     class ProxyDBMemcacher(Memcacher):

@@ -50,7 +50,7 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.util import submodule, Alternator
+from twistedcaldav.util import submodule, Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 
@@ -560,6 +560,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         d.addCallback(gotBody)
         return d
 
+    @printTracebacks
     def renderDirectoryBody(self, request):
         """
         Generate a directory listing table in HTML.
@@ -606,10 +607,13 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         def gotProperties(qnames):
             ds = []
 
+            noneValue         = object()
+            accessDeniedValue = object()
+
             def gotProperty(property):
                 if property is None:
                     name = "{%s}%s" % qname
-                    value = "** None **"
+                    value = noneValue
                 else:
                     name = property.sname()
                     value = property.toxml()
@@ -628,7 +632,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
                     return (name, None)
 
                 if code == responsecode.UNAUTHORIZED:
-                    return (name, "(access forbidden)")
+                    return (name, accessDeniedValue)
 
                 return f
 
@@ -641,19 +645,34 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             even = Alternator()
 
             def gotValues(items):
-                output.append("".join(
-                    """<tr class="%(even)s">"""
-                    """<td valign="top">%(name)s</td>"""
-                    """<td><pre>%(value)s</pre></td>"""
-                    """</tr>"""
-                    % {
-                        "even": even.state() and "even" or "odd",
-                        "name": name,
-                        "value": cgi.escape(value),
-                    }
-                    for result, (name, value) in items
-                    if result and value is not None
-                ))
+                for result, (name, value) in items:
+                    if not result:
+                        continue
+
+                    if value is None:
+                        # An AssertionError might be appropriate, but
+                        # we may as well continue rendering.
+                        log.err("Unexpected None value for property: %s" % (name,))
+                        continue
+                    elif value is noneValue:
+                        value = "<i>(no value)</i>"
+                    elif value is accessDeniedValue:
+                        value = "<i>(access forbidden)</i>"
+                    else:
+                        value = cgi.escape(value)
+
+                    output.append(
+                        """<tr class="%(even)s">"""
+                        """<td valign="top">%(name)s</td>"""
+                        """<td><pre>%(value)s</pre></td>"""
+                        """</tr>"""
+                        % {
+                            "even": even.state() and "even" or "odd",
+                            "name": name,
+                            "value": value,
+                        }
+                    )
+
                 output.append("</div>")
                 return "".join(output)
 

@@ -154,11 +154,15 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
         return self._parent.homeForDirectoryRecord(record)
 
     def listChildren(self):
-        return (
-            record.shortName
-            for record in self.directory.listRecords(self.recordType)
-            if record.enabledForCalendaring
-        )
+        if config.EnablePrincipalListings:
+            return (
+                record.shortName
+                for record in self.directory.listRecords(self.recordType)
+                if record.enabledForCalendaring
+            )
+        else:
+            # Not a listable collection
+            raise HTTPError(responsecode.FORBIDDEN)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)

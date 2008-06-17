@@ -14,16 +14,26 @@
 # limitations under the License.
 ##
 
-import twisted.web2.dav.test.util
-from twisted.web2.http import HTTPError, StatusResponse
+import os
 
 from twisted.internet.defer import succeed
+from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav.config import config
 from twistedcaldav.static import CalDAVFile
+
+import twisted.web2.dav.test.util
 
 
 class TestCase(twisted.web2.dav.test.util.TestCase):
     resource_class = CalDAVFile
+
+    def setUp(self):
+        super(TestCase, self).setUp()
+
+        dataroot = self.mktemp()
+        os.mkdir(dataroot)
+        config.DataRoot = dataroot
 
 
 class InMemoryPropertyStore(object):

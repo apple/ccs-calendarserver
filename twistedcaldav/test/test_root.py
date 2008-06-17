@@ -53,23 +53,16 @@ class FakeCheckSACL(object):
 class RootTests(TestCase):
     def setUp(self):
         self.docroot = self.mktemp()
+        os.mkdir(self.docroot)
 
         RootResource.CheckSACL = FakeCheckSACL(sacls={
                 'calendar': ['dreid']})
 
         directory = XMLDirectoryService(xmlFile)
 
-        principals = DirectoryPrincipalProvisioningResource(
-            os.path.join(self.docroot, 'principals'),
-            '/principals/',
-            directory)
+        principals = DirectoryPrincipalProvisioningResource('/principals/', directory)
 
-        # Otherwise the tests that never touch the root resource will
-        # fail on teardown.
-        principals.provision()
-
-        root = RootResource(self.docroot,
-                            principalCollections=[principals])
+        root = RootResource(self.docroot, principalCollections=[principals])
 
         root.putChild('principals',
                       principals)
@@ -103,9 +96,9 @@ class RootTests(TestCase):
         resrc, segments = resrc.locateChild(request, ['principals'])
 
         self.failUnless(
-            isinstance(resrc,
-                       DirectoryPrincipalProvisioningResource),
-            "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,))
+            isinstance(resrc, DirectoryPrincipalProvisioningResource),
+            "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
+        )
 
         self.assertEquals(segments, [])
 
@@ -131,9 +124,9 @@ class RootTests(TestCase):
 
         def _Cb((resrc, segments)):
             self.failUnless(
-                isinstance(resrc,
-                           DirectoryPrincipalProvisioningResource),
-                "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,))
+                isinstance(resrc, DirectoryPrincipalProvisioningResource),
+                "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
+            )
 
             self.assertEquals(segments, [])
 
@@ -163,8 +156,7 @@ class RootTests(TestCase):
                     'Authorization': ['basic', '%s' % (
                             'wsanchez:zehcnasw'.encode('base64'),)]}))
 
-        resrc, segments = self.root.locateChild(request,
-                                         ['principals'])
+        resrc, segments = self.root.locateChild(request, ['principals'])
 
         def _Eb(failure):
             failure.trap(HTTPError)

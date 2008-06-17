@@ -254,6 +254,19 @@ limitations under the License.
 
 
   <!--
+    Miscellaneous items
+  -->
+
+  <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
+  <key>ResponseCompression</key>
+  <false/>
+
+  <!-- Enables directory listings for principals -->
+  <key>EnablePrincipalListings</key>
+  <true/>
+
+
+  <!--
     Non-standard CalDAV extensions
   -->
 
