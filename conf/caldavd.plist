@@ -282,7 +282,7 @@ limitations under the License.
 
   <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
   <key>ResponseCompression</key>
-  <false/>
+  <true/>
 
 
   <!--
