@@ -139,6 +139,12 @@ limitations under the License.
     <!-- <string>/principals/users/admin/</string> -->
   </array>
 
+  <!-- Principals with "DAV:read" access (relative URLs) -->
+  <key>ReadPrincipals</key>
+  <array>
+    <!-- <string>/principals/users/apprentice/</string> -->
+  </array>
+
   <!-- Principals that can pose as other principals -->
   <key>SudoersFile</key>
   <string>/etc/caldavd/sudoers.plist</string>
@@ -147,8 +153,21 @@ limitations under the License.
   <key>EnableProxyPrincipals</key>
   <true/>
 
+
+  <!--
+    Permissions
+   -->
+
   <!-- Anonymous read access for root resource -->
   <key>EnableAnonymousReadRoot</key>
+  <true/>
+
+  <!-- Anonymous read access for root resource -->
+  <key>EnableAnonymousReadNav</key>
+  <false/>
+
+  <!-- Enables directory listings for principals -->
+  <key>EnablePrincipalListings</key>
   <true/>
 
 
@@ -264,10 +283,6 @@ limitations under the License.
   <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
   <key>ResponseCompression</key>
   <false/>
-
-  <!-- Enables directory listings for principals -->
-  <key>EnablePrincipalListings</key>
-  <true/>
 
 
   <!--

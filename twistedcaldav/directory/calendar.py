@@ -20,6 +20,7 @@ Implements a directory-backed calendar hierarchy.
 
 __all__ = [
     "uidsResourceName",
+   #"DirectoryCalendarProvisioningResource",
     "DirectoryCalendarHomeProvisioningResource",
     "DirectoryCalendarHomeTypeProvisioningResource",
     "DirectoryCalendarHomeUIDProvisioningResource",
@@ -45,7 +46,21 @@ from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 # Use __underbars__ convention to avoid conflicts with directory resource types.
 uidsResourceName = "__uids__"
 
-class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
+
+class DirectoryCalendarProvisioningResource (
+    AutoProvisioningResourceMixIn,
+    ReadOnlyResourceMixIn,
+    DAVResource,
+):
+    def defaultAccessControlList(self):
+        return config.ProvisioningResourceACL
+
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        # Permissions here are fixed, and are not subject to inherritance rules, etc.
+        return succeed(self.defaultAccessControlList())
+
+
+class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningResource):
     """
     Resource which provisions calendar home collections as needed.    
     """
@@ -112,14 +127,8 @@ class DirectoryCalendarHomeProvisioningResource (AutoProvisioningResourceMixIn, 
     def isCollection(self):
         return True
 
-    ##
-    # ACL
-    ##
 
-    def defaultAccessControlList(self):
-        return readOnlyACL
-
-class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
+class DirectoryCalendarHomeTypeProvisioningResource (DirectoryCalendarProvisioningResource):
     """
     Resource which provisions calendar home collections of a specific
     record type as needed.
@@ -178,9 +187,6 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
     # ACL
     ##
 
-    def defaultAccessControlList(self):
-        return readOnlyACL
-
     def principalCollections(self):
         return self._parent.principalCollections()
 
@@ -188,7 +194,7 @@ class DirectoryCalendarHomeTypeProvisioningResource (AutoProvisioningResourceMix
         return self._parent.principalForRecord(record)
 
 
-class DirectoryCalendarHomeUIDProvisioningResource (AutoProvisioningResourceMixIn, ReadOnlyResourceMixIn, DAVResource):
+class DirectoryCalendarHomeUIDProvisioningResource (DirectoryCalendarProvisioningResource):
     def __init__(self, parent):
         """
         @param parent: the parent of this resource
@@ -230,9 +236,6 @@ class DirectoryCalendarHomeUIDProvisioningResource (AutoProvisioningResourceMixI
     # ACL
     ##
 
-    def defaultAccessControlList(self):
-        return readOnlyACL
-
     def principalCollections(self):
         return self.parent.principalCollections()
 
@@ -269,14 +272,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             child = self.provisionChild(name)
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
-
-#    def provision(self):
-#        # If an ACL property does not currently exist, create one from
-#        # the defaultACL
-#        if not self.hasDeadProperty(davxml.ACL):
-#            self.writeDeadProperty(self.defaultAccessControlList())
-#        
-#        super(DirectoryCalendarHomeResource, self).provision()
 
     def provisionDefaultCalendars(self):
         self.provision()
@@ -335,7 +330,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             # DAV:read access for authenticated users.
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                ),
             ),
             # Inheritable DAV:all access for the resource's associated principal.
             davxml.ACE(
@@ -351,6 +349,12 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
                 TwistedACLInheritable(),
             ),
         )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
         
         if config.EnableProxyPrincipals:
             aces += (
@@ -371,6 +375,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             )
 
         return davxml.ACL(*aces)
+
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        # Permissions here are fixed, and are not subject to inherritance rules, etc.
+        return succeed(self.defaultAccessControlList())
 
     def principalCollections(self):
         return self.parent.principalCollections()
@@ -397,16 +405,3 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
         else:
             return config.UserQuota
-
-##
-# Utilities
-##
-
-# DAV:read access for authenticated users.
-readOnlyACL = davxml.ACL(
-    davxml.ACE(
-        davxml.Principal(davxml.Authenticated()),
-        davxml.Grant(davxml.Privilege(davxml.Read())),
-        davxml.Protected(),
-    ),
-)

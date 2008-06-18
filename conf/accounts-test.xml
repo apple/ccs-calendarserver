@@ -25,6 +25,12 @@ limitations under the License.
     <password>admin</password>
     <name>Super User</name>
   </user>
+  <user>
+    <uid>apprentice</uid>
+    <guid>apprentice</guid>
+    <password>apprentice</password>
+    <name>Apprentice Super User</name>
+  </user>
   <user repeat="99">
     <uid>user%02d</uid>
     <guid>user%02d</guid>

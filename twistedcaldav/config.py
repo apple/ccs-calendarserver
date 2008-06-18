@@ -87,9 +87,16 @@ defaultConfig = {
     # Special principals
     #
     "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
+    "ReadPrincipals": [],                        # Principals with "DAV:read" access (relative URLs)
     "SudoersFile": "/etc/caldavd/sudoers.plist", # Principals that can pose as other principals
     "EnableProxyPrincipals": True,               # Create "proxy access" principals
-    "EnableAnonymousReadRoot": True,             # Allow unauthenticated read access to /
+
+    #
+    # Permissions
+    #
+    "EnableAnonymousReadRoot": True, # Allow unauthenticated read access to /
+    "EnableAnonymousReadNav": False, # Allow unauthenticated read access to hierachcy
+    "EnablePrincipalListings": True, # Allow listing of principal collections
 
     #
     # Authentication
@@ -153,11 +160,6 @@ defaultConfig = {
     # Service ACLs
     #
     "EnableSACLs": False,
-
-    #
-    # Enables directory listings for principals
-    #
-    "EnablePrincipalListings": True,
 
     #
     # Non-standard CalDAV extensions
@@ -268,34 +270,76 @@ class Config (object):
                 del self._data["DirectoryService"]["params"][param]
 
         #
-        # Root ACL, derived from AdminPrincipals
+        # Base resource ACLs
         #
-        if self.EnableAnonymousReadRoot:
-            rootReader = davxml.All()
-        else:
-            rootReader = davxml.Authenticated()
+        def readOnlyACE(allowAnonymous):
+            if allowAnonymous:
+                reader = davxml.All()
+            else:
+                reader = davxml.Authenticated()
 
-        aces = [
-            # Read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(rootReader),
-                davxml.Grant(davxml.Privilege(davxml.Read())),
+            return davxml.ACE(
+                davxml.Principal(reader),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                ),
                 davxml.Protected(),
-            ),
-        ]
-
-        # FIXME: This should be added to calendar homes, not above.
-        for principal in config.AdminPrincipals:
-            aces.append(
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal)),
-                    davxml.Grant(davxml.Privilege(davxml.All())),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                )
             )
 
-        self.RootResourceACL = davxml.ACL(*aces)
+        self.AdminACEs = tuple(
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(principal)),
+                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            )
+            for principal in config.AdminPrincipals
+        )
+
+        self.ReadACEs = tuple(
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(principal)),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                ),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            )
+            for principal in config.ReadPrincipals
+        )
+
+        self.RootResourceACL = davxml.ACL(
+            # Read-only for anon or authenticated, depending on config
+            readOnlyACE(self.EnableAnonymousReadRoot),
+
+            # Add inheritable all access for admins
+            *self.AdminACEs
+        )
+
+        log.debug("Root ACL: %s" % (self.RootResourceACL.toxml(),))
+
+        self.ProvisioningResourceACL = davxml.ACL(
+            # Read-only for anon or authenticated, depending on config
+            readOnlyACE(self.EnableAnonymousReadNav),
+
+            # Add read and read-acl access for admins
+            *[
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(principal)),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadACL()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    ),
+                    davxml.Protected(),
+                )
+                for principal in config.AdminPrincipals
+            ]
+        )
+
+        log.debug("Nav ACL: %s" % (self.ProvisioningResourceACL.toxml(),))
 
         #
         # FIXME: Use the config object instead of doing this here
