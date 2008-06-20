@@ -165,6 +165,7 @@ class CalDAVOptions(Options):
             log.msg("Config file %s not found, using defaults"
                     % (self['config'],))
 
+        log.info("Reading configuration from file: %s" % (self['config'],))
         parseConfig(self['config'])
 
         config.updateDefaults(self.overrides)
