@@ -55,6 +55,9 @@ class AbstractSQLDatabase(object):
         self.persistent = persistent
         self.autocommit = autocommit
 
+    def __repr__(self):
+        return "<%s %r>" % (self.__class__.__name__, self.dbpath)
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
@@ -80,7 +83,7 @@ class AbstractSQLDatabase(object):
                 else:
                     self._db_connection = sqlite.connect(db_filename)
             except:
-                log.err("Unable to open database: %s" % (db_filename,))
+                log.err("Unable to open database: %s" % (self,))
                 raise
 
             #
@@ -297,7 +300,7 @@ class AbstractSQLDatabase(object):
             try:
                 q.execute(sql, query_params)
             except:
-                log.err("Exception while executing SQL: %r %r" % (sql, query_params))
+                log.err("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))
                 raise
             return q.fetchall()
         finally:
