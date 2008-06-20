@@ -121,6 +121,15 @@ class OpenDirectoryService(DirectoryService):
             if groupGUID in processedGUIDs:
                 continue
 
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.directory,
+                dsattributes.kDS1AttrGeneratedUID,
+                groupGUID,
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeGroups,
+                [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
+            ))
             result = opendirectory.queryRecordsWithAttribute_list(
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
@@ -185,6 +194,17 @@ class OpenDirectoryService(DirectoryService):
             "dsAttrTypeNative:apple-serviceinfo",
         ]
 
+        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r)" % (
+            self.directory,
+            dsquery.match(
+                "dsAttrTypeNative:apple-serviceinfo",
+                vhostname,
+                dsattributes.eDSContains,
+            ).generate(),
+            True,    # case insentive for hostnames
+            dsattributes.kDSStdRecordTypeComputers,
+            attrs
+        ))
         records = opendirectory.queryRecordsWithAttributes_list(
             self.directory,
             dsquery.match(
@@ -673,6 +693,15 @@ class OpenDirectoryService(DirectoryService):
         if self.requireComputerRecord:
             if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
                 if shortName is None and guid is None:
+                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                        self.directory,
+                        dsattributes.kDSNAttrRecordName,
+                        saclGroup,
+                        dsattributes.eDSExact,
+                        False,
+                        dsattributes.kDSStdRecordTypeGroups,
+                        [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups],
+                    ))
                     results = opendirectory.queryRecordsWithAttribute_list(
                         self.directory,
                         dsattributes.kDSNAttrRecordName,
