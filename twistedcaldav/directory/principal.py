@@ -206,7 +206,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         if record is not None:
             return self.principalForRecord(record)
 
-        log.err("No principal for calendar user address: %r" % (address,))
+        log.debug("No principal for calendar user address: %r" % (address,))
 
         return None
 
