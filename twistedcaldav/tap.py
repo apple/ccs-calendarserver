@@ -54,6 +54,7 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.timezones import TimezoneCache
+from twistedcaldav.upgrade import UpgradeTheServer
 from twistedcaldav import pdmonster
 from twistedcaldav import memcachepool
 
@@ -80,9 +81,12 @@ class CalDAVService(service.MultiService):
 
 
 class CalDAVOptions(Options):
-    optParameters = [[
-        "config", "f", "/etc/caldavd/caldavd.plist", "Path to configuration file."
-    ]]
+    optFlags = [
+        ["upgradeonly", "U", "Do server upgrade only."],
+    ]
+    optParameters = [
+        ["config", "f", "/etc/caldavd/caldavd.plist", "Path to configuration file."],
+    ]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}
 
@@ -708,6 +712,13 @@ class CalDAVServiceMaker(object):
     makeService_Single   = makeService_Slave
 
     def makeService(self, options):
+        
+        # Check for upgrade only
+        if options.has_key('upgradeonly'):
+            # Now do any on disk upgrades we might need.
+            UpgradeTheServer.doUpgrade()
+            return None
+            
         serverType = config.ProcessType
 
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
@@ -715,10 +726,11 @@ class CalDAVServiceMaker(object):
         if not serviceMethod:
             raise UsageError(
                 "Unknown server type %s. "
-                "Please choose: Master, Slave or Combined"
+                "Please choose: Master, Slave, Single or Combined"
                 % (serverType,)
             )
         else:
+                
             service = serviceMethod(options)
 
             #

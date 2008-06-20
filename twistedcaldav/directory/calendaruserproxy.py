@@ -336,6 +336,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
 
     dbType = "CALENDARUSERPROXY"
     dbFilename = "calendaruserproxy.sqlite"
+    dbOldFilename = db_prefix + "calendaruserproxy"
     dbFormatVersion = "4"
 
     class ProxyDBMemcacher(Memcacher):

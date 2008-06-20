@@ -80,15 +80,17 @@ usage ()
 
     if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-    echo "Usage: ${program} [-hX] [-u username] [-g groupname] [-T twistd] [-t type] [-f caldavd.plist] [-p statsfile]";
+    echo "Usage: ${program} [-hXU] [-u username] [-g groupname] [-T twistd] [-t type]";
+    echo "                  [-f caldavd.plist] [-p statsfile] [-R reactor]";
     echo "Options:";
     echo "        -h Print this help and exit";
     echo "        -X Do not daemonize";
+    echo "        -U Upgrade Only";
     echo "        -u User name to run as";
     echo "        -g Group name to run as";
-    echo "        -f Configuration file to read";
     echo "        -T Path to twistd binary";
-    echo "        -t Process type (Master, Slave or Combined)";
+    echo "        -t Process type (Master, Slave, Single or Combined)";
+    echo "        -f Configuration file to read";
     echo "        -p Path to the desired pstats file.";
     echo "        -R The Twisted Reactor to run [${reactor}]";
 
@@ -101,6 +103,7 @@ while getopts 'hXu:g:f:T:P:t:p:R:' option; do
         '?') usage; ;;
         'h') usage -; exit 0; ;;
         'X') daemonize="-n"; ;;
+        'U') upgradeonly="-U"; ;;
         'f') configfile="-f ${OPTARG}"; ;;
         'T') twistdpath="${OPTARG}"; ;;
         'u') username="-u ${OPTARG}"; ;;
@@ -118,6 +121,6 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH
 
-echo exec "${python}" "${twistdpath}" "${twistd_reactor}" ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} "${child_reactor}";
+echo exec "${python}" "${twistdpath}" "${twistd_reactor}" ${daemonize} ${upgradeonly} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} "${child_reactor}";
 
-exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} ${child_reactor};
+exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${upgradeonly} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} ${child_reactor};
