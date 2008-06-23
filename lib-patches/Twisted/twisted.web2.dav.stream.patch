@@ -2,7 +2,7 @@ Index: twisted/web2/dav/stream.py
 ===================================================================
 --- twisted/web2/dav/stream.py	(revision 0)
 +++ twisted/web2/dav/stream.py	(revision 0)
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,76 @@
 +##
 +# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
 +#
@@ -58,12 +58,14 @@ Index: twisted/web2/dav/stream.py
 +        
 +        if isinstance(b, Deferred):
 +            def _gotData(data):
-+                self.md5.update(data)
++                if data is not None:
++                    self.md5.update(data)
 +                return data
 +            b.addCallback(_gotData)
 +        else:
 +            # Update current MD5 state
-+            self.md5.update(str(b))
++            if b is not None:
++                self.md5.update(str(b))
 +    
 +        return b
 +    
