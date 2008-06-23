@@ -15,29 +15,20 @@
 ##
 
 import uuid
-import time
 import hashlib
 import cPickle
 
 from zope.interface import implements
 
-from twisted.python.failure import Failure
-from twisted.internet.defer import succeed, fail, maybeDeferred
-from twisted.internet.protocol import ClientCreator
+from twisted.internet.defer import succeed, maybeDeferred
 
 from twisted.web2.iweb import IResource
-from twisted.web2.dav import davxml
 from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.http import HTTPError, Response
+from twisted.web2.http import Response
 from twisted.web2.stream import MemoryStream
-
-from twisted.web2.dav.xattrprops import xattrPropertyStore
-
-from twisted.internet.threads import deferToThread
 
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
-from twistedcaldav.config import config
 
 
 class DisabledCacheNotifier(object):
@@ -98,8 +89,6 @@ class BaseResponseCache(LoggingMixIn):
     """
     A base class which provides some common operations
     """
-    propertyStoreFactory = xattrPropertyStore
-
     def _principalURI(self, principal):
         return str(principal.children[0])
 

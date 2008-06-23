@@ -19,10 +19,7 @@ import hashlib
 import cPickle
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import succeed, fail, maybeDeferred
-from twisted.python.failure import Failure
-
-from twisted.python.filepath import FilePath
+from twisted.internet.defer import succeed, maybeDeferred
 
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import allDataFromStream
