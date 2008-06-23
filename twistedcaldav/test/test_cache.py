@@ -77,9 +77,11 @@ class StubResponse(object):
 
 
 class StubURLResource(object):
-    def __init__(self, url):
+    def __init__(self, url, record=None):
         self._url = url
 
+        if record is not None:
+            self.record = record
 
     def url(self):
         return self._url
@@ -129,11 +131,11 @@ class BaseCacheTestMixin(object):
             '/calendars/users/cdaboo/': StubURLResource(
                 '/calendars/__uids__/cdaboo/'),
             '/principals/__uids__/cdaboo/': StubURLResource(
-                '/principals/__uids__/cdaboo/'),
+                '/principals/__uids__/cdaboo/', record='directoryToken0'),
             '/calendars/__uids__/dreid/': StubURLResource(
                 '/calendars/__uids__/dreid/'),
             '/principals/__uids__/dreid/': StubURLResource(
-                '/principals/__uids__/dreid/')}
+                '/principals/__uids__/dreid/', record='directoryToken0')}
 
 
     def tearDown(self):
@@ -157,9 +159,6 @@ class BaseCacheTestMixin(object):
             '/calendars/users/cdaboo/',
             '/principals/__uids__/cdaboo/')
 
-        request.resources['/calendars/users/cdaboo/'] = StubURLResource(
-            '/calendars/__uids__/cdaboo/')
-
         d = self.rc.getResponseForRequest(request)
 
         d.addCallback(self.assertEquals, None)
@@ -182,9 +181,6 @@ class BaseCacheTestMixin(object):
             'PROPFIND',
             '/calendars/__uids__/cdaboo/',
             '/principals/users/cdaboo/')
-
-        request.resources['/principals/users/cdaboo/'] = StubURLResource(
-            '/principals/__uids__/cdaboo/')
 
         d = self.rc.getResponseForRequest(request)
 
@@ -286,7 +282,6 @@ class BaseCacheTestMixin(object):
         return d
 
 
-
     def test_cacheResponseForRequest(self):
         expected_response = StubResponse(200, {}, "Foobar")
 
@@ -304,10 +299,6 @@ class BaseCacheTestMixin(object):
             return d1
 
 
-        StubRequest.resources[
-            '/principals/__uids__/dreid/'] = StubURLResource(
-            '/principals/__uids__/dreid/')
-
         d = self.rc.cacheResponseForRequest(
             StubRequest('PROPFIND',
                         '/principals/__uids__/dreid/',
@@ -315,6 +306,20 @@ class BaseCacheTestMixin(object):
             expected_response)
 
         d.addCallback(_assertResponse)
+        return d
+
+
+    def test_recordHashChangeInvalidatesCache(self):
+        StubRequest.resources[
+            '/principals/__uids__/cdaboo/'].record = 'directoryToken1'
+
+        d = self.rc.getResponseForRequest(
+            StubRequest(
+                'PROPFIND',
+                '/calendars/__uids__/cdaboo/',
+                '/principals/__uids__/cdaboo/'))
+
+        d.addCallback(self.assertEquals, None)
         return d
 
 
@@ -351,6 +356,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             0, #flags
             cPickle.dumps((
             'principalToken0',
+            hash('directoryToken0'),
             'uriToken0',
             (self.expected_response[0],
              dict(list(self.expected_response[1].getAllRawHeaders())),
@@ -376,6 +382,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             0, #flags
             cPickle.dumps((
                     'principalToken0',
+                    hash('directoryToken0'),
                     'uriToken0',
                     (expected_response[0],
                      dict(list(expected_response[1].getAllRawHeaders())),

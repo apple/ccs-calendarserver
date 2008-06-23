@@ -190,8 +190,10 @@ class DirectoryRecord(LoggingMixIn):
 
     def __hash__(self):
         h = hash(self.__class__)
-        for attr in ("service", "recordType", "shortName", "guid"):
+        for attr in ("service", "recordType", "shortName", "guid",
+                     "enabledForCalendaring"):
             h = (h + hash(getattr(self, attr))) & sys.maxint
+
         return h
 
     def members(self):

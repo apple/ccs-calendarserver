@@ -58,6 +58,7 @@ class DisabledCache(object):
         return succeed(response)
 
 
+
 class URINotFoundException(Exception):
     def __init__(self, uri):
         self.uri = uri
@@ -67,6 +68,7 @@ class URINotFoundException(Exception):
         return "%s: Could not find URI %r" % (
             self.__class__.__name__,
             self.uri)
+
 
 
 class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
@@ -102,14 +104,27 @@ class BaseResponseCache(LoggingMixIn):
         return str(principal.children[0])
 
 
-    def _canonicalizeURIForRequest(self, uri, request):
-        def _uriNotFound(f):
-            f.trap(AttributeError)
-            raise URINotFoundException(uri)
+    def _uriNotFound(self, f, uri):
+        f.trap(AttributeError)
+        raise URINotFoundException(uri)
+
+
+    def _getRecordForURI(self, uri, request):
+        def _getRecord(resrc):
+            if hasattr(resrc, 'record'):
+                return resrc.record
 
         try:
             return request.locateResource(uri).addCallback(
-                lambda resrc: resrc.url()).addErrback(_uriNotFound)
+                _getRecord).addErrback(self._uriNotFound, uri)
+        except AssertionError:
+            raise URINotFoundException(uri)
+
+
+    def _canonicalizeURIForRequest(self, uri, request):
+        try:
+            return request.locateResource(uri).addCallback(
+                lambda resrc: resrc.url()).addErrback(self._uriNotFound, uri)
         except AssertionError:
             raise URINotFoundException(uri)
 
@@ -177,9 +192,11 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         def _tokensForURIs((pURI, rURI)):
             tokens = []
             d1 = self._tokenForURI(pURI)
-            d1.addCallback(lambda pToken: tokens.append(pToken))
+            d1.addCallback(tokens.append)
+            d1.addCallback(lambda _ign: self._getRecordForURI(pURI, request))
+            d1.addCallback(lambda dToken: tokens.append(hash(dToken)))
             d1.addCallback(lambda _ign: self._tokenForURI(rURI))
-            d1.addCallback(lambda uToken: tokens.append(uToken))
+            d1.addCallback(tokens.append)
             d1.addCallback(lambda _ign: tokens)
             return d1
 
@@ -213,6 +230,14 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
             if curTokens[1] != expectedTokens[1]:
                 self.log_debug(
+                    "Directory Record Token doesn't match for %r: %r != %r" % (
+                        request.cacheKey,
+                        curTokens[1],
+                        expectedTokens[1]))
+                return None
+
+            if curTokens[2] != expectedTokens[2]:
+                self.log_debug(
                     "URI token doesn't match for %r: %r != %r" % (
                         request.cacheKey,
                         curTokens[1],
@@ -234,11 +259,15 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
             self.log_debug("Found in cache: %r = %r" % (key, value))
 
-            (principalToken, uriToken,
+            (principalToken, directoryToken, uriToken,
              resp) = cPickle.loads(value)
             d2 = self._getTokens(request)
 
-            d2.addCallback(_checkTokens, (principalToken, uriToken), resp)
+            d2.addCallback(_checkTokens,
+                           (principalToken,
+                            directoryToken,
+                            uriToken),
+                           resp)
 
             return d2
 
@@ -259,9 +288,10 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
 
     def cacheResponseForRequest(self, request, response):
-        def _makeCacheEntry((pToken, uToken), (key, responseBody)):
+        def _makeCacheEntry((pToken, dToken, uToken), (key, responseBody)):
             cacheEntry = cPickle.dumps(
                 (pToken,
+                 dToken,
                  uToken,
                  (response.code,
                   dict(list(response.headers.getAllRawHeaders())),
