@@ -1,0 +1,106 @@
+#!/usr/bin/env python
+##
+# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+import getopt
+import hashlib
+import os
+import sys
+import xattr
+
+"""
+Fix xattrs on calendar collections and calendar object resources
+"""
+
+def usage():
+    print """Usage: xattr_fix CALENDARS
+Options:
+    
+CALENDARS - a list of directories that are to be treated as calendars
+    
+Description:
+This utility will add xattrs to the specified directories and their contents
+to make them appear to be calendars and calendar resources when used with
+iCal Server.
+
+It can be used to fix xattrs lost as a result of restoring an iCal Server document
+root without properly preserving the xattrs.
+"""
+
+def fixCalendar(path):
+    
+    # First fix the resourcetype & getctag on the calendar
+    x = xattr.xattr(path)
+    x["WebDAV:{DAV:}resourcetype"] = """<?xml version='1.0' encoding='UTF-8'?>
+<resourcetype xmlns='DAV:'>
+  <collection/>
+  <calendar xmlns='urn:ietf:params:xml:ns:caldav'/>
+</resourcetype>
+"""
+
+    x["WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"] = """<?xml version='1.0' encoding='UTF-8'?>
+<getctag xmlns='http://calendarserver.org/ns/'>Dummy Value</getctag>
+"""
+
+    # Now deal with contenttype on child .ics files
+    for child in os.listdir(path):
+        if not child.endswith(".ics"):
+            continue
+        fullpath = os.path.join(path, child)
+        
+        # getcontenttype
+        x = xattr.xattr(fullpath)
+        x["WebDAV:{DAV:}getcontenttype"] = """<?xml version='1.0' encoding='UTF-8'?>
+<getcontenttype xmlns='DAV:'>text/calendar</getcontenttype>
+"""
+
+        # md5
+        data = open(fullpath).read()
+        x["WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"] = """<?xml version='1.0' encoding='UTF-8'?>
+<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>
+""" % (hashlib.md5(data).hexdigest(),)
+
+if __name__ == "__main__":
+
+    try:
+        options, args = getopt.getopt(sys.argv[1:], "")
+
+        # Process arguments
+        if len(args) == 0:
+            print "No arguments given."
+            usage()
+            raise ValueError
+
+        pwd = os.getcwd()
+
+        for arg in args:
+            if not arg.startswith("/"):
+                arg = os.path.join(pwd, arg)
+            if arg.endswith("/"):
+                arg = arg[:-1]
+            if not os.path.exists(arg):
+                print "Path does not exist: '%s'. Ignoring." % (arg,)
+                continue
+            
+            if os.path.basename(arg) in ("inbox", "outbox", "dropbox",):
+                print "Cannot be used on inbox, outbox or dropbox."
+                continue
+
+            fixCalendar(arg)
+
+    except Exception, e:
+        sys.exit(str(e))
+    
