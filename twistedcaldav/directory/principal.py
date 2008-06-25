@@ -560,6 +560,12 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         log.err("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
+    def locateChild(self, req, segments):
+        child = self.getChild(segments[0])
+        if child is not None:
+            return (child, segments[1:])
+        return (None, ())
+
     def getChild(self, name):
         if name == "":
             return self
