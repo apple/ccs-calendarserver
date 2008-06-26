@@ -49,16 +49,17 @@ Twisted::               $(BuildDirectory)/Twisted
 pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
 libevent-1.4.4-stable:: $(BuildDirectory)/libevent-1.4.4-stable
 memcached-1.2.5::       $(BuildDirectory)/memcached-1.2.5
+select26-0.1a3::	$(BuildDirectory)/select26-0.1a3
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: memcached-1.2.5 PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
+build:: memcached-1.2.5 PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1a3 Twisted $(Project)
 
 setup:
 	$(_v) $(Sources)/run -g
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz libevent-1.4.4-stable.tgz memcached-1.2.5.tgz
+prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz select26-0.1a3.tgz Twisted.tgz libevent-1.4.4-stable.tgz memcached-1.2.5.tgz
 
-PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject $(Project)::
+PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1.a3 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -98,6 +99,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/pydirector-1.0.0      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4           && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/select26-0.1a3        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/libevent-1.4.4-stable && make install DESTDIR="$(DSTROOT)"
 	$(_v) cd $(BuildDirectory)/memcached-1.2.5       && make install DESTDIR="$(DSTROOT)"
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
@@ -105,7 +107,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
-	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*'); do rm "$${f}"; done
+	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*'); do rm "$${f}"; done
 	$(_v) rm -rf "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zsh"
 	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
 	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
@@ -134,7 +136,7 @@ install::
 $(BuildDirectory)/$(Project):
 	@echo "Copying source for $(Project)..."
 	$(_v) $(MKDIR) -p "$@"
-	$(_v) pax -rw bin conf Makefile lib-patches setup.py twistedcaldav twisted "$@/"
+	$(_v) pax -rw bin conf Makefile lib-patches setup.py kqreactor.py twistedcaldav twisted "$@/"
 
 $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
