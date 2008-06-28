@@ -210,7 +210,7 @@ limitations under the License.
   <key>EnableAnonymousReadRoot</key>
   <true/>
 
-  <!-- Anonymous read access for root resource -->
+  <!-- Anonymous read access for resource hierarchy -->
   <key>EnableAnonymousReadNav</key>
   <false/>
 
