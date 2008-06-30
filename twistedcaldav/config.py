@@ -169,6 +169,16 @@ defaultConfig = {
     "EnableTimezoneService" : False, # Timezone service
 
     #
+    # Notifications
+    #
+    "EnableNotifications" : False,
+    "CoalesceSeconds" : 10,
+    "InternalNotificationHost" : "localhost",
+    "InternalNotificationPort" : 62309,
+    "ExternalNotificationService" : "twistedcaldav.notify.SimpleLineNotifierService",
+    "SimpleLineNotificationPort" : 62308,
+
+    #
     # Implementation details
     #
     #    The following are specific to how the server is built, and useful

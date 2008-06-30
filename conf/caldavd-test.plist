@@ -405,6 +405,23 @@ limitations under the License.
 
 
   <!--
+    Notifications
+  -->
+  <key>EnableNotifications</key>
+  <true/>
+  <key>CoalesceSeconds</key>
+  <integer>10</integer>
+  <key>InternalNotificationHost</key>
+  <string>localhost</string>
+  <key>InternalNotificationPort</key>
+  <integer>62309</integer>
+  <key>ExternalNotificationService</key>
+  <string>twistedcaldav.notify.SimpleLineNotifierService</string>
+  <key>SimpleLineNotificationPort</key>
+  <integer>62308</integer>
+
+
+  <!--
     Miscellaneous items
   -->
 
