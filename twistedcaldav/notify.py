@@ -33,7 +33,6 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 """
 
 # TODO: bindAddress to local
-# TODO: "reset" / "all" upon startup
 # TODO: sequence number rollover
 
 import os
@@ -301,8 +300,9 @@ class SimpleLineNotifier(object):
 
     def __init__(self, dbName=":memory:"):
 
-        self.next_seq = 0
+        self.nextSeq = 0
         self.observers = set()
+        self.sentReset = False
 
         self.db = sqlite3.connect(dbName)
         query = 'CREATE TABLE uris (uri TEXT PRIMARY KEY, seq LONG)'
@@ -314,25 +314,25 @@ class SimpleLineNotifier(object):
 
     def enqueue(self, uri):
 
-        self.next_seq += 1
+        self.nextSeq += 1
 
         # Update database
         query = 'INSERT OR REPLACE INTO uris (uri, seq) VALUES (:1, :2)'
         cursor = self.db.cursor()
-        cursor.execute(query, (uri, self.next_seq))
+        cursor.execute(query, (uri, self.nextSeq))
         cursor.close()
         self.db.commit()
 
         for observer in self.observers:
-            observer.sendLine("%d %s" % (self.next_seq, uri))
+            observer.sendLine("%d %s" % (self.nextSeq, uri))
 
 
-    def playback(self, observer, old_seq):
+    def playback(self, observer, oldSeq):
 
         query = 'SELECT * FROM uris WHERE seq > :1 ORDER BY seq ASC'
         cursor = self.db.cursor()
 
-        for uri, seq in cursor.execute(query, (old_seq,)):
+        for uri, seq in cursor.execute(query, (oldSeq,)):
             observer.sendLine("%d %s" % (seq, str(uri)))
 
         cursor.close()
@@ -343,6 +343,11 @@ class SimpleLineNotifier(object):
 
     def removeObserver(self, observer):
         self.observers.remove(observer)
+
+    def connectionMade(self, observer):
+        if not self.sentReset:
+            observer.sendLine("0")
+            self.sentReset = True
 
 
 class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
@@ -355,18 +360,26 @@ class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
     sequence number was sent are resent.
     """
 
+    def connectionMade(self):
+        # we just received a connection from the outside; if it's the first
+        # since we started running, it means we need to let them know that
+        # a reset has happened.  This assumes that only one connection will
+        # be made to this channel; if we end up having multiple consumers
+        # of this protocol, we would need to uniquely identify them.
+        self.notifier.connectionMade(self)
+
     def lineReceived(self, line):
         val = line.strip()
 
         # Should be a number requesting all updates since that sequence
         try:
-            old_seq = int(val)
+            oldSeq = int(val)
         except ValueError, e:
             self.log_warn("Error parsing %s: %s (from %s)" % (val, e,
                 self.transport.getPeer()))
             return
 
-        self.notifier.playback(self, old_seq)
+        self.notifier.playback(self, oldSeq)
 
     def connectionLost(self, reason):
         self.notifier.removeObserver(self)

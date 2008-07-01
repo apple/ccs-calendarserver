@@ -177,6 +177,19 @@ class SimpleLineNotifierTests(TestCase):
         self.notifier = SimpleLineNotifier()
         self.coalescer = Coalescer(self.notifier, reactor=self.clock)
 
+    def test_initialConnection(self):
+        protocol = StubProtocol()
+        self.notifier.addObserver(protocol)
+        self.notifier.connectionMade(protocol)
+        self.assertEquals(protocol.lines, ["0"])
+
+    def test_subsequentConnection(self):
+        protocol = StubProtocol()
+        self.notifier.addObserver(protocol)
+        self.notifier.connectionMade(protocol)
+        protocol.lines = []
+        self.notifier.connectionMade(protocol)
+        self.assertEquals(protocol.lines, [])
 
     def test_send(self):
         protocol = StubProtocol()
