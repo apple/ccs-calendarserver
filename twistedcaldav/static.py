@@ -657,6 +657,9 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
             # Initialize CTag on the calendar collection
             self.updateCTag()
 
+            # Initialize the index
+            self.index().create()
+
         return super(ScheduleInboxFile, self).provision()
 
     def __repr__(self):
