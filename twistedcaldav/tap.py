@@ -19,7 +19,6 @@ import stat
 
 from zope.interface import implements
 
-from twisted.internet import reactor
 from twisted.internet.address import IPv4Address
 
 from twisted.python.log import FileLogObserver
@@ -645,6 +644,11 @@ class CalDAVServiceMaker(object):
             maxRequests=config.MaxRequests,
             betweenRequestsTimeOut=config.IdleConnectionTimeOut)
 
+        def updateChannel(config, items):
+            channel.maxRequests = config.MaxRequests
+
+        config.addHook(updateChannel)
+
         if not config.BindAddresses:
             config.BindAddresses = [""]
 
@@ -699,8 +703,6 @@ class CalDAVServiceMaker(object):
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
 
-        reactor.suggestThreadPoolSize(config.ThreadPoolSize)
-
         return service
 
     makeService_Combined = makeService_Combined
@@ -738,24 +740,19 @@ class CalDAVServiceMaker(object):
 
             import signal
             def sighup_handler(num, frame):
-                log.error("SIGHUP recieved at %s" % (location(frame),))
+                log.info("SIGHUP recieved at %s" % (location(frame),))
 
                 # Reload the config file
-                log.info("Reloading configuration file")
                 config.reload()
 
-                log.info("Suggesting size for the reactor threadpool: %r" % (
-                        config.ThreadPoolSize))
-                reactor.suggestThreadPoolSize(config.ThreadPoolSize)
-
-                log.info("Suggesting new max clients for memcache.")
-                memcachepool.getCachePool().suggestMaxClients(
-                        config.Memcached["MaxClients"])
+                # FIXME: There is no memcachepool.getCachePool
+                #   Also, better option is probably to add a hook to
+                #   the config object instead of doing things here.
+                #log.info("Suggesting new max clients for memcache.")
+                #memcachepool.getCachePool().suggestMaxClients(
+                #    config.Memcached["MaxClients"]
+                #)
 
             signal.signal(signal.SIGHUP, sighup_handler)
-
-            #def sigusr1_handler(num, frame):
-            #    log.debug("SIGUSR1 recieved at %s" % (location(frame),))
-            #signal.signal(signal.SIGUSR1, sigusr1_handler)
 
             return service

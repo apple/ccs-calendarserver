@@ -243,11 +243,30 @@ class Config (object):
         self.setDefaults(defaults)
         self._data = copy.deepcopy(self._defaults)
         self._configFile = None
+        self._hooks = [
+            self.updateDirectoryService,
+            self.updateACLs,
+            self.updateRejectClients,
+            self.updateDropBox,
+            self.updateLogLevels,
+            self.updateThreadPoolSize,
+        ]
 
     def __str__(self):
         return str(self._data)
 
+    def addHook(self, hook):
+        self._hooks.append(hook)
+
     def update(self, items):
+        #
+        # Call hooks
+        #
+        for hook in self._hooks:
+            hook(self, items)
+
+    @staticmethod
+    def updateDirectoryService(self, items):
         #
         # Special handling for directory services configs
         #
@@ -275,6 +294,8 @@ class Config (object):
             if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
                 del self._data["DirectoryService"]["params"][param]
 
+    @staticmethod
+    def updateACLs(self, items):
         #
         # Base resource ACLs
         #
@@ -347,14 +368,8 @@ class Config (object):
 
         log.debug("Nav ACL: %s" % (self.ProvisioningResourceACL.toxml(),))
 
-        #
-        # FIXME: Use the config object instead of doing this here
-        #
-        from twistedcaldav.resource import CalendarPrincipalResource
-        CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
-
-        self.updateLogLevels()
-
+    @staticmethod
+    def updateRejectClients(self, items):
         #
         # Compile RejectClients expressions for speed
         #
@@ -363,7 +378,16 @@ class Config (object):
         except re.error, e:
             raise ConfigurationError("Invalid regular expression in RejectClients: %s" % (e,))
 
-    def updateLogLevels(self):
+    @staticmethod
+    def updateDropBox(self, items):
+        #
+        # FIXME: Use the config object instead of doing this here
+        #
+        from twistedcaldav.resource import CalendarPrincipalResource
+        CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
+
+    @staticmethod
+    def updateLogLevels(self, items):
         clearLogLevels()
 
         try:
@@ -379,6 +403,11 @@ class Config (object):
 
         except InvalidLogLevelError, e:
             raise ConfigurationError("Invalid log level: %s" % (e.level))
+
+    @staticmethod
+    def updateThreadPoolSize(self, items):
+        from twisted.internet import reactor
+        reactor.suggestThreadPoolSize(self.ThreadPoolSize)
 
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
@@ -400,6 +429,7 @@ class Config (object):
         raise AttributeError(attr)
 
     def reload(self):
+        log.info("Reloading configuration from file: %s" % (self._configFile,))
         self._data = copy.deepcopy(self._defaults)
         self.loadConfig(self._configFile)
 
