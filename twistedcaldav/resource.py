@@ -58,6 +58,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
+from twistedcaldav.log import LoggingMixIn
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -91,7 +92,7 @@ def updateCacheTokenOnCallback(f):
     return fun
 
 
-class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
+class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     """
     CalDAV resource.
 
@@ -133,6 +134,19 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource):
             return super(CalDAVResource, self).render(request)
 
     def renderHTTP(self, request):
+        if config.RejectClients:
+            #
+            # Filter out unsupported clients
+            #
+            agent = request.headers.getHeader("user-agent")
+            for reject in config.RejectClients:
+                if reject.search(agent) is not None:
+                    self.log_info("Rejecting user-agent: %s" % (agent,))
+                    raise HTTPError(StatusResponse(
+                        responsecode.FORBIDDEN,
+                        "Your client software (%s) is not allowed to access this service." % (agent,)
+                    ))
+
         response = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
 
         def setHeaders(response):

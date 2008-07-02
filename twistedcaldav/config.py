@@ -16,6 +16,7 @@
 
 import os
 import copy
+import re
 
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -97,6 +98,11 @@ defaultConfig = {
     "EnableAnonymousReadRoot": True, # Allow unauthenticated read access to /
     "EnableAnonymousReadNav": False, # Allow unauthenticated read access to hierachcy
     "EnablePrincipalListings": True, # Allow listing of principal collections
+
+    #
+    # Client controls
+    #
+    "RejectClients": [], # List of regexes for clients to disallow
 
     #
     # Authentication
@@ -348,6 +354,14 @@ class Config (object):
         CalendarPrincipalResource.enableDropBox(self.EnableDropBox)
 
         self.updateLogLevels()
+
+        #
+        # Compile RejectClients expressions for speed
+        #
+        try:
+            self.RejectClients = [re.compile(x) for x in self.RejectClients if x]
+        except re.error, e:
+            raise ConfigurationError("Invalid regular expression in RejectClients: %s" % (e,))
 
     def updateLogLevels(self):
         clearLogLevels()
