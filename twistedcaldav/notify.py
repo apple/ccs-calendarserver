@@ -33,7 +33,6 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 """
 
 # TODO: bindAddress to local
-# TODO: sequence number rollover
 
 import os
 from twisted.internet import reactor, protocol
@@ -45,7 +44,6 @@ from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import config, parseConfig, defaultConfig
 from zope.interface import Interface, implements
-import sqlite3
 
 __all__ = '''
 Coalescer getNotificationClient INotifier installNotificationClient
@@ -293,49 +291,48 @@ class SimpleLineNotifier(object):
     space, and a uri string.  If the external client sends a sequence
     number, this notifier will send notification lines for each uri
     that was changed since that sequence number was originally sent.
-    A history of such sequence numbers is stored in a sqlite db.
+    A history of such sequence numbers is stored in a python dict.
+    If the external client sends a zero, then the history is cleared
+    and the next sequence number to use is reset to 1.
+
+    The sequence number is stored as a python long which means it has
+    essentially infinite precision.  We discussed rolling over at the
+    64-bit boundary, but even if we limit the sequence number to a 64-bit
+    signed integer (or 2^63), and we had 100,000 users generating the
+    maximum number of notifications (which by default is 6/minute since
+    we're coalescing over 10 seconds), it would take 29 million years to
+    rollover.
     """
 
     implements(INotifier)
 
-    def __init__(self, dbName=":memory:"):
-
-        self.nextSeq = 0
+    def __init__(self):
+        self.reset()
         self.observers = set()
         self.sentReset = False
 
-        self.db = sqlite3.connect(dbName)
-        query = 'CREATE TABLE uris (uri TEXT PRIMARY KEY, seq LONG)'
-        cursor = self.db.cursor()
-        cursor.execute(query)
-        cursor.close()
-        self.db.commit()
-
-
     def enqueue(self, uri):
 
-        self.nextSeq += 1
+        self.latestSeq += 1L
 
-        # Update database
-        query = 'INSERT OR REPLACE INTO uris (uri, seq) VALUES (:1, :2)'
-        cursor = self.db.cursor()
-        cursor.execute(query, (uri, self.nextSeq))
-        cursor.close()
-        self.db.commit()
+        # Update history
+        self.history[uri] = self.latestSeq
 
         for observer in self.observers:
-            observer.sendLine("%d %s" % (self.nextSeq, uri))
+            observer.sendLine("%d %s" % (self.latestSeq, uri))
 
+    def reset(self):
+        self.latestSeq = 0L
+        self.history = { } # keys=uri, values=sequenceNumber
 
     def playback(self, observer, oldSeq):
 
-        query = 'SELECT * FROM uris WHERE seq > :1 ORDER BY seq ASC'
-        cursor = self.db.cursor()
+        hist = self.history
+        toSend = [(hist[uri], uri) for uri in hist if hist[uri] > oldSeq]
+        toSend.sort() # sorts the tuples based on numeric sequence number
 
-        for uri, seq in cursor.execute(query, (oldSeq,)):
+        for seq, uri in toSend:
             observer.sendLine("%d %s" % (seq, str(uri)))
-
-        cursor.close()
 
 
     def addObserver(self, observer):
@@ -379,7 +376,10 @@ class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
                 self.transport.getPeer()))
             return
 
-        self.notifier.playback(self, oldSeq)
+        if oldSeq == 0:
+            self.notifier.reset()
+        else:
+            self.notifier.playback(self, oldSeq)
 
     def connectionLost(self, reason):
         self.notifier.removeObserver(self)

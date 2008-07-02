@@ -51,7 +51,7 @@ class NotificationClientFactoryTests(TestCase):
         protocol.connectionMade()
         self.assertEquals(self.client.observers, set([protocol]))
         self.assertEquals(self.factory.isReady(), True)
-        
+
         protocol.connectionLost(None)
         self.assertEquals(self.client.observers, set())
         self.assertEquals(self.factory.isReady(), False)
@@ -241,6 +241,15 @@ class SimpleLineNotifierTests(TestCase):
         self.notifier.addObserver(protocol)
         self.notifier.playback(protocol, 1)
         self.assertEquals(protocol.lines, ["2 B", "3 C"])
+
+    def test_reset(self):
+        self.notifier.enqueue("A")
+        self.assertEquals(self.notifier.history, {"A" : 1})
+        self.assertEquals(self.notifier.latestSeq, 1)
+        self.notifier.reset()
+        self.assertEquals(self.notifier.history, {})
+        self.assertEquals(self.notifier.latestSeq, 0)
+        
 
 class SimpleLineNotificationFactoryTests(TestCase):
 
