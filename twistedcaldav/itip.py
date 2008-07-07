@@ -43,6 +43,7 @@ from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.resource import AccessDeniedError
 
 from twistedcaldav import caldavxml
+from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
@@ -564,6 +565,14 @@ def writeReply(request, principal, replycal, ainbox):
     
     # Now deposit the new calendar into the inbox
     result = yield writeResource(request, inboxURL, inbox, None, replycal)
+
+    if accountingEnabled("iTIP", principal):
+        emitAccounting(
+            "iTIP", principal,
+            "Originator: %s\nRecipients: %s\n\n%s"
+            % (principal.principalURL(), organizer, str(replycal))
+        )
+
     returnValue(result)
 
 @inlineCallbacks
