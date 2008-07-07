@@ -38,6 +38,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.dropbox import DropBoxHomeResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
+from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -267,6 +268,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         if config.EnableDropBox:
             childlist += (
                 ("dropbox", DropBoxHomeResource),
+            )
+        if config.FreeBusyURL["Enabled"]:
+            childlist += (
+                ("freebusy", FreeBusyURLResource),
             )
         for name, cls in childlist:
             child = self.provisionChild(name)

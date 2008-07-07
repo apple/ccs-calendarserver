@@ -346,7 +346,8 @@ class Component (object):
         @return: the L{Component} of the primary type.
         @raise: L{ValueError} if there is more than one primary type.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        if self.name() != "VCALENDAR":
+            assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         result = None
         for component in self.subcomponents():
