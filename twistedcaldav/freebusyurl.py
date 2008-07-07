@@ -22,8 +22,7 @@ __all__ = [
     "FreeBusyURLResource",
 ]
 
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -128,15 +127,13 @@ class FreeBusyURLResource (CalDAVResource):
         """
         return self._processFBURL(request)
 
-    @deferredGenerator
+    @inlineCallbacks
     def _processFBURL(self, request):
         
         #
         # Check authentication and access controls
         #
-        x = waitForDeferred(self.authorize(request, (davxml.Read(),)))
-        yield x
-        x.getResult()
+        yield self.authorize(request, (davxml.Read(),))
         
         # Extract query parameters from the URL
         args = ('start', 'end', 'duration', 'token', 'format', 'user',)
@@ -212,9 +209,7 @@ class FreeBusyURLResource (CalDAVResource):
         if inboxURL is None:
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox URL for principal: %s" % (principal,)))
         try:
-            inbox = waitForDeferred(request.locateResource(inboxURL))
-            yield inbox
-            inbox = inbox.getResult()
+            inbox = (yield request.locateResource(inboxURL))
         except:
             log.err("No schedule inbox for principal: %s" % (principal,))
             inbox = None
@@ -230,18 +225,16 @@ class FreeBusyURLResource (CalDAVResource):
         
         attendeeProp = Property("ATTENDEE", scheduler.organizer.cuaddr)
 
-        d = waitForDeferred(scheduler.generateAttendeeFreeBusyResponse(
+        fbresult = (yield scheduler.generateAttendeeFreeBusyResponse(
             scheduler.organizer,
             None,
             None,
             attendeeProp,
             True,
         ))
-        yield d
-        fbresult = d.getResult()
         
         response = Response()
         response.stream = MemoryStream(str(fbresult))
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (self.format,)))
     
-        yield response
+        returnValue(response)

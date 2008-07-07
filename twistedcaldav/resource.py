@@ -31,8 +31,7 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
-from twisted.internet.defer import waitForDeferred
-from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
@@ -268,20 +267,16 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     ##
 
     # FIXME: Perhaps this is better done in authorize() instead.
-    @deferredGenerator
+    @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
-        d = waitForDeferred(super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
-        yield d
-        acls = d.getResult()
+        acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification
         if self.hasDeadProperty(TwistedCalendarAccessProperty):
             access = self.readDeadProperty(TwistedCalendarAccessProperty)
             if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
                 # Need to insert ACE to prevent non-owner principals from seeing this resource
-                d = waitForDeferred(self.owner(request))
-                yield d
-                owner = d.getResult()
+                owner = (yield self.owner(request))
                 if access.getValue() == Component.ACCESS_PRIVATE:
                     ace = davxml.ACE(
                         davxml.Invert(
@@ -311,35 +306,29 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                     )
 
                 acls = davxml.ACL(ace, *acls.children)
-        yield acls
+        returnValue(acls)
 
-    @deferredGenerator
+    @inlineCallbacks
     def owner(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        d = waitForDeferred(self.locateParent(request, request.urlForResource(self)))
-        yield d
-        parent = d.getResult()
+        parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
-            d = waitForDeferred(parent.owner(request))
-            yield d
-            yield d.getResult()
+            result = (yield parent.owner(request))
+            returnValue(result)
         else:
-            yield None
+            returnValue(None)
 
-    @deferredGenerator
+    @inlineCallbacks
     def isOwner(self, request):
         """
         Determine whether the DAV:owner of this resource matches the currently authorized principal
         in the request.
         """
 
-        d = waitForDeferred(self.owner(request))
-        yield d
-        owner = d.getResult()
-        result = (davxml.Principal(owner) == self.currentPrincipal(request))
-        yield result
+        owner = (yield self.owner(request))
+        returnValue(davxml.Principal(owner) == self.currentPrincipal(request))
 
     ##
     # CalDAV

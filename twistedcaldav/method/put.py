@@ -20,7 +20,7 @@ CalDAV PUT method.
 
 __all__ = ["http_PUT"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
@@ -33,12 +33,11 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
+@inlineCallbacks
 def http_PUT(self, request):
 
     parentURL = parentForURL(request.uri)
-    parent = waitForDeferred(request.locateResource(parentURL))
-    yield parent
-    parent = parent.getResult()
+    parent = (yield request.locateResource(parentURL))
 
     if isPseudoCalendarCollectionResource(parent):
         self.fp.restat(False)
@@ -51,9 +50,7 @@ def http_PUT(self, request):
             
         # Read the calendar component from the stream
         try:
-            d = waitForDeferred(allDataFromStream(request.stream))
-            yield d
-            calendardata = d.getResult()
+            calendardata = (yield allDataFromStream(request.stream))
 
             # We must have some data at this point
             if calendardata is None:
@@ -68,18 +65,13 @@ def http_PUT(self, request):
                 destinationparent = parent,
                 calendar = calendardata,
             )
-            d = waitForDeferred(storer.run())
-            yield d
-            yield d.getResult()
-            return
+            result = (yield storer.run())
+            returnValue(result)
 
         except ValueError, e:
             log.err("Error while handling (calendar) PUT: %s" % (e,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:
-        d = waitForDeferred(super(CalDAVFile, self).http_PUT(request))
-        yield d
-        yield d.getResult()
-
-http_PUT = deferredGenerator(http_PUT)
+        result = (yield super(CalDAVFile, self).http_PUT(request))
+        returnValue(result)

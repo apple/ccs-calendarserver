@@ -28,7 +28,7 @@ WebDAV PROPFIND method
 __all__ = ["http_PROPFIND"]
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.http import HTTPError
 from twisted.web2 import responsecode
 from twisted.web2.http import StatusResponse
@@ -45,6 +45,7 @@ This is a direct copy of the twisted implementation of PROPFIND except that it u
 findChildrenFaster method to optimize child privilege checking.
 """
 
+@inlineCallbacks
 def http_PROPFIND(self, request):
     """
     Respond to a PROPFIND request. (RFC 2518, section 8.1)
@@ -56,17 +57,13 @@ def http_PROPFIND(self, request):
     #
     # Check authentication and access controls
     #
-    x = waitForDeferred(self.authorize(request, (davxml.Read(),)))
-    yield x
-    x.getResult()
+    yield self.authorize(request, (davxml.Read(),))
 
     #
     # Read request body
     #
     try:
-        doc = waitForDeferred(davXMLFromStream(request.stream))
-        yield doc
-        doc = doc.getResult()
+        doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
         log.err("Error while handling PROPFIND body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
@@ -116,23 +113,16 @@ def http_PROPFIND(self, request):
 
     # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
-    filtered_aces = waitForDeferred(self.inheritedACEsforChildren(request))
-    yield filtered_aces
-    filtered_aces = filtered_aces.getResult()
+    filtered_aces = (yield self.inheritedACEsforChildren(request))
 
     resources = [(self, my_url)]
 
-    d = self.findChildrenFaster(depth, request, lambda x, y: resources.append((x, y)), None, None, (davxml.Read(),), inherited_aces=filtered_aces)
-    x = waitForDeferred(d)
-    yield x
-    x.getResult()
+    yield self.findChildrenFaster(depth, request, lambda x, y: resources.append((x, y)), None, None, (davxml.Read(),), inherited_aces=filtered_aces)
 
     for resource, uri in resources:
         if search_properties is "names":
             try:
-                resource_properties = waitForDeferred(resource.listProperties(request))
-                yield resource_properties
-                resource_properties = resource_properties.getResult()
+                resource_properties = (yield resource.listProperties(request))
             except:
                 log.err("Unable to get properties for resource %r" % (resource,))
                 raise
@@ -147,21 +137,15 @@ def http_PROPFIND(self, request):
             }
 
             if search_properties is "all":
-                properties_to_enumerate = waitForDeferred(resource.listAllprop(request))
-                yield properties_to_enumerate
-                properties_to_enumerate = properties_to_enumerate.getResult()
+                properties_to_enumerate = (yield resource.listAllprop(request))
             else:
                 properties_to_enumerate = search_properties
 
             for property in properties_to_enumerate:
-                has = waitForDeferred(resource.hasProperty(property, request))
-                yield has
-                has = has.getResult()
+                has = (yield resource.hasProperty(property, request))
                 if has:
                     try:
-                        resource_property = waitForDeferred(resource.readProperty(property, request))
-                        yield resource_property
-                        resource_property = resource_property.getResult()
+                        resource_property = (yield resource.readProperty(property, request))
                     except:
                         f = Failure()
 
@@ -196,9 +180,8 @@ def http_PROPFIND(self, request):
     #
     # Return response
     #
-    yield MultiStatusResponse(xml_responses)
+    returnValue(MultiStatusResponse(xml_responses))
 
-http_PROPFIND = deferredGenerator(http_PROPFIND)
 
 ##
 # Utilities

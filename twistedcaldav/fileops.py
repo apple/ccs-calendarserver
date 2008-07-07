@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import deferredGenerator
-from twisted.web2.dav.fileop import put
-from twisted.internet.defer import waitForDeferred
-from twisted.web2.dav.fileop import copy
 
 """
 Various file utilities.
 """
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.web2.dav.fileop import copy
+from twisted.web2.dav.fileop import put
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 # This class simulates a DAVFile with enough information for use with xattrPropertyStore.
@@ -30,7 +29,7 @@ class FakeXAttrResource(object):
     def __init__(self, fp):
         self.fp = fp
 
-@deferredGenerator
+@inlineCallbacks
 def putWithXAttrs(stream, filepath):
     """
     Write a file to a possibly existing path and preserve any xattrs at that path.
@@ -50,9 +49,7 @@ def putWithXAttrs(stream, filepath):
         xold = None
     
     # First do the actual file copy
-    d = waitForDeferred(put(stream, filepath))
-    yield d
-    response = d.getResult()
+    response = (yield put(stream, filepath))
 
     # Restore original xattrs.
     if props:
@@ -61,9 +58,9 @@ def putWithXAttrs(stream, filepath):
             xnew.set(prop)
         xnew = None
 
-    yield response
+    returnValue(response)
 
-@deferredGenerator
+@inlineCallbacks
 def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     Copy a file from one path to another and also copy xattrs we care about.
@@ -77,14 +74,12 @@ def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     
     # First do the actual file copy
-    d = waitForDeferred(copy(source_filepath, destination_filepath, destination_uri, "0"))
-    yield d
-    response = d.getResult()
+    response = (yield copy(source_filepath, destination_filepath, destination_uri, "0"))
 
     # Now copy over xattrs.
     copyXAttrs(source_filepath, destination_filepath)
     
-    yield response
+    returnValue(response)
 
 def copyToWithXAttrs(from_fp, to_fp):
     """

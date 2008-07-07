@@ -72,7 +72,7 @@ class iTipProcessor(object):
         @param inbox: the L{ScheduleInboxFile} for the principal's Inbox.
         @param calendar: the L{Component} for the iTIP message we are processing.
         @param child: the L{CalDAVFile} for the iTIP message resource already saved to the Inbox.
-        @return: L{Deferred} that is a L{deferredGenerator}
+        @return: L{Deferred}
         """
         
         method = calendar.propertyValue("METHOD")
@@ -99,7 +99,6 @@ class iTipProcessor(object):
     def processRequest(self):
         """
         Process a METHOD=REQUEST.
-        This is a deferredGenerator function so use yield whenever we have a deferred.
     
         Steps:
         
@@ -253,7 +252,6 @@ class iTipProcessor(object):
     def processAdd(self):
         """
         Process a METHOD=ADD.
-        This is a deferredGenerator function so use yield whenever we have a deferred.
         """
         log.info("Auto-processing iTIP ADD for: %s" % (str(self.principal),))
     
@@ -263,7 +261,6 @@ class iTipProcessor(object):
     def processCancel(self):
         """
         Process a METHOD=CANCEL.
-        This is a deferredGenerator function so use yield whenever we have a deferred.
     
         Policy find all components that match UID, SEQ and R-ID and remove them.
     

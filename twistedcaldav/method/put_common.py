@@ -23,10 +23,8 @@ __all__ = ["StoreCalendarObjectResource"]
 import types
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import maybeDeferred
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import maybeDeferred, returnValue
 from twisted.python import failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -146,7 +144,7 @@ class StoreCalendarObjectResource(object):
             self.uid = uid
             self.uri = uri
             
-        @deferredGenerator
+        @inlineCallbacks
         def reserve(self):
             
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
@@ -154,32 +152,26 @@ class StoreCalendarObjectResource(object):
             failure_count = 0
             while(failure_count < 10):
                 try:
-                    d = waitForDeferred(self.index.reserveUID(self.uid))
-                    yield d
-                    d.getResult()
+                    yield self.index.reserveUID(self.uid)
                     self.reserved = True
                     break
                 except ReservationError:
                     self.reserved = False
                 failure_count += 1
                 
-                d = Deferred()
+                pause = Deferred()
                 def _timedDeferred():
-                    d.callback(True)
+                    pause.callback(True)
                 reactor.callLater(0.5, _timedDeferred)
-                pause = waitForDeferred(d)
                 yield pause
-                pause.getResult()
             
             if self.uri and not self.reserved:
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (self.uri,)))
         
-        @deferredGenerator
+        @inlineCallbacks
         def unreserve(self):
             if self.reserved:
-                d = waitForDeferred(self.index.unreserveUID(self.uid))
-                yield d
-                d.getResult()
+                yield self.index.unreserveUID(self.uid)
                 self.reserved = False
 
     def __init__(
@@ -247,7 +239,7 @@ class StoreCalendarObjectResource(object):
         self.rollback = None
         self.access = None
 
-    @deferredGenerator
+    @inlineCallbacks
     def fullValidation(self):
         """
         Do full validation of source and destination calendar data.
@@ -313,9 +305,7 @@ class StoreCalendarObjectResource(object):
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
-                d = waitForDeferred(self.validAccess())
-                yield d
-                d.getResult()
+                yield self.validAccess()
     
     def validResourceName(self):
         """
@@ -398,7 +388,7 @@ class StoreCalendarObjectResource(object):
 
         return result, message
 
-    @deferredGenerator
+    @inlineCallbacks
     def validAccess(self):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
@@ -412,9 +402,7 @@ class StoreCalendarObjectResource(object):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            d = waitForDeferred(self.destinationparent.owner(self.request))
-            yield d
-            parent_owner = d.getResult()
+            parent_owner = (yield self.destinationparent.owner(self.request))
             
             authz = self.destinationparent.currentPrincipal(self.request)
             if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
@@ -468,7 +456,7 @@ class StoreCalendarObjectResource(object):
         
         return result, message, rname
 
-    @deferredGenerator
+    @inlineCallbacks
     def checkQuota(self):
         """
         Get quota details for destination and source before we start messing with adding other files.
@@ -477,33 +465,25 @@ class StoreCalendarObjectResource(object):
         if self.request is None:
             self.destquota = None
         else:
-            self.destquota = waitForDeferred(self.destination.quota(self.request))
-            yield self.destquota
-            self.destquota = self.destquota.getResult()
+            self.destquota = (yield self.destination.quota(self.request))
             if self.destquota is not None and self.destination.exists():
-                self.old_dest_size = waitForDeferred(self.destination.quotaSize(self.request))
-                yield self.old_dest_size
-                self.old_dest_size = self.old_dest_size.getResult()
+                self.old_dest_size = (yield self.destination.quotaSize(self.request))
             else:
                 self.old_dest_size = 0
             
         if self.request is None:
             self.sourcequota = None
         elif self.source is not None:
-            self.sourcequota = waitForDeferred(self.source.quota(self.request))
-            yield self.sourcequota
-            self.sourcequota = self.sourcequota.getResult()
+            self.sourcequota = (yield self.source.quota(self.request))
             if self.sourcequota is not None and self.source.exists():
-                self.old_source_size = waitForDeferred(self.source.quotaSize(self.request))
-                yield self.old_source_size
-                self.old_source_size = self.old_source_size.getResult()
+                self.old_source_size = (yield self.source.quotaSize(self.request))
             else:
                 self.old_source_size = 0
         else:
             self.sourcequota = None
             self.old_source_size = 0
 
-        yield None
+        returnValue(None)
 
     def setupRollback(self):
         """
@@ -528,7 +508,7 @@ class StoreCalendarObjectResource(object):
             copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
             log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
 
-    @deferredGenerator
+    @inlineCallbacks
     def doStore(self):
         # Do put or copy based on whether source exists
         if self.source is not None:
@@ -538,9 +518,7 @@ class StoreCalendarObjectResource(object):
                 self.calendardata = str(self.calendar)
             md5 = MD5StreamWrapper(MemoryStream(self.calendardata))
             response = maybeDeferred(putWithXAttrs, md5, self.destination.fp)
-        response = waitForDeferred(response)
-        yield response
-        response = response.getResult()
+        response = (yield response)
 
         # Update the MD5 value on the resource
         if self.source is not None:
@@ -564,9 +542,9 @@ class StoreCalendarObjectResource(object):
         elif not self.destinationcal:
             self.destination.removeDeadProperty(TwistedCalendarAccessProperty)                
 
-        yield IResponse(response)
+        returnValue(IResponse(response))
 
-    @deferredGenerator
+    @inlineCallbacks
     def doSourceDelete(self):
         # Delete index for original item
         if self.sourcecal:
@@ -582,35 +560,27 @@ class StoreCalendarObjectResource(object):
         # Update quota
         if self.sourcequota is not None:
             delete_size = 0 - self.old_source_size
-            d = waitForDeferred(self.source.quotaSizeAdjust(self.request, delete_size))
-            yield d
-            d.getResult()
+            yield self.source.quotaSizeAdjust(self.request, delete_size)
 
         # Change CTag on the parent calendar collection
         if self.sourcecal:
-            d = waitForDeferred(self.sourceparent.updateCTag())
-            yield d
-            d.getResult()
+            yield self.sourceparent.updateCTag()
   
-        yield None
+        returnValue(None)
 
-    @deferredGenerator
+    @inlineCallbacks
     def doDestinationQuotaCheck(self):
         # Get size of new/old resources
-        new_dest_size = waitForDeferred(self.destination.quotaSize(self.request))
-        yield new_dest_size
-        new_dest_size = new_dest_size.getResult()
+        new_dest_size = (yield self.destination.quotaSize(self.request))
 
         diff_size = new_dest_size - self.old_dest_size
 
         if diff_size >= self.destquota[0]:
             log.err("Over quota: available %d, need %d" % (self.destquota[0], diff_size))
             raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
-        d = waitForDeferred(self.destination.quotaSizeAdjust(self.request, diff_size))
-        yield d
-        d.getResult()
+        yield self.destination.quotaSizeAdjust(self.request, diff_size)
 
-        yield None
+        returnValue(None)
 
     def doSourceIndexRecover(self):
         """
@@ -671,7 +641,7 @@ class StoreCalendarObjectResource(object):
             self.rollback.destination_index_deleted = True
             log.debug("Destination index removed %s" % (self.destination.fp.path,))
 
-    @deferredGenerator
+    @inlineCallbacks
     def run(self):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -683,18 +653,14 @@ class StoreCalendarObjectResource(object):
             reservation = None
             
             # Handle all validation operations here.
-            d = waitForDeferred(self.fullValidation())
-            yield d
-            d.getResult()
+            yield self.fullValidation()
 
             # Reservation and UID conflict checking is next.
             if self.destinationcal:    
                 # Reserve UID
                 self.destination_index = self.destinationparent.index()
                 reservation = StoreCalendarObjectResource.UIDReservation(self.destination_index, self.uid, self.destination_uri)
-                d = waitForDeferred(reservation.reserve())
-                yield d
-                d.getResult()
+                yield reservation.reserve()
             
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
                 # try to write the same calendar data to two different resource URIs.
@@ -707,9 +673,7 @@ class StoreCalendarObjectResource(object):
                         ))
             
             # Get current quota state.
-            d = waitForDeferred(self.checkQuota())
-            yield d
-            d.getResult()
+            yield self.checkQuota()
     
             # Initialize the rollback system
             self.setupRollback()
@@ -729,52 +693,38 @@ class StoreCalendarObjectResource(object):
             """
     
             # Do the actual put or copy
-            response = waitForDeferred(self.doStore())
-            yield response
-            response = response.getResult()
+            response = (yield self.doStore())
             
             # Delete the original source if needed.
             if self.deletesource:
-                d = waitForDeferred(self.doSourceDelete())
-                yield d
-                d.getResult()
+                yield self.doSourceDelete()
     
             # Index the new resource if storing to a calendar.
             if self.destinationcal:
                 result = self.doDestinationIndex(self.calendar)
                 if result is not None:
                     self.rollback.Rollback()
-                    yield result
-                    return
+                    returnValue(result)
     
             # Do quota check on destination
             if self.destquota is not None:
-                d = waitForDeferred(self.doDestinationQuotaCheck())
-                yield d
-                d.getResult()
+                yield self.doDestinationQuotaCheck()
     
             if self.destinationcal:
                 # Change CTag on the parent calendar collection
-                d = waitForDeferred(self.destinationparent.updateCTag())
-                yield d
-                d.getResult()
+                yield self.destinationparent.updateCTag()
     
             # Can now commit changes and forget the rollback details
             self.rollback.Commit()
     
             if reservation:
-                d = waitForDeferred(reservation.unreserve())
-                yield d
-                d.getResult()
+                yield reservation.unreserve()
     
-            yield response
-            return
+            returnValue(response)
     
         except Exception, err:
             if reservation:
-                d = waitForDeferred(reservation.unreserve())
-                yield d
-                d.getResult()
+                yield reservation.unreserve()
     
             # Roll back changes to original server state. Note this may do nothing
             # if the rollback has already occurred or changes already committed.
