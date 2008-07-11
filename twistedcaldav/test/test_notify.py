@@ -33,8 +33,8 @@ class NotificationClientUserTests(TestCase):
     def test_installNoficationClient(self):
         self.assertEquals(getNotificationClient(), None)
         self.clock = Clock()
-        installNotificationClient(self.clock, None, None,
-            klass=StubNotificationClient)
+        installNotificationClient(None, None,
+            klass=StubNotificationClient, reactor=self.clock)
         notificationClient = getNotificationClient()
         self.assertNotEquals(notificationClient, None)
 
@@ -46,7 +46,7 @@ class NotificationClientUserTests(TestCase):
 class NotificationClientFactoryTests(TestCase):
 
     def setUp(self):
-        self.client = StubNotificationClient(None, None, None)
+        self.client = StubNotificationClient(None, None)
         self.factory = NotificationClientFactory(self.client)
         self.factory.protocol = StubNotificationClientProtocol
 
@@ -64,7 +64,7 @@ class NotificationClientFactoryTests(TestCase):
 
 class StubNotificationClient(object):
 
-    def __init__(self, reactor, host, port):
+    def __init__(self, host, port, reactor=None):
         self.lines = []
         self.observers = set()
 
@@ -100,7 +100,7 @@ class StubNotificationClientProtocol(object):
 class NotificationClientTests(TestCase):
 
     def setUp(self):
-        self.client = NotificationClient(Clock(), None, None)
+        self.client = NotificationClient(None, None, reactor=Clock())
         self.client.factory = StubNotificationClientFactory()
 
     def test_sendWhileNotConnected(self):

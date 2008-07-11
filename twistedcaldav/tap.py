@@ -495,9 +495,11 @@ class CalDAVServiceMaker(object):
         # Configure NotificationClient
         #
         if config.Notifications["Enabled"]:
-            installNotificationClient(reactor,
+            from twisted.internet import reactor
+            installNotificationClient(
                 config.Notifications["InternalNotificationHost"],
-                config.Notifications["InternalNotificationPort"])
+                config.Notifications["InternalNotificationPort"],
+            )
 
         #
         # Setup Resource hierarchy

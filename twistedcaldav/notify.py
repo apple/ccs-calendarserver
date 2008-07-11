@@ -158,13 +158,16 @@ class NotificationClient(LoggingMixIn):
     startup.
     """
 
-    def __init__(self, reactor, host, port):
+    def __init__(self, host, port, reactor=None):
         self.factory = None
-        self.reactor = reactor
         self.host = host
         self.port = port
         self.observers = set()
         self.queued = set()
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
 
     def send(self, uri):
         if self.factory is None:
@@ -197,9 +200,9 @@ class NotificationClient(LoggingMixIn):
 
 _notificationClient = None
 
-def installNotificationClient(reactor, host, port, klass=NotificationClient):
+def installNotificationClient(host, port, klass=NotificationClient, reactor=None):
     global _notificationClient
-    _notificationClient = klass(reactor, host, port)
+    _notificationClient = klass(host, port, reactor=reactor)
 
 def getNotificationClient():
     return _notificationClient
