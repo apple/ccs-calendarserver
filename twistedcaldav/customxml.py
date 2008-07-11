@@ -244,13 +244,13 @@ class UTCOffset (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "utc-offset"
 
-class ServerToServerInbox (davxml.WebDAVEmptyElement):
+class IScheduleInbox (davxml.WebDAVEmptyElement):
     """
-    Denotes the resourcetype of a server-to-server Inbox.
+    Denotes the resourcetype of a iSchedule Inbox.
     (CalDAV-s2s-xx, section x.x.x)
     """
     namespace = calendarserver_namespace
-    name = "server-to-server-inbox"
+    name = "ischedule-inbox"
 
 class FreeBusyURL (davxml.WebDAVEmptyElement):
     """
@@ -269,5 +269,5 @@ davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox()
 davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
 davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())
 davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
-davxml.ResourceType.servertoserverinbox = davxml.ResourceType(ServerToServerInbox())
+davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
 davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())

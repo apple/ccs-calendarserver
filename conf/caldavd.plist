@@ -302,22 +302,55 @@ limitations under the License.
   <true/>
 
   <!-- Server to server protocol -->
-  <key>ServerToServer</key>
+  <key>Scheduling</key>
   <dict>
-  	<key>Enabled</key>
-  	<true/>
-  	<key>Email Domain</key>
-  	<string></string>
-  	<key>HTTP Domain</key>
-  	<string></string>
-  	<key>Local Addresses</key>
-  	<array>
-  	</array>
-  	<key>Remote Addresses</key>
-  	<array>
-  	</array>
-  	<key>Servers</key>
-  	<string>/etc/caldavd/servertoserver.xml</string>
+    <!--  CalDAV protocol options -->
+  	<key>CalDAV</key>
+  	<dict>
+  	  <key>EmailDomain</key>
+  	  <string></string>
+  	  <key>HTTPDomain</key>
+  	  <string></string>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+  	</dict>
+    <!--  iSchedule protocol options -->
+  	<key>iSchedule</key>
+  	<dict>
+  	  <key>Enabled</key>
+  	  <false/>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+      <key>Servers</key>
+      <string>/etc/caldavd/servertoserver.xml</string>
+  	</dict>
+    <!--  iMIP protocol options -->
+  	<key>iMIP</key>
+  	<dict>
+  	  <key>Enabled</key>
+  	  <false/>
+  	  <key>Sending</key>
+  	  <dict>
+  	    <key>Server</key>
+  	    <string></string>
+  	    <key>Port</key>
+  	    <integer>587</integer>
+      </dict>
+      <key>Receiving</key>
+      <dict>
+  	    <key>Server</key>
+  	    <string></string>
+  	    <key>Port</key>
+  	    <integer>0</integer>
+  	    <key>Type</key>
+  	    <string></string> <!-- Either 'pop3' or 'imap' -->
+  	  </dict>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+  	</dict>
   </dict>
 
   <!-- Free-busy URL protocol -->

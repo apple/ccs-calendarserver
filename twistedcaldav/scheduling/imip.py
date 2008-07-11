@@ -13,48 +13,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+from twisted.internet.defer import inlineCallbacks
+
 from twisted.mail.smtp import messageid
 from twisted.mail.smtp import rfc822date
 from twisted.mail.smtp import sendmail
-import datetime
-import base64
-import MimeWriter
-import cStringIO
 
-"""
-Server to iMIP scheduling functions.
-"""
-
-__all__ = [
-    "ServerToIMip",
-]
-
-from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
+
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.http import HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.delivery import DeliveryService
+
+import MimeWriter
+import base64
+import cStringIO
+import datetime
+
+"""
+Class that handles delivery of scheduling messages via iMIP.
+"""
+
+__all__ = [
+    "ScheduleViaIMip",
+]
 
 log = Logger()
 
-class ServerToIMip(object):
+class ScheduleViaIMip(DeliveryService):
     
-    def __init__(self, scheduler, recipients, responses):
+    @classmethod
+    def serviceType(cls):
+        return DeliveryService.serviceType_imip
 
-        self.scheduler = scheduler
-        self.recipients = recipients
-        self.responses = responses
-        
     @inlineCallbacks
-    def doEMail(self, freebusy):
+    def generateSchedulingResponses(self):
         
         # Generate an HTTP client request
         try:
             # We do not do freebusy requests via iMIP
-            if freebusy:
+            if self.freebusy:
                 raise ValueError("iMIP VFREEBUSY REQUESTs not supported.")
 
             message = self._generateTemplateMessage(self.scheduler.calendar)
@@ -71,7 +75,7 @@ class ServerToIMip(object):
                         raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
                     toAddr = toAddr[7:]
                     sendit = message.replace("${toaddress}", toAddr)
-                    yield sendmail("relay.apple.com", fromAddr, toAddr, sendit)
+                    yield sendmail(config.Scheduling[self.serviceType()]["Sending"]["Server"], fromAddr, toAddr, sendit)
         
                 except Exception, e:
                     # Generated failed response for this recipient

@@ -14,21 +14,58 @@
 # limitations under the License.
 ##
 
+from twisted.python.filepath import FilePath
 
-"""
-XML based server-to-server configuration file handling.
-"""
-
-__all__ = [
-    "ServerToServerParser",
-    "ServerToServerRecord",
-]
+from twistedcaldav.config import config
+from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.delivery import DeliveryService
 
 import xml.dom.minidom
 
-from twistedcaldav.log import Logger
+"""
+XML based iSchedule configuration file handling.
+"""
+
+__all__ = [
+    "IScheduleServers",
+]
 
 log = Logger()
+
+class IScheduleServers(object):
+    
+    _fileInfo = None
+    _xmlFile = None
+    _servers = None
+    _domainMap = None
+    
+    def __init__(self):
+        
+        self._loadConfig()
+
+    def _loadConfig(self):
+        if IScheduleServers._servers is None:
+            IScheduleServers._xmlFile = FilePath(config.Scheduling[DeliveryService.serviceType_ischedule]["Servers"])
+        IScheduleServers._xmlFile.restat()
+        fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
+        if fileInfo != IScheduleServers._fileInfo:
+            parser = IScheduleServersParser(IScheduleServers._xmlFile)
+            IScheduleServers._servers = parser.servers
+            self._mapDomains()
+            IScheduleServers._fileInfo = fileInfo
+        
+    def _mapDomains(self):
+        IScheduleServers._domainMap = {}
+        for server in IScheduleServers._servers:
+            for domain in server.domains:
+                IScheduleServers._domainMap[domain] = server
+    
+    def mapDomain(self, domain):
+        """
+        Map a calendar user address domain to a suitable server that can
+        handle server-to-server requests for that user.
+        """
+        return IScheduleServers._domainMap.get(domain)
 
 ELEMENT_SERVERS                 = "servers"
 ELEMENT_SERVER                  = "server"
@@ -45,7 +82,7 @@ ELEMENT_DOMAIN                  = "domain"
 ELEMENT_CLIENT_HOSTS            = "hosts"
 ELEMENT_HOST                    = "host"
 
-class ServerToServerParser(object):
+class IScheduleServersParser(object):
     """
     Server-to-server configuration file parser.
     """
@@ -79,10 +116,10 @@ class ServerToServerParser(object):
             if child_name is None:
                 continue
             elif child_name == ELEMENT_SERVER:
-                self.servers.append(ServerToServerRecord())
+                self.servers.append(IScheduleServerRecord())
                 self.servers[-1].parseXML(child)
                 
-class ServerToServerRecord (object):
+class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
     """

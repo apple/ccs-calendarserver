@@ -21,7 +21,7 @@ CalDAV scheduling resources.
 __all__ = [
     "ScheduleInboxResource",
     "ScheduleOutboxResource",
-    "ScheduleServerToServerResource",
+    "IScheduleInboxResource",
 ]
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -39,8 +39,7 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.schedule_common import CalDAVScheduler
-from twistedcaldav.schedule_common import ServerToServerScheduler
+from twistedcaldav.scheduling.scheduler import CalDAVScheduler, IScheduleScheduler
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """
@@ -138,7 +137,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 old_calendars = set([str(href) for href in self.readDeadProperty(property).children])
             added_calendars = new_calendars.difference(old_calendars)
             for href in added_calendars:
-                cal = yield request.locateResource(str(href))
+                cal = (yield request.locateResource(str(href)))
                 if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
                     # Validate that href's point to a valid calendar.
                     raise HTTPError(ErrorResponse(
@@ -190,14 +189,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         scheduler = CalDAVScheduler(request, self)
 
         # Do the POST processing treating
-        response = yield scheduler.doSchedulingViaPOST()
+        response = (yield scheduler.doSchedulingViaPOST())
         returnValue(response)
 
-class ScheduleServerToServerResource (CalDAVResource):
+class IScheduleInboxResource (CalDAVResource):
     """
-    Server-to-server schedule Inbox resource.
+    iSchedule Inbox resource.
 
-    Extends L{DAVResource} to provide Server-to-server functionality.
+    Extends L{DAVResource} to provide iSchedule inbox functionality.
     """
 
     def __init__(self, parent):
@@ -224,7 +223,7 @@ class ScheduleServerToServerResource (CalDAVResource):
         )
 
     def resourceType(self):
-        return davxml.ResourceType.servertoserverinbox
+        return davxml.ResourceType.ischeduleinbox
 
     def isCollection(self):
         return False
@@ -259,8 +258,8 @@ class ScheduleServerToServerResource (CalDAVResource):
         yield self.authorize(request, (caldavxml.Schedule(),))
 
         # This is a server-to-server scheduling operation.
-        scheduler = ServerToServerScheduler(request, self)
+        scheduler = IScheduleScheduler(request, self)
 
         # Do the POST processing treating this as a non-local schedule
-        response = yield scheduler.doSchedulingViaPOST()
+        response = (yield scheduler.doSchedulingViaPOST())
         returnValue(response)

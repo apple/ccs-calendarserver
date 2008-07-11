@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.ical import Component
 
 import datetime
 
-from twistedcaldav.schedule_imip import ServerToIMip
+from twistedcaldav.ical import Component
+from twistedcaldav.scheduling.imip import ScheduleViaIMip
 import twistedcaldav.test.util
 
 class iMIP (twistedcaldav.test.util.TestCase):
@@ -31,7 +31,7 @@ class iMIP (twistedcaldav.test.util.TestCase):
 
     def test_datetime_text(self):
         
-        imip = ServerToIMip(None, [], [])
+        imip = ScheduleViaIMip(None, [], [], False)
         
         data = (
             (
@@ -51,7 +51,7 @@ class iMIP (twistedcaldav.test.util.TestCase):
         
     def test_duration_text(self):
         
-        imip = ServerToIMip(None, [], [])
+        imip = ScheduleViaIMip(None, [], [], False)
         
         data = (
             (
@@ -178,7 +178,7 @@ Recurring
         
         
         for data, result in data:
-            imip = ServerToIMip(self.DummyScheduler(Component.fromString(data)), [], [])
+            imip = ScheduleViaIMip(self.DummyScheduler(Component.fromString(data)), [], [], False)
             self.assertEqual(imip._getDateTimeInfo(imip.scheduler.calendar.masterComponent()), result)
         
     def test_calendar_summary(self):
@@ -274,7 +274,7 @@ Description: Testing iMIP from the calendar server.
         
         
         for data, result in data:
-            imip = ServerToIMip(self.DummyScheduler(Component.fromString(data)), [], [])
+            imip = ScheduleViaIMip(self.DummyScheduler(Component.fromString(data)), [], [], False)
             self.assertEqual(imip._generateCalendarSummary(imip.scheduler.calendar), result)
         
         
@@ -495,6 +495,6 @@ END:VCALENDAR
             return "\n".join(newlines)
 
         for data, result in data:
-            imip = ServerToIMip(self.DummyScheduler(Component.fromString(data)), [], [])
+            imip = ScheduleViaIMip(self.DummyScheduler(Component.fromString(data)), [], [], False)
             self.assertEqual(_normalizeMessage(imip._generateTemplateMessage(imip.scheduler.calendar)), result)
         

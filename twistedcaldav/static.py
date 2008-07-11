@@ -61,7 +61,7 @@ from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
-from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, ScheduleServerToServerResource
+from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directory.calendar import uidsResourceName
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -690,13 +690,13 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
-class ServerToServerInboxFile (ScheduleServerToServerResource, CalDAVFile):
+class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
     """
     Server-to-server scheduling inbox resource.
     """
     def __init__(self, path, parent):
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
-        ScheduleServerToServerResource.__init__(self, parent)
+        IScheduleInboxResource.__init__(self, parent)
         
         self.fp.open("w").close()
         self.fp.restat(False)

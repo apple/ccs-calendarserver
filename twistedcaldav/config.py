@@ -174,18 +174,44 @@ defaultConfig = {
     "EnablePrivateEvents"   : False, # Private Events
     "EnableTimezoneService" : False, # Timezone service
     
-    "ServerToServer": {
-        "Enabled"          : False, # Server-to-server protocol
-        "Email Domain"     : "",    # Domain for mailto calendar user addresses on this server
-        "HTTP Domain"      : "",    # Domain for http calendar user addresses on this server
-        "Local Addresses"  : [],    # Reg-ex patterns to match local calendar user addresses
-        "Remote Addresses" : [],    # Reg-ex patterns to match remote calendar user addresses
+    #
+    # Scheduling related options
+    #
+
+    "Scheduling": {
+        
+        "CalDAV": {
+            "EmailDomain"      : "",    # Domain for mailto calendar user addresses on this server
+            "HTTPDomain"       : "",    # Domain for http calendar user addresses on this server
+            "AddressPatterns"  : [],    # Reg-ex patterns to match local calendar user addresses
+        },
+
+        "iSchedule": {
+            "Enabled"          : False, # iSchedule protocol
+            "AddressPatterns"  : [],    # Reg-ex patterns to match iSchedule-able calendar user addresses
+            "Servers"          : "/etc/caldavd/servertoserver.xml",    # iSchedule server configurations
+        },
+
+        "iMIP": {
+            "Enabled"          : False, # Server-to-iMIP protocol
+            "Sending": {
+                "Server"       : "",    # SMTP server to relay messages through
+                "Port"         : 587,   # SMTP server port to relay messages through
+            },
+            "Receiving": {
+                "Server"       : "",    # Server to retrieve email messages from
+                "Port"         : 0,     # Server port to retrieve email messages from
+                "Type"         : "",    # Type of message access server: 'pop3' or 'imap'
+            },
+            "AddressPatterns"  : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+        },
+
     },
 
     "FreeBusyURL": {
         "Enabled"          : False, # Per-user free-busy-url protocol
-        "Time Period"      : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
-        "Anonymous Access" : False, # Allow anonymous read access to free-busy URL
+        "TimePeriod"       : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "AnonymousAccess"  : False, # Allow anonymous read access to free-busy URL
     },
 
     #

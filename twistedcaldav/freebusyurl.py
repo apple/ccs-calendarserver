@@ -41,7 +41,9 @@ from twistedcaldav.ical import Property
 from twistedcaldav.ical import parse_datetime
 from twistedcaldav.ical import parse_duration
 from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.schedule_common import Scheduler
+from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
+from twistedcaldav.scheduling.scheduler import Scheduler
 
 from vobject.icalendar import utc
 
@@ -76,7 +78,7 @@ class FreeBusyURLResource (CalDAVResource):
                 davxml.Protected(),
             ),
         )
-        if config.FreeBusyURL["Anonymous Access"]:
+        if config.FreeBusyURL["AnonymousAccess"]:
             aces += (
                 # DAV:Read, for unauthenticated principals
                 davxml.ACE(
@@ -184,7 +186,7 @@ class FreeBusyURLResource (CalDAVResource):
         if self.duration:
             self.end = self.start + self.duration
         if self.end is None:
-            self.end = self.start + datetime.timedelta(days=config.FreeBusyURL["Time Period"])
+            self.end = self.start + datetime.timedelta(days=config.FreeBusyURL["TimePeriod"])
             
         # End > start
         if self.end <= self.start:
@@ -221,11 +223,12 @@ class FreeBusyURLResource (CalDAVResource):
         scheduler.timerange.start = self.start
         scheduler.timerange.end = self.end
         
-        scheduler.organizer = Scheduler.LocalCalendarUser(cuaddr, principal, inbox, inboxURL)
+        scheduler.organizer = LocalCalendarUser(cuaddr, principal, inbox, inboxURL)
         
         attendeeProp = Property("ATTENDEE", scheduler.organizer.cuaddr)
 
-        fbresult = (yield scheduler.generateAttendeeFreeBusyResponse(
+        requestor = ScheduleViaCalDAV(scheduler, (), [], True)
+        fbresult = (yield requestor.generateAttendeeFreeBusyResponse(
             scheduler.organizer,
             None,
             None,

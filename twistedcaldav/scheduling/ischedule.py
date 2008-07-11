@@ -14,20 +14,11 @@
 # limitations under the License.
 ##
 
-"""
-Server to server utility functions and client requests.
-"""
-
-__all__ = [
-    "ServerToServer",
-    "ServerToServerRequest",
-]
-
-
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, DeferredList
 from twisted.internet.protocol import ClientCreator
+
 from twisted.python.failure import Failure
-from twisted.python.filepath import FilePath
+
 from twisted.web2 import responsecode
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.client.http import HTTPClientProtocol
@@ -37,50 +28,82 @@ from twisted.web2.http import HTTPError
 from twisted.web2.http_headers import Headers
 from twisted.web2.http_headers import MimeType
 
+from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.servertoserverparser import ServerToServerParser
-from twistedcaldav import caldavxml
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.delivery import DeliveryService
+from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+
+"""
+Server to server utility functions and client requests.
+"""
+
+__all__ = [
+    "ScheduleViaISchedule",
+]
 
 log = Logger()
 
-class ServerToServer(object):
+class ScheduleViaISchedule(DeliveryService):
     
-    _fileInfo = None
-    _xmlFile = None
-    _servers = None
-    _domainMap = None
-    
-    def __init__(self):
-        
-        self._loadConfig()
+    @classmethod
+    def serviceType(cls):
+        return DeliveryService.serviceType_ischedule
 
-    def _loadConfig(self):
-        if ServerToServer._servers is None:
-            ServerToServer._xmlFile = FilePath(config.ServerToServer["Servers"])
-        ServerToServer._xmlFile.restat()
-        fileInfo = (ServerToServer._xmlFile.getmtime(), ServerToServer._xmlFile.getsize())
-        if fileInfo != ServerToServer._fileInfo:
-            parser = ServerToServerParser(ServerToServer._xmlFile)
-            ServerToServer._servers = parser.servers
-            self._mapDomains()
-            ServerToServer._fileInfo = fileInfo
-        
-    def _mapDomains(self):
-        ServerToServer._domainMap = {}
-        for server in ServerToServer._servers:
-            for domain in server.domains:
-                ServerToServer._domainMap[domain] = server
-    
-    def mapDomain(self, domain):
-        """
-        Map a calendar user address domain to a suitable server that can
-        handle server-to-server requests for that user.
-        """
-        return ServerToServer._domainMap.get(domain)
+    @classmethod
+    def matchCalendarUserAddress(cls, cuaddr):
 
-class ServerToServerRequest(object):
+        # TODO: here is where we would attempt service discovery based on the cuaddr.
+        
+        # Do default match
+        return super(ScheduleViaISchedule, cls).matchCalendarUserAddress(cuaddr)
+
+    @inlineCallbacks
+    def generateSchedulingResponses(self):
+        """
+        Generate scheduling responses for remote recipients.
+        """
+        
+        # Group recipients by server so that we can do a single request with multiple recipients
+        # to each different server.
+        groups = {}
+        servermgr = IScheduleServers()
+        for recipient in self.recipients:
+            # Map the recipient's domain to a server
+            server = servermgr.mapDomain(recipient.domain)
+            if not server:
+                # Cannot do server-to-server for this recipient.
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.3;No scheduling support for user")
+            
+                # Process next recipient
+                continue
+            
+            if not server.allow_to:
+                # Cannot do server-to-server outgoing requests for this server.
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
+            
+                # Process next recipient
+                continue
+            
+            groups.setdefault(server, []).append(recipient)
+        
+        if len(groups) == 0:
+            return
+
+        # Now we process each server: let's use a DeferredList to aggregate all the Deferred's
+        # we will generate for each request. That way we can have parallel requests in progress
+        # rather than serialize them.
+        deferreds = []
+        for server, recipients in groups.iteritems():
+            requestor = IScheduleRequest(self.scheduler, server, recipients, self.responses)
+            deferreds.append(requestor.doRequest())
+
+        yield DeferredList(deferreds)
+
+class IScheduleRequest(object):
     
     def __init__(self, scheduler, server, recipients, responses):
 
@@ -99,20 +122,21 @@ class ServerToServerRequest(object):
         try:
             from twisted.internet import reactor
             if self.server.ssl:
-                from tap import ChainingOpenSSLContextFactory
+                from twistedcaldav.tap import ChainingOpenSSLContextFactory
                 context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
-                proto = yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context)
+                proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context))
             else:
-                proto = yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port)
+                proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port))
             
             request = ClientRequest("POST", self.server.path, self.headers, self.data)
             yield log.logRequest("debug", "Sending server-to-server POST request:", request)
-            response = yield proto.submitRequest(request)
+            response = (yield proto.submitRequest(request))
     
             yield log.logResponse("debug", "Received server-to-server POST response:", response)
-            xml = yield davXMLFromStream(response.stream)
+            xml = (yield davXMLFromStream(response.stream))
     
             self._parseResponse(xml)
+
         except Exception, e:
             # Generated failed responses for each recipient
             log.err("Could not do server-to-server request : %s %s" % (self, e))
