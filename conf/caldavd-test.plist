@@ -458,7 +458,7 @@ limitations under the License.
 
         <!-- Sends messages to this account for debugging -->
         <key>TestJID</key>
-        <string>otherjid@xmpp.host.name</string>
+        <string></string>
       </dict>
     </array>
   </dict>
