@@ -55,6 +55,7 @@ from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav import pdmonster
 from twistedcaldav import memcachepool
+from twistedcaldav.notify import installNotificationClient
 
 log = Logger()
 
@@ -489,6 +490,14 @@ class CalDAVServiceMaker(object):
                     config.Memcached["BindAddress"],
                     config.Memcached["Port"]),
                 config.Memcached["MaxClients"])
+
+        #
+        # Configure NotificationClient
+        #
+        if config.Notifications["Enabled"]:
+            installNotificationClient(reactor,
+                config.Notifications["InternalNotificationHost"],
+                config.Notifications["InternalNotificationPort"])
 
         #
         # Setup Resource hierarchy

@@ -175,6 +175,34 @@ defaultConfig = {
     "EnableTimezoneService" : False, # Timezone service
 
     #
+    # Notifications
+    #
+    "Notifications" : {
+        "Enabled": False,
+        "CoalesceSeconds" : 10,
+        "InternalNotificationHost" : "localhost",
+        "InternalNotificationPort" : 62309,
+
+        "Services" : [
+            {
+                "Service" : "twistedcaldav.notify.SimpleLineNotifierService",
+                "Enabled" : False,
+                "Port" : 62308,
+            },
+            {
+                "Service" : "twistedcaldav.notify.XMPPNotifierService",
+                "Enabled" : False,
+                "Host" : "", # "xmpp.host.name"
+                "Port" : 5222,
+                "JID" : "", # "jid@xmpp.host.name/resource"
+                "Password" : "",
+                "ServiceAddress" : "", # "pubsub.xmpp.host.name"
+                "KeepAliveSeconds" : 120,
+            },
+        ]
+    },
+
+    #
     # Implementation details
     #
     #    The following are specific to how the server is built, and useful
@@ -250,6 +278,7 @@ class Config (object):
             self.updateDropBox,
             self.updateLogLevels,
             self.updateThreadPoolSize,
+            self.updateNotifications,
         ]
 
     def __str__(self):
@@ -440,6 +469,29 @@ class Config (object):
             configDict = readPlist(configFile)
             configDict = _cleanup(configDict)
             self.update(configDict)
+
+    @staticmethod
+    def updateNotifications(self, items):
+        #
+        # Notifications
+        #
+        for service in self.Notifications["Services"]:
+            if service["Enabled"]:
+                self.Notifications["Enabled"] = True
+                break
+        else:
+            self.Notifications["Enabled"] = False
+
+        for service in self.Notifications["Services"]:
+            if (
+                service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
+                service["Enabled"]
+            ):
+                for key, value in service.iteritems():
+                    if not value:
+                        raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
+                                                 % (key, value))
+
 
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():

@@ -309,6 +309,17 @@ def makeService_Combined(self, options):
 
         monitor.addProcess('memcached', memcachedArgv, env=parentEnv)
 
+    if (config.Notifications["Enabled"] and
+        config.Notifications["InternalNotificationHost"] == "localhost"):
+        log.msg("Adding notification service")
+
+        notificationsArgv = [
+            config.Twisted['twistd'],
+            '-n', 'caldav_notifier',
+            '-f', options['config'],
+        ]
+        monitor.addProcess('notifications', notificationsArgv, env=parentEnv)
+
 
     logger = AMPLoggingFactory(
         RotatingFileAccessLoggingObserver(config.AccessLogFile))

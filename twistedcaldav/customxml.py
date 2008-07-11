@@ -244,6 +244,17 @@ class UTCOffset (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "utc-offset"
 
+class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
+    """
+    A calendarhomefile property to indicate the pubsub XMPP URI to subscribe to
+    for notifications.
+    """
+    namespace = calendarserver_namespace
+    name = "xmpp-uri"
+    protected = True
+
+
+
 ##
 # Extensions to davxml.ResourceType
 ##
