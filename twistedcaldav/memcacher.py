@@ -15,7 +15,6 @@
 ##
 
 from twisted.internet.defer import succeed
-from twisted.internet.protocol import ClientCreator
 
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn

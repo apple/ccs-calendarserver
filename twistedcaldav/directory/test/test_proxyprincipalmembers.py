@@ -14,10 +14,7 @@
 # limitations under the License.
 ##
 
-import os
-
 from twisted.internet.defer import DeferredList
-from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService

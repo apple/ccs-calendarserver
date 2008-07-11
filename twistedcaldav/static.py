@@ -70,11 +70,8 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
-
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
-
-from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath
-from twistedcaldav.notify import getPubSubXMPPURI
+from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 
 log = Logger()
 

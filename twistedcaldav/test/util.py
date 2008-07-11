@@ -16,7 +16,8 @@
 
 import os
 
-from twisted.internet.defer import succeed
+from twisted.python.failure import Failure
+from twisted.internet.defer import succeed, fail
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config

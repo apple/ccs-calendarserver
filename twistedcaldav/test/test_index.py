@@ -15,13 +15,11 @@
 ##
 
 from twistedcaldav.index import Index
-from twistedcaldav import index
 
 import twistedcaldav.test.util
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twisted.web2.test.test_http import deferLater
-import time
 
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """

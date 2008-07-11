@@ -36,8 +36,7 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 # TODO: add CalDAVTester test for examining new xmpp-uri property
 # TODO: auto-registration and roster management for XMPP
 
-import os
-from twisted.internet import reactor, protocol
+from twisted.internet import protocol
 from twisted.protocols import basic
 from twisted.plugin import IPlugin
 from twisted.application import internet, service

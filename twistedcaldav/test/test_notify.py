@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-from copy import deepcopy
-
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
 from twisted.words.protocols.jabber.client import IQ

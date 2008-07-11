@@ -38,7 +38,6 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.sql import db_prefix
 
 import itertools
 import os

@@ -17,7 +17,6 @@
 import os
 
 from twisted.web2.dav import davxml
-from twisted.web2.dav.fileop import rmdir
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource

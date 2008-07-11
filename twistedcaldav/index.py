@@ -39,9 +39,6 @@ except ImportError:
 from vobject.icalendar import utc
 
 from twisted.internet.defer import maybeDeferred, succeed
-from twisted.internet.protocol import ClientCreator
-
-from twistedcaldav.memcachepool import CachePoolUserMixIn
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
@@ -50,6 +47,7 @@ from twistedcaldav.sql import db_prefix
 from twistedcaldav import caldavxml
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.config import config
+from twistedcaldav.memcachepool import CachePoolUserMixIn
 
 log = Logger()
 
