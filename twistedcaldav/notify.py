@@ -658,6 +658,8 @@ class XMPPNotifier(LoggingMixIn):
 class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
 
     def __init__(self, notifier, settings, reactor=None):
+        self.log_info("Setting up XMPPNotificationFactory")
+
         self.notifier = notifier
         self.settings = settings
         self.jid = settings['JID']
@@ -836,6 +838,7 @@ class NotificationOptions(Options):
     def postOptions(self):
         parseConfig(self['config'])
         config.updateDefaults(self.overrides)
+        self.parent['pidfile'] = None
 
 
 class NotificationServiceMaker(object):
