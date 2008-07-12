@@ -256,7 +256,7 @@ defaultConfig = {
         "ServerEnabled": False,
         "BindAddress": "127.0.0.1",
         "Port": 11211,
-        "memcached": "/usr/share/caldavd/bin/memcached",
+        "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
         "Options": [],
     },

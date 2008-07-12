@@ -173,8 +173,8 @@ conf_read_key ()
   local key="$1"; shift;
 
   # FIXME: This only works for simple values (no arrays, dicts)
-  tr '\n' ' ' < "${config}"                                                    \
-    | xpath "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2>/dev/null \
+  tr '\n' ' ' < "${config}"                                                 \
+    | xpath "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2> /dev/null \
     | sed -n 's|^<[^<][^<]*>\([^<]*\)</[^<][^<]*>.*$|\1|p';
 }
 
@@ -215,7 +215,7 @@ if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
   install="$(pwd)/${install}";
 fi;
 
-svn_uri_base="$(svn info "${caldav}" --xml 2>/dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
+svn_uri_base="$(svn info "${caldav}" --xml 2> /dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
 
 if [ -z "${svn_uri_base}" ]; then
   svn_uri_base="http://svn.calendarserver.org/repository/calendarserver";
@@ -539,42 +539,44 @@ if ! py_have_module select26; then
   export PYTHONPATH="${PYTHONPATH}:${select26}/build/${py_platform_libdir}";
 fi;
 
-#
-# libevent
-#
-libevent="${top}/libevent-1.4.4-stable"
+if ! type memcached >& /dev/null; then
+  #
+  # libevent
+  #
+  libevent="${top}/libevent-1.4.4-stable"
 
-www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
+  www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
 
-if "${do_setup}" && (
-  "${force_setup}" || [ ! -d "${libevent}/_root" ]
-); then
-  echo "";
-  echo "Building libevent...";
-  cd "${libevent}";
-  ./configure --prefix="${libevent}/_root";
-  make CFLAGS=-m64;
-  make install;
-fi;
+  if "${do_setup}" && (
+    "${force_setup}" || [ ! -d "${libevent}/_root" ]
+  ); then
+    echo "";
+    echo "Building libevent...";
+    cd "${libevent}";
+    ./configure --prefix="${libevent}/_root";
+    make;
+    make install;
+  fi;
 
-#
-# memcached
-#
-memcached="${top}/memcached-1.2.5"
+  #
+  # memcached
+  #
+  memcached="${top}/memcached-1.2.5"
 
-www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
+  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
 
-if "${do_setup}" && (
-  "${force_setup}" || [ ! -d "${memcached}/_root" ]
-); then
-  echo "";
-  echo "Building memcached...";
-  cd "${memcached}";
-  ./configure --prefix="${memcached}/_root" \
-              --with-libevent="${libevent}/_root" \
-              --enable-threads CFLAGS=-m64;
-  make CFLAGS=-m64;
-  make install;
+  if "${do_setup}" && (
+    "${force_setup}" || [ ! -d "${memcached}/_root" ]
+  ); then
+    echo "";
+    echo "Building memcached...";
+    cd "${memcached}";
+    ./configure --prefix="${memcached}/_root" \
+                --with-libevent="${libevent}/_root" \
+                --enable-threads CFLAGS=-m64;
+    make;
+    make install;
+  fi;
 fi;
 
 #
