@@ -573,7 +573,7 @@ if ! type memcached >& /dev/null; then
     cd "${memcached}";
     ./configure --prefix="${memcached}/_root" \
                 --with-libevent="${libevent}/_root" \
-                --enable-threads CFLAGS=-m64;
+                --enable-threads;
     make;
     make install;
   fi;
