@@ -304,7 +304,7 @@ class INotifier(Interface):
         """
 
 
-class SimpleLineNotifier(object):
+class SimpleLineNotifier(LoggingMixIn):
     """
     Simple Line Notifier
 
@@ -341,7 +341,9 @@ class SimpleLineNotifier(object):
         self.history[uri] = self.latestSeq
 
         for observer in self.observers:
-            observer.sendLine("%d %s" % (self.latestSeq, uri))
+            msg = "%d %s" % (self.latestSeq, uri)
+            self.log_debug("Sending %s" % (msg,))
+            observer.sendLine(msg)
 
     def reset(self):
         self.latestSeq = 0L
@@ -354,7 +356,9 @@ class SimpleLineNotifier(object):
         toSend.sort() # sorts the tuples based on numeric sequence number
 
         for seq, uri in toSend:
-            observer.sendLine("%d %s" % (seq, str(uri)))
+            msg = "%d %s" % (seq, uri)
+            self.log_debug("Sending %s" % (msg,))
+            observer.sendLine(msg)
 
 
     def addObserver(self, observer):
@@ -365,6 +369,7 @@ class SimpleLineNotifier(object):
 
     def connectionMade(self, observer):
         if not self.sentReset:
+            self.log_debug("Sending 0")
             observer.sendLine("0")
             self.sentReset = True
 
