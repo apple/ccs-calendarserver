@@ -487,7 +487,6 @@ limitations under the License.
     <integer>5</integer>
     <key>memcached</key>
     <string>memcached</string> <!-- Find in PATH -->
-    <!-- <string>../memcached-1.2.5/_root/bin/memcached</string> --> <!-- If memcached was build by run script -->
     <key>Options</key>
     <array>
       <!--<string>-vv</string>-->

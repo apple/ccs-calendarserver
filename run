@@ -245,13 +245,15 @@ run () {
     if [ ! -d "${wd}/logs" ]; then
       mkdir "${wd}/logs";
     fi;
-    exec ${caldavd_wrapper_command}          \
-        "${caldav}/bin/caldavd" ${daemonize} \
-        -f "${config}"                       \
-        -T "${twisted}/bin/twistd"           \
-        -P "${plugin_name}"                  \
-        -t "${service_type}"                 \
-        ${reactor}                         \
+
+    PATH="${PATH}:${wd}/../memcached-1.2.5/_root/bin" \
+    exec ${caldavd_wrapper_command}                   \
+        "${caldav}/bin/caldavd" ${daemonize}          \
+        -f "${config}"                                \
+        -T "${twisted}/bin/twistd"                    \
+        -P "${plugin_name}"                           \
+        -t "${service_type}"                          \
+        ${reactor}                                    \
         ${profile};
     cd /;
   fi;
