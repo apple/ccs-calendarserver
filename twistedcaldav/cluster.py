@@ -146,7 +146,10 @@ def makeService_Combined(self, options):
     monitor = procmon.ProcessMonitor()
     monitor.setServiceParent(s)
 
-    parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
+    parentEnv = {
+        'PATH': os.environ.get('PATH', ''),
+        'PYTHONPATH': os.environ.get('PYTHONPATH', ''),
+    }
 
     hosts = []
     sslHosts = []
