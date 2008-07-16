@@ -153,7 +153,7 @@ make -C "${wc}" prep;
 if "${build}"; then
     echo "";
     echo "Building ${project_version}...";
-    sudo ~rc/bin/buildit "${wc}" -arch ppc -arch i386;
+    sudo ~rc/bin/buildit "${wc}" -arch ppc -arch ppc64 -arch i386 -arch x86_64;
 else
     echo "";
     echo "Submitting sources for ${project_version}...";
