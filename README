@@ -97,13 +97,12 @@ PORTABILITY
 Portability may be limited in this release.
 
 The server requires:
- * Python 2.4
+ * Python 2.5
  * Zope Interface 3.1.0c1
  * PyXML 0.8.4
  * pyOpenSSL 0.6
  * python-dateutil-1.0
  * xattr 0.2 (Bob Ippolito's implementation)
- * pysqlite-2.2.2
  * Twisted
  * vObject
  * PyKerberos
@@ -120,7 +119,7 @@ the current developers are using (because we work at Apple, and are
 building it as a feature of Mac OS X Server).
 
 If you are using Tiger (Mac OS 10.4), you will need to install Python
-2.4.  See http://pythonmac.org/packages/ for installable packages.
+2.5.  See http://pythonmac.org/packages/ for installable packages.
 
 If you are using other operating systems, there may be additional
 coding work required before you can get started.
@@ -142,20 +141,12 @@ server.  Check our bug tracker for status:
 
     http://trac.calendarserver.org/projects/calendarserver/report/1
 
-PYTHON 2.4
+PYTHON 2.5
 ----------
 
-The Calendar Server was implemented using Python 2.4. A number of
-things would need to happen to get it to run using Python 2.3:
-
- * All libraries the server depends on will need to work on Python 2.3.
-   vObject is known to require Python 2.4.
- * We use several Python 2.4 features.  Most are easy enough to back-port,
-   but nice to use if you have them:
-   * built-in set objects
-   * generator expressions
-   * decorator syntax
-
+The Calendar Server was implemented using Python 2.5. Backporting to
+earlier Python releases might be possible, however we use a number of
+language constructs specific to 2.5 that might make that hard.
 
 GETTING INVOLVED
 ================

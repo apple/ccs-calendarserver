@@ -117,12 +117,12 @@ try_python ()
 
   if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
   local py_version="$(py_version "${python}")";
-  if [ "${py_version/./}" -lt "24" ]; then return 1; fi;
+  if [ "${py_version/./}" -lt "25" ]; then return 1; fi;
 
   return 0;
 }
 
-for v in "" "2.5" "2.4"; do
+for v in "" "2.5"; do
   for p in								\
     "${PYTHON:=}"							\
     "python${v}"							\
@@ -143,7 +143,7 @@ for v in "" "2.5" "2.4"; do
 done;
 
 if [ -z "${python:-}" ]; then
-  echo "No suitable python found.";
+  echo "No suitable python found. Python 2.5 is required.";
   exit 1;
 fi;
 

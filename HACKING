@@ -98,10 +98,9 @@ On the contrary, code changes that do nothing but reformat code to
 comply with these standards are welcome, and code chanegs that do not
 conform to these standards are discouraged.
 
-We require Python 2.4 or higher.  It is OK to write code that does not
-work with Python versions older than 2.4.  At present, adding code
-that requires Python 2.5 or newer is not allowed, but it is possible
-that we will move to require Python 2.5 in future versions.
+We require Python 2.5 or higher.  It is OK to write code that does not
+work with Python versions older than 2.5.  At present, adding code
+that requires the in-development Python 2.6/3.0 or newer is not allowed.
 
 Read PEP-8:
 
