@@ -388,6 +388,8 @@ limitations under the License.
   	  <key>AddressPatterns</key>
   	  <array>
   	  </array>
+  	  <key>OldDraftCompatability</key>
+  	  <true/>
   	</dict>
     <!--  iSchedule protocol options -->
   	<key>iSchedule</key>

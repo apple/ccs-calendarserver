@@ -67,7 +67,10 @@ else:
 class CalDAVComplianceMixIn(object):
 
     def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
+        if config.Scheduling["CalDAV"]["OldDraftCompatability"]:
+            extra_compliance = caldavxml.caldav_full_compliance
+        else:
+            extra_compliance = caldavxml.caldav_implicit_compliance
         if config.EnableProxyPrincipals:
             extra_compliance += customxml.calendarserver_proxy_compliance
         if config.EnablePrivateEvents:

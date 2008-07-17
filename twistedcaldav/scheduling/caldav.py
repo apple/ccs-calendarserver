@@ -120,9 +120,9 @@ class ScheduleViaCalDAV(DeliveryService):
 
             # Different behavior for free-busy vs regular invite
             if self.freebusy:
-                yield self.generateLocalFreeBusyResponse(recipient, self.responses, organizerProp, uid)
+                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid)
             else:
-                yield self.generateLocalResponse(recipient, self.responses, autoresponses)
+                yield self.generateResponse(recipient, self.responses, autoresponses)
 
         # Now we have to do auto-respond
         if len(autoresponses) != 0:
@@ -137,7 +137,7 @@ class ScheduleViaCalDAV(DeliveryService):
             reactor.callLater(0.0, itip.handleRequest, *(self.scheduler.request, principal, inbox, self.scheduler.calendar.duplicate(), child))
 
     @inlineCallbacks
-    def generateLocalResponse(self, recipient, responses, autoresponses):
+    def generateResponse(self, recipient, responses, autoresponses):
         # Hash the iCalendar data for use as the last path element of the URI path
         calendar_str = str(self.scheduler.calendar)
         name = md5.new(calendar_str + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
@@ -179,7 +179,7 @@ class ScheduleViaCalDAV(DeliveryService):
             returnValue(True)
     
     @inlineCallbacks
-    def generateLocalFreeBusyResponse(self, recipient, responses, organizerProp, uid):
+    def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
         cuas = recipient.principal.calendarUserAddresses()

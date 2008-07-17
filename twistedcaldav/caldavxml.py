@@ -45,9 +45,16 @@ log = Logger()
 
 caldav_namespace = "urn:ietf:params:xml:ns:caldav"
 
-caldav_compliance = (
+caldav_full_compliance = (
     "calendar-access",
     "calendar-schedule",
+    "calendar-auto-schedule",
+    "calendar-availability",
+    "inbox-availability",
+)
+
+caldav_implicit_compliance = (
+    "calendar-access",
     "calendar-auto-schedule",
     "calendar-availability",
     "inbox-availability",

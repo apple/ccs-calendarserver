@@ -181,9 +181,10 @@ defaultConfig = {
     "Scheduling": {
         
         "CalDAV": {
-            "EmailDomain"      : "",    # Domain for mailto calendar user addresses on this server
-            "HTTPDomain"       : "",    # Domain for http calendar user addresses on this server
-            "AddressPatterns"  : [],    # Reg-ex patterns to match local calendar user addresses
+            "EmailDomain"           : "",    # Domain for mailto calendar user addresses on this server
+            "HTTPDomain"            : "",    # Domain for http calendar user addresses on this server
+            "AddressPatterns"       : [],    # Reg-ex patterns to match local calendar user addresses
+            "OldDraftCompatability" : True   # Whether to maintain compatibility with non-implicit mode
         },
 
         "iSchedule": {
