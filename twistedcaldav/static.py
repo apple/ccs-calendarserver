@@ -54,6 +54,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
+from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.extensions import CachingXattrPropertyStore
 from twistedcaldav.ical import Component as iComponent
@@ -189,8 +190,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
             # the child resource loop and supply those to the checkPrivileges on each child.
             filteredaces = yield self.inheritedACEsforChildren(request)
 
-            # Must verify ACLs which means we need a request object at this point
             tzids = set()
+            isowner = (yield self.isOwner(request))
+
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
                     child = yield request.locateChildResource(self, name)
@@ -204,7 +206,13 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
                     except AccessDeniedError:
                         continue
-                    subcalendar = self.iCalendar(name)
+
+                    # Get the access filtered view of the data
+                    caldata = child.iCalendarTextFiltered(isowner)
+                    try:
+                        subcalendar = iComponent.fromString(caldata)
+                    except ValueError:
+                        continue
                     assert subcalendar.name() == "VCALENDAR"
 
                     for component in subcalendar.subcomponents():
@@ -221,6 +229,21 @@ class CalDAVFile (CalDAVResource, DAVFile):
             returnValue(calendar)
 
         raise HTTPError((ErrorResponse(responsecode.BAD_REQUEST)))
+
+    def iCalendarTextFiltered(self, isowner):
+        try:
+            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+        except HTTPError:
+            access = None
+
+        if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
+
+            if not isowner:
+                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
+                # access restrictions to the data.
+                return caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
+
+        return self.iCalendarText()
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
