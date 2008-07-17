@@ -529,7 +529,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
             log.msg("Directory record %r is not enabled for calendaring" % (record,))
             return None
 
-        assert len(name) > 4
+        assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
         
         childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
         child = self.homeResourceClass(childPath.path, self, record)
