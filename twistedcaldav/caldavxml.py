@@ -48,6 +48,7 @@ caldav_namespace = "urn:ietf:params:xml:ns:caldav"
 caldav_compliance = (
     "calendar-access",
     "calendar-schedule",
+    "calendar-auto-schedule",
     "calendar-availability",
     "inbox-availability",
 )
