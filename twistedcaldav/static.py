@@ -190,6 +190,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             filteredaces = yield self.inheritedACEsforChildren(request)
 
             # Must verify ACLs which means we need a request object at this point
+            tzids = set()
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
                     child = yield request.locateChildResource(self, name)
@@ -207,6 +208,14 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     assert subcalendar.name() == "VCALENDAR"
 
                     for component in subcalendar.subcomponents():
+                        
+                        # Only insert VTIMEZONEs once
+                        if component.name() == "VTIMEZONE":
+                            tzid = component.propertyValue("TZID")
+                            if tzid in tzids:
+                                continue
+                            tzids.add(tzid)
+
                         calendar.addComponent(component)
 
             returnValue(calendar)
