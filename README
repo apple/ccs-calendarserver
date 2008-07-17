@@ -63,7 +63,7 @@ default, set up to use 'conf/accounts-test.xml'.
 This file contains a user principal, named "admin", with password
 "admin", which is set up with administrative permissions on the server.
 
-You can then run the server thusly:
+You can then run the server as follows:
 
     ./run
 
@@ -136,7 +136,7 @@ class which does not use extended attributes. The Apache HTTP Server, for
 example, uses a database to keep track of properties on files, and this
 method works on many more platforms and file systems.
 
-Linux and FreeBSD users have has some success running our calendar
+Linux and FreeBSD users have had some success running our calendar
 server.  Check our bug tracker for status:
 
     http://trac.calendarserver.org/projects/calendarserver/report/1

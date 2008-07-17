@@ -8,7 +8,7 @@ Participating in the Community
 ==============================
 
 Although the Calendar Server is sponsored and hosted by Apple
-Inc. (http://www.apple.com/), it's a true open-source project under a
+Inc. (http://www.apple.com/), it's a true open-source project under an
 Apache license.  At present, the developers work for Apple, but that's
 due to the project being new and originating at Apple.  Contributions
 from other developers are welcome, and, as with all open development
@@ -90,7 +90,7 @@ Coding Standards
 
 The vast majority of the Calendar Server is writen in the Python
 programming language.  When writing Python code for the Calendar
-Server, please observer the following conventions.
+Server, please observe the following conventions.
 
 Please note that all of our code at present does not follow these
 standards, but that does not mean that one shouldn't bother to do so.
@@ -172,7 +172,7 @@ Additions:
          speed=0.4,
      )
 
- * Longs lines are often due to long strings.  Try to break strings up
+ * Long lines are often due to long strings.  Try to break strings up
    into multiple lines:
 
      processString(
@@ -185,7 +185,7 @@ Additions:
    multiple lines, as in the launchAtTarget example above.
 
  * It's OK to break generator expressions and list comprehensions into
-   mutliple lines.  For example:
+   multiple lines.  For example:
 
      myStuff = (
          item.obtainUsefulValue()
@@ -284,7 +284,7 @@ Additions:
        "And here is yet another string.",
      )
 
- * Doctrings are important.  All public symbols (anything declared in
+ * Docstrings are important.  All public symbols (anything declared in
    __all__) must have a correct docstring.  The script
    docs/Developer/gendocs will generate the API documentation using
    pydoctor.  See the pydoctor documentation for details on the
@@ -350,14 +350,14 @@ favorably.
 Units tests can be run rather easily by executing the `test` script at
 the top of the Calendar Server source tree.  By default, it will run
 all of the `twistedcaldav` tests followed by all of the `twisted`
-tests.  Youc an run specific tests by specifying them as arguments
+tests.  You can run specific tests by specifying them as arguments
 like this:
 
     ./test twistedcaldav.static
 
-All non-trivial public callables must have unit tests.  (Note we
-totally don't comply with this rule.)  All other callables should have
-unit tests.
+All non-trivial public callables must have unit tests.  (Note we don't
+don't totally comply with this rule; that's a problem we'd like to
+fix.)  All other callables should have unit tests.
 
 Units tests are written using the `twisted.trial` framework.  Test
 module names should start with `test_`.  Twisted has some tips on

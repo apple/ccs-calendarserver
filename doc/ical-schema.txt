@@ -114,5 +114,5 @@ information:
  1) The principal URI for that user
 
  2) All the other records with calendars on the same server.  Which is
-    used in determing autocompletion for invitees and configuration of
-    delegates.
+    used in determining autocompletion for invitees and configuration
+    of delegates.
