@@ -105,17 +105,30 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     ##
 
     def render(self, request):
-        # Send listing instead of iCalendar data to HTML agents
-        # This is mostly useful for debugging...
-        # FIXME: Add a self-link to the dirlist with a query string so
-        #     users can still download the actual iCalendar data?
-        agent = request.headers.getHeader("user-agent")
-        if agent is not None and agent.startswith("Mozilla/") and agent.find("Gecko") != -1:
-            html_agent = True
+        if config.EnableMonolithicCalendars:
+            #
+            # Send listing instead of iCalendar data to HTML agents
+            # This is mostly useful for debugging...
+            #
+            # FIXME: Add a self-link to the dirlist with a query string so
+            #     users can still download the actual iCalendar data?
+            #
+            # FIXME: Are there better ways to detect this than hacking in
+            #     user agents?
+            #
+            # FIXME: In the meantime, make this a configurable regex list?
+            #
+            agent = request.headers.getHeader("user-agent")
+            if agent is not None and (
+                agent.startswith("Mozilla/") and agent.find("Gecko") != -1
+            ):
+                renderAsHTML = True
+            else:
+                renderAsHTML = False
         else:
-            html_agent = False
+            renderAsHTML = True
 
-        if not html_agent and self.isPseudoCalendarCollection():
+        if not renderAsHTML and self.isPseudoCalendarCollection():
             # Render a monolithic iCalendar file
             if request.uri[-1] != "/":
                 # Redirect to include trailing '/' in URI
@@ -130,8 +143,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             d = self.iCalendarRolledup(request)
             d.addCallback(_defer)
             return d
-        else:
-            return super(CalDAVResource, self).render(request)
+
+        return super(CalDAVResource, self).render(request)
 
     def renderHTTP(self, request):
         if config.RejectClients:

@@ -170,6 +170,10 @@ limitations under the License.
   <key>EnablePrincipalListings</key>
   <true/>
 
+  <!-- Render calendar collections as a monolithic iCalendar object -->
+  <key>EnableMonolithicCalendars</key>
+  <true/>
+
 
   <!--
     Authentication

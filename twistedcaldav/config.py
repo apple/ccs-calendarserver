@@ -95,9 +95,10 @@ defaultConfig = {
     #
     # Permissions
     #
-    "EnableAnonymousReadRoot": True, # Allow unauthenticated read access to /
-    "EnableAnonymousReadNav": False, # Allow unauthenticated read access to hierachcy
-    "EnablePrincipalListings": True, # Allow listing of principal collections
+    "EnableAnonymousReadRoot": True,    # Allow unauthenticated read access to /
+    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierachcy
+    "EnablePrincipalListings": True,    # Allow listing of principal collections
+    "EnableMonolithicCalendars": True,  # Render calendar collections as a monolithic iCalendar object
 
     #
     # Client controls
