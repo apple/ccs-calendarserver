@@ -91,13 +91,6 @@ class RootResource (RootACLMixIn, DAVFile):
             self.contentFilters.append((addConnectionClose, True))
 
 
-    def deadProperties(self):
-        if not hasattr(self, '_dead_properties'):
-            self._dead_properties = CachingXattrPropertyStore(self)
-
-        return self._dead_properties
-
-
     def checkSacl(self, request):
         """
         Check SACLs against the current request

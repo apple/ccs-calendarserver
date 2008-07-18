@@ -87,9 +87,8 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return super(CalDAVFile, self).__repr__()
 
     def deadProperties(self):
-        if not hasattr(self, "_dead_properties"):
+        if not hasattr(self, '_dead_properties'):
             self._dead_properties = CachingXattrPropertyStore(self)
-
         return self._dead_properties
 
     ##
