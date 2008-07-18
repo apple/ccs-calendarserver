@@ -21,7 +21,7 @@ from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
-from twisted.web2.http import HTTPError, Response
+from twisted.web2.http import HTTPError, Response, StatusResponse
 from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import caldavxml
@@ -37,6 +37,7 @@ from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.config import config
 
 import itertools
 import re
@@ -66,6 +67,7 @@ class Scheduler(object):
         self.organizer = None
         self.timeRange = None
         self.excludeUID = None
+        self.fakeTheResult = False
     
     @inlineCallbacks
     def doSchedulingViaPOST(self):
@@ -120,6 +122,9 @@ class Scheduler(object):
     
         # Generate accounting information
         self.doAccounting()
+
+        # Do some final checks after we have gathered all our information
+        self.finalChecks()
 
         # Do scheduling tasks
         response = (yield self.generateSchedulingResponse())
@@ -208,29 +213,32 @@ class Scheduler(object):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
     def checkForFreeBusy(self):
-        if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
-            # Extract time range from VFREEBUSY object
-            vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
-            if len(vfreebusies) != 1:
-                log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-            dtstart = vfreebusies[0].getStartDateUTC()
-            dtend = vfreebusies[0].getEndDateUTC()
-            if dtstart is None or dtend is None:
-                log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-            self.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
-            self.timeRange.start = dtstart
-            self.timeRange.end = dtend
-    
-            # Look for masked UID
-            self.excludeUID = self.calendar.getMaskUID()
-    
-            # Do free busy operation
-            return True
-        else:
-            # Do regular invite (fan-out)
-            return False
+        if not hasattr(self, "isfreebusy"):
+            if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
+                # Extract time range from VFREEBUSY object
+                vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
+                if len(vfreebusies) != 1:
+                    log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                dtstart = vfreebusies[0].getStartDateUTC()
+                dtend = vfreebusies[0].getEndDateUTC()
+                if dtstart is None or dtend is None:
+                    log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                self.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
+                self.timeRange.start = dtstart
+                self.timeRange.end = dtend
+        
+                # Look for masked UID
+                self.excludeUID = self.calendar.getMaskUID()
+        
+                # Do free busy operation
+                self.isfreebusy = True
+            else:
+                # Do regular invite (fan-out)
+                self.isfreebusy = False
+        
+        return self.isfreebusy
     
     def securityChecks(self):
         raise NotImplementedError
@@ -256,6 +264,12 @@ class Scheduler(object):
                     )
                 )
 
+    def finalChecks(self):
+        """
+        Final checks before doing the actual scheduling.
+        """
+        pass
+
     @inlineCallbacks
     def generateSchedulingResponse(self):
 
@@ -273,7 +287,10 @@ class Scheduler(object):
         imip_recipients = []
         for recipient in self.recipients:
     
-            if isinstance(recipient, LocalCalendarUser):
+            if self.fakeTheResult:
+                responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+                
+            elif isinstance(recipient, LocalCalendarUser):
                 caldav_recipients.append(recipient)
 
             elif isinstance(recipient, RemoteCalendarUser):
@@ -332,6 +349,19 @@ class Scheduler(object):
         yield requestor.generateSchedulingResponses(freebusy)
 
 class CalDAVScheduler(Scheduler):
+
+    def __init__(self, request, resource):
+        super(CalDAVScheduler, self).__init__(request, resource)
+        self.doingPOST = False
+
+    @inlineCallbacks
+    def doSchedulingViaPOST(self):
+        """
+        The Scheduling POST operation on an Outbox.
+        """
+        self.doingPOST = True
+        result = (yield super(CalDAVScheduler, self).doSchedulingViaPOST())
+        returnValue(result)
 
     def checkAuthorization(self):
         # Must have an authenticated user
@@ -482,6 +512,29 @@ class CalDAVScheduler(Scheduler):
         else:
             log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+
+    def finalChecks(self):
+        """
+        Final checks before doing the actual scheduling.
+        """
+        
+        # With implicit scheduling only certain types of iTIP operations are allowed for POST.
+        
+        if self.doingPOST:
+            # Freebusy requests always processed
+            if self.checkForFreeBusy():
+                return
+            
+            # COUNTER and DECLINE-COUNTER allowed
+            if self.calendar.propertyValue("METHOD") in ("COUNTER", "DECLINECOUNTER"):
+                return
+            
+            # Anything else is not allowed. However, for compatIbility we will optionally 
+            # return a success response for all attendees.
+            if config.Scheduling["CalDAV"]["OldDraftCompatability"]:
+                self.fakeTheResult = True
+            else:
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid iTIP message for implicit scheduling"))
 
 class IScheduleScheduler(Scheduler):
 
