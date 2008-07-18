@@ -26,7 +26,6 @@ __all__ = [
     "ReadOnlyWritePropertiesResourceMixIn",
     "ReadOnlyResourceMixIn",
     "XMLResponse",
-    "CachingXattrPropertyStore",
 ]
 
 import cPickle as pickle
@@ -766,6 +765,8 @@ class XMLResponse (Response):
         """
         Response.__init__(self, code, stream=element.toxml())
         self.headers.setHeader("content-type", MimeType("text", "xml"))
+
+
 
 class CachingXattrPropertyStore(xattrPropertyStore):
     """
