@@ -23,11 +23,15 @@ __all__ = [
     "XMLAccountsParser",
 ]
 
+from uuid import UUID
 import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 ELEMENT_ACCOUNTS          = "accounts"
 ELEMENT_USER              = "user"
@@ -221,7 +225,12 @@ class XMLAccountRecord (object):
                     self.shortName = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_GUID:
                 if child.firstChild is not None:
-                    self.guid = child.firstChild.data.encode("utf-8")
+                    guid = child.firstChild.data.encode("utf-8")
+                    try:
+                        UUID(guid)
+                    except:
+                        log.error("Invalid GUID in accounts XML: %r" % (guid,))
+                    self.guid = guid
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
