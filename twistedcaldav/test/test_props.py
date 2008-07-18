@@ -24,6 +24,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.util import davXMLFromStream
 from twisted.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml
+from twistedcaldav.log import setLogLevelForNamespace
 
 import twistedcaldav.test.util
 
@@ -37,6 +38,8 @@ class Properties (twistedcaldav.test.util.TestCase):
         """
         calendar_path, calendar_uri = self.mkdtemp("live_props")
         os.rmdir(calendar_path)
+
+        setLogLevelForNamespace("twistedcaldav.extensions.CachingXattrPropertyStore", "debug")
 
         def mkcalendar_cb(response):
             response = IResponse(response)
