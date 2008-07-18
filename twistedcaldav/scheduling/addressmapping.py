@@ -51,7 +51,10 @@ class ScheduleAddressMapper(object):
         # Get the type
         cuaddr_type = (yield self.getCalendarUserServiceType(cuaddr))
         if cuaddr_type == DeliveryService.serviceType_caldav:
-            returnValue(LocalCalendarUser(cuaddr, principal))
+            if principal:
+                returnValue(LocalCalendarUser(cuaddr, principal))
+            else:
+                returnValue(InvalidCalendarUser(cuaddr))
         elif cuaddr_type == DeliveryService.serviceType_ischedule:
             returnValue(RemoteCalendarUser(cuaddr))
         elif cuaddr_type == DeliveryService.serviceType_imip:
