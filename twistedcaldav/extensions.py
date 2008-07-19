@@ -766,88 +766,87 @@ class XMLResponse (Response):
         Response.__init__(self, code, stream=element.toxml())
         self.headers.setHeader("content-type", MimeType("text", "xml"))
 
+class PropertyNotFoundError (HTTPError):
+    def __init__(self, qname):
+        HTTPError.__init__(self,
+            StatusResponse(
+                responsecode.NOT_FOUND,
+                "No such property: %s" % (qname,)
+            )
+        )
 
-
-class CachingXattrPropertyStore(xattrPropertyStore):
+class CachingXattrPropertyStore(xattrPropertyStore, LoggingMixIn):
     """
     A Property Store that caches attributes from the xattrs.
     """
     def __init__(self, resource):
-        self._cache = {}
-        self._not_found = {}
         super(CachingXattrPropertyStore, self).__init__(resource)
 
     def get(self, qname):
-        log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
-        if qname in self._cache:
-            log.debug("Cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
-            return self._cache[qname]
+        cache = self._cache()
 
-        if qname in self._not_found:
-            log.debug("Not found cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
-            raise self._not_found[qname]
+        if qname in cache:
+            property = cache.get(qname, None)
+            if property is None:
+                self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                try:
+                    property = super(CachingXattrPropertyStore, self).get(qname)
+                except HTTPError, e:
+                    self.log_debug("Cache double miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                    del cache[qname]
+                    raise PropertyNotFoundError(qname)
+                cache[qname] = property
+            else:
+                self.log_debug("Cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
 
-        log.debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
-
-        try:
-            property = super(CachingXattrPropertyStore, self).get(qname)
-        except HTTPError, err:
-            self._not_found[qname] = err
-            raise err
-
-        self._cache[qname] = property
-
-        return property
-
+            return property
+        else:
+            raise PropertyNotFoundError(qname)
 
     def set(self, property):
-        log.debug("Set: %r, %r" % (self.resource.fp.path, property))
+        self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
 
+        cache = self._cache()
+
+        cache[property.qname()] = None
         super(CachingXattrPropertyStore, self).set(property)
-        log.debug("Updating cache: %r, %r, %r" % (self, self.resource.fp.path, property.qname()))
-        self._cache[property.qname()] = property
-
-        if property.qname() in self._not_found:
-            del self._not_found[property.qname()]
-
+        cache[property.qname()] = property
 
     def contains(self, qname):
-        log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
-        if qname in self._cache:
-            log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+        try:
+            cache = self._cache()
+        except HTTPError, e:
+            if e.response.code == responsecode.NOT_FOUND:
+                return False
+            else:
+                raise
+
+        if qname in cache:
+            self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
-
-        if qname in self._not_found:
-            log.debug("Contains not found cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+        else:
             return False
 
-        log.debug("Contains cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
-
-        result = super(CachingXattrPropertyStore, self).contains(qname)
-
-        if result is False:
-            self._not_found[qname] = HTTPError(
-                StatusResponse(
-                    responsecode.NOT_FOUND,
-                    "No such property: %s" % (qname,)
-                )
-            )
-
-        return result
-
-
     def delete(self, qname):
-        log.debug("Deleting: %r, %r" % (self.resource.fp.path, qname))
+        self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
-        if qname in self._not_found:
-            del self._not_found[qname]
-        if qname in self._cache:
-            del self._cache[qname]
+        if self._data is not None and qname in self._data:
+            del self._data[qname]
 
         super(CachingXattrPropertyStore, self).delete(qname)
 
-
     def list(self):
-        return super(CachingXattrPropertyStore, self).list()
+        self.log_debug("List: %r" % (self.resource.fp.path,))
+        return self._cache().iterkeys()
+
+    def _cache(self):
+        if not hasattr(self, "_data"):
+            self._data = dict(
+                (name, None)
+                for name in super(CachingXattrPropertyStore, self).list()
+            )
+        return self._data
