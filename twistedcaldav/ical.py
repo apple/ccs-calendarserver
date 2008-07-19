@@ -999,6 +999,32 @@ class Component (object):
 
         return None
 
+    def getOrganizersByInstance(self):
+        """
+        Get the organizer value for each instance.
+        
+        @return: a list of tuples of (organizer value, recurrence-id)
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getOrganizersByInstance()
+            return result
+        else:
+            try:
+                # Should be just one ORGANIZER
+                org = self.propertyValue("ORGANIZER")
+                rid = self.getRecurrenceIDUTC()
+                if org:
+                    return ((org, rid),)
+            except ValueError:
+                pass
+
+        return ()
+
     def getOrganizerProperty(self):
         """
         Get the organizer value. Works on either a VCALENDAR or on a component.
@@ -1038,6 +1064,27 @@ class Component (object):
             return [p.value() for p in self.properties("ATTENDEE")]
 
         return None
+
+    def getAttendeesByInstance(self):
+        """
+        Get the organizer value for each instance.
+        
+        @return: a list of tuples of (organizer value, recurrence-id)
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getAttendeesByInstance()
+            return result
+        else:
+            result = ()
+            rid = self.getRecurrenceIDUTC()
+            for attendee in self.properties("ATTENDEE"):
+                result += ((attendee.value(), rid),)
+            return result
 
     def getAttendeeProperty(self, match):
         """
@@ -1114,6 +1161,45 @@ class Component (object):
 
         return None
 
+    def attendeesView(self, attendees):
+        """
+        Filter out any components that all attendees are not present in. Use EXDATEs
+        on the master to account for changes.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+            
+        # Modify any components that reference the attendee, make note of the ones that don't
+        remove_components = []
+        master_component = None
+        removed_master = False
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            found_all_attendees = True
+            for attendee in attendees:
+                if component.getAttendeeProperty((attendee,)) is None:
+                    found_all_attendees = False
+                    break
+            if not found_all_attendees:
+                remove_components.append(component)
+            if component.getRecurrenceIDUTC() is None:
+                master_component = component
+                if not found_all_attendees:
+                    removed_master = True
+                
+        # Now remove the unwanted components - but we may need to exdate the master
+        exdates = []
+        for component in remove_components:
+            rid = component.getRecurrenceIDUTC()
+            if rid is not None:
+                exdates.append(rid)
+            self.removeComponent(component)
+            
+        if not removed_master and master_component is not None:
+            for exdate in exdates:
+                master_component.addProperty(Property("EXDATE", (exdate,)))
+        
 ##
 # Dates and date-times
 ##

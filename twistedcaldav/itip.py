@@ -45,10 +45,12 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twistedcaldav import caldavxml
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
-from twistedcaldav.ical import Property, iCalendarProductID
+from twistedcaldav.ical import Property, iCalendarProductID, Component
 from twistedcaldav.method import report_common
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
+
+from vobject.icalendar import utc
 
 log = Logger()
 
@@ -896,3 +898,60 @@ class iTipProcessor(object):
             return -1
     
         return 0
+
+class iTipGenerator(object):
+    
+    @staticmethod
+    def generateCancel(original, attendees, instances=None):
+        
+        itip = Component("VCALENDAR")
+        itip.addProperty(Property("PRODID", iCalendarProductID))
+        itip.addProperty(Property("METHOD", "CANCEL"))
+
+        if instances is None:
+            instances = (None,)
+
+        for instance_rid in instances:
+            
+            # Create a new component matching the type of the original
+            comp = Component(original.mainType())
+            itip.addComponent(comp)
+
+            # Use the master component when the instance is None
+            if not instance_rid:
+                instance = original.masterComponent()
+            else:
+                instance = original.overriddenComponent(instance_rid)
+                if instance is None:
+                    instance = original.masterComponent()
+            assert instance is not None
+
+            # Add some required properties extracted from the original
+            comp.addProperty(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+            comp.addProperty(Property("UID", instance.propertyValue("UID")))
+            seq = instance.propertyValue("SEQUENCE")
+            seq = str(int(seq) + 1) if seq else "1"
+            comp.addProperty(Property("SEQUENCE", seq))
+            comp.addProperty(instance.getOrganizerProperty())
+            if instance_rid:
+                comp.addProperty(Property("RECURRENCE-ID", instance_rid))
+            
+            # Extract the matching attendee property
+            for attendee in attendees:
+                attendeeProp = instance.getAttendeeProperty((attendee,))
+                assert attendeeProp is not None
+                comp.addProperty(attendeeProp)
+
+        return itip
+
+    @staticmethod
+    def generateAttendeeRequest(original, attendees):
+
+        # Start with a copy of the original as we may have to modify bits of it
+        itip = original.duplicate()
+        itip.addProperty(Property("METHOD", "REQUEST"))
+        
+        # Now filter out components that do not contain every attendee
+        itip.attendeesView(attendees)
+        
+        return itip
