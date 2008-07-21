@@ -63,7 +63,7 @@ class RemoteCalendarUser(CalendarUser):
 
 class EmailCalendarUser(CalendarUser):
     
-    def __init__(self, cuaddr, principal, inbox=None, inboxURL=None):
+    def __init__(self, cuaddr):
         self.cuaddr = cuaddr
         self.serviceType = DeliveryService.serviceType_imip
     

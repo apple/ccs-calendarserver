@@ -351,7 +351,7 @@ class Scheduler(object):
 
         # Create the scheduler and run it.
         requestor = ScheduleViaIMip(self, recipients, responses, freebusy)
-        yield requestor.generateSchedulingResponses(freebusy)
+        yield requestor.generateSchedulingResponses()
 
 class CalDAVScheduler(Scheduler):
 
