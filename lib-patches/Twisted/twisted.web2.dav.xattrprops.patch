@@ -46,7 +46,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +98,86 @@
+@@ -97,19 +98,83 @@
  
      def get(self, qname):
          try:
@@ -58,8 +58,6 @@ Index: twisted/web2/dav/xattrprops.py
                  "No such property: {%s}%s" % qname
              ))
 +        except Exception, e:
-+            log.error("Unable to read property {%s}%s: %s"
-+                      % (qname[0], qname[1], e))
 +            raise HTTPError(StatusResponse(
 +                statusForFailure(Failure()),
 +                "Unable to read property: {%s}%s" % qname
@@ -127,7 +125,6 @@ Index: twisted/web2/dav/xattrprops.py
 +                if e.errno == EAGAIN and n < 19:
 +                    sleep(random() / 10) # OMG Brutal Hax
 +                else:
-+                    log.error("Unable to write property %s: %s" % (property.sname(), e))
 +                    raise HTTPError(StatusResponse(
 +                        statusForFailure(Failure()),
 +                        "Unable to write property: %s" % (property.sname(),)
@@ -137,12 +134,11 @@ Index: twisted/web2/dav/xattrprops.py
  
          # Update the resource because we've modified it
          self.resource.fp.restat()
-@@ -121,15 +189,34 @@
+@@ -121,15 +186,31 @@
              # RFC 2518 Section 12.13.1 says that removal of
              # non-existing property is not an error.
              pass
 +        except Exception, e:
-+            log.error("Unable to delete property {%s}%s: %s" % (qname[0], qname[1], e))
 +            raise HTTPError(StatusResponse(
 +                statusForFailure(Failure()),
 +                "Unable to delete property: {%s}%s" % qname
@@ -154,7 +150,6 @@ Index: twisted/web2/dav/xattrprops.py
          except TypeError:
              return False
 +        except Exception, e:
-+            log.error("Unable to read properties: %s" % (e,))
 +            raise HTTPError(StatusResponse(
 +                statusForFailure(Failure()),
 +                "Unable to read properties"
@@ -168,7 +163,6 @@ Index: twisted/web2/dav/xattrprops.py
 +        try:
 +            return [ self._decode(name) for name in self.attrs if name.startswith(prefix) ]
 +        except Exception, e:
-+            log.error("Unable to list properties: %s" % (e,))
 +            raise HTTPError(StatusResponse(
 +                statusForFailure(Failure()),
 +                "Unable to list properties"
