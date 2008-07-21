@@ -76,7 +76,7 @@ class ScheduleViaIMip(DeliveryService):
                     toAddr = toAddr[7:]
                     sendit = message.replace("${toaddress}", toAddr)
                     log.debug("Sending iMIP message To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, sendit,))
-                    yield sendmail(config.Scheduling[self.serviceType()]["Sending"]["Server"], fromAddr, toAddr, sendit)
+                    yield sendmail(config.Scheduling[self.serviceType()]["Sending"]["Server"], fromAddr, toAddr, sendit, port=config.Scheduling[self.serviceType()]["Sending"]["Port"])
         
                 except Exception, e:
                     # Generated failed response for this recipient
