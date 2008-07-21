@@ -54,6 +54,7 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
 
@@ -674,10 +675,15 @@ class StoreCalendarObjectResource(object):
             
             # Get current quota state.
             yield self.checkQuota()
-    
+
+            # Do scheduling
+            if not self.isiTIP:
+                scheduler = ImplicitScheduler()
+                self.calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar))
+
             # Initialize the rollback system
             self.setupRollback()
-        
+
             """
             Handle actual store operations here.
             

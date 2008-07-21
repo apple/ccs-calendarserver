@@ -47,7 +47,6 @@ from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 from twistedcaldav.method import report_common
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 
 from vobject.icalendar import utc
@@ -58,6 +57,7 @@ __version__ = "0.0"
 
 __all__ = [
     "iTipProcessor",
+    "iTipGenerator",
 ]
 
 class iTipException(Exception):
@@ -577,6 +577,7 @@ class iTipProcessor(object):
             itipper = False
         
         # Now write it to the resource
+        from twistedcaldav.method.put_common import StoreCalendarObjectResource
         yield StoreCalendarObjectResource(
                      request=self.request,
                      destination = newchild,
@@ -905,6 +906,7 @@ class iTipGenerator(object):
     def generateCancel(original, attendees, instances=None):
         
         itip = Component("VCALENDAR")
+        itip.addProperty(Property("VERSION", "2.0"))
         itip.addProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "CANCEL"))
 

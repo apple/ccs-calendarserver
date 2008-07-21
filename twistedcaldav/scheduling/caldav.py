@@ -33,7 +33,6 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.itip import iTipProcessor
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
     RemoteCalendarUser
@@ -148,6 +147,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # Copy calendar to inbox (doing fan-out)
         try:
+            from twistedcaldav.method.put_common import StoreCalendarObjectResource
             yield StoreCalendarObjectResource(
                          request=self.scheduler.request,
                          destination = child,

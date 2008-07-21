@@ -68,6 +68,7 @@ class Scheduler(object):
         self.timeRange = None
         self.excludeUID = None
         self.fakeTheResult = False
+        self.method = "Unknown"
     
     @inlineCallbacks
     def doSchedulingViaPOST(self):
@@ -75,6 +76,8 @@ class Scheduler(object):
         The Scheduling POST operation on an Outbox.
         """
     
+        self.method = "POST"
+
         # Do some extra authorization checks
         self.checkAuthorization()
 
@@ -92,6 +95,8 @@ class Scheduler(object):
         The implicit scheduling PUT operation.
         """
     
+        self.method = "PUT"
+
         # Do some extra authorization checks
         self.checkAuthorization()
 
@@ -135,7 +140,7 @@ class Scheduler(object):
         # Must have Originator header
         originator = self.request.headers.getRawHeaders("originator")
         if originator is None or (len(originator) != 1):
-            log.err("POST request must have Originator header")
+            log.err("%s request must have Originator header" % (self.method,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
         else:
             self.originator = originator[0]
@@ -144,7 +149,7 @@ class Scheduler(object):
         # Get list of Recipient headers
         rawRecipients = self.request.headers.getRawHeaders("recipient")
         if rawRecipients is None or (len(rawRecipients) == 0):
-            log.err("POST request must have at least one Recipient header")
+            log.err("%s request must have at least one Recipient header" % (self.method,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
     
         # Recipient header may be comma separated list
@@ -168,7 +173,7 @@ class Scheduler(object):
             self.calendar = (yield Component.fromIStream(self.request.stream))
         except:
             # FIXME: Bare except
-            log.err("Error while handling POST: %s" % (Failure(),))
+            log.err("Error while handling %s: %s" % (self.method, Failure(),))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
     def checkAuthorization(self):
@@ -193,23 +198,23 @@ class Scheduler(object):
         # Must be a valid calendar
         try:
             self.calendar.validCalendarForCalDAV()
-        except ValueError:
-            log.err("POST request calendar component is not valid: %s" % (self.calendar,))
+        except ValueError, e:
+            log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
     
         # Must have a METHOD
         if not self.calendar.isValidMethod():
-            log.err("POST request must have valid METHOD property in calendar component: %s" % (self.calendar,))
+            log.err("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
         
         # Verify iTIP behavior
         if not self.calendar.isValidITIP():
-            log.err("POST request must have a calendar component that satisfies iTIP requirements: %s" % (self.calendar,))
+            log.err("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
         # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
         if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
-            log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component POST request: %s" % (self.calendar,))
+            log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
     def checkForFreeBusy(self):
@@ -279,7 +284,7 @@ class Scheduler(object):
         freebusy = self.checkForFreeBusy()
 
         # Prepare for multiple responses
-        responses = ScheduleResponseQueue("POST", responsecode.OK)
+        responses = ScheduleResponseQueue(self.method, responsecode.OK)
     
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
@@ -466,7 +471,7 @@ class CalDAVScheduler(Scheduler):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
         # Make sure that the ORGANIZER's Outbox is the request URI
-        if self.organizer.principal.scheduleOutboxURL() != self.request.uri:
+        if self.doingPOST and self.organizer.principal.scheduleOutboxURL() != self.request.uri:
             log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
