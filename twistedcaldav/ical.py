@@ -29,26 +29,17 @@ __all__ = [
     "parse_duration",
 ]
 
-import datetime
-import cStringIO as StringIO
-
-from vobject import newFromBehavior, readComponents
-from vobject.base import Component as vComponent
-from vobject.base import ContentLine as vContentLine
-from vobject.base import ParseError as vParseError
-from vobject.icalendar import TimezoneComponent
-from vobject.icalendar import dateTimeToString
-from vobject.icalendar import deltaToOffset
-from vobject.icalendar import getTransition
-from vobject.icalendar import stringToDate, stringToDateTime, stringToDurations
-from vobject.icalendar import utc
-
-from twisted.web2.stream import IStream
 from twisted.web2.dav.util import allDataFromStream
-
+from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
+from vobject import newFromBehavior, readComponents
+from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
+from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
+import cStringIO as StringIO
+import datetime
+import heapq
 
 log = Logger()
 
@@ -1200,6 +1191,47 @@ class Component (object):
             for exdate in exdates:
                 master_component.addProperty(Property("EXDATE", (exdate,)))
         
+    def removeAllButOneAttendee(self, attendee):
+        """
+        Remove all ATTENDEE properties except for the one specified.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value() != attendee]
+            
+    def removeAlarms(self):
+        """
+        Remove all Alarms components
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.removeAlarms()
+        else:
+            for component in tuple(self.subcomponents()):
+                if component.name() == "VALARM":
+                    self.removeComponent(component)
+                
+    def removeUnwantedProperties(self, keep_properties):
+        """
+        Remove all properties that do not match the provided set.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep_properties]
+            
 ##
 # Dates and date-times
 ##
@@ -1364,9 +1396,8 @@ def tzexpand(tzdata, start, end):
 
 #
 # This function is from "Python Cookbook, 2d Ed., by Alex Martelli, Anna
-# Martelli Ravenscroft, and Davis Ascher (O'Reilly Media, 2005) 0-596-00797-3."
+# Martelli Ravenscroft, and David Ascher (O'Reilly Media, 2005) 0-596-00797-3."
 #
-import heapq
 def merge(*iterables):
     """
     Merge sorted iterables into one sorted iterable.

@@ -493,8 +493,7 @@ class CalDAVScheduler(Scheduler):
         # Attendee's Outbox MUST be the request URI
         attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
         if attendeePrincipal:
-            aoutboxURL = attendeePrincipal.scheduleOutboxURL()
-            if aoutboxURL is None or aoutboxURL != self.request.uri:
+            if self.doingPOST and attendeePrincipal.scheduleOutboxURL() != self.request.uri:
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
         else:

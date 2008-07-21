@@ -737,3 +737,392 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.attendeesView(attendees)
             self.assertEqual(filtered, str(component).replace("\r", ""))
+
+    def test_all_but_one_attendee(self):
+        
+        data = (
+            # One component, no attendees
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com",
+            ),
+
+            # One component, one attendee - removed
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user1@example.com",
+            ),
+
+            # One component, one attendee - left
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+            ),
+
+            # One component, two attendees - none left
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-4
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-4
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user1@example.com",
+            ),
+
+            # One component, two attendees - one left
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-5
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-5
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+            ),
+
+        )
+        
+        for original, result, attendee in data:
+            component = Component.fromString(original)
+            component.removeAllButOneAttendee(attendee)
+            self.assertEqual(result, str(component).replace("\r", ""))
+
+    def test_remove_unwanted_properties(self):
+        
+        data = (
+            # One component
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+SUMMARY:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("UID", "RECURRENCE-ID", "SEQUENCE", "DTSTAMP", "ORGANIZER", "ATTENDEE",),
+            ),
+
+            # Multiple components
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("UID", "RECURRENCE-ID", "SEQUENCE", "DTSTAMP", "ORGANIZER", "ATTENDEE",),
+            ),
+
+        )
+        
+        for original, result, keep_properties in data:
+            component = Component.fromString(original)
+            component.removeUnwantedProperties(keep_properties)
+            self.assertEqual(result, str(component).replace("\r", ""))
+
+    def test_remove_alarms(self):
+        
+        data = (
+            # One component, no alarms
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+
+            # One component, one alarm
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTART:20071114T000000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+
+            # Multiple components, one alarm
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+
+            # Multiple components, multiple alarms
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+        
+        for original, result in data:
+            component = Component.fromString(original)
+            component.removeAlarms()
+            self.assertEqual(result, str(component).replace("\r", ""))

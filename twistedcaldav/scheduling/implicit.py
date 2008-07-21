@@ -82,7 +82,7 @@ class ImplicitScheduler(object):
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance()
         self.attendees = set()
-        for attendee in self.attendeesByInstance:
+        for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
     
     def isOrganizerScheduling(self):
@@ -115,6 +115,7 @@ class ImplicitScheduler(object):
         for attendee in self.attendees:
             attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
             if attendeePrincipal and attendeePrincipal.principalURL() == str(self.calendar_owner):
+                self.attendee = attendee
                 self.attendeePrincipal = attendeePrincipal
                 return True
         
@@ -140,7 +141,7 @@ class ImplicitScheduler(object):
             self.oldcalendar = None
             self.cancelledAttendees = ()   
             
-        yield self.scheduleAttendees()
+        yield self.scheduleWithAttendees()
 
     def isChangeSignificant(self):
         
@@ -161,7 +162,7 @@ class ImplicitScheduler(object):
         self.cancelledAttendees = mappedOld.difference(mappedNew)
 
     @inlineCallbacks
-    def scheduleAttendees(self):
+    def scheduleWithAttendees(self):
         
         # First process cancelled attendees
         yield self.processCancels()
@@ -233,5 +234,53 @@ class ImplicitScheduler(object):
             # TODO: need to figure out how to process the response for a REQUEST
             returnValue(response)
             
+    @inlineCallbacks
     def doImplicitAttendee(self):
-        pass
+
+        # Get the ORGANIZER's current copy of the calendar object
+        self.orgcalendar = self.getOrganizersCopy()
+        
+        # Determine whether the current change is allowed
+        if not self.isAttendeeChangeSignificant():
+            return
+            
+        yield self.scheduleWithOrganizer()
+
+    def getOrganizersCopy(self):
+        """
+        Get the Organizer's copy of the event being processed.
+        
+        NB it is possible that the Organizer is not hosted on this server
+        so the result here will be None. In that case we have to trust that
+        the attendee does the right thing about changing the details in the event.
+        """
+        
+        # TODO: extract UID and ORGANIZER, find match in ORGANIZER's calendars.
+
+        return None
+    
+    def isAttendeeChangeSignificant(self):
+        """
+        Check whether the change is significant (PARTSTAT) or allowed
+        (attendee can only change their property, alarms, TRANSP, and
+        instances. Raise an exception if it is not allowed.
+        """
+        
+        # TODO: all of the above.
+        return True
+
+    @inlineCallbacks
+    def scheduleWithOrganizer(self):
+
+        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee)
+
+        # Send scheduling message
+
+        # This is a local CALDAV scheduling operation.
+        scheduler = CalDAVScheduler(self.request, self.resource)
+
+        # Do the PUT processing
+        response = (yield scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg))
+        
+        # TODO: need to figure out how to process the response for a REQUEST
+        returnValue(response)

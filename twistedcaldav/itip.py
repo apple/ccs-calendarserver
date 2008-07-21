@@ -956,4 +956,31 @@ class iTipGenerator(object):
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees)
         
+        # No alarms
+        itip.removeAlarms()
+
+        return itip
+
+    @staticmethod
+    def generateAttendeeReply(original, attendee):
+
+        # Start with a copy of the original as we may have to modify bits of it
+        itip = original.duplicate()
+        itip.addProperty(Property("METHOD", "REPLY"))
+        
+        # Remove all attendees except the one we want
+        itip.removeAllButOneAttendee(attendee)
+        
+        # No alarms
+        itip.removeAlarms()
+
+        # Remove all but essential properties
+        itip.removeUnwantedProperties((
+            "UID",
+            "RECURRENCE-ID",
+            "SEQUENCE",
+            "DTSTAMP",
+            "ORGANIZER",
+            "ATTENDEE",
+        ))
         return itip
