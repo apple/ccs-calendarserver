@@ -106,7 +106,11 @@ class AggregateDirectoryService(DirectoryService):
             raise UnknownRecordTypeError(recordType)
 
     def _query(self, query, recordType, *args):
-        service = self.serviceForRecordType(recordType)
+        try:
+            service = self.serviceForRecordType(recordType)
+        except UnknownRecordTypeError:
+            return None
+
         return getattr(service, query)(
             recordType[len(service.recordTypePrefix):],
             *[a[len(service.recordTypePrefix):] for a in args]
