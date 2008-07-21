@@ -639,7 +639,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return self.record.hasEditableProxyMembership()
 
     def scheduleInbox(self, request):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return succeed(None)
 
@@ -650,7 +650,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return succeed(inbox)
 
     def calendarHomeURLs(self):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return ()
         else:
@@ -669,13 +669,13 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def _homeChildURL(self, name):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return None
         else:
             return joinURL(home.url(), name)
 
-    def _calendarHome(self):
+    def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack
         # See CalendarHomeProvisioningFile.__init__()
         service = self.record.service
