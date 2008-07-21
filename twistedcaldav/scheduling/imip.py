@@ -75,6 +75,7 @@ class ScheduleViaIMip(DeliveryService):
                         raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
                     toAddr = toAddr[7:]
                     sendit = message.replace("${toaddress}", toAddr)
+                    log.debug("Sending iMIP message To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, sendit,))
                     yield sendmail(config.Scheduling[self.serviceType()]["Sending"]["Server"], fromAddr, toAddr, sendit)
         
                 except Exception, e:
@@ -88,7 +89,7 @@ class ScheduleViaIMip(DeliveryService):
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.err("Could not do server-to-server request : %s %s" % (self, e))
+            log.err("Could not do server-to-imip request : %s %s" % (self, e))
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
