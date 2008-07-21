@@ -396,7 +396,7 @@ limitations under the License.
   	<dict>
   	  <key>Enabled</key>
   	  <false/>
-  	  <key>Remote Addresses</key>
+  	  <key>AddressPatterns</key>
   	  <array>
   	  </array>
       <key>Servers</key>
@@ -423,7 +423,7 @@ limitations under the License.
   	    <key>Type</key>
   	    <string></string> <!-- Either 'pop3' or 'imap' -->
   	  </dict>
-  	  <key>RemoteAddresses</key>
+  	  <key>AddressPatterns</key>
   	  <array>
   	  </array>
   	</dict>
