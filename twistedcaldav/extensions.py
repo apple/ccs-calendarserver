@@ -204,6 +204,12 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
 
+    def renderHTTP(self, request):
+        
+        log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+
+        return super(DAVResource, self).renderHTTP(request)
+
     @updateCacheTokenOnCallback
     def http_PROPPATCH(self, request):
         return super(DAVResource, self).http_PROPPATCH(request)
