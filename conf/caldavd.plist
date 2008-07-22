@@ -286,6 +286,10 @@ limitations under the License.
 
   <key>Notifications</key>
   <dict>
+    <!-- Time spent coalescing notifications -->
+    <key>CoalesceSeconds</key>
+    <integer>10</integer>
+
     <key>Services</key>
     <array>
       <dict>
