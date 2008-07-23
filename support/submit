@@ -85,10 +85,10 @@ revision="$(svnversion "${src}")";
 
 if "${build}"; then
   project_version="${project}-$(echo ${revision} | sed -e 's/:/_/g')";
-else 
-#
-# We need a single revision number
-#
+else
+  #
+  # We need a single revision number
+  #
   if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
     echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
     exit 1;
@@ -98,9 +98,9 @@ else
 
   project_version="${project}-$((${version} + ${revision} / 10000 % 100)).$((${revision} / 100 % 100)).$((${revision} % 100))";
 
-#
-# Make sure changes are checked in.
-#
+  #
+  # Make sure changes are checked in.
+  #
   if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
     echo "Working copy has uncommitted changes.  Aborting.";
     exit 1;
