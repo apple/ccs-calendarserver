@@ -88,7 +88,7 @@ class Property (object):
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
         if not isinstance(other, Property): return False
-        return self.name() == other.name() and self.value() == other.value()
+        return self.name() == other.name() and self.value() == other.value() and self.params() == other.params()
 
     def __gt__(self, other): return not (self.__eq__(other) or self.__lt__(other))
     def __lt__(self, other):
@@ -708,7 +708,7 @@ class Component (object):
         newcomp = instance.component.duplicate()
  
         # Strip out unwanted recurrence properties
-        for property in newcomp.properties():
+        for property in tuple(newcomp.properties()):
             if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
                 newcomp.removeProperty(property)
         
@@ -763,6 +763,41 @@ class Component (object):
         instances.expandTimeRanges(componentSet, limit)
         return instances
 
+    def deriveInstance(self, rid):
+        """
+        Derive an instance from the master component that has the provided RECURRENCE-ID, but
+        with all other properties, components etc from the master.
+
+        @param rid: recurrence-id value
+        @type rid: L{datetime.datetime}
+        """
+        
+        # Must have a master component
+        master = self.masterComponent()
+        if master is None:
+            return None
+
+        # TODO: Check that the recurrence-id is a valid instance
+        
+        # Create the derived instance
+        newcomp = master.duplicate()
+
+        # Strip out unwanted recurrence properties
+        for property in tuple(newcomp.properties()):
+            if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
+                newcomp.removeProperty(property)
+        
+        # Adjust times
+        offset = rid - newcomp.getStartDateUTC()
+        dtstart = newcomp.getProperty("DTSTART")
+        dtstart.setValue(dtstart.value() + offset)
+        if newcomp.hasProperty("DTEND"):
+            dtend = newcomp.getProperty("DTEND")
+            dtend.setValue(dtend.value() + offset)
+        newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value()))
+            
+        return newcomp
+        
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.
