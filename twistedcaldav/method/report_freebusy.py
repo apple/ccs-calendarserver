@@ -66,6 +66,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         @param uri: the uri for the calendar collecton resource.
         """
         matchcount[0] = (yield report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0]))
+        returnValue(True)
 
     # Run report taking depth into account
     try:

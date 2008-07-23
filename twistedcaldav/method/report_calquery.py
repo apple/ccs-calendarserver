@@ -209,6 +209,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             calendar = calresource.iCalendar()
             yield queryCalendarObjectResource(calresource, uri, None, calendar)
 
+        returnValue(True)
+
     # Run report taking depth into account
     try:
         depth = request.headers.getHeader("depth", "0")

@@ -71,10 +71,11 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     """
 
     # First check the privilege on this resource
-    try:
-        yield resource.checkPrivileges(request, privileges)
-    except AccessDeniedError:
-        return
+    if privileges:
+        try:
+            yield resource.checkPrivileges(request, privileges)
+        except AccessDeniedError:
+            return
 
     # When scanning we only go down as far as a calendar collection - not into one
     if resource.isPseudoCalendarCollection():
@@ -86,7 +87,9 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
          
     for calresource, uri in resources:
-        yield apply(calresource, uri)
+        result = (yield apply(calresource, uri))
+        if not result:
+            break
 
 def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq, isowner=True):
     """
