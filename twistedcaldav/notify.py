@@ -467,8 +467,8 @@ class XMPPNotifier(LoggingMixIn):
     pubsubNS = 'http://jabber.org/protocol/pubsub'
 
     nodeConf = {
-        'pubsub#deliver_payloads' : '0',
-        'pubsub#persist_items' : '0',
+        'pubsub#deliver_payloads': '0',
+        'pubsub#persist_items'   : '0',
     }
 
     def __init__(self, settings, reactor=None, configOverride=None):
@@ -577,15 +577,22 @@ class XMPPNotifier(LoggingMixIn):
 
                         for field in formElement.elements():
                             if field.name == 'field':
-                                value = self.nodeConf.get(field['var'], None)
-                                if value is not None:
-                                    valueElement = self._getChild(field,
-                                        'value')
-                                    valueElement.children = []
-                                    valueElement.addContent(value)
-                            filledForm.addChild(field)
+                                var = field['var']
+                                if var == "FORM_TYPE":
+                                    filledForm.addChild(field)
+                                else:
+                                    value = self.nodeConf.get(var, None)
+                                    if value is not None:
+                                        filledField = filledForm.addElement('field')
+                                        filledField['var'] = var
+                                        filledField['type'] = field['type']
+                                        valueElement = filledField.addElement('value')
+                                        valueElement.addContent(value)
+                                        filledForm.addChild(field)
                         filledIq.addCallback(self.responseFromConfiguration,
                             nodeName)
+                        self.sendDebug("Sending configuration form (%s)"
+                                       % (nodeName,), filledIq)
                         filledIq.send(to=self.settings['ServiceAddress'])
         else:
             self.log_error("PubSub configuration form request error: %s" %
