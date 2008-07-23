@@ -55,18 +55,13 @@ class iCalDiff(object):
 
         return self.calendar1 == self.calendar2
 
-    def attendeeDiff(self, attendee):
+    def attendeeMerge(self, attendee):
         """
-        
+        Merge the ATTENDE specific changes with the organizer's view of the attendee's event.
+        This will remove any attempt by the attendee to change things like the time or location.
+       
         @param attendee: the value of the ATTENDEE property corresponding to the attendee making the change
         @type attendee: C{str}
-        """
-        """
-        Diff the two calendars looking for changes that should trigger implicit scheduling if
-        changed by an attendee. Also look for changes that are not allowed by an attendee.
-        
-        Assume that calendar1 is the organizer's copy. We need to filter that to give the attendee's
-        view of the event for comparison.
         """
         
         self.attendee = attendee
@@ -105,7 +100,10 @@ class iCalDiff(object):
         ignored = ("PRODID", "CALSCALE",)
         propdiff = set([prop for prop in propdiff if prop.name() not in ignored])
         
-        return len(propdiff) == 0
+        result = len(propdiff) == 0
+        if not result:
+            log.debug("VCALENDAR properties differ: %s" % (propdiff,))
+        return result
 
     def _compareVTIMEZONEs(self):
 
@@ -124,7 +122,10 @@ class iCalDiff(object):
         
         tzids1 = extractTZIDs(self.calendar1)
         tzids2 = extractTZIDs(self.calendar2)
-        return tzids1 == tzids2
+        result = tzids1 == tzids2
+        if not result:
+            log.debug("Different VTIMEZONES: %s %s" % (tzids1, tzids2))
+        return result
 
     def _compareComponents(self):
         
@@ -146,7 +147,10 @@ class iCalDiff(object):
         set2 = set(map2.keys())
 
         # All the components in calendar1 must be in calendar2
-        if set1 - set2:
+        result = set1 - set2
+        if result:
+            log.debug("Missing components from first calendar: %s" % (result,))
+        if result:
             return False, False
 
         # Now verify that each component in set1 matches what is in set2
@@ -179,17 +183,21 @@ class iCalDiff(object):
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
         
         if comp1.name() != comp2.name():
+            log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
             return False, False
         
         # Only accept a change to this attendee's own ATTENDEE property
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         for prop in propdiff:
             if prop.name() != "ATTENDEE" or prop.value() != self.attendee:
+                log.debug("Component properties are different: %s" % (propdiff,))
                 return False, False
 
         # Compare subcomponents.
         # NB at this point we assume VALARMS have been removed.
-        if set(comp1.subcomponents()) ^ set(comp2.subcomponents()):
+        result = set(comp1.subcomponents()) ^ set(comp2.subcomponents())
+        if result:
+            log.debug("Sub-components are different: %s" % (result,))
             return False, False
         
         return True, len(propdiff) == 0
