@@ -374,7 +374,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             resourcetype = self.readDeadProperty((dav_namespace, "resourcetype"))
             return bool(resourcetype.childrenOfType(collectiontype))
         except HTTPError, e:
-            assert e.response.code == responsecode.NOT_FOUND
+            assert e.response.code == responsecode.NOT_FOUND, (
+                "Unexpected response code: %s" % (e.response.code,)
+            )
             return False
 
     def isPseudoCalendarCollection(self):
