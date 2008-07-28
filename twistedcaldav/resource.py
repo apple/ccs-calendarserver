@@ -237,7 +237,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         return super(CalDAVResource, self).readProperty(property, request)
 
     def writeProperty(self, property, request):
-        assert isinstance(property, davxml.WebDAVElement)
+        assert isinstance(property, davxml.WebDAVElement), (
+            "%r is not a WebDAVElement instance" % (property,)
+        )
 
         if property.qname() == (caldav_namespace, "supported-calendar-component-set"):
             if not self.isPseudoCalendarCollection():
@@ -372,12 +374,12 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
         try:
             resourcetype = self.readDeadProperty((dav_namespace, "resourcetype"))
-            return bool(resourcetype.childrenOfType(collectiontype))
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND, (
                 "Unexpected response code: %s" % (e.response.code,)
             )
             return False
+        return bool(resourcetype.childrenOfType(collectiontype))
 
     def isPseudoCalendarCollection(self):
         """
