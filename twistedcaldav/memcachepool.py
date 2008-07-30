@@ -358,9 +358,8 @@ _memCachePool = None
 def installPool(serverAddress, maxClients=5, reactor=None):
     global _memCachePool
     _memCachePool = MemCachePool(serverAddress,
-                                   maxClients=5,
-                                   reactor=None)
-
+                                 maxClients=maxClients,
+                                 reactor=None)
 
 def defaultCachePool():
     return _memCachePool
