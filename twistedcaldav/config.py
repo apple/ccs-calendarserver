@@ -247,8 +247,6 @@ defaultConfig = {
         "BaseDirectory": "/tmp/stats",
     },
 
-    "ThreadPoolSize": 10,
-
     "ListenBacklog": 50,
 
     "Memcached": {
@@ -279,7 +277,6 @@ class Config (object):
             self.updateRejectClients,
             self.updateDropBox,
             self.updateLogLevels,
-            self.updateThreadPoolSize,
             self.updateNotifications,
         ]
 
@@ -434,11 +431,6 @@ class Config (object):
 
         except InvalidLogLevelError, e:
             raise ConfigurationError("Invalid log level: %s" % (e.level))
-
-    @staticmethod
-    def updateThreadPoolSize(self, items):
-        from twisted.internet import reactor
-        reactor.suggestThreadPoolSize(self.ThreadPoolSize)
 
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
