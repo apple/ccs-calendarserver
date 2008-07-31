@@ -185,8 +185,7 @@ class MemCachePool(LoggingMixIn):
 
         @param command: A C{str} representing an attribute of
             L{MemCacheProtocol}.
-        @parma ar        self.assertEquals(self.reactor.calls, [])
-gs: Any positional arguments that should be passed to
+        @parma args: Any positional arguments that should be passed to
             C{command}.
         @param kwargs: Any keyword arguments that should be passed to
             C{command}.
