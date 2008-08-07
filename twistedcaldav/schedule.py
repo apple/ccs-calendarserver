@@ -83,6 +83,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
     liveProperties = CalendarSchedulingCollectionResource.liveProperties + (
         (caldav_namespace, "calendar-free-busy-set"),
+        (caldav_namespace, "schedule-default-calendar-URL"),
     )
 
     def resourceType(self):
@@ -109,6 +110,10 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             # Always return at least an empty list
             if not self.hasDeadProperty(property):
                 return succeed(caldavxml.CalendarFreeBusySet())
+        elif qname == (caldav_namespace, "schedule-default-calendar-URL"):
+            # Always return at least an empty item
+            if not self.hasDeadProperty(property):
+                return succeed(caldavxml.ScheduleDefaultCalendarURL())
             
         return super(ScheduleInboxResource, self).readProperty(property, request)
 
@@ -138,6 +143,18 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             added_calendars = new_calendars.difference(old_calendars)
             for href in added_calendars:
                 cal = (yield request.locateResource(str(href)))
+                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+                    # Validate that href's point to a valid calendar.
+                    raise HTTPError(ErrorResponse(
+                        responsecode.CONFLICT,
+                        (caldav_namespace, "valid-calendar-url")
+                    ))
+
+        elif property.qname() == (caldav_namespace, "schedule-default-calendar-URL"):
+            # Verify that the calendar added in the PROPPATCH is valid.
+            new_calendar = [str(href) for href in property.children]
+            if len(new_calendar) == 1:
+                cal = (yield request.locateResource(str(new_calendar[0])))
                 if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
                     # Validate that href's point to a valid calendar.
                     raise HTTPError(ErrorResponse(
