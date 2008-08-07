@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.http import HTTPError
@@ -22,6 +22,8 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.itip import iTipGenerator
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
+from twistedcaldav.method import report_common
+from twistedcaldav.scheduling.icaldiff import iCalDiff
 
 __all__ = [
     "ImplicitScheduler",
@@ -29,13 +31,19 @@ __all__ = [
 
 log = Logger()
 
+# TODO:
+#
+# Handle the case where a PUT removes the ORGANIZER property. That should be equivalent to cancelling the entire meeting.
+#
+# Figure out proper behavior for what happens when an attendee deletes their copy of an event. For now disallow.
+
 class ImplicitScheduler(object):
     
     def __init__(self):
         pass
 
     @inlineCallbacks
-    def doImplicitScheduling(self, request, resource, calendar):
+    def doImplicitScheduling(self, request, resource, calendar, deleting):
         """
         Do implicit scheduling operation based on the calendar data that is being PUT
 
@@ -43,9 +51,11 @@ class ImplicitScheduler(object):
         @type request:
         @param resource:
         @type resource:
-        @param calendar:
-        @type calendar:
-        
+        @param calendar: the calendar data being written, or None if deleting
+        @type calendar: L{Component} or C{None}
+        @param deleting: C{True} if the resource is being deleting
+        @type deleting: bool
+
         @return: a new calendar object modified with scheduling information
         """
         
@@ -53,8 +63,12 @@ class ImplicitScheduler(object):
         self.resource = resource
         self.calendar = calendar
         self.calendar_owner = (yield self.resource.owner(self.request))
+        self.deleting = deleting
 
-        
+        # When deleting we MUST have the calendar as the actual resource
+        # will have been deleted by now
+        assert deleting and calendar or not deleting
+
         # Get some useful information from the calendar
         self.extractCalendarData()
 
@@ -75,6 +89,7 @@ class ImplicitScheduler(object):
             if self.organizer:
                 if organizer != self.organizer:
                     # We have different ORGANIZERs in the same iCalendar object - this is an error
+                    log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
             else:
                 self.organizer = organizer
@@ -84,6 +99,9 @@ class ImplicitScheduler(object):
         self.attendees = set()
         for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
+            
+        # Some other useful things
+        self.uid = self.calendar.resourceUID()
     
     def isOrganizerScheduling(self):
         """
@@ -124,29 +142,42 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def doImplicitOrganizer(self):
         
+        # Check for a delete
+        if self.deleting:
+
+            log.debug("Implicit - organizer '%s' is deleting UID: '%s'" % (self.organizer, self.uid))
+            self.oldcalendar = self.calendar
+
+            # Cancel all attendees
+            self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
+
         # Check for a new resource or an update
-        if self.resource.exists():
-            
+        elif self.resource.exists():
+
             # Read in existing data
             self.oldcalendar = self.resource.iCalendar()
             
             # Significant change
-            if not self.isChangeSignificant():
+            if self.isChangeInsignificant():
                 # Nothing to do
+                log.debug("Implicit - organizer '%s' is updating UID: '%s' but change is not significant" % (self.organizer, self.uid))
                 return
             
+            log.debug("Implicit - organizer '%s' is updating UID: '%s'" % (self.organizer, self.uid))
+
             # Check for removed attendees
             self.findRemovedAttendees()
         else:
+            log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
             self.oldcalendar = None
             self.cancelledAttendees = ()   
             
         yield self.scheduleWithAttendees()
 
-    def isChangeSignificant(self):
+    def isChangeInsignificant(self):
         
-        # TODO: diff two calendars and see what happened. For now treat any change as significant.
-        return True
+        differ = iCalDiff(self.oldcalendar, self.calendar)
+        return differ.organizerDiff()
     
     def findRemovedAttendees(self):
         """
@@ -168,7 +199,8 @@ class ImplicitScheduler(object):
         yield self.processCancels()
         
         # Process regular requests next
-        yield self.processRequests()
+        if not self.deleting:
+            yield self.processRequests()
 
     @inlineCallbacks
     def processCancels(self):
@@ -203,10 +235,9 @@ class ImplicitScheduler(object):
             scheduler = CalDAVScheduler(self.request, self.resource)
     
             # Do the PUT processing
+            log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
             response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
-            
-            # TODO: need to figure out how to process the response for a CANCEL
-            returnValue(response)
+            self.handleSchedulingResponse(response, True)
             
     @inlineCallbacks
     def processRequests(self):
@@ -229,23 +260,35 @@ class ImplicitScheduler(object):
             scheduler = CalDAVScheduler(self.request, self.resource)
     
             # Do the PUT processing
+            log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
             response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
-            
-            # TODO: need to figure out how to process the response for a REQUEST
-            returnValue(response)
-            
+            self.handleSchedulingResponse(response, True)
+
+    def handleSchedulingResponse(self, response, is_organizer):
+        
+        # TODO: need to figure out how to process the response
+        pass
+
     @inlineCallbacks
     def doImplicitAttendee(self):
 
+        if self.deleting:
+            log.error("Attendee '%s' is not allowed to delete an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+
         # Get the ORGANIZER's current copy of the calendar object
-        self.orgcalendar = self.getOrganizersCopy()
+        yield self.getOrganizersCopy()
+        assert self.organizer_calendar, "Must have the organizer's copy of an invite"
         
         # Determine whether the current change is allowed
-        if not self.isAttendeeChangeSignificant():
+        if self.isAttendeeChangeInsignificant():
+            log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
             return
             
+        log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
         yield self.scheduleWithOrganizer()
 
+    @inlineCallbacks
     def getOrganizersCopy(self):
         """
         Get the Organizer's copy of the event being processed.
@@ -255,19 +298,43 @@ class ImplicitScheduler(object):
         the attendee does the right thing about changing the details in the event.
         """
         
-        # TODO: extract UID and ORGANIZER, find match in ORGANIZER's calendars.
-
-        return None
+        self.organizer_calendar = None
+        if self.organizerPrincipal:
+            # Get Organizer's calendar-home
+            calendar_home = self.organizerPrincipal.calendarHome()
+            
+            # FIXME: because of the URL->resource request mapping thing, we have to force the request
+            # to recognize this resource
+            self.request._rememberResource(calendar_home, calendar_home.url())
     
-    def isAttendeeChangeSignificant(self):
+            # Run a UID query against the UID
+
+            def queryCalendarCollection(collection, uri):
+                rname = collection.index().resourceNameForUID(self.uid)
+                if rname:
+                    self.organizer_calendar = collection.iCalendar(rname)
+                    return succeed(False)
+                else:
+                    return succeed(True)
+            
+            # NB We are by-passing privilege checking here. That should be OK as the data found is not
+            # exposed to the user.
+            yield report_common.applyToCalendarCollections(calendar_home, self.request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+    
+    def isAttendeeChangeInsignificant(self):
         """
         Check whether the change is significant (PARTSTAT) or allowed
         (attendee can only change their property, alarms, TRANSP, and
         instances. Raise an exception if it is not allowed.
         """
         
-        # TODO: all of the above.
-        return True
+        differ = iCalDiff(self.organizer_calendar, self.calendar)
+        change_allowed, no_itip = differ.attendeeMerge(self.attendee)
+        if not change_allowed:
+            log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+
+        return no_itip
 
     @inlineCallbacks
     def scheduleWithOrganizer(self):
@@ -280,7 +347,6 @@ class ImplicitScheduler(object):
         scheduler = CalDAVScheduler(self.request, self.resource)
 
         # Do the PUT processing
+        log.info("Implicit REPLY - attendee: '%s' to organizer: '%s', UID: '%s'" % (self.attendee, self.organizer, self.uid,))
         response = (yield scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg))
-        
-        # TODO: need to figure out how to process the response for a REQUEST
-        returnValue(response)
+        self.handleSchedulingResponse(response, False)

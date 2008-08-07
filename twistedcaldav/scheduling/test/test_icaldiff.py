@@ -15,7 +15,7 @@
 ##
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 
-from twistedcaldav.ical import Property, Component
+from twistedcaldav.ical import Component
 import twistedcaldav.test.util
 
 class ICalDiff (twistedcaldav.test.util.TestCase):

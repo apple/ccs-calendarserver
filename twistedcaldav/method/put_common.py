@@ -679,7 +679,7 @@ class StoreCalendarObjectResource(object):
             # Do scheduling
             if not self.isiTIP:
                 scheduler = ImplicitScheduler()
-                self.calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar))
+                self.calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False))
 
             # Initialize the rollback system
             self.setupRollback()
