@@ -1566,12 +1566,44 @@ class CalendarUserAddressSet (CalDAVElement):
 class CalendarFreeBusySet (CalDAVElement):
     """
     The list of calendar URIs that contribute to free-busy for this principal's calendar user.
-    (CalDAV-schedule, section x.x.x)
+    This was defined in the old caldav scheduling spec but has been removed from the new one.
+    We still need to support it for backwards compatibility.
     """
     name = "calendar-free-busy-set"
     hidden = True
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
+
+class ScheduleCalendarTransp (CalDAVTextElement):
+    """
+    Indicates whether a calendar should be used for freebusy lookups.
+    """
+    name = "schedule-calendar-transp"
+
+    allowed_children = {
+        (caldav_namespace,     "opaque"      ): (0, 1),
+        (caldav_namespace,     "transparent" ): (0, 1),
+    }
+
+class Opaque (CalDAVElement):
+    """
+    Indicates that a calendar is used in freebusy lookups.
+    """
+    name = "opaque"
+
+class Transparent (CalDAVElement):
+    """
+    Indicates that a calendar is not used in freebusy lookups.
+    """
+    name = "transparent"
+
+class ScheduleDefaultCalendarURL (CalDAVTextElement):
+    """
+    A single href indicating which calendar is the default for scheduling.
+    """
+    name = "schedule-default-calendar-URL"
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
 class ScheduleInboxURL (CalDAVTextElement):
     """
@@ -1674,6 +1706,33 @@ class Schedule (CalDAVEmptyElement):
     """
     name = "schedule"
     
+class ScheduleState (CalDAVElement):
+    """
+    Indicates whether a scheduling message in an inbox has been processed
+    by the server.
+    """
+    name = "schedule-state"
+    protected = True
+
+    allowed_children = {
+        (caldav_namespace,     "schedule-processed"   ): (0, 1),
+        (caldav_namespace,     "schedule-unprocessed" ): (0, 1),
+    }
+
+class ScheduleProcessed (CalDAVElement):
+    """
+    Indicates that a scheduling message in an inbox has been processed
+    by the server.
+    """
+    name = "schedule-processed"
+
+class ScheduleUnprocessed (CalDAVElement):
+    """
+    Indicates that a scheduling message in an inbox has not been processed
+    by the server.
+    """
+    name = "schedule-unprocessed"
+
 ##
 # Extensions to davxml.ResourceType
 ##
