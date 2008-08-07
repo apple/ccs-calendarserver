@@ -895,7 +895,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1525,10 +1881,6 @@
+@@ -1525,15 +1881,11 @@
          #litmus = request.headers.getRawHeaders("x-litmus")
          #if litmus: log.msg("*** Litmus test: %s ***" % (litmus,))
  
@@ -906,6 +906,13 @@ Index: twisted/web2/dav/resource.py
          #
          # If this is a collection and the URI doesn't end in "/", redirect.
          #
+-        if self.isCollection() and request.uri[-1:] != "/":
+-            return RedirectResponse(request.uri + "/")
++        if self.isCollection() and request.path[-1:] != "/":
++            return RedirectResponse(request.unparseURL(path=request.path+'/'))
+ 
+         def setHeaders(response):
+             response = IResponse(response)
 @@ -1567,7 +1919,7 @@
      def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
          return succeed(None)

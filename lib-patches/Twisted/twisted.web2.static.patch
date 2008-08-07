@@ -14,3 +14,12 @@ Index: twisted/web2/static.py
          # Remove the dots from the path to split
          self.defaultType = defaultType
          self.ignoredExts = list(ignoredExts)
+@@ -383,7 +386,7 @@
+             return responsecode.NOT_FOUND
+ 
+         if self.fp.isdir():
+-            if req.uri[-1] != "/":
++            if req.path[-1] != "/":
+                 # Redirect to include trailing '/' in URI
+                 return http.RedirectResponse(req.unparseURL(path=req.path+'/'))
+             else:

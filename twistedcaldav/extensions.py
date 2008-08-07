@@ -472,7 +472,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             return responsecode.NOT_FOUND
 
         if self.fp.isdir():
-            if request.uri[-1] != "/":
+            if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
                 return RedirectResponse(request.unparseURL(path=request.path+'/'))
             else:
