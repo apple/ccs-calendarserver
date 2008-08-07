@@ -1574,7 +1574,7 @@ class CalendarFreeBusySet (CalDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
 
-class ScheduleCalendarTransp (CalDAVTextElement):
+class ScheduleCalendarTransp (CalDAVElement):
     """
     Indicates whether a calendar should be used for freebusy lookups.
     """
@@ -1585,19 +1585,19 @@ class ScheduleCalendarTransp (CalDAVTextElement):
         (caldav_namespace,     "transparent" ): (0, 1),
     }
 
-class Opaque (CalDAVElement):
+class Opaque (CalDAVEmptyElement):
     """
     Indicates that a calendar is used in freebusy lookups.
     """
     name = "opaque"
 
-class Transparent (CalDAVElement):
+class Transparent (CalDAVEmptyElement):
     """
     Indicates that a calendar is not used in freebusy lookups.
     """
     name = "transparent"
 
-class ScheduleDefaultCalendarURL (CalDAVTextElement):
+class ScheduleDefaultCalendarURL (CalDAVElement):
     """
     A single href indicating which calendar is the default for scheduling.
     """
@@ -1605,7 +1605,7 @@ class ScheduleDefaultCalendarURL (CalDAVTextElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class ScheduleInboxURL (CalDAVTextElement):
+class ScheduleInboxURL (CalDAVElement):
     """
     A principal property to indicate the schedule INBOX for the principal.
     (CalDAV-schedule, section x.x.x)
@@ -1616,7 +1616,7 @@ class ScheduleInboxURL (CalDAVTextElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class ScheduleOutboxURL (CalDAVTextElement):
+class ScheduleOutboxURL (CalDAVElement):
     """
     A principal property to indicate the schedule OUTBOX for the principal.
     (CalDAV-schedule, section x.x.x)
@@ -1719,14 +1719,14 @@ class ScheduleState (CalDAVElement):
         (caldav_namespace,     "schedule-unprocessed" ): (0, 1),
     }
 
-class ScheduleProcessed (CalDAVElement):
+class ScheduleProcessed (CalDAVEmptyElement):
     """
     Indicates that a scheduling message in an inbox has been processed
     by the server.
     """
     name = "schedule-processed"
 
-class ScheduleUnprocessed (CalDAVElement):
+class ScheduleUnprocessed (CalDAVEmptyElement):
     """
     Indicates that a scheduling message in an inbox has not been processed
     by the server.
