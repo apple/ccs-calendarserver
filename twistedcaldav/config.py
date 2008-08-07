@@ -171,9 +171,10 @@ defaultConfig = {
     #
     # Non-standard CalDAV extensions
     #
-    "EnableDropBox"         : False, # Calendar Drop Box
-    "EnablePrivateEvents"   : False, # Private Events
-    "EnableTimezoneService" : False, # Timezone service
+    "EnableDropBox"           : False, # Calendar Drop Box
+    "EnablePrivateEvents"     : False, # Private Events
+    "EnableTimezoneService"   : False, # Timezone service
+    "EnableAutoAcceptTrigger" : False, # Manually trigger auto-accept behavior
 
     #
     # Notifications

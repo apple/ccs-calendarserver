@@ -34,6 +34,7 @@ from twisted.web2.http import HTTPError, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
+from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 
@@ -155,6 +156,80 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     ))
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
+
+    @inlineCallbacks
+    def http_GET(self, request):
+        """
+        Special behavior - if the inbox belongs to an auto-accept calendar user, then trigger
+        auto-accept processing on any stored items in the inbox.
+        """
+
+        if config.EnableAutoAcceptTrigger:
+
+            # Look for auto-accept request parameter
+            if request.args:
+                autoaccept = request.args.get("auto-accept", ("",))
+                if len(autoaccept) != 1:
+                    raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-autoaccept")))
+    
+                # Check authentication and access controls
+                yield self.authorize(request, (davxml.Write(),))
+                
+                # Find out who the inbox belongs to
+                principal = self.parent.principalForRecord()
+        
+                # If they are an auto-accept calendar user, do special processing
+                if principal.autoSchedule() and autoaccept[0].lower() == "true":
+                    
+                    # Now look at each child resource - order by last-modified
+                    children = []
+                    for name, uid, type in self.index().search(None): #@UnusedVariable
+                        try:
+                            child = yield request.locateChildResource(self, name)
+                            child = IDAVResource(child)
+                        except TypeError:
+                            child = None
+        
+                        if child is not None:
+                            # Check privileges of child - skip if access denied
+                            try:
+                                yield child.checkPrivileges(request, (davxml.Write(),))
+                            except AccessDeniedError:
+                                continue
+                            calendar = self.iCalendar(name)
+                            children.append((child, calendar,))
+                            
+                    # Sort by last modified
+                    children.sort(key=lambda x: x[0].lastModified())
+                    
+                    # Now process each one in order
+                    for child, calendar in children:
+                        reactor.callLater(0.0, itip.handleRequest, *(request, principal, self, calendar, child)) #@UndefinedVariable
+    
+                    if (len(children)):
+                        response_text = "Started auto-processing of %d iTIP messages." % (len(children,))
+                    else:
+                        response_text = "There are no iTIP messages to auto-process."
+    
+                else:
+                    response_text = "This calendar user does not auto-accept invites."
+    
+                # Return some useful information
+                response = Response(200, {}, """<html>
+<head>
+<title>Schedule Inbox Auto Processing</title>
+</head>
+<body>
+<h1>%s</h1>
+</body>
+</html>""" % (response_text,)
+                )
+    
+                response.headers.setHeader("content-type", MimeType("text", "html",  {"charset": "utf-8"}))
+                returnValue(response)
+
+        response = (yield super(ScheduleInboxResource, self).http_GET(request))
+        returnValue(response)
 
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
@@ -322,7 +397,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             timeRange.start = dtstart
             timeRange.end = dtend
 
-            # Look for maksed UID
+            # Look for masked UID
             excludeUID = calendar.getMaskUID()
 
             # Do free busy operation
