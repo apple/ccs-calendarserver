@@ -286,20 +286,24 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         child = self.provisionChild(childName)
         assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
 
-        def setupChild(_):
-            # Set calendar-free-busy-set on inbox
-            inbox = self.getChild("inbox")
+        def setupFreeBusy(_):
+            # Default calendar is initially opaque to freebusy
+            child.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+
             # FIXME: Shouldn't have to call provision() on another resource
             # We cheat here because while inbox will auto-provision itself when located,
             # we need to write a dead property to it pre-emptively.
-            # Possible fix: store the free/busy set property on this resource instead.
+            # This will go away once we remove the free-busy-set property on inbox.
+
+            # Set calendar-free-busy-set on inbox
+            inbox = self.getChild("inbox")
             inbox.provision()
             inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
 
             return self
 
         d = child.createCalendarCollection()
-        d.addCallback(setupChild)
+        d.addCallback(setupFreeBusy)
         return d
 
     def provisionChild(self, name):
