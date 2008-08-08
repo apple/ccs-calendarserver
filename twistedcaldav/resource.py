@@ -225,6 +225,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
         return super(CalDAVResource, self).readProperty(property, request)
 
+    @inlineCallbacks
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -257,7 +258,24 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                     (caldav_namespace, "valid-calendar-data")
                 ))
 
-        return super(CalDAVResource, self).writeProperty(property, request)
+        elif property.qname() == (caldav_namespace, "schedule-calendar-transp"):
+            if not self.isCalendarCollection():
+                raise HTTPError(StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "Property %s may only be set on calendar collection." % (property,)
+                ))
+
+            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+            principal = (yield self.ownerPrincipal(request))
+            
+            # Map owner to their inbox
+            inboxURL = principal.scheduleInboxURL()
+            if inboxURL:
+                inbox = (yield request.locateResource(inboxURL))
+                inbox.processFreeBusyCalendar(request.path, property.children[0] == caldavxml.Opaque())
+
+        result = (yield super(CalDAVResource, self).writeProperty(property, request))
+        returnValue(result)
 
     def writeDeadProperty(self, property):
         val = super(CalDAVResource, self).writeDeadProperty(property)
@@ -319,6 +337,18 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
             result = (yield parent.owner(request))
+            returnValue(result)
+        else:
+            returnValue(None)
+
+    @inlineCallbacks
+    def ownerPrincipal(self, request):
+        """
+        Return the DAV:owner property value (MUST be a DAV:href or None).
+        """
+        parent = (yield self.locateParent(request, request.urlForResource(self)))
+        if parent and isinstance(parent, CalDAVResource):
+            result = (yield parent.ownerPrincipal(request))
             returnValue(result)
         else:
             returnValue(None)
@@ -422,6 +452,49 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         override it.
         """
         unimplemented(self)
+
+    @inlineCallbacks
+    def deletedCalendar(self, request):
+        """
+        Calendar has been deleted. Need to do some extra clean-up.
+
+        @param request:
+        @type request:
+        """
+        
+        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+        principal = (yield self.ownerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            inbox = (yield request.locateResource(inboxURL))
+            inbox.processFreeBusyCalendar(request.path, False)
+
+    @inlineCallbacks
+    def movedCalendar(self, request, destination, destination_uri):
+        """
+        Calendar has been deleted. Need to do some extra clean-up.
+
+        @param request:
+        @type request:
+        """
+        
+        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+        principal = (yield self.ownerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            inbox = (yield request.locateResource(inboxURL))
+            inbox.processFreeBusyCalendar(request.path, False)
+            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
+
+    def isCalendarOpaque(self):
+        
+        assert self.isCalendarCollection()
+        
+        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
+            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
+            return property.children[0] == caldavxml.Opaque()
+        else:
+            return False
 
     def iCalendar(self, name=None):
         """

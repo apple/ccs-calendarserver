@@ -32,7 +32,8 @@ from twisted.web2.http import StatusResponse, HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.resource import isCalendarCollectionResource,\
+    isPseudoCalendarCollectionResource
 from twistedcaldav.log import Logger
 
 log = Logger()
@@ -113,8 +114,15 @@ def http_MOVE(self, request):
     """
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
+        is_calendar_collection = isPseudoCalendarCollectionResource(self)
+
         # Do default WebDAV action
         result = (yield super(CalDAVFile, self).http_MOVE(request))
+        
+        if is_calendar_collection:
+            # Do some clean up
+            yield self.movedCalendar(request, destination, destination_uri)
+
         returnValue(result)
         
     #

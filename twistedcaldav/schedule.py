@@ -164,6 +164,20 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
+    def processFreeBusyCalendar(self, uri, addit):
+        if not self.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
+            fbset = set()
+        else:
+            fbset = set([str(href) for href in self.readDeadProperty((caldav_namespace, "calendar-free-busy-set")).children])
+        if addit:
+            if uri not in fbset:
+                fbset.add(uri)
+                self.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in fbset]))
+        else:
+            if uri in fbset:
+                fbset.remove(uri)
+                self.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in fbset]))
+
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
     CalDAV schedule Outbox resource.

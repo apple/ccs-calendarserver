@@ -40,13 +40,20 @@ def http_DELETE(self, request):
     parentURL = parentForURL(request.uri)
     parent = (yield request.locateResource(parentURL))
 
-    if isPseudoCalendarCollectionResource(parent) and self.exists():
-        calendar = self.iCalendar()
+    calendar = None
+    is_calendar_collection = False
+    is_calendar_resource = False
+    if self.exists():
+        if isPseudoCalendarCollectionResource(parent):
+            is_calendar_resource = True
+            calendar = self.iCalendar()
+        elif isPseudoCalendarCollectionResource(self):
+            is_calendar_collection = True
 
     response = (yield super(CalDAVFile, self).http_DELETE(request))
 
     if response == responsecode.NO_CONTENT:
-        if isPseudoCalendarCollectionResource(parent):
+        if is_calendar_resource:
 
             index = parent.index()
             index.deleteResource(self.fp.basename())
@@ -57,5 +64,10 @@ def http_DELETE(self, request):
             # Do scheduling
             scheduler = ImplicitScheduler()
             yield scheduler.doImplicitScheduling(request, self, calendar, True)
+ 
+        elif is_calendar_collection:
+            
+            # Do some clean up
+            yield self.deletedCalendar(request)
 
     returnValue(response)

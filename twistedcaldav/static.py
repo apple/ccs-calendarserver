@@ -146,6 +146,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
             # Initialize CTag on the calendar collection
             d1 = self.updateCTag()
 
+            # Calendar is initially transparent to freebusy
+            self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
+
             # Create the index so its ready when the first PUTs come in
             d1.addCallback(lambda _: self.index().create())
             d1.addCallback(lambda _: status)

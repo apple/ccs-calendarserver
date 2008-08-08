@@ -328,6 +328,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def owner(self, request):
         return succeed(davxml.HRef(self.principalForRecord().principalURL()))
 
+    def ownerPrincipal(self, request):
+        return succeed(self.principalForRecord())
+
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 
