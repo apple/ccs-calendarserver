@@ -202,6 +202,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
                 records = service.listRecords(prefix + recordType)
             except UnknownRecordTypeError:
                 continue
+            assert records is not None, "%r(%r) returned None" % (service.listRecords, recordType)
             for record in records:
                 names.add(prefix + record.shortName)
 
