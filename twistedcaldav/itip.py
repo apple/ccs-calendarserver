@@ -962,7 +962,7 @@ class iTipGenerator(object):
         return itip
 
     @staticmethod
-    def generateAttendeeReply(original, attendee):
+    def generateAttendeeReply(original, attendee, force_decline=False):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
@@ -983,4 +983,15 @@ class iTipGenerator(object):
             "ORGANIZER",
             "ATTENDEE",
         ))
+        
+        # Now set each ATTENDEE's PARTSTAT to DECLINED
+        if force_decline:
+            attendeeProps = itip.getAttendeeProperties((attendee,))
+            assert attendeeProps, "Must have some matching ATTENDEEs"
+            for attendeeProp in attendeeProps:
+                if "PARTSTAT" in attendeeProp.params():
+                    attendeeProp.params()["PARTSTAT"][0] = "DECLINED"
+                else:
+                    attendeeProp.params()["PARTSTAT"] = ["DECLINED"]
+        
         return itip
