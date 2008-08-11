@@ -57,7 +57,7 @@ class iCalDiff(object):
 
     def attendeeMerge(self, attendee):
         """
-        Merge the ATTENDE specific changes with the organizer's view of the attendee's event.
+        Merge the ATTENDEE specific changes with the organizer's view of the attendee's event.
         This will remove any attempt by the attendee to change things like the time or location.
        
         @param attendee: the value of the ATTENDEE property corresponding to the attendee making the change
@@ -69,10 +69,12 @@ class iCalDiff(object):
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
         self.calendar1.removeAlarms()
+        self.calendar1.removeXProperties()
         self.calendar1.attendeesView((attendee,))
 
         self.calendar2 = self.calendar2.duplicate()
         self.calendar2.removeAlarms()
+        self.calendar2.removeXProperties()
 
         if self.calendar1 == self.calendar2:
             return True, True
@@ -188,7 +190,11 @@ class iCalDiff(object):
         
         # Only accept a change to this attendee's own ATTENDEE property
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
-        for prop in propdiff:
+        for prop in tuple(propdiff):
+            # These ones are OK to change
+            if prop.name() in ("TRANSP", "DTSTAMP", "CREATED", "LAST-MODIFIED",):
+                propdiff.remove(prop)
+                continue
             if prop.name() != "ATTENDEE" or prop.value() != self.attendee:
                 log.debug("Component properties are different: %s" % (propdiff,))
                 return False, False
