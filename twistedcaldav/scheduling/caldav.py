@@ -172,6 +172,9 @@ class ScheduleViaCalDAV(DeliveryService):
             # Store CALDAV:recipient property
             child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
         
+            # Store CALDAV:schedule-state property
+            child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleUnprocessed()))
+        
             # Look for auto-schedule option
             if recipient.principal.autoSchedule():
                 autoresponses.append((recipient.principal, recipient.inbox, child))
