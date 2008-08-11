@@ -88,7 +88,11 @@ class AggregateDirectoryService(DirectoryService):
         return set(self._recordTypes)
 
     def listRecords(self, recordType):
-        return self._query("listRecords", recordType)
+        records = self._query("listRecords", recordType)
+        if records is None:
+            return ()
+        else:
+            return records
 
     def recordWithShortName(self, recordType, shortName):
         return self._query("recordWithShortName", recordType, shortName)
