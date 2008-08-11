@@ -24,7 +24,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import parentForURL
 
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+    isCalendarCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 @inlineCallbacks
@@ -44,10 +45,10 @@ def http_DELETE(self, request):
     is_calendar_collection = False
     is_calendar_resource = False
     if self.exists():
-        if isPseudoCalendarCollectionResource(parent):
+        if isCalendarCollectionResource(parent):
             is_calendar_resource = True
             calendar = self.iCalendar()
-        elif isPseudoCalendarCollectionResource(self):
+        elif isCalendarCollectionResource(self):
             is_calendar_collection = True
 
     response = (yield super(CalDAVFile, self).http_DELETE(request))
