@@ -37,6 +37,8 @@ from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
     RemoteCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
+from twistedcaldav.scheduling.processing import ImplicitProcessor,\
+    ImplicitProcessorException
 
 import md5
 import time
@@ -145,41 +147,61 @@ class ScheduleViaCalDAV(DeliveryService):
         childURL = joinURL(recipient.inboxURL, name)
         child = (yield self.scheduler.request.locateResource(childURL))
 
-        # Copy calendar to inbox (doing fan-out)
+        # Do implicit scheduling message processing
         try:
-            from twistedcaldav.method.put_common import StoreCalendarObjectResource
-            yield StoreCalendarObjectResource(
-                         request=self.scheduler.request,
-                         destination = child,
-                         destination_uri = childURL,
-                         destinationparent = recipient.inbox,
-                         destinationcal = True,
-                         calendar = self.scheduler.calendar,
-                         isiTIP = True
-                     ).run()
-        except:
-            # FIXME: Bare except
+            processor = ImplicitProcessor()
+            processed, autoprocessed = (yield processor.doImplicitProcessing(
+                self.scheduler.request,
+                self.scheduler.calendar,
+                self.scheduler.originator,
+                recipient
+            ))
+        except ImplicitProcessorException, e:
             log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
             err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
             returnValue(False)
-        else:
-            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
 
-            # Store CALDAV:originator property
-            child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
-        
-            # Store CALDAV:recipient property
-            child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
-        
-            # Store CALDAV:schedule-state property
-            child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleUnprocessed()))
-        
-            # Look for auto-schedule option
-            if recipient.principal.autoSchedule():
-                autoresponses.append((recipient.principal, recipient.inbox, child))
-                
+        if autoprocessed:
+            # No need to write the inbox item as it has already been auto-processed
+            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
             returnValue(True)
+        else:
+            # Copy calendar to inbox 
+            try:
+                from twistedcaldav.method.put_common import StoreCalendarObjectResource
+                yield StoreCalendarObjectResource(
+                             request=self.scheduler.request,
+                             destination = child,
+                             destination_uri = childURL,
+                             destinationparent = recipient.inbox,
+                             destinationcal = True,
+                             calendar = self.scheduler.calendar,
+                             isiTIP = True
+                         ).run()
+            except:
+                # FIXME: Bare except
+                log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+                returnValue(False)
+            else:
+                responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+    
+                # Store CALDAV:originator property
+                child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
+            
+                # Store CALDAV:recipient property
+                child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
+            
+                # Store CALDAV:schedule-state property
+                child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleProcessed() if processed else caldavxml.ScheduleUnprocessed()))
+            
+                # Look for auto-schedule option
+                if not processed and recipient.principal.autoSchedule():
+                    autoresponses.append((recipient.principal, recipient.inbox, child))
+                    
+                returnValue(True)
     
     @inlineCallbacks
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid):
