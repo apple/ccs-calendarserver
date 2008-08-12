@@ -52,7 +52,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
     # Make sure target resource is of the right type
     if not self.isCollection():
-        parent = yield self.locateParent(request, request.uri)
+        parent = (yield self.locateParent(request, request.uri))
         if not parent.isPseudoCalendarCollection():
             log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
@@ -105,14 +105,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
         # the child resource loop and supply those to the checkPrivileges on each child.
-        filteredaces = yield self.inheritedACEsforChildren(request)
+        filteredaces = (yield self.inheritedACEsforChildren(request))
     
         # Check for disabled access
         if filteredaces is None:
             disabled = True
             
         # Check private events access status
-        isowner = yield self.isOwner(request)
+        isowner = (yield self.isOwner(request))
 
     elif self.isCollection():
         requestURIis = "collection"
@@ -191,13 +191,13 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
      
-                    child = yield request.locateResource(resource_uri)
+                    child = (yield request.locateResource(resource_uri))
     
                     if not child or not child.exists():
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
     
-                    parent = yield child.locateParent(request, resource_uri)
+                    parent = (yield child.locateParent(request, resource_uri))
     
                     if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -216,17 +216,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                 
                         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                         # the child resource loop and supply those to the checkPrivileges on each child.
-                        filteredaces = yield parent.inheritedACEsforChildren(request)
+                        filteredaces = (yield parent.inheritedACEsforChildren(request))
 
                         # Check private events access status
-                        isowner = yield parent.isOwner(request)
+                        isowner = (yield parent.isOwner(request))
                 else:
                     name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if (resource_uri != request.uri) or not self.exists():
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
     
-                    parent = yield self.locateParent(request, resource_uri)
+                    parent = (yield self.locateParent(request, resource_uri))
     
                     if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -235,10 +235,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
             
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                     # the child resource loop and supply those to the checkPrivileges on each child.
-                    filteredaces = yield parent.inheritedACEsforChildren(request)
+                    filteredaces = (yield parent.inheritedACEsforChildren(request))
 
                     # Check private events access status
-                    isowner = yield parent.isOwner(request)
+                    isowner = (yield parent.isOwner(request))
         
                 # Check privileges - must have at least DAV:read
                 try:

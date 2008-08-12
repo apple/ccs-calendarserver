@@ -29,26 +29,17 @@ __all__ = [
     "parse_duration",
 ]
 
-import datetime
-import cStringIO as StringIO
-
-from vobject import newFromBehavior, readComponents
-from vobject.base import Component as vComponent
-from vobject.base import ContentLine as vContentLine
-from vobject.base import ParseError as vParseError
-from vobject.icalendar import TimezoneComponent
-from vobject.icalendar import dateTimeToString
-from vobject.icalendar import deltaToOffset
-from vobject.icalendar import getTransition
-from vobject.icalendar import stringToDate, stringToDateTime, stringToDurations
-from vobject.icalendar import utc
-
-from twisted.web2.stream import IStream
 from twisted.web2.dav.util import allDataFromStream
-
+from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
+from vobject import newFromBehavior, readComponents
+from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
+from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
+import cStringIO as StringIO
+import datetime
+import heapq
 
 log = Logger()
 
@@ -97,7 +88,7 @@ class Property (object):
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
         if not isinstance(other, Property): return False
-        return self.name() == other.name() and self.value() == other.value()
+        return self.name() == other.name() and self.value() == other.value() and self.params() == other.params()
 
     def __gt__(self, other): return not (self.__eq__(other) or self.__lt__(other))
     def __lt__(self, other):
@@ -346,7 +337,8 @@ class Component (object):
         @return: the L{Component} of the primary type.
         @raise: L{ValueError} if there is more than one primary type.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        if self.name() != "VCALENDAR":
+            assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         result = None
         for component in self.subcomponents():
@@ -716,7 +708,7 @@ class Component (object):
         newcomp = instance.component.duplicate()
  
         # Strip out unwanted recurrence properties
-        for property in newcomp.properties():
+        for property in tuple(newcomp.properties()):
             if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
                 newcomp.removeProperty(property)
         
@@ -771,6 +763,41 @@ class Component (object):
         instances.expandTimeRanges(componentSet, limit)
         return instances
 
+    def deriveInstance(self, rid):
+        """
+        Derive an instance from the master component that has the provided RECURRENCE-ID, but
+        with all other properties, components etc from the master.
+
+        @param rid: recurrence-id value
+        @type rid: L{datetime.datetime}
+        """
+        
+        # Must have a master component
+        master = self.masterComponent()
+        if master is None:
+            return None
+
+        # TODO: Check that the recurrence-id is a valid instance
+        
+        # Create the derived instance
+        newcomp = master.duplicate()
+
+        # Strip out unwanted recurrence properties
+        for property in tuple(newcomp.properties()):
+            if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
+                newcomp.removeProperty(property)
+        
+        # Adjust times
+        offset = rid - newcomp.getStartDateUTC()
+        dtstart = newcomp.getProperty("DTSTART")
+        dtstart.setValue(dtstart.value() + offset)
+        if newcomp.hasProperty("DTEND"):
+            dtend = newcomp.getProperty("DTEND")
+            dtend.setValue(dtend.value() + offset)
+        newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value()))
+            
+        return newcomp
+        
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.
@@ -998,6 +1025,32 @@ class Component (object):
 
         return None
 
+    def getOrganizersByInstance(self):
+        """
+        Get the organizer value for each instance.
+        
+        @return: a list of tuples of (organizer value, recurrence-id)
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getOrganizersByInstance()
+            return result
+        else:
+            try:
+                # Should be just one ORGANIZER
+                org = self.propertyValue("ORGANIZER")
+                rid = self.getRecurrenceIDUTC()
+                if org:
+                    return ((org, rid),)
+            except ValueError:
+                pass
+
+        return ()
+
     def getOrganizerProperty(self):
         """
         Get the organizer value. Works on either a VCALENDAR or on a component.
@@ -1037,6 +1090,27 @@ class Component (object):
             return [p.value() for p in self.properties("ATTENDEE")]
 
         return None
+
+    def getAttendeesByInstance(self):
+        """
+        Get the organizer value for each instance.
+        
+        @return: a list of tuples of (organizer value, recurrence-id)
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getAttendeesByInstance()
+            return result
+        else:
+            result = ()
+            rid = self.getRecurrenceIDUTC()
+            for attendee in self.properties("ATTENDEE"):
+                result += ((attendee.value(), rid),)
+            return result
 
     def getAttendeeProperty(self, match):
         """
@@ -1113,6 +1187,99 @@ class Component (object):
 
         return None
 
+    def attendeesView(self, attendees):
+        """
+        Filter out any components that all attendees are not present in. Use EXDATEs
+        on the master to account for changes.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+            
+        # Modify any components that reference the attendee, make note of the ones that don't
+        remove_components = []
+        master_component = None
+        removed_master = False
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            found_all_attendees = True
+            for attendee in attendees:
+                if component.getAttendeeProperty((attendee,)) is None:
+                    found_all_attendees = False
+                    break
+            if not found_all_attendees:
+                remove_components.append(component)
+            if component.getRecurrenceIDUTC() is None:
+                master_component = component
+                if not found_all_attendees:
+                    removed_master = True
+                
+        # Now remove the unwanted components - but we may need to exdate the master
+        exdates = []
+        for component in remove_components:
+            rid = component.getRecurrenceIDUTC()
+            if rid is not None:
+                exdates.append(rid)
+            self.removeComponent(component)
+            
+        if not removed_master and master_component is not None:
+            for exdate in exdates:
+                master_component.addProperty(Property("EXDATE", (exdate,)))
+        
+    def removeAllButOneAttendee(self, attendee):
+        """
+        Remove all ATTENDEE properties except for the one specified.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value() != attendee]
+            
+    def removeAlarms(self):
+        """
+        Remove all Alarms components
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.removeAlarms()
+        else:
+            for component in tuple(self.subcomponents()):
+                if component.name() == "VALARM":
+                    self.removeComponent(component)
+                
+    def removeUnwantedProperties(self, keep_properties):
+        """
+        Remove all properties that do not match the provided set.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep_properties]
+                
+    def removeXProperties(self):
+        """
+        Remove all X- properties.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                [component.removeProperty(p) for p in tuple(component.properties()) if p.name().startswith("X-")]
+            
 ##
 # Dates and date-times
 ##
@@ -1277,9 +1444,8 @@ def tzexpand(tzdata, start, end):
 
 #
 # This function is from "Python Cookbook, 2d Ed., by Alex Martelli, Anna
-# Martelli Ravenscroft, and Davis Ascher (O'Reilly Media, 2005) 0-596-00797-3."
+# Martelli Ravenscroft, and David Ascher (O'Reilly Media, 2005) 0-596-00797-3."
 #
-import heapq
 def merge(*iterables):
     """
     Merge sorted iterables into one sorted iterable.

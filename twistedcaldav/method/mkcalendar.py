@@ -20,7 +20,7 @@ CalDAV MKCALENDAR method.
 
 __all__ = ["http_MKCALENDAR"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -34,6 +34,7 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
+@inlineCallbacks
 def http_MKCALENDAR(self, request):
     """
     Respond to a MKCALENDAR request.
@@ -43,13 +44,8 @@ def http_MKCALENDAR(self, request):
     #
     # Check authentication and access controls
     #
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-    yield parent
-    parent = parent.getResult()
-
-    x = waitForDeferred(parent.authorize(request, (davxml.Bind(),)))
-    yield x
-    x.getResult()
+    parent = (yield request.locateResource(parentForURL(request.uri)))
+    yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
         log.err("Attempt to create collection where file exists: %s"
@@ -71,13 +67,8 @@ def http_MKCALENDAR(self, request):
     # Read request body
     #
     try:
-        doc = waitForDeferred(davXMLFromStream(request.stream))
-        yield doc
-        doc = doc.getResult()
-
-        result = waitForDeferred(self.createCalendar(request))
-        yield result
-        result = result.getResult()
+        doc = (yield davXMLFromStream(request.stream))
+        yield self.createCalendar(request)
     except ValueError, e:
         log.err("Error while handling MKCALENDAR: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
@@ -103,9 +94,7 @@ def http_MKCALENDAR(self, request):
                     if property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
                         self.writeDeadProperty(property)
                     else:
-                        p = waitForDeferred(self.writeProperty(property, request))
-                        yield p
-                        p.getResult()
+                        yield self.writeProperty(property, request)
                 except HTTPError:
                     errors.add(Failure(), property)
                     got_an_error = True
@@ -119,6 +108,4 @@ def http_MKCALENDAR(self, request):
             errors.error()
             raise HTTPError(MultiStatusResponse([errors.response()]))
 
-    yield responsecode.CREATED
-
-http_MKCALENDAR = deferredGenerator(http_MKCALENDAR)
+    returnValue(responsecode.CREATED)

@@ -33,7 +33,7 @@ import urllib
 import cgi
 import time
 
-from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred, DeferredList
+from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -118,6 +118,7 @@ class SudoSACLMixin(object):
 
         return super(SudoSACLMixin, self).findPrincipalForAuthID(authid)
 
+    @inlineCallbacks
     def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
         Determine the authorization principal for the given request and authentication principal.
@@ -165,8 +166,7 @@ class SudoSACLMixin(object):
 
                     if authzPrincipal is not None:
                         log.msg("Allow proxy: user '%s' as '%s'" % (authid, authz,))
-                        yield authzPrincipal
-                        return
+                        returnValue(authzPrincipal)
                     else:
                         log.msg("Could not find authorization user id: '%s'" % 
                                 (authz,))
@@ -179,12 +179,8 @@ class SudoSACLMixin(object):
             raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
-            d = waitForDeferred(super(SudoSACLMixin, self).authorizationPrincipal(request, authid, authnPrincipal))
-            yield d
-            yield d.getResult()
-            return
-
-    authorizationPrincipal = deferredGenerator(authorizationPrincipal)
+            result = (yield super(SudoSACLMixin, self).authorizationPrincipal(request, authid, authnPrincipal))
+            returnValue(result)
 
 
 def updateCacheTokenOnCallback(f):
@@ -208,6 +204,12 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     Extended L{twisted.web2.dav.resource.DAVResource} implementation.
     """
 
+    def renderHTTP(self, request):
+        
+        log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+
+        return super(DAVResource, self).renderHTTP(request)
+
     @updateCacheTokenOnCallback
     def http_PROPPATCH(self, request):
         return super(DAVResource, self).http_PROPPATCH(request)
@@ -222,7 +224,8 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     def http_ACL(self, request):
         return super(DAVResource, self).http_ACL(request)
 
-
+    
+    @inlineCallbacks
     def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
         """
         See L{IDAVResource.findChildren}.
@@ -244,14 +247,11 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
         if depth == "0" or not self.isCollection():
-            yield None
-            return
+            returnValue(None)
 
         # First find all depth 1 children
         #children = []
-        #d = waitForDeferred(self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None))
-        #yield d
-        #d.getResult()
+        #yield self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None)
 
         children = []
         basepath = request.urlForResource(self)
@@ -260,9 +260,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
             if names and childname not in names:
                 continue
             childpath = joinURL(basepath, childname)
-            d = waitForDeferred(request.locateChildResource(self, childname))
-            yield d
-            child = d.getResult()
+            child = (yield request.locateChildResource(self, childname))
             if child is None:
                 children.append((None, childpath + "/"))
             else:
@@ -274,21 +272,15 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
         # Generate (acl,supported_privs) map
         aclmap = {}
         for resource, url in children:
-            acl = waitForDeferred(resource.accessControlList(request, inheritance=False, inherited_aces=inherited_aces))
-            yield acl
-            acl = acl.getResult()
-            supportedPrivs = waitForDeferred(resource.supportedPrivileges(request))
-            yield supportedPrivs
-            supportedPrivs = supportedPrivs.getResult()
+            acl = (yield resource.accessControlList(request, inheritance=False, inherited_aces=inherited_aces))
+            supportedPrivs = (yield resource.supportedPrivileges(request))
             aclmap.setdefault((pickle.dumps(acl), supportedPrivs), (acl, supportedPrivs, []))[2].append((resource, url))           
 
         # Now determine whether each ace satisfies privileges
         #print aclmap
         allowed_collections = []
         for items in aclmap.itervalues():
-            checked = waitForDeferred(self.checkACLPrivilege(request, items[0], items[1], privileges, inherited_aces))
-            yield checked
-            checked = checked.getResult()
+            checked = (yield self.checkACLPrivilege(request, items[0], items[1], privileges, inherited_aces))
             if checked:
                 for resource, url in items[2]:
                     if okcallback:
@@ -303,22 +295,16 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
         # TODO: Depth: infinity support
         if depth == "infinity":
             for collection, url in allowed_collections:
-                collection_inherited_aces = waitForDeferred(collection.inheritedACEsforChildren(request))
-                yield collection_inherited_aces
-                collection_inherited_aces = collection_inherited_aces.getResult()
-                d = waitForDeferred(collection.findChildrenFaster(depth, request, okcallback, badcallback, names, privileges, inherited_aces=collection_inherited_aces))
-                yield d
-                d.getResult()
+                collection_inherited_aces = (yield collection.inheritedACEsforChildren(request))
+                yield collection.findChildrenFaster(depth, request, okcallback, badcallback, names, privileges, inherited_aces=collection_inherited_aces)
                 
-        yield None
-  
-    findChildrenFaster = deferredGenerator(findChildrenFaster)
+        returnValue(None)
 
+    @inlineCallbacks
     def checkACLPrivilege(self, request, acl, privyset, privileges, inherited_aces):
         
         if acl is None:
-            yield False
-            return
+            returnValue(False)
 
         principal = self.currentPrincipal(request)
 
@@ -338,9 +324,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
                 if not self.matchPrivilege(davxml.Privilege(privilege), ace.privileges, privyset):
                     continue
 
-                match = waitForDeferred(self.matchPrincipal(principal, ace.principal, request))
-                yield match
-                match = match.getResult()
+                match = (yield self.matchPrincipal(principal, ace.principal, request))
 
                 if match:
                     if ace.invert:
@@ -354,9 +338,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
                 if not ace.allow:
                     denied.append(privilege)
 
-        yield len(denied) + len(pending) == 0
-
-    checkACLPrivilege = deferredGenerator(checkACLPrivilege)
+        returnValue(len(denied) + len(pending) == 0)
 
     def fullAccessControlList(self, acl, inherited_aces):
         """
@@ -395,7 +377,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
 
         return acl
     
-    @deferredGenerator
+    @inlineCallbacks
     def matchPrincipal(self, principal1, principal2, request):
         """
         Implementation of DAVResource.matchPrincipal that caches the principal match
@@ -412,12 +394,10 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
 
         match = request.matchPrincipalCache.get(cache_key, None)
         if match is None:
-            match = waitForDeferred(super(DAVResource, self).matchPrincipal(principal1, principal2, request))
-            yield match
-            match = match.getResult()
+            match = (yield super(DAVResource, self).matchPrincipal(principal1, principal2, request))
             request.matchPrincipalCache[cache_key] = match
             
-        yield match
+        returnValue(match)
 
 class DAVPrincipalResource (SuperDAVPrincipalResource, LoggingMixIn):
     """
