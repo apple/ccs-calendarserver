@@ -34,8 +34,11 @@ log = Logger()
 # TODO:
 #
 # Handle the case where a PUT removes the ORGANIZER property. That should be equivalent to cancelling the entire meeting.
+# Support SCHEDULE-AGENT property
+# Support SCHEDULE-STATUS property
+# Support live calendars
+# Support Schedule-Reply header
 #
-# Figure out proper behavior for what happens when an attendee deletes their copy of an event. For now disallow.
 
 class ImplicitScheduler(object):
     
