@@ -341,7 +341,7 @@ class XMPPNotifierTests(TestCase):
     def test_sendWhileConnected(self):
         self.notifier.enqueue("/principals/__uids__/test")
 
-        iq = self.xmlStream.elements[0]
+        iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
 
         pubsubElement = list(iq.elements())[0]
@@ -358,21 +358,21 @@ class XMPPNotifierTests(TestCase):
         notifier = XMPPNotifier(self.settings, reactor=Clock(),
             configOverride=self.xmppDisabledConfig)
         notifier.enqueue("/principals/__uids__/test")
-        self.assertEquals(self.xmlStream.elements, [])
+        self.assertEquals(len(self.xmlStream.elements), 1)
 
     def test_publishNewNode(self):
         self.notifier.publishNode("testNodeName")
-        iq = self.xmlStream.elements[0]
+        iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
 
     def test_publishReponse400(self):
         response = IQ(self.xmlStream, type='error')
         errorElement = response.addElement('error')
         errorElement['code'] = '400'
-        self.assertEquals(len(self.xmlStream.elements), 0)
-        self.notifier.responseFromPublish("testNodeName", response)
         self.assertEquals(len(self.xmlStream.elements), 1)
-        iq = self.xmlStream.elements[0]
+        self.notifier.responseFromPublish("testNodeName", response)
+        self.assertEquals(len(self.xmlStream.elements), 2)
+        iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
         self.assertEquals(iq['type'], "get")
 
@@ -389,10 +389,10 @@ class XMPPNotifierTests(TestCase):
         response = IQ(self.xmlStream, type='error')
         errorElement = response.addElement('error')
         errorElement['code'] = '404'
-        self.assertEquals(len(self.xmlStream.elements), 0)
-        self.notifier.responseFromPublish("testNodeName", response)
         self.assertEquals(len(self.xmlStream.elements), 1)
-        iq = self.xmlStream.elements[0]
+        self.notifier.responseFromPublish("testNodeName", response)
+        self.assertEquals(len(self.xmlStream.elements), 2)
+        iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
         self.assertEquals(iq['type'], "set")
 
@@ -419,25 +419,26 @@ class XMPPNotifierTests(TestCase):
         formElement = configElement.addElement('x')
         formElement['type'] = 'form'
         fields = [
-            ( "unknown", "don't edit me" ),
-            ( "pubsub#deliver_payloads", "1" ),
-            ( "pubsub#persist_items", "1" ),
+            ( "unknown", "don't edit me", "text-single" ),
+            ( "pubsub#deliver_payloads", "1", "boolean" ),
+            ( "pubsub#persist_items", "1", "boolean" ),
         ]
         expectedFields = {
             "unknown" : "don't edit me",
-            "pubsub#deliver_payloads" : "0",
+            "pubsub#deliver_payloads" : "1",
             "pubsub#persist_items" : "0",
         }
         for field in fields:
             fieldElement = formElement.addElement("field")
             fieldElement['var'] = field[0]
+            fieldElement['type'] = field[2]
             fieldElement.addElement('value', content=field[1])
 
-        self.assertEquals(len(self.xmlStream.elements), 0)
-        self.notifier.responseFromConfigurationForm("testNodeName", response)
         self.assertEquals(len(self.xmlStream.elements), 1)
+        self.notifier.responseFromConfigurationForm("testNodeName", response)
+        self.assertEquals(len(self.xmlStream.elements), 2)
 
-        iq = self.xmlStream.elements[0]
+        iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
         self.assertEquals(iq['type'], "set")
 
@@ -468,16 +469,18 @@ class XMPPNotificationFactoryTests(TestCase):
         factory.connected(xmlStream)
         factory.authenticated(xmlStream)
 
-        self.assertEquals(len(xmlStream.elements), 1)
+        self.assertEquals(len(xmlStream.elements), 2)
         presence = xmlStream.elements[0]
         self.assertEquals(presence.name, 'presence')
+        iq = xmlStream.elements[1]
+        self.assertEquals(iq.name, 'iq')
 
         clock.advance(5)
 
-        self.assertEquals(len(xmlStream.elements), 2)
-        presence = xmlStream.elements[1]
+        self.assertEquals(len(xmlStream.elements), 3)
+        presence = xmlStream.elements[2]
         self.assertEquals(presence.name, 'presence')
 
         factory.disconnected(xmlStream)
         clock.advance(5)
-        self.assertEquals(len(xmlStream.elements), 2)
+        self.assertEquals(len(xmlStream.elements), 3)

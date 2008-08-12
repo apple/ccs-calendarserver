@@ -460,9 +460,13 @@ limitations under the License.
         <key>KeepAliveSeconds</key>
         <integer>120</integer>
 
-        <!-- Sends messages to this account for debugging -->
-        <key>TestJID</key>
-        <string></string>
+        <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server -->
+        <key>AllowedJIDs</key>
+        <array>
+          <!--
+          <string>*.apple.com</string>
+          -->
+        </array>
       </dict>
     </array>
   </dict>
