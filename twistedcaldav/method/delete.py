@@ -24,8 +24,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import parentForURL
 
-from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
-    isCalendarCollectionResource
+from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 @inlineCallbacks
