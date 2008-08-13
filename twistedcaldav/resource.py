@@ -344,39 +344,43 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 acls = davxml.ACL(ace, *acls.children)
         returnValue(acls)
 
-    @inlineCallbacks
     def owner(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        parent = (yield self.locateParent(request, request.urlForResource(self)))
-        if parent and isinstance(parent, CalDAVResource):
-            result = (yield parent.owner(request))
-            returnValue(result)
-        else:
-            returnValue(None)
+        
+        def _gotParent(parent):
+            if parent and isinstance(parent, CalDAVResource):
+                return parent.owner(request)
 
-    @inlineCallbacks
+        d = self.locateParent(request, request.urlForResource(self))
+        d.addCallback(_gotParent)
+        return d
+
     def ownerPrincipal(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        parent = (yield self.locateParent(request, request.urlForResource(self)))
-        if parent and isinstance(parent, CalDAVResource):
-            result = (yield parent.ownerPrincipal(request))
-            returnValue(result)
-        else:
-            returnValue(None)
+        def _gotParent(parent):
+            if parent and isinstance(parent, CalDAVResource):
+                return parent.ownerPrincipal(request)
 
-    @inlineCallbacks
+        d = self.locateParent(request, request.urlForResource(self))
+        d.addCallback(_gotParent)
+        return d
+
     def isOwner(self, request):
         """
         Determine whether the DAV:owner of this resource matches the currently authorized principal
         in the request.
         """
 
-        owner = (yield self.owner(request))
-        returnValue(davxml.Principal(owner) == self.currentPrincipal(request))
+        def _gotOwner(owner):
+            return davxml.Principal(owner) == self.currentPrincipal(request)
+
+        d = self.owner(request)
+        d.addCallback(_gotOwner)
+        return d
 
     ##
     # CalDAV

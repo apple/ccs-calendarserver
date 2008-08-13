@@ -57,7 +57,6 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     
     matchcount = [0]
     
-    @inlineCallbacks
     def generateFreeBusyInfo(calresource, uri): #@UnusedVariable
         """
         Run a free busy report on the specified calendar collection
@@ -65,8 +64,14 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         @param calresource: the L{CalDAVFile} for a calendar collection.
         @param uri: the uri for the calendar collecton resource.
         """
-        matchcount[0] = (yield report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0]))
-        returnValue(True)
+        
+        def _gotResult(result):
+            matchcount[0] = result
+            return True
+
+        d = report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0])
+        d.addCallback(_gotResult)
+        return d
 
     # Run report taking depth into account
     try:

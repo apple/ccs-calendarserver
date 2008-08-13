@@ -139,7 +139,6 @@ class ImplicitScheduler(object):
         
         return False
 
-    @inlineCallbacks
     def doImplicitOrganizer(self):
         
         # Check for a delete
@@ -172,7 +171,7 @@ class ImplicitScheduler(object):
             self.oldcalendar = None
             self.cancelledAttendees = ()   
             
-        yield self.scheduleWithAttendees()
+        return self.scheduleWithAttendees()
 
     def isChangeInsignificant(self):
         
@@ -339,23 +338,20 @@ class ImplicitScheduler(object):
 
         return no_itip
 
-    @inlineCallbacks
     def scheduleWithOrganizer(self):
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee)
 
         # Send scheduling message
-        yield self.sendToOrganizer("REPLY", itipmsg)
+        return self.sendToOrganizer("REPLY", itipmsg)
 
-    @inlineCallbacks
     def scheduleCancelWithOrganizer(self):
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, True)
 
         # Send scheduling message
-        yield self.sendToOrganizer("CANCEL", itipmsg)
+        return self.sendToOrganizer("CANCEL", itipmsg)
 
-    @inlineCallbacks
     def sendToOrganizer(self, action, itipmsg):
 
         # Send scheduling message
@@ -364,6 +360,11 @@ class ImplicitScheduler(object):
         scheduler = CalDAVScheduler(self.request, self.resource)
 
         # Do the PUT processing
+        def _gotResponse(response):
+            self.handleSchedulingResponse(response, False)
+            
         log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
-        response = (yield scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg))
-        self.handleSchedulingResponse(response, False)
+        d = scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg)
+        d.addCallback(_gotResponse)
+        return d
+

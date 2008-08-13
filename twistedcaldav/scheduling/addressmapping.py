@@ -81,11 +81,14 @@ class ScheduleAddressMapper(object):
 
         returnValue(cuaddr_type)
 
-    @inlineCallbacks
     def isCalendarUserInMyDomain(self, cuaddr):
 
         # Check whether it is a possible local address
-        serviceType = (yield self.getCalendarUserServiceType(cuaddr))
-        returnValue(serviceType == DeliveryService.serviceType_caldav)
+        def _gotResult(serviceType):
+            return serviceType == DeliveryService.serviceType_caldav
+            
+        d = self.getCalendarUserServiceType(cuaddr)
+        d.addCallback(_gotResult)
+        return d
 
 mapper = ScheduleAddressMapper()

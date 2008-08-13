@@ -280,7 +280,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
 
-    @inlineCallbacks
     def http_POST(self, request):
         """
         The CalDAV POST method.
@@ -291,14 +290,17 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         issues which the other approach would have with large numbers of recipients.
         """
         # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.Schedule(),))
-
-        # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(request, self)
-
-        # Do the POST processing treating
-        response = (yield scheduler.doSchedulingViaPOST())
-        returnValue(response)
+        def _gotResult(_):
+    
+            # This is a local CALDAV scheduling operation.
+            scheduler = CalDAVScheduler(request, self)
+    
+            # Do the POST processing treating
+            return scheduler.doSchedulingViaPOST()
+            
+        d = self.authorize(request, (caldavxml.Schedule(),))
+        d.addCallback(_gotResult)
+        return d
 
 class IScheduleInboxResource (CalDAVResource):
     """
@@ -356,18 +358,21 @@ class IScheduleInboxResource (CalDAVResource):
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
 
-    @inlineCallbacks
     def http_POST(self, request):
         """
         The server-to-server POST method.
         """
 
         # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.Schedule(),))
+        def _gotResult(_):
+    
+            # This is a server-to-server scheduling operation.
+            scheduler = IScheduleScheduler(request, self)
+    
+            # Do the POST processing treating this as a non-local schedule
+            return scheduler.doSchedulingViaPOST()
 
-        # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(request, self)
+        d = self.authorize(request, (caldavxml.Schedule(),))
+        d.addCallback(_gotResult)
+        return d
 
-        # Do the POST processing treating this as a non-local schedule
-        response = (yield scheduler.doSchedulingViaPOST())
-        returnValue(response)

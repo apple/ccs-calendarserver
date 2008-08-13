@@ -61,7 +61,7 @@ from twisted.python import log
 
 from StringIO import StringIO
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import succeed
 
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import allDataFromStream
@@ -201,7 +201,6 @@ class Logger (object):
         """
         return cmpLogLevels(self.level(), level) <= 0
 
-    @inlineCallbacks
     def logRequest(self, level, message, request, **kwargs):
         """
         Log an HTTP request.
@@ -229,15 +228,21 @@ class Logger (object):
             # We need to play a trick with the request stream as we can only read it once. So we
             # read it, store the value in a MemoryStream, and replace the request's stream with that,
             # so the data can be read again.
-            data = yield allDataFromStream(request.stream)
-            iostr.write(data)
+            def _gotData(data):
+                iostr.write(data)
+                
+                request.stream = MemoryStream(data)
+                request.stream.doStartReading = None
             
-            request.stream = MemoryStream(data)
-            request.stream.doStartReading = None
+                self.emit(level, iostr.getvalue(), **kwargs)
+
+            d = allDataFromStream(request.stream)
+            d.addCallback(_gotData)
+            return d
         
-            self.emit(level, iostr.getvalue(), **kwargs)
+        else:
+            return succeed(None)
     
-    @inlineCallbacks
     def logResponse(self, level, message, response, **kwargs):
         """
         Log an HTTP request.
@@ -262,13 +267,17 @@ class Logger (object):
             # We need to play a trick with the response stream to ensure we don't mess it up. So we
             # read it, store the value in a MemoryStream, and replace the response's stream with that,
             # so the data can be read again.
-            data = yield allDataFromStream(response.stream)
-            iostr.write(data)
+            def _gotData(data):
+                iostr.write(data)
+                
+                response.stream = MemoryStream(data)
+                response.stream.doStartReading = None
             
-            response.stream = MemoryStream(data)
-            response.stream.doStartReading = None
-        
-            self.emit(level, iostr.getvalue(), **kwargs)
+                self.emit(level, iostr.getvalue(), **kwargs)
+                
+            d = allDataFromStream(response.stream)
+            d.addCallback(_gotData)
+            return d
 
 class LoggingMixIn (object):
     """

@@ -23,7 +23,7 @@ __all__ = ["StoreCalendarObjectResource"]
 import types
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import maybeDeferred, returnValue
 from twisted.python import failure
 from twisted.python.filepath import FilePath
@@ -240,7 +240,6 @@ class StoreCalendarObjectResource(object):
         self.rollback = None
         self.access = None
 
-    @inlineCallbacks
     def fullValidation(self):
         """
         Do full validation of source and destination calendar data.
@@ -306,7 +305,9 @@ class StoreCalendarObjectResource(object):
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
-                yield self.validAccess()
+                return self.validAccess()
+            else:
+                return succeed(None)
     
     def validResourceName(self):
         """
@@ -389,7 +390,6 @@ class StoreCalendarObjectResource(object):
 
         return result, message
 
-    @inlineCallbacks
     def validAccess(self):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
@@ -403,17 +403,25 @@ class StoreCalendarObjectResource(object):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            parent_owner = (yield self.destinationparent.owner(self.request))
-            
-            authz = self.destinationparent.currentPrincipal(self.request)
-            if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+            def _callback(parent_owner):
+                
+                authz = self.destinationparent.currentPrincipal(self.request)
+                if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+                
+                return None
+
+            d = self.destinationparent.owner(self.request)
+            d.addCallback(_callback)
+            return d
         else:
             # Check whether an access property was present before and write that into the calendar data
             if not self.source and self.destination.exists() and self.destination.hasDeadProperty(TwistedCalendarAccessProperty):
                 old_access = str(self.destination.readDeadProperty(TwistedCalendarAccessProperty))
                 self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
                 self.calendardata = str(self.calendar)
+                
+        return succeed(None)
 
     def noUIDConflict(self, uid):
         """

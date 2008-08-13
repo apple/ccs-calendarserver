@@ -59,7 +59,6 @@ class ScheduleViaISchedule(DeliveryService):
         # Do default match
         return super(ScheduleViaISchedule, cls).matchCalendarUserAddress(cuaddr)
 
-    @inlineCallbacks
     def generateSchedulingResponses(self):
         """
         Generate scheduling responses for remote recipients.
@@ -101,7 +100,7 @@ class ScheduleViaISchedule(DeliveryService):
             requestor = IScheduleRequest(self.scheduler, server, recipients, self.responses)
             deferreds.append(requestor.doRequest())
 
-        yield DeferredList(deferreds)
+        return DeferredList(deferreds)
 
 class IScheduleRequest(object):
     

@@ -89,7 +89,6 @@ class Scheduler(object):
         response = (yield self.doScheduling())
         returnValue(response)
 
-    @inlineCallbacks
     def doSchedulingViaPUT(self, originator, recipients, calendar):
         """
         The implicit scheduling PUT operation.
@@ -105,8 +104,7 @@ class Scheduler(object):
         self.recipients = recipients
         self.calendar = calendar
 
-        response = (yield self.doScheduling())
-        returnValue(response)
+        return self.doScheduling()
 
     @inlineCallbacks
     def doScheduling(self):
@@ -323,7 +321,6 @@ class Scheduler(object):
         # Return with final response if we are done
         returnValue(responses.response())
     
-    @inlineCallbacks
     def generateLocalSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for CalDAV recipients.
@@ -331,9 +328,8 @@ class Scheduler(object):
 
         # Create the scheduler and run it.
         requestor = ScheduleViaCalDAV(self, recipients, responses, freebusy)
-        yield requestor.generateSchedulingResponses()
+        return requestor.generateSchedulingResponses()
 
-    @inlineCallbacks
     def generateRemoteSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for remote recipients.
@@ -341,9 +337,8 @@ class Scheduler(object):
 
         # Create the scheduler and run it.
         requestor = ScheduleViaISchedule(self, recipients, responses, freebusy)
-        yield requestor.generateSchedulingResponses()
+        return requestor.generateSchedulingResponses()
 
-    @inlineCallbacks
     def generateIMIPSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for iMIP recipients.
@@ -351,7 +346,7 @@ class Scheduler(object):
 
         # Create the scheduler and run it.
         requestor = ScheduleViaIMip(self, recipients, responses, freebusy)
-        yield requestor.generateSchedulingResponses()
+        return requestor.generateSchedulingResponses()
 
 class CalDAVScheduler(Scheduler):
 
@@ -359,14 +354,12 @@ class CalDAVScheduler(Scheduler):
         super(CalDAVScheduler, self).__init__(request, resource)
         self.doingPOST = False
 
-    @inlineCallbacks
     def doSchedulingViaPOST(self):
         """
         The Scheduling POST operation on an Outbox.
         """
         self.doingPOST = True
-        result = (yield super(CalDAVScheduler, self).doSchedulingViaPOST())
-        returnValue(result)
+        return super(CalDAVScheduler, self).doSchedulingViaPOST()
 
     def checkAuthorization(self):
         # Must have an authenticated user

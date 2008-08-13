@@ -23,7 +23,6 @@ __all__ = [
     "TimezoneServiceResource",
 ]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
@@ -105,35 +104,37 @@ class TimezoneServiceResource (CalDAVResource):
         # GET and POST do the same thing
         return self.http_POST(request)
 
-    @inlineCallbacks
     def http_POST(self, request):
         """
         The timezone service POST method.
         """
 
         # Check authentication and access controls
-        yield self.authorize(request, (davxml.Read(),))
-        
-        if not request.args:
-            # Do normal GET behavior
-            response = yield self.render(request)
-            returnValue(response)
-
-        method = request.args.get("method", ("",))
-        if len(method) != 1:
-            raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-method")))
-        method = method[0]
+        def _gotResult(_):
             
-        action = {
-            "list"   : self.doPOSTList,
-            "get"    : self.doPOSTGet,
-            "expand" : self.doPOSTExpand,
-        }.get(method, None)
-        
-        if action is None:
-            raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "supported-method")))
-
-        returnValue(action(request))
+            if not request.args:
+                # Do normal GET behavior
+                return self.render(request)
+    
+            method = request.args.get("method", ("",))
+            if len(method) != 1:
+                raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-method")))
+            method = method[0]
+                
+            action = {
+                "list"   : self.doPOSTList,
+                "get"    : self.doPOSTGet,
+                "expand" : self.doPOSTExpand,
+            }.get(method, None)
+            
+            if action is None:
+                raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "supported-method")))
+    
+            return action(request)
+            
+        d = self.authorize(request, (davxml.Read(),))
+        d.addCallback(_gotResult)
+        return d
 
     def doPOSTList(self, request):
         """

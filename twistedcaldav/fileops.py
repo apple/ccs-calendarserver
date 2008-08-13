@@ -18,7 +18,6 @@
 Various file utilities.
 """
 
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav.fileop import copy
 from twisted.web2.dav.fileop import put
 from twisted.web2.dav.xattrprops import xattrPropertyStore
@@ -29,7 +28,6 @@ class FakeXAttrResource(object):
     def __init__(self, fp):
         self.fp = fp
 
-@inlineCallbacks
 def putWithXAttrs(stream, filepath):
     """
     Write a file to a possibly existing path and preserve any xattrs at that path.
@@ -49,18 +47,21 @@ def putWithXAttrs(stream, filepath):
         xold = None
     
     # First do the actual file copy
-    response = (yield put(stream, filepath))
+    def _gotResponse(response):
+    
+        # Restore original xattrs.
+        if props:
+            xnew = xattrPropertyStore(FakeXAttrResource(filepath))
+            for prop in props:
+                xnew.set(prop)
+            xnew = None
+    
+        return response
 
-    # Restore original xattrs.
-    if props:
-        xnew = xattrPropertyStore(FakeXAttrResource(filepath))
-        for prop in props:
-            xnew.set(prop)
-        xnew = None
+    d = put(stream, filepath)
+    d.addCallback(_gotResponse)
+    return d
 
-    returnValue(response)
-
-@inlineCallbacks
 def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     Copy a file from one path to another and also copy xattrs we care about.
@@ -74,12 +75,16 @@ def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     
     # First do the actual file copy
-    response = (yield copy(source_filepath, destination_filepath, destination_uri, "0"))
-
-    # Now copy over xattrs.
-    copyXAttrs(source_filepath, destination_filepath)
+    def _gotResponse(response):
     
-    returnValue(response)
+        # Now copy over xattrs.
+        copyXAttrs(source_filepath, destination_filepath)
+        
+        return response
+    
+    d = copy(source_filepath, destination_filepath, destination_uri, "0")
+    d.addCallback(_gotResponse)
+    return d
 
 def copyToWithXAttrs(from_fp, to_fp):
     """
