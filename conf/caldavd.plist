@@ -407,9 +407,9 @@ limitations under the License.
   <dict>
   	<key>Enabled</key>
   	<true/>
-  	<key>Time Period</key>
+  	<key>TimePeriod</key>
   	<integer>14</integer>
-  	<key>Anonymous Access</key>
+  	<key>AnonymousAccess</key>
   	<false/>
   </dict>
 
