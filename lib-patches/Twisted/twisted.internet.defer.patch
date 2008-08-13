@@ -1,0 +1,16 @@
+Index: twisted/internet/defer.py
+===================================================================
+--- twisted/internet/defer.py	(revision 19773)
++++ twisted/internet/defer.py	(working copy)
+@@ -733,7 +733,10 @@
+             deferred.callback(e.value)
+             return deferred
+         except:
+-            deferred.errback()
++            last_failure = None
++            if isinstance(result, failure.Failure):
++                last_failure = result
++            deferred.errback(last_failure)
+             return deferred
+ 
+         if isinstance(result, Deferred):
