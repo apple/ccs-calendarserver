@@ -91,7 +91,7 @@ class IDirectoryRecord(Interface):
             (group) record.
         """
 
-    def group():
+    def groups():
         """
         @return: an iterable of L{IDirectoryRecord}s for the groups this
             record is a member of.
