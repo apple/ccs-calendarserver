@@ -645,7 +645,7 @@ put_setuptools "${vobject}";
 
 py_install "vObject" "${vobject}";
 
-export PYTHONPATH="${PYTHONPATH}:${vobject}/src";
+export PYTHONPATH="${PYTHONPATH}:${vobject}";
 
 #
 # PySQLite
