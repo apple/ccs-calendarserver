@@ -118,7 +118,26 @@ class Property (object):
     def setValue(self, value):
         self._vobject.value = value
 
-    def params(self): return self._vobject.params
+    def params(self):
+        """
+        Returns a mapping object containing parameters for this property.
+
+        Keys are parameter names, values are sequences containing
+        values for the named parameter.
+        """
+        return self._vobject.params
+
+    def paramValue(self, name):
+        """
+        Returns a single value for the given parameter.  Raises
+        ValueError if the parameter has more than one value.
+        """
+        values = self._vobject.params.get(name, [None,])
+        if type(values) is not list:
+            values = [values]
+        if len(values) != 1:
+            raise ValueError("Not exactly one %s value in property %r" % (name, self))
+        return values[0]
 
     def containsTimeRange(self, start, end, tzinfo=None):
         """
@@ -316,7 +335,7 @@ class Component (object):
 
     def setBehavior(self, behavior):
         """
-        Set the behavior of the underlying iCal obtecy.
+        Set the behavior of the underlying iCal object.
         @param behavior: the behavior type to set.
         """
         self._vobject.setBehavior(behavior)
@@ -488,8 +507,10 @@ class Component (object):
 
     def propertyValue(self, name):
         properties = tuple(self.properties(name))
-        if len(properties) == 1: return properties[0].value()
-        if len(properties) > 1: raise ValueError("More than one %s property in component %r" % (name, self))
+        if len(properties) == 1:
+            return properties[0].value()
+        if len(properties) > 1:
+            raise ValueError("More than one %s property in component %r" % (name, self))
         return None
 
 
@@ -590,8 +611,9 @@ class Component (object):
         """
         ridprop = self.getProperty("RECURRENCE-ID")
         if ridprop is not None:
-            if "RANGE" in ridprop.params():
-                return (ridprop.params()["RANGE"][0] == "THISANDFUTURE")
+            range = ridprop.paramValue("RANGE")
+            if range is not None:
+                return (range == "THISANDFUTURE")
 
         return False
             
@@ -613,11 +635,11 @@ class Component (object):
             raise ValueError("VALARM has no TRIGGER property: %r" % (self,))
         
         # The related parameter
-        triggerProperty = self.getProperty("TRIGGER")
-        if "RELATED" in triggerProperty.params():
-            related = (triggerProperty.params()["RELATED"][0] == "START")
-        else:
+        related = self.getProperty("TRIGGER").paramValue("RELATED")
+        if related is None:
             related = True
+        else:
+            related = (related == "START")
         
         # Repeat property
         repeat = self.propertyNativeValue("REPEAT")
@@ -657,21 +679,22 @@ class Component (object):
         @return: a set of strings, one for each unique TZID value.
         """
         result = set()
+
         for property in self.properties():
-            if property.params().get('TZID'):
-                result.update(property.params().get('TZID'))
-            elif property.params().get('X-VOBJ-ORIGINAL-TZID'):
-                result.add(property.params().get('X-VOBJ-ORIGINAL-TZID'))
+            for propertyname in ("TZID", "X-VOBJ-ORIGINAL-TZID"):
+                tzid = property.paramValue(propertyname)
+                if tzid is not None:
+                    result.add(tzid)
+                    break
             else:
-                if type(property.value()) == list:
-                    for item in property.value():
-                        tzinfo = getattr(item, 'tzinfo', None)
-                        tzid = TimezoneComponent.pickTzid(tzinfo)
-                        if tzid: result.add(tzid)
-                else:
-                    tzinfo = getattr(property.value(), 'tzinfo', None)
+                items = property.value()
+                if type(items) is not list:
+                    items = [items]
+                for item in items:
+                    tzinfo = getattr(item, 'tzinfo', None)
                     tzid = TimezoneComponent.pickTzid(tzinfo)
-                    if tzid: result.add(tzid)
+                    if tzid is not None:
+                        result.add(tzid)
         
         return result
     
@@ -722,8 +745,9 @@ class Component (object):
         
         # Convert all datetime properties to UTC unless they are floating
         for property in newcomp.properties():
-            if isinstance(property.value(), datetime.datetime) and property.value().tzinfo is not None:
-                property.setValue(property.value().astimezone(utc))
+            value = property.value()
+            if isinstance(value, datetime.datetime) and value.tzinfo is not None:
+                property.setValue(value.astimezone(utc))
         
         # Now reset DTSTART, DTEND/DURATION
         for property in newcomp.properties("DTSTART"):
