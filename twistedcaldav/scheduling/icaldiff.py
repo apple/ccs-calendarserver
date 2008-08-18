@@ -152,7 +152,6 @@ class iCalDiff(object):
         result = set1 - set2
         if result:
             log.debug("Missing components from first calendar: %s" % (result,))
-        if result:
             return False, False
 
         # Now verify that each component in set1 matches what is in set2
@@ -192,7 +191,13 @@ class iCalDiff(object):
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         for prop in tuple(propdiff):
             # These ones are OK to change
-            if prop.name() in ("TRANSP", "DTSTAMP", "CREATED", "LAST-MODIFIED",):
+            if prop.name() in (
+                "TRANSP",
+                "DTSTAMP",
+                "CREATED",
+                "LAST-MODIFIED",
+                "SEQUENCE",
+            ):
                 propdiff.remove(prop)
                 continue
             if prop.name() != "ATTENDEE" or prop.value() != self.attendee:
