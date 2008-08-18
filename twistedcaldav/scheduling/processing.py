@@ -18,6 +18,11 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twisted.web2.dav.fileop import delete
+from twistedcaldav.scheduling.itip import iTipProcessing
+from hashlib import md5
+from twisted.web2.dav.util import joinURL
+from twistedcaldav.caldavxml import caldav_namespace
+import time
 
 __all__ = [
     "ImplicitProcessor",
@@ -86,21 +91,6 @@ class ImplicitProcessor(object):
         return self.method in ("REQUEST", "ADD", "CANCEL")
 
     @inlineCallbacks
-    def doImplicitOrganizer(self):
-
-        # Locate the organizer's copy of the event.
-        yield self.getRecipientsCopy()
-        if self.recipient_calendar is None:
-            log.debug("Implicit - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            returnValue((True, True,))
-
-        # Update the organizer's copy with the partstat's of the replying attendee
-        
-        # Send out a request to all attendees to update them
-
-        returnValue((False, False,))
-
-    @inlineCallbacks
     def getRecipientsCopy(self):
         """
         Get the Recipient's copy of the event being processed.
@@ -123,8 +113,9 @@ class ImplicitProcessor(object):
                 rname = collection.index().resourceNameForUID(self.uid)
                 if rname:
                     self.recipient_calendar = collection.iCalendar(rname)
-                    self.recipient_calendar_collection = collection
                     self.recipient_calendar_name = rname
+                    self.recipient_calendar_collection = collection
+                    self.recipient_calendar_collection_uri = uri
                     return succeed(False)
                 else:
                     return succeed(True)
@@ -134,6 +125,44 @@ class ImplicitProcessor(object):
             yield report_common.applyToCalendarCollections(calendar_home, self.request, calendar_home.url(), "infinity", queryCalendarCollection, None)
     
     @inlineCallbacks
+    def doImplicitOrganizer(self):
+
+        # Locate the organizer's copy of the event.
+        yield self.getRecipientsCopy()
+        if self.recipient_calendar is None:
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            returnValue((True, True,))
+
+        # Handle new items differently than existing ones.
+        if self.method == "REPLY":
+            result = (yield self.doImplicitOrganizerUpdate())
+        elif self.method == "REFRESH":
+            # With implicit we ignore refreshes.
+            # TODO: for iMIP etc we do need to handle them 
+            result = (True, True,)
+
+        returnValue(result)
+
+    @inlineCallbacks
+    def doImplicitOrganizerUpdate(self):
+        
+        # Check to see if this is a cancel of the entire event
+        if iTipProcessing.processReply(self.message, self.recipient_calendar):
+ 
+            # Update the attendee's copy of the event
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
+            result = (True, False,)
+            
+            # TODO: Send out a request to all attendees to update them
+
+        else:
+            # Ignore scheduling message
+            result = (True, True,)
+
+        returnValue(result)
+
+    @inlineCallbacks
     def doImplicitAttendee(self):
 
         # Locate the attendee's copy of the event if it exists.
@@ -141,8 +170,8 @@ class ImplicitProcessor(object):
         self.new_resource = self.recipient_calendar is None
 
         # Handle new items differently than existing ones.
-        if self.new_resource:
-            result = (False, False,)
+        if self.new_resource and self.method == "CANCEL":
+            result = (True, True,)
         else:
             result = (yield self.doImplicitAttendeeUpdate())
         
@@ -153,8 +182,7 @@ class ImplicitProcessor(object):
         
         # Different based on method
         if self.method == "REQUEST":
-            #result = (yield self.doImplicitAttendeRequest())
-            result = (False, False,)
+            result = (yield self.doImplicitAttendeRequest())
         elif self.method == "CANCEL":
             result = (yield self.doImplicitAttendeCancel())
         elif self.method == "ADD":
@@ -164,27 +192,110 @@ class ImplicitProcessor(object):
         returnValue(result)
 
     @inlineCallbacks
+    def doImplicitAttendeRequest(self):
+
+        # If there is no existing copy, then look for default calendar and copy it here
+        if self.new_resource:
+            
+            # Check for default calendar
+            default = (yield self.recipient.inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), self.request))
+            if len(default.children) == 1:
+                defaultURL = str(default.children[0])
+                default = (yield self.request.locateResource(defaultURL))
+            else:
+                default = None
+
+            if default:
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                new_calendar = iTipProcessing.processNewRequest(self.message)
+                name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
+                yield self.writeCalendarResource(defaultURL, default, name, new_calendar)
+                result = (True, False,)
+            else:
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new not processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                result = (False, False,)
+        else:
+            # Processing update to existing event
+            if iTipProcessing.processRequest(self.message, self.recipient_calendar):
+     
+                # Update the attendee's copy of the event
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
+                result = (True, False,)
+                
+            else:
+                # Request needs to be ignored
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                result = (True, True,)
+
+        returnValue(result)
+
+
+    @inlineCallbacks
     def doImplicitAttendeCancel(self):
 
         # If there is no existing copy, then ignore
         if self.recipient_calendar is None:
-            log.debug("Implicit - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             result = (True, True,)
         else:
             # Check to see if this is a cancel of the entire event
-            if self.message.masterComponent() is not None:
-                
-                # Delete the attendee's copy of the event
-                log.debug("Implicit - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                self.deleteCalendarResource(self.recipient_calendar_collection, self.recipient_calendar_name)
-                result = (True, False,)
-     
+            processed_message, delete_original = iTipProcessing.processCancel(self.message, self.recipient_calendar)
+            if processed_message:
+                if delete_original:
+                    
+                    # Delete the attendee's copy of the event
+                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    yield self.deleteCalendarResource(self.recipient_calendar_collection, self.recipient_calendar_name)
+                    result = (True, False,)
+                    
+                else:
+         
+                    # Update the attendee's copy of the event
+                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
+                    result = (True, False,)
             else:
-                # Get each cancelled Recurrence-ID and exclude those from the existing event
-                
-                result = (False, False,)
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                result = (True, True,)
 
         returnValue(result)
+
+    @inlineCallbacks
+    def writeCalendarResource(self, collURL, collection, name, calendar):
+        """
+        Write out the calendar resource (iTIP) message to the specified calendar, either over-writing the named
+        resource or by creating a new one.
+        
+        @param collURL: the C{str} containing the URL of the calendar collection.
+        @param collection: the L{CalDAVFile} for the calendar collection to store the resource in.
+        @param name: the C{str} for the resource name to write into, or {None} to write a new resource.
+        @param calendar: the L{Component} calendar to write.
+        @return: L{Deferred} -> L{CalDAVFile}
+        """
+        
+        # Create a new name if one was not provided
+        if name is None:
+            name =  md5(str(calendar) + str(time.time()) + collection.fp.path).hexdigest() + ".ics"
+    
+        # Get a resource for the new item
+        newchildURL = joinURL(collURL, name)
+        newchild = yield self.request.locateResource(newchildURL)
+        
+        # Now write it to the resource
+        from twistedcaldav.method.put_common import StoreCalendarObjectResource
+        yield StoreCalendarObjectResource(
+                     request=self.request,
+                     destination = newchild,
+                     destination_uri = newchildURL,
+                     destinationparent = collection,
+                     destinationcal = True,
+                     calendar = calendar,
+                     isiTIP = False,
+                     allowImplicitSchedule = False
+                 ).run()
+    
+        returnValue(newchild)
 
     @inlineCallbacks
     def deleteCalendarResource(self, collection, name):
@@ -204,4 +315,3 @@ class ImplicitProcessor(object):
         
         # Change CTag on the parent calendar collection
         yield collection.updateCTag()
-    

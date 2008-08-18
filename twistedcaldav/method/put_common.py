@@ -181,7 +181,8 @@ class StoreCalendarObjectResource(object):
         source=None, source_uri=None, sourceparent=None, sourcecal=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationcal=True,
         calendar=None,
-        isiTIP=False
+        isiTIP=False,
+        allowImplicitSchedule=True,
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -198,7 +199,8 @@ class StoreCalendarObjectResource(object):
         @param sourceparent:      the L{CalDAVFile} for the source resource's parent collection, or None if source is None.
         @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
-        @param isiTIP:            True if relaxed calendar data validation is to be done, False otherwise.
+        @param isiTIP:                True if relaxed calendar data validation is to be done, False otherwise.
+        @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
         """
         
         # Check that all arguments are valid
@@ -236,6 +238,7 @@ class StoreCalendarObjectResource(object):
         self.calendardata = None
         self.deletesource = deletesource
         self.isiTIP = isiTIP
+        self.allowImplicitSchedule = allowImplicitSchedule
         
         self.rollback = None
         self.access = None
@@ -677,7 +680,7 @@ class StoreCalendarObjectResource(object):
             yield self.checkQuota()
 
             # Do scheduling
-            if not self.isiTIP:
+            if not self.isiTIP and self.allowImplicitSchedule:
                 scheduler = ImplicitScheduler()
                 self.calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False))
 

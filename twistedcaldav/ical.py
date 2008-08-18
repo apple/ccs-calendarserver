@@ -34,6 +34,7 @@ from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
+from types import ListType
 from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
@@ -83,7 +84,11 @@ class Property (object):
     def __str__ (self): return self._vobject.serialize()
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
-    def __hash__(self): return hash((self.name(), self.value()))
+    def __hash__(self):
+        if type(self.value()) is ListType:
+            return hash((self.name(), tuple(self.value())))
+        else:
+            return hash((self.name(), self.value()))
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
@@ -762,6 +767,24 @@ class Component (object):
         instances = InstanceList()
         instances.expandTimeRanges(componentSet, limit)
         return instances
+
+    def getComponentInstances(self):
+        """
+        Get the R-ID value for each component.
+        
+        @return: a tuple of recurrence-ids
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getComponentInstances()
+            return result
+        else:
+            rid = self.getRecurrenceIDUTC()
+            return (rid,)
 
     def deriveInstance(self, rid):
         """

@@ -19,7 +19,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.http import HTTPError
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.itip import iTipGenerator
+from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.method import report_common
@@ -188,12 +188,67 @@ class ImplicitScheduler(object):
         as users that need to be sent a cancel.
         """
         
+        # Several possibilities for when CANCELs need to be sent:
+        #
+        # Remove ATTENDEE property
+        # Add EXDATE
+        # Remove overridden component
+        # Remove RDATE
+        # Truncate RRULE
+        # Change RRULE
+        
+        # TODO: the later three will be ignored for now.
+
         oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance()
         
         mappedOld = set(oldAttendeesByInstance)
         mappedNew = set(self.attendeesByInstance)
         
-        self.cancelledAttendees = mappedOld.difference(mappedNew)
+        # Get missing instances
+        oldInstances = set(self.oldcalendar.getComponentInstances())
+        newInstances = set(self.calendar.getComponentInstances())
+        removedInstances = oldInstances - newInstances
+
+        # Also look for new EXDATEs
+        oldexdates = set()
+        for property in self.oldcalendar.masterComponent().properties("EXDATE"):
+            oldexdates.update(property.value())
+        newexdates = set()
+        for property in self.calendar.masterComponent().properties("EXDATE"):
+            newexdates.update(property.value())
+
+        addedexdates = newexdates - oldexdates
+
+        # Now figure out the attendees that need to be sent CANCELs
+        self.cancelledAttendees = set()
+        
+        for item in mappedOld:
+            if item not in mappedNew:
+                
+                # Several possibilities:
+                #
+                # 1. removed from master component - always a CANCEL
+                # 2. removed from overridden component - always a CANCEL
+                # 3. removed overridden component - only CANCEL if not in master or exdate added
+                 
+                new_attendee, rid = item
+                
+                # 1. & 2.
+                if rid is None or rid not in removedInstances:
+                    self.cancelledAttendees.add(item)
+                else:
+                    # 3.
+                    if (new_attendee, None) not in mappedNew or rid in addedexdates:
+                        self.cancelledAttendees.add(item)
+
+        master_attendees = self.oldcalendar.masterComponent().getAttendeesByInstance()
+        for attendee, _ignore in master_attendees:
+            for exdate in addedexdates:
+                # Don't remove the master attendee's when an EXDATE is added for a removed overridden component
+                # as the set of attendees in the override may be different from the master set, but the override
+                # will have been accounted for by the previous attendee/instance logic.
+                if exdate not in removedInstances:
+                    self.cancelledAttendees.add((attendee, exdate))
 
     @inlineCallbacks
     def scheduleWithAttendees(self):
