@@ -216,11 +216,12 @@ class ImplicitProcessor(object):
                 result = (False, False,)
         else:
             # Processing update to existing event
-            if iTipProcessing.processRequest(self.message, self.recipient_calendar):
+            new_calendar = iTipProcessing.processRequest(self.message, self.recipient_calendar)
+            if new_calendar:
      
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
+                yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar)
                 result = (True, False,)
                 
             else:

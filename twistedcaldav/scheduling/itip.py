@@ -47,7 +47,7 @@ __all__ = [
 ]
 
 class iTipProcessing(object):
-    
+
     @staticmethod
     def processNewRequest(itip_message):
         """
@@ -77,9 +77,52 @@ class iTipProcessing(object):
         @param calendar: the calendar object to apply the REQUEST to
         @type calendar:
         
-        @return: C{True} if request is valid, C{False} otherwise (request should be ignored)
+        @return: calendar object ready to save, or C{None} (request should be ignored)
         """
-        pass
+        
+        # Merge Organizer data with Attendee's own changes (VALARMs only for now).
+        
+        # Different behavior depending on whether a master component is present or not
+        current_master = calendar.masterComponent()
+        if current_master:
+            master_valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
+        else:
+            master_valarms = ()
+
+        if itip_message.masterComponent() is not None:
+            
+            # Get a new calendar object first
+            new_calendar = iTipProcessing.processNewRequest(itip_message)
+            
+            # Copy over master alarms
+            master_component = new_calendar.masterComponent()
+            for alarm in master_valarms:
+                master_component.addComponent(alarm)
+                
+            # Now try to match recurrences
+            for component in new_calendar.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    iTipProcessing.transferAlarms(calendar, master_valarms, component)
+            
+            # Replace the entire object
+            return new_calendar
+
+        else:
+            # Need existing tzids
+            tzids = calendar.timezones()
+
+            # Update existing instances
+            for component in itip_message.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    # May need to add a new VTIMEZONE
+                    if component.propertyValue("TZID") not in tzids:
+                        calendar.addComponent(component)
+                else:
+                    iTipProcessing.transferAlarms(calendar, master_valarms, component, remove_matched=True)
+                    calendar.addComponent(component)
+
+            # Write back the modified object
+            return calendar
 
     @staticmethod
     def processCancel(itip_message, calendar):
@@ -222,6 +265,28 @@ class iTipProcessing(object):
         if existing_attendee:
             existing_attendee.params().setdefault("PARTSTAT", [partstat])[0] = partstat
 
+    @staticmethod
+    def transferAlarms(from_calendar, master_valarms, to_component, remove_matched=False):
+
+        rid = to_component.getRecurrenceIDUTC()
+
+        # Is there a matching component
+        matched = from_calendar.overriddenComponent(rid)
+        if matched:
+            # Copy over VALARMs from existing component
+            [to_component.addComponent(comp) for comp in matched.subcomponents() if comp.name() == "VALARM"]
+
+            # Remove the old one
+            if remove_matched:
+                from_calendar.removeComponent(matched)
+                
+        else:
+            # It is a new override - copy any valarms on the existing master component
+            # into the new one.
+            for alarm in master_valarms:
+                # Just copy in the new override
+                to_component.addComponent(alarm)
+    
 class iTipGenerator(object):
     
     @staticmethod
