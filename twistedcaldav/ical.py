@@ -672,6 +672,22 @@ class Component (object):
         
         return result
     
+    def timezones(self):
+        """
+        Returns the set of TZID's for each VTIMEZONE component.
+
+        @return: a set of strings, one for each unique TZID value.
+        """
+        
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        results = set()
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                results.add(component.propertyValue("TZID"))
+        
+        return results
+    
     def expand(self, start, end):
         """
         Expand the components into a set of new components, one for each
