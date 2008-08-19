@@ -39,7 +39,8 @@ from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionR
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
+from twisted.web2.dav.util import joinURL, parentForURL, unimplemented,\
+    normalizeURL
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.iweb import IResponse
@@ -58,6 +59,8 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.log import LoggingMixIn
+
+from urlparse import urlsplit
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -485,11 +488,18 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
             inbox.processFreeBusyCalendar(request.path, False)
+            
+            # Also check the default calendar setting and remove it if the default is deleted
+            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+            if len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                if normalizeURL(request.path) == defaultURL:
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL())               
 
     @inlineCallbacks
     def movedCalendar(self, request, destination, destination_uri):
         """
-        Calendar has been deleted. Need to do some extra clean-up.
+        Calendar has been moved. Need to do some extra clean-up.
 
         @param request:
         @type request:
@@ -499,9 +509,18 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         principal = (yield self.ownerPrincipal(request))
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
+            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
+
             inbox = (yield request.locateResource(inboxURL))
             inbox.processFreeBusyCalendar(request.path, False)
             inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
+            
+            # Also check the default calendar setting and remove it if the default is deleted
+            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+            if len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                if normalizeURL(request.path) == defaultURL:
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)))               
 
     def isCalendarOpaque(self):
         
