@@ -491,7 +491,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             
             # Also check the default calendar setting and remove it if the default is deleted
             default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
-            if len(default.children) == 1:
+            if default and len(default.children) == 1:
                 defaultURL = normalizeURL(str(default.children[0]))
                 if normalizeURL(request.path) == defaultURL:
                     yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL())               
@@ -517,7 +517,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             
             # Also check the default calendar setting and remove it if the default is deleted
             default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
-            if len(default.children) == 1:
+            if default and len(default.children) == 1:
                 defaultURL = normalizeURL(str(default.children[0]))
                 if normalizeURL(request.path) == defaultURL:
                     yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)))               
