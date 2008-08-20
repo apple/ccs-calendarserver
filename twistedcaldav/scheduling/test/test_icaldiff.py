@@ -830,7 +830,7 @@ END:VCALENDAR
 
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2))
-            self.assertEqual(differ.attendeeDiff(attendee), result, msg=description)
+            self.assertEqual(differ.attendeeMerge(attendee), result, msg=description)
 
     def test_attendee_diff_complex(self):
         
@@ -1162,4 +1162,4 @@ END:VCALENDAR
 
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2))
-            self.assertEqual(differ.attendeeDiff(attendee), result, msg=description)
+            self.assertEqual(differ.attendeeMerge(attendee), result, msg=description)
