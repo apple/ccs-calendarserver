@@ -101,7 +101,7 @@ class iTipProcessing(object):
                 
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
                     iTipProcessing.transferAlarms(calendar, master_valarms, component)
             
             # Replace the entire object
