@@ -353,11 +353,11 @@ class iTipGenerator(object):
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees)
         
-        # No alarms
-        itip.removeAlarms()
+        # Strip out unwanted bits
+        iTipGenerator.prepareSchedulingMessage(itip)
 
         return itip
-
+        
     @staticmethod
     def generateAttendeeReply(original, attendee, force_decline=False):
 
@@ -379,6 +379,7 @@ class iTipGenerator(object):
             "DTSTAMP",
             "ORGANIZER",
             "ATTENDEE",
+            "X-CALENDARSERVER-PRIVATE-COMMENT",
         ))
         
         # Now set each ATTENDEE's PARTSTAT to DECLINED
@@ -392,3 +393,51 @@ class iTipGenerator(object):
                     attendeeProp.params()["PARTSTAT"] = ["DECLINED"]
         
         return itip
+
+    @staticmethod
+    def prepareSchedulingMessage(itip):
+        """
+        Remove properties and parameters that should not be sent in an iTIP message
+        """
+
+        # Component properties
+        def stripSubComponents(component, strip):
+            
+            for subcomponent in tuple(component.subcomponents()):
+                if subcomponent.name() in strip:
+                    component.removeComponent(subcomponent)
+
+        # Component properties
+        def stripComponentProperties(component, properties):
+            
+            for property in tuple(component.properties()):
+                if property.name() in properties:
+                    component.removeProperty(property)
+
+        # Property parameters
+        def stripPropertyParameters(properties, parameters):
+            
+            for property in properties:
+                for parameter in parameters:
+                    try:
+                        del property.params()[parameter]
+                    except KeyError:
+                        pass
+
+        # Top-level properties
+        stripComponentProperties(itip, ("X-CALENDARSERVER-ACCESS",))
+                
+        # Component properties
+        for component in itip.subcomponents():
+            stripSubComponents(component, ("VALARM",))
+            stripComponentProperties(component, (
+                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                "X-CALENDARSERVER-ATTENDEE-COMMENT",
+            ))
+            stripPropertyParameters(component.properties("ATTENDEE"), (
+                "SCHEDULE-AGENT",
+                "SCHEDULE-STATUS",
+            ))
+        
+        # No alarms
+        itip.removeAlarms()
