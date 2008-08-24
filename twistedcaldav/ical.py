@@ -1226,6 +1226,27 @@ class Component (object):
 
         return None
 
+    def setParameterToValueForPropertyWithValue(self, paramname, paramvalue, propname, propvalue):
+        """
+        Add or change the parameter to the specified value on the property having the specified value.
+        
+        @param paramname: the parameter name
+        @type paramname: C{str}
+        @param paramvalue: the parameter value to set
+        @type paramvalue: C{str}
+        @param propname: the property name
+        @type propname: C{str}
+        @param propvalue: the property value to test
+        @type propvalue: C{str}
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            for property in component.properties(propname):
+                if property.value() == propvalue:
+                    property.params()[paramname] = [paramvalue]
+           
     def attendeesView(self, attendees):
         """
         Filter out any components that all attendees are not present in. Use EXDATEs

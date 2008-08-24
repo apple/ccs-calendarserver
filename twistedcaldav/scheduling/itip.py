@@ -438,6 +438,9 @@ class iTipGenerator(object):
                 "SCHEDULE-AGENT",
                 "SCHEDULE-STATUS",
             ))
+            stripPropertyParameters(component.properties("ORGANIZER"), (
+                "SCHEDULE-STATUS",
+            ))
         
         # No alarms
         itip.removeAlarms()

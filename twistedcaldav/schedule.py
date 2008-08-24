@@ -300,8 +300,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         scheduler = CalDAVScheduler(request, self)
 
         # Do the POST processing treating
-        response = (yield scheduler.doSchedulingViaPOST())
-        returnValue(response)
+        result = (yield scheduler.doSchedulingViaPOST())
+        returnValue(result.response())
 
 class IScheduleInboxResource (CalDAVResource):
     """
@@ -372,5 +372,5 @@ class IScheduleInboxResource (CalDAVResource):
         scheduler = IScheduleScheduler(request, self)
 
         # Do the POST processing treating this as a non-local schedule
-        response = (yield scheduler.doSchedulingViaPOST())
-        returnValue(response)
+        result = (yield scheduler.doSchedulingViaPOST())
+        returnValue(result.response())

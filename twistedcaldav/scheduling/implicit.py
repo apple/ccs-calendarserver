@@ -24,6 +24,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.icaldiff import iCalDiff
+from twistedcaldav import caldavxml
 
 __all__ = [
     "ImplicitScheduler",
@@ -324,8 +325,20 @@ class ImplicitScheduler(object):
 
     def handleSchedulingResponse(self, response, is_organizer):
         
-        # TODO: need to figure out how to process the response
-        pass
+        # Map each recipient in the response to a status code
+        responses = {}
+        for item in response.responses:
+            assert isinstance(item, caldavxml.Response), "Wrong element in response"
+            recipient = str(item.children[0].children[0])
+            status = str(item.children[1])
+            responses[recipient] = status
+            
+        # Now apply to each ATTENDEE/ORGANIZER in the original data
+        self.calendar.setParameterToValueForPropertyWithValue(
+            "SCHEDULE-STATUS",
+            status,
+            "ATTENDEE" if is_organizer else "ORGANIZER",
+            recipient)
 
     @inlineCallbacks
     def doImplicitAttendee(self):

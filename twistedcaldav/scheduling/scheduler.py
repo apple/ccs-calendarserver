@@ -86,8 +86,8 @@ class Scheduler(object):
         self.loadRecipientsFromRequestHeaders()
         yield self.loadCalendarFromRequest()
 
-        response = (yield self.doScheduling())
-        returnValue(response)
+        result = (yield self.doScheduling())
+        returnValue(result)
 
     @inlineCallbacks
     def doSchedulingViaPUT(self, originator, recipients, calendar):
@@ -105,8 +105,8 @@ class Scheduler(object):
         self.recipients = recipients
         self.calendar = calendar
 
-        response = (yield self.doScheduling())
-        returnValue(response)
+        result = (yield self.doScheduling())
+        returnValue(result)
 
     @inlineCallbacks
     def doScheduling(self):
@@ -132,9 +132,9 @@ class Scheduler(object):
         self.finalChecks()
 
         # Do scheduling tasks
-        response = (yield self.generateSchedulingResponse())
+        result = (yield self.generateSchedulingResponse())
 
-        returnValue(response)
+        returnValue(result)
 
     def loadOriginatorFromRequestHeaders(self):
         # Must have Originator header
@@ -321,7 +321,7 @@ class Scheduler(object):
             yield self.generateIMIPSchedulingResponses(imip_recipients, responses, freebusy)
     
         # Return with final response if we are done
-        returnValue(responses.response())
+        returnValue(responses)
     
     @inlineCallbacks
     def generateLocalSchedulingResponses(self, recipients, responses, freebusy):
