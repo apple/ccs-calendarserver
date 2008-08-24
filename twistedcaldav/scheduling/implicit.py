@@ -60,7 +60,8 @@ class ImplicitScheduler(object):
         @param deleting: C{True} if the resource is being deleting
         @type deleting: bool
 
-        @return: a new calendar object modified with scheduling information
+        @return: a new calendar object modified with scheduling information,
+            or C{None} if nothing happened
         """
         
         self.request = request
@@ -81,6 +82,8 @@ class ImplicitScheduler(object):
             yield self.doImplicitOrganizer()
         elif self.isAttendeeScheduling():
             yield self.doImplicitAttendee()
+        else:
+            returnValue(None)
 
         returnValue(self.calendar)
 
