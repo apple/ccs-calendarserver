@@ -21,7 +21,7 @@ from dateutil.tz import tzutc
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, parse_date, parse_datetime,\
-    parse_date_or_datetime, parse_duration
+    parse_date_or_datetime, parse_duration, Property
 import twistedcaldav.test.util
 
 from vobject.icalendar import utc
@@ -579,6 +579,72 @@ END:VCALENDAR
         for original, result, args in data:
             component = Component.fromString(original)
             component.setParameterToValueForPropertyWithValue(*args)
+            self.assertEqual(result, str(component).replace("\r", ""))        
+
+    def test_add_property(self):
+        data = (
+            # Simple component
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+REQUEST-STATUS:2.0\;Success
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            # Complex component
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T020000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+REQUEST-STATUS:2.0\;Success
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T020000Z
+REQUEST-STATUS:2.0\;Success
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for original, result in data:
+            component = Component.fromString(original)
+            component.addPropertyToAllComponents(Property("REQUEST-STATUS", "2.0;Success"))
             self.assertEqual(result, str(component).replace("\r", ""))        
 
     def test_attendees_views(self):

@@ -392,6 +392,8 @@ class iTipGenerator(object):
                 else:
                     attendeeProp.params()["PARTSTAT"] = ["DECLINED"]
         
+        # Add REQUEST-STATUS to each top-level component
+        itip.addPropertyToAllComponents(Property("REQUEST-STATUS", "2.0;Success"))
         return itip
 
     @staticmethod

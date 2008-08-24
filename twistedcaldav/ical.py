@@ -1246,7 +1246,20 @@ class Component (object):
             for property in component.properties(propname):
                 if property.value() == propvalue:
                     property.params()[paramname] = [paramvalue]
-           
+    
+    def addPropertyToAllComponents(self, property):
+        """
+        Add a property to all top-level components except VTIMEZONE.
+
+        @param property: the property to add
+        @type property: L{Property}
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            component.addProperty(property)
+        
     def attendeesView(self, attendees):
         """
         Filter out any components that all attendees are not present in. Use EXDATEs
