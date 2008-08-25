@@ -443,6 +443,3 @@ class iTipGenerator(object):
             stripPropertyParameters(component.properties("ORGANIZER"), (
                 "SCHEDULE-STATUS",
             ))
-        
-        # No alarms
-        itip.removeAlarms()
