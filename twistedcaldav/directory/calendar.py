@@ -298,7 +298,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             # Set calendar-free-busy-set on inbox
             inbox = self.getChild("inbox")
             inbox.provision()
-            inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
+            inbox.processFreeBusyCalendar(childURL, True)
 
             # Default calendar may need to be marked as the default for scheduling
             if config.Scheduling["CalDAV"]["DefaultCalendarProvisioned"]:
