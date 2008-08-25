@@ -16,6 +16,7 @@
 
 from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.itip import iTipGenerator
 
 """
 Class that handles diff'ing two calendar objects.
@@ -68,13 +69,13 @@ class iCalDiff(object):
 
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.removeAlarms()
         self.calendar1.removeXProperties()
         self.calendar1.attendeesView((attendee,))
+        iTipGenerator.prepareSchedulingMessage(self.calendar1)
 
         self.calendar2 = self.calendar2.duplicate()
-        self.calendar2.removeAlarms()
         self.calendar2.removeXProperties()
+        iTipGenerator.prepareSchedulingMessage(self.calendar2)
 
         if self.calendar1 == self.calendar2:
             return True, True
