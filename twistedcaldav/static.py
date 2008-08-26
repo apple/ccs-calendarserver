@@ -57,11 +57,12 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.extensions import DAVFile
 from twistedcaldav.extensions import CachingXattrPropertyStore
+from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
-from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
+from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directory.calendar import uidsResourceName
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -145,6 +146,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             # Initialize CTag on the calendar collection
             d1 = self.updateCTag()
+
+            # Calendar is initially transparent to freebusy
+            self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
 
             # Create the index so its ready when the first PUTs come in
             d1.addCallback(lambda _: self.index().create())
@@ -609,10 +613,16 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             DropBoxHomeFileClass = None
 
+        if config.FreeBusyURL["Enabled"]:
+            FreeBusyURLFileClass = FreeBusyURLFile
+        else:
+            FreeBusyURLFileClass = None
+            
         cls = {
             "inbox"        : ScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
             "dropbox"      : DropBoxHomeFileClass,
+            "freebusy"     : FreeBusyURLFileClass,
         }.get(name, None)
 
         if cls is not None:
@@ -735,6 +745,80 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
 
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
+    """
+    Server-to-server scheduling inbox resource.
+    """
+    def __init__(self, path, parent):
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        IScheduleInboxResource.__init__(self, parent)
+        
+        self.fp.open("w").close()
+        self.fp.restat(False)
+
+    def __repr__(self):
+        return "<%s (server-to-server inbox resource): %s>" % (self.__class__.__name__, self.fp.path)
+
+    def isCollection(self):
+        return False
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return responsecode.NOT_FOUND
+
+    def http_PUT        (self, request): return responsecode.FORBIDDEN
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
+
+    def http_MKCALENDAR(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "calendar-collection-location-ok")
+        )
+
+class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFile):
+    """
+    Free-busy URL resource.
+    """
+    def __init__(self, path, parent):
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        FreeBusyURLResource.__init__(self, parent)
+
+    def __repr__(self):
+        return "<%s (free-busy URL resource): %s>" % (self.__class__.__name__, self.fp.path)
+
+    def isCollection(self):
+        return False
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            return responsecode.NOT_FOUND
+
+    def http_PUT        (self, request): return responsecode.FORBIDDEN
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
+
+    def http_MKCALENDAR(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "calendar-collection-location-ok")
+        )
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(schedulePrivilegeSet)
 
 class DropBoxHomeFile (AutoProvisioningFileMixIn, DropBoxHomeResource, CalDAVFile):
     def __init__(self, path, parent):

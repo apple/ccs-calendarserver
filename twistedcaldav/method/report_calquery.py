@@ -22,7 +22,7 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
 import urllib
 
-from twisted.internet.defer import deferredGenerator, succeed, waitForDeferred
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
@@ -40,6 +40,7 @@ log = Logger()
 
 max_number_of_results = 1000
 
+@inlineCallbacks
 def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
     """
     Generate a calendar-query REPORT.
@@ -51,9 +52,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         raise ValueError("{CalDAV:}calendar-query expected as root element, not %s." % (calendar_query.sname(),))
 
     if not self.isCollection():
-        parent = waitForDeferred(self.locateParent(request, request.uri))
-        yield parent
-        parent = parent.getResult()
+        parent = (yield self.locateParent(request, request.uri))
         if not parent.isPseudoCalendarCollection():
             log.err("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar collection or calendar resource"))
@@ -99,6 +98,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-filter")))
 
     matchcount = [0]
+    
+    @inlineCallbacks
     def doQuery(calresource, uri):
         """
         Run a query on the specified calendar collection
@@ -144,25 +145,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         if calresource.isPseudoCalendarCollection():
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query filter for later use
-            has_prop = waitForDeferred(calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
-            yield has_prop
-            has_prop = has_prop.getResult()
+            has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
             if query_tz is None and has_prop:
-                tz = waitForDeferred(calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
-                yield tz
-                tz = tz.getResult()
+                tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
                 filter.settimezone(tz)
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
-            filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
-            yield filteredaces
-            filteredaces = filteredaces.getResult()
+            filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
             # Check private events access status
-            d = waitForDeferred(calresource.isOwner(request))
-            yield d
-            isowner = d.getResult()
+            isowner = (yield calresource.isOwner(request))
 
             # Check for disabled access
             if filteredaces is not None:
@@ -172,12 +165,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 # Get list of children that match the search and have read access
                 names = [name for name, ignore_uid, ignore_type in calresource.index().search(filter)]
                 if not names:
-                    yield None
                     return
                   
                 # Now determine which valid resources are readable and which are not
                 ok_resources = []
-                d = calresource.findChildrenFaster(
+                yield calresource.findChildrenFaster(
                     "1",
                     request,
                     lambda x, y: ok_resources.append((x, y)),
@@ -186,9 +178,6 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     (davxml.Read(),),
                     inherited_aces=filteredaces
                 )
-                x = waitForDeferred(d)
-                yield x
-                x.getResult()
                 
                 for child, child_uri in ok_resources:
                     child_uri_name = child_uri[child_uri.rfind("/") + 1:]
@@ -200,50 +189,34 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     else:
                         calendar = None
                     
-                    d = waitForDeferred(queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok, isowner=isowner))
-                    yield d
-                    d.getResult()
+                    yield queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok, isowner=isowner)
         else:
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query object for later use
             if query_tz is None:
 
-                parent = waitForDeferred(calresource.locateParent(request, uri))
-                yield parent
-                parent = parent.getResult()
+                parent = (yield calresource.locateParent(request, uri))
                 assert parent is not None and parent.isPseudoCalendarCollection()
 
-                has_prop = waitForDeferred(parent.hasProperty((caldav_namespace, "calendar-timezone"), request))
-                yield has_prop
-                has_prop = has_prop.getResult()
+                has_prop = (yield parent.hasProperty((caldav_namespace, "calendar-timezone"), request))
                 if has_prop:
-                    tz = waitForDeferred(parent.readProperty((caldav_namespace, "calendar-timezone"), request))
-                    yield tz
-                    tz = tz.getResult()
+                    tz = (yield parent.readProperty((caldav_namespace, "calendar-timezone"), request))
                     filter.settimezone(tz)
 
             # Check private events access status
-            d = waitForDeferred(calresource.isOwner(request))
-            yield d
-            isowner = d.getResult()
+            isowner = (yield calresource.isOwner(request))
 
             calendar = calresource.iCalendar()
-            d = waitForDeferred(queryCalendarObjectResource(calresource, uri, None, calendar))
-            yield d
-            d.getResult()
+            yield queryCalendarObjectResource(calresource, uri, None, calendar)
 
-    doQuery = deferredGenerator(doQuery)
+        returnValue(True)
 
     # Run report taking depth into account
     try:
         depth = request.headers.getHeader("depth", "0")
-        d = waitForDeferred(report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),)))
-        yield d
-        d.getResult()
+        yield report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
     
-    yield MultiStatusResponse(responses)
-
-report_urn_ietf_params_xml_ns_caldav_calendar_query = deferredGenerator(report_urn_ietf_params_xml_ns_caldav_calendar_query)
+    returnValue(MultiStatusResponse(responses))

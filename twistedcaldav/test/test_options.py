@@ -18,12 +18,13 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
+from twistedcaldav.config import config
 
 class OPTIONS (twistedcaldav.test.util.TestCase):
     """
     OPTIONS request
     """
-    def test_dav_header_caldav(self):
+    def test_dav_header_full_caldav(self):
         """
         DAV header advertises CalDAV
         """
@@ -36,8 +37,30 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             self.assertIn("access-control", dav, "no DAV access-control header")
             self.assertIn("calendar-access", dav, "no DAV calendar-access header")
             self.assertIn("calendar-schedule", dav, "no DAV calendar-schedule header")
+            self.assertIn("calendar-auto-schedule", dav, "no DAV calendar-auto-schedule header")
             self.assertIn("calendar-availability", dav, "no DAV calendar-availability header")
 
+        config.Scheduling["CalDAV"]["OldDraftCompatability"] = True
+        request = SimpleRequest(self.site, "OPTIONS", "/")
+
+        return self.send(request, do_test)
+
+    def test_dav_header_implicit_caldav(self):
+        """
+        DAV header advertises CalDAV
+        """
+        def do_test(response):
+            response = IResponse(response)
+
+            dav = response.headers.getHeader("dav")
+            if not dav: self.fail("no DAV header: %s" % (response.headers,))
+            self.assertIn("1", dav, "no DAV level 1 header")
+            self.assertIn("access-control", dav, "no DAV access-control header")
+            self.assertIn("calendar-access", dav, "no DAV calendar-access header")
+            self.assertIn("calendar-auto-schedule", dav, "no DAV calendar-auto-schedule header")
+            self.assertIn("calendar-availability", dav, "no DAV calendar-availability header")
+
+        config.Scheduling["CalDAV"]["OldDraftCompatability"] = False
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)

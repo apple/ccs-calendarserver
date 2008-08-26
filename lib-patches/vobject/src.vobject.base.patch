@@ -1,0 +1,24 @@
+Index: src/vobject/base.py
+===================================================================
+--- src/vobject/base.py	(revision 192)
++++ src/vobject/base.py	(working copy)
+@@ -273,6 +273,8 @@
+         self.value = copy.copy(copyit.value)
+         self.encoded = self.encoded
+         self.params = copy.copy(copyit.params)
++        for k,v in self.params.items():
++            self.params[k] = copy.copy(v)
+         self.singletonparams = copy.copy(copyit.singletonparams)
+         self.lineNumber = copyit.lineNumber
+         
+@@ -912,7 +914,9 @@
+             s.write(str(obj.group + '.'))
+         if DEBUG: logger.debug("Serializing line" + str(obj))
+         s.write(str(obj.name.upper()))
+-        for key, paramvals in obj.params.iteritems():
++        keys = sorted(obj.params.iterkeys())
++        for key in keys:
++            paramvals = obj.params[key]
+             s.write(';' + str(key) + '=' + ','.join(map(dquoteEscape, paramvals)).encode("utf-8"))
+         if isinstance(obj.value, unicode):
+             strout = obj.value.encode("utf-8")

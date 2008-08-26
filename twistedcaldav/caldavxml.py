@@ -45,9 +45,17 @@ log = Logger()
 
 caldav_namespace = "urn:ietf:params:xml:ns:caldav"
 
-caldav_compliance = (
+caldav_full_compliance = (
     "calendar-access",
     "calendar-schedule",
+    "calendar-auto-schedule",
+    "calendar-availability",
+    "inbox-availability",
+)
+
+caldav_implicit_compliance = (
+    "calendar-access",
+    "calendar-auto-schedule",
     "calendar-availability",
     "inbox-availability",
 )
@@ -1558,14 +1566,46 @@ class CalendarUserAddressSet (CalDAVElement):
 class CalendarFreeBusySet (CalDAVElement):
     """
     The list of calendar URIs that contribute to free-busy for this principal's calendar user.
-    (CalDAV-schedule, section x.x.x)
+    This was defined in the old caldav scheduling spec but has been removed from the new one.
+    We still need to support it for backwards compatibility.
     """
     name = "calendar-free-busy-set"
     hidden = True
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
 
-class ScheduleInboxURL (CalDAVTextElement):
+class ScheduleCalendarTransp (CalDAVElement):
+    """
+    Indicates whether a calendar should be used for freebusy lookups.
+    """
+    name = "schedule-calendar-transp"
+
+    allowed_children = {
+        (caldav_namespace,     "opaque"      ): (0, 1),
+        (caldav_namespace,     "transparent" ): (0, 1),
+    }
+
+class Opaque (CalDAVEmptyElement):
+    """
+    Indicates that a calendar is used in freebusy lookups.
+    """
+    name = "opaque"
+
+class Transparent (CalDAVEmptyElement):
+    """
+    Indicates that a calendar is not used in freebusy lookups.
+    """
+    name = "transparent"
+
+class ScheduleDefaultCalendarURL (CalDAVElement):
+    """
+    A single href indicating which calendar is the default for scheduling.
+    """
+    name = "schedule-default-calendar-URL"
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class ScheduleInboxURL (CalDAVElement):
     """
     A principal property to indicate the schedule INBOX for the principal.
     (CalDAV-schedule, section x.x.x)
@@ -1576,7 +1616,7 @@ class ScheduleInboxURL (CalDAVTextElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class ScheduleOutboxURL (CalDAVTextElement):
+class ScheduleOutboxURL (CalDAVElement):
     """
     A principal property to indicate the schedule OUTBOX for the principal.
     (CalDAV-schedule, section x.x.x)
@@ -1666,6 +1706,33 @@ class Schedule (CalDAVEmptyElement):
     """
     name = "schedule"
     
+class ScheduleState (CalDAVElement):
+    """
+    Indicates whether a scheduling message in an inbox has been processed
+    by the server.
+    """
+    name = "schedule-state"
+    protected = True
+
+    allowed_children = {
+        (caldav_namespace,     "schedule-processed"   ): (0, 1),
+        (caldav_namespace,     "schedule-unprocessed" ): (0, 1),
+    }
+
+class ScheduleProcessed (CalDAVEmptyElement):
+    """
+    Indicates that a scheduling message in an inbox has been processed
+    by the server.
+    """
+    name = "schedule-processed"
+
+class ScheduleUnprocessed (CalDAVEmptyElement):
+    """
+    Indicates that a scheduling message in an inbox has not been processed
+    by the server.
+    """
+    name = "schedule-unprocessed"
+
 ##
 # Extensions to davxml.ResourceType
 ##

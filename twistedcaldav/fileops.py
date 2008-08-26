@@ -13,15 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import deferredGenerator
-from twisted.web2.dav.fileop import put
-from twisted.internet.defer import waitForDeferred
-from twisted.web2.dav.fileop import copy
 
 """
 Various file utilities.
 """
 
+from twisted.web2.dav.fileop import copy
+from twisted.web2.dav.fileop import put
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 # This class simulates a DAVFile with enough information for use with xattrPropertyStore.
@@ -30,7 +28,6 @@ class FakeXAttrResource(object):
     def __init__(self, fp):
         self.fp = fp
 
-@deferredGenerator
 def putWithXAttrs(stream, filepath):
     """
     Write a file to a possibly existing path and preserve any xattrs at that path.
@@ -50,20 +47,21 @@ def putWithXAttrs(stream, filepath):
         xold = None
     
     # First do the actual file copy
-    d = waitForDeferred(put(stream, filepath))
-    yield d
-    response = d.getResult()
+    def _gotResponse(response):
+    
+        # Restore original xattrs.
+        if props:
+            xnew = xattrPropertyStore(FakeXAttrResource(filepath))
+            for prop in props:
+                xnew.set(prop)
+            xnew = None
+    
+        return response
 
-    # Restore original xattrs.
-    if props:
-        xnew = xattrPropertyStore(FakeXAttrResource(filepath))
-        for prop in props:
-            xnew.set(prop)
-        xnew = None
+    d = put(stream, filepath)
+    d.addCallback(_gotResponse)
+    return d
 
-    yield response
-
-@deferredGenerator
 def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     Copy a file from one path to another and also copy xattrs we care about.
@@ -77,14 +75,16 @@ def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
     
     # First do the actual file copy
-    d = waitForDeferred(copy(source_filepath, destination_filepath, destination_uri, "0"))
-    yield d
-    response = d.getResult()
-
-    # Now copy over xattrs.
-    copyXAttrs(source_filepath, destination_filepath)
+    def _gotResponse(response):
     
-    yield response
+        # Now copy over xattrs.
+        copyXAttrs(source_filepath, destination_filepath)
+        
+        return response
+    
+    d = copy(source_filepath, destination_filepath, destination_uri, "0")
+    d.addCallback(_gotResponse)
+    return d
 
 def copyToWithXAttrs(from_fp, to_fp):
     """

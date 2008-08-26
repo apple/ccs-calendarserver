@@ -18,13 +18,13 @@
 PUT/COPY/MOVE common behavior.
 """
 
-__all__ = ["storeCalendarObjectResource"]
+__all__ = ["StoreCalendarObjectResource"]
+
+import types
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
-from twisted.internet.defer import deferredGenerator
-from twisted.internet.defer import maybeDeferred
-from twisted.internet.defer import waitForDeferred
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import maybeDeferred, returnValue
 from twisted.python import failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -54,59 +54,12 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
 
-@deferredGenerator
-def storeCalendarObjectResource(
-    request,
-    sourcecal, destinationcal,
-    source=None, source_uri=None, sourceparent=None,
-    destination=None, destination_uri=None, destinationparent=None,
-    calendardata=None,
-    deletesource=False,
-    isiTIP=False
-):
-    """
-    Function that does common PUT/COPY/MOVE behaviour.
+class StoreCalendarObjectResource(object):
     
-    @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
-    @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
-        is to be read from the request.
-    @param source_uri:        the URI for the source resource.
-    @param destination:       the L{CalDAVFile} for the destination resource to copy into.
-    @param destination_uri:   the URI for the destination resource.
-    @param calendardata:      the string data read directly from the request body if there is no source, None otherwise.
-    @param sourcecal:         True if the source resource is in a calendar collection, False otherwise.
-    @param destinationcal:    True if the destination resource is in a calendar collection, False otherwise
-    @param sourceparent:      the L{CalDAVFile} for the source resource's parent collection, or None if source is None.
-    @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
-    @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
-    @param isiTIP:            True if relaxed calendar data validation is to be done, False otherwise.
-    @return:                  a Deferred with a status response result.
-    """
-    
-    try:
-        assert destination is not None and destinationparent is not None and destination_uri is not None
-        assert (source is None and sourceparent is None) or (source is not None and sourceparent is not None)
-        assert (calendardata is None and source is not None) or (calendardata is not None and source is None)
-        assert not deletesource or (deletesource and source is not None)
-    except AssertionError:
-        log.err("Invalid arguments to storeCalendarObjectResource():")
-        log.err("request=%s\n" % (request,))
-        log.err("sourcecal=%s\n" % (sourcecal,))
-        log.err("destinationcal=%s\n" % (destinationcal,))
-        log.err("source=%s\n" % (source,))
-        log.err("source_uri=%s\n" % (source_uri,))
-        log.err("sourceparent=%s\n" % (sourceparent,))
-        log.err("destination=%s\n" % (destination,))
-        log.err("destination_uri=%s\n" % (destination_uri,))
-        log.err("destinationparent=%s\n" % (destinationparent,))
-        log.err("calendardata=%s\n" % (calendardata,))
-        log.err("deletesource=%s\n" % (deletesource,))
-        log.err("isiTIP=%s\n" % (isiTIP,))
-        raise
-
     class RollbackState(object):
         """
         This class encapsulates the state needed to rollback the entire PUT/COPY/MOVE
@@ -114,7 +67,8 @@ def storeCalendarObjectResource(
         processed. The DoRollback method will actually execute the rollback operations.
         """
         
-        def __init__(self):
+        def __init__(self, storer):
+            self.storer = storer
             self.active = True
             self.source_copy = None
             self.destination_copy = None
@@ -134,32 +88,32 @@ def storeCalendarObjectResource(
                 log.debug("Rollback: rollback")
                 try:
                     if self.source_copy and self.source_deleted:
-                        self.source_copy.moveTo(source.fp)
-                        log.debug("Rollback: source restored %s to %s" % (self.source_copy.path, source.fp.path))
+                        self.source_copy.moveTo(self.storer.source.fp)
+                        log.debug("Rollback: source restored %s to %s" % (self.source_copy.path, self.storer.source.fp.path))
                         self.source_copy = None
                         self.source_deleted = False
                     if self.destination_copy:
-                        destination.fp.remove()
-                        log.debug("Rollback: destination restored %s to %s" % (self.destination_copy.path, destination.fp.path))
-                        self.destination_copy.moveTo(destination.fp)
+                        self.storer.destination.fp.remove()
+                        log.debug("Rollback: destination restored %s to %s" % (self.destination_copy.path, self.storer.destination.fp.path))
+                        self.destination_copy.moveTo(self.storer.destination.fp)
                         self.destination_copy = None
                     elif self.destination_created:
-                        if destinationcal:
-                            doRemoveDestinationIndex()
-                            log.debug("Rollback: destination index removed %s" % (destination.fp.path,))
+                        if self.storer.destinationcal:
+                            self.storer.doRemoveDestinationIndex()
+                            log.debug("Rollback: destination index removed %s" % (self.storer.destination.fp.path,))
                             self.destination_index_deleted = False
-                        destination.fp.remove()
-                        log.debug("Rollback: destination removed %s" % (destination.fp.path,))
+                        self.storer.destination.fp.remove()
+                        log.debug("Rollback: destination removed %s" % (self.storer.destination.fp.path,))
                         self.destination_created = False
                     if self.destination_index_deleted:
                         # Must read in calendar for destination being re-indexed
-                        doDestinationIndex(destination.iCalendar())
+                        self.storer.doDestinationIndex(self.storer.destination.iCalendar())
                         self.destination_index_deleted = False
-                        log.debug("Rollback: destination re-indexed %s" % (destination.fp.path,))
+                        log.debug("Rollback: destination re-indexed %s" % (self.storer.destination.fp.path,))
                     if self.source_index_deleted:
-                        doSourceIndexRecover()
+                        self.storer.doSourceIndexRecover()
                         self.destination_index_deleted = False
-                        log.debug("Rollback: source re-indexed %s" % (source.fp.path,))
+                        log.debug("Rollback: source re-indexed %s" % (self.storer.source.fp.path,))
                 except:
                     log.err("Rollback: exception caught and not handled: %s" % failure.Failure())
 
@@ -182,57 +136,230 @@ def storeCalendarObjectResource(
                 self.source_deleted = False
                 self.source_index_deleted = False
                 self.destination_index_deleted = False
-    
-    rollback = RollbackState()
 
-    def validResourceName():
+    class UIDReservation(object):
+        
+        def __init__(self, index, uid, uri):
+            self.reserved = False
+            self.index = index
+            self.uid = uid
+            self.uri = uri
+            
+        @inlineCallbacks
+        def reserve(self):
+            
+            # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
+            # time to whoever has the reservation to finish and release it.
+            failure_count = 0
+            while(failure_count < 10):
+                try:
+                    yield self.index.reserveUID(self.uid)
+                    self.reserved = True
+                    break
+                except ReservationError:
+                    self.reserved = False
+                failure_count += 1
+                
+                pause = Deferred()
+                def _timedDeferred():
+                    pause.callback(True)
+                reactor.callLater(0.5, _timedDeferred)
+                yield pause
+            
+            if self.uri and not self.reserved:
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (self.uri,)))
+        
+        @inlineCallbacks
+        def unreserve(self):
+            if self.reserved:
+                yield self.index.unreserveUID(self.uid)
+                self.reserved = False
+
+    def __init__(
+        self,
+        request,
+        source=None, source_uri=None, sourceparent=None, sourcecal=False, deletesource=False,
+        destination=None, destination_uri=None, destinationparent=None, destinationcal=True,
+        calendar=None,
+        isiTIP=False,
+        allowImplicitSchedule=True,
+    ):
+        """
+        Function that does common PUT/COPY/MOVE behavior.
+        
+        @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
+        @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
+            is to be read from the request.
+        @param source_uri:        the URI for the source resource.
+        @param destination:       the L{CalDAVFile} for the destination resource to copy into.
+        @param destination_uri:   the URI for the destination resource.
+        @param calendar:          the C{str} or L{Component} calendar data if there is no source, None otherwise.
+        @param sourcecal:         True if the source resource is in a calendar collection, False otherwise.
+        @param destinationcal:    True if the destination resource is in a calendar collection, False otherwise
+        @param sourceparent:      the L{CalDAVFile} for the source resource's parent collection, or None if source is None.
+        @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
+        @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
+        @param isiTIP:                True if relaxed calendar data validation is to be done, False otherwise.
+        @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
+        """
+        
+        # Check that all arguments are valid
+        try:
+            assert destination is not None and destinationparent is not None and destination_uri is not None
+            assert (source is None and sourceparent is None) or (source is not None and sourceparent is not None)
+            assert (calendar is None and source is not None) or (calendar is not None and source is None)
+            assert not deletesource or (deletesource and source is not None)
+        except AssertionError:
+            log.err("Invalid arguments to StoreCalendarObjectResource.__init__():")
+            log.err("request=%s\n" % (request,))
+            log.err("sourcecal=%s\n" % (sourcecal,))
+            log.err("destinationcal=%s\n" % (destinationcal,))
+            log.err("source=%s\n" % (source,))
+            log.err("source_uri=%s\n" % (source_uri,))
+            log.err("sourceparent=%s\n" % (sourceparent,))
+            log.err("destination=%s\n" % (destination,))
+            log.err("destination_uri=%s\n" % (destination_uri,))
+            log.err("destinationparent=%s\n" % (destinationparent,))
+            log.err("calendar=%s\n" % (calendar,))
+            log.err("deletesource=%s\n" % (deletesource,))
+            log.err("isiTIP=%s\n" % (isiTIP,))
+            raise
+    
+        self.request = request
+        self.sourcecal = sourcecal
+        self.destinationcal = destinationcal
+        self.source = source
+        self.source_uri = source_uri
+        self.sourceparent = sourceparent
+        self.destination = destination
+        self.destination_uri = destination_uri
+        self.destinationparent = destinationparent
+        self.calendar = calendar
+        self.calendardata = None
+        self.deletesource = deletesource
+        self.isiTIP = isiTIP
+        self.allowImplicitSchedule = allowImplicitSchedule
+        
+        self.rollback = None
+        self.access = None
+
+    def fullValidation(self):
+        """
+        Do full validation of source and destination calendar data.
+        """
+
+        if self.destinationcal:
+            # Valid resource name check
+            result, message = self.validResourceName()
+            if not result:
+                log.err(message)
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+
+            if not self.sourcecal:
+                # Valid content type check on the source resource if its not in a calendar collection
+                if self.source is not None:
+                    result, message = self.validContentType()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+                
+                    # At this point we need the calendar data to do more tests
+                    self.calendar = self.source.iCalendar()
+                else:
+                    try:
+                        if type(self.calendar) in (types.StringType, types.UnicodeType,):
+                            self.calendardata = self.calendar
+                            self.calendar = Component.fromString(self.calendar)
+                    except ValueError, e:
+                        log.err(str(e))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                        
+                # Valid calendar data check
+                result, message = self.validCalendarDataCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                    
+                # Valid calendar data for CalDAV check
+                result, message = self.validCalDAVDataCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
+
+                # Must have a valid UID at this point
+                self.uid = self.calendar.resourceUID()
+            else:
+                # Get UID from original resource
+                self.source_index = self.sourceparent.index()
+                self.uid = self.source_index.resourceUIDForName(self.source.fp.basename())
+                if self.uid is None:
+                    log.err("Source calendar does not have a UID: %s" % self.source.fp.basename())
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
+
+                # FIXME: We need this here because we have to re-index the destination. Ideally it
+                # would be better to copy the index entries from the source and add to the destination.
+                self.calendar = self.source.iCalendar()
+
+            # Valid calendar data size check
+            result, message = self.validSizeCheck()
+            if not result:
+                log.err(message)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+
+            # Check access
+            if self.destinationcal and config.EnablePrivateEvents:
+                return self.validAccess()
+            else:
+                return succeed(None)
+    
+    def validResourceName(self):
         """
         Make sure that the resource name for the new resource is valid.
         """
         result = True
         message = ""
-        filename = destination.fp.basename()
+        filename = self.destination.fp.basename()
         if filename.startswith("."):
             result = False
             message = "File name %s not allowed in calendar collection" % (filename,)
 
         return result, message
         
-    def validContentType():
+    def validContentType(self):
         """
         Make sure that the content-type of the source resource is text/calendar.
         This test is only needed when the source is not in a calendar collection.
         """
         result = True
         message = ""
-        content_type = source.contentType()
+        content_type = self.source.contentType()
         if not ((content_type.mediaType == "text") and (content_type.mediaSubtype == "calendar")):
             result = False
             message = "MIME type %s not allowed in calendar collection" % (content_type,)
 
         return result, message
         
-    def validCalendarDataCheck():
+    def validCalendarDataCheck(self):
         """
         Check that the calendar data is valid iCalendar.
-        @return:         tuple: (True/False if the calendra data is valid,
+        @return:         tuple: (True/False if the calendar data is valid,
                                  log message string).
         """
         result = True
         message = ""
-        if calendar is None:
+        if self.calendar is None:
             result = False
             message = "Empty resource not allowed in calendar collection"
         else:
             try:
-                calendar.validCalendarForCalDAV()
+                self.calendar.validCalendarForCalDAV()
             except ValueError, e:
                 result = False
                 message = "Invalid calendar data: %s" % (e,)
         
         return result, message
     
-    def validCalDAVDataCheck():
+    def validCalDAVDataCheck(self):
         """
         Check that the calendar data is valid as a CalDAV calendar object resource.
         @return:         tuple: (True/False if the calendar data is valid,
@@ -241,17 +368,17 @@ def storeCalendarObjectResource(
         result = True
         message = ""
         try:
-            if isiTIP:
-                calendar.validateComponentsForCalDAV(True)
+            if self.isiTIP:
+                self.calendar.validateComponentsForCalDAV(True)
             else:
-                calendar.validateForCalDAV()
+                self.calendar.validateForCalDAV()
         except ValueError, e:
             result = False
             message = "Calendar data does not conform to CalDAV requirements: %s" % (e,)
         
         return result, message
     
-    def validSizeCheck():
+    def validSizeCheck(self):
         """
         Make sure that the content-type of the source resource is text/calendar.
         This test is only needed when the source is not in a calendar collection.
@@ -259,53 +386,53 @@ def storeCalendarObjectResource(
         result = True
         message = ""
         if config.MaximumAttachmentSize:
-            calsize = len(str(calendar))
+            calsize = len(str(self.calendar))
             if calsize > config.MaximumAttachmentSize:
                 result = False
                 message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
 
         return result, message
 
-    @deferredGenerator
-    def validAccess():
+    def validAccess(self):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
         """
         
-        if calendar.hasProperty(Component.ACCESS_PROPERTY):
+        if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
             
             # Must be a value we know about
-            access = calendar.accessLevel(default=None)
-            if access is None:
+            self.access = self.calendar.accessLevel(default=None)
+            if self.access is None:
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            d = waitForDeferred(destinationparent.owner(request))
-            yield d
-            parent_owner = d.getResult()
-            
-            authz = destinationparent.currentPrincipal(request)
-            if davxml.Principal(parent_owner) != authz and access != Component.ACCESS_PUBLIC:
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+            def _callback(parent_owner):
+                
+                authz = self.destinationparent.currentPrincipal(self.request)
+                if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+                
+                return None
 
-            yield access, calendardata
+            d = self.destinationparent.owner(self.request)
+            d.addCallback(_callback)
+            return d
         else:
             # Check whether an access property was present before and write that into the calendar data
-            newcalendardata = calendardata
-            if not source and destination.exists() and destination.hasDeadProperty(TwistedCalendarAccessProperty):
-                old_access = str(destination.readDeadProperty(TwistedCalendarAccessProperty))
-                calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
-                newcalendardata = str(calendar)
+            if not self.source and self.destination.exists() and self.destination.hasDeadProperty(TwistedCalendarAccessProperty):
+                old_access = str(self.destination.readDeadProperty(TwistedCalendarAccessProperty))
+                self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
+                self.calendardata = str(self.calendar)
+                
+        return succeed(None)
 
-            yield None, newcalendardata
-
-    def noUIDConflict(uid):
+    def noUIDConflict(self, uid):
         """
         Check that the UID of the new calendar object conforms to the requirements of
         CalDAV, i.e. it must be unique in the collection and we must not overwrite a
         different UID.
         @param uid: the UID for the resource being stored.
-        @return: tuple: (True/False if the uid is valid, log message string,
+        @return: tuple: (True/False if the UID is valid, log message string,
             name of conflicted resource).
         """
 
@@ -315,14 +442,14 @@ def storeCalendarObjectResource(
 
         # Adjust for a move into same calendar collection
         oldname = None
-        if sourceparent and (sourceparent.fp.path == destinationparent.fp.path) and deletesource:
-            oldname = source.fp.basename()
+        if self.sourceparent and (self.sourceparent.fp.path == self.destinationparent.fp.path) and self.deletesource:
+            oldname = self.source.fp.basename()
 
-        # UID must be unqiue
-        index = destinationparent.index()
-        if not index.isAllowedUID(uid, oldname, destination.fp.basename()):
+        # UID must be unique
+        index = self.destinationparent.index()
+        if not index.isAllowedUID(uid, oldname, self.destination.fp.basename()):
             rname = index.resourceNameForUID(uid)
-            # This can happen if two simulataneous PUTs occur with the same UID.
+            # This can happen if two simultaneous PUTs occur with the same UID.
             # i.e. one PUT has reserved the UID but has not yet written the resource,
             # the other PUT tries to reserve and fails but no index entry exists yet.
             if rname is None:
@@ -332,355 +459,296 @@ def storeCalendarObjectResource(
             message = "Calendar resource %s already exists with same UID %s" % (rname, uid)
         else:
             # Cannot overwrite a resource with different UID
-            if destination.fp.exists():
-                olduid = index.resourceUIDForName(destination.fp.basename())
+            if self.destination.fp.exists():
+                olduid = index.resourceUIDForName(self.destination.fp.basename())
                 if olduid != uid:
-                    rname = destination.fp.basename()
+                    rname = self.destination.fp.basename()
                     result = False
                     message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid)
         
         return result, message, rname
 
-    try:
+    @inlineCallbacks
+    def checkQuota(self):
         """
-        Handle validation operations here.
-        """
-        reserved = False
-        access = None
-        if destinationcal:
-            # Valid resource name check
-            result, message = validResourceName()
-            if not result:
-                log.err(message)
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
-
-            if not sourcecal:
-                # Valid content type check on the source resource if its not in a calendar collection
-                if source is not None:
-                    result, message = validContentType()
-                    if not result:
-                        log.err(message)
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
-                
-                    # At this point we need the calendar data to do more tests
-                    calendar = source.iCalendar()
-                else:
-                    try:
-                        calendar = Component.fromString(calendardata)
-                    except ValueError, e:
-                        log.err(str(e))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-                        
-                # Valid calendar data check
-                result, message = validCalendarDataCheck()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
-                    
-                # Valid calendar data for CalDAV check
-                result, message = validCalDAVDataCheck()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
-
-                # Must have a valid UID at this point
-                uid = calendar.resourceUID()
-            else:
-                # Get uid from original resource
-                source_index = sourceparent.index()
-                uid = source_index.resourceUIDForName(source.fp.basename())
-                if uid is None:
-                    log.err("Source calendar does not have a UID: %s" % source.fp.basename())
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
-
-                # FIXME: We need this here because we have to re-index the destination. Ideally it
-                # would be better to copy the index entries from the source and add to the destination.
-                calendar = source.iCalendar()
-
-            # Valid calendar data size check
-            result, message = validSizeCheck()
-            if not result:
-                log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
-
-            # Check access
-            if destinationcal and config.EnablePrivateEvents:
-                d = waitForDeferred(validAccess())
-                yield d
-                access, calendardata = d.getResult()
-
-            # Reserve UID
-            destination_index = destinationparent.index()
-            
-            # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
-            # time to whoever has the reservation to finish and release it.
-            failure_count = 0
-            while(failure_count < 10):
-                try:
-                    d = waitForDeferred(destination_index.reserveUID(uid))
-                    yield d
-                    d.getResult()
-                    reserved = True
-                    break
-                except ReservationError:
-                    reserved = False
-                failure_count += 1
-                
-                d = Deferred()
-                def _timedDeferred():
-                    d.callback(True)
-                reactor.callLater(0.5, _timedDeferred)
-                pause = waitForDeferred(d)
-                yield pause
-                pause.getResult()
-            
-            if destination_uri and not reserved:
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (destination_uri,)))
-        
-            # uid conflict check - note we do this after reserving the UID to avoid a race condition where two requests
-            # try to write the same calendar data to two different resource URIs.
-            if not isiTIP:
-                result, message, rname = noUIDConflict(uid)
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
-                        NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(destination_uri), rname.encode("utf-8"))))
-                    ))
-            
-        """
-        Handle rollback setup here.
+        Get quota details for destination and source before we start messing with adding other files.
         """
 
-        # Do quota checks on destination and source before we start messing with adding other files
-        if request is None:
-            destquota = None
+        if self.request is None:
+            self.destquota = None
         else:
-            destquota = waitForDeferred(destination.quota(request))
-            yield destquota
-            destquota = destquota.getResult()
-            if destquota is not None and destination.exists():
-                old_dest_size = waitForDeferred(destination.quotaSize(request))
-                yield old_dest_size
-                old_dest_size = old_dest_size.getResult()
+            self.destquota = (yield self.destination.quota(self.request))
+            if self.destquota is not None and self.destination.exists():
+                self.old_dest_size = (yield self.destination.quotaSize(self.request))
             else:
-                old_dest_size = 0
+                self.old_dest_size = 0
             
-        if request is None:
-            sourcequota = None
-        elif source is not None:
-            sourcequota = waitForDeferred(source.quota(request))
-            yield sourcequota
-            sourcequota = sourcequota.getResult()
-            if sourcequota is not None and source.exists():
-                old_source_size = waitForDeferred(source.quotaSize(request))
-                yield old_source_size
-                old_source_size = old_source_size.getResult()
+        if self.request is None:
+            self.sourcequota = None
+        elif self.source is not None:
+            self.sourcequota = (yield self.source.quota(self.request))
+            if self.sourcequota is not None and self.source.exists():
+                self.old_source_size = (yield self.source.quotaSize(self.request))
             else:
-                old_source_size = 0
+                self.old_source_size = 0
         else:
-            sourcequota = None
-            old_source_size = 0
+            self.sourcequota = None
+            self.old_source_size = 0
 
-        # We may need to restore the original resource data if the PUT/COPY/MOVE fails,
-        # so rename the original file in case we need to rollback.
-        overwrite = destination.exists()
-        if overwrite:
-            rollback.destination_copy = FilePath(destination.fp.path)
-            rollback.destination_copy.path += ".rollback"
-            copyToWithXAttrs(destination.fp, rollback.destination_copy)
-            log.debug("Rollback: backing up destination %s to %s" % (destination.fp.path, rollback.destination_copy.path))
-        else:
-            rollback.destination_created = True
-            log.debug("Rollback: will create new destination %s" % (destination.fp.path,))
+        returnValue(None)
 
-        if deletesource:
-            rollback.source_copy = FilePath(source.fp.path)
-            rollback.source_copy.path += ".rollback"
-            copyToWithXAttrs(source.fp, rollback.source_copy)
-            log.debug("Rollback: backing up source %s to %s" % (source.fp.path, rollback.source_copy.path))
-    
+    def setupRollback(self):
         """
-        Handle actual store operations here.
-        
-        The order in which this is done is import:
-            
-            1. Do store operation for new data
-            2. Delete source and source index if needed
-            3. Do new indexing if needed
-            
-        Note that we need to remove the source index BEFORE doing the destination index to cover the
-        case of a resource being 'renamed', i.e. moved within the same collection. Since the index UID
-        column must be unique in SQL, we cannot add the new index before remove the old one.
+        We may need to restore the original resource data if the PUT/COPY/MOVE fails,
+        so rename the original file in case we need to rollback.
         """
 
+        self.rollback = StoreCalendarObjectResource.RollbackState(self)
+        self.overwrite = self.destination.exists()
+        if self.overwrite:
+            self.rollback.destination_copy = FilePath(self.destination.fp.path)
+            self.rollback.destination_copy.path += ".rollback"
+            copyToWithXAttrs(self.destination.fp, self.rollback.destination_copy)
+            log.debug("Rollback: backing up destination %s to %s" % (self.destination.fp.path, self.rollback.destination_copy.path))
+        else:
+            self.rollback.destination_created = True
+            log.debug("Rollback: will create new destination %s" % (self.destination.fp.path,))
+
+        if self.deletesource:
+            self.rollback.source_copy = FilePath(self.source.fp.path)
+            self.rollback.source_copy.path += ".rollback"
+            copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
+            log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
+
+    @inlineCallbacks
+    def doStore(self):
         # Do put or copy based on whether source exists
-        if source is not None:
-            response = maybeDeferred(copyWithXAttrs, source.fp, destination.fp, destination_uri)
+        if self.source is not None:
+            response = maybeDeferred(copyWithXAttrs, self.source.fp, self.destination.fp, self.destination_uri)
         else:
-            md5 = MD5StreamWrapper(MemoryStream(calendardata))
-            response = maybeDeferred(putWithXAttrs, md5, destination.fp)
-        response = waitForDeferred(response)
-        yield response
-        response = response.getResult()
+            if self.calendardata is None:
+                self.calendardata = str(self.calendar)
+            md5 = MD5StreamWrapper(MemoryStream(self.calendardata))
+            response = maybeDeferred(putWithXAttrs, md5, self.destination.fp)
+        response = (yield response)
 
         # Update the MD5 value on the resource
-        if source is not None:
+        if self.source is not None:
             # Copy MD5 value from source to destination
-            if source.hasDeadProperty(TwistedGETContentMD5):
-                md5 = source.readDeadProperty(TwistedGETContentMD5)
-                destination.writeDeadProperty(md5)
+            if self.source.hasDeadProperty(TwistedGETContentMD5):
+                md5 = self.source.readDeadProperty(TwistedGETContentMD5)
+                self.destination.writeDeadProperty(md5)
         else:
-            # Finish MD5 calc and write dead property
+            # Finish MD5 calculation and write dead property
             md5.close()
             md5 = md5.getMD5()
-            destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
-
+            self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
+    
         # Update calendar-access property value on the resource
-        if access:
-            destination.writeDeadProperty(TwistedCalendarAccessProperty(access))
+        if self.access:
+            self.destination.writeDeadProperty(TwistedCalendarAccessProperty(self.access))
             
         # Do not remove the property if access was not specified and we are storing in a calendar.
         # This ensure that clients that do not preserve the iCalendar property do not cause access
         # restrictions to be lost.
-        elif not destinationcal:
-            destination.removeDeadProperty(TwistedCalendarAccessProperty)                
+        elif not self.destinationcal:
+            self.destination.removeDeadProperty(TwistedCalendarAccessProperty)                
 
-        response = IResponse(response)
+        returnValue(IResponse(response))
 
-        def doDestinationIndex(caltoindex):
-            """
-            Do destination resource indexing, replacing any index previous stored.
-            
-            @return: None if successful, ErrorResponse on failure
-            """
-            
-            # Delete index for original item
-            if overwrite:
-                doRemoveDestinationIndex()
-            
-            # Add or update the index for this resource.
-            try:
-                destination_index.addResource(destination.fp.basename(), caltoindex)
-                log.debug("Destination indexed %s" % (destination.fp.path,))
-            except TooManyInstancesError, ex:
-                log.err("Cannot index calendar resource as there are too many recurrence instances %s" % destination)
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
-                ))
-            except (ValueError, TypeError), ex:
-                log.err("Cannot index calendar resource: %s" % (ex,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+    @inlineCallbacks
+    def doSourceDelete(self):
+        # Delete index for original item
+        if self.sourcecal:
+            self.source_index.deleteResource(self.source.fp.basename())
+            self.rollback.source_index_deleted = True
+            log.debug("Source index removed %s" % (self.source.fp.path,))
 
-            destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
-            return None
+        # Delete the source resource
+        delete(self.source_uri, self.source.fp, "0")
+        self.rollback.source_deleted = True
+        log.debug("Source removed %s" % (self.source.fp.path,))
 
-        def doRemoveDestinationIndex():
-            """
-            Remove any existing destination index.
-            """
-            
-            # Delete index for original item
-            if destinationcal:
-                destination_index.deleteResource(destination.fp.basename())
-                rollback.destination_index_deleted = True
-                log.debug("Destination index removed %s" % (destination.fp.path,))
+        # Update quota
+        if self.sourcequota is not None:
+            delete_size = 0 - self.old_source_size
+            yield self.source.quotaSizeAdjust(self.request, delete_size)
 
-        def doSourceDelete():
-            # Delete index for original item
-            if sourcecal:
-                source_index.deleteResource(source.fp.basename())
-                rollback.source_index_deleted = True
-                log.debug("Source index removed %s" % (source.fp.path,))
+        # Change CTag on the parent calendar collection
+        if self.sourcecal:
+            yield self.sourceparent.updateCTag()
+  
+        returnValue(None)
 
-            # Delete the source resource
-            delete(source_uri, source.fp, "0")
-            rollback.source_deleted = True
-            log.debug("Source removed %s" % (source.fp.path,))
+    @inlineCallbacks
+    def doDestinationQuotaCheck(self):
+        # Get size of new/old resources
+        new_dest_size = (yield self.destination.quotaSize(self.request))
 
-        def doSourceIndexRecover():
-            """
-            Do source resource indexing. This only gets called when restoring
-            the source after its index has been deleted.
-            
-            @return: None if successful, ErrorResponse on failure
-            """
-            
-            # Add or update the index for this resource.
-            try:
-                source_index.addResource(source.fp.basename(), calendar)
-            except TooManyInstancesError, ex:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
+        diff_size = new_dest_size - self.old_dest_size
+
+        if diff_size >= self.destquota[0]:
+            log.err("Over quota: available %d, need %d" % (self.destquota[0], diff_size))
+            raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
+        yield self.destination.quotaSizeAdjust(self.request, diff_size)
+
+        returnValue(None)
+
+    def doSourceIndexRecover(self):
+        """
+        Do source resource indexing. This only gets called when restoring
+        the source after its index has been deleted.
+        
+        @return: None if successful, ErrorResponse on failure
+        """
+        
+        # Add or update the index for this resource.
+        try:
+            self.source_index.addResource(self.source.fp.basename(), self.calendar)
+        except TooManyInstancesError, ex:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
                 ))
 
-            source.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
+            self.source.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
             return None
 
-        if deletesource:
-            doSourceDelete()
-            # Update quota
-            if sourcequota is not None:
-                delete_size = 0 - old_source_size
-                d = waitForDeferred(source.quotaSizeAdjust(request, delete_size))
-                yield d
-                d.getResult()
+    def doDestinationIndex(self, caltoindex):
+        """
+        Do destination resource indexing, replacing any index previous stored.
+        
+        @return: None if successful, ErrorResponse on failure
+        """
+        
+        # Delete index for original item
+        if self.overwrite:
+            self.doRemoveDestinationIndex()
+        
+        # Add or update the index for this resource.
+        try:
+            self.destination_index.addResource(self.destination.fp.basename(), caltoindex)
+            log.debug("Destination indexed %s" % (self.destination.fp.path,))
+        except TooManyInstancesError, ex:
+            log.err("Cannot index calendar resource as there are too many recurrence instances %s" % self.destination)
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
+            ))
+        except (ValueError, TypeError), ex:
+            log.err("Cannot index calendar resource: %s" % (ex,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
-            if sourcecal:
+        self.destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
+        return None
+
+    def doRemoveDestinationIndex(self):
+        """
+        Remove any existing destination index.
+        """
+        
+        # Delete index for original item
+        if self.destinationcal:
+            self.destination_index.deleteResource(self.destination.fp.basename())
+            self.rollback.destination_index_deleted = True
+            log.debug("Destination index removed %s" % (self.destination.fp.path,))
+
+    @inlineCallbacks
+    def run(self):
+        """
+        Function that does common PUT/COPY/MOVE behavior.
+
+        @return: a Deferred with a status response result.
+        """
+
+        try:
+            reservation = None
+            
+            # Handle all validation operations here.
+            yield self.fullValidation()
+
+            # Reservation and UID conflict checking is next.
+            if self.destinationcal:    
+                # Reserve UID
+                self.destination_index = self.destinationparent.index()
+                reservation = StoreCalendarObjectResource.UIDReservation(self.destination_index, self.uid, self.destination_uri)
+                yield reservation.reserve()
+            
+                # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+                # try to write the same calendar data to two different resource URIs.
+                if not self.isiTIP:
+                    result, message, rname = self.noUIDConflict(self.uid)
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
+                            NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(self.destination_uri), rname.encode("utf-8"))))
+                        ))
+            
+            # Get current quota state.
+            yield self.checkQuota()
+
+            # Do scheduling
+            if not self.isiTIP and self.allowImplicitSchedule:
+                scheduler = ImplicitScheduler()
+                new_calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False))
+                if new_calendar:
+                    self.calendar = new_calendar
+                    self.calendardata = str(self.calendar)
+
+            # Initialize the rollback system
+            self.setupRollback()
+
+            """
+            Handle actual store operations here.
+            
+            The order in which this is done is import:
+                
+                1. Do store operation for new data
+                2. Delete source and source index if needed
+                3. Do new indexing if needed
+                
+            Note that we need to remove the source index BEFORE doing the destination index to cover the
+            case of a resource being 'renamed', i.e. moved within the same collection. Since the index UID
+            column must be unique in SQL, we cannot add the new index before remove the old one.
+            """
+    
+            # Do the actual put or copy
+            response = (yield self.doStore())
+            
+            # Delete the original source if needed.
+            if self.deletesource:
+                yield self.doSourceDelete()
+    
+            # Index the new resource if storing to a calendar.
+            if self.destinationcal:
+                result = self.doDestinationIndex(self.calendar)
+                if result is not None:
+                    self.rollback.Rollback()
+                    returnValue(result)
+    
+            # Do quota check on destination
+            if self.destquota is not None:
+                yield self.doDestinationQuotaCheck()
+    
+            if self.destinationcal:
                 # Change CTag on the parent calendar collection
-                d = waitForDeferred(sourceparent.updateCTag())
-                yield d
-                d.getResult()
+                yield self.destinationparent.updateCTag()
+    
+            # Can now commit changes and forget the rollback details
+            self.rollback.Commit()
+    
+            if reservation:
+                yield reservation.unreserve()
+    
+            returnValue(response)
+    
+        except Exception, err:
+            if reservation:
+                yield reservation.unreserve()
+    
+            # Roll back changes to original server state. Note this may do nothing
+            # if the rollback has already occurred or changes already committed.
+            if self.rollback:
+                self.rollback.Rollback()
 
-        if destinationcal:
-            result = doDestinationIndex(calendar)
-            if result is not None:
-                rollback.Rollback()
-                yield result
-                return
-
-        # Do quota check on destination
-        if destquota is not None:
-            # Get size of new/old resources
-            new_dest_size = waitForDeferred(destination.quotaSize(request))
-            yield new_dest_size
-            new_dest_size = new_dest_size.getResult()
-            diff_size = new_dest_size - old_dest_size
-            if diff_size >= destquota[0]:
-                log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))
-                raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
-            d = waitForDeferred(destination.quotaSizeAdjust(request, diff_size))
-            yield d
-            d.getResult()
-
-
-        if destinationcal:
-            # Change CTag on the parent calendar collection
-            d = waitForDeferred(destinationparent.updateCTag())
-            yield d
-            d.getResult()
-
-        # Can now commit changes and forget the rollback details
-        rollback.Commit()
-
-        if reserved:
-            d = waitForDeferred(destination_index.unreserveUID(uid))
-            yield d
-            d.getResult()
-            reserved = False
-
-        yield response
-        return
-
-    except Exception, err:
-        if reserved:
-            d = waitForDeferred(destination_index.unreserveUID(uid))
-            yield d
-            d.getResult()
-            reserved = False
-
-        # Roll back changes to original server state. Note this may do nothing
-        # if the rollback has already ocurred or changes already committed.
-        rollback.Rollback()
-        raise err
+            raise err

@@ -29,7 +29,7 @@ __all__ = ["http_REPORT"]
 
 import string
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -47,6 +47,7 @@ max_number_of_matches = 500
 class NumberOfMatchesWithinLimits(Exception):
     pass
 
+@inlineCallbacks
 def http_REPORT(self, request):
     """
     Respond to a REPORT request. (RFC 3253, section 3.6)
@@ -59,9 +60,7 @@ def http_REPORT(self, request):
     # Read request body
     #
     try:
-        doc = waitForDeferred(davXMLFromStream(request.stream))
-        yield doc
-        doc = doc.getResult()
+        doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
         log.err("Error while handling REPORT body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
@@ -122,12 +121,7 @@ def http_REPORT(self, request):
     privileges = (davxml.Read(),)
     if method_name == "report_urn_ietf_params_xml_ns_caldav_free_busy_query":
         privileges = (caldavxml.ReadFreeBusy(),)
-    x = waitForDeferred(self.authorize(request, privileges))
-    yield x
-    x.getResult()
+    yield self.authorize(request, privileges)
 
-    d = waitForDeferred(method(request, doc.root_element))
-    yield d
-    yield d.getResult()
-
-http_REPORT = deferredGenerator(http_REPORT)
+    result = (yield method(request, doc.root_element))
+    returnValue(result)

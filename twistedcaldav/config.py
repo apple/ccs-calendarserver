@@ -175,6 +175,48 @@ defaultConfig = {
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
     "EnableAutoAcceptTrigger" : False, # Manually trigger auto-accept behavior
+    
+    #
+    # Scheduling related options
+    #
+
+    "Scheduling": {
+        
+        "CalDAV": {
+            "EmailDomain"                : "",    # Domain for mailto calendar user addresses on this server
+            "HTTPDomain"                 : "",    # Domain for http calendar user addresses on this server
+            "AddressPatterns"            : [],    # Reg-ex patterns to match local calendar user addresses
+            "OldDraftCompatability"      : True,  # Whether to maintain compatibility with non-implicit mode
+            "DefaultCalendarProvisioned" : True, # Whether the provisioned default calendar is marked as the scheduling default
+        },
+
+        "iSchedule": {
+            "Enabled"          : False, # iSchedule protocol
+            "AddressPatterns"  : [],    # Reg-ex patterns to match iSchedule-able calendar user addresses
+            "Servers"          : "/etc/caldavd/servertoserver.xml",    # iSchedule server configurations
+        },
+
+        "iMIP": {
+            "Enabled"          : False, # Server-to-iMIP protocol
+            "Sending": {
+                "Server"       : "",    # SMTP server to relay messages through
+                "Port"         : 587,   # SMTP server port to relay messages through
+            },
+            "Receiving": {
+                "Server"       : "",    # Server to retrieve email messages from
+                "Port"         : 0,     # Server port to retrieve email messages from
+                "Type"         : "",    # Type of message access server: 'pop3' or 'imap'
+            },
+            "AddressPatterns"  : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+        },
+
+    },
+
+    "FreeBusyURL": {
+        "Enabled"          : False, # Per-user free-busy-url protocol
+        "TimePeriod"       : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "AnonymousAccess"  : False, # Allow anonymous read access to free-busy URL
+    },
 
     #
     # Notifications
@@ -268,6 +310,9 @@ defaultConfig = {
 
 
 class Config (object):
+    """
+    @DynamicAttrs
+    """
     def __init__(self, defaults):
         self.setDefaults(defaults)
         self._data = copy.deepcopy(self._defaults)

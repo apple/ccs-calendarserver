@@ -22,7 +22,7 @@ __all__ = ["http_COPY", "http_MOVE"]
 
 from urlparse import urlsplit
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.filter.location import addLocation
 from twisted.web2.dav import davxml
@@ -31,12 +31,14 @@ from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import StatusResponse, HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.method.put_common import storeCalendarObjectResource
-from twistedcaldav.resource import isCalendarCollectionResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
+from twistedcaldav.resource import isCalendarCollectionResource,\
+    isPseudoCalendarCollectionResource
 from twistedcaldav.log import Logger
 
 log = Logger()
 
+@inlineCallbacks
 def http_COPY(self, request):
     """
     Special handling of COPY request if parents are calendar collections.
@@ -45,35 +47,22 @@ def http_COPY(self, request):
     the destination if its a calendar collection.
     """
 
-    r = waitForDeferred(checkForCalendarAction(self, request))
-    yield r
-    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = r.getResult()
+    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result or not destinationcal:
         # Do default WebDAV action
-        d = waitForDeferred(super(CalDAVFile, self).http_COPY(request))
-        yield d
-        yield d.getResult()
-        return
+        result = (yield super(CalDAVFile, self).http_COPY(request))
+        returnValue(result)
 
     #
     # Check authentication and access controls
     #
-    x = waitForDeferred(self.authorize(request, (davxml.Read(),), recurse=True))
-    yield x
-    x.getResult()
+    yield self.authorize(request, (davxml.Read(),), recurse=True)
 
     if destination.exists():
-        x = waitForDeferred(destination.authorize(request, (davxml.WriteContent(), davxml.WriteProperties()), recurse=True))
-        yield x
-        x.getResult()
+        yield destination.authorize(request, (davxml.WriteContent(), davxml.WriteProperties()), recurse=True)
     else:
-        destparent = waitForDeferred(request.locateResource(parentForURL(destination_uri)))
-        yield destparent
-        destparent = destparent.getResult()
- 
-        x = waitForDeferred(destparent.authorize(request, (davxml.Bind(),)))
-        yield x
-        x.getResult()
+        destparent = (yield request.locateResource(parentForURL(destination_uri)))
+        yield destparent.authorize(request, (davxml.Bind(),))
 
     # Check for existing destination resource
     overwrite = request.headers.getHeader("overwrite", True)
@@ -101,7 +90,7 @@ def http_COPY(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    x = waitForDeferred(storeCalendarObjectResource(
+    storer = StoreCalendarObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
@@ -111,12 +100,11 @@ def http_COPY(self, request):
         destination_uri = destination_uri,
         destinationparent = destinationparent,
         destinationcal = destinationcal,
-    ))
-    yield x
-    yield x.getResult()
+    )
+    result = (yield storer.run())
+    returnValue(result)
 
-http_COPY = deferredGenerator(http_COPY)
-
+@inlineCallbacks
 def http_MOVE(self, request):
     """
     Special handling of MOVE request if parent is a calendar collection.
@@ -124,39 +112,30 @@ def http_MOVE(self, request):
     since its effectively being deleted. We do need to do an index update for
     the destination if its a calendar collection
     """
-    r = waitForDeferred(checkForCalendarAction(self, request))
-    yield r
-    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = r.getResult()
+    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
+        is_calendar_collection = isPseudoCalendarCollectionResource(self)
+
         # Do default WebDAV action
-        d = waitForDeferred(super(CalDAVFile, self).http_MOVE(request))
-        yield d
-        yield d.getResult()
-        return
+        result = (yield super(CalDAVFile, self).http_MOVE(request))
+        
+        if is_calendar_collection:
+            # Do some clean up
+            yield self.movedCalendar(request, destination, destination_uri)
+
+        returnValue(result)
         
     #
     # Check authentication and access controls
     #
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-    yield parent
-    parent = parent.getResult()
-
-    x = waitForDeferred(parent.authorize(request, (davxml.Unbind(),)))
-    yield x
-    x.getResult()
+    parent = (yield request.locateResource(parentForURL(request.uri)))
+    yield parent.authorize(request, (davxml.Unbind(),))
 
     if destination.exists():
-        x = waitForDeferred(destination.authorize(request, (davxml.Bind(), davxml.Unbind()), recurse=True))
-        yield x
-        x.getResult()
+        yield destination.authorize(request, (davxml.Bind(), davxml.Unbind()), recurse=True)
     else:
-        destparent = waitForDeferred(request.locateResource(parentForURL(destination_uri)))
-        yield destparent
-        destparent = destparent.getResult()
-
-        x = waitForDeferred(destparent.authorize(request, (davxml.Bind(),)))
-        yield x
-        x.getResult()
+        destparent = (yield request.locateResource(parentForURL(destination_uri)))
+        yield destparent.authorize(request, (davxml.Bind(),))
 
     # Check for existing destination resource
     overwrite = request.headers.getHeader("overwrite", True)
@@ -185,23 +164,22 @@ def http_MOVE(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    x = waitForDeferred(storeCalendarObjectResource(
+    storer = StoreCalendarObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
         sourceparent = sourceparent,
         sourcecal = sourcecal,
+        deletesource = True,
         destination = destination,
         destination_uri = destination_uri,
         destinationparent = destinationparent,
         destinationcal = destinationcal,
-        deletesource = True,
-    ))
-    yield x
-    yield x.getResult()
+    )
+    result = (yield storer.run())
+    returnValue(result)
 
-http_MOVE = deferredGenerator(http_MOVE)
-
+@inlineCallbacks
 def checkForCalendarAction(self, request):
     """
     Check to see whether the source or destination of the copy/move
@@ -209,15 +187,15 @@ def checkForCalendarAction(self, request):
     if that is the case.
     @return: tuple::
         result:           True if special CalDAV processing required, False otherwise
-                          NB If there is any type of error with the request, return False
-                          and allow normal COPY/MOVE processing to return the error.
+            NB If there is any type of error with the request, return False
+            and allow normal COPY/MOVE processing to return the error.
         sourcecal:        True if source is in a calendar collection, False otherwise
         sourceparent:     The parent resource for the source
         destination_uri:  The URI of the destination resource
         destination:      CalDAVFile of destination if special proccesing required,
         None otherwise
         destinationcal:   True if the destination is in a calendar collection,
-                          False otherwise
+            False otherwise
         destinationparent:The parent resource for the destination
         
     """
@@ -235,9 +213,7 @@ def checkForCalendarAction(self, request):
         ))
 
     # Check for parent calendar collection
-    sourceparent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-    yield sourceparent
-    sourceparent = sourceparent.getResult()
+    sourceparent = (yield request.locateResource(parentForURL(request.uri)))
     if isCalendarCollectionResource(sourceparent):
         result = True
         sourcecal = True
@@ -252,19 +228,13 @@ def checkForCalendarAction(self, request):
         log.err(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
     
-    destination = waitForDeferred(request.locateResource(destination_uri))
-    yield destination
-    destination = destination.getResult()
+    destination = (yield request.locateResource(destination_uri))
 
     # Check for parent calendar collection
     destination_uri = urlsplit(destination_uri)[2]
-    destinationparent = waitForDeferred(request.locateResource(parentForURL(destination_uri)))
-    yield destinationparent
-    destinationparent = destinationparent.getResult()
+    destinationparent = (yield request.locateResource(parentForURL(destination_uri)))
     if isCalendarCollectionResource(destinationparent):
         result = True
         destinationcal = True
 
-    yield (result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent)
-
-checkForCalendarAction = deferredGenerator(checkForCalendarAction)
+    returnValue((result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent))

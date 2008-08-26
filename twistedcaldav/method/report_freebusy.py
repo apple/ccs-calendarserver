@@ -20,7 +20,7 @@ CalDAV freebusy report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
@@ -35,6 +35,7 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
+@inlineCallbacks
 def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy): #@UnusedVariable
     """
     Generate a free-busy REPORT.
@@ -55,6 +56,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     fbinfo = ([], [], [])
     
     matchcount = [0]
+    
     def generateFreeBusyInfo(calresource, uri): #@UnusedVariable
         """
         Run a free busy report on the specified calendar collection
@@ -62,18 +64,19 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         @param calresource: the L{CalDAVFile} for a calendar collection.
         @param uri: the uri for the calendar collecton resource.
         """
-        d = waitForDeferred(report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0]))
-        yield d
-        matchcount[0] = d.getResult()
-    
-    generateFreeBusyInfo = deferredGenerator(generateFreeBusyInfo)
+        
+        def _gotResult(result):
+            matchcount[0] = result
+            return True
+
+        d = report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0])
+        d.addCallback(_gotResult)
+        return d
 
     # Run report taking depth into account
     try:
         depth = request.headers.getHeader("depth", "0")
-        d = waitForDeferred(report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),)))
-        yield d
-        d.getResult()
+        yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in free-busy report")
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
@@ -85,6 +88,4 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     response.stream = MemoryStream(str(fbcalendar))
     response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
 
-    yield response
-
-report_urn_ietf_params_xml_ns_caldav_free_busy_query = deferredGenerator(report_urn_ietf_params_xml_ns_caldav_free_busy_query)
+    returnValue(response)
