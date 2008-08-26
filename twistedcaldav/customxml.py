@@ -253,7 +253,21 @@ class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     name = "xmpp-uri"
     protected = True
 
+class IScheduleInbox (davxml.WebDAVEmptyElement):
+    """
+    Denotes the resourcetype of a iSchedule Inbox.
+    (CalDAV-s2s-xx, section x.x.x)
+    """
+    namespace = calendarserver_namespace
+    name = "ischedule-inbox"
 
+class FreeBusyURL (davxml.WebDAVEmptyElement):
+    """
+    Denotes the resourcetype of a free-busy URL resource.
+    (CalDAV-s2s-xx, section x.x.x)
+    """
+    namespace = calendarserver_namespace
+    name = "free-busy-url"
 
 ##
 # Extensions to davxml.ResourceType
@@ -264,3 +278,5 @@ davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox()
 davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
 davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())
 davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
+davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
+davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())

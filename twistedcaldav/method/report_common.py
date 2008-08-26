@@ -32,7 +32,7 @@ import time
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import deferredGenerator, waitForDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -54,6 +54,7 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
+@inlineCallbacks
 def applyToCalendarCollections(resource, request, request_uri, depth, apply, privileges):
     """
     Run an operation on all calendar collections, starting at the specified
@@ -70,13 +71,11 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     """
 
     # First check the privilege on this resource
-    try:
-        d = waitForDeferred(resource.checkPrivileges(request, privileges))
-        yield d
-        d.getResult()
-    except AccessDeniedError:
-        yield None
-        return
+    if privileges:
+        try:
+            yield resource.checkPrivileges(request, privileges)
+        except AccessDeniedError:
+            return
 
     # When scanning we only go down as far as a calendar collection - not into one
     if resource.isPseudoCalendarCollection():
@@ -85,16 +84,12 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         resources = [(resource, request_uri)]
     else:
         resources = []
-        d = waitForDeferred(resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges))
-        yield d
-        d.getResult()
+        yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
          
     for calresource, uri in resources:
-        d = waitForDeferred(apply(calresource, uri))
-        yield d
-        d.getResult()
-
-applyToCalendarCollections = deferredGenerator(applyToCalendarCollections)
+        result = (yield apply(calresource, uri))
+        if not result:
+            break
 
 def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq, isowner=True):
     """
@@ -215,6 +210,7 @@ def validPropertyListCalendarDataTypeVersion(prop):
 
     return result, message, generate_calendar_data
 
+@inlineCallbacks
 def _namedPropertiesForResource(request, props, resource, calendar=None, isowner=True):
     """
     Return the specified properties on the specified resource.
@@ -258,15 +254,11 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
         else:
             qname = property
     
-        props = waitForDeferred(resource.listProperties(request))
-        yield props
-        props = props.getResult()
+        props = (yield resource.listProperties(request))
 
         if qname in props:
             try:
-                prop = waitForDeferred(resource.readProperty(qname, request))
-                yield prop
-                prop = prop.getResult()
+                prop = (yield resource.readProperty(qname, request))
                 properties_by_status[responsecode.OK].append(prop)
             except HTTPError:
                 f = Failure()
@@ -279,12 +271,12 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
         else:
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
     
-    yield properties_by_status
+    returnValue(properties_by_status)
 
-_namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
-    
+@inlineCallbacks
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
-                         excludeuid=None, organizer=None, same_calendar_user=False):
+                         excludeuid=None, organizer=None, same_calendar_user=False,
+                         servertoserver=False):
     """
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
@@ -299,16 +291,16 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         This is used in conjunction with the UID value to process exclusions.
     @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting tyhe free-busy information
         is the same as the calendar user being targeted.
+    @param servertoserver:       a C{bool} indicating whether we are doing a local or remote lookup request.
     """
     
     # First check the privilege on this collection
-    try:
-        d = waitForDeferred(calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),)))
-        yield d
-        d.getResult()
-    except AccessDeniedError:
-        yield matchtotal
-        return
+    # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
+    if not servertoserver:
+        try:
+            yield calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),))
+        except AccessDeniedError:
+            returnValue(matchtotal)
 
     #
     # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
@@ -329,36 +321,28 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
 
     # Get the timezone property from the collection, and store in the query filter
     # for use during the query itself.
-    has_prop = waitForDeferred(calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
-    yield has_prop
-    has_prop = has_prop.getResult()
+    has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
     if has_prop:
-        tz = waitForDeferred(calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
-        yield tz
-        tz = tz.getResult()
+        tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
     else:
         tz = None
     tzinfo = filter.settimezone(tz)
 
     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
-    filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
-    yield filteredaces
-    filteredaces = filteredaces.getResult()
+    filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
     for name, uid, type in calresource.index().search(filter): #@UnusedVariable
         
         # Check privileges - must have at least CalDAV:read-free-busy
-        child = waitForDeferred(request.locateChildResource(calresource, name))
-        yield child
-        child = child.getResult()
+        child = (yield request.locateChildResource(calresource, name))
 
-        try:
-            d = waitForDeferred(child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces))
-            yield d
-            d.getResult()
-        except AccessDeniedError:
-            continue
+        # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
+        if not servertoserver:
+            try:
+                yield child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces)
+            except AccessDeniedError:
+                continue
 
         calendar = calresource.iCalendar(name)
         
@@ -395,9 +379,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             else:
                 assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
     
-    yield matchtotal
-
-generateFreeBusyInfo = deferredGenerator(generateFreeBusyInfo)
+    returnValue(matchtotal)
 
 def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """

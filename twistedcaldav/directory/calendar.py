@@ -38,6 +38,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.dropbox import DropBoxHomeResource
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
+from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -268,6 +269,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             childlist += (
                 ("dropbox", DropBoxHomeResource),
             )
+        if config.FreeBusyURL["Enabled"]:
+            childlist += (
+                ("freebusy", FreeBusyURLResource),
+            )
         for name, cls in childlist:
             child = self.provisionChild(name)
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
@@ -281,20 +286,28 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         child = self.provisionChild(childName)
         assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
 
-        def setupChild(_):
-            # Set calendar-free-busy-set on inbox
-            inbox = self.getChild("inbox")
+        def setupFreeBusy(_):
+            # Default calendar is initially opaque to freebusy
+            child.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+
             # FIXME: Shouldn't have to call provision() on another resource
             # We cheat here because while inbox will auto-provision itself when located,
             # we need to write a dead property to it pre-emptively.
-            # Possible fix: store the free/busy set property on this resource instead.
+            # This will go away once we remove the free-busy-set property on inbox.
+
+            # Set calendar-free-busy-set on inbox
+            inbox = self.getChild("inbox")
             inbox.provision()
-            inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(davxml.HRef(childURL)))
+            inbox.processFreeBusyCalendar(childURL, True)
+
+            # Default calendar may need to be marked as the default for scheduling
+            if config.Scheduling["CalDAV"]["DefaultCalendarProvisioned"]:
+                inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(childURL)))
 
             return self
 
         d = child.createCalendarCollection()
-        d.addCallback(setupChild)
+        d.addCallback(setupFreeBusy)
         return d
 
     def provisionChild(self, name):
@@ -322,6 +335,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
     def owner(self, request):
         return succeed(davxml.HRef(self.principalForRecord().principalURL()))
+
+    def ownerPrincipal(self, request):
+        return succeed(self.principalForRecord())
 
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()

@@ -32,9 +32,8 @@ from urllib import unquote
 from urlparse import urlparse
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
-from twisted.internet.defer import waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
@@ -145,7 +144,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         return self.getChild(uidsResourceName).getChild(uid)
 
     def _principalForURI(self, uri):
-        scheme, netloc, path, params, query, fragment = urlparse(uri)
+        scheme, netloc, path, _ignore_params, _ignore_query, _ignore_fragment = urlparse(uri)
 
         if scheme == "":
             pass
@@ -411,22 +410,16 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     # HTTP
     ##
 
-    @deferredGenerator
+    @inlineCallbacks
     def renderDirectoryBody(self, request):
 
-        d = waitForDeferred(super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-        yield d
-        output = d.getResult()
+        output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
         
-        d = waitForDeferred(self.groupMembers())
-        yield d
-        members = d.getResult()
+        members = (yield self.groupMembers())
         
-        d = waitForDeferred(self.groupMemberships())
-        yield d
-        memberships = d.getResult()
+        memberships = (yield self.groupMemberships())
 
-        yield "".join((
+        returnValue("".join((
             """<div class="directory-listing">"""
             """<h1>Principal Details</h1>"""
             """<pre><blockquote>"""
@@ -448,7 +441,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """\nGroup memberships:\n"""       , format_principals(memberships),
             """</pre></blockquote></div>""",
             output
-        ))
+        )))
 
     ##
     # DAV
@@ -502,7 +495,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
         if record not in records:
             records.add(record)
-            myRecordType = self.record.recordType
             for relative in getattr(record, method)():
                 if relative not in records:
                     found = self.parent.principalForRecord(relative)
@@ -523,7 +515,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def groupMembers(self):
         return succeed(self._getRelatives("members"))
 
-    @deferredGenerator
+    @inlineCallbacks
     def groupMemberships(self):
         groups = self._getRelatives("groups")
 
@@ -534,9 +526,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
             # Get proxy group UIDs and map to principal resources
             proxies = []
-            d = waitForDeferred(self._calendar_user_proxy_index().getMemberships(self.principalUID()))
-            yield d
-            memberships = d.getResult()
+            memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
             for uid in memberships:
                 subprincipal = self.parent.principalForUID(uid)
                 if subprincipal:
@@ -544,7 +534,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
             groups.update(proxies)
 
-        yield groups
+        returnValue(groups)
 
     def principalCollections(self):
         return self.parent.principalCollections()
@@ -580,22 +570,16 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     """
     Directory calendar principal resource.
     """
-    @deferredGenerator
+    @inlineCallbacks
     def renderDirectoryBody(self, request):
 
-        d = waitForDeferred(super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-        yield d
-        output = d.getResult()
+        output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
         
-        d = waitForDeferred(self.groupMembers())
-        yield d
-        members = d.getResult()
+        members = (yield self.groupMembers())
         
-        d = waitForDeferred(self.groupMemberships())
-        yield d
-        memberships = d.getResult()
+        memberships = (yield self.groupMemberships())
         
-        yield "".join((
+        returnValue("".join((
             """<div class="directory-listing">"""
             """<h1>Principal Details</h1>"""
             """<pre><blockquote>"""
@@ -619,7 +603,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
             """</pre></blockquote></div>""",
             output
-        ))
+        )))
 
     ##
     # CalDAV
@@ -655,7 +639,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return self.record.hasEditableProxyMembership()
 
     def scheduleInbox(self, request):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return succeed(None)
 
@@ -666,7 +650,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return succeed(inbox)
 
     def calendarHomeURLs(self):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return ()
         else:
@@ -685,13 +669,13 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def _homeChildURL(self, name):
-        home = self._calendarHome()
+        home = self.calendarHome()
         if home is None:
             return None
         else:
             return joinURL(home.url(), name)
 
-    def _calendarHome(self):
+    def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack
         # See CalendarHomeProvisioningFile.__init__()
         service = self.record.service

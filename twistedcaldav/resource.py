@@ -31,8 +31,7 @@ from zope.interface import implements
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
-from twisted.internet.defer import waitForDeferred
-from twisted.internet.defer import deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
@@ -40,7 +39,8 @@ from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionR
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import joinURL, parentForURL, unimplemented
+from twisted.web2.dav.util import joinURL, parentForURL, unimplemented,\
+    normalizeURL
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.iweb import IResponse
@@ -60,6 +60,8 @@ from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.log import LoggingMixIn
 
+from urlparse import urlsplit
+
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
 else:
@@ -68,7 +70,10 @@ else:
 class CalDAVComplianceMixIn(object):
 
     def davComplianceClasses(self):
-        extra_compliance = caldavxml.caldav_compliance
+        if config.Scheduling["CalDAV"]["OldDraftCompatability"]:
+            extra_compliance = caldavxml.caldav_full_compliance
+        else:
+            extra_compliance = caldavxml.caldav_implicit_compliance
         if config.EnableProxyPrincipals:
             extra_compliance += customxml.calendarserver_proxy_compliance
         if config.EnablePrivateEvents:
@@ -237,6 +242,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
         return super(CalDAVResource, self).readProperty(property, request)
 
+    @inlineCallbacks
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement), (
             "%r is not a WebDAVElement instance" % (property,)
@@ -271,7 +277,24 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                     (caldav_namespace, "valid-calendar-data")
                 ))
 
-        return super(CalDAVResource, self).writeProperty(property, request)
+        elif property.qname() == (caldav_namespace, "schedule-calendar-transp"):
+            if not self.isCalendarCollection():
+                raise HTTPError(StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "Property %s may only be set on calendar collection." % (property,)
+                ))
+
+            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+            principal = (yield self.ownerPrincipal(request))
+            
+            # Map owner to their inbox
+            inboxURL = principal.scheduleInboxURL()
+            if inboxURL:
+                inbox = (yield request.locateResource(inboxURL))
+                inbox.processFreeBusyCalendar(request.path, property.children[0] == caldavxml.Opaque())
+
+        result = (yield super(CalDAVResource, self).writeProperty(property, request))
+        returnValue(result)
 
     def writeDeadProperty(self, property):
         val = super(CalDAVResource, self).writeDeadProperty(property)
@@ -284,20 +307,16 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     ##
 
     # FIXME: Perhaps this is better done in authorize() instead.
-    @deferredGenerator
+    @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
-        d = waitForDeferred(super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
-        yield d
-        acls = d.getResult()
+        acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification
         if self.hasDeadProperty(TwistedCalendarAccessProperty):
             access = self.readDeadProperty(TwistedCalendarAccessProperty)
             if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
                 # Need to insert ACE to prevent non-owner principals from seeing this resource
-                d = waitForDeferred(self.owner(request))
-                yield d
-                owner = d.getResult()
+                owner = (yield self.owner(request))
                 if access.getValue() == Component.ACCESS_PRIVATE:
                     ace = davxml.ACE(
                         davxml.Invert(
@@ -327,35 +346,45 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                     )
 
                 acls = davxml.ACL(ace, *acls.children)
-        yield acls
+        returnValue(acls)
 
-    @deferredGenerator
     def owner(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        d = waitForDeferred(self.locateParent(request, request.urlForResource(self)))
-        yield d
-        parent = d.getResult()
-        if parent and isinstance(parent, CalDAVResource):
-            d = waitForDeferred(parent.owner(request))
-            yield d
-            yield d.getResult()
-        else:
-            yield None
+        
+        def _gotParent(parent):
+            if parent and isinstance(parent, CalDAVResource):
+                return parent.owner(request)
 
-    @deferredGenerator
+        d = self.locateParent(request, request.urlForResource(self))
+        d.addCallback(_gotParent)
+        return d
+
+    def ownerPrincipal(self, request):
+        """
+        Return the DAV:owner property value (MUST be a DAV:href or None).
+        """
+        def _gotParent(parent):
+            if parent and isinstance(parent, CalDAVResource):
+                return parent.ownerPrincipal(request)
+
+        d = self.locateParent(request, request.urlForResource(self))
+        d.addCallback(_gotParent)
+        return d
+
     def isOwner(self, request):
         """
         Determine whether the DAV:owner of this resource matches the currently authorized principal
         in the request.
         """
 
-        d = waitForDeferred(self.owner(request))
-        yield d
-        owner = d.getResult()
-        result = (davxml.Principal(owner) == self.currentPrincipal(request))
-        yield result
+        def _gotOwner(owner):
+            return davxml.Principal(owner) == self.currentPrincipal(request)
+
+        d = self.owner(request)
+        d.addCallback(_gotOwner)
+        return d
 
     ##
     # CalDAV
@@ -448,6 +477,65 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         override it.
         """
         unimplemented(self)
+
+    @inlineCallbacks
+    def deletedCalendar(self, request):
+        """
+        Calendar has been deleted. Need to do some extra clean-up.
+
+        @param request:
+        @type request:
+        """
+        
+        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+        principal = (yield self.ownerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            inbox = (yield request.locateResource(inboxURL))
+            inbox.processFreeBusyCalendar(request.path, False)
+            
+            # Also check the default calendar setting and remove it if the default is deleted
+            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+            if default and len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                if normalizeURL(request.path) == defaultURL:
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL())               
+
+    @inlineCallbacks
+    def movedCalendar(self, request, destination, destination_uri):
+        """
+        Calendar has been moved. Need to do some extra clean-up.
+
+        @param request:
+        @type request:
+        """
+        
+        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+        principal = (yield self.ownerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
+
+            inbox = (yield request.locateResource(inboxURL))
+            inbox.processFreeBusyCalendar(request.path, False)
+            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
+            
+            # Also check the default calendar setting and remove it if the default is deleted
+            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+            if default and len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                if normalizeURL(request.path) == defaultURL:
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)))               
+
+    def isCalendarOpaque(self):
+        
+        assert self.isCalendarCollection()
+        
+        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
+            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
+            return property.children[0] == caldavxml.Opaque()
+        else:
+            return False
 
     def iCalendar(self, name=None):
         """

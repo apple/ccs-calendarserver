@@ -379,6 +379,72 @@ limitations under the License.
   <key>EnableTimezoneService</key>
   <true/>
 
+  <!-- Server to server protocol -->
+  <key>Scheduling</key>
+  <dict>
+    <!--  CalDAV protocol options -->
+  	<key>CalDAV</key>
+  	<dict>
+  	  <key>EmailDomain</key>
+  	  <string></string>
+  	  <key>HTTPDomain</key>
+  	  <string></string>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+  	  <key>OldDraftCompatability</key>
+  	  <true/>
+  	  <key>DefaultCalendarProvisioned</key>
+  	  <true/>
+  	</dict>
+    <!--  iSchedule protocol options -->
+  	<key>iSchedule</key>
+  	<dict>
+  	  <key>Enabled</key>
+  	  <false/>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+      <key>Servers</key>
+      <string>/etc/caldavd/servertoserver.xml</string>
+  	</dict>
+    <!--  iMIP protocol options -->
+  	<key>iMIP</key>
+  	<dict>
+  	  <key>Enabled</key>
+  	  <false/>
+  	  <key>Sending</key>
+  	  <dict>
+  	    <key>Server</key>
+  	    <string></string>
+  	    <key>Port</key>
+  	    <integer>587</integer>
+      </dict>
+      <key>Receiving</key>
+      <dict>
+  	    <key>Server</key>
+  	    <string></string>
+  	    <key>Port</key>
+  	    <integer>0</integer>
+  	    <key>Type</key>
+  	    <string></string> <!-- Either 'pop3' or 'imap' -->
+  	  </dict>
+  	  <key>AddressPatterns</key>
+  	  <array>
+  	  </array>
+  	</dict>
+  </dict>
+
+  <!-- Free-busy URL protocol -->
+  <key>FreeBusyURL</key>
+  <dict>
+  	<key>Enabled</key>
+  	<true/>
+  	<key>TimePeriod</key>
+  	<integer>14</integer>
+  	<key>AnonymousAccess</key>
+  	<false/>
+  </dict>
 
   <!--
     Twisted
