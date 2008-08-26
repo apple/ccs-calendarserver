@@ -217,8 +217,9 @@ class iTipProcessing(object):
         # Do the master first
         old_master = calendar.masterComponent()
         new_master = itip_message.masterComponent()
+        attendees = set()
         if new_master:
-            iTipProcessing.updateAttendeePartStat(new_master, old_master)
+            attendees.add(iTipProcessing.updateAttendeePartStat(new_master, old_master))
 
         # Now do all overridden ones
         for itip_component in itip_message.subcomponents():
@@ -238,9 +239,9 @@ class iTipProcessing(object):
                 match_component = calendar.deriveInstance(rid)
                 calendar.addComponent(match_component)
 
-            iTipProcessing.updateAttendeePartStat(itip_component, match_component)
+            attendees.add(iTipProcessing.updateAttendeePartStat(itip_component, match_component))
                 
-        return True
+        return True, attendees
 
     @staticmethod
     def updateAttendeePartStat(from_component, to_component):
@@ -264,6 +265,8 @@ class iTipProcessing(object):
         existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
         if existing_attendee:
             existing_attendee.params().setdefault("PARTSTAT", [partstat])[0] = partstat
+            
+        return attendee.value()
 
     @staticmethod
     def transferAlarms(from_calendar, master_valarms, to_component, remove_matched=False):

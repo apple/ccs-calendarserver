@@ -69,6 +69,7 @@ class Scheduler(object):
         self.excludeUID = None
         self.fakeTheResult = False
         self.method = "Unknown"
+        self.internal_request = False
     
     @inlineCallbacks
     def doSchedulingViaPOST(self):
@@ -90,7 +91,7 @@ class Scheduler(object):
         returnValue(result)
 
     @inlineCallbacks
-    def doSchedulingViaPUT(self, originator, recipients, calendar):
+    def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False):
         """
         The implicit scheduling PUT operation.
         """
@@ -104,6 +105,7 @@ class Scheduler(object):
         self.originator = originator
         self.recipients = recipients
         self.calendar = calendar
+        self.internal_request = internal_request
 
         result = (yield self.doScheduling())
         returnValue(result)
@@ -370,7 +372,7 @@ class CalDAVScheduler(Scheduler):
 
     def checkAuthorization(self):
         # Must have an authenticated user
-        if self.resource.currentPrincipal(self.request) == davxml.Principal(davxml.Unauthenticated()):
+        if not self.internal_request and self.resource.currentPrincipal(self.request) == davxml.Principal(davxml.Unauthenticated()):
             log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
@@ -392,11 +394,13 @@ class CalDAVScheduler(Scheduler):
                 log.err("Could not find inbox for originator: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
         
-            # Verify that Originator matches the authenticated user.
-            authn_principal = self.resource.currentPrincipal(self.request)
-            if davxml.Principal(davxml.HRef(originatorPrincipal.principalURL())) != authn_principal:
-                log.err("Originator: %s does not match authorized user: %s" % (self.originator, authn_principal.children[0],))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            # Verify that Originator matches the authenticated user, but not if this is a server
+            # generated request
+            if not self.internal_request:
+                authn_principal = self.resource.currentPrincipal(self.request)
+                if davxml.Principal(davxml.HRef(originatorPrincipal.principalURL())) != authn_principal:
+                    log.err("Originator: %s does not match authorized user: %s" % (self.originator, authn_principal.children[0],))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
 

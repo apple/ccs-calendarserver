@@ -146,21 +146,35 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def doImplicitOrganizerUpdate(self):
         
-        # Check to see if this is a cancel of the entire event
-        if iTipProcessing.processReply(self.message, self.recipient_calendar):
+        # Check to see if this is a valid reply
+        result, processed_attendees = iTipProcessing.processReply(self.message, self.recipient_calendar)
+        if result:
  
             # Update the attendee's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
+            recipient_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
             result = (True, False,)
             
-            # TODO: Send out a request to all attendees to update them
+            self.updateAllAttendeesExceptSome(recipient_calendar_resource, processed_attendees)
 
         else:
             # Ignore scheduling message
             result = (True, True,)
 
         returnValue(result)
+
+    def updateAllAttendeesExceptSome(self, resource, attendees):
+        """
+        Send an update out to all attendees except the specified ones, to refresh the others due to a change
+        by that one.
+        
+        @param attendee: cu-addresses of attendees not to send to
+        @type attendee: C{set}
+        """
+        
+        from twistedcaldav.scheduling.implicit import ImplicitScheduler
+        scheduler = ImplicitScheduler()
+        scheduler.refreshAllAttendeesExceptSome(self.request, resource, self.recipient_calendar, attendees)
 
     @inlineCallbacks
     def doImplicitAttendee(self):

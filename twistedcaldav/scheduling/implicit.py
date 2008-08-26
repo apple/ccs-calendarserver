@@ -69,7 +69,7 @@ class ImplicitScheduler(object):
         self.calendar = calendar
         self.calendar_owner = (yield self.resource.owner(self.request))
         self.deleting = deleting
-
+.
         # When deleting we MUST have the calendar as the actual resource
         # will have been deleted by now
         assert deleting and calendar or not deleting
@@ -86,6 +86,31 @@ class ImplicitScheduler(object):
             returnValue(None)
 
         returnValue(self.calendar)
+
+    def refreshAllAttendeesExceptSome(self, request, resource, calendar, attendees):
+        """
+        
+        @param request:
+        @type request:
+        @param attendee:
+        @type attendee:
+        @param calendar:
+        @type calendar:
+        """
+
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.calendar_owner = None
+        self.deleting = False
+        self.internal_request = True
+        self.except_attendees = attendees
+        
+        # Get some useful information from the calendar
+        self.extractCalendarData()
+        self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
+        
+        return self.processRequests()
 
     def extractCalendarData(self):
         
@@ -298,7 +323,7 @@ class ImplicitScheduler(object):
     
             # Do the PUT processing
             log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
-            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
+            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg, self.internal_request))
             self.handleSchedulingResponse(response, True)
             
     @inlineCallbacks
@@ -314,6 +339,10 @@ class ImplicitScheduler(object):
             if attendee in self.organizerPrincipal.calendarUserAddresses():
                 continue
 
+            # Don't send message to specified attendees
+            if attendee in self.except_attendees:
+                continue
+
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,))
 
             # Send scheduling message
@@ -323,7 +352,7 @@ class ImplicitScheduler(object):
     
             # Do the PUT processing
             log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
-            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
+            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg, self.internal_request))
             self.handleSchedulingResponse(response, True)
 
     def handleSchedulingResponse(self, response, is_organizer):
@@ -439,5 +468,5 @@ class ImplicitScheduler(object):
 
         # Do the PUT processing
         log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
-        response = (yield scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg))
+        response = (yield scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg, self.internal_request))
         self.handleSchedulingResponse(response, False)
