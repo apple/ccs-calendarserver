@@ -16,6 +16,7 @@
 
 from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.itip import iTipGenerator
 
 """
 Class that handles diff'ing two calendar objects.
@@ -68,13 +69,13 @@ class iCalDiff(object):
 
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.removeAlarms()
         self.calendar1.removeXProperties()
         self.calendar1.attendeesView((attendee,))
+        iTipGenerator.prepareSchedulingMessage(self.calendar1)
 
         self.calendar2 = self.calendar2.duplicate()
-        self.calendar2.removeAlarms()
         self.calendar2.removeXProperties()
+        iTipGenerator.prepareSchedulingMessage(self.calendar2)
 
         if self.calendar1 == self.calendar2:
             return True, True
@@ -152,7 +153,6 @@ class iCalDiff(object):
         result = set1 - set2
         if result:
             log.debug("Missing components from first calendar: %s" % (result,))
-        if result:
             return False, False
 
         # Now verify that each component in set1 matches what is in set2
@@ -192,7 +192,13 @@ class iCalDiff(object):
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         for prop in tuple(propdiff):
             # These ones are OK to change
-            if prop.name() in ("TRANSP", "DTSTAMP", "CREATED", "LAST-MODIFIED",):
+            if prop.name() in (
+                "TRANSP",
+                "DTSTAMP",
+                "CREATED",
+                "LAST-MODIFIED",
+                "SEQUENCE",
+            ):
                 propdiff.remove(prop)
                 continue
             if prop.name() != "ATTENDEE" or prop.value() != self.attendee:

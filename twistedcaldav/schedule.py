@@ -30,7 +30,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.resource import AccessDeniedError
-from twisted.web2.dav.util import joinURL
+from twisted.web2.dav.util import joinURL, normalizeURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
@@ -137,6 +137,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         elif property.qname() == (caldav_namespace, "calendar-free-busy-set"):
             # Verify that the calendars added in the PROPPATCH are valid. We do not check
             # whether existing items in the property are still valid - only new ones.
+            property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
             new_calendars = set([str(href) for href in property.children])
             if not self.hasDeadProperty(property):
                 old_calendars = set()
@@ -154,6 +155,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         elif property.qname() == (caldav_namespace, "schedule-default-calendar-URL"):
             # Verify that the calendar added in the PROPPATCH is valid.
+            property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
             new_calendar = [str(href) for href in property.children]
             if len(new_calendar) == 1:
                 cal = (yield request.locateResource(str(new_calendar[0])))
@@ -167,10 +169,12 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
     def processFreeBusyCalendar(self, uri, addit):
+        uri = normalizeURL(uri)
+
         if not self.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
             fbset = set()
         else:
-            fbset = set([str(href) for href in self.readDeadProperty((caldav_namespace, "calendar-free-busy-set")).children])
+            fbset = set([normalizeURL(str(href)) for href in self.readDeadProperty((caldav_namespace, "calendar-free-busy-set")).children])
         if addit:
             if uri not in fbset:
                 fbset.add(uri)
@@ -280,6 +284,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
 
+    @inlineCallbacks
     def http_POST(self, request):
         """
         The CalDAV POST method.
@@ -290,17 +295,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         issues which the other approach would have with large numbers of recipients.
         """
         # Check authentication and access controls
-        def _gotResult(_):
-    
-            # This is a local CALDAV scheduling operation.
-            scheduler = CalDAVScheduler(request, self)
-    
-            # Do the POST processing treating
-            return scheduler.doSchedulingViaPOST()
-            
-        d = self.authorize(request, (caldavxml.Schedule(),))
-        d.addCallback(_gotResult)
-        return d
+        yield self.authorize(request, (caldavxml.Schedule(),))
+
+        # This is a local CALDAV scheduling operation.
+        scheduler = CalDAVScheduler(request, self)
+
+        # Do the POST processing treating
+        result = (yield scheduler.doSchedulingViaPOST())
+        returnValue(result.response())
 
 class IScheduleInboxResource (CalDAVResource):
     """
@@ -358,21 +360,18 @@ class IScheduleInboxResource (CalDAVResource):
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
 
+    @inlineCallbacks
     def http_POST(self, request):
         """
         The server-to-server POST method.
         """
 
         # Check authentication and access controls
-        def _gotResult(_):
-    
-            # This is a server-to-server scheduling operation.
-            scheduler = IScheduleScheduler(request, self)
-    
-            # Do the POST processing treating this as a non-local schedule
-            return scheduler.doSchedulingViaPOST()
+        yield self.authorize(request, (caldavxml.Schedule(),))
 
-        d = self.authorize(request, (caldavxml.Schedule(),))
-        d.addCallback(_gotResult)
-        return d
+        # This is a server-to-server scheduling operation.
+        scheduler = IScheduleScheduler(request, self)
 
+        # Do the POST processing treating this as a non-local schedule
+        result = (yield scheduler.doSchedulingViaPOST())
+        returnValue(result.response())

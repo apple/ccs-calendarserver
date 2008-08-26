@@ -34,6 +34,7 @@ from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
+from types import ListType
 from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
@@ -83,7 +84,11 @@ class Property (object):
     def __str__ (self): return self._vobject.serialize()
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
-    def __hash__(self): return hash((self.name(), self.value()))
+    def __hash__(self):
+        if type(self.value()) is ListType:
+            return hash((self.name(), tuple(self.value())))
+        else:
+            return hash((self.name(), self.value()))
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
@@ -667,6 +672,22 @@ class Component (object):
         
         return result
     
+    def timezones(self):
+        """
+        Returns the set of TZID's for each VTIMEZONE component.
+
+        @return: a set of strings, one for each unique TZID value.
+        """
+        
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        results = set()
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                results.add(component.propertyValue("TZID"))
+        
+        return results
+    
     def expand(self, start, end):
         """
         Expand the components into a set of new components, one for each
@@ -762,6 +783,24 @@ class Component (object):
         instances = InstanceList()
         instances.expandTimeRanges(componentSet, limit)
         return instances
+
+    def getComponentInstances(self):
+        """
+        Get the R-ID value for each component.
+        
+        @return: a tuple of recurrence-ids
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            result = ()
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result += component.getComponentInstances()
+            return result
+        else:
+            rid = self.getRecurrenceIDUTC()
+            return (rid,)
 
     def deriveInstance(self, rid):
         """
@@ -1187,6 +1226,40 @@ class Component (object):
 
         return None
 
+    def setParameterToValueForPropertyWithValue(self, paramname, paramvalue, propname, propvalue):
+        """
+        Add or change the parameter to the specified value on the property having the specified value.
+        
+        @param paramname: the parameter name
+        @type paramname: C{str}
+        @param paramvalue: the parameter value to set
+        @type paramvalue: C{str}
+        @param propname: the property name
+        @type propname: C{str}
+        @param propvalue: the property value to test
+        @type propvalue: C{str}
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            for property in component.properties(propname):
+                if property.value() == propvalue:
+                    property.params()[paramname] = [paramvalue]
+    
+    def addPropertyToAllComponents(self, property):
+        """
+        Add a property to all top-level components except VTIMEZONE.
+
+        @param property: the property to add
+        @type property: L{Property}
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            component.addProperty(property)
+        
     def attendeesView(self, attendees):
         """
         Filter out any components that all attendees are not present in. Use EXDATEs

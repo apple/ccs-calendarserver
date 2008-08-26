@@ -45,11 +45,9 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twistedcaldav import caldavxml
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
-from twistedcaldav.ical import Property, iCalendarProductID, Component
+from twistedcaldav.ical import Property, iCalendarProductID
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
-
-from vobject.icalendar import utc
 
 log = Logger()
 
@@ -899,99 +897,3 @@ class iTipProcessor(object):
             return -1
     
         return 0
-
-class iTipGenerator(object):
-    
-    @staticmethod
-    def generateCancel(original, attendees, instances=None):
-        
-        itip = Component("VCALENDAR")
-        itip.addProperty(Property("VERSION", "2.0"))
-        itip.addProperty(Property("PRODID", iCalendarProductID))
-        itip.addProperty(Property("METHOD", "CANCEL"))
-
-        if instances is None:
-            instances = (None,)
-
-        for instance_rid in instances:
-            
-            # Create a new component matching the type of the original
-            comp = Component(original.mainType())
-            itip.addComponent(comp)
-
-            # Use the master component when the instance is None
-            if not instance_rid:
-                instance = original.masterComponent()
-            else:
-                instance = original.overriddenComponent(instance_rid)
-                if instance is None:
-                    instance = original.masterComponent()
-            assert instance is not None
-
-            # Add some required properties extracted from the original
-            comp.addProperty(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
-            comp.addProperty(Property("UID", instance.propertyValue("UID")))
-            seq = instance.propertyValue("SEQUENCE")
-            seq = str(int(seq) + 1) if seq else "1"
-            comp.addProperty(Property("SEQUENCE", seq))
-            comp.addProperty(instance.getOrganizerProperty())
-            if instance_rid:
-                comp.addProperty(Property("RECURRENCE-ID", instance_rid))
-            
-            # Extract the matching attendee property
-            for attendee in attendees:
-                attendeeProp = instance.getAttendeeProperty((attendee,))
-                assert attendeeProp is not None
-                comp.addProperty(attendeeProp)
-
-        return itip
-
-    @staticmethod
-    def generateAttendeeRequest(original, attendees):
-
-        # Start with a copy of the original as we may have to modify bits of it
-        itip = original.duplicate()
-        itip.addProperty(Property("METHOD", "REQUEST"))
-        
-        # Now filter out components that do not contain every attendee
-        itip.attendeesView(attendees)
-        
-        # No alarms
-        itip.removeAlarms()
-
-        return itip
-
-    @staticmethod
-    def generateAttendeeReply(original, attendee, force_decline=False):
-
-        # Start with a copy of the original as we may have to modify bits of it
-        itip = original.duplicate()
-        itip.addProperty(Property("METHOD", "REPLY"))
-        
-        # Remove all attendees except the one we want
-        itip.removeAllButOneAttendee(attendee)
-        
-        # No alarms
-        itip.removeAlarms()
-
-        # Remove all but essential properties
-        itip.removeUnwantedProperties((
-            "UID",
-            "RECURRENCE-ID",
-            "SEQUENCE",
-            "DTSTAMP",
-            "ORGANIZER",
-            "ATTENDEE",
-        ))
-        
-        # Now set each ATTENDEE's PARTSTAT to DECLINED
-        if force_decline:
-            attendeeProps = itip.getAttendeeProperties((attendee,))
-            assert attendeeProps, "Must have some matching ATTENDEEs"
-            for attendeeProp in attendeeProps:
-                if "PARTSTAT" in attendeeProp.params():
-                    attendeeProp.params()["PARTSTAT"][0] = "DECLINED"
-                else:
-                    attendeeProp.params()["PARTSTAT"] = ["DECLINED"]
-        
-        return itip

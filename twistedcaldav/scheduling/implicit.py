@@ -19,11 +19,12 @@ from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.http import HTTPError
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.itip import iTipGenerator
+from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.icaldiff import iCalDiff
+from twistedcaldav import caldavxml
 
 __all__ = [
     "ImplicitScheduler",
@@ -34,8 +35,11 @@ log = Logger()
 # TODO:
 #
 # Handle the case where a PUT removes the ORGANIZER property. That should be equivalent to cancelling the entire meeting.
+# Support SCHEDULE-AGENT property
+# Support SCHEDULE-STATUS property
+# Support live calendars
+# Support Schedule-Reply header
 #
-# Figure out proper behavior for what happens when an attendee deletes their copy of an event. For now disallow.
 
 class ImplicitScheduler(object):
     
@@ -56,7 +60,8 @@ class ImplicitScheduler(object):
         @param deleting: C{True} if the resource is being deleting
         @type deleting: bool
 
-        @return: a new calendar object modified with scheduling information
+        @return: a new calendar object modified with scheduling information,
+            or C{None} if nothing happened
         """
         
         self.request = request
@@ -64,6 +69,8 @@ class ImplicitScheduler(object):
         self.calendar = calendar
         self.calendar_owner = (yield self.resource.owner(self.request))
         self.deleting = deleting
+        self.internal_request = False
+        self.except_attendees = ()
 
         # When deleting we MUST have the calendar as the actual resource
         # will have been deleted by now
@@ -77,8 +84,35 @@ class ImplicitScheduler(object):
             yield self.doImplicitOrganizer()
         elif self.isAttendeeScheduling():
             yield self.doImplicitAttendee()
+        else:
+            returnValue(None)
 
         returnValue(self.calendar)
+
+    def refreshAllAttendeesExceptSome(self, request, resource, calendar, attendees):
+        """
+        
+        @param request:
+        @type request:
+        @param attendee:
+        @type attendee:
+        @param calendar:
+        @type calendar:
+        """
+
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.calendar_owner = None
+        self.deleting = False
+        self.internal_request = True
+        self.except_attendees = attendees
+        
+        # Get some useful information from the calendar
+        self.extractCalendarData()
+        self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
+        
+        return self.processRequests()
 
     def extractCalendarData(self):
         
@@ -184,12 +218,67 @@ class ImplicitScheduler(object):
         as users that need to be sent a cancel.
         """
         
+        # Several possibilities for when CANCELs need to be sent:
+        #
+        # Remove ATTENDEE property
+        # Add EXDATE
+        # Remove overridden component
+        # Remove RDATE
+        # Truncate RRULE
+        # Change RRULE
+        
+        # TODO: the later three will be ignored for now.
+
         oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance()
         
         mappedOld = set(oldAttendeesByInstance)
         mappedNew = set(self.attendeesByInstance)
         
-        self.cancelledAttendees = mappedOld.difference(mappedNew)
+        # Get missing instances
+        oldInstances = set(self.oldcalendar.getComponentInstances())
+        newInstances = set(self.calendar.getComponentInstances())
+        removedInstances = oldInstances - newInstances
+
+        # Also look for new EXDATEs
+        oldexdates = set()
+        for property in self.oldcalendar.masterComponent().properties("EXDATE"):
+            oldexdates.update(property.value())
+        newexdates = set()
+        for property in self.calendar.masterComponent().properties("EXDATE"):
+            newexdates.update(property.value())
+
+        addedexdates = newexdates - oldexdates
+
+        # Now figure out the attendees that need to be sent CANCELs
+        self.cancelledAttendees = set()
+        
+        for item in mappedOld:
+            if item not in mappedNew:
+                
+                # Several possibilities:
+                #
+                # 1. removed from master component - always a CANCEL
+                # 2. removed from overridden component - always a CANCEL
+                # 3. removed overridden component - only CANCEL if not in master or exdate added
+                 
+                new_attendee, rid = item
+                
+                # 1. & 2.
+                if rid is None or rid not in removedInstances:
+                    self.cancelledAttendees.add(item)
+                else:
+                    # 3.
+                    if (new_attendee, None) not in mappedNew or rid in addedexdates:
+                        self.cancelledAttendees.add(item)
+
+        master_attendees = self.oldcalendar.masterComponent().getAttendeesByInstance()
+        for attendee, _ignore in master_attendees:
+            for exdate in addedexdates:
+                # Don't remove the master attendee's when an EXDATE is added for a removed overridden component
+                # as the set of attendees in the override may be different from the master set, but the override
+                # will have been accounted for by the previous attendee/instance logic.
+                if exdate not in removedInstances:
+                    self.cancelledAttendees.add((attendee, exdate))
 
     @inlineCallbacks
     def scheduleWithAttendees(self):
@@ -235,7 +324,7 @@ class ImplicitScheduler(object):
     
             # Do the PUT processing
             log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
-            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
+            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg, self.internal_request))
             self.handleSchedulingResponse(response, True)
             
     @inlineCallbacks
@@ -251,6 +340,10 @@ class ImplicitScheduler(object):
             if attendee in self.organizerPrincipal.calendarUserAddresses():
                 continue
 
+            # Don't send message to specified attendees
+            if attendee in self.except_attendees:
+                continue
+
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,))
 
             # Send scheduling message
@@ -260,13 +353,25 @@ class ImplicitScheduler(object):
     
             # Do the PUT processing
             log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
-            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg))
+            response = (yield scheduler.doSchedulingViaPUT(self.organizer, (attendee,), itipmsg, self.internal_request))
             self.handleSchedulingResponse(response, True)
 
     def handleSchedulingResponse(self, response, is_organizer):
         
-        # TODO: need to figure out how to process the response
-        pass
+        # Map each recipient in the response to a status code
+        responses = {}
+        for item in response.responses:
+            assert isinstance(item, caldavxml.Response), "Wrong element in response"
+            recipient = str(item.children[0].children[0])
+            status = str(item.children[1])
+            responses[recipient] = status
+            
+        # Now apply to each ATTENDEE/ORGANIZER in the original data
+        self.calendar.setParameterToValueForPropertyWithValue(
+            "SCHEDULE-STATUS",
+            status,
+            "ATTENDEE" if is_organizer else "ORGANIZER",
+            recipient)
 
     @inlineCallbacks
     def doImplicitAttendee(self):
@@ -364,7 +469,6 @@ class ImplicitScheduler(object):
             self.handleSchedulingResponse(response, False)
             
         log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
-        d = scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg)
+        d = scheduler.doSchedulingViaPUT(self.attendee, (self.organizer,), itipmsg, self.internal_request)
         d.addCallback(_gotResponse)
         return d
-

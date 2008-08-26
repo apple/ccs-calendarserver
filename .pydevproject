@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse-pydev version="1.0"?>
+
+<pydev_project>
+<pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">python 2.5</pydev_property>
+<pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
+<path>/CalendarServer</path>
+</pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>/Users/cyrusdaboo/Documents/Development/Apple/eclipse/Twisted</path>
+<path>/Users/cyrusdaboo/Documents/Development/Apple/eclipse/vobject/src</path>
+<path>/Users/cyrusdaboo/Documents/Development/Apple/eclipse/pydirector-1.0.0/build/lib.macosx-10.3-fat-2.5</path>
+<path>/Users/cyrusdaboo/Documents/Development/Apple/eclipse/pyOpenSSL-0.6/build/lib.macosx-10.3-fat-2.5</path>
+<path>/Users/cyrusdaboo/Documents/Development/Apple/eclipse/PyXML-0.8.4/build/lib.macosx-10.3-fat-2.5</path>
+<path>/Volumes/Data/Users/cyrusdaboo/Documents/Development/Apple/eclipse/PyOpenDirectory/build/lib.macosx-10.5-i386-2.5</path>
+<path>/Volumes/Data/Users/cyrusdaboo/Documents/Development/Apple/eclipse/PyKerberos/build/lib.macosx-10.5-i386-2.5</path>
+</pydev_pathproperty>
+</pydev_project>

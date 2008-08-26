@@ -394,6 +394,8 @@ limitations under the License.
   	  </array>
   	  <key>OldDraftCompatability</key>
   	  <true/>
+  	  <key>DefaultCalendarProvisioned</key>
+  	  <true/>
   	</dict>
     <!--  iSchedule protocol options -->
   	<key>iSchedule</key>
