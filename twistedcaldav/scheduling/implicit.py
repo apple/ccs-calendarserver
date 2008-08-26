@@ -69,7 +69,7 @@ class ImplicitScheduler(object):
         self.calendar = calendar
         self.calendar_owner = (yield self.resource.owner(self.request))
         self.deleting = deleting
-.
+
         # When deleting we MUST have the calendar as the actual resource
         # will have been deleted by now
         assert deleting and calendar or not deleting
