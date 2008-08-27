@@ -439,7 +439,7 @@ class CalDAVServiceMaker(object):
     principalResourceClass       = DirectoryPrincipalProvisioningResource
     calendarResourceClass        = CalendarHomeProvisioningFile
     iScheduleResourceClass       = IScheduleInboxFile
-    imipResourceClass            = IScheduleInboxFile
+    imipResourceClass            = IMIPInboxFile
     timezoneServiceResourceClass = TimezoneServiceFile
 
     def makeService_Slave(self, options):
@@ -547,7 +547,6 @@ class CalDAVServiceMaker(object):
                 os.path.join(config.DocumentRoot, 'ischedule'),
                 root,
             )
-            root.putChild('inbox', ischedule)
             root.putChild('ischedule', ischedule)
 
         #
