@@ -674,7 +674,6 @@ class MailHandler(LoggingMixIn):
         msg["Reply-To"] = "${replytoaddress}"
         msg["To"] = "${toaddress}"
         msg["Date"] = rfc822date()
-        msg["Subject"] = "Event invitation: %s" % (title,)
         msgId = messageid()
         msg["Message-ID"] = msgId
 
@@ -682,7 +681,13 @@ class MailHandler(LoggingMixIn):
         msg.attach(msgAlt)
 
         # plain text version
-        plainText = u"You've been invited to the following event:  %s To accept or decline this invitation, click the link below.\n" % (summary,)
+        if calendar.propertyValue("METHOD") == "CANCEL":
+            msg["Subject"] = "Event cancelled"
+            plainText = u"An event has been cancelled.  Click the link below.\n"
+        else:
+            msg["Subject"] = "Event invitation: %s" % (title,)
+            plainText = u"You've been invited to the following event:  %s To accept or decline this invitation, click the link below.\n" % (summary,)
+
         msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
         msgAlt.attach(msgPlain)
 
@@ -731,7 +736,10 @@ class MailHandler(LoggingMixIn):
             organizer = "%s <%s>" % (organizerProp.params()["CN"][0],
                 organizer,)
 
-        dtinfo = self._getDateTimeInfo(component)
+        if calendar.propertyValue("METHOD") == "CANCEL":
+            dtinfo = ""
+        else:
+            dtinfo = self._getDateTimeInfo(component)
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:
