@@ -26,6 +26,7 @@ __all__ = [
     "ReadOnlyWritePropertiesResourceMixIn",
     "ReadOnlyResourceMixIn",
     "XMLResponse",
+    "CachingXattrPropertyStore",
 ]
 
 import cPickle as pickle
@@ -37,12 +38,12 @@ from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, retur
 from twisted.internet.defer import maybeDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
+from twisted.web2.http import StatusResponse
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import FileStream
 from twisted.web2.static import MetaDataMixin
 from twisted.web2.dav import davxml
 from twisted.web2.dav.davxml import dav_namespace
-from twisted.web2.dav.http import StatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource

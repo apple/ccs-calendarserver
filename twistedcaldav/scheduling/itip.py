@@ -42,7 +42,7 @@ log = Logger()
 __version__ = "0.0"
 
 __all__ = [
-    "iTipProcessor",
+    "iTipProcessing",
     "iTipGenerator",
 ]
 

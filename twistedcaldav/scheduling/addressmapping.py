@@ -27,6 +27,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 __all__ = [
     "ScheduleAddressMapper",
+    "mapper",
 ]
 
 log = Logger()

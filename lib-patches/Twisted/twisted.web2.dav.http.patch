@@ -2,7 +2,21 @@ Index: twisted/web2/dav/http.py
 ===================================================================
 --- twisted/web2/dav/http.py	(revision 19773)
 +++ twisted/web2/dav/http.py	(working copy)
-@@ -69,10 +69,9 @@
+@@ -28,10 +28,13 @@
+ 
+ __all__ = [
+     "ErrorResponse",
++    "NeedPrivilegesResponse",
+     "MultiStatusResponse",
+     "ResponseQueue",
+     "PropertyStatusResponseQueue",
+     "statusForFailure",
++    "errorForFailure",
++    "messageForFailure",
+ ]
+ 
+ import errno
+@@ -69,10 +72,9 @@
          """
          if type(error) is tuple:
              xml_namespace, xml_name = error
@@ -16,7 +30,7 @@ Index: twisted/web2/dav/http.py
  
          output = davxml.Error(error).toxml()
  
-@@ -227,7 +226,7 @@
+@@ -227,7 +229,7 @@
  
          if len(property.children) > 0:
              # Re-instantiate as empty element.

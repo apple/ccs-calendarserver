@@ -18,7 +18,10 @@
 CalDAV interfaces.
 """
 
-__all__ = [ "IDAVResource" ]
+__all__ = [
+    "ICalDAVResource",
+    "ICalendarPrincipalResource",
+]
 
 from twisted.web2.dav.idav import IDAVResource
 

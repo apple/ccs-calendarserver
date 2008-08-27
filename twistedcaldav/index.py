@@ -22,6 +22,9 @@ change.
 """
 
 __all__ = [
+    "db_basename",
+    "ReservationError",
+    "MemcachedUIDReserver",
     "Index",
     "IndexSchedule",
 ]

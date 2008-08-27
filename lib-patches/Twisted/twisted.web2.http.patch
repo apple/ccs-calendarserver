@@ -48,3 +48,10 @@ Index: twisted/web2/http.py
  
      def _error(self, reason):
          if reason.check(error.ConnectionLost):
+@@ -471,5 +484,5 @@
+ else:
+     components.registerAdapter(compat.OldResourceAdapter, resource.IResource, iweb.IOldNevowResource)
+ 
+-__all__ = ['HTTPError', 'NotModifiedResponse', 'Request', 'Response', 'checkIfRange', 'checkPreconditions', 'defaultPortForScheme', 'parseVersion', 'splitHostPort']
++__all__ = ['HTTPError', 'NotModifiedResponse', 'Request', 'Response', 'StatusResponse', 'RedirectResponse', 'checkIfRange', 'checkPreconditions', 'defaultPortForScheme', 'parseVersion', 'splitHostPort']
+ 

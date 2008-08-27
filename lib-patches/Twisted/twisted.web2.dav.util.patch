@@ -2,7 +2,15 @@ Index: twisted/web2/dav/util.py
 ===================================================================
 --- twisted/web2/dav/util.py	(revision 19773)
 +++ twisted/web2/dav/util.py	(working copy)
-@@ -76,7 +76,9 @@
+@@ -37,6 +37,7 @@
+     "normalizeURL",
+     "joinURL",
+     "parentForURL",
++    "unimplemented",
+     "bindMethods",
+ ]
+ 
+@@ -76,7 +77,9 @@
  
      def parse(xml):
          try:

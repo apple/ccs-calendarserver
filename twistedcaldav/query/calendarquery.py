@@ -44,7 +44,7 @@ def calendarquery(filter):
     """
     Convert the supplied calendar-query into an expression tree.
 
-    @param filter: the L{Filter} for thw calendar-query to convert.
+    @param filter: the L{Filter} for the calendar-query to convert.
     @return: a L{baseExpression} for the expression tree.
     """
     

@@ -2,7 +2,19 @@ Index: twisted/web2/dav/method/propfind.py
 ===================================================================
 --- twisted/web2/dav/method/propfind.py	(revision 19773)
 +++ twisted/web2/dav/method/propfind.py	(working copy)
-@@ -200,7 +200,7 @@
+@@ -27,7 +27,10 @@
+ WebDAV PROPFIND method
+ """
+ 
+-__all__ = ["http_PROPFIND"]
++__all__ = [
++    "http_PROPFIND",
++    "propertyName",
++]
+ 
+ from twisted.python import log
+ from twisted.python.failure import Failure
+@@ -200,7 +203,7 @@
  
  def propertyName(name):
      property_namespace, property_name = name

@@ -20,6 +20,7 @@ Generic SQL database access object.
 
 __all__ = [
     "AbstractSQLDatabase",
+    "db_prefix"
 ]
 
 import os

@@ -1,0 +1,12 @@
+Index: twisted/web2/dav/fileop.py
+===================================================================
+--- twisted/web2/dav/fileop.py	(revision 19773)
++++ twisted/web2/dav/fileop.py	(working copy)
+@@ -35,6 +35,7 @@
+     "move",
+     "put",
+     "mkcollection",
++    "rmdir",
+ ]
+ 
+ import os

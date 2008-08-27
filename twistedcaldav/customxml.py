@@ -23,7 +23,7 @@ This API is considered private to static.py and is therefore subject to
 change.
 """
 
-from twisted.web2.dav.resource import twisted_dav_namespace
+from twisted.web2.dav.davxml import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
 from twistedcaldav.ical import Component as iComponent

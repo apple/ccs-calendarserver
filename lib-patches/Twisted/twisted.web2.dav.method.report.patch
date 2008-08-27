@@ -1,0 +1,17 @@
+Index: twisted/web2/dav/method/report.py
+===================================================================
+--- twisted/web2/dav/method/report.py	(revision 19773)
++++ twisted/web2/dav/method/report.py	(working copy)
+@@ -27,7 +27,11 @@
+ WebDAV REPORT method
+ """
+ 
+-__all__ = ["http_REPORT"]
++__all__ = [
++    "max_number_of_matches",
++    "NumberOfMatchesWithinLimits",
++    "http_REPORT",
++]
+ 
+ import string
+ 

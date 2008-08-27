@@ -25,6 +25,9 @@ __all__ = [
     "DirectoryPrincipalUIDProvisioningResource",
     "DirectoryPrincipalResource",
     "DirectoryCalendarPrincipalResource",
+    "format_list",
+    "format_principals",
+    "format_link",
 ]
 
 from cgi import escape

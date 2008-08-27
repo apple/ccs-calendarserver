@@ -20,6 +20,7 @@ Utilities.
 
 __all__ = [
     "uuidFromName",
+    "NotFilePath",
 ]
 
 from sha import sha

@@ -2,7 +2,22 @@ Index: twisted/web2/dav/auth.py
 ===================================================================
 --- twisted/web2/dav/auth.py	(revision 19773)
 +++ twisted/web2/dav/auth.py	(working copy)
-@@ -40,7 +40,7 @@
+@@ -5,7 +5,13 @@
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.davxml import twisted_private_namespace
+ 
+-__all__ = ["PrincipalCredentials", "AuthenticationWrapper"]
++__all__ = [
++    "IPrincipal",
++    "DavRealm",
++    "IPrincipalCredentials",
++    "PrincipalCredentials",
++    "AuthenticationWrapper",
++]
+ 
+ class AuthenticationWrapper(WrapperResource):
+     def __init__(self, resource, portal, credentialFactories, loginInterfaces):
+@@ -40,7 +46,7 @@
  
      def requestAvatar(self, avatarId, mind, *interfaces):
          if IPrincipal in interfaces:
@@ -11,7 +26,7 @@ Index: twisted/web2/dav/auth.py
          
          raise NotImplementedError("Only IPrincipal interface is supported")
  
-@@ -52,33 +52,44 @@
+@@ -52,33 +58,44 @@
  class PrincipalCredentials(object):
      implements(IPrincipalCredentials)
  

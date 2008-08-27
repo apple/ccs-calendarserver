@@ -21,6 +21,7 @@ Date/time Utilities
 __all__ = [
     "normalizeToUTC",
     "normalizeForIndex",
+    "floatoffset",
     "compareDateTime",
     "differenceDateTime",
     "makeComparableDateTime",

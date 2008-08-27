@@ -29,10 +29,10 @@ This implements two authentication modes:
 
 __all__ = [
     "BasicKerberosCredentials",
-    "BasicKerberosAuthorizer",
+    "BasicKerberosCredentialFactory",
     "BasicKerberosCredentialsChecker",
     "NegotiateCredentials",
-    "NegotiateAuthorizer",
+    "NegotiateCredentialFactory",
     "NegotiateCredentialsChecker",
 ]
 

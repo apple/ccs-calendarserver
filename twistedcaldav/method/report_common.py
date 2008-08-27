@@ -20,9 +20,11 @@ __all__ = [
     "allPropertiesForResource",
     "propertyNamesForResource",
     "propertyListForResource",
+    "validPropertyListCalendarDataTypeVersion",
     "generateFreeBusyInfo",
     "processEventFreeBusy",
     "processFreeBusyFreeBusy",
+    "processAvailabilityFreeBusy",
     "buildFreeBusyResult",
 ]
 

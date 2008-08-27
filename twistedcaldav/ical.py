@@ -19,6 +19,8 @@ iCalendar Utilities
 """
 
 __all__ = [
+    "iCalendarProductID",
+    "allowedComponents",
     "Property",
     "Component",
     "FixedOffset",
@@ -27,6 +29,7 @@ __all__ = [
     "parse_datetime",
     "parse_date_or_datetime",
     "parse_duration",
+    "tzexpand",
 ]
 
 from twisted.web2.dav.util import allDataFromStream

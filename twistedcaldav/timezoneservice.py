@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.ical import tzexpand
 
 """
 Timezone service resource and operations.
@@ -35,6 +34,7 @@ from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.extensions import XMLResponse
 from twistedcaldav.ical import parse_date_or_datetime
+from twistedcaldav.ical import tzexpand
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.timezones import TimezoneException
 from twistedcaldav.timezones import listTZs

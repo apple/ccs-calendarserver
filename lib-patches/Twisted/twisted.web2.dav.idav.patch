@@ -2,6 +2,15 @@ Index: twisted/web2/dav/idav.py
 ===================================================================
 --- twisted/web2/dav/idav.py	(revision 19773)
 +++ twisted/web2/dav/idav.py	(working copy)
+@@ -26,7 +26,7 @@
+ web2.dav interfaces.
+ """
+ 
+-__all__ = [ "IDAVResource", "IDAVPrincipalResource" ]
++__all__ = [ "IDAVResource", "IDAVPrincipalResource", "IDAVPrincipalCollectionResource", ]
+ 
+ from twisted.web2.iweb import IResource
+ 
 @@ -41,7 +41,7 @@
              otherwise.
          """

@@ -51,8 +51,10 @@ __all__ = [
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
+    "logLevelsByNamespace",
     "Logger",
     "LoggingMixIn",
+    "InvalidLogLevelError",
 ]
 
 import inspect

@@ -43,6 +43,8 @@ calendar data.
 __all__ = [
     "TimezoneException",
     "TimezoneCache",
+    "readTZ",
+    "listTZs",
 ]
 
 class TimezoneException(Exception):

@@ -22,5 +22,6 @@ __all__ = [
     "imip",
     "implicit",
     "ischedule",
+    "processing",
     "scheduler",
 ]

@@ -26,6 +26,7 @@ import time
 
 __all__ = [
     "ImplicitProcessor",
+    "ImplicitProcessorException",
 ]
 
 log = Logger()

@@ -27,6 +27,7 @@ __all__ = [
     "ScheduleFile",
     "ScheduleInboxFile",
     "ScheduleOutboxFile",
+    "IScheduleInboxFile",
     "DropBoxHomeFile",
     "DropBoxCollectionFile",
     "DropBoxChildFile",

@@ -20,6 +20,7 @@ Implements a calendar user proxy principal.
 
 __all__ = [
     "CalendarUserProxyPrincipalResource",
+    "CalendarUserProxyDatabase",
 ]
 
 from twisted.internet.defer import returnValue

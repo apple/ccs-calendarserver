@@ -248,3 +248,20 @@ Index: twisted/web2/dav/element/base.py
  class WebDAVEmptyElement (WebDAVElement):
      """
      WebDAV element with no contents.
+@@ -388,6 +526,7 @@
+     """
+     WebDAV element containing PCDATA.
+     """
++    @classmethod
+     def fromString(clazz, string):
+         if string is None:
+             return clazz()
+@@ -396,8 +535,6 @@
+         else:
+             return clazz(PCDATAElement(str(string)))
+ 
+-    fromString = classmethod(fromString)
+-
+     allowed_children = { PCDATAElement: (0, None) }
+ 
+     def __str__(self):

@@ -22,11 +22,14 @@ be used by different query language generators to produce the actual query synta
 __version__ = "0.0"
 
 __all__ = [
+    "allExpression",
     "notExpression",
     "andExpression",
     "orExpression",
     "timerangeExpression",
+    "textcompareExpression",
     "containsExpression",
+    "notcontainsExpression",
     "isExpression",
     "isnotExpression",
     "inExpression",
