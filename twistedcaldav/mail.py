@@ -401,8 +401,10 @@ class MailGatewayServiceMaker(LoggingMixIn):
 
             mailType = settings['Receiving']['Type']
             if mailType.lower().startswith('pop'):
+                self.log_info("Starting Mail Gateway Service: POP3")
                 client = POP3Service(settings['Receiving'], mailer)
             elif mailType.lower().startswith('imap'):
+                self.log_info("Starting Mail Gateway Service: IMAP4")
                 client = IMAP4Service(settings['Receiving'], mailer)
             else:
                 # TODO: raise error?
@@ -413,6 +415,8 @@ class MailGatewayServiceMaker(LoggingMixIn):
             client.setServiceParent(multiService)
 
             IScheduleService(settings, mailer).setServiceParent(multiService)
+        else:
+            self.log_info("Mail Gateway Service not enabled")
 
         return multiService
 
