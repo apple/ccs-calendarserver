@@ -671,6 +671,17 @@ class Component (object):
         """
         self._vobject.remove(property._vobject)
 
+    def replaceProperty(self, property):
+        """
+        Add or replace a property in this component.
+        @param property: the L{Property} to add or replace in this component.
+        """
+        
+        # Remove all existing ones first
+        for removeit in tuple(self.properties(property.name())):
+            self.removeProperty(removeit)
+        self.addProperty(property)
+
     def timezoneIDs(self):
         """
         Returns the set of TZID parameter values appearing in any property in

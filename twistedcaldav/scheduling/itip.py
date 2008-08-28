@@ -354,6 +354,7 @@ class iTipGenerator(object):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
+        itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REQUEST"))
         
         # Now filter out components that do not contain every attendee
@@ -369,6 +370,7 @@ class iTipGenerator(object):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
+        itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REPLY"))
         
         # Remove all attendees except the one we want
