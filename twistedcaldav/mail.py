@@ -555,8 +555,15 @@ class MailHandler(LoggingMixIn):
         attendee = str(attendee)
         calendar.removeAllButOneAttendee(attendee)
         calendar.getOrganizerProperty().setValue(organizer)
-        calendar.addProperty(Property("REQUEST-STATUS",
-            "5.1;Service unavailable"))
+        for comp in calendar.subcomponents():
+            if comp.name() == "VEVENT":
+                comp.addProperty(Property("REQUEST-STATUS",
+                    ["5.1", "Service unavailable"]))
+                break
+        else:
+            # no VEVENT in the calendar body.
+            # TODO: what to do in this case?
+            pass
 
         self.log_error("Mail gateway processing DSN %s" % (msgId,))
         return fn(organizer, attendee, calendar, msgId)
