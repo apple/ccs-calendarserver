@@ -344,6 +344,9 @@ class iTipGenerator(object):
                 if tzid in tzids:
                     itip.addComponent(comp)
 
+        # Strip out unwanted bits
+        iTipGenerator.prepareSchedulingMessage(itip)
+
         return itip
 
     @staticmethod
