@@ -79,13 +79,13 @@ class Scheduler(object):
     
         self.method = "POST"
 
-        # Do some extra authorization checks
-        self.checkAuthorization()
-
         # Load various useful bits doing some basic checks on those
         self.loadOriginatorFromRequestHeaders()
         self.loadRecipientsFromRequestHeaders()
         yield self.loadCalendarFromRequest()
+
+        # Do some extra authorization checks
+        self.checkAuthorization()
 
         result = (yield self.doScheduling())
         returnValue(result)
@@ -97,14 +97,14 @@ class Scheduler(object):
     
         self.method = "PUT"
 
-        # Do some extra authorization checks
-        self.checkAuthorization()
-
         # Load various useful bits doing some basic checks on those
         self.originator = originator
         self.recipients = recipients
         self.calendar = calendar
         self.internal_request = internal_request
+
+        # Do some extra authorization checks
+        self.checkAuthorization()
 
         return self.doScheduling()
 
