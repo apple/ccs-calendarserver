@@ -708,7 +708,7 @@ class MailHandler(LoggingMixIn):
         imageFile = open(os.path.join(os.path.dirname(__file__),
             "images", "mail", imageName))
         msgImage = MIMEImage(imageFile.read(),
-            _subtype='image/png;x-apple-mail-type=stationery;name="%s"' %
+            _subtype='jpeg;x-apple-mail-type=stationery;name="%s"' %
             (imageName,))
         imageFile.close()
         msgImage.add_header("Content-ID", "<%s>" % (imageName,))
