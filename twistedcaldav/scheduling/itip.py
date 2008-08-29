@@ -329,6 +329,19 @@ class iTipGenerator(object):
             if instance_rid:
                 comp.addProperty(Property("RECURRENCE-ID", instance_rid))
             
+            def addProperties(propname):
+                for property in instance.properties(propname):
+                    comp.addProperty(property)
+                    
+            addProperties("SUMMARY")
+            addProperties("DTSTART")
+            addProperties("DTEND")
+            addProperties("DURATION")
+            if not instance_rid:
+                addProperties("RRULE")
+                addProperties("RDATE")
+                addProperties("EXDATE")
+
             # Extract the matching attendee property
             for attendee in attendees:
                 attendeeProp = instance.getAttendeeProperty((attendee,))
