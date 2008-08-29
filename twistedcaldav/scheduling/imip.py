@@ -25,6 +25,7 @@ from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.http import HTTPError
+from twisted.web import client
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
@@ -61,22 +62,18 @@ class ScheduleViaIMip(DeliveryService):
             if self.freebusy:
                 raise ValueError("iMIP VFREEBUSY REQUESTs not supported.")
 
-            message = self._generateTemplateMessage(self.scheduler.calendar)
-            fromAddr = self.scheduler.originator.cuaddr
-            if not fromAddr.startswith("mailto:"):
-                raise ValueError("ORGANIZER address '%s' must be mailto: for iMIP operation." % (fromAddr,))
-            fromAddr = fromAddr[7:]
-            message = message.replace("${fromaddress}", fromAddr)
-            
+            caldata = str(self.scheduler.calendar)
+
             for recipient in self.recipients:
                 try:
-                    toAddr = recipient.cuaddr
+                    toAddr = str(recipient.cuaddr)
                     if not toAddr.startswith("mailto:"):
                         raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
-                    toAddr = toAddr[7:]
-                    sendit = message.replace("${toaddress}", toAddr)
-                    log.debug("Sending iMIP message To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, sendit,))
-                    yield sendmail(config.Scheduling[self.serviceType()]["Sending"]["Server"], fromAddr, toAddr, sendit, port=config.Scheduling[self.serviceType()]["Sending"]["Port"])
+
+                    fromAddr = str(self.scheduler.calendar.getOrganizer())
+
+                    log.debug("POSTing iMIP message to gateway...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
+                    yield self.postToGateway(fromAddr, toAddr, caldata)
         
                 except Exception, e:
                     # Generated failed response for this recipient
@@ -94,166 +91,20 @@ class ScheduleViaIMip(DeliveryService):
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
 
-    def _generateTemplateMessage(self, calendar):
+    def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
+        if reactor is None:
+            from twisted.internet import reactor
 
-        caldata = str(calendar)
-        data = cStringIO.StringIO()
-        writer = MimeWriter.MimeWriter(data)
-    
-        writer.addheader("From", "${fromaddress}")
-        writer.addheader("To", "${toaddress}")
-        writer.addheader("Date", rfc822date())
-        writer.addheader("Subject", "DO NOT REPLY: calendar invitation test")
-        writer.addheader("Message-ID", messageid())
-        writer.addheader("Mime-Version", "1.0")
-        writer.flushheaders()
-    
-        writer.startmultipartbody("mixed")
-    
-        # message body
-        part = writer.nextpart()
-        body = part.startbody("text/plain")
-        body.write("""Hi,
-You've been invited to a cool event by CalendarServer's new iMIP processor.
+        mailGatewayServer = config.Scheduling['iMIP']['MailGatewayServer']
+        mailGatewayPort = config.Scheduling['iMIP']['MailGatewayPort']
+        url = "http://%s:%d/inbox" % (mailGatewayServer, mailGatewayPort)
+        headers = {
+            'Content-Type' : 'text/calendar',
+            'Originator' : fromAddr,
+            'Recipient' : toAddr,
+        }
+        factory = client.HTTPClientFactory(url, method='POST', headers=headers,
+            postdata=caldata)
+        reactor.connectTCP(mailGatewayServer, mailGatewayPort, factory)
+        return factory.deferred
 
-%s
-""" % (self._generateCalendarSummary(calendar),))
-    
-        part = writer.nextpart()
-        encoding = "7bit"
-        for i in caldata:
-            if ord(i) > 127:
-                encoding = "base64"
-                caldata = base64.encodestring(caldata)
-                break
-        part.addheader("Content-Transfer-Encoding", encoding)
-        body = part.startbody("text/calendar; charset=utf-8")
-        body.write(caldata.replace("\r", ""))
-    
-        # finish
-        writer.lastpart()
-
-        return data.getvalue()
-
-    def _generateCalendarSummary(self, calendar):
-
-        # Get the most appropriate component
-        component = calendar.masterComponent()
-        if component is None:
-            component = calendar.mainComponent(True)
-            
-        organizer = component.getOrganizerProperty()
-        if "CN" in organizer.params():
-            organizer = "%s <%s>" % (organizer.params()["CN"][0], organizer.value(),)
-        else:
-            organizer = organizer.value()
-            
-        dtinfo = self._getDateTimeInfo(component)
-        
-        summary = component.propertyValue("SUMMARY")
-        if summary is None:
-            summary = ""
-
-        description = component.propertyValue("DESCRIPTION")
-        if description is None:
-            description = ""
-
-        return """---- Begin Calendar Event Summary ----
-
-Organizer:   %s
-Summary:     %s
-%sDescription: %s
-
-----  End Calendar Event Summary  ----
-""" % (organizer, summary, dtinfo, description,)
-
-    def _getDateTimeInfo(self, component):
-        
-        dtstart = component.propertyNativeValue("DTSTART")
-        tzid_start = component.getProperty("DTSTART").params().get("TZID", "UTC")
-
-        dtend = component.propertyNativeValue("DTEND")
-        if dtend:
-            tzid_end = component.getProperty("DTEND").params().get("TZID", "UTC")
-            duration = dtend - dtstart
-        else:
-            duration = component.propertyNativeValue("DURATION")
-            if duration:
-                dtend = dtstart + duration
-                tzid_end = tzid_start
-            else:
-                if isinstance(dtstart, datetime.date):
-                    dtend = None
-                    duration = datetime.timedelta(days=1)
-                else:
-                    dtend = dtstart + datetime.timedelta(days=1)
-                    dtend.hour = dtend.minute = dtend.second = 0
-                    duration = dtend - dtstart
-        result = "Starts:      %s\n" % (self._getDateTimeText(dtstart, tzid_start),)
-        if dtend is not None:
-            result += "Ends:        %s\n" % (self._getDateTimeText(dtend, tzid_end),)
-        result += "Duration:    %s\n" % (self._getDurationText(duration),)
-        
-        if not isinstance(dtstart, datetime.datetime):
-            result += "All Day\n"
-        
-        for property_name in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
-            if component.hasProperty(property_name):
-                result += "Recurring\n"
-                break
-            
-        return result
-
-    def _getDateTimeText(self, dtvalue, tzid):
-        
-        if isinstance(dtvalue, datetime.datetime):
-            timeformat = "%A, %B %e, %Y %I:%M %p"
-        elif isinstance(dtvalue, datetime.date):
-            timeformat = "%A, %B %e, %Y"
-            tzid = ""
-        if tzid:
-            tzid = " (%s)" % (tzid,)
-
-        return "%s%s" % (dtvalue.strftime(timeformat), tzid,)
-        
-    def _getDurationText(self, duration):
-        
-        result = ""
-        if duration.days > 0:
-            result += "%d %s" % (
-                duration.days,
-                self._pluralize(duration.days, "day", "days")
-            )
-
-        hours = duration.seconds / 3600
-        minutes = divmod(duration.seconds / 60, 60)[1]
-        seconds = divmod(duration.seconds, 60)[1]
-        
-        if hours > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                hours,
-                self._pluralize(hours, "hour", "hours")
-            )
-        
-        if minutes > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                minutes,
-                self._pluralize(minutes, "minute", "minutes")
-            )
-        
-        if seconds > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                seconds,
-                self._pluralize(seconds, "second", "seconds")
-            )
-
-        return result
-
-    def _pluralize(self, number, unit1, unitS):
-        return unit1 if number == 1 else unitS

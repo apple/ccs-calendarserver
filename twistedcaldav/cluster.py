@@ -323,6 +323,17 @@ def makeService_Combined(self, options):
         ]
         monitor.addProcess('notifications', notificationsArgv, env=parentEnv)
 
+    if (config.Scheduling["iMIP"]["Enabled"] and
+        config.Scheduling["iMIP"]["MailGatewayServer"] == "localhost"):
+        log.msg("Adding mail gateway service")
+
+        mailGatewayArgv = [
+            config.Twisted['twistd'],
+            '-n', 'caldav_mailgateway',
+            '-f', options['config'],
+        ]
+        monitor.addProcess('mailgateway', mailGatewayArgv, env=parentEnv)
+
 
     logger = AMPLoggingFactory(
         RotatingFileAccessLoggingObserver(config.AccessLogFile))

@@ -198,16 +198,23 @@ defaultConfig = {
 
         "iMIP": {
             "Enabled"          : False, # Server-to-iMIP protocol
+            "MailGatewayServer" : "localhost",
+            "MailGatewayPort"   : 62310,
             "Sending": {
-                "Server"       : "",    # SMTP server to relay messages through
-                "Port"         : 587,   # SMTP server port to relay messages through
+                "Server"        : "",    # SMTP server to relay messages through
+                "Port"          : 587,   # SMTP server port to relay messages through
+                "Address"       : "",    # 'From' address for server
             },
             "Receiving": {
-                "Server"       : "",    # Server to retrieve email messages from
-                "Port"         : 0,     # Server port to retrieve email messages from
-                "Type"         : "",    # Type of message access server: 'pop3' or 'imap'
+                "Server"        : "",    # Server to retrieve email messages from
+                "Port"          : 0,     # Server port to retrieve email messages from
+                "UseSSL"        : True,
+                "Type"          : "",    # Type of message access server: 'pop' or 'imap'
+                "PollingSeconds"    : 30,  # How often to fetch mail
+                "Username"      : "",    # For account receving mail
+                "Password"      : "",    # For account receving mail
             },
-            "AddressPatterns"  : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+            "AddressPatterns"   : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
         },
 
     },
