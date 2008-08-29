@@ -279,12 +279,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             self.putChild(name, child)
 
     def provisionDefaultCalendars(self):
-        self.provision()
 
-        childName = "calendar"
-        childURL = joinURL(self.url(), childName)
-        child = self.provisionChild(childName)
-        assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
+        # Disable notifications during provisioning
+        if hasattr(self, "cacheNotifier"):
+            self.cacheNotifier.disableNotify()
 
         def setupFreeBusy(_):
             # Default calendar is initially opaque to freebusy
@@ -306,8 +304,28 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
             return self
 
-        d = child.createCalendarCollection()
-        d.addCallback(setupFreeBusy)
+        try:
+            self.provision()
+
+            childName = "calendar"
+            childURL = joinURL(self.url(), childName)
+            child = self.provisionChild(childName)
+            assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
+
+            d = child.createCalendarCollection()
+            d.addCallback(setupFreeBusy)
+        except:
+            # We want to make sure to re-enable notifications, so do so
+            # if there is an immediate exception above, or via errback, below
+            if hasattr(self, "cacheNotifier"):
+                self.cacheNotifier.enableNotify(None)
+            raise
+
+        # Re-enable notifications
+        if hasattr(self, "cacheNotifier"):
+            d.addCallback(self.cacheNotifier.enableNotify)
+            d.addErrback(self.cacheNotifier.enableNotify)
+
         return d
 
     def provisionChild(self, name):

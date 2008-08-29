@@ -76,11 +76,20 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
     def __init__(self, resource, cachePool=None):
         self._resource = resource
         self._cachePool = cachePool
+        self._notify = True
 
+    def enableNotify(self, arg):
+        url = self._resource.url()
+        self.log_debug("enableNotify: %s" % (url,))
+        self._notify = True
+
+    def disableNotify(self):
+        url = self._resource.url()
+        self.log_debug("disableNotify: %s" % (url,))
+        self._notify = False
 
     def _newCacheToken(self):
         return str(uuid.uuid4())
-
 
     def changed(self):
         """
@@ -92,8 +101,11 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
         url = self._resource.url()
 
         if config.Notifications["Enabled"]:
-            self.log_debug("Notifications are enabled: %s" % (url,))
-            self.sendNotification(url)
+            if self._notify:
+                self.log_debug("Notifications are enabled: %s" % (url,))
+                self.sendNotification(url)
+            else:
+                self.log_debug("Skipping notification for: %s" % (url,))
 
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
