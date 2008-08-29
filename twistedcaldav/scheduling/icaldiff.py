@@ -69,12 +69,12 @@ class iCalDiff(object):
 
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.removeXProperties()
+        self.calendar1.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
         self.calendar1.attendeesView((attendee,))
         iTipGenerator.prepareSchedulingMessage(self.calendar1)
 
         self.calendar2 = self.calendar2.duplicate()
-        self.calendar2.removeXProperties()
+        self.calendar2.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
         iTipGenerator.prepareSchedulingMessage(self.calendar2)
 
         if self.calendar1 == self.calendar2:
@@ -189,7 +189,11 @@ class iCalDiff(object):
             return False, False
         
         # Only accept a change to this attendee's own ATTENDEE property
+        comp1.transformAllFromNative()
+        comp2.transformAllFromNative()
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
+        comp1.transformAllToNative()
+        comp2.transformAllToNative()
         for prop in tuple(propdiff):
             # These ones are OK to change
             if prop.name() in (
@@ -201,9 +205,15 @@ class iCalDiff(object):
             ):
                 propdiff.remove(prop)
                 continue
-            if prop.name() != "ATTENDEE" or prop.value() != self.attendee:
-                log.debug("Component properties are different: %s" % (propdiff,))
-                return False, False
+            
+            # These ones can change and trigger a reschedule
+            if ((prop.name() == "ATTENDEE" and prop.value() == self.attendee) or
+                prop.name() == "X-CALENDARSERVER-PRIVATE-COMMENT"):
+                continue
+
+            # Change that is not allowed
+            log.debug("Component properties are different: %s" % (propdiff,))
+            return False, False
 
         # Compare subcomponents.
         # NB at this point we assume VALARMS have been removed.

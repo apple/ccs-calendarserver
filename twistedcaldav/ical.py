@@ -1377,9 +1377,9 @@ class Component (object):
                     continue
                 [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep_properties]
                 
-    def removeXProperties(self):
+    def removeXProperties(self, keep_properties):
         """
-        Remove all X- properties.
+        Remove all X- properties except the specified ones
         """
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
@@ -1388,7 +1388,11 @@ class Component (object):
             for component in self.subcomponents():
                 if component.name() == "VTIMEZONE":
                     continue
-                [component.removeProperty(p) for p in tuple(component.properties()) if p.name().startswith("X-")]
+                [
+                    component.removeProperty(p)
+                    for p in tuple(component.properties())
+                    if p.name().startswith("X-") and p.name() not in keep_properties
+                ]
             
 ##
 # Dates and date-times

@@ -36,6 +36,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 
 from vobject.icalendar import utc
+from vobject.icalendar import dateTimeToString
 
 log = Logger()
 
@@ -219,7 +220,7 @@ class iTipProcessing(object):
         new_master = itip_message.masterComponent()
         attendees = set()
         if new_master:
-            attendees.add(iTipProcessing.updateAttendeePartStat(new_master, old_master))
+            attendees.add(iTipProcessing.updateAttendeeData(new_master, old_master))
 
         # Now do all overridden ones
         for itip_component in itip_message.subcomponents():
@@ -239,15 +240,15 @@ class iTipProcessing(object):
                 match_component = calendar.deriveInstance(rid)
                 calendar.addComponent(match_component)
 
-            attendees.add(iTipProcessing.updateAttendeePartStat(itip_component, match_component))
+            attendees.add(iTipProcessing.updateAttendeeData(itip_component, match_component))
                 
         return True, attendees
 
     @staticmethod
-    def updateAttendeePartStat(from_component, to_component):
+    def updateAttendeeData(from_component, to_component):
         """
         Copy the PARTSTAT of the Attendee in the from_component to the matching ATTENDEE
-        in the to_component. Ignore if no match found.
+        in the to_component. Ignore if no match found. Also update the private comments.
 
         @param from_component:
         @type from_component:
@@ -266,6 +267,64 @@ class iTipProcessing(object):
         if existing_attendee:
             existing_attendee.params().setdefault("PARTSTAT", [partstat])[0] = partstat
             
+            # Handle attendee comments
+            
+            # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
+            attendee_comment = tuple(from_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            attendee_comment = attendee_comment[0] if len(attendee_comment) else None
+            
+            # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
+            private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
+            for comment in private_comments:
+                params = comment.params()["X-CALENDARSERVER-ATTENDEE-REF"]
+                assert len(params) == 1, "Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT"
+                param = params[0]
+                if param == attendee.value():
+                    private_comment = comment
+                    break
+            else:
+                private_comment = None
+                
+            # Now do update logic
+            if attendee_comment is None and private_comment is None:
+                # Nothing to do
+                pass
+ 
+            elif attendee_comment is None and private_comment is not None:
+                # Remove all property parameters
+                private_comment.params().clear()
+                
+                # Add default parameters
+                private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
+                private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
+                
+                # Set value empty
+                private_comment.setValue("")
+                
+            elif attendee_comment is not None and private_comment is None:
+                
+                # Add new property
+                private_comment = Property(
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                    attendee_comment.value(),
+                    params = {
+                        "X-CALENDARSERVER-ATTENDEE-REF":     [attendee.value()],
+                        "X-CALENDARSERVER-DTSTAMP": [dateTimeToString(datetime.datetime.now(tz=utc))],
+                    }
+                )
+                to_component.addProperty(private_comment)
+            
+            else:
+                # Remove all property parameters
+                private_comment.params().clear()
+                
+                # Add default parameters
+                private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
+                private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
+                
+                # Set new value
+                private_comment.setValue(attendee_comment.value())
+
         return attendee.value()
 
     @staticmethod
@@ -454,7 +513,6 @@ class iTipGenerator(object):
         for component in itip.subcomponents():
             stripSubComponents(component, ("VALARM",))
             stripComponentProperties(component, (
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
             stripPropertyParameters(component.properties("ATTENDEE"), (

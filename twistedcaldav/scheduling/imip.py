@@ -16,10 +16,6 @@
 
 from twisted.internet.defer import inlineCallbacks
 
-from twisted.mail.smtp import messageid
-from twisted.mail.smtp import rfc822date
-from twisted.mail.smtp import sendmail
-
 from twisted.python.failure import Failure
 
 from twisted.web2 import responsecode
@@ -31,11 +27,6 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
-
-import MimeWriter
-import base64
-import cStringIO
-import datetime
 
 """
 Class that handles delivery of scheduling messages via iMIP.
