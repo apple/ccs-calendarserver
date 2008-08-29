@@ -600,7 +600,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-REQUEST-STATUS:2.0\;Success
+REQUEST-STATUS:2.0;Success
 END:VEVENT
 END:VCALENDAR
 """,
@@ -628,14 +628,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-REQUEST-STATUS:2.0\;Success
+REQUEST-STATUS:2.0;Success
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T020000Z
-REQUEST-STATUS:2.0\;Success
+REQUEST-STATUS:2.0;Success
 END:VEVENT
 END:VCALENDAR
 """,
@@ -644,7 +644,7 @@ END:VCALENDAR
 
         for original, result in data:
             component = Component.fromString(original)
-            component.addPropertyToAllComponents(Property("REQUEST-STATUS", "2.0;Success"))
+            component.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success"]))
             self.assertEqual(result, str(component).replace("\r", ""))        
 
     def test_attendees_views(self):

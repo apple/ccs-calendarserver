@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.scheduling.icaldiff import iCalDiff
 
 from twistedcaldav.ical import Component
 import twistedcaldav.test.util
