@@ -318,6 +318,10 @@ limitations under the License.
         <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
         <key>KeepAliveSeconds</key>
         <integer>120</integer>
+
+        <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
+        <key>HeartbeatSeconds</key>
+        <integer>1800</integer>
       </dict>
     </array>
   </dict>

@@ -75,6 +75,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
+from twistedcaldav.notify import getPubSubHeartbeatURI
 
 log = Logger()
 
@@ -598,6 +599,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
 
     liveProperties = CalDAVFile.liveProperties + (
         (customxml.calendarserver_namespace, "xmpp-uri"),
+        (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
     )
 
     def __init__(self, path, parent, record):
@@ -662,6 +664,14 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
                     getPubSubXMPPURI(self.url(), pubSubConfiguration)))
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
+
+        elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(customxml.PubSubHeartbeatURIProperty(
+                    getPubSubHeartbeatURI(pubSubConfiguration)))
+            else:
+                return succeed(customxml.PubSubHeartbeatURIProperty())
 
         return super(CalendarHomeFile, self).readProperty(property, request)
 

@@ -34,7 +34,6 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 
 # TODO: bindAddress to local
 # TODO: add CalDAVTester test for examining new xmpp-uri property
-# TODO: auto-registration and roster management for XMPP
 
 from twisted.internet import protocol
 from twisted.protocols import basic
@@ -55,6 +54,7 @@ __all__ = [
     "Coalescer",
     "getNotificationClient",
     "getPubSubConfiguration",
+    "getPubSubHeartbeatURI",
     "getPubSubPath",
     "getPubSubXMPPURI",
     "INotifier",
@@ -488,15 +488,24 @@ class XMPPNotifier(LoggingMixIn):
         'pubsub#persist_items'   : '0',
     }
 
-    def __init__(self, settings, reactor=None, configOverride=None):
+    def __init__(self, settings, reactor=None, configOverride=None,
+        heartbeat=True, roster=True):
         self.xmlStream = None
         self.settings = settings
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
         self.config = configOverride or config
+        self.doHeartbeat = heartbeat
+        self.doRoster = roster
 
         self.roster = {}
+
+    def sendHeartbeat(self):
+        if self.doHeartbeat and self.xmlStream is not None:
+            self.enqueue("")
+            self.reactor.callLater(self.settings['HeartbeatSeconds'],
+                self.sendHeartbeat)
 
     def enqueue(self, uri):
         if self.xmlStream is not None:
@@ -634,11 +643,12 @@ class XMPPNotifier(LoggingMixIn):
 
 
     def requestRoster(self):
-        self.roster = {}
-        rosterIq = IQ(self.xmlStream, type='get')
-        rosterIq.addElement("query", "jabber:iq:roster")
-        rosterIq.addCallback(self.handleRoster)
-        rosterIq.send()
+        if self.doRoster:
+            self.roster = {}
+            rosterIq = IQ(self.xmlStream, type='get')
+            rosterIq.addElement("query", "jabber:iq:roster")
+            rosterIq.addCallback(self.handleRoster)
+            rosterIq.send()
 
     def allowedInRoster(self, jid):
         for pattern in self.settings.get("AllowedJIDs", []):
@@ -720,6 +730,7 @@ class XMPPNotifier(LoggingMixIn):
         xmlStream.addObserver('/message', self.handleMessage)
         xmlStream.addObserver('/presence', self.handlePresence)
         self.requestRoster()
+        self.sendHeartbeat()
 
 
     def streamClosed(self):
@@ -789,7 +800,7 @@ class XMPPNotifier(LoggingMixIn):
 
 class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
 
-    def __init__(self, notifier, settings, reactor=None):
+    def __init__(self, notifier, settings, reactor=None, keepAlive=True):
         self.log_info("Setting up XMPPNotificationFactory")
 
         self.notifier = notifier
@@ -798,6 +809,7 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
         self.keepAliveSeconds = settings.get('KeepAliveSeconds', 120)
         self.xmlStream = None
         self.presenceCall = None
+        self.doKeepAlive = keepAlive
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
@@ -845,7 +857,7 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
             (self.jid,))
 
     def sendPresence(self):
-        if self.xmlStream is not None:
+        if self.doKeepAlive and self.xmlStream is not None:
             presence = domish.Element(('jabber:client', 'presence'))
             self.xmlStream.send(presence)
             self.presenceCall = self.reactor.callLater(self.keepAliveSeconds,
@@ -876,12 +888,19 @@ def getPubSubConfiguration(config):
     return results
 
 def getPubSubPath(uri, pubSubConfiguration):
-    return ("/Public/CalDAV/%s/%d/%s/" % (pubSubConfiguration['host'],
-        pubSubConfiguration['port'], uri.strip("/")))
+    path = "/Public/CalDAV/%s/%d/" % (pubSubConfiguration['host'],
+        pubSubConfiguration['port'])
+    if uri:
+        path += "%s/" % (uri.strip("/"),)
+    return path
 
 def getPubSubXMPPURI(uri, pubSubConfiguration):
     return "xmpp:%s?pubsub;node=%s" % (pubSubConfiguration['service'],
         getPubSubPath(uri, pubSubConfiguration))
+
+def getPubSubHeartbeatURI(pubSubConfiguration):
+    return "xmpp:%s?pubsub;node=%s" % (pubSubConfiguration['service'],
+        getPubSubPath("", pubSubConfiguration))
 
 #
 # Notification Server service config

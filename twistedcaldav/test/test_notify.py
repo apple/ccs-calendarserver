@@ -335,7 +335,7 @@ class XMPPNotifierTests(TestCase):
         self.xmlStream = StubXmlStream()
         self.settings = { 'ServiceAddress' : 'pubsub.example.com' }
         self.notifier = XMPPNotifier(self.settings, reactor=Clock(),
-            configOverride=self.xmppEnabledConfig)
+            configOverride=self.xmppEnabledConfig, heartbeat=False)
         self.notifier.streamOpened(self.xmlStream)
 
     def test_sendWhileConnected(self):
@@ -456,6 +456,40 @@ class XMPPNotifierTests(TestCase):
                     str(valueElement))
 
 
+    def test_sendHeartbeat(self):
+
+        xmppConfig = Config(config_mod.defaultConfig)
+        xmppConfig.Notifications['Services'][1]['Enabled'] = True
+        xmppConfig.ServerHostName = "server.example.com"
+        xmppConfig.HTTPPort = 80
+
+        clock = Clock()
+        xmlStream = StubXmlStream()
+        settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
+            'Password' : 'password', 'KeepAliveSeconds' : 5,
+            'HeartbeatSeconds' : 1800 }
+        notifier = XMPPNotifier(settings, reactor=clock, heartbeat=True,
+            roster=False, configOverride=xmppConfig)
+        factory = XMPPNotificationFactory(notifier, settings, reactor=clock,
+            keepAlive=False)
+        factory.connected(xmlStream)
+        factory.authenticated(xmlStream)
+
+        self.assertEquals(len(xmlStream.elements), 1)
+        heartbeat = xmlStream.elements[0]
+        self.assertEquals(heartbeat.name, 'iq')
+
+        clock.advance(1800)
+
+        self.assertEquals(len(xmlStream.elements), 2)
+        heartbeat = xmlStream.elements[1]
+        self.assertEquals(heartbeat.name, 'iq')
+
+        factory.disconnected(xmlStream)
+        clock.advance(1800)
+        self.assertEquals(len(xmlStream.elements), 2)
+
+
 
 class XMPPNotificationFactoryTests(TestCase):
 
@@ -464,7 +498,7 @@ class XMPPNotificationFactoryTests(TestCase):
         xmlStream = StubXmlStream()
         settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
             'Password' : 'password', 'KeepAliveSeconds' : 5 }
-        notifier = XMPPNotifier(settings, reactor=clock)
+        notifier = XMPPNotifier(settings, reactor=clock, heartbeat=False)
         factory = XMPPNotificationFactory(notifier, settings, reactor=clock)
         factory.connected(xmlStream)
         factory.authenticated(xmlStream)
