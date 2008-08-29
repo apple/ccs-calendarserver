@@ -19,32 +19,36 @@ Mail Gateway for Calendar Server
 
 """
 
-from twisted.internet import protocol, defer, ssl
-from twisted.web import resource, static, server, client
-from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue
-from twisted.protocols import basic
-from twisted.mail import pop3client, imap4
-from twisted.plugin import IPlugin
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from twisted.application import internet, service
-from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedClass
+from twisted.internet import protocol, defer, ssl
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, sendmail
+from twisted.plugin import IPlugin
+from twisted.python.usage import Options, UsageError
+from twisted.web import resource, server, client
+from twisted.web2.dav import davxml
+from twisted.web2.http import Response
+from twisted.web2.http_headers import MimeType 
+
+from twistedcaldav import ical, caldavxml
+from twistedcaldav.config import config, parseConfig, defaultConfig
+from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav import ical
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
-from twistedcaldav.config import config, parseConfig, defaultConfig
 from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.ical import Property
-from zope.interface import Interface, implements
-import email, email.utils
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-from email.mime.text import MIMEText
-import uuid
-import os
+
+from zope.interface import implements
+
 import datetime
-import base64
+import email.utils
+import os
+import uuid
 
 __all__ = [
     "IMIPInboxResource",

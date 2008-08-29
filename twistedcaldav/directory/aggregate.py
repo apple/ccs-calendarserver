@@ -37,7 +37,7 @@ class AggregateDirectoryService(DirectoryService):
     baseGUID = "06FB225F-39E7-4D34-B1D1-29925F5E619B"
 
     def __init__(self, services):
-        DirectoryService.__init__(self)
+        super(AggregateDirectoryService, self).__init__()
 
         realmName = None
         recordTypes = {}

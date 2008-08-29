@@ -51,6 +51,7 @@ __all__ = [
     "Scheduler",
     "CalDAVScheduler",
     "IScheduleScheduler",
+    "IMIPScheduler",
 ]
 
 
