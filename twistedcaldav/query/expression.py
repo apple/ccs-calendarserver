@@ -105,7 +105,7 @@ class notExpression(logicExpression):
     """
     
     def __init__(self, expression):
-       super(notExpression, self).__init__([expression])
+        super(notExpression, self).__init__([expression])
 
     def operator(self):
         return "NOT"
