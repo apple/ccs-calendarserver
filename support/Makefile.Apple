@@ -67,6 +67,7 @@ Twisted::
 	@echo "Building Twisted..."
 	$(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(Environment) $(PYTHON) twisted/runner/topfiles/setup.py build
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py build
@@ -83,8 +84,10 @@ install:: build
 	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/select26-0.1a3        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*'); do rm "$${f}"; done
