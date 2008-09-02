@@ -245,7 +245,11 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
         useSSL = False
         port = config.HTTPPort
 
-    host = config.ServerHostName
+    # If we're running on same host as calendar server, inject via localhost
+    if config.Scheduling['iMIP']['MailGatewayServer'] == 'localhost':
+        host = 'localhost'
+    else:
+        host = config.ServerHostName
     path = "inbox"
     scheme = "https:" if useSSL else "http:"
     url = "%s//%s:%d/%s/" % (scheme, host, port, path)
