@@ -88,10 +88,7 @@ class Property (object):
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
     def __hash__(self):
-        if type(self.value()) is ListType:
-            return hash((self.name(), tuple(self.value())))
-        else:
-            return hash((self.name(), self.value()))
+        return hash(str(self))
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
@@ -295,7 +292,7 @@ class Component (object):
     def __repr__(self): return "<%s: %r>" % (self.__class__.__name__, str(self._vobject))
 
     def __hash__(self):
-        return hash(tuple(sorted(self.properties())))
+        return hash(str(self))
 
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
