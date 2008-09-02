@@ -468,14 +468,16 @@ class XMPPNotifier(LoggingMixIn):
     create the node and then go through the configuration process,
     followed by a publish retry.
 
-    For monitoring purposes, you can specify a "TestJID" value in
-    the config file; XMPPNotifier will send error messages to that
+    For monitoring purposes, you can subscribe to the server's JID
+    as long as your own JID matches the "AllowedJIDs" pattern(s) in
+    the config file; XMPPNotifier will send error messages to your
     JID.  If you also want to receive non-error, debug messages,
     send the calendar server JID the message, "debug on".  Send
-    "help" for other commands.  Note, XMPPNotifier doesn't yet
-    handle registration or roster management, so you'll need to set
-    up the JID accounts out-of-band, using another XMPP client, for
-    example.
+    "help" for other commands.
+
+    To let clients know that the notifications from the calendar server
+    are still flowing, a "heartbeat" node is published to every 30
+    minutes (configurable).
 
     """
 
