@@ -884,6 +884,7 @@ def getPubSubConfiguration(config):
             results['service'] = settings['ServiceAddress']
             results['host'] = config.ServerHostName
             results['port'] = config.SSLPort or config.HTTPPort
+            results['xmpp-server'] = settings['Host']
 
     return results
 

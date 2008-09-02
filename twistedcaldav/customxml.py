@@ -262,6 +262,15 @@ class PubSubHeartbeatURIProperty (davxml.WebDAVTextElement):
     name = "xmpp-heartbeat-uri"
     protected = True
 
+class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
+    """
+    A calendarhomefile property to indicate the pubsub XMPP hostname to
+    contact for notifications.
+    """
+    namespace = calendarserver_namespace
+    name = "xmpp-server"
+    protected = True
+
 class IScheduleInbox (davxml.WebDAVEmptyElement):
     """
     Denotes the resourcetype of a iSchedule Inbox.

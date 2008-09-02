@@ -602,6 +602,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
     liveProperties = CalDAVFile.liveProperties + (
         (customxml.calendarserver_namespace, "xmpp-uri"),
         (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+        (customxml.calendarserver_namespace, "xmpp-server"),
     )
 
     def __init__(self, path, parent, record):
@@ -674,6 +675,14 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
                     getPubSubHeartbeatURI(pubSubConfiguration)))
             else:
                 return succeed(customxml.PubSubHeartbeatURIProperty())
+
+        elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(customxml.PubSubXMPPServerProperty(
+                    pubSubConfiguration['xmpp-server']))
+            else:
+                return succeed(customxml.PubSubXMPPServerProperty())
 
         return super(CalendarHomeFile, self).readProperty(property, request)
 
