@@ -795,7 +795,7 @@ class XMPPNotifier(LoggingMixIn):
 
     def hammer(self, count):
         for i in xrange(count):
-            self.enqueue("hammertesting%d" % (count,))
+            self.enqueue("hammertesting%d" % (i,))
 
 
 class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
