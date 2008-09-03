@@ -129,8 +129,7 @@ class Property (object):
         ValueError if the parameter has more than one value.
         """
         values = self._vobject.params.get(name, [None,])
-        if type(values) is not list:
-            values = [values]
+        assert type(values) is list, "vobject returned non-list value for parameter %r in property %r" % (name, self)
         if len(values) != 1:
             raise ValueError("Not exactly one %s value in property %r" % (name, self))
         return values[0]
