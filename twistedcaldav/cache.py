@@ -14,23 +14,22 @@
 # limitations under the License.
 ##
 
-import uuid
-import hashlib
 import cPickle
+import hashlib
+import uuid
 
 from zope.interface import implements
 
 from twisted.internet.defer import succeed, maybeDeferred
 
-from twisted.web2.iweb import IResource
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.http import Response
+from twisted.web2.iweb import IResource
 from twisted.web2.stream import MemoryStream
 
+from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
-from twistedcaldav.config import config
-
 from twistedcaldav.notify import NotificationClientUserMixIn
 
 
@@ -38,10 +37,14 @@ class DisabledCacheNotifier(object):
     def __init__(self, *args, **kwargs):
         pass
 
+    def enableNotify(self, arg):
+        pass
+
+    def disableNotify(self):
+        pass
 
     def changed(self):
         return succeed(None)
-
 
 
 class DisabledCache(object):
@@ -50,7 +53,6 @@ class DisabledCache(object):
 
     def cacheResponseForRequest(self, request, response):
         return succeed(response)
-
 
 
 class URINotFoundException(Exception):
@@ -62,7 +64,6 @@ class URINotFoundException(Exception):
         return "%s: Could not find URI %r" % (
             self.__class__.__name__,
             self.uri)
-
 
 
 #
@@ -111,7 +112,6 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
             self._newCacheToken())
-
 
 
 class BaseResponseCache(LoggingMixIn):
@@ -186,7 +186,6 @@ class BaseResponseCache(LoggingMixIn):
         d1 = allDataFromStream(response.stream)
         d1.addCallback(lambda responseBody: (key, responseBody))
         return d1
-
 
 
 class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
@@ -320,7 +319,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 lambda _: response)
 
         def _cacheResponse((key, responseBody)):
-            principalURI = self._principalURI(request.authnUser)
 
             response.headers.removeHeader('date')
             response.stream = MemoryStream(responseBody)
@@ -345,7 +343,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         return d
 
 
-
 class _CachedResponseResource(object):
     implements(IResource)
 
@@ -357,7 +354,6 @@ class _CachedResponseResource(object):
 
     def locateChild(self, request, segments):
         return self, []
-
 
 
 class PropfindCacheMixin(object):
