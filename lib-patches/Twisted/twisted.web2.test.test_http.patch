@@ -2,7 +2,17 @@ Index: twisted/web2/test/test_http.py
 ===================================================================
 --- twisted/web2/test/test_http.py	(revision 19773)
 +++ twisted/web2/test/test_http.py	(working copy)
-@@ -1017,6 +1017,8 @@
+@@ -324,6 +324,9 @@
+     def connectionLost(self, reason):
+         self.cmds.append(('connectionLost', reason))
+ 
++    def _finished(self, x):
++        self._reallyFinished(x)
++
+ class TestResponse(object):
+     implements(iweb.IResponse)
+ 
+@@ -1017,6 +1020,8 @@
          response = TestResponse()
          if self.uri == "/error":
              response.code=402
