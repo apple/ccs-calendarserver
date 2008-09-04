@@ -21,6 +21,17 @@ Index: twisted/mail/imap4.py
              else:
                  unuse.append(L)
          d, self.defer = self.defer, None
+@@ -2247,8 +2242,8 @@
+                     flags.setdefault(mId, []).extend(sum)
+             else:
+                 log.msg('Unhandled unsolicited response: ' + repr(L))
+-        if flags:
+-            self.flagsChanged(flags)
++        #if flags:
++        #    self.flagsChanged(flags)
+         if recent is not None or exists is not None:
+             self.newMessages(exists, recent)
+ 
 @@ -3336,6 +3331,8 @@
                              if len(data) < 2:
                                  raise IllegalServerResponse("Not enough arguments", data)
