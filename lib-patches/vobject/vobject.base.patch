@@ -1,6 +1,6 @@
 Index: vobject/base.py
 ===================================================================
---- vobject/base.py	(revision 208)
+--- vobject/base.py	(revision 209)
 +++ vobject/base.py	(working copy)
 @@ -284,6 +284,8 @@
          self.value = copy.copy(copyit.value)
