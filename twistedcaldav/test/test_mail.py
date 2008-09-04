@@ -88,6 +88,16 @@ class MailHandlerTests(TestCase):
         self.assertEquals(attendee, 'mailto:xyzzy@example.com')
         self.assertEquals(msgId, '<1983F777-BE86-4B98-881E-06D938E60920@example.com>')
 
+    def test_processReplyMissingOrganizer(self):
+        msg = email.message_from_string(
+            file(os.path.join(self.dataDir, 'reply_missing_organizer')).read()
+        )
+        # stick the token in the database first
+        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+
+        result = self.handler.processReply(msg, echo)
+        self.assertEquals(result, None)
+
 
 class MailGatewayTokensDatabaseTests(TestCase):
 

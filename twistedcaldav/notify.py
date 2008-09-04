@@ -43,7 +43,8 @@ from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.words.protocols.jabber import xmlstream
 from twisted.words.protocols.jabber.jid import JID
-from twisted.words.protocols.jabber.client import BasicAuthenticator, IQ
+from twisted.words.protocols.jabber.client import BasicAuthenticator
+from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.config import config, parseConfig, defaultConfig
@@ -452,8 +453,6 @@ class SimpleLineNotificationFactory(protocol.ServerFactory):
 
 
 
-
-
 class XMPPNotifier(LoggingMixIn):
     """
     XMPP Notifier
@@ -502,24 +501,46 @@ class XMPPNotifier(LoggingMixIn):
         self.doRoster = roster
 
         self.roster = {}
+        self.outstanding = {}
+
+    def lockNode(self, nodeName):
+        if self.outstanding.has_key(nodeName):
+            return False
+        else:
+            self.outstanding[nodeName] = 1
+            return True
+
+    def unlockNode(self, failure, nodeName):
+        try:
+            del self.outstanding[nodeName]
+        except KeyError:
+            pass
 
     def sendHeartbeat(self):
         if self.doHeartbeat and self.xmlStream is not None:
-            self.enqueue("")
+            self.enqueue("", lock=False)
             self.reactor.callLater(self.settings['HeartbeatSeconds'],
                 self.sendHeartbeat)
 
-    def enqueue(self, uri):
+    def enqueue(self, uri, lock=True):
         if self.xmlStream is not None:
             # Convert uri to node
             nodeName = self.uriToNodeName(uri)
-            self.publishNode(nodeName)
+            self.publishNode(nodeName, lock=lock)
 
     def uriToNodeName(self, uri):
         return getPubSubPath(uri, getPubSubConfiguration(self.config))
 
-    def publishNode(self, nodeName):
-        if self.xmlStream is not None:
+    def publishNode(self, nodeName, lock=True):
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
+
+        try:
+            if lock and not self.lockNode(nodeName):
+                return
+
             iq = IQ(self.xmlStream)
             pubsubElement = iq.addElement('pubsub', defaultUri=self.pubsubNS)
             publishElement = pubsubElement.addElement('publish')
@@ -528,59 +549,92 @@ class XMPPNotifier(LoggingMixIn):
             payloadElement = itemElement.addElement('plistfrag',
                 defaultUri='plist-apple')
             self.sendDebug("Publishing (%s)" % (nodeName,), iq)
-            iq.addCallback(self.responseFromPublish, nodeName)
-            iq.send(to=self.settings['ServiceAddress'])
+            d = iq.send(to=self.settings['ServiceAddress'])
+            d.addCallback(self.publishNodeSuccess, nodeName)
+            d.addErrback(self.publishNodeFailure, nodeName)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
 
-    def responseFromPublish(self, nodeName, iq):
-        if iq['type'] == 'result':
-            self.sendDebug("Node publish successful (%s)" % (nodeName,), iq)
-        else:
+    def publishNodeSuccess(self, iq, nodeName):
+        self.unlockNode(None, nodeName)
+        self.sendDebug("Node publish successful (%s)" % (nodeName,), iq)
+
+    def publishNodeFailure(self, result, nodeName):
+        try:
+            iq = result.value.getElement()
             self.log_error("PubSub node publish error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendDebug("Node publish failed (%s)" % (nodeName,), iq)
 
-            errorElement = None
-            pubsubElement = None
-            for child in iq.elements():
-                if child.name == 'error':
-                    errorElement = child
-                if child.name == 'pubsub':
-                    pubsubElement = child
-
-            if errorElement:
-                if errorElement['code'] == '400':
+            if iq.name == "error":
+                if iq['code'] == '400':
                     self.requestConfigurationForm(nodeName)
 
-                elif errorElement['code'] == '404':
+                elif iq['code'] == '404':
                     self.createNode(nodeName)
+            else:
+                # Don't know how to proceed
+                self.unlockNode(None, nodeName)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
 
     def createNode(self, nodeName):
-        if self.xmlStream is not None:
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
+
+        try:
             iq = IQ(self.xmlStream)
             pubsubElement = iq.addElement('pubsub', defaultUri=self.pubsubNS)
             child = pubsubElement.addElement('create')
             child['node'] = nodeName
-            iq.addCallback(self.responseFromCreate, nodeName)
-            iq.send(to=self.settings['ServiceAddress'])
+            d = iq.send(to=self.settings['ServiceAddress'])
+            d.addCallback(self.createNodeSuccess, nodeName)
+            d.addErrback(self.createNodeFailure, nodeName)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
 
-    def responseFromCreate(self, nodeName, iq):
-        if iq['type'] == 'result':
+    def createNodeSuccess(self, iq, nodeName):
+        try:
             self.sendDebug("Node creation successful (%s)" % (nodeName,), iq)
             # now time to configure; fetch the form
             self.requestConfigurationForm(nodeName)
-        else:
+        except:
+            self.unlockNode(None, nodeName)
+            raise
+
+    def createNodeFailure(self, result, nodeName):
+        # If we get here we're giving up
+        try:
+            iq = result.value.getElement()
             self.log_error("PubSub node creation error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendError("Node creation failed (%s)" % (nodeName,), iq)
+        finally:
+            self.unlockNode(None, nodeName)
 
     def requestConfigurationForm(self, nodeName):
-        if self.xmlStream is not None:
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
+
+        try:
             iq = IQ(self.xmlStream, type='get')
-            child = iq.addElement('pubsub', defaultUri=self.pubsubNS+"#owner")
+            child = iq.addElement('pubsub',
+                defaultUri=self.pubsubNS+"#owner")
             child = child.addElement('configure')
             child['node'] = nodeName
-            iq.addCallback(self.responseFromConfigurationForm, nodeName)
-            iq.send(to=self.settings['ServiceAddress'])
+            d = iq.send(to=self.settings['ServiceAddress'])
+            d.addCallback(self.requestConfigurationFormSuccess, nodeName)
+            d.addErrback(self.requestConfigurationFormFailure, nodeName)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
 
     def _getChild(self, element, name):
         for child in element.elements():
@@ -588,8 +642,13 @@ class XMPPNotifier(LoggingMixIn):
                 return child
         return None
 
-    def responseFromConfigurationForm(self, nodeName, iq):
-        if iq['type'] == 'result':
+    def requestConfigurationFormSuccess(self, iq, nodeName):
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
+
+        try:
             self.sendDebug("Received configuration form (%s)" % (nodeName,), iq)
             pubsubElement = self._getChild(iq, 'pubsub')
             if pubsubElement:
@@ -621,27 +680,55 @@ class XMPPNotifier(LoggingMixIn):
                                         valueElement = filledField.addElement('value')
                                         valueElement.addContent(value)
                                         # filledForm.addChild(field)
-                        filledIq.addCallback(self.responseFromConfiguration,
-                            nodeName)
                         self.sendDebug("Sending configuration form (%s)"
                                        % (nodeName,), filledIq)
-                        filledIq.send(to=self.settings['ServiceAddress'])
-        else:
+                        d = filledIq.send(to=self.settings['ServiceAddress'])
+                        d.addCallback(self.configurationSuccess, nodeName)
+                        d.addErrback(self.configurationFailure, nodeName)
+                        return
+
+            # Couldn't process configuration form, give up
+            self.unlockNode(None, nodeName)
+
+        except:
+            # Couldn't process configuration form, give up
+            self.unlockNode(None, nodeName)
+            raise
+
+    def requestConfigurationFormFailure(self, result, nodeName):
+        # If we get here we're giving up
+        try:
+            iq = result.value.getElement()
             self.log_error("PubSub configuration form request error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
-            self.sendError("Failed to receive configuration form (%s)" % (nodeName,), iq)
+            self.sendError("Failed to receive configuration form (%s)" %
+                (nodeName,), iq)
+        finally:
+            self.unlockNode(None, nodeName)
 
+    def configurationSuccess(self, iq, nodeName):
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
 
-    def responseFromConfiguration(self, nodeName, iq):
-        if iq['type'] == 'result':
+        try:
             self.log_debug("PubSub node %s is configured" % (nodeName,))
             self.sendDebug("Configured node (%s)" % (nodeName,), iq)
-            self.publishNode(nodeName)
+            self.publishNode(nodeName, lock=False)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
 
-        else:
+    def configurationFailure(self, result, nodeName):
+        # If we get here we're giving up
+        try:
+            iq = result.value.getElement()
             self.log_error("PubSub node configuration error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendError("Failed to configure node (%s)" % (nodeName,), iq)
+        finally:
+            self.unlockNode(None, nodeName)
 
 
     def requestRoster(self):
@@ -649,8 +736,8 @@ class XMPPNotifier(LoggingMixIn):
             self.roster = {}
             rosterIq = IQ(self.xmlStream, type='get')
             rosterIq.addElement("query", "jabber:iq:roster")
-            rosterIq.addCallback(self.handleRoster)
-            rosterIq.send()
+            d = rosterIq.send()
+            d.addCallback(self.handleRoster)
 
     def allowedInRoster(self, jid):
         for pattern in self.settings.get("AllowedJIDs", []):
@@ -765,7 +852,7 @@ class XMPPNotifier(LoggingMixIn):
             if frm in self.roster:
                 txt = str(body).lower()
                 if txt == "help":
-                    response = "debug on, debug off, roster, hammer <count>"
+                    response = "debug on, debug off, roster, publish <nodename>, hammer <count>"
                 elif txt == "roster":
                     response = "Roster: %s" % (str(self.roster),)
                 elif txt == "debug on":
@@ -774,6 +861,16 @@ class XMPPNotifier(LoggingMixIn):
                 elif txt == "debug off":
                     self.roster[frm]['debug'] = False
                     response = "Debugging off"
+                elif txt == "outstanding":
+                    response = "Outstanding: %s" % (str(self.outstanding),)
+                elif txt.startswith("publish"):
+                    try:
+                        publish, nodeName = txt.split()
+                    except ValueError:
+                        response = "Please phrase it like 'publish nodename'"
+                    else:
+                        response = "Publishing node %s" % (nodeName,)
+                        self.reactor.callLater(1, self.publishNode, nodeName)
                 elif txt.startswith("hammer"):
                     try:
                         hammer, count = txt.split()

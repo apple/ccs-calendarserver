@@ -612,7 +612,12 @@ class MailHandler(LoggingMixIn):
         organizer = str(organizer)
         attendee = str(attendee)
         calendar.removeAllButOneAttendee(attendee)
-        calendar.getOrganizerProperty().setValue(organizer)
+        organizerProperty = calendar.getOrganizerProperty()
+        if organizerProperty is None:
+            # this calendar body is incomplete, skip it
+            self.log_error("Mail gateway didn't find an organizer in message %s" % (msg['Message-ID'],))
+            return
+        organizerProperty.setValue(organizer)
         return fn(organizer, attendee, calendar, msg['Message-ID'])
 
 

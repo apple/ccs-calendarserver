@@ -17,6 +17,7 @@
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
 from twisted.words.protocols.jabber.client import IQ
+from twisted.words.protocols.jabber.error import StanzaError
 from twistedcaldav.notify import *
 from twistedcaldav import config as config_mod
 from twistedcaldav.config import Config
@@ -321,6 +322,11 @@ class StubXmlStream(object):
         pass
 
 
+class StubFailure(object):
+
+    def __init__(self, value):
+        self.value = value
+
 class XMPPNotifierTests(TestCase):
 
     xmppEnabledConfig = Config(config_mod.defaultConfig)
@@ -366,11 +372,9 @@ class XMPPNotifierTests(TestCase):
         self.assertEquals(iq.name, "iq")
 
     def test_publishReponse400(self):
-        response = IQ(self.xmlStream, type='error')
-        errorElement = response.addElement('error')
-        errorElement['code'] = '400'
+        failure = StubFailure(StanzaError('bad-request'))
         self.assertEquals(len(self.xmlStream.elements), 1)
-        self.notifier.responseFromPublish("testNodeName", response)
+        self.notifier.publishNodeFailure(failure, "testNodeName")
         self.assertEquals(len(self.xmlStream.elements), 2)
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
@@ -386,11 +390,9 @@ class XMPPNotifierTests(TestCase):
 
 
     def test_publishReponse404(self):
-        response = IQ(self.xmlStream, type='error')
-        errorElement = response.addElement('error')
-        errorElement['code'] = '404'
         self.assertEquals(len(self.xmlStream.elements), 1)
-        self.notifier.responseFromPublish("testNodeName", response)
+        failure = StubFailure(StanzaError('item-not-found'))
+        self.notifier.publishNodeFailure(failure, "testNodeName")
         self.assertEquals(len(self.xmlStream.elements), 2)
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
@@ -435,7 +437,7 @@ class XMPPNotifierTests(TestCase):
             fieldElement.addElement('value', content=field[1])
 
         self.assertEquals(len(self.xmlStream.elements), 1)
-        self.notifier.responseFromConfigurationForm("testNodeName", response)
+        self.notifier.requestConfigurationFormSuccess(response, "testNodeName")
         self.assertEquals(len(self.xmlStream.elements), 2)
 
         iq = self.xmlStream.elements[1]
