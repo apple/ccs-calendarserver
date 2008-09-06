@@ -112,7 +112,10 @@ def cleanProxies(existing_guids, proxydbpath, do_changes):
     # Get proxy entries
     print "Reading proxy DB: %s" % (proxydbpath,)
     result = commands.getoutput("sqlite3 %s \"select * from GROUPS\"" % (proxydbpath,))
-    
+    if not result:
+        print "Proxy DB empty. Nothing to do."
+        return
+
     lines = result.split("\n")
     print "Found %d proxy DB records" % (len(lines),)
 
