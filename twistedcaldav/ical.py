@@ -37,7 +37,6 @@ from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
-from types import ListType
 from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
@@ -1360,7 +1359,7 @@ class Component (object):
                 if component.name() == "VALARM":
                     self.removeComponent(component)
                 
-    def removeUnwantedProperties(self, keep_properties):
+    def filterProperties(self, remove=None, keep=None):
         """
         Remove all properties that do not match the provided set.
         """
@@ -1371,7 +1370,10 @@ class Component (object):
             for component in self.subcomponents():
                 if component.name() == "VTIMEZONE":
                     continue
-                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep_properties]
+                if keep:
+                    [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep]
+                if remove:
+                    [component.removeProperty(p) for p in tuple(component.properties()) if p.name() in remove]
                 
     def removeXProperties(self, keep_properties):
         """
@@ -1389,6 +1391,25 @@ class Component (object):
                     for p in tuple(component.properties())
                     if p.name().startswith("X-") and p.name() not in keep_properties
                 ]
+            
+    def removePropertyParameters(self, property, params):
+        """
+        Remove all specified property parameters
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                props = component.properties(property)
+                for prop in props:
+                    for param in params:
+                        try:
+                            del prop.params()[param]
+                        except KeyError:
+                            pass
             
 ##
 # Dates and date-times

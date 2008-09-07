@@ -51,8 +51,24 @@ class iCalDiff(object):
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
         self.calendar1.removeAlarms()
+        self.calendar1.filterProperties(remove=(
+            "DTSTAMP",
+            "LAST-MODIFIED",
+        ))
+        self.calendar1.removePropertyParameters("ATTENDEE", (
+            "SCHEDULE-AGENT",
+            "SCHEDULE-STATUS",
+        ))
         self.calendar2 = self.calendar2.duplicate()
         self.calendar2.removeAlarms()
+        self.calendar2.filterProperties(remove=(
+            "DTSTAMP",
+            "LAST-MODIFIED",
+        ))
+        self.calendar2.removePropertyParameters("ATTENDEE", (
+            "SCHEDULE-AGENT",
+            "SCHEDULE-STATUS",
+        ))
 
         return self.calendar1 == self.calendar2
 

@@ -452,7 +452,7 @@ class iTipGenerator(object):
         itip.removeAlarms()
 
         # Remove all but essential properties
-        itip.removeUnwantedProperties((
+        itip.filterProperties(keep=(
             "UID",
             "RECURRENCE-ID",
             "SEQUENCE",

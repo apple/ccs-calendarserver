@@ -1086,7 +1086,7 @@ END:VCALENDAR
             component.removeAllButOneAttendee(attendee)
             self.assertEqual(result, str(component).replace("\r", ""))
 
-    def test_remove_unwanted_properties(self):
+    def test_filter_properties_keep(self):
         
         data = (
             # One component
@@ -1174,7 +1174,99 @@ END:VCALENDAR
         
         for original, result, keep_properties in data:
             component = Component.fromString(original)
-            component.removeUnwantedProperties(keep_properties)
+            component.filterProperties(keep=keep_properties)
+            self.assertEqual(result, str(component).replace("\r", ""))
+
+    def test_filter_properties_remove(self):
+        
+        data = (
+            # One component
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+SUMMARY:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTSTART", "SUMMARY",),
+            ),
+
+            # Multiple components
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=YEARLY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTSTART", "SUMMARY",),
+            ),
+
+        )
+        
+        for original, result, remove_properties in data:
+            component = Component.fromString(original)
+            component.filterProperties(remove=remove_properties)
             self.assertEqual(result, str(component).replace("\r", ""))
 
     def test_remove_alarms(self):
