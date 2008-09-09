@@ -20,6 +20,7 @@ import tempfile
 
 from twisted.runner import procmon
 from twisted.application import internet, service
+from twisted.internet import reactor, process
 
 from twistedcaldav.accesslog import AMPLoggingFactory, RotatingFileAccessLoggingObserver
 from twistedcaldav.config import config, ConfigurationError
@@ -141,10 +142,55 @@ class TwistdSlaveProcess(object):
                                'bindAddress': '127.0.0.1'}
 
 
+class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+
+    def startService(self):
+        service.Service.startService(self)
+        self.active = 1
+        delay = 0
+        delay_interval = config.MultiProcess['StaggeredStartup']['Interval'] if config.MultiProcess['StaggeredStartup']['Enabled'] else 0 
+        for name in self.processes.keys():
+            reactor.callLater(delay if name.startswith("caldav") else 0, self.startProcess, name)
+            if name.startswith("caldav"):
+                delay += delay_interval
+        self.consistency = reactor.callLater(self.consistencyDelay,
+                                             self._checkConsistency)
+
+    def signalAll(self, signal, startswithname=None):
+        """
+        Send a signal to all child processes.
+
+        @param signal: the signal to send
+        @type signal: C{int}
+        @param startswithname: is set only signal those processes whose name starts with this string
+        @type signal: C{str}
+        """
+        for name in self.processes.keys():
+            if startswithname is None or name.startswith(startswithname):
+                self.signalProcess(signal, name)
+
+    def signalProcess(self, signal, name):
+        """
+        Send a signal to each monitored process
+        
+        @param signal: the signal to send
+        @type signal: C{int}
+        @param startswithname: is set only signal those processes whose name starts with this string
+        @type signal: C{str}
+        """
+        if not self.protocols.has_key(name):
+            return
+        proc = self.protocols[name].transport
+        try:
+            proc.signalProcess(signal)
+        except process.ProcessExitedAlready:
+            pass
+
 def makeService_Combined(self, options):
     s = service.MultiService()
-    monitor = procmon.ProcessMonitor()
+    monitor = DelayedStartupProcessMonitor()
     monitor.setServiceParent(s)
+    s.processMonitor = monitor
 
     parentEnv = {
         'PATH': os.environ.get('PATH', ''),
