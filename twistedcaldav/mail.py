@@ -307,7 +307,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             """, token, organizer, attendee
         )
         self._db_commit()
-        self.log_info("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
         return token
 
     def lookupByToken(self, token):
@@ -646,6 +645,9 @@ class MailHandler(LoggingMixIn):
         token = self.db.getToken(organizer, attendee)
         if token is None:
             token = self.db.createToken(organizer, attendee)
+            self.log_info("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+        else:
+            self.log_info("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
 
         settings = config.Scheduling['iMIP']['Sending']
         fullServerAddress = settings['Address']
@@ -741,6 +743,7 @@ class MailHandler(LoggingMixIn):
         msgHtmlRelated.attach(msgImage)
 
         # the icalendar attachment
+        self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
         msgIcal = MIMEText(str(calendar), "calendar", "UTF-8")
         msgIcal.add_header("Content-Disposition",
             "attachment;filename=invitation.ics")

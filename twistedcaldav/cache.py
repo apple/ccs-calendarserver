@@ -30,17 +30,10 @@ from twisted.web2.stream import MemoryStream
 from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
-from twistedcaldav.notify import NotificationClientUserMixIn
 
 
 class DisabledCacheNotifier(object):
     def __init__(self, *args, **kwargs):
-        pass
-
-    def enableNotify(self, arg):
-        pass
-
-    def disableNotify(self):
         pass
 
     def changed(self):
@@ -66,28 +59,11 @@ class URINotFoundException(Exception):
             self.uri)
 
 
-#
-# FIXME: This should be a generic notifier class, not specific to
-# memcache, as evidenced by the addition of the sendNotification()
-# addition in changed() below.
-#
-class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
-    NotificationClientUserMixIn):
+class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
     def __init__(self, resource, cachePool=None):
         self._resource = resource
         self._cachePool = cachePool
-        self._notify = True
-
-    def enableNotify(self, arg):
-        url = self._resource.url()
-        self.log_debug("enableNotify: %s" % (url,))
-        self._notify = True
-
-    def disableNotify(self):
-        url = self._resource.url()
-        self.log_debug("disableNotify: %s" % (url,))
-        self._notify = False
 
     def _newCacheToken(self):
         return str(uuid.uuid4())
@@ -98,15 +74,7 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
 
         return: A L{Deferred} that fires when the token has been changed.
         """
-
         url = self._resource.url()
-
-        if config.Notifications["Enabled"]:
-            if self._notify:
-                self.log_debug("Notifications are enabled: %s" % (url,))
-                self.sendNotification(url)
-            else:
-                self.log_debug("Skipping notification for: %s" % (url,))
 
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(

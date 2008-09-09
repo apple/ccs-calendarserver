@@ -252,6 +252,7 @@ class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-uri"
     protected = True
+    hidden = True
 
 class PubSubHeartbeatURIProperty (davxml.WebDAVTextElement):
     """
@@ -261,6 +262,7 @@ class PubSubHeartbeatURIProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-heartbeat-uri"
     protected = True
+    hidden = True
 
 class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     """
@@ -270,6 +272,7 @@ class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-server"
     protected = True
+    hidden = True
 
 class IScheduleInbox (davxml.WebDAVEmptyElement):
     """

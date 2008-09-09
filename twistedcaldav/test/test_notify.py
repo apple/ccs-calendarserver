@@ -23,11 +23,16 @@ from twistedcaldav import config as config_mod
 from twistedcaldav.config import Config
 
 
+class StubResource(object):
+
+    def __init__(self, url):
+        self._url = url
+
+    def url(self):
+        return self._url
+
 
 class NotificationClientUserTests(TestCase):
-
-    class NotificationClientUser(NotificationClientUserMixIn):
-        pass
 
     def test_installNoficationClient(self):
         self.assertEquals(getNotificationClient(), None)
@@ -37,8 +42,11 @@ class NotificationClientUserTests(TestCase):
         notificationClient = getNotificationClient()
         self.assertNotEquals(notificationClient, None)
 
-        clientUser = self.NotificationClientUser()
-        clientUser.sendNotification("a")
+        enabledConfig = Config(config_mod.defaultConfig)
+        enabledConfig.Notifications['Enabled'] = True
+        clientNotifier = ClientNotifier(StubResource("a"),
+            configOverride=enabledConfig)
+        clientNotifier.notify()
         self.assertEquals(notificationClient.lines, ["a"])
 
 
@@ -67,7 +75,7 @@ class StubNotificationClient(object):
         self.lines = []
         self.observers = set()
 
-    def send(self, uri):
+    def send(self, op, uri):
         self.lines.append(uri)
 
     def addObserver(self, observer):
@@ -103,25 +111,25 @@ class NotificationClientTests(TestCase):
         self.client.factory = StubNotificationClientFactory()
 
     def test_sendWhileNotConnected(self):
-        self.client.send("a")
-        self.assertEquals(self.client.queued, set(["a"]))
+        self.client.send("update", "a")
+        self.assertEquals(self.client.queued, set(["update a"]))
 
     def test_sendWhileConnected(self):
         protocol = StubNotificationClientProtocol()
         self.client.addObserver(protocol)
         self.client.factory.connected = True
-        self.client.send("a")
+        self.client.send("update", "a")
         self.assertEquals(self.client.queued, set())
-        self.assertEquals(protocol.lines, ["a"])
+        self.assertEquals(protocol.lines, ["update a"])
 
     def test_sendQueue(self):
-        self.client.send("a")
-        self.assertEquals(self.client.queued, set(["a"]))
+        self.client.send("update", "a")
+        self.assertEquals(self.client.queued, set(["update a"]))
         protocol = StubNotificationClientProtocol()
         self.client.addObserver(protocol)
         self.client.factory.connected = True
         self.client.connectionMade()
-        self.assertEquals(protocol.lines, ["a"])
+        self.assertEquals(protocol.lines, ["update a"])
         self.assertEquals(self.client.queued, set())
 
 
@@ -142,14 +150,14 @@ class CoalescerTests(TestCase):
         self.coalescer = Coalescer([self.notifier], reactor=self.clock)
 
     def test_delayedNotifications(self):
-        self.coalescer.add("A")
+        self.coalescer.add("update", "A")
         self.assertEquals(self.notifier.notifications, [])
         self.clock.advance(5)
         self.assertEquals(self.notifier.notifications, ["A"])
 
     def test_removeDuplicates(self):
-        self.coalescer.add("A")
-        self.coalescer.add("A")
+        self.coalescer.add("update", "A")
+        self.coalescer.add("update", "A")
         self.clock.advance(5)
         self.assertEquals(self.notifier.notifications, ["A"])
 
@@ -161,7 +169,7 @@ class StubNotifier(object):
         self.observers = set()
         self.playbackHistory = []
 
-    def enqueue(self, uri):
+    def enqueue(self, op, uri):
         self.notifications.append(uri)
 
     def playback(self, protocol, old_seq):
@@ -198,27 +206,27 @@ class SimpleLineNotifierTests(TestCase):
     def test_send(self):
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(protocol.lines, ["1 A"])
 
     def test_incrementSequence(self):
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
-        self.notifier.enqueue("A")
-        self.notifier.enqueue("B")
+        self.notifier.enqueue("update", "A")
+        self.notifier.enqueue("update", "B")
         self.assertEquals(protocol.lines, ["1 A", "2 B"])
 
     def test_addObserver(self):
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(protocol.lines, ["1 A"])
 
     def test_removeObserver(self):
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
         self.notifier.removeObserver(protocol)
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(protocol.lines, [])
 
     def test_multipleObservers(self):
@@ -226,7 +234,7 @@ class SimpleLineNotifierTests(TestCase):
         protocol2 = StubProtocol()
         self.notifier.addObserver(protocol1)
         self.notifier.addObserver(protocol2)
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(protocol1.lines, ["1 A"])
         self.assertEquals(protocol2.lines, ["1 A"])
 
@@ -234,20 +242,20 @@ class SimpleLineNotifierTests(TestCase):
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
         self.notifier.addObserver(protocol)
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(protocol.lines, ["1 A"])
 
     def test_playback(self):
-        self.notifier.enqueue("A")
-        self.notifier.enqueue("B")
-        self.notifier.enqueue("C")
+        self.notifier.enqueue("update", "A")
+        self.notifier.enqueue("update", "B")
+        self.notifier.enqueue("update", "C")
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
         self.notifier.playback(protocol, 1)
         self.assertEquals(protocol.lines, ["2 B", "3 C"])
 
     def test_reset(self):
-        self.notifier.enqueue("A")
+        self.notifier.enqueue("update", "A")
         self.assertEquals(self.notifier.history, {"A" : 1})
         self.assertEquals(self.notifier.latestSeq, 1)
         self.notifier.reset()
@@ -345,7 +353,7 @@ class XMPPNotifierTests(TestCase):
         self.notifier.streamOpened(self.xmlStream)
 
     def test_sendWhileConnected(self):
-        self.notifier.enqueue("/principals/__uids__/test")
+        self.notifier.enqueue("update", "/principals/__uids__/test")
 
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
@@ -363,7 +371,7 @@ class XMPPNotifierTests(TestCase):
     def test_sendWhileNotConnected(self):
         notifier = XMPPNotifier(self.settings, reactor=Clock(),
             configOverride=self.xmppDisabledConfig)
-        notifier.enqueue("/principals/__uids__/test")
+        notifier.enqueue("update", "/principals/__uids__/test")
         self.assertEquals(len(self.xmlStream.elements), 1)
 
     def test_publishNewNode(self):
@@ -437,7 +445,8 @@ class XMPPNotifierTests(TestCase):
             fieldElement.addElement('value', content=field[1])
 
         self.assertEquals(len(self.xmlStream.elements), 1)
-        self.notifier.requestConfigurationFormSuccess(response, "testNodeName")
+        self.notifier.requestConfigurationFormSuccess(response, "testNodeName",
+            False)
         self.assertEquals(len(self.xmlStream.elements), 2)
 
         iq = self.xmlStream.elements[1]

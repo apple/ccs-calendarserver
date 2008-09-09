@@ -77,7 +77,8 @@ from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
-from twistedcaldav.notify import getPubSubHeartbeatURI
+from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
+from twistedcaldav.notify import ClientNotifier, getNodeCacher
 
 log = Logger()
 
@@ -332,11 +333,18 @@ class CalDAVFile (CalDAVResource, DAVFile):
         except:
             return fail(Failure())
 
+        if hasattr(self, 'clientNotifier'):
+            self.clientNotifier.notify(op="update")
+        else:
+            log.debug("%r does not have a clientNotifier but the CTag changed"
+                      % (self,))
+
         if hasattr(self, 'cacheNotifier'):
             return self.cacheNotifier.changed()
         else:
             log.debug("%r does not have a cacheNotifier but the CTag changed"
                       % (self,))
+
         return succeed(True)
 
     ##
@@ -610,6 +618,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         @param path: the path to the file which will back the resource.
         """
         self.cacheNotifier = self.cacheNotifierFactory(self)
+        self.clientNotifier = ClientNotifier(self)
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
@@ -634,6 +643,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
             child.cacheNotifier = self.cacheNotifier
+            child.clientNotifier = self.clientNotifier
             return child
 
         return self.createSimilarFile(self.fp.child(name).path)
@@ -644,6 +654,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
             similar.cacheNotifier = self.cacheNotifier
+            similar.clientNotifier = self.clientNotifier
             return similar
 
     def getChild(self, name):
@@ -660,11 +671,26 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             qname = property.qname()
 
+
+        def _succeeded(result, propVal):
+            return propVal
+
+        def _failed(failure):
+            return customxml.PubSubXMPPURIProperty()
+
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubXMPPURIProperty(
-                    getPubSubXMPPURI(self.url(), pubSubConfiguration)))
+                if getattr(self, "clientNotifier", None) is not None:
+                    url = self.url()
+                    nodeName = getPubSubPath(url, pubSubConfiguration)
+                    propVal = customxml.PubSubXMPPURIProperty(
+                        getPubSubXMPPURI(url, pubSubConfiguration))
+                    nodeCacher = getNodeCacher()
+                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d.addCallback(_succeeded, propVal)
+                    d.addErrback(_failed)
+                    return d
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
 

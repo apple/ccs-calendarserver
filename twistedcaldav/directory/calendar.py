@@ -281,8 +281,8 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def provisionDefaultCalendars(self):
 
         # Disable notifications during provisioning
-        if hasattr(self, "cacheNotifier"):
-            self.cacheNotifier.disableNotify()
+        if hasattr(self, "clientNotifier"):
+            self.clientNotifier.disableNotify()
 
         def setupFreeBusy(_):
             # Default calendar is initially opaque to freebusy
@@ -317,14 +317,14 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         except:
             # We want to make sure to re-enable notifications, so do so
             # if there is an immediate exception above, or via errback, below
-            if hasattr(self, "cacheNotifier"):
-                self.cacheNotifier.enableNotify(None)
+            if hasattr(self, "clientNotifier"):
+                self.clientNotifier.enableNotify(None)
             raise
 
         # Re-enable notifications
-        if hasattr(self, "cacheNotifier"):
-            d.addCallback(self.cacheNotifier.enableNotify)
-            d.addErrback(self.cacheNotifier.enableNotify)
+        if hasattr(self, "clientNotifier"):
+            d.addCallback(self.clientNotifier.enableNotify)
+            d.addErrback(self.clientNotifier.enableNotify)
 
         return d
 
