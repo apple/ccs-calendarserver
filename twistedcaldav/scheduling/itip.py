@@ -429,6 +429,9 @@ class iTipGenerator(object):
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REQUEST"))
         
+        # Force update to DTSTAMP everywhere
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees)
         
@@ -445,6 +448,9 @@ class iTipGenerator(object):
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REPLY"))
         
+        # Force update to DTSTAMP everywhere
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+
         # Remove all attendees except the one we want
         itip.removeAllButOneAttendee(attendee)
         

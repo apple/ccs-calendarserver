@@ -1291,6 +1291,17 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             component.addProperty(property)
+
+    def replacePropertyInAllComponents(self, property):
+        """
+        Replace a property in all components.
+        @param property: the L{Property} to replace in this component.
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            component.replaceProperty(property)
         
     def attendeesView(self, attendees):
         """
