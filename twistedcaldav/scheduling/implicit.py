@@ -47,7 +47,7 @@ class ImplicitScheduler(object):
         pass
 
     @inlineCallbacks
-    def doImplicitScheduling(self, request, resource, calendar, deleting):
+    def doImplicitScheduling(self, request, resource, calendar, deleting, internal_request=False):
         """
         Do implicit scheduling operation based on the calendar data that is being PUT
 
@@ -69,7 +69,7 @@ class ImplicitScheduler(object):
         self.calendar = calendar
         self.calendar_owner = (yield self.resource.owner(self.request))
         self.deleting = deleting
-        self.internal_request = False
+        self.internal_request = internal_request
         self.except_attendees = ()
 
         # When deleting we MUST have the calendar as the actual resource
