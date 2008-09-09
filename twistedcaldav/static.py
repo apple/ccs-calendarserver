@@ -184,6 +184,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             filteredaces = filteredaces.getResult()
 
             # Must verify ACLs which means we need a request object at this point
+            tzids = set()
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
                     child = waitForDeferred(request.locateChildResource(self, name))
@@ -205,6 +206,14 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     assert subcalendar.name() == "VCALENDAR"
 
                     for component in subcalendar.subcomponents():
+                        
+                        # Only insert VTIMEZONEs once
+                        if component.name() == "VTIMEZONE":
+                            tzid = component.propertyValue("TZID")
+                            if tzid in tzids:
+                                continue
+                            tzids.add(tzid)
+
                         calendar.addComponent(component)
                         
             yield calendar
