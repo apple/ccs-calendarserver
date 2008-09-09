@@ -783,6 +783,10 @@ class CalDAVServiceMaker(object):
                 # Reload the config file
                 config.reload()
 
+                # If combined service send signal to all caldavd children
+                if serverType == "Combined":
+                    service.processMonitor.signalAll(signal.SIGHUP, "caldav")
+
                 # FIXME: There is no memcachepool.getCachePool
                 #   Also, better option is probably to add a hook to
                 #   the config object instead of doing things here.

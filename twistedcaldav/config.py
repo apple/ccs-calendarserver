@@ -161,6 +161,10 @@ defaultConfig = {
             "Enabled": True,
             "Scheduler": "LeastConnections",
         },
+        "StaggeredStartup": {
+            "Enabled": False,
+            "Interval": 15,
+        },
     },
 
     #
@@ -517,6 +521,8 @@ class Config (object):
             configDict = readPlist(configFile)
             configDict = _cleanup(configDict)
             self.update(configDict)
+        elif configFile:
+            log.error("Configuration file does not exist or is inaccessible: %s" % (configFile,))
 
     @staticmethod
     def updateNotifications(self, items):
