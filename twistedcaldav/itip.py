@@ -443,7 +443,7 @@ class iTipProcessor(object):
         cuas = self.principal.calendarUserAddresses()
         attendeeProps = self.calendar.getAttendeeProperties(cuas)
         if not attendeeProps:
-            returnValue((False, accepted,))
+            returnValue((False, "",))
     
         if accepted:
             partstat = "ACCEPTED"
@@ -456,7 +456,7 @@ class iTipProcessor(object):
         for attendeeProp in attendeeProps:
             attendeeProp.params()["PARTSTAT"] = [partstat]
         
-        returnValue((True, accepted,))
+        returnValue((True, partstat,))
     
     @inlineCallbacks
     def writeReply(self, replycal):
