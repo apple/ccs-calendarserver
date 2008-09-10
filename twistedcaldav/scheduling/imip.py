@@ -95,7 +95,7 @@ class ScheduleViaIMip(DeliveryService):
             'Recipient' : toAddr,
         }
         factory = client.HTTPClientFactory(url, method='POST', headers=headers,
-            postdata=caldata)
+            postdata=caldata, agent="CalDAV server")
         reactor.connectTCP(mailGatewayServer, mailGatewayPort, factory)
         return factory.deferred
 

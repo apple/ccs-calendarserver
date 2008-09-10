@@ -33,7 +33,7 @@ from twisted.python.usage import Options, UsageError
 from twisted.web import resource, server, client
 from twisted.web2.dav import davxml
 from twisted.web2.http import Response
-from twisted.web2.http_headers import MimeType 
+from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav.config import config, parseConfig, defaultConfig
@@ -256,7 +256,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
 
     log.debug("Injecting to %s: %s %s" % (url, str(headers), data))
     factory = client.HTTPClientFactory(url, method='POST', headers=headers,
-        postdata=data)
+        postdata=data, agent="iMIP gateway")
     if useSSL:
         reactor.connectSSL(host, port, factory, ssl.ClientContextFactory())
     else:
