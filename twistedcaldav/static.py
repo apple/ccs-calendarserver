@@ -697,8 +697,16 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubHeartbeatURIProperty(
-                    getPubSubHeartbeatURI(pubSubConfiguration)))
+                return succeed(
+                    customxml.PubSubHeartbeatProperty(
+                        customxml.PubSubHeartbeatURIProperty(
+                            getPubSubHeartbeatURI(pubSubConfiguration)
+                        ),
+                        customxml.PubSubHeartbeatMinutesProperty(
+                            str(pubSubConfiguration['heartrate'])
+                        )
+                    )
+                )
             else:
                 return succeed(customxml.PubSubHeartbeatURIProperty())
 

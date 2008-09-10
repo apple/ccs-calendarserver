@@ -253,7 +253,7 @@ defaultConfig = {
                 "Password" : "",
                 "ServiceAddress" : "", # "pubsub.xmpp.host.name"
                 "KeepAliveSeconds" : 120,
-                "HeartbeatSeconds" : 1800, # 30 minute pubsub heartbeat
+                "HeartbeatMinutes" : 30,
                 "AllowedJIDs": [],
             },
         ]

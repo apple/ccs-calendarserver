@@ -478,7 +478,7 @@ class XMPPNotifierTests(TestCase):
         xmlStream = StubXmlStream()
         settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
             'Password' : 'password', 'KeepAliveSeconds' : 5,
-            'HeartbeatSeconds' : 1800 }
+            'HeartbeatMinutes' : 30 }
         notifier = XMPPNotifier(settings, reactor=clock, heartbeat=True,
             roster=False, configOverride=xmppConfig)
         factory = XMPPNotificationFactory(notifier, settings, reactor=clock,

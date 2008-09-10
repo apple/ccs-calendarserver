@@ -607,7 +607,7 @@ class XMPPNotifier(LoggingMixIn):
     def sendHeartbeat(self):
         if self.doHeartbeat and self.xmlStream is not None:
             self.enqueue("update", "", lock=False)
-            self.reactor.callLater(self.settings['HeartbeatSeconds'],
+            self.reactor.callLater(self.settings['HeartbeatMinutes'] * 60,
                 self.sendHeartbeat)
 
     def enqueue(self, op, uri, lock=True):
@@ -1103,6 +1103,7 @@ def getPubSubConfiguration(config):
             results['host'] = config.ServerHostName
             results['port'] = config.SSLPort or config.HTTPPort
             results['xmpp-server'] = settings['Host']
+            results['heartrate'] = settings['HeartbeatMinutes']
 
     return results
 

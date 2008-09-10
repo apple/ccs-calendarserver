@@ -320,8 +320,8 @@ limitations under the License.
         <integer>120</integer>
 
         <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
-        <key>HeartbeatSeconds</key>
-        <integer>1800</integer>
+        <key>HeartbeatMinutes</key>
+        <integer>30</integer>
       </dict>
     </array>
   </dict>
