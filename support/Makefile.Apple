@@ -30,7 +30,8 @@ ToolType    = Applications
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 PYTHON = /usr/bin/python
-PY_INSTALL_FLAGS = --root="$(DSTROOT)" --home="$(SHAREDIR)/caldavd"
+PY_HOME = $(SHAREDIR)/caldavd
+PY_INSTALL_FLAGS = --root="$(DSTROOT)" --home="$(PY_HOME)"
 
 USER  = calendar
 GROUP = calendar
@@ -61,7 +62,7 @@ PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1.a3 
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
-TwistedSubEnvironment = $(Environment) PYTHONPATH="$(DSTROOT)$(SHAREDIR)/caldavd/lib/python"
+TwistedSubEnvironment = $(Environment) PYTHONPATH="$(DSTROOT)$(PY_HOME)/lib/python"
 
 Twisted::
 	@echo "Building Twisted..."
@@ -84,18 +85,19 @@ install:: build
 	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/select26-0.1a3        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) for so in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py    install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
+	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
+	$(_v) for f in $$(find "$(DSTROOT)$(PY_HOME)/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*'); do rm "$${f}"; done
+	$(_v) rm -fr "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zsh"
+	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"
+	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"
+	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.pyc"
+	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/_twisted_zsh_stub"
+	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
-	$(_v) for f in $$(find "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*'); do rm "$${f}"; done
-	$(_v) rm -rf "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zsh"
-	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
-	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.py"
-	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/zshcomp.pyc"
-	$(_v) rm -f "$(DSTROOT)$(SHAREDIR)/caldavd/lib/python/twisted/python/_twisted_zsh_stub"
 
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
