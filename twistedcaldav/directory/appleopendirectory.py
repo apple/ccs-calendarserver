@@ -456,7 +456,7 @@ class OpenDirectoryService(DirectoryService):
                                   % (guid, recordType))
                     break
             else:
-                self.log_info("Unable to find any record with GUID %s" % (guid,))
+                self.log_debug("Unable to find any record with GUID %s" % (guid,))
 
         return record
 
