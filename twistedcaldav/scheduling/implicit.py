@@ -334,7 +334,7 @@ class ImplicitScheduler(object):
         # being requested, but for now we will do one scheduling message per attendee.
 
         # Do one per attendee
-        for attendee, _ignore in self.attendeesByInstance:
+        for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
             if attendee in self.organizerPrincipal.calendarUserAddresses():
