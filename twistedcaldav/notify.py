@@ -459,12 +459,16 @@ class SimpleLineNotifier(LoggingMixIn):
 
         hist = self.history
         toSend = [(hist[uri], uri) for uri in hist if hist[uri] > oldSeq]
-        toSend.sort() # sorts the tuples based on numeric sequence number
 
-        for seq, uri in toSend:
-            msg = "%d %s" % (seq, uri)
-            self.log_debug("Sending %s" % (msg,))
-            observer.sendLine(msg)
+        if toSend:
+            toSend.sort() # sorts the tuples based on numeric sequence number
+            for seq, uri in toSend:
+                msg = "%d %s" % (seq, uri)
+                self.log_debug("Sending %s" % (msg,))
+                observer.sendLine(msg)
+        else:
+            observer.sendLine("")
+
 
 
     def addObserver(self, observer):
@@ -509,10 +513,7 @@ class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
                 self.transport.getPeer()))
             return
 
-        if oldSeq == 0:
-            self.notifier.reset()
-        else:
-            self.notifier.playback(self, oldSeq)
+        self.notifier.playback(self, oldSeq)
 
     def connectionLost(self, reason):
         self.notifier.removeObserver(self)
