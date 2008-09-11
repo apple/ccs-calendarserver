@@ -251,14 +251,8 @@ class SimpleLineNotifierTests(TestCase):
         self.notifier.enqueue("update", "C")
         protocol = StubProtocol()
         self.notifier.addObserver(protocol)
-        self.notifier.playback(protocol, 0)
-        self.assertEquals(protocol.lines, ["1 A", "2 B", "3 C"])
-        protocol.reset()
         self.notifier.playback(protocol, 1)
         self.assertEquals(protocol.lines, ["2 B", "3 C"])
-        protocol.reset()
-        self.notifier.playback(protocol, 5)
-        self.assertEquals(protocol.lines, ["-1"])
 
     def test_reset(self):
         self.notifier.enqueue("update", "A")
@@ -305,13 +299,11 @@ class SimpleLineNotificationProtocolTests(TestCase):
 class StubProtocol(object):
 
     def __init__(self):
-        self.reset()
+        self.lines = []
 
     def sendLine(self, line):
         self.lines.append(line)
 
-    def reset(self):
-        self.lines = []
 
 class StubTransport(object):
 
