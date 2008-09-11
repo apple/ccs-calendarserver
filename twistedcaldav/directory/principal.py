@@ -335,7 +335,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         record = self.directory.recordWithGUID(primaryUID)
 
         if record is None:
-            log.debug("No principal found for UID: %s" % (name,))
+            log.err("No principal found for UID: %s" % (name,))
             return None
 
         if record.enabledForCalendaring:
@@ -502,7 +502,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
                 if relative not in records:
                     found = self.parent.principalForRecord(relative)
                     if found is None:
-                        log.debug("No principal found for directory record: %r" % (relative,))
+                        log.err("No principal found for directory record: %r" % (relative,))
                     else:
                         if proxy:
                             if proxy == "read-write":
