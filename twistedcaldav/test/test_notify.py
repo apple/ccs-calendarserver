@@ -258,7 +258,7 @@ class SimpleLineNotifierTests(TestCase):
         self.assertEquals(protocol.lines, ["2 B", "3 C"])
         protocol.reset()
         self.notifier.playback(protocol, 5)
-        self.assertEquals(protocol.lines, [""])
+        self.assertEquals(protocol.lines, ["-1"])
 
     def test_reset(self):
         self.notifier.enqueue("update", "A")

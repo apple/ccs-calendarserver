@@ -467,7 +467,7 @@ class SimpleLineNotifier(LoggingMixIn):
                 self.log_debug("Sending %s" % (msg,))
                 observer.sendLine(msg)
         else:
-            observer.sendLine("")
+            observer.sendLine("-1")
 
 
 
