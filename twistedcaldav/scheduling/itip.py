@@ -376,7 +376,7 @@ class iTipGenerator(object):
                 instance = original.overriddenComponent(instance_rid)
                 if instance is None:
                     instance = original.masterComponent()
-            assert instance is not None
+            assert instance is not None, "Need a master component"
 
             # Add some required properties extracted from the original
             comp.addProperty(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
@@ -404,7 +404,7 @@ class iTipGenerator(object):
             # Extract the matching attendee property
             for attendee in attendees:
                 attendeeProp = instance.getAttendeeProperty((attendee,))
-                assert attendeeProp is not None
+                assert attendeeProp is not None, "Must have matching ATTENDEE property"
                 comp.addProperty(attendeeProp)
 
             tzids.update(comp.timezoneIDs())

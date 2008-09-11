@@ -35,7 +35,8 @@ import md5
 import time
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred,\
+    succeed
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
@@ -46,6 +47,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
 
@@ -63,6 +65,7 @@ class iTipException(Exception):
 
 class iTipProcessor(object):
     
+    @inlineCallbacks
     def handleRequest(self, request, principal, inbox, calendar, child):
         """
         Handle an iTIP response automatically.
@@ -93,7 +96,19 @@ class iTipProcessor(object):
         else:
             self.childname = ""
  
-        return f()
+        # Get a lock on the inbox first
+        _lock = MemcacheLock("iTIPAutoProcess", inbox.fp.path, timeout=60.0, retry_interval=1.0, expire_time=300)
+        
+        try:
+            yield _lock.acquire()
+            yield f()
+            yield _lock.release()
+        except MemcacheLockTimeoutError:
+            raise
+        except Exception, e:
+            log.error(e)
+            yield _lock.clean()
+            raise
 
     @inlineCallbacks
     def processRequest(self):
@@ -567,9 +582,9 @@ class iTipProcessor(object):
     def deleteInboxResource(self, processed_state):
         # Remove the now processed incoming request.
         try:
-            yield self.deleteResource(self.inbox, self.childname)
-            log.info("Deleted new iTIP message %s in Inbox because it has been %s." %
+            log.info("Deleting new iTIP message %s in Inbox because it has been %s." %
                 (self.childname, processed_state,))
+            yield self.deleteResource(self.inbox, self.childname)
         except:
             # FIXME: bare except
             log.err("Error while auto-processing iTIP: %s" % (Failure(),))
@@ -585,6 +600,12 @@ class iTipProcessor(object):
         """
         
         delchild = collection.getChild(name)
+        
+        # Sometimes the resource might already be gone...
+        if delchild is None:
+            log.warn("Nothing to delete: %s in %s is missing." % (name, collection))
+            return succeed(None)
+
         index = collection.index()
         index.deleteResource(delchild.fp.basename())
         
