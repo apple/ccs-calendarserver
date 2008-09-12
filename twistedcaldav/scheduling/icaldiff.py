@@ -85,11 +85,13 @@ class iCalDiff(object):
 
         # Do straight comparison without alarms
         self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
         self.calendar1.attendeesView((attendee,))
+        self.calendar1.normalizePropertyValueLists("EXDATE")
+        self.calendar1.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
         iTipGenerator.prepareSchedulingMessage(self.calendar1)
 
         self.calendar2 = self.calendar2.duplicate()
+        self.calendar2.normalizePropertyValueLists("EXDATE")
         self.calendar2.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
         iTipGenerator.prepareSchedulingMessage(self.calendar2)
 
@@ -100,10 +102,12 @@ class iCalDiff(object):
         
         # Make sure the same VCALENDAR properties match
         if not self._checkVCALENDARProperties():
+            log.debug("attendeeMerge: VCALENDAR properties do not match")
             return False, False
         
         # Make sure the same VTIMEZONE components appear
         if not self._compareVTIMEZONEs():
+            log.debug("attendeeMerge: VTIMEZONEs do not match")
             return False, False
         
         # Compare each component instance from the new calendar with each derived
@@ -186,6 +190,7 @@ class iCalDiff(object):
         for key in set2 - set1:
             component1 = self.calendar1.deriveInstance(key[2])
             if component1 is None:
+                log.debug("_compareComponents: Could not derive instance: %s" % (key[2],))
                 return False, False
             component2 = map2[key]
             

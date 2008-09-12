@@ -34,7 +34,15 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def __init__(self):
             self._cache = {}
 
-        def set(self, key, value):
+
+        def add(self, key, value, expireTime=0):
+            if key not in self._cache:
+                self._cache[key] = value
+                return succeed(True)
+            else:
+                return succeed(False)
+
+        def set(self, key, value, expireTime=0):
             self._cache[key] = value
             return succeed(True)
 
@@ -59,7 +67,10 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         does not actually cache anything.
         """
 
-        def set(self, key, value):
+        def add(self, key, value, expireTime=0):
+            return succeed(True)
+
+        def set(self, key, value, expireTime=0):
             return succeed(True)
 
         def get(self, key):
@@ -109,12 +120,21 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return self._memcacheProtocol
 
 
-    def set(self, key, value):
+    def add(self, key, value, expire_time=0):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
+        self.log_debug("Adding Cache Token for %r" % (key,))
+        return self._getMemcacheProtocol().add(
+            '%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
+
+    def set(self, key, value, expire_time=0):
+        my_value = value
+        if self._pickle:
+            my_value = cPickle.dumps(value)
+        self.log_debug("Setting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().set(
-            '%s:%s' % (self._namespace, key), my_value)
+            '%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
 
     def get(self, key):
         def _gotit(result):

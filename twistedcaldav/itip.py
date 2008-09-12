@@ -35,7 +35,8 @@ import md5
 import time
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred,\
+    succeed
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
@@ -45,7 +46,8 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twistedcaldav import caldavxml
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.log import Logger
-from twistedcaldav.ical import Property, iCalendarProductID
+from twistedcaldav.ical import Property
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
 
@@ -63,6 +65,7 @@ class iTipException(Exception):
 
 class iTipProcessor(object):
     
+    @inlineCallbacks
     def handleRequest(self, request, principal, inbox, calendar, child):
         """
         Handle an iTIP response automatically.
@@ -93,7 +96,19 @@ class iTipProcessor(object):
         else:
             self.childname = ""
  
-        return f()
+        # Get a lock on the inbox first
+        _lock = MemcacheLock("iTIPAutoProcess", inbox.fp.path, timeout=60.0, retry_interval=1.0, expire_time=300)
+        
+        try:
+            yield _lock.acquire()
+            yield f()
+            yield _lock.release()
+        except MemcacheLockTimeoutError:
+            raise
+        except Exception, e:
+            log.error(e)
+            yield _lock.clean()
+            raise
 
     @inlineCallbacks
     def processRequest(self):
@@ -108,10 +123,8 @@ class iTipProcessor(object):
                   2. See if this updates existing ones in free-busy-set calendars.
                   3. Remove existing ones in those calendars.
                   4. See if this fits into a free slot:
-                      1. If not, send REPLY with failure status
-                      2. If so
-                          1. send REPLY with success
-                          2. add to f-b-s calendar
+                      1. If not, add to f-b-s calendar DECLINED
+                      2. If so, add to f-b-s calendar ACCEPTED
               2. If not,
                   1. remove the one we got - its 'stale'
               3. Delete the request from the Inbox.
@@ -153,30 +166,24 @@ class iTipProcessor(object):
                 
             if check_reply:
                 # Process the reply by determining PARTSTAT and sending the reply and booking the event.
-                doreply, replycal, accepted = yield self.checkForReply()
+                valid, accepted = yield self.checkForReply()
                 
-                try:
-                    if accepted:
+                if valid:
+                    try:
                         if calmatch:
+                            log.info("Replaced calendar component %s with new iTIP message in %s (%s)." % (calmatch, calURL, accepted,))
                             yield self.writeResource(calURL, updatecal, calmatch, self.calendar)
-                            log.info("Replaced calendar component %s with new iTIP message in %s." % (calmatch, calURL))
                         else:
+                            log.info("Added new calendar component in %s (%s)." % (calURL, accepted,))
                             yield self.writeResource(calURL, updatecal, None, self.calendar)
-                            log.info("Added new calendar component in %s." % (calURL,))
-                    else:
-                        if calmatch:
-                            yield self.deleteResource(updatecal, calmatch)
-                            log.info("Deleted calendar component %s in %s as update was not accepted." % (calmatch, calURL))
-                            
-                    # Send a reply if needed. 
-                    if doreply:
-                        log.info("Sending iTIP REPLY %s" % (("declined","accepted")[accepted],))
-                        yield self.writeReply(replycal)
-                    processed = "processed"
-                except:
-                    # FIXME: bare except
-                    log.err("Error while auto-processing iTIP: %s" % (Failure(),))
-                    raise iTipException()
+    
+                        processed = "processed"
+                    except:
+                        # FIXME: bare except
+                        log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                        raise iTipException()
+                else:
+                    processed = "ignored"
                 
         else:
             # So we have a partial update. That means we have to do partial updates to instances in
@@ -215,29 +222,26 @@ class iTipProcessor(object):
     
             if check_reply:
                 # Process the reply by determining PARTSTAT and sending the reply and booking the event.
-                doreply, replycal, accepted = yield self.checkForReply()
+                valid, accepted = yield self.checkForReply()
                 
-                try:
-                    if calmatch:
-                        # Merge the new instances with the old ones
-                        self.mergeComponents(self.calendar, cal)
-                        yield self.writeResource(calURL, updatecal, calmatch, cal)
-                        log.info("Merged calendar component %s with new iTIP message in %s." % (calmatch, calURL))
-                    else:
-                        if accepted:
+                if valid:
+                    try:
+                        if calmatch:
+                            # Merge the new instances with the old ones
+                            self.mergeComponents(self.calendar, cal)
+                            log.info("Merged calendar component %s with new iTIP message in %s (%s)." % (calmatch, calURL, accepted,))
+                            yield self.writeResource(calURL, updatecal, calmatch, cal)
+                        else:
+                            log.info("Added new calendar component in %s (%s)." % (calURL, accepted,))
                             yield self.writeResource(calURL, updatecal, None, self.calendar)
-                            log.info("Added new calendar component in %s." % (calURL,))
                             
-                    # Do reply if needed. 
-                    if doreply:
-                        log.info("Sending iTIP REPLY %s" % (("declined","accepted")[accepted],))
-                        yield self.writeReply(replycal)
-                        
-                    processed = "processed"
-                except:
-                    # FIXME: bare except
-                    log.err("Error while auto-processing iTIP: %s" % (Failure(),))
-                    raise iTipException()
+                        processed = "processed"
+                    except:
+                        # FIXME: bare except
+                        log.err("Error while auto-processing iTIP: %s" % (Failure(),))
+                        raise iTipException()
+                else:
+                    processed = "ignored"
     
         # Remove the now processed incoming request.
         if self.inbox:
@@ -315,8 +319,8 @@ class iTipProcessor(object):
                 if self.compareSyncInfo(info, newinfo) < 0:
                     # Delete existing resource which has been cancelled
                     try:
-                        yield self.deleteResource(updatecal, calmatch,)
                         log.info("Delete calendar component %s in %s as it was cancelled." % (calmatch, calURL))
+                        yield self.deleteResource(updatecal, calmatch,)
                     except:
                         # FIXME: bare except
                         log.err("Error while auto-processing iTIP: %s" % (Failure(),))
@@ -371,12 +375,12 @@ class iTipProcessor(object):
                     # in which case the calendar object is empty (except for VTIMEZONEs).
                     if existing_calendar.mainType() is None:
                         # Delete the now empty calendar object
-                        yield self.deleteResource(updatecal, calmatch)
                         log.info("Deleted calendar component %s after cancellations from iTIP message in %s." % (calmatch, calURL))
+                        yield self.deleteResource(updatecal, calmatch)
                     else:
                         # Update the existing calendar object
-                        yield self.writeResource(calURL, updatecal, calmatch, existing_calendar)
                         log.info("Updated calendar component %s with cancellations from iTIP message in %s." % (calmatch, calURL))
+                        yield self.writeResource(calURL, updatecal, calmatch, existing_calendar)
                     processed = "processed"
                 else:
                     processed = "older"
@@ -405,7 +409,7 @@ class iTipProcessor(object):
         BTW The incoming iTIP message may contain multiple components so we need to iterate over all those.
         At the moment we will treat a failure on one instance as a DECLINE of the entire set.
 
-        @return: C{True} if a reply is needed, C{False} otherwise.
+        @return: a C{tuple} of C{bool} indicating whether a valid iTIP was received, and C{str} new partstat.
         """
         
         # We need to figure out whether the specified component will clash with any others in the f-b-set calendars
@@ -454,57 +458,20 @@ class iTipProcessor(object):
         cuas = self.principal.calendarUserAddresses()
         attendeeProps = self.calendar.getAttendeeProperties(cuas)
         if not attendeeProps:
-            returnValue((False, None, accepted))
-    
-        # Look for specific parameters
-        rsvp = True
-        for attendeeProp in attendeeProps:
-            if "RSVP" in attendeeProp.params():
-                if attendeeProp.params()["RSVP"][0] == "FALSE":
-                    rsvp = False
-        
-                # Now modify the original component
-                del attendeeProp.params()["RSVP"]
+            returnValue((False, "",))
     
         if accepted:
             partstat = "ACCEPTED"
         else:
             partstat = "DECLINED"
+            
+            # Make sure declined events are TRANSPARENT on the calendar
+            self.calendar.replacePropertyInAllComponents(Property("TRANSP", "TRANSPARENT"))
+
         for attendeeProp in attendeeProps:
-            if "PARTSTAT" in attendeeProp.params():
-                attendeeProp.params()["PARTSTAT"][0] = partstat
-            else:
-                attendeeProp.params()["PARTSTAT"] = [partstat]
+            attendeeProp.params()["PARTSTAT"] = [partstat]
         
-        # Now create a new calendar object for the reply
-        
-        # First get useful props from the original
-        replycal = self.calendar.duplicate()
-        
-        # Change METHOD
-        replycal.getProperty("METHOD").setValue("REPLY")
-        
-        # Change PRODID to this server
-        replycal.getProperty("PRODID").setValue(iCalendarProductID)
-        
-        # Add REQUEST-STATUS
-        for component in replycal.subcomponents():
-            if accepted:
-                component.addProperty(Property(name="REQUEST-STATUS", value="2.0; Success."))
-            else:
-                component.addProperty(Property(name="REQUEST-STATUS", value="4.0; Event conflict. Date/time is busy."))
-    
-        # Remove all attendees other than ourselves
-        for component in replycal.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
-            attendeeProp = component.getAttendeeProperty(cuas)
-            attendees = tuple(component.properties("ATTENDEE"))
-            for attendee in attendees:
-                if attendeeProp is None or (attendee.value() != attendeeProp.value()):
-                    component.removeProperty(attendee)
-    
-        returnValue((rsvp, replycal, accepted))
+        returnValue((True, partstat,))
     
     @inlineCallbacks
     def writeReply(self, replycal):
@@ -583,7 +550,8 @@ class iTipProcessor(object):
                      destinationparent = collection,
                      destinationcal = True,
                      calendar = calendar,
-                     isiTIP = itipper
+                     isiTIP = itipper,
+                     internal_request=True,
                  ).run()
         
         returnValue(newchild)
@@ -614,9 +582,9 @@ class iTipProcessor(object):
     def deleteInboxResource(self, processed_state):
         # Remove the now processed incoming request.
         try:
-            yield self.deleteResource(self.inbox, self.childname)
-            log.info("Deleted new iTIP message %s in Inbox because it has been %s." %
+            log.info("Deleting new iTIP message %s in Inbox because it has been %s." %
                 (self.childname, processed_state,))
+            yield self.deleteResource(self.inbox, self.childname)
         except:
             # FIXME: bare except
             log.err("Error while auto-processing iTIP: %s" % (Failure(),))
@@ -632,6 +600,12 @@ class iTipProcessor(object):
         """
         
         delchild = collection.getChild(name)
+        
+        # Sometimes the resource might already be gone...
+        if delchild is None:
+            log.warn("Nothing to delete: %s in %s is missing." % (name, collection))
+            return succeed(None)
+
         index = collection.index()
         index.deleteResource(delchild.fp.basename())
         

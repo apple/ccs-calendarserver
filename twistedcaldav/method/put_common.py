@@ -183,6 +183,7 @@ class StoreCalendarObjectResource(object):
         calendar=None,
         isiTIP=False,
         allowImplicitSchedule=True,
+        internal_request=False,
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -201,6 +202,7 @@ class StoreCalendarObjectResource(object):
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
         @param isiTIP:                True if relaxed calendar data validation is to be done, False otherwise.
         @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
+        @param internal_request:   True if this request originates internally and needs to bypass scheduling authorization checks.
         """
         
         # Check that all arguments are valid
@@ -239,6 +241,7 @@ class StoreCalendarObjectResource(object):
         self.deletesource = deletesource
         self.isiTIP = isiTIP
         self.allowImplicitSchedule = allowImplicitSchedule
+        self.internal_request = internal_request
         
         self.rollback = None
         self.access = None
@@ -690,7 +693,7 @@ class StoreCalendarObjectResource(object):
             # Do scheduling
             if not self.isiTIP and self.allowImplicitSchedule:
                 scheduler = ImplicitScheduler()
-                new_calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False))
+                new_calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False, internal_request=self.internal_request))
                 if new_calendar:
                     self.calendar = new_calendar
                     self.calendardata = str(self.calendar)

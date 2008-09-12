@@ -135,7 +135,7 @@ class ScheduleViaCalDAV(DeliveryService):
         for principal, inbox, child in autoresponses:
             # Add delayed reactor task to handle iTIP responses
             itip = iTipProcessor()
-            reactor.callLater(0.0, itip.handleRequest, *(self.scheduler.request, principal, inbox, self.scheduler.calendar.duplicate(), child))
+            reactor.callLater(2.0, itip.handleRequest, *(self.scheduler.request, principal, inbox, self.scheduler.calendar.duplicate(), child))
 
     @inlineCallbacks
     def generateResponse(self, recipient, responses, autoresponses):
@@ -147,20 +147,24 @@ class ScheduleViaCalDAV(DeliveryService):
         childURL = joinURL(recipient.inboxURL, name)
         child = (yield self.scheduler.request.locateResource(childURL))
 
-        # Do implicit scheduling message processing
-        try:
-            processor = ImplicitProcessor()
-            processed, autoprocessed = (yield processor.doImplicitProcessing(
-                self.scheduler.request,
-                self.scheduler.calendar,
-                self.scheduler.originator,
-                recipient
-            ))
-        except ImplicitProcessorException, e:
-            log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
-            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
-            returnValue(False)
+        # Do implicit scheduling message processing - but not for auto-accept principals.
+        # Auto-accepts will be processed internally by the server a little later on.
+        if not recipient.principal.autoSchedule():
+            try:
+                processor = ImplicitProcessor()
+                processed, autoprocessed = (yield processor.doImplicitProcessing(
+                    self.scheduler.request,
+                    self.scheduler.calendar,
+                    self.scheduler.originator,
+                    recipient
+                ))
+            except ImplicitProcessorException, e:
+                log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
+                returnValue(False)
+        else:
+            processed = autoprocessed = False
 
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
@@ -198,7 +202,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleProcessed() if processed else caldavxml.ScheduleUnprocessed()))
             
                 # Look for auto-schedule option
-                if not processed and recipient.principal.autoSchedule():
+                if recipient.principal.autoSchedule():
                     autoresponses.append((recipient.principal, recipient.inbox, child))
                     
                 returnValue(True)

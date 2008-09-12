@@ -1291,6 +1291,17 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             component.addProperty(property)
+
+    def replacePropertyInAllComponents(self, property):
+        """
+        Replace a property in all components.
+        @param property: the L{Property} to replace in this component.
+        """
+        
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            component.replaceProperty(property)
         
     def attendeesView(self, attendees):
         """
@@ -1338,11 +1349,10 @@ class Component (object):
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    continue
-                [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value() != attendee]
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value() != attendee]
             
     def removeAlarms(self):
         """
@@ -1366,14 +1376,13 @@ class Component (object):
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    continue
-                if keep:
-                    [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep]
-                if remove:
-                    [component.removeProperty(p) for p in tuple(component.properties()) if p.name() in remove]
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            if keep:
+                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep]
+            if remove:
+                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() in remove]
                 
     def removeXProperties(self, keep_properties):
         """
@@ -1382,15 +1391,14 @@ class Component (object):
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    continue
-                [
-                    component.removeProperty(p)
-                    for p in tuple(component.properties())
-                    if p.name().startswith("X-") and p.name() not in keep_properties
-                ]
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            [
+                component.removeProperty(p)
+                for p in tuple(component.properties())
+                if p.name().startswith("X-") and p.name() not in keep_properties
+            ]
             
     def removePropertyParameters(self, property, params):
         """
@@ -1399,18 +1407,34 @@ class Component (object):
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    continue
-                props = component.properties(property)
-                for prop in props:
-                    for param in params:
-                        try:
-                            del prop.params()[param]
-                        except KeyError:
-                            pass
-            
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            props = component.properties(property)
+            for prop in props:
+                for param in params:
+                    try:
+                        del prop.params()[param]
+                    except KeyError:
+                        pass
+
+    def normalizePropertyValueLists(self, propname):
+        """
+        Convert properties that have a list of values into single properties, to make it easier
+        to do comparisons between two ical objects.
+        """
+        
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            for prop in tuple(component.properties(propname)):
+                if type(prop.value()) is list and len(prop.value()) > 1:
+                    component.removeProperty(prop)
+                    for value in prop.value():
+                        component.addProperty(Property(propname, [value,]))
+        
 ##
 # Dates and date-times
 ##
