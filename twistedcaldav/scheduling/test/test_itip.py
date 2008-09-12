@@ -893,7 +893,9 @@ END:VCALENDAR
         for original, filtered, attendees in data:
             component = Component.fromString(original)
             itipped = iTipGenerator.generateAttendeeRequest(component, attendees)
-            self.assertEqual(filtered, str(itipped).replace("\r", ""))
+            itipped = str(itipped).replace("\r", "")
+            itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
+            self.assertEqual(filtered, itipped)
 
     def test_cancel(self):
         
