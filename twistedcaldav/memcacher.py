@@ -34,14 +34,15 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def __init__(self):
             self._cache = {}
 
-        def add(self, key, value, expire_time=0):
+
+        def add(self, key, value, expireTime=0):
             if key not in self._cache:
                 self._cache[key] = value
                 return succeed(True)
             else:
                 return succeed(False)
 
-        def set(self, key, value, expire_time=0):
+        def set(self, key, value, expireTime=0):
             self._cache[key] = value
             return succeed(True)
 
@@ -66,10 +67,10 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         does not actually cache anything.
         """
 
-        def add(self, key, value, expire_time=0):
+        def add(self, key, value, expireTime=0):
             return succeed(True)
 
-        def set(self, key, value, expire_time=0):
+        def set(self, key, value, expireTime=0):
             return succeed(True)
 
         def get(self, key):
