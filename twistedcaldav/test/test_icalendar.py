@@ -1425,3 +1425,106 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.removeAlarms()
             self.assertEqual(result, str(component).replace("\r", ""))
+
+    def test_expand_instances(self):
+        
+        data = (
+            (
+                "Non recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),)
+            ),
+            (
+                "Simple recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                )
+            ),
+            (
+                "Recurring with RDATE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=2
+RDATE:20071116T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 16, 1, 0, 0, tzinfo=tzutc()),
+                )
+            ),
+            (
+                "Recurring with EXDATE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20071115T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
+                )
+            ),
+            (
+                "Recurring with EXDATE on DTSTART",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
+                )
+            ),
+        )
+        
+        for description, original, results in data:
+            component = Component.fromString(original)
+            instances = component.expandTimeRanges(datetime.date(2100, 1, 1))
+            self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
+            for instance in instances:
+                self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
+       
