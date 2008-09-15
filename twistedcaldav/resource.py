@@ -157,14 +157,19 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             # Filter out unsupported clients
             #
             agent = request.headers.getHeader("user-agent")
-            if agent:
+            if agent is not None:
                 for reject in config.RejectClients:
-                    if reject.search(agent) is not None:
-                        self.log_info("Rejecting user-agent: %s" % (agent,))
-                        raise HTTPError(StatusResponse(
-                            responsecode.FORBIDDEN,
-                            "Your client software (%s) is not allowed to access this service." % (agent,)
-                        ))
+                    try:
+                        result = reject.search(agent)
+                    except TypeError:
+                        raise AssertionError("User-agent is not a string: (%s) %r", type(agent), agent)
+                    else:
+                        if result is not None:
+                            self.log_info("Rejecting user-agent: %s" % (agent,))
+                            raise HTTPError(StatusResponse(
+                                responsecode.FORBIDDEN,
+                                "Your client software (%s) is not allowed to access this service." % (agent,)
+                            ))
 
         response = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
 
