@@ -160,7 +160,7 @@ class SudoSACLMixin(object):
                     raise HTTPError(responsecode.FORBIDDEN)
                 else:
                     authzPrincipal = getPrincipalForType(
-                        DirectoryService.recordType_groups, authz)
+                        DirectoryService.recordType_users, authz)
 
                     if not authzPrincipal:
                         authzPrincipal = self.findPrincipalForAuthID(authz)
