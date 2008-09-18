@@ -350,6 +350,9 @@ class SQLDirectoryRecord(DirectoryRecord):
             guid                  = guid,
             shortName             = shortName,
             fullName              = name,
+            firstName             = None,
+            lastName              = None,
+            emailAddress          = None,
             calendarUserAddresses = calendarUserAddresses,
             autoSchedule          = autoSchedule,
         )

@@ -43,6 +43,9 @@ ELEMENT_SHORTNAME         = "uid"
 ELEMENT_GUID              = "guid"
 ELEMENT_PASSWORD          = "password"
 ELEMENT_NAME              = "name"
+ELEMENT_FIRST_NAME        = "first-name"
+ELEMENT_LAST_NAME         = "last-name"
+ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
 ELEMENT_CUADDR            = "cuaddr"
@@ -163,6 +166,9 @@ class XMLAccountRecord (object):
         self.guid = None
         self.password = None
         self.name = None
+        self.firstName = None
+        self.lastName = None
+        self.emailAddress = None
         self.members = set()
         self.groups = set()
         self.calendarUserAddresses = set()
@@ -195,6 +201,18 @@ class XMLAccountRecord (object):
             name = self.name % ctr
         else:
             name = self.name
+        if self.firstName and self.firstName.find("%") != -1:
+            firstName = self.firstName % ctr
+        else:
+            firstName = self.firstName
+        if self.lastName and self.lastName.find("%") != -1:
+            lastName = self.lastName % ctr
+        else:
+            lastName = self.lastName
+        if self.emailAddress and self.emailAddress.find("%") != -1:
+            emailAddress = self.emailAddress % ctr
+        else:
+            emailAddress = self.emailAddress
         calendarUserAddresses = set()
         for cuaddr in self.calendarUserAddresses:
             if cuaddr.find("%") != -1:
@@ -207,6 +225,9 @@ class XMLAccountRecord (object):
         result.guid = guid
         result.password = password
         result.name = name
+        result.firstName = firstName
+        result.lastName = lastName
+        result.emailAddress = emailAddress
         result.members = self.members
         result.calendarUserAddresses = calendarUserAddresses
         result.autoSchedule = self.autoSchedule
@@ -237,6 +258,15 @@ class XMLAccountRecord (object):
             elif child_name == ELEMENT_NAME:
                 if child.firstChild is not None:
                     self.name = child.firstChild.data.encode("utf-8")
+            elif child_name == ELEMENT_FIRST_NAME:
+                if child.firstChild is not None:
+                    self.firstName = child.firstChild.data.encode("utf-8")
+            elif child_name == ELEMENT_LAST_NAME:
+                if child.firstChild is not None:
+                    self.lastName = child.firstChild.data.encode("utf-8")
+            elif child_name == ELEMENT_EMAIL_ADDRESS:
+                if child.firstChild is not None:
+                    self.emailAddress = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:

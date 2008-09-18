@@ -129,6 +129,9 @@ class AbstractDirectoryRecord(DirectoryRecord):
             guid                  = None,
             shortName             = shortName,
             fullName              = None,
+            firstName             = None,
+            lastName              = None,
+            emailAddress          = None,
             calendarUserAddresses = set(),
             autoSchedule          = False,
         )

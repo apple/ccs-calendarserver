@@ -24,12 +24,16 @@ limitations under the License.
     <guid>admin</guid>
     <password>admin</password>
     <name>Super User</name>
+    <first-name>Super</first-name>
+    <last-name>User</last-name>
   </user>
   <user>
     <uid>apprentice</uid>
     <guid>apprentice</guid>
     <password>apprentice</password>
     <name>Apprentice Super User</name>
+    <first-name>Apprentice</first-name>
+    <last-name>Super User</last-name>
   </user>
   <user repeat="99">
     <uid>user%02d</uid>
@@ -37,6 +41,8 @@ limitations under the License.
     <password>user%02d</password>
     <name>User %02d</name>
     <cuaddr>mailto:user%02d@example.com</cuaddr>
+    <first-name>User</first-name>
+    <last-name>%02d</last-name>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
@@ -44,6 +50,8 @@ limitations under the License.
     <password>public%02d</password>
     <name>Public %02d</name>
     <cuaddr>mailto:public%02d@example.com</cuaddr>
+    <first-name>Public</first-name>
+    <last-name>%02d</last-name>
   </user>
   <location repeat="10">
     <uid>location%02d</uid>

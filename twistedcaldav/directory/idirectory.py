@@ -72,6 +72,13 @@ class IDirectoryService(Interface):
             addresses.
         """
 
+    def recordsMatchingFields(fields):
+        """
+        @return: a sequence of L{IDirectoryRecord}s which match the given
+            fields.
+        """
+
+
 class IDirectoryRecord(Interface):
     """
     Directory Record
@@ -81,6 +88,9 @@ class IDirectoryRecord(Interface):
     guid                  = Attribute("The GUID of this record.")
     shortName             = Attribute("The name of this record.")
     fullName              = Attribute("The full name of this record.")
+    firstName             = Attribute("The first name of this record.")
+    lastName              = Attribute("The last name of this record.")
+    emailAddress          = Attribute("The email address of this record.")
     calendarUserAddresses = Attribute("A set of calendar user addresses for this record.")
     autoSchedule          = Attribute("Principal identified by this record should automatically accept/deny meetings.")
     enabledForCalendaring = Attribute("Determines whether this record should be provisioned with a calendar home.")

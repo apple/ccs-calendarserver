@@ -290,6 +290,30 @@ class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
+class FirstNameProperty (davxml.WebDAVTextElement):
+    """
+    A property representing first name of a principal
+    """
+    namespace = calendarserver_namespace
+    name = "first-name"
+    protected = True
+
+class LastNameProperty (davxml.WebDAVTextElement):
+    """
+    A property representing last name of a principal
+    """
+    namespace = calendarserver_namespace
+    name = "last-name"
+    protected = True
+
+class EMailProperty (davxml.WebDAVTextElement):
+    """
+    A property representing email address of a principal
+    """
+    namespace = calendarserver_namespace
+    name = "email-address"
+    protected = True
+
 class IScheduleInbox (davxml.WebDAVEmptyElement):
     """
     Denotes the resourcetype of a iSchedule Inbox.

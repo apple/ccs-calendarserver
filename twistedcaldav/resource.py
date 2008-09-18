@@ -705,6 +705,9 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (caldav_namespace, "calendar-user-address-set"),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
+        (calendarserver_namespace, "first-name"       ),
+        (calendarserver_namespace, "last-name"        ),
+        (calendarserver_namespace, "email-address"    ),
     )
 
     @classmethod
@@ -759,6 +762,28 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                         return None
                     else:
                         return customxml.DropBoxHomeURL(davxml.HRef(url))
+
+                if name == "first-name":
+                    firstName = self.record.firstName
+                    if firstName:
+                        return customxml.FirstNameProperty(firstName)
+                    else:
+                        return None
+
+                if name == "last-name":
+                    lastName = self.record.lastName
+                    if lastName:
+                        return customxml.LastNameProperty(lastName)
+                    else:
+                        return None
+
+                if name == "email-address":
+                    emailAddress = self.record.emailAddress
+                    if emailAddress:
+                        return customxml.EMailProperty(emailAddress)
+                    else:
+                        return None
+
 
             return super(CalendarPrincipalResource, self).readProperty(property, request)
 

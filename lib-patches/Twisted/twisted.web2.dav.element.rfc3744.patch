@@ -81,3 +81,11 @@ Index: twisted/web2/dav/element/rfc3744.py
  
          # This element can be empty when uses in supported-report-set
          if not len(self.children):
+@@ -705,6 +714,7 @@
+         (dav_namespace, "prop"                             ): (0, 1),
+         (dav_namespace, "apply-to-principal-collection-set"): (0, 1),
+     }
++    allowed_attributes = { "test": False }
+ 
+ class PropertySearch (WebDAVElement):
+     """

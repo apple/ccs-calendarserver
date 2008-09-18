@@ -125,6 +125,26 @@ class DirectoryProvisioningResource (
     def principalForCalendarUserAddress(self, address):
         raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
 
+    ##
+    # DAV-property-to-record-field mapping
+    ##
+
+    _cs_ns = "http://calendarserver.org/ns/"
+    _fieldMap = {
+        ("DAV:" , "displayname") : "fullName",
+        (_cs_ns, "first-name") : "firstName",
+        (_cs_ns, "last-name") : "lastName",
+        (_cs_ns, "email-address") : "emailAddress",
+    }
+
+    def propertyToField(self, property):
+        """
+        If property is a DAV property that maps to a directory field, return
+        that field's name, otherwise return None
+        """
+        return self._fieldMap.get(property.qname(), None)
+
+
 class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals as its children.
@@ -212,6 +232,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
         return None
 
+
     ##
     # Static
     ##
@@ -235,6 +256,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def principalCollections(self):
         return (self,)
+
 
 class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource):
     """
@@ -288,6 +310,7 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
     def principalCollections(self):
         return self.parent.principalCollections()
+
 
 class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     """
@@ -437,6 +460,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """Record type: %s\n"""            % (self.record.recordType,),
             """Short name: %s\n"""             % (self.record.shortName,),
             """Full name: %s\n"""              % (self.record.fullName,),
+            """First name: %s\n"""             % (self.record.firstName,),
+            """Last name: %s\n"""              % (self.record.lastName,),
+            """Email address: %s\n"""          % (self.record.emailAddress,),
             """Principal UID: %s\n"""          % (self.principalUID(),),
             """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
@@ -597,6 +623,9 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             """Record type: %s\n"""            % (self.record.recordType,),
             """Short name: %s\n"""             % (self.record.shortName,),
             """Full name: %s\n"""              % (self.record.fullName,),
+            """First name: %s\n"""             % (self.record.firstName,),
+            """Last name: %s\n"""              % (self.record.lastName,),
+            """Email address: %s\n"""          % (self.record.emailAddress,),
             """Principal UID: %s\n"""          % (self.principalUID(),),
             """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
