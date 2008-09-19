@@ -114,6 +114,10 @@ class ImplicitScheduler(object):
         yield self.extractCalendarData()
         self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
         
+        # Originator is the organizer in this case
+        self.originatorPrincipal = self.organizerPrincipal
+        self.originator = self.organizer
+        
         result = (yield self.processRequests())
 
         returnValue(result)
