@@ -32,6 +32,7 @@ iTIP (RFC2446) processing.
 
 import datetime
 
+from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 
@@ -50,7 +51,7 @@ __all__ = [
 class iTipProcessing(object):
 
     @staticmethod
-    def processNewRequest(itip_message):
+    def processNewRequest(itip_message, recipient=None):
         """
         Process a METHOD=REQUEST for a brand new calendar object.
         
@@ -65,11 +66,14 @@ class iTipProcessing(object):
         method = calendar.getProperty("METHOD")
         if method:
             calendar.removeProperty(method)
-            
+        
+        if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
+            iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient)
+
         return calendar
         
     @staticmethod
-    def processRequest(itip_message, calendar):
+    def processRequest(itip_message, calendar, recipient):
         """
         Process a METHOD=REQUEST.
         
@@ -93,7 +97,7 @@ class iTipProcessing(object):
         if itip_message.masterComponent() is not None:
             
             # Get a new calendar object first
-            new_calendar = iTipProcessing.processNewRequest(itip_message)
+            new_calendar = iTipProcessing.processNewRequest(itip_message, recipient)
             
             # Copy over master alarms
             master_component = new_calendar.masterComponent()
@@ -121,6 +125,8 @@ class iTipProcessing(object):
                 else:
                     iTipProcessing.transferAlarms(calendar, master_valarms, component, remove_matched=True)
                     calendar.addComponent(component)
+                    if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
+                        iTipProcessing.fixForiCal3((component,), recipient)
 
             # Write back the modified object
             return calendar
@@ -349,6 +355,22 @@ class iTipProcessing(object):
                 # Just copy in the new override
                 to_component.addComponent(alarm)
     
+    @staticmethod
+    def fixForiCal3(components, recipient):
+        # For each component where the ATTENDEE property of the recipient has PARTSTAT
+        # NEEDS-ACTION we need to add X-APPLE-NEEDS-REPLY:TRUE
+        for component in components:
+            if component.name() == "VTIMEZONE":
+                continue
+            attendee = component.getAttendeeProperty((recipient,))
+            if attendee:
+                if "PARTSTAT" in attendee.params():
+                    partstat = attendee.params()["PARTSTAT"][0]
+                else:
+                    partstat = "NEEDS-ACTION"
+                if partstat == "NEEDS-ACTION":
+                    component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
+
 class iTipGenerator(object):
     
     @staticmethod

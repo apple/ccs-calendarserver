@@ -222,7 +222,7 @@ class ImplicitProcessor(object):
 
             if default:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                new_calendar = iTipProcessing.processNewRequest(self.message)
+                new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
                 name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
                 yield self.writeCalendarResource(defaultURL, default, name, new_calendar)
                 result = (True, False,)
@@ -231,7 +231,7 @@ class ImplicitProcessor(object):
                 result = (False, False,)
         else:
             # Processing update to existing event
-            new_calendar = iTipProcessing.processRequest(self.message, self.recipient_calendar)
+            new_calendar = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr)
             if new_calendar:
      
                 # Update the attendee's copy of the event
