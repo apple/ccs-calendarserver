@@ -43,6 +43,10 @@ calendarserver_private_events_compliance = (
     "calendarserver-private-events",
 )
 
+calendarserver_private_comments_compliance = (
+    "calendarserver-private-comments",
+)
+
 class TwistedGUIDProperty (davxml.WebDAVTextElement):
     """
     Contains the GUID value for a directory record corresponding to a principal.

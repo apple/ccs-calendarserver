@@ -343,6 +343,8 @@
         <true/>
         <key>DefaultCalendarProvisioned</key>
         <true/>
+        <key>EnablePrivateComments</key>
+        <true/>
       </dict>
 
       <!-- iSchedule protocol options -->

@@ -303,21 +303,24 @@ class iTipProcessing(object):
             partstat_changed = (oldpartstat != partstat)
             
             # Handle attendee comments
-            
-            # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
-            attendee_comment = tuple(from_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
-            attendee_comment = attendee_comment[0] if len(attendee_comment) else None
-            
-            # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
-            private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
-            for comment in private_comments:
-                params = comment.params()["X-CALENDARSERVER-ATTENDEE-REF"]
-                assert len(params) == 1, "Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT"
-                param = params[0]
-                if param == attendee.value():
-                    private_comment = comment
-                    break
+            if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
+                # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
+                attendee_comment = tuple(from_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+                attendee_comment = attendee_comment[0] if len(attendee_comment) else None
+                
+                # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
+                private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
+                for comment in private_comments:
+                    params = comment.params()["X-CALENDARSERVER-ATTENDEE-REF"]
+                    assert len(params) == 1, "Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT"
+                    param = params[0]
+                    if param == attendee.value():
+                        private_comment = comment
+                        break
+                else:
+                    private_comment = None
             else:
+                attendee_comment = None
                 private_comment = None
                 
             # Now do update logic
