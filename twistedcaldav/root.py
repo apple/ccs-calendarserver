@@ -25,7 +25,7 @@ from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.http import HTTPError
+from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
 from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
@@ -175,6 +175,20 @@ class RootResource (RootACLMixIn, DAVFile):
                                           ).locateChild(request, segments))
 
             return d
+
+        if config.RejectClients:
+            #
+            # Filter out unsupported clients
+            #
+            agent = request.headers.getHeader("user-agent")
+            if agent is not None:
+                for reject in config.RejectClients:
+                    if reject.search(agent) is not None:
+                        log.info("Rejecting user-agent: %s" % (agent,))
+                        raise HTTPError(StatusResponse(
+                            responsecode.FORBIDDEN,
+                            "Your client software (%s) is not allowed to access this service." % (agent,)
+                        ))
 
         def _getCachedResource(_ign, request):
             if not getattr(request, 'checkingCache', False):
