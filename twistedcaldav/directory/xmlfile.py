@@ -22,6 +22,8 @@ __all__ = [
     "XMLDirectoryService",
 ]
 
+from time import time
+
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
@@ -48,6 +50,7 @@ class XMLDirectoryService(DirectoryService):
 
         self.xmlFile = xmlFile
         self._fileInfo = None
+        self._lastCheck = 0
         self._accounts()
 
     def recordTypes(self):
@@ -88,7 +91,10 @@ class XMLDirectoryService(DirectoryService):
             return
 
     def _accounts(self):
-        self.xmlFile.restat()
+        currentTime = time()
+        if currentTime - self._lastCheck > 60:
+            self.xmlFile.restat()
+            self._lastCheck = currentTime
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
         if fileInfo != self._fileInfo:
             parser = XMLAccountsParser(self.xmlFile)
