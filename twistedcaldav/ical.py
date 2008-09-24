@@ -834,6 +834,22 @@ class Component (object):
             rid = self.getRecurrenceIDUTC()
             return (rid,)
 
+    def isRecurring(self):
+        """
+        Check whether any recurrence properties are present in any component.
+        """
+
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE" and component.isRecurring():
+                    return True
+        else:
+            for propname in ("RRULE", "RDATE", "EXDATE", "RECUURENCE-ID",):
+                if self.hasProperty(propname):
+                    return True
+        return False
+        
     def deriveInstance(self, rid):
         """
         Derive an instance from the master component that has the provided RECURRENCE-ID, but

@@ -18,6 +18,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.itip import iTipGenerator
 
+from vobject.icalendar import dateTimeToString
+
 """
 Class that handles diff'ing two calendar objects.
 """
@@ -113,6 +115,58 @@ class iCalDiff(object):
         # component instance from the old one
         return self._compareComponents()
     
+    def whatIsDifferent(self):
+        """
+        Compare the two calendar objects in their entirety and return a list of properties
+        and PARTSTAT parameters that are different.
+        """
+
+        # First get uid/rid map of components
+        def mapComponents(calendar):
+            map = {}
+            for component in calendar.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                name = component.name()
+                uid = component.propertyValue("UID")
+                rid = component.getRecurrenceIDUTC()
+                map[(name, uid, rid,)] = component
+            return map
+        
+        props_changed = set()
+        rids = set()
+
+        map1 = mapComponents(self.calendar1)
+        set1 = set(map1.keys())
+        map2 = mapComponents(self.calendar2)
+        set2 = set(map2.keys())
+
+        # Now verify that each component in set1 matches what is in set2
+        for key in (set1 & set2):
+            component1 = map1[key]
+            component2 = map2[key]
+            self._diffComponents(component1, component2, props_changed, rids)
+        
+        # Now verify that each additional component in set1 matches a derived component in set2
+        for key in set1 - set2:
+            component1 = map1[key]
+            component2 = self.calendar2.deriveInstance(key[2])
+            if component2 is None:
+                continue
+            self._diffComponents(component1, component2, props_changed, rids)
+        
+        # Now verify that each additional component in set1 matches a derived component in set2
+        for key in set2 - set1:
+            component1 = self.calendar1.deriveInstance(key[2])
+            if component1 is None:
+                continue
+            component2 = map2[key]
+            self._diffComponents(component1, component2, props_changed, rids)
+        
+        if not self.calendar1.isRecurring() and not self.calendar2.isRecurring() or not props_changed:
+            rids = None
+        return props_changed, rids
+
     def _checkVCALENDARProperties(self):
 
         # Get property differences in the VCALENDAR objects
@@ -243,3 +297,41 @@ class iCalDiff(object):
             return False, False
         
         return True, len(propdiff) == 0
+
+    def _diffComponents(self, comp1, comp2, changed, rids):
+        
+        assert isinstance(comp1, Component) and isinstance(comp2, Component)
+        
+        if comp1.name() != comp2.name():
+            log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
+            return
+        
+        # Diff all the properties
+        comp1.transformAllFromNative()
+        comp2.transformAllFromNative()
+        propdiff = set(comp1.properties()) ^ set(comp2.properties())
+        comp1.transformAllToNative()
+        comp2.transformAllToNative()
+        
+        regular_changes = [prop.name() for prop in propdiff if prop.name() != "ATTENDEE"]
+        changed.update(regular_changes)
+        
+        attendees = set([prop for prop in propdiff if prop.name() == "ATTENDEE"])
+        done_attendee = ("ATTENDEE" in changed)
+        done_partstat = ("PARTSTAT" in changed)
+        for ctr, attendee in enumerate(attendees):
+            for check_ctr, check_attendee in enumerate(attendees):
+                if (ctr != check_ctr) and check_attendee.value() == attendee.value():
+                    if check_attendee.params().get("PARTSTAT", ("NEEDS-ACTION",)) != attendee.params().get("PARTSTAT", ("NEEDS-ACTION",)):
+                        changed.add("PARTSTAT")
+                        done_partstat = True
+                    break
+            else:
+                changed.add("ATTENDEE")
+                done_attendee = True
+            if done_attendee and done_partstat:
+                break
+
+        if regular_changes or done_attendee or done_partstat:
+            rid = comp1.getRecurrenceIDUTC()
+            rids.add(dateTimeToString(rid) if rid is not None else "")

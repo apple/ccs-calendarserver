@@ -152,7 +152,7 @@ class ScheduleViaCalDAV(DeliveryService):
         if not recipient.principal.autoSchedule():
             try:
                 processor = ImplicitProcessor()
-                processed, autoprocessed = (yield processor.doImplicitProcessing(
+                processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
                     self.scheduler.request,
                     self.scheduler.calendar,
                     self.scheduler.originator,
@@ -165,6 +165,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 returnValue(False)
         else:
             processed = autoprocessed = False
+            changes = None
 
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
@@ -200,6 +201,10 @@ class ScheduleViaCalDAV(DeliveryService):
             
                 # Store CALDAV:schedule-state property
                 child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleProcessed() if processed else caldavxml.ScheduleUnprocessed()))
+            
+                # Store CS:schedule-changes property if present
+                if changes:
+                    child.writeDeadProperty(changes)
             
                 # Look for auto-schedule option
                 if recipient.principal.autoSchedule():

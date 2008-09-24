@@ -28,6 +28,11 @@ from twisted.web2.dav import davxml
 
 from twistedcaldav.ical import Component as iComponent
 
+from vobject.icalendar import utc
+from vobject.icalendar import dateTimeToString
+
+import datetime
+
 calendarserver_namespace = "http://calendarserver.org/ns/"
 
 calendarserver_proxy_compliance = (
@@ -330,6 +335,201 @@ class FreeBusyURL (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "free-busy-url"
 
+class ScheduleChanges (davxml.WebDAVElement):
+    """
+    Change indicator for a scheduling message.
+    """
+    namespace = calendarserver_namespace
+    name = "schedule-changes"
+    protected = True
+    hidden = True
+    allowed_children = {
+        (calendarserver_namespace, "dtstamp" )     : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
+        (calendarserver_namespace, "action" )      : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
+    }
+
+class DTStamp (davxml.WebDAVTextElement):
+    """
+    A UTC timestamp in iCal format.
+    """
+    namespace = calendarserver_namespace
+    name = "dtstamp"
+
+    def __init__(self, *children):
+        super(DTStamp, self).__init__(children)
+        self.children = (davxml.PCDATAElement(dateTimeToString(datetime.datetime.now(tz=utc))),)
+
+class Action (davxml.WebDAVElement):
+    """
+    A UTC timestamp in iCal format.
+    """
+    namespace = calendarserver_namespace
+    name = "action"
+    allowed_children = {
+        (calendarserver_namespace, "create" ) : (0, 1),
+        (calendarserver_namespace, "update" ) : (0, 1),
+        (calendarserver_namespace, "cancel" ) : (0, 1),
+        (calendarserver_namespace, "reply" )  : (0, 1),
+    }
+
+class Create (davxml.WebDAVEmptyElement):
+    """
+    Event created.
+    """
+    namespace = calendarserver_namespace
+    name = "create"
+
+class Update (davxml.WebDAVElement):
+    """
+    Event updated.
+    """
+    namespace = calendarserver_namespace
+    name = "update"
+    allowed_children = {
+        (calendarserver_namespace, "changes" )     : (1, 1),
+        (calendarserver_namespace, "recurrences" ) : (0, 1),
+    }
+
+class Cancel (davxml.WebDAVElement):
+    """
+    Event cancelled.
+    """
+    namespace = calendarserver_namespace
+    name = "cancel"
+    allowed_children = {
+        (calendarserver_namespace, "recurrences" ) : (0, 1),
+    }
+
+class Reply (davxml.WebDAVElement):
+    """
+    Event replied to.
+    """
+    namespace = calendarserver_namespace
+    name = "reply"
+    allowed_children = {
+        (calendarserver_namespace, "attendee" )        : (1, 1),
+        (calendarserver_namespace, "partstat" )        : (0, 1),
+        (calendarserver_namespace, "private-comment" ) : (0, 1),
+    }
+
+class Attendee (davxml.WebDAVTextElement):
+    """
+    An attendee calendar user address.
+    """
+    namespace = calendarserver_namespace
+    name = "attendee"
+
+class PartStat (davxml.WebDAVEmptyElement):
+    """
+    An attendee partstat.
+    """
+    namespace = calendarserver_namespace
+    name = "partstat"
+
+class PrivateComment (davxml.WebDAVEmptyElement):
+    """
+    An attendee private comment.
+    """
+    namespace = calendarserver_namespace
+    name = "private-comment"
+
+class Changes (davxml.WebDAVElement):
+    """
+    Changes to an event.
+    """
+    namespace = calendarserver_namespace
+    name = "changes"
+    allowed_children = {
+        (calendarserver_namespace, "datetime" )          : (0, 1),
+        (calendarserver_namespace, "location" )          : (0, 1),
+        (calendarserver_namespace, "summary" )           : (0, 1),
+        (calendarserver_namespace, "description" )       : (0, 1),
+        (calendarserver_namespace, "recurrence" )        : (0, 1),
+        (calendarserver_namespace, "status" )            : (0, 1),
+        (calendarserver_namespace, "attendees" )         : (0, 1),
+        (calendarserver_namespace, "attendee-partstat" ) : (0, 1),
+    }
+
+class Datetime (davxml.WebDAVEmptyElement):
+    """
+    Date time change.
+    """
+    namespace = calendarserver_namespace
+    name = "datetime"
+
+class Location (davxml.WebDAVEmptyElement):
+    """
+    Location changed.
+    """
+    namespace = calendarserver_namespace
+    name = "location"
+
+class Summary (davxml.WebDAVEmptyElement):
+    """
+    Summary changed.
+    """
+    namespace = calendarserver_namespace
+    name = "summary"
+
+class Description (davxml.WebDAVEmptyElement):
+    """
+    Description changed.
+    """
+    namespace = calendarserver_namespace
+    name = "description"
+
+class Recurrence (davxml.WebDAVEmptyElement):
+    """
+    Recurrence changed.
+    """
+    namespace = calendarserver_namespace
+    name = "recurrence"
+
+class Status (davxml.WebDAVEmptyElement):
+    """
+    Status changed.
+    """
+    namespace = calendarserver_namespace
+    name = "status"
+
+class Attendees (davxml.WebDAVEmptyElement):
+    """
+    Attendees changed.
+    """
+    namespace = calendarserver_namespace
+    name = "attendees"
+
+class AttendeePartStat (davxml.WebDAVEmptyElement):
+    """
+    Attendee partstats changed.
+    """
+    namespace = calendarserver_namespace
+    name = "attendee-partstat"
+
+class Recurrences (davxml.WebDAVElement):
+    """
+    Changes to an event.
+    """
+    namespace = calendarserver_namespace
+    name = "recurrences"
+    allowed_children = {
+        (calendarserver_namespace, "master" )       : (0, 1),
+        (calendarserver_namespace, "recurrenceid" ) : (0, None),
+    }
+
+class Master (davxml.WebDAVEmptyElement):
+    """
+    Master instance changed.
+    """
+    namespace = calendarserver_namespace
+    name = "master"
+
+class RecurrenceID (davxml.WebDAVTextElement):
+    """
+    A recurrence instance changed.
+    """
+    namespace = calendarserver_namespace
+    name = "recurrenceid"
 
 ##
 # Extensions to davxml.ResourceType

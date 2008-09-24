@@ -22,6 +22,7 @@ from twistedcaldav.scheduling.itip import iTipProcessing
 from hashlib import md5
 from twisted.web2.dav.util import joinURL
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav import customxml
 import time
 
 __all__ = [
@@ -132,7 +133,7 @@ class ImplicitProcessor(object):
         yield self.getRecipientsCopy()
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            returnValue((True, True,))
+            returnValue((True, True, None,))
 
         # Handle new items differently than existing ones.
         if self.method == "REPLY":
@@ -140,7 +141,7 @@ class ImplicitProcessor(object):
         elif self.method == "REFRESH":
             # With implicit we ignore refreshes.
             # TODO: for iMIP etc we do need to handle them 
-            result = (True, True,)
+            result = (True, True, None,)
 
         returnValue(result)
 
@@ -148,19 +149,41 @@ class ImplicitProcessor(object):
     def doImplicitOrganizerUpdate(self):
         
         # Check to see if this is a valid reply
-        result, processed_attendees = iTipProcessing.processReply(self.message, self.recipient_calendar)
+        result, processed = iTipProcessing.processReply(self.message, self.recipient_calendar)
         if result:
  
             # Update the attendee's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             recipient_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
-            result = (True, False,)
             
+            # Build the schedule-changes XML element
+            processed_attendees, partstat_changed, private_comment_changed, rids = processed
+            reply_details = (customxml.Attendee.fromString(tuple(processed_attendees)[0]),)
+            if partstat_changed:
+                reply_details += (customxml.PartStat(),)
+            if private_comment_changed:
+                reply_details += (customxml.PrivateComment(),)
+            if rids is not None:
+                recurrences = []
+                if "" in rids:
+                    recurrences.append(customxml.Master())
+                recurrences.extend([customxml.RecurrenceID.fromString(rid) for rid in rids if rid != ""])
+                reply_details += (customxml.Recurrences(*recurrences),)
+
+            changes = customxml.ScheduleChanges(
+                customxml.DTStamp(),
+                customxml.Action(
+                    customxml.Reply(*reply_details),
+                ),
+            )
+
             self.updateAllAttendeesExceptSome(recipient_calendar_resource, processed_attendees)
+
+            result = (True, False, changes,)
 
         else:
             # Ignore scheduling message
-            result = (True, True,)
+            result = (True, True, None,)
 
         returnValue(result)
 
@@ -186,7 +209,7 @@ class ImplicitProcessor(object):
 
         # Handle new items differently than existing ones.
         if self.new_resource and self.method == "CANCEL":
-            result = (True, True,)
+            result = (True, True, None)
         else:
             result = (yield self.doImplicitAttendeeUpdate())
         
@@ -197,17 +220,17 @@ class ImplicitProcessor(object):
         
         # Different based on method
         if self.method == "REQUEST":
-            result = (yield self.doImplicitAttendeRequest())
+            result = (yield self.doImplicitAttendeeRequest())
         elif self.method == "CANCEL":
-            result = (yield self.doImplicitAttendeCancel())
+            result = (yield self.doImplicitAttendeeCancel())
         elif self.method == "ADD":
             # TODO: implement ADD
-            result = (False, False,)
+            result = (False, False, None)
             
         returnValue(result)
 
     @inlineCallbacks
-    def doImplicitAttendeRequest(self):
+    def doImplicitAttendeeRequest(self):
 
         # If there is no existing copy, then look for default calendar and copy it here
         if self.new_resource:
@@ -225,55 +248,116 @@ class ImplicitProcessor(object):
                 new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
                 name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
                 yield self.writeCalendarResource(defaultURL, default, name, new_calendar)
-                result = (True, False,)
+                
+                # Build the schedule-changes XML element
+                changes = customxml.ScheduleChanges(
+                    customxml.DTStamp(),
+                    customxml.Action(
+                        customxml.Create(),
+                    ),
+                )
+                result = (True, False, changes,)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new not processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (False, False,)
+                result = (False, False, None,)
         else:
             # Processing update to existing event
-            new_calendar = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr)
+            new_calendar, props_changed, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr)
             if new_calendar:
      
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar)
-                result = (True, False,)
+
+                # Build the schedule-changes XML element
+                changes = ()
+                if props_changed:
+                    changemap = {
+                        "DTSTART"     : customxml.Datetime(),
+                        "DTEND"       : customxml.Datetime(),
+                        "DURATION"    : customxml.Datetime(),
+                        "DUE"         : customxml.Datetime(),
+                        "COMPLETED"   : customxml.Datetime(),
+                        "LOCATION"    : customxml.Location(),
+                        "SUMMARY"     : customxml.Summary(),
+                        "DESCRIPTION" : customxml.Description(),
+                        "RRULE"       : customxml.Recurrence(),
+                        "RDATE"       : customxml.Recurrence(),
+                        "EXDATE"      : customxml.Recurrence(),
+                        "STATUS"      : customxml.Status(),
+                        "ATTENDEE"    : customxml.Attendees(),
+                        "PARTSTAT"    : customxml.PartStat(),
+                    }
+                    changes += tuple([changemap[prop] for prop in props_changed if prop in changemap])
+                update_details = (customxml.Changes(*changes),)
+                if rids is not None:
+                    recurrences = []
+                    if "" in rids:
+                        recurrences.append(customxml.Master())
+                    recurrences.extend([customxml.RecurrenceID.fromString(rid) for rid in rids if rid != ""])
+                    update_details += (customxml.Recurrences(*recurrences),)
+                changes = customxml.ScheduleChanges(
+                    customxml.DTStamp(),
+                    customxml.Action(
+                        customxml.Update(*update_details),
+                    ),
+                )
+                result = (True, False, changes,)
                 
             else:
                 # Request needs to be ignored
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True,)
+                result = (True, True, None,)
 
         returnValue(result)
 
 
     @inlineCallbacks
-    def doImplicitAttendeCancel(self):
+    def doImplicitAttendeeCancel(self):
 
         # If there is no existing copy, then ignore
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            result = (True, True,)
+            result = (True, True, None)
         else:
             # Check to see if this is a cancel of the entire event
-            processed_message, delete_original = iTipProcessing.processCancel(self.message, self.recipient_calendar)
+            processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar)
             if processed_message:
                 if delete_original:
                     
                     # Delete the attendee's copy of the event
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                     yield self.deleteCalendarResource(self.recipient_calendar_collection, self.recipient_calendar_name)
-                    result = (True, False,)
+
+                    # Build the schedule-changes XML element
+                    changes = customxml.ScheduleChanges(
+                        customxml.DTStamp(),
+                        customxml.Action(
+                            customxml.Cancel(),
+                        ),
+                    )
+                    result = (True, False, changes,)
                     
                 else:
          
                     # Update the attendee's copy of the event
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                     yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
-                    result = (True, False,)
+
+                    # Build the schedule-changes XML element
+                    changes = customxml.ScheduleChanges(
+                        customxml.DTStamp(),
+                        customxml.Action(
+                            customxml.Cancel(),
+                            customxml.Recurrences(
+                                *[customxml.RecurrenceID.fromString(rid) for rid in rids]
+                            ),
+                        ),
+                    )
+                    result = (True, False, changes)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True,)
+                result = (True, True, None)
 
         returnValue(result)
 

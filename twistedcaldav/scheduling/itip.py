@@ -82,11 +82,16 @@ class iTipProcessing(object):
         @param calendar: the calendar object to apply the REQUEST to
         @type calendar:
         
-        @return: calendar object ready to save, or C{None} (request should be ignored)
+        @return: a C{tuple} of:
+            calendar object ready to save, or C{None} (request should be ignored)
+            a C{set} of iCalendar properties that changed, or C{None},
+            a C{set} of recurrences that changed, or C{None}
         """
         
         # Merge Organizer data with Attendee's own changes (VALARMs only for now).
-        
+        from twistedcaldav.scheduling.icaldiff import iCalDiff
+        props_changed, rids = iCalDiff(calendar, itip_message).whatIsDifferent()
+
         # Different behavior depending on whether a master component is present or not
         current_master = calendar.masterComponent()
         if current_master:
@@ -110,7 +115,7 @@ class iTipProcessing(object):
                     iTipProcessing.transferAlarms(calendar, master_valarms, component)
             
             # Replace the entire object
-            return new_calendar
+            return new_calendar, props_changed, rids
 
         else:
             # Need existing tzids
@@ -129,7 +134,7 @@ class iTipProcessing(object):
                         iTipProcessing.fixForiCal3((component,), recipient)
 
             # Write back the modified object
-            return calendar
+            return calendar, props_changed, rids
 
     @staticmethod
     def processCancel(itip_message, calendar):
@@ -146,6 +151,7 @@ class iTipProcessing(object):
         @return: C{tuple} of:
             C{bool} : C{True} if processed, C{False} if scheduling message should be ignored
             C{bool} : C{True} if calendar object should be deleted, C{False} otherwise
+            C{set}  : set of Recurrence-IDs for cancelled instances, or C{None} if all cancelled
         """
         
         assert itip_message.propertyValue("METHOD") == "CANCEL", "iTIP message must have METHOD:CANCEL"
@@ -153,7 +159,7 @@ class iTipProcessing(object):
 
         # Check to see if this is a cancel of the entire event
         if itip_message.masterComponent() is not None:
-            return True, True
+            return True, True, None
 
         # iTIP CANCEL can contain multiple components being cancelled in the RECURRENCE-ID case.
         # So we need to iterate over each iTIP component.
@@ -161,6 +167,7 @@ class iTipProcessing(object):
         # Get the existing calendar master object if it exists
         calendar_master = calendar.masterComponent()
         exdates = []
+        rids = set()
 
         # Look at each component in the iTIP message
         for component in itip_message.subcomponents():
@@ -169,6 +176,7 @@ class iTipProcessing(object):
         
             # Extract RECURRENCE-ID value from component
             rid = component.getRecurrenceIDUTC()
+            rids.add(rid)
             
             # Get the one that matches in the calendar
             overridden = calendar.overriddenComponent(rid)
@@ -195,9 +203,9 @@ class iTipProcessing(object):
         # in which case the calendar object is empty (except for VTIMEZONEs).
         if calendar.mainType() is None:
             # Delete the now empty calendar object
-            return True, True
+            return True, True, None
         else:
-            return True, False
+            return True, False, rids
     
     @staticmethod
     def processReply(itip_message, calendar):
@@ -211,7 +219,9 @@ class iTipProcessing(object):
         @param calendar: the calendar object to apply the REPLY to
         @type calendar:
         
-        @return: C{True} if processed, C{False} if scheduling message should be ignored
+        @return: a C{tuple} of:
+            C{True} if processed, C{False} if scheduling message should be ignored
+            C{tuple} of change info
         """
         
         assert itip_message.propertyValue("METHOD") == "REPLY", "iTIP message must have METHOD:REPLY"
@@ -225,8 +235,16 @@ class iTipProcessing(object):
         old_master = calendar.masterComponent()
         new_master = itip_message.masterComponent()
         attendees = set()
+        partstat_changed = False
+        private_comment_changed = False
+        rids = set() if old_master.isRecurring() else None
         if new_master:
-            attendees.add(iTipProcessing.updateAttendeeData(new_master, old_master))
+            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
+            attendees.add(attendee)
+            partstat_changed = partstat_changed or partstat
+            private_comment_changed = private_comment_changed or private_comment
+            if rids is not None:
+                rids.add("")
 
         # Now do all overridden ones
         for itip_component in itip_message.subcomponents():
@@ -246,9 +264,14 @@ class iTipProcessing(object):
                 match_component = calendar.deriveInstance(rid)
                 calendar.addComponent(match_component)
 
-            attendees.add(iTipProcessing.updateAttendeeData(itip_component, match_component))
-                
-        return True, attendees
+            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
+            attendees.add(attendee)
+            partstat_changed = partstat_changed or partstat
+            private_comment_changed = private_comment_changed or private_comment
+            if rids is not None:
+                rids.add(rid)
+
+        return True, (attendees, partstat_changed, private_comment_changed, rids)
 
     @staticmethod
     def updateAttendeeData(from_component, to_component):
@@ -262,6 +285,10 @@ class iTipProcessing(object):
         @type to_component:
         """
         
+        # Track what changed
+        partstat_changed = False
+        private_comment_changed = False
+
         # Get attendee in from_component - there MUST be only one
         attendees = tuple(from_component.properties("ATTENDEE"))
         assert len(attendees) == 1, "There must be one and only one ATTENDEE property in a REPLY"
@@ -271,7 +298,9 @@ class iTipProcessing(object):
         # Now find matching ATTENDEE in to_component
         existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
         if existing_attendee:
+            oldpartstat = existing_attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
             existing_attendee.params().setdefault("PARTSTAT", [partstat])[0] = partstat
+            partstat_changed = (oldpartstat != partstat)
             
             # Handle attendee comments
             
@@ -307,6 +336,8 @@ class iTipProcessing(object):
                 # Set value empty
                 private_comment.setValue("")
                 
+                private_comment_changed = True
+                
             elif attendee_comment is not None and private_comment is None:
                 
                 # Add new property
@@ -319,6 +350,8 @@ class iTipProcessing(object):
                     }
                 )
                 to_component.addProperty(private_comment)
+                
+                private_comment_changed = True
             
             else:
                 # Remove all property parameters
@@ -329,9 +362,12 @@ class iTipProcessing(object):
                 private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
                 
                 # Set new value
+                oldvalue = private_comment.value()
                 private_comment.setValue(attendee_comment.value())
 
-        return attendee.value()
+                private_comment_changed = (oldvalue != attendee_comment.value())
+
+        return attendee.value(), partstat_changed, private_comment_changed
 
     @staticmethod
     def transferAlarms(from_calendar, master_valarms, to_component, remove_matched=False):
