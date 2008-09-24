@@ -168,7 +168,7 @@ class XMLAccountRecord (object):
         self.name = None
         self.firstName = None
         self.lastName = None
-        self.emailAddress = None
+        self.emailAddresses = set()
         self.members = set()
         self.groups = set()
         self.calendarUserAddresses = set()
@@ -209,10 +209,12 @@ class XMLAccountRecord (object):
             lastName = self.lastName % ctr
         else:
             lastName = self.lastName
-        if self.emailAddress and self.emailAddress.find("%") != -1:
-            emailAddress = self.emailAddress % ctr
-        else:
-            emailAddress = self.emailAddress
+        emailAddresses = set()
+        for emailAddr in self.emailAddresses:
+            if emailAddr.find("%") != -1:
+                emailAddresses.add(emailAddr % ctr)
+            else:
+                emailAddresses.add(emailAddr)
         calendarUserAddresses = set()
         for cuaddr in self.calendarUserAddresses:
             if cuaddr.find("%") != -1:
@@ -227,7 +229,7 @@ class XMLAccountRecord (object):
         result.name = name
         result.firstName = firstName
         result.lastName = lastName
-        result.emailAddress = emailAddress
+        result.emailAddresses = emailAddresses
         result.members = self.members
         result.calendarUserAddresses = calendarUserAddresses
         result.autoSchedule = self.autoSchedule
@@ -266,7 +268,7 @@ class XMLAccountRecord (object):
                     self.lastName = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_EMAIL_ADDRESS:
                 if child.firstChild is not None:
-                    self.emailAddress = child.firstChild.data.encode("utf-8")
+                    self.emailAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:

@@ -134,7 +134,7 @@ class DirectoryProvisioningResource (
         ("DAV:" , "displayname") : "fullName",
         (_cs_ns, "first-name") : "firstName",
         (_cs_ns, "last-name") : "lastName",
-        (_cs_ns, "email-address") : "emailAddress",
+        (_cs_ns, "email-address-set") : "emailAddresses",
     }
 
     def propertyToField(self, property):
@@ -462,7 +462,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
-            """Email address: %s\n"""          % (self.record.emailAddress,),
+            """Email addresses:\n"""           , format_list(self.record.emailAddresses),
             """Principal UID: %s\n"""          % (self.principalUID(),),
             """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
@@ -625,7 +625,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
-            """Email address: %s\n"""          % (self.record.emailAddress,),
+            """Email addresses:\n"""           , format_list(self.record.emailAddresses),
             """Principal UID: %s\n"""          % (self.principalUID(),),
             """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),

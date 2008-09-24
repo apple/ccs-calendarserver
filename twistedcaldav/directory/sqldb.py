@@ -352,7 +352,7 @@ class SQLDirectoryRecord(DirectoryRecord):
             fullName              = name,
             firstName             = None,
             lastName              = None,
-            emailAddress          = None,
+            emailAddresses        = set(),
             calendarUserAddresses = calendarUserAddresses,
             autoSchedule          = autoSchedule,
         )

@@ -315,13 +315,23 @@ class LastNameProperty (davxml.WebDAVTextElement):
     name = "last-name"
     protected = True
 
-class EMailProperty (davxml.WebDAVTextElement):
+class EmailAddressProperty (davxml.WebDAVTextElement):
     """
     A property representing email address of a principal
     """
     namespace = calendarserver_namespace
     name = "email-address"
     protected = True
+
+class EmailAddressSet (davxml.WebDAVElement):
+    """
+    The list of email addresses of a principal
+    """
+    namespace = calendarserver_namespace
+    name = "email-address-set"
+    hidden = True
+
+    allowed_children = { (calendarserver_namespace, "email-address"): (0, None) }
 
 class IScheduleInbox (davxml.WebDAVEmptyElement):
     """

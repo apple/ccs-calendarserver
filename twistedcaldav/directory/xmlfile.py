@@ -116,7 +116,7 @@ class XMLDirectoryRecord(DirectoryRecord):
             fullName              = xmlPrincipal.name,
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,
-            emailAddress          = xmlPrincipal.emailAddress,
+            emailAddresses        = xmlPrincipal.emailAddresses,
             calendarUserAddresses = xmlPrincipal.calendarUserAddresses,
             autoSchedule          = xmlPrincipal.autoSchedule,
             enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
