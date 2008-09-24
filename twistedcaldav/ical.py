@@ -308,8 +308,10 @@ class Component (object):
 
         my_subcomponents = set(self.subcomponents())
         for subcomponent in other.subcomponents():
-            if subcomponent in my_subcomponents:
-                my_subcomponents.remove(subcomponent)
+            for testcomponent in my_subcomponents:
+                if subcomponent == testcomponent:
+                    my_subcomponents.remove(testcomponent)
+                    break
             else:
                 return False
         if my_subcomponents:
@@ -1400,7 +1402,7 @@ class Component (object):
             if remove:
                 [component.removeProperty(p) for p in tuple(component.properties()) if p.name() in remove]
                 
-    def removeXProperties(self, keep_properties):
+    def removeXProperties(self, keep_properties=()):
         """
         Remove all X- properties except the specified ones
         """
@@ -1434,6 +1436,28 @@ class Component (object):
                     except KeyError:
                         pass
 
+    def removePropertyParametersByValue(self, property, paramvalues):
+        """
+        Remove all specified property parameters
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            props = component.properties(property)
+            for prop in props:
+                for param, value in paramvalues:
+                    try:
+                        prop.params()[param].remove(value)
+                        if len(prop.params()[param]) == 0:
+                            del prop.params()[param]
+                    except KeyError:
+                        pass
+                    except ValueError:
+                        pass
+
     def normalizePropertyValueLists(self, propname):
         """
         Convert properties that have a list of values into single properties, to make it easier
@@ -1450,7 +1474,15 @@ class Component (object):
                     component.removeProperty(prop)
                     for value in prop.value():
                         component.addProperty(Property(propname, [value,]))
+
+    def sortByValue(self, component):
+        """
+        Sort all multi-occurring properties by value.
+        """
         
+        for prop in component.properties():
+            pass
+
 ##
 # Dates and date-times
 ##
