@@ -270,7 +270,14 @@ class InstanceList(object):
             # dateutils does not do all-day - so convert to datetime.datetime
             start = normalizeForIndex(start)
             end = normalizeForIndex(end)
-            self.addInstance(Instance(component, start, end))
+            
+            # Do not add if in EXDATEs
+            exdates = []
+            for prop in component.properties("EXDATE"):
+                exdates.extend(prop.value())
+            exdates = [normalizeForIndex(exdate) for exdate in exdates]
+            if start not in exdates:
+                self.addInstance(Instance(component, start, end))
         else:
             self.limit = limit
         
