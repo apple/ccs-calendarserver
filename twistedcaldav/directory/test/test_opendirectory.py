@@ -69,7 +69,7 @@ else:
                 fullName              = "Some user",
                 firstName             = "Some",
                 lastName              = "User",
-                emailAddress          = "someuser@example.com",
+                emailAddresses        = set(("someuser@example.com",)),
                 calendarUserAddresses = set(("mailtoguid@example.com",)),
                 autoSchedule          = False,
                 enabledForCalendaring = True,

@@ -656,19 +656,22 @@ class MailHandler(LoggingMixIn):
         addressWithToken = "%s+%s@%s" % (pre, token, post)
         calendar.getOrganizerProperty().setValue("mailto:%s" %
             (addressWithToken,))
+        calendar.getAttendeeProperty([organizer]).setValue("mailto:%s" %
+            (addressWithToken,))
 
         msgId, message = self._generateTemplateMessage(calendar, organizer)
 
         # The email's From: will be the calendar server's address (without
         # + addressing), while the Reply-To: will be the organizer's email
-        # address.
-        if not organizer.startswith("mailto:"):
-            raise ValueError("ORGANIZER address '%s' must be mailto: for iMIP operation." % (organizer,))
-        organizer = organizer[7:]
+        # address (but only if it *is* an email address).
+        if organizer.startswith("mailto:"):
+            message = message.replace("${replytoaddress}", organizer[7:])
+        else:
+            message = message.replace("${replytoaddress}", addressWithToken)
+
         fromAddr = serverAddress
         toAddr = attendee
         message = message.replace("${fromaddress}", fromAddr)
-        message = message.replace("${replytoaddress}", organizer)
 
         if not attendee.startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
