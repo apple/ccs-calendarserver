@@ -117,7 +117,7 @@ defaultConfig = {
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "ServicePrincipal": ''
+            "ServicePrincipal": ""
         },
     },
 
@@ -140,9 +140,9 @@ defaultConfig = {
     #
     # SSL/TLS
     #
-    "SSLCertificate": "/etc/certificates/Default.crt", # Public key
-    "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
-    "SSLAuthorityChain": "",                           # Certificate Authority Chain
+    "SSLCertificate"     : "",  # Public key
+    "SSLPrivateKey"      : "",  # Private key
+    "SSLAuthorityChain"  : "",  # Certificate Authority Chain
     "SSLPassPhraseDialog": "/etc/apache2/getsslpassphrase",
 
     #
