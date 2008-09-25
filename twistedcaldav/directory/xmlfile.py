@@ -42,7 +42,7 @@ class XMLDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
 
-    def __init__(self, xmlFile):
+    def __init__(self, xmlFile, alwaysStat=False):
         super(XMLDirectoryService, self).__init__()
 
         if type(xmlFile) is str:
@@ -51,6 +51,7 @@ class XMLDirectoryService(DirectoryService):
         self.xmlFile = xmlFile
         self._fileInfo = None
         self._lastCheck = 0
+        self._alwaysStat = alwaysStat
         self._accounts()
 
     def recordTypes(self):
@@ -92,7 +93,7 @@ class XMLDirectoryService(DirectoryService):
 
     def _accounts(self):
         currentTime = time()
-        if currentTime - self._lastCheck > 60:
+        if self._alwaysStat or currentTime - self._lastCheck > 60:
             self.xmlFile.restat()
             self._lastCheck = currentTime
         fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
