@@ -514,20 +514,6 @@ if ! py_have_module xattr; then
 fi;
 
 #
-# ctypes
-#
-
-if ! py_have_module ctypes; then
-  ctypes="${top}/ctypes-1.0.0"
-
-  www_get "ctypes" "${ctypes}" http://easynews.dl.sourceforge.net/sourceforge/ctypes/ctypes-1.0.0.tar.gz;
-  py_build "ctypes" "${ctypes}" true;
-  py_install "ctypes" "${ctypes}";
-
-  export PYTHONPATH="${PYTHONPATH}:${ctypes}/build/${py_platform_libdir}";
-fi;
-
-#
 # select26
 #
 
