@@ -635,20 +635,6 @@ py_install "vObject" "${vobject}";
 export PYTHONPATH="${PYTHONPATH}:${vobject}";
 
 #
-# PySQLite
-#
-
-if ! py_have_module sqlite3 && ! py_have_module pysqlite2; then
-  pysqlite="${top}/pysqlite-2.5.0";
-
-  www_get "PySQLite" "${pysqlite}" http://oss.itsystementwicklung.de/download/pysqlite/2.5/2.5.0/pysqlite-2.5.0a.tar.gz;
-  py_build "PySQLite" "${pysqlite}" false;
-  py_install "PySQLite" "${pysqlite}";
-
-  export PYTHONPATH="${PYTHONPATH}:${pysqlite}/build/${py_platform_libdir}";
-fi;
-
-#
 # PyDirector
 #
 
