@@ -445,7 +445,7 @@ fi;
 if ! py_have_module xml.dom.ext; then
   xml="${top}/PyXML-0.8.4";
 
-  www_get "PyXML" "${xml}" http://ufpr.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+  www_get "PyXML" "${xml}" http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
   py_build "PyXML" "${xml}" false;
   py_install "PyXML" "${xml}";
 
@@ -457,9 +457,9 @@ fi;
 #
 
 if ! py_have_module OpenSSL; then
-  ssl="${top}/pyOpenSSL-0.6";
+  ssl="${top}/pyOpenSSL-0.7";
 
-  www_get "PyOpenSSL" "${ssl}" http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
+  www_get "PyOpenSSL" "${ssl}" http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.7.tar.gz;
   py_build "PyOpenSSL" "${ssl}" false;
   py_install "PyOpenSSL" "${ssl}";
 
