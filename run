@@ -531,9 +531,9 @@ if ! type memcached >& /dev/null; then
   #
   # libevent
   #
-  libevent="${top}/libevent-1.4.4-stable"
+  libevent="${top}/libevent-1.4.8-stable"
 
-  www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
+  www_get "libevent" "${libevent}" http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz
 
   if "${do_setup}" && (
     "${force_setup}" || [ ! -d "${libevent}/_root" ]
