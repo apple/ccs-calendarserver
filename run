@@ -516,7 +516,7 @@ fi;
 # select26
 #
 
-if ! py_have_module select26; then
+if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
   select26="${top}/select26-0.1a3"
 
   www_get "select26" "${select26}" http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz;
