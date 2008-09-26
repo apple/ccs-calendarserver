@@ -88,7 +88,7 @@ class iTipProcessing(object):
             a C{set} of recurrences that changed, or C{None}
         """
         
-        # Merge Organizer data with Attendee's own changes (VALARMs only for now).
+        # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from twistedcaldav.scheduling.icaldiff import iCalDiff
         props_changed, rids = iCalDiff(calendar, itip_message).whatIsDifferent()
 
@@ -96,23 +96,27 @@ class iTipProcessing(object):
         current_master = calendar.masterComponent()
         if current_master:
             master_valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
+            private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
         else:
             master_valarms = ()
+            private_comments = ()
 
         if itip_message.masterComponent() is not None:
             
             # Get a new calendar object first
             new_calendar = iTipProcessing.processNewRequest(itip_message, recipient)
             
-            # Copy over master alarms
+            # Copy over master alarms, comments
             master_component = new_calendar.masterComponent()
             for alarm in master_valarms:
                 master_component.addComponent(alarm)
+            for comment in private_comments:
+                master_component.addProperty(comment)
                 
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferAlarms(calendar, master_valarms, component)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, component)
             
             # Replace the entire object
             return new_calendar, props_changed, rids
@@ -128,7 +132,7 @@ class iTipProcessing(object):
                     if component.propertyValue("TZID") not in tzids:
                         calendar.addComponent(component)
                 else:
-                    iTipProcessing.transferAlarms(calendar, master_valarms, component, remove_matched=True)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
                     calendar.addComponent(component)
                     if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
                         iTipProcessing.fixForiCal3((component,), recipient)
@@ -373,7 +377,7 @@ class iTipProcessing(object):
         return attendee.value(), partstat_changed, private_comment_changed
 
     @staticmethod
-    def transferAlarms(from_calendar, master_valarms, to_component, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, to_component, remove_matched=False):
 
         rid = to_component.getRecurrenceIDUTC()
 
@@ -382,6 +386,7 @@ class iTipProcessing(object):
         if matched:
             # Copy over VALARMs from existing component
             [to_component.addComponent(comp) for comp in matched.subcomponents() if comp.name() == "VALARM"]
+            [to_component.addProperty(prop) for prop in matched.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")]
 
             # Remove the old one
             if remove_matched:
@@ -390,9 +395,8 @@ class iTipProcessing(object):
         else:
             # It is a new override - copy any valarms on the existing master component
             # into the new one.
-            for alarm in master_valarms:
-                # Just copy in the new override
-                to_component.addComponent(alarm)
+            [to_component.addComponent(alarm) for alarm in master_valarms]
+            [to_component.addProperty(comment) for comment in private_comments]
     
     @staticmethod
     def fixForiCal3(components, recipient):
