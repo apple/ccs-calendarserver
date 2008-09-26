@@ -654,8 +654,7 @@ fi;
 
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
-
-  www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+  www_get "PyDirector" "${pydirector}" http://voxel.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
   put_setuptools "${pydirector}";
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
