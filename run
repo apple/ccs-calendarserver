@@ -604,9 +604,9 @@ fi;
 #
 
 if ! py_have_module dateutil; then
-    dateutil="${top}/python-dateutil-1.2";
+    dateutil="${top}/python-dateutil-1.4.1";
 
-    www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.2.tar.bz2;
+    www_get "dateutil" "${dateutil}" http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz;
     py_install "dateutil" "${dateutil}";
 
     export PYTHONPATH="${PYTHONPATH}:${dateutil}";
