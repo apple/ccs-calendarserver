@@ -50,34 +50,23 @@ class iCalDiff(object):
         changed by an organizer. Basically any change except for anything related to a VALARM.
         """
         
-        removeProperties = (
-            "CREATED",
-            "DTSTAMP",
-            "LAST-MODIFIED",
-        )
-        
-        removeAttendeeParameters = (
-            "SCHEDULE-AGENT",
-            "SCHEDULE-STATUS",
-        )
-
-        removeAttendeeParametersByValue = (
-            ("PARTSTAT", "NEEDS-ACTION"),
-        )
-
-        # Do straight comparison without alarms
-        self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.removeAlarms()
-        self.calendar1.filterProperties(remove=removeProperties)
-        self.calendar1.removeXProperties()
-        self.calendar1.removePropertyParameters("ATTENDEE", removeAttendeeParameters)
-        self.calendar1.removePropertyParametersByValue("ATTENDEE", removeAttendeeParametersByValue)
-        self.calendar2 = self.calendar2.duplicate()
-        self.calendar2.removeAlarms()
-        self.calendar2.filterProperties(remove=removeProperties)
-        self.calendar2.removeXProperties()
-        self.calendar2.removePropertyParameters("ATTENDEE", removeAttendeeParameters)
-        self.calendar2.removePropertyParametersByValue("ATTENDEE", removeAttendeeParametersByValue)
+        def duplicateAndNormalize(calendar):
+            calendar = calendar.duplicate()
+            calendar.removeAlarms()
+            calendar.filterProperties(remove=("X-CALENDARSERVER-ACCESS",), do_subcomponents=False)
+            calendar.filterProperties(remove=(
+                "CREATED",
+                "DTSTAMP",
+                "LAST-MODIFIED",
+            ))
+            calendar.removeXProperties()
+            calendar.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+            calendar.removePropertyParametersByValue("ATTENDEE", (("PARTSTAT", "NEEDS-ACTION"),))
+            return calendar
+            
+        # Normalize components for comparison
+        self.calendar1 = duplicateAndNormalize(self.calendar1)
+        self.calendar2 = duplicateAndNormalize(self.calendar2)
 
         return self.calendar1 == self.calendar2
 
@@ -92,17 +81,17 @@ class iCalDiff(object):
         
         self.attendee = attendee
 
-        # Do straight comparison without alarms
-        self.calendar1 = self.calendar1.duplicate()
-        self.calendar1.attendeesView((attendee,))
-        self.calendar1.normalizePropertyValueLists("EXDATE")
-        self.calendar1.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
-        iTipGenerator.prepareSchedulingMessage(self.calendar1)
+        def duplicateAndNormalize(calendar):
+            calendar = calendar.duplicate()
+            calendar.normalizePropertyValueLists("EXDATE")
+            calendar.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
+            iTipGenerator.prepareSchedulingMessage(calendar)
+            return calendar
 
-        self.calendar2 = self.calendar2.duplicate()
-        self.calendar2.normalizePropertyValueLists("EXDATE")
-        self.calendar2.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
-        iTipGenerator.prepareSchedulingMessage(self.calendar2)
+        # Do straight comparison without alarms
+        self.calendar1 = duplicateAndNormalize(self.calendar1)
+        self.calendar1.attendeesView((attendee,))
+        self.calendar2 = duplicateAndNormalize(self.calendar2)
 
         if self.calendar1 == self.calendar2:
             return True, True

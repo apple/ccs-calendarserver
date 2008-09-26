@@ -1387,20 +1387,21 @@ class Component (object):
                 if component.name() == "VALARM":
                     self.removeComponent(component)
                 
-    def filterProperties(self, remove=None, keep=None):
+    def filterProperties(self, remove=None, keep=None, do_subcomponents=True):
         """
         Remove all properties that do not match the provided set.
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
-
-        for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
+        if do_subcomponents:
+            for component in self.subcomponents():
+                component.filterProperties(remove, keep, do_subcomponents=False)
+        else:
+            if self.name() == "VTIMEZONE":
+                return
             if keep:
-                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() not in keep]
+                [self.removeProperty(p) for p in tuple(self.properties()) if p.name() not in keep]
             if remove:
-                [component.removeProperty(p) for p in tuple(component.properties()) if p.name() in remove]
+                [self.removeProperty(p) for p in tuple(self.properties()) if p.name() in remove]
                 
     def removeXProperties(self, keep_properties=()):
         """

@@ -407,10 +407,7 @@ class iTipProcessing(object):
                 continue
             attendee = component.getAttendeeProperty((recipient,))
             if attendee:
-                if "PARTSTAT" in attendee.params():
-                    partstat = attendee.params()["PARTSTAT"][0]
-                else:
-                    partstat = "NEEDS-ACTION"
+                partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
                 if partstat == "NEEDS-ACTION":
                     component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
 
@@ -544,13 +541,14 @@ class iTipGenerator(object):
             attendeeProps = itip.getAttendeeProperties((attendee,))
             assert attendeeProps, "Must have some matching ATTENDEEs"
             for attendeeProp in attendeeProps:
-                if "PARTSTAT" in attendeeProp.params():
-                    attendeeProp.params()["PARTSTAT"][0] = "DECLINED"
-                else:
-                    attendeeProp.params()["PARTSTAT"] = ["DECLINED"]
+                attendeeProp.params().setdefault("PARTSTAT", ["DECLINED",])[0] = "DECLINED"
         
         # Add REQUEST-STATUS to each top-level component
-        itip.addPropertyToAllComponents(Property("REQUEST-STATUS", "2.0;Success"))
+        itip.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success",]))
+        
+        # Strip out unwanted bits
+        iTipGenerator.prepareSchedulingMessage(itip)
+
         return itip
 
     @staticmethod
@@ -559,43 +557,15 @@ class iTipGenerator(object):
         Remove properties and parameters that should not be sent in an iTIP message
         """
 
-        # Component properties
-        def stripSubComponents(component, strip):
-            
-            for subcomponent in tuple(component.subcomponents()):
-                if subcomponent.name() in strip:
-                    component.removeComponent(subcomponent)
-
-        # Component properties
-        def stripComponentProperties(component, properties):
-            
-            for property in tuple(component.properties()):
-                if property.name() in properties:
-                    component.removeProperty(property)
-
-        # Property parameters
-        def stripPropertyParameters(properties, parameters):
-            
-            for property in properties:
-                for parameter in parameters:
-                    try:
-                        del property.params()[parameter]
-                    except KeyError:
-                        pass
+        # Alarms
+        itip.removeAlarms()
 
         # Top-level properties
-        stripComponentProperties(itip, ("X-CALENDARSERVER-ACCESS",))
+        itip.filterProperties(remove=("X-CALENDARSERVER-ACCESS",), do_subcomponents=False)
                 
         # Component properties
-        for component in itip.subcomponents():
-            stripSubComponents(component, ("VALARM",))
-            stripComponentProperties(component, (
-                "X-CALENDARSERVER-ATTENDEE-COMMENT",
-            ))
-            stripPropertyParameters(component.properties("ATTENDEE"), (
-                "SCHEDULE-AGENT",
-                "SCHEDULE-STATUS",
-            ))
-            stripPropertyParameters(component.properties("ORGANIZER"), (
-                "SCHEDULE-STATUS",
-            ))
+        itip.filterProperties(remove=("X-CALENDARSERVER-ATTENDEE-COMMENT",))
+        
+        # Property Parameters
+        itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+        itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))

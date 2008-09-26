@@ -409,17 +409,18 @@ class StoreCalendarObjectResource(object):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            def _callback(parent_owner):
-                
-                authz = self.destinationparent.currentPrincipal(self.request)
-                if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
-                
-                return None
-
-            d = self.destinationparent.owner(self.request)
-            d.addCallback(_callback)
-            return d
+            if not self.internal_request:
+                def _callback(parent_owner):
+                    
+                    authz = self.destinationparent.currentPrincipal(self.request)
+                    if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+                    
+                    return None
+    
+                d = self.destinationparent.owner(self.request)
+                d.addCallback(_callback)
+                return d
         else:
             # Check whether an access property was present before and write that into the calendar data
             if not self.source and self.destination.exists() and self.destination.hasDeadProperty(TwistedCalendarAccessProperty):

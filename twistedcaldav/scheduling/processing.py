@@ -392,7 +392,8 @@ class ImplicitProcessor(object):
                      destinationcal = True,
                      calendar = calendar,
                      isiTIP = False,
-                     allowImplicitSchedule = False
+                     allowImplicitSchedule = False,
+                     internal_request = True,
                  ).run()
     
         returnValue(newchild)
