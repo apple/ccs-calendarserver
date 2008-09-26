@@ -351,7 +351,7 @@ class OpenDirectoryService(DirectoryService):
             if isinstance(emails, str):
                 emails = [emails]
             for email in emails:
-                result.add("mailto:%s" % (email,))
+                result.add("mailto:%s" % (email.lower(),))
                 
         return result
 
@@ -534,10 +534,10 @@ class OpenDirectoryService(DirectoryService):
                         emailAddresses = set()
                         addrs = val.get(dsattributes.kDSNAttrEMailAddress, None)
                         if isinstance(addrs, str):
-                            emailAddresses.add(addrs)
+                            emailAddresses.add(addrs.lower())
                         elif isinstance(addrs, list):
                             for addr in addrs:
-                                emailAddresses.add(addr)
+                                emailAddresses.add(addr.lower())
 
                         # TODO: Review this code...
                         calendarUserAddresses = set()
@@ -663,10 +663,10 @@ class OpenDirectoryService(DirectoryService):
             # Get email address from directory record
             emailAddresses = set()
             if isinstance(recordEmailAddress, str):
-                emailAddresses.add(recordEmailAddress)
+                emailAddresses.add(recordEmailAddress.lower())
             elif isinstance(recordEmailAddress, list):
                 for addr in emailAddresses:
-                    emailAddresses.add(addr)
+                    emailAddresses.add(addr.lower())
 
             # Special case for groups, which have members.
             if recordType == DirectoryService.recordType_groups:
