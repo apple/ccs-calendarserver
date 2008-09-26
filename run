@@ -246,7 +246,6 @@ run () {
       mkdir "${wd}/logs";
     fi;
 
-    PATH="${PATH}:${wd}/../memcached-1.2.5/_root/bin" \
     exec ${caldavd_wrapper_command}                   \
         "${caldav}/bin/caldavd" ${daemonize}          \
         -f "${config}"                                \
@@ -549,9 +548,9 @@ if ! type memcached >& /dev/null; then
   #
   # memcached
   #
-  memcached="${top}/memcached-1.2.5"
+  memcached="${top}/memcached-1.2.6"
 
-  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
+  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.6.tar.gz;
 
   if "${do_setup}" && (
     "${force_setup}" || [ ! -d "${memcached}/_root" ]
@@ -565,6 +564,8 @@ if ! type memcached >& /dev/null; then
     make;
     make install;
   fi;
+
+  export PATH="${PATH}:${top}/memcached-1.2.6/_root/bin";
 fi;
 
 #
