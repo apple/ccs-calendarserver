@@ -2,7 +2,7 @@ Index: twisted/web2/auth/digest.py
 ===================================================================
 --- twisted/web2/auth/digest.py	(revision 19773)
 +++ twisted/web2/auth/digest.py	(working copy)
-@@ -11,6 +11,10 @@
+@@ -11,16 +11,24 @@
  from zope.interface import implements, Interface
  
  from twisted.web2.auth.interfaces import ICredentialFactory
@@ -11,9 +11,27 @@ Index: twisted/web2/auth/digest.py
 +from twisted.web2.http_headers import split
 +from twisted.web2.http_headers import parseKeyValue
  
- import md5, sha
+-import md5, sha
++try:
++    from hashlib import md5, sha1
++except ImportError:
++    import md5.new as md5
++    import sha.new as sha1
  import random, sys
-@@ -315,18 +319,18 @@
+ 
+ # The digest math
+ 
+ algorithms = {
+-    'md5': md5.new,
+-    'md5-sess': md5.new,
+-    'sha': sha.new,
++    'md5': md5,
++    'md5-sess': md5,
++    'sha': sha1,
+ }
+ 
+ # DigestCalcHA1
+@@ -315,18 +323,18 @@
          @raise: L{error.LoginFailed} if the response does not contain a
              username, a nonce, an opaque, or if the opaque is invalid.
          """

@@ -23,7 +23,7 @@ __all__ = [
     "NotFilePath",
 ]
 
-from sha import sha
+from hashlib import sha1
 
 def uuidFromName(namespace, name):
     """
@@ -47,7 +47,7 @@ def uuidFromName(namespace, name):
         name = name.encode("utf-8")
 
     # Start with a SHA-1 hash of the namespace and name
-    uuid = sha(namespace + name).digest()[:16]
+    uuid = sha1(namespace + name).digest()[:16]
 
     # Convert from hexadecimal to long integer
     uuid = long("%02x"*16 % tuple(map(ord, uuid)), 16)
