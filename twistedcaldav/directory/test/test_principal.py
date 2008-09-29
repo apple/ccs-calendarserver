@@ -347,37 +347,33 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
 
+    @inlineCallbacks
     def test_defaultAccessControlList_principals(self):
         """
         Default access controls for principals.
         """
-        def work():
-            for provisioningResource, recordType, recordResource, record in self._allRecords():
-                for args in _authReadOnlyPrivileges(recordResource, recordResource.principalURL()):
-                    yield args
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            for args in _authReadOnlyPrivileges(self, recordResource, recordResource.principalURL()):
+                yield self._checkPrivileges(*args)
 
-        return serialize(self._checkPrivileges, work())
-
+    @inlineCallbacks
     def test_defaultAccessControlList_provisioners(self):
         """
         Default access controls for principal provisioning resources.
         """
-        def work():
-            for directory in directoryServices:
-                #print "\n -> %s" % (directory.__class__.__name__,)
-                provisioningResource = self.principalRootResources[directory.__class__.__name__]
+        for directory in directoryServices:
+            #print "\n -> %s" % (directory.__class__.__name__,)
+            provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
-                for args in _authReadOnlyPrivileges(provisioningResource, provisioningResource.principalCollectionURL()):
-                    yield args
+            for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
+                yield self._checkPrivileges(*args)
 
-                for recordType in provisioningResource.listChildren():
-                    #print "   -> %s" % (recordType,)
-                    typeResource = provisioningResource.getChild(recordType)
+            for recordType in provisioningResource.listChildren():
+                #print "   -> %s" % (recordType,)
+                typeResource = provisioningResource.getChild(recordType)
 
-                    for args in _authReadOnlyPrivileges(typeResource, typeResource.principalCollectionURL()):
-                        yield args
-
-        return serialize(self._checkPrivileges, work())
+                for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
+                    yield self._checkPrivileges(*args)
 
     def _allRecords(self):
         """
@@ -421,13 +417,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(gotResource)
         return d
 
-def _authReadOnlyPrivileges(resource, url):
-    for principal, privilege, allowed in (
-        ( davxml.All()             , davxml.Read()  , False ),
-        ( davxml.All()             , davxml.Write() , False ),
-        ( davxml.Unauthenticated() , davxml.Read()  , False ),
-        ( davxml.Unauthenticated() , davxml.Write() , False ),
-        ( davxml.Authenticated()   , davxml.Read()  , True  ),
-        ( davxml.Authenticated()   , davxml.Write() , False ),
-    ):
+def _authReadOnlyPrivileges(self, resource, url):
+    items = []
+    for provisioningResource, recordType, recordResource, record in self._allRecords():
+        if recordResource == resource:
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , True ))
+        else:
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
+    items.append(( davxml.Unauthenticated() , davxml.Read()  , False ))
+    items.append(( davxml.Unauthenticated() , davxml.Write() , False ))
+            
+    for principal, privilege, allowed in items:
         yield resource, url, principal, privilege, allowed
