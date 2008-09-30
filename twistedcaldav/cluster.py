@@ -210,15 +210,26 @@ def makeService_Combined(self, options):
 
     if config.MultiProcess['ProcessCount'] == 0:
         try:
-            config.MultiProcess['ProcessCount'] = getNCPU()
-            log.msg("%d processors found, configuring %d processes." % (
-                    config.MultiProcess['ProcessCount'],
-                    config.MultiProcess['ProcessCount']))
+            cpuCount = getNCPU()
+        except NotImplementedError, e:
+            error = str(e)
+        else:
+            if cpuCount > 0:
+                error = None
+            else:
+                error = "No processors detected, which is difficult to believe."
 
-        except NotImplementedError, err:
-            log.msg('Could not autodetect number of CPUs:')
-            log.msg(err)
-            config.MultiProcess['ProcessCount'] = 1
+        if error is None:
+            log.msg(
+                "%d processors found, configuring %d processes."
+                % (cpuCount, cpuCount)
+            )
+        else:
+            log.err("Could not autodetect number of CPUs: %s" % (error,))
+            log.err("Assuming one CPU, configuring one process.")
+            cpuCount = 1
+
+        config.MultiProcess['ProcessCount'] = cpuCount
 
     if config.MultiProcess['ProcessCount'] > 1:
         if config.BindHTTPPorts:
