@@ -54,8 +54,7 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistd, tapname, configFile,
-                 interfaces, port, sslPort):
+    def __init__(self, twistd, tapname, configFile, interfaces, port, sslPort):
         self.twistd = twistd
 
         self.tapname = tapname
@@ -69,57 +68,54 @@ class TwistdSlaveProcess(object):
 
     def getName(self):
         if self.ports is not None:
-            return '%s-%s' % (self.prefix, self.ports[0])
+            return "%s-%s" % (self.prefix, self.ports[0])
         elif self.sslPorts is not None:
-            return '%s-%s' % (self.prefix, self.sslPorts[0])
+            return "%s-%s" % (self.prefix, self.sslPorts[0])
 
         raise ConfigurationError(
-            "Can't create TwistdSlaveProcess without a TCP Port")
+            "Can't create TwistdSlaveProcess without a TCP Port"
+        )
 
     def getCommandLine(self):
-        args = [
-            sys.executable,
-            self.twistd]
+        args = [sys.executable, self.twistd]
 
         if config.UserName:
-            args.extend(('-u', config.UserName))
+            args.extend(("-u", config.UserName))
 
         if config.GroupName:
-            args.extend(('-g', config.GroupName))
+            args.extend(("-g", config.GroupName))
 
-        if config.Profiling['Enabled']:
-            args.append('--profile=%s/%s.pstats' % (
-                config.Profiling['BaseDirectory'],
-                self.getName()))
-            args.extend(('--savestats', '--nothotshot'))
+        if config.Profiling["Enabled"]:
+            args.append(
+                "--profile=%s/%s.pstats"
+                % (config.Profiling["BaseDirectory"], self.getName())
+            )
+            args.extend(("--savestats", "--nothotshot"))
 
-        args.extend(
-            ['--reactor=%s' % (config.Twisted['reactor'],),
-             '-n', self.tapname,
-             '-f', self.configFile,
-             '-o', 'ProcessType=Slave',
-             '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
-             '-o', 'PIDFile=None',
-             '-o', 'ErrorLogFile=None',
-             '-o', 'MultiProcess/ProcessCount=%d' % (
-                    config.MultiProcess['ProcessCount'],)])
+        args.extend([
+            "--reactor=%s" % (config.Twisted["reactor"],),
+            "-n", self.tapname,
+            "-f", self.configFile,
+            "-o", "ProcessType=Slave",
+            "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
+            "-o", "PIDFile=None",
+            "-o", "ErrorLogFile=None",
+            "-o", "MultiProcess/ProcessCount=%d"
+                  % (config.MultiProcess["ProcessCount"],)
+        ])
 
         if config.Memcached["ServerEnabled"]:
-            args.extend(
-                ['-o', 'Memcached/ClientEnabled=True'])
+            args.extend(["-o", "Memcached/ClientEnabled=True"])
 
         if self.ports:
             args.extend([
-                    '-o',
-                    'BindHTTPPorts=%s' % (','.join(map(str, self.ports)),)])
+                "-o", "BindHTTPPorts=%s" % (",".join(map(str, self.ports)),)
+            ])
 
         if self.sslPorts:
             args.extend([
-                    '-o',
-                    'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),)])
-
-
-
+                "-o", "BindSSLPorts=%s" % (",".join(map(str, self.sslPorts)),)
+            ])
 
         return args
 
@@ -134,12 +130,13 @@ class TwistdSlaveProcess(object):
             port = self.sslPorts
 
         if port is None:
-            raise ConfigurationError(
-                "Can not add a host without a port")
+            raise ConfigurationError("Can not add a host without a port")
 
-        return hostTemplate % {'name': name,
-                               'port': port[0],
-                               'bindAddress': '127.0.0.1'}
+        return hostTemplate % {
+            "name": name,
+            "port": port[0],
+            "bindAddress": "127.0.0.1"
+        }
 
 
 class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
@@ -147,14 +144,26 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     def startService(self):
         service.Service.startService(self)
         self.active = 1
+
         delay = 0
-        delay_interval = config.MultiProcess['StaggeredStartup']['Interval'] if config.MultiProcess['StaggeredStartup']['Enabled'] else 0 
+
+        if config.MultiProcess["StaggeredStartup"]["Enabled"]:
+            delay_interval = config.MultiProcess["StaggeredStartup"]["Interval"]
+        else:
+            delay_interval = 0
+
         for name in self.processes.keys():
-            reactor.callLater(delay if name.startswith("caldav") else 0, self.startProcess, name)
             if name.startswith("caldav"):
+                when = delay
                 delay += delay_interval
-        self.consistency = reactor.callLater(self.consistencyDelay,
-                                             self._checkConsistency)
+            else:
+                when = 0
+            reactor.callLater(when, self.startProcess, name)
+
+        self.consistency = reactor.callLater(
+            self.consistencyDelay,
+            self._checkConsistency
+        )
 
     def signalAll(self, signal, startswithname=None):
         """
@@ -162,7 +171,8 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
         @param signal: the signal to send
         @type signal: C{int}
-        @param startswithname: is set only signal those processes whose name starts with this string
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
         @type signal: C{str}
         """
         for name in self.processes.keys():
@@ -175,7 +185,8 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         
         @param signal: the signal to send
         @type signal: C{int}
-        @param startswithname: is set only signal those processes whose name starts with this string
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
         @type signal: C{str}
         """
         if not self.protocols.has_key(name):
@@ -193,8 +204,8 @@ def makeService_Combined(self, options):
     s.processMonitor = monitor
 
     parentEnv = {
-        'PATH': os.environ.get('PATH', ''),
-        'PYTHONPATH': os.environ.get('PYTHONPATH', ''),
+        "PATH": os.environ.get("PATH", ""),
+        "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
     }
 
     hosts = []
@@ -203,12 +214,12 @@ def makeService_Combined(self, options):
     port = [config.HTTPPort,]
     sslPort = [config.SSLPort,]
 
-    bindAddress = ['127.0.0.1']
+    bindAddress = ["127.0.0.1"]
 
-    # Attempt to calculate the number of processes to use
-    # 1 per processor
-
-    if config.MultiProcess['ProcessCount'] == 0:
+    #
+    # Attempt to calculate the number of processes to use 1 per processor
+    #
+    if config.MultiProcess["ProcessCount"] == 0:
         try:
             cpuCount = getNCPU()
         except NotImplementedError, e:
@@ -229,16 +240,16 @@ def makeService_Combined(self, options):
             log.err("Assuming one CPU, configuring one process.")
             cpuCount = 1
 
-        config.MultiProcess['ProcessCount'] = cpuCount
+        config.MultiProcess["ProcessCount"] = cpuCount
 
-    if config.MultiProcess['ProcessCount'] > 1:
+    if config.MultiProcess["ProcessCount"] > 1:
         if config.BindHTTPPorts:
             port = [list(reversed(config.BindHTTPPorts))[0]]
 
         if config.BindSSLPorts:
             sslPort = [list(reversed(config.BindSSLPorts))[0]]
 
-    elif config.MultiProcess['ProcessCount'] == 1:
+    elif config.MultiProcess["ProcessCount"] == 1:
         if config.BindHTTPPorts:
             port = config.BindHTTPPorts
 
@@ -251,30 +262,37 @@ def makeService_Combined(self, options):
     if sslPort[0] == 0:
         sslPort = None
 
-    # If the load balancer isn't enabled, or if we only have one process
+    # If the load balancer isn"t enabled, or if we only have one process
     # We listen directly on the interfaces.
 
-    if ((not config.MultiProcess['LoadBalancer']['Enabled']) or
-        (config.MultiProcess['ProcessCount'] == 1)):
+    if (
+        not config.MultiProcess["LoadBalancer"]["Enabled"] or
+        config.MultiProcess["ProcessCount"] == 1
+    ):
         bindAddress = config.BindAddresses
 
-    for p in xrange(0, config.MultiProcess['ProcessCount']):
-        if config.MultiProcess['ProcessCount'] > 1:
+    for p in xrange(0, config.MultiProcess["ProcessCount"]):
+        if config.MultiProcess["ProcessCount"] > 1:
             if port is not None:
                 port = [port[0] + 1]
 
             if sslPort is not None:
                 sslPort = [sslPort[0] + 1]
 
-        process = TwistdSlaveProcess(config.Twisted['twistd'],
-                                     self.tapname,
-                                     options['config'],
-                                     bindAddress,
-                                     port, sslPort)
+        process = TwistdSlaveProcess(
+            config.Twisted["twistd"],
+            self.tapname,
+            options["config"],
+            bindAddress,
+            port,
+            sslPort
+        )
 
-        monitor.addProcess(process.getName(),
-                           process.getCommandLine(),
-                           env=parentEnv)
+        monitor.addProcess(
+            process.getName(),
+            process.getCommandLine(),
+            env=parentEnv
+        )
 
         if config.HTTPPort:
             hosts.append(process.getHostLine())
@@ -282,14 +300,15 @@ def makeService_Combined(self, options):
         if config.SSLPort:
             sslHosts.append(process.getHostLine(ssl=True))
 
+    #
     # Set up pydirector config file.
-
-    if (config.MultiProcess['LoadBalancer']['Enabled'] and
-        config.MultiProcess['ProcessCount'] > 1):
+    #
+    if (config.MultiProcess["LoadBalancer"]["Enabled"] and
+        config.MultiProcess["ProcessCount"] > 1):
         services = []
 
         if not config.BindAddresses:
-            config.BindAddresses = ['']
+            config.BindAddresses = [""]
 
         scheduler_map = {
             "LeastConnections": "leastconns",
@@ -311,89 +330,107 @@ def makeService_Combined(self, options):
                 if config.SSLPort != 0:
                     sslPorts = (config.SSLPort,)
 
-            for ports, listeners in ((httpPorts, httpListeners),
-                                     (sslPorts, sslListeners)):
+            for ports, listeners in (
+                (httpPorts, httpListeners),
+                (sslPorts, sslListeners)
+            ):
                 for port in ports:
-                    listeners.append(listenTemplate % {
-                            'bindAddress': bindAddress,
-                            'port': port})
+                    listeners.append(
+                        listenTemplate % {
+                            "bindAddress": bindAddress,
+                            "port": port
+                        }
+                    )
+
+            scheduler = config.MultiProcess["LoadBalancer"]["Scheduler"]
 
             if httpPorts:
-                services.append(serviceTemplate % {
-                        'name': 'http',
-                        'listeningInterfaces': '\n'.join(httpListeners),
-                        'bindAddress': bindAddress,
-                        'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
-                        'hosts': '\n'.join(hosts)
-                        })
+                services.append(
+                    serviceTemplate % {
+                        "name": "http",
+                        "listeningInterfaces": "\n".join(httpListeners),
+                        "bindAddress": bindAddress,
+                        "scheduler": scheduler_map[scheduler],
+                        "hosts": "\n".join(hosts)
+                    }
+                )
 
             if sslPorts:
-                services.append(serviceTemplate % {
-                        'name': 'https',
-                        'listeningInterfaces': '\n'.join(sslListeners),
-                        'bindAddress': bindAddress,
-                        'scheduler': scheduler_map[config.MultiProcess['LoadBalancer']['Scheduler']],
-                        'hosts': '\n'.join(sslHosts),
-                        })
+                services.append(
+                    serviceTemplate % {
+                        "name": "https",
+                        "listeningInterfaces": "\n".join(sslListeners),
+                        "bindAddress": bindAddress,
+                        "scheduler": scheduler_map[scheduler],
+                        "hosts": "\n".join(sslHosts),
+                    }
+                )
 
         pdconfig = configTemplate % {
-            'services': '\n'.join(services),
-            'controlSocket': config.PythonDirector["ControlSocket"],
-            }
+            "services": "\n".join(services),
+            "controlSocket": config.PythonDirector["ControlSocket"],
+        }
 
-        fd, fname = tempfile.mkstemp(prefix='pydir')
+        fd, fname = tempfile.mkstemp(prefix="pydir")
         os.write(fd, pdconfig)
         os.close(fd)
 
         log.msg("Adding pydirector service with configuration: %s" % (fname,))
 
-        monitor.addProcess('pydir', [sys.executable,
-                                     config.PythonDirector['pydir'],
-                                     fname],
-                           env=parentEnv)
-
+        monitor.addProcess(
+            "pydir",
+            [sys.executable, config.PythonDirector["pydir"], fname],
+            env=parentEnv,
+        )
 
     if config.Memcached["ServerEnabled"]:
         log.msg("Adding memcached service")
 
         memcachedArgv = [
-                config.Memcached["memcached"],
-                '-p', str(config.Memcached["Port"]),
-                '-l', config.Memcached["BindAddress"]]
+            config.Memcached["memcached"],
+            "-p", str(config.Memcached["Port"]),
+            "-l", config.Memcached["BindAddress"],
+        ]
 
         if config.Memcached["MaxMemory"] is not 0:
             memcachedArgv.extend([
-                    '-m', str(config.Memcached["MaxMemory"])])
+                "-m", str(config.Memcached["MaxMemory"]),
+            ])
 
         memcachedArgv.extend(config.Memcached["Options"])
 
-        monitor.addProcess('memcached', memcachedArgv, env=parentEnv)
+        monitor.addProcess("memcached", memcachedArgv, env=parentEnv)
 
-    if (config.Notifications["Enabled"] and
-        config.Notifications["InternalNotificationHost"] == "localhost"):
+    if (
+        config.Notifications["Enabled"] and
+        config.Notifications["InternalNotificationHost"] == "localhost"
+    ):
         log.msg("Adding notification service")
 
         notificationsArgv = [
-            config.Twisted['twistd'],
-            '-n', 'caldav_notifier',
-            '-f', options['config'],
+            config.Twisted["twistd"],
+            "-n", "caldav_notifier",
+            "-f", options["config"],
         ]
-        monitor.addProcess('notifications', notificationsArgv, env=parentEnv)
+        monitor.addProcess("notifications", notificationsArgv, env=parentEnv)
 
-    if (config.Scheduling["iMIP"]["Enabled"] and
-        config.Scheduling["iMIP"]["MailGatewayServer"] == "localhost"):
+    if (
+        config.Scheduling["iMIP"]["Enabled"] and
+        config.Scheduling["iMIP"]["MailGatewayServer"] == "localhost"
+    ):
         log.msg("Adding mail gateway service")
 
         mailGatewayArgv = [
-            config.Twisted['twistd'],
-            '-n', 'caldav_mailgateway',
-            '-f', options['config'],
+            config.Twisted["twistd"],
+            "-n", "caldav_mailgateway",
+            "-f", options["config"],
         ]
-        monitor.addProcess('mailgateway', mailGatewayArgv, env=parentEnv)
+        monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
 
 
     logger = AMPLoggingFactory(
-        RotatingFileAccessLoggingObserver(config.AccessLogFile))
+        RotatingFileAccessLoggingObserver(config.AccessLogFile)
+    )
 
     loggingService = internet.UNIXServer(config.ControlSocket, logger)
 
@@ -404,13 +441,19 @@ def makeService_Combined(self, options):
 def makeService_Master(self, options):
     service = procmon.ProcessMonitor()
 
-    parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
+    parentEnv = {"PYTHONPATH": os.environ.get("PYTHONPATH", "")}
 
-    log.msg("Adding pydirector service with configuration: %s" % (config.PythonDirector['ConfigFile'],))
+    log.msg("Adding pydirector service with configuration: %s"
+            % (config.PythonDirector["ConfigFile"],))
 
-    service.addProcess('pydir', [sys.executable,
-                                 config.PythonDirector['pydir'],
-                                 config.PythonDirector['ConfigFile']],
-                       env=parentEnv)
+    service.addProcess(
+        "pydir",
+        [
+            sys.executable,
+            config.PythonDirector["pydir"],
+            config.PythonDirector["ConfigFile"]
+        ],
+        env=parentEnv
+    )
 
     return service
