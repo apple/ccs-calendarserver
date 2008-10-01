@@ -319,6 +319,8 @@ for level in logLevels:
 
     setattr(Logger, level, log_emit)
 
+    del log_emit
+
     #
     # Attach methods to LoggingMixIn
     #
@@ -329,7 +331,9 @@ for level in logLevels:
 
     setattr(LoggingMixIn, "log_%s" % (level,), log_emit)
 
-del level, log_emit
+    del log_emit
+
+del level
 
 # Add some compatibility with twisted's log module
 Logger.msg = Logger.info

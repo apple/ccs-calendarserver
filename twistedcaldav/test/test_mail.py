@@ -15,10 +15,7 @@
 ##
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.task import Clock
 from twistedcaldav.mail import *
-from twistedcaldav import config as config_mod
-from twistedcaldav.config import Config
 import email
 import os
 

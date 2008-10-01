@@ -27,7 +27,6 @@ from twisted.web2.http import Response
 from twisted.web2.iweb import IResource
 from twisted.web2.stream import MemoryStream
 
-from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 

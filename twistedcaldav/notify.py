@@ -35,10 +35,10 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 # TODO: bindAddress to local
 # TODO: add CalDAVTester test for examining new xmpp-uri property
 
-from twisted.internet import protocol, defer
+from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
-from twisted.protocols import basic
+from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.protocols.basic import LineReceiver
 from twisted.plugin import IPlugin
 from twisted.application import internet, service
 from twisted.python.usage import Options, UsageError
@@ -115,7 +115,7 @@ class ClientNotifier(LoggingMixIn):
                 self.log_debug("Skipping notification for: %s" % (url,))
 
 
-class NotificationClientLineProtocol(basic.LineReceiver, LoggingMixIn):
+class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
     """
     Notification Client Line Protocol
 
@@ -130,7 +130,7 @@ class NotificationClientLineProtocol(basic.LineReceiver, LoggingMixIn):
         self.client.removeObserver(self)
 
 
-class NotificationClientFactory(protocol.ReconnectingClientFactory,
+class NotificationClientFactory(ReconnectingClientFactory,
     LoggingMixIn):
     """
     Notification Client Factory
@@ -145,18 +145,14 @@ class NotificationClientFactory(protocol.ReconnectingClientFactory,
         self.client = client
 
     def clientConnectionLost(self, connector, reason):
-        self.log_error("Connect to notification server lost: %s" %
-            (reason,))
+        self.log_error("Connect to notification server lost: %s" % (reason,))
         self.connected = False
-        protocol.ReconnectingClientFactory.clientConnectionLost(self,
-            connector, reason)
+        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        self.log_error("Unable to connect to notification server: %s" %
-            (reason,))
+        self.log_error("Unable to connect to notification server: %s" % (reason,))
         self.connected = False
-        protocol.ReconnectingClientFactory.clientConnectionFailed(self,
-            connector, reason)
+        ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
     def connectionMade(self):
         self.connected = True
@@ -298,7 +294,7 @@ def getNodeCacher():
 # Internal Channel (from icalserver to notification server)
 #
 
-class InternalNotificationProtocol(basic.LineReceiver):
+class InternalNotificationProtocol(LineReceiver):
     """
     InternalNotificationProtocol
 
@@ -310,7 +306,7 @@ class InternalNotificationProtocol(basic.LineReceiver):
         self.factory.coalescer.add(op, uri)
 
 
-class InternalNotificationFactory(protocol.ServerFactory):
+class InternalNotificationFactory(ServerFactory):
     """
     Internal Notification Factory
 
@@ -480,7 +476,7 @@ class SimpleLineNotifier(LoggingMixIn):
             self.sentReset = True
 
 
-class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
+class SimpleLineNotificationProtocol(LineReceiver, LoggingMixIn):
     """
     Simple Line Notification Protocol
 
@@ -518,7 +514,7 @@ class SimpleLineNotificationProtocol(basic.LineReceiver, LoggingMixIn):
         self.notifier.removeObserver(self)
 
 
-class SimpleLineNotificationFactory(protocol.ServerFactory):
+class SimpleLineNotificationFactory(ServerFactory):
     """
     Simple Line Notification Factory
 

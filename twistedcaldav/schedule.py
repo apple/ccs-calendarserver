@@ -193,6 +193,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
 
         if config.EnableAutoAcceptTrigger:
+            from twisted.internet import reactor
 
             # Look for auto-accept request parameter
             if request.args:
