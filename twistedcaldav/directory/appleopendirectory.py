@@ -515,57 +515,15 @@ class OpenDirectoryService(DirectoryService):
                     dsquery.expression(operand, expressions).generate(),
                     caseless,
                     recordType,
-                    [
-                        dsattributes.kDS1AttrGeneratedUID,
-                        dsattributes.kDS1AttrFirstName,
-                        dsattributes.kDS1AttrLastName,
-                        dsattributes.kDSNAttrEMailAddress,
-                        dsattributes.kDS1AttrDistinguishedName,
-                        dsattributes.kDSNAttrMetaNodeLocation,
-                    ]
+                    [ dsattributes.kDS1AttrGeneratedUID ]
                 )
                 self.log_info("Got back %d records from OD" % (len(results),))
                 for key, val in results.iteritems():
                     self.log_debug("OD result: %s %s" % (key, val))
-
-                    try:
-
-                        # Email field from OD can either be a string or a list
-                        emailAddresses = set()
-                        addrs = val.get(dsattributes.kDSNAttrEMailAddress, None)
-                        if isinstance(addrs, str):
-                            emailAddresses.add(addrs.lower())
-                        elif isinstance(addrs, list):
-                            for addr in addrs:
-                                emailAddresses.add(addr.lower())
-
-                        # TODO: Review this code...
-                        calendarUserAddresses = set()
-                        enabledForCalendaring = False
-                        if val.has_key(dsattributes.kDSNAttrEMailAddress):
-                            enabledForCalendaring = True
-                            calendarUserAddresses.add(val[dsattributes.kDSNAttrEMailAddress])
-                        rec = OpenDirectoryRecord(
-                            service = self,
-                            recordType = self._fromODRecordTypes[recordType],
-                            guid = val[dsattributes.kDS1AttrGeneratedUID],
-                            nodeName = val[dsattributes.kDSNAttrMetaNodeLocation],
-                            shortName = key,
-                            fullName = val.get(dsattributes.kDS1AttrDistinguishedName, ""),
-                            firstName = val.get(dsattributes.kDS1AttrFirstName, ""),
-                            lastName = val.get(dsattributes.kDS1AttrLastName, ""),
-                            emailAddresses = emailAddresses,
-                            calendarUserAddresses = calendarUserAddresses,
-                            autoSchedule = False,
-                            enabledForCalendaring = enabledForCalendaring,
-                            memberGUIDs = (),
-                            proxyGUIDs = (),
-                            readOnlyProxyGUIDs = (),
-                        )
+                    guid = val[dsattributes.kDS1AttrGeneratedUID]
+                    rec = self.recordWithGUID(guid)
+                    if rec:
                         yield rec
-                    except Exception, e:
-                        self.log_error("Failed to convert OD result into record: %s %s" % (val, e))
-                        raise
 
             except Exception, e:
                 self.log_error("OD search failed: %s" % (e,))
