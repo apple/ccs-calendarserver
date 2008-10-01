@@ -185,7 +185,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
             filteredaces = filteredaces.getResult()
 
             tzids = set()
-            isowner = (yield self.isOwner(request))
+            isowner = waitForDeferred(self.isOwner(request))
+            yield isowner
+            isowner = isowner.getResult()
 
             for name, uid, type in self.index().search(None): #@UnusedVariable
                 try:
