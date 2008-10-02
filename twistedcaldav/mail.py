@@ -268,6 +268,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     def _failure(failure, msgId):
         log.err("Mail gateway failed to inject message %s (Reason: %s)" %
             (msgId, failure.getErrorMessage()))
+        log.debug("Failed calendar body: %s" % (str(calendar),))
 
     factory.deferred.addCallback(_success, msgId).addErrback(_failure, msgId)
     return factory.deferred
