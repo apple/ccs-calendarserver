@@ -1206,12 +1206,13 @@ class Component (object):
         Get the attendees matching a value. Works on either a VCALENDAR or on a component.
         
         @param match: a C{list} of calendar user address strings to try and match.
-        @return: the string value of the Organizer property, or None
+        @return: the matching Attendee property, or None
         """
         
         # FIXME: we should really have a URL class and have it manage comparisons
         # in a sensible fashion.
         def _normalizeCUAddress(addr):
+            addr = addr.lower()
             if addr.startswith("/") or addr.startswith("http:") or addr.startswith("https:"):
                 return addr.rstrip("/")
             else:
@@ -1226,12 +1227,14 @@ class Component (object):
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
                 if component.name() != "VTIMEZONE":
-                    return component.getAttendeeProperty(match)
+                    attendee = component.getAttendeeProperty(match)
+                    if attendee is not None:
+                        return attendee
         else:
             # Find the primary subcomponent
-            for p in self.properties("ATTENDEE"):
-                if _normalizeCUAddress(p.value()) in test:
-                    return p
+            for attendee in self.properties("ATTENDEE"):
+                if _normalizeCUAddress(attendee.value()) in test:
+                    return attendee
 
         return None
 

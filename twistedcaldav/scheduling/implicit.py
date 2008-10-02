@@ -360,7 +360,7 @@ class ImplicitScheduler(object):
             
             if None in rids:
                 # One big CANCEL will do
-                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None)
+                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None, self.deleting)
             else:
                 # Multiple CANCELs
                 itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), rids)

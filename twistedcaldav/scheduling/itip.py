@@ -414,7 +414,7 @@ class iTipProcessing(object):
 class iTipGenerator(object):
     
     @staticmethod
-    def generateCancel(original, attendees, instances=None):
+    def generateCancel(original, attendees, instances=None, full_cancel=False):
         
         itip = Component("VCALENDAR")
         itip.addProperty(Property("VERSION", "2.0"))
@@ -465,7 +465,10 @@ class iTipGenerator(object):
 
             # Extract the matching attendee property
             for attendee in attendees:
-                attendeeProp = instance.getAttendeeProperty((attendee,))
+                if full_cancel:
+                    attendeeProp = original.getAttendeeProperty((attendee,))
+                else:
+                    attendeeProp = instance.getAttendeeProperty((attendee,))
                 assert attendeeProp is not None, "Must have matching ATTENDEE property"
                 comp.addProperty(attendeeProp)
 
