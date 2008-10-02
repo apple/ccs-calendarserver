@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from uuid import UUID
 
 """
 Apple Open Directory directory service implementation.
@@ -25,7 +26,6 @@ __all__ = [
 
 import itertools
 import sys
-import os
 from random import random
 
 import opendirectory
@@ -37,14 +37,10 @@ from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 
-from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 
-from plistlib import readPlistFromString, readPlist
-
-serverPreferences = '/Library/Preferences/com.apple.servermgr_info.plist'
-saclGroup = 'com.apple.access_calendar'
+from plistlib import readPlistFromString
 
 class OpenDirectoryService(DirectoryService):
     """
@@ -55,14 +51,23 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, cacheTimeout=30):
+    def __init__(
+        self,
+        node="/Search",
+        restrictEnabledRecords=False,
+        restrictToGroup="",
+        dosetup=True,
+        cacheTimeout=30
+    ):
         """
         @param node: an OpenDirectory node name to bind to.
-        @param requireComputerRecord: C{True} if the directory schema is to be used to determine
+        @param restrictEnabledRecords: C{True} if a group in the directory is to be used to determine
             which calendar users are enabled.
+        @param restrictToGroup: C{str} guid or name of group used to restrict enabled users.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
                         This should only be set to C{False} when doing unit tests.
+        @param cacheTimeout: C{int} number of minutes before cache is invalidated.
         """
         try:
             directory = opendirectory.odInit(node)
@@ -73,35 +78,40 @@ class OpenDirectoryService(DirectoryService):
         self.realmName = node
         self.directory = directory
         self.node = node
-        self.requireComputerRecord = requireComputerRecord
-        self.computerRecords = {}
-        self.servicetags = set()
+        self.restrictEnabledRecords = restrictEnabledRecords
+        self.restrictToGroup = restrictToGroup
+        try:
+            UUID(self.restrictToGroup)
+        except:
+            self.restrictToGUID = False
+        else:
+            self.restrictToGUID = True
+        self.restrictedGUIDs = None
         self.cacheTimeout = cacheTimeout
         self._records = {}
         self._delayedCalls = set()
 
-        self.isWorkgroupServer = False
-
         if dosetup:
-            if self.requireComputerRecord:
-                try:
-                    self._lookupVHostRecord()
-                except Exception, e:
-                    self.log_error("Unable to locate virtual host record: %s" % (e,))
-                    raise
-
-                if os.path.exists(serverPreferences):
-                    serverInfo = readPlist(serverPreferences)
-
-                    self.isWorkgroupServer = serverInfo.get('ServiceConfig', {}).get('IsWorkgroupServer', False)
-
-                    if self.isWorkgroupServer:
-                        self.log_info("Enabling Workgroup Server compatibility mode")
-
             for recordType in self.recordTypes():
                 self.recordsForType(recordType)
 
-    def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None):
+    def __cmp__(self, other):
+        if not isinstance(other, DirectoryRecord):
+            return super(DirectoryRecord, self).__eq__(other)
+
+        for attr in ("directory", "node"):
+            diff = cmp(getattr(self, attr), getattr(other, attr))
+            if diff != 0:
+                return diff
+        return 0
+
+    def __hash__(self):
+        h = hash(self.__class__)
+        for attr in ("directory", "node"):
+            h = (h + hash(getattr(self, attr))) & sys.maxint
+        return h
+
+    def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None, returnGroups=False):
 
         if processedGUIDs is None:
             processedGUIDs = set()
@@ -148,192 +158,17 @@ class OpenDirectoryService(DirectoryService):
             group = result[0][1]
 
             processedGUIDs.add(groupGUID)
+            if returnGroups:
+                yield groupGUID
 
             for GUID in self._expandGroupMembership(
                 group.get(dsattributes.kDSNAttrGroupMembers, []),
                 group.get(dsattributes.kDSNAttrNestedGroups, []),
-                processedGUIDs
+                processedGUIDs,
+                returnGroups,
             ):
                 yield GUID
 
-    def __cmp__(self, other):
-        if not isinstance(other, DirectoryRecord):
-            return super(DirectoryRecord, self).__eq__(other)
-
-        for attr in ("directory", "node"):
-            diff = cmp(getattr(self, attr), getattr(other, attr))
-            if diff != 0:
-                return diff
-        return 0
-
-    def __hash__(self):
-        h = hash(self.__class__)
-        for attr in ("directory", "node"):
-            h = (h + hash(getattr(self, attr))) & sys.maxint
-        return h
-
-    def _lookupVHostRecord(self):
-        """
-        Get the OD service record for this host.
-        """
-
-        # The server must have been configured with a virtual hostname.
-        vhostname = config.ServerHostName
-        if not vhostname:
-            raise OpenDirectoryInitError(
-                "There is no virtual hostname configured for the server for use with Open Directory (node=%s)"
-                % (self.realmName,)
-            )
-         
-        # Find a record in /Computers with an apple-serviceinfo attribute value equal to the virtual hostname
-        # and return some useful attributes.
-        attrs = [
-            dsattributes.kDS1AttrGeneratedUID,
-            dsattributes.kDSNAttrRecordName,
-            dsattributes.kDSNAttrMetaNodeLocation,
-            "dsAttrTypeNative:apple-serviceinfo",
-        ]
-
-        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r)" % (
-            self.directory,
-            dsquery.match(
-                "dsAttrTypeNative:apple-serviceinfo",
-                vhostname,
-                dsattributes.eDSContains,
-            ).generate(),
-            True,    # case insentive for hostnames
-            dsattributes.kDSStdRecordTypeComputers,
-            attrs
-        ))
-        records = opendirectory.queryRecordsWithAttributes_list(
-            self.directory,
-            dsquery.match(
-                "dsAttrTypeNative:apple-serviceinfo",
-                vhostname,
-                dsattributes.eDSContains,
-            ).generate(),
-            True,    # case insentive for hostnames
-            dsattributes.kDSStdRecordTypeComputers,
-            attrs
-        )
-        self._parseComputersRecords(records, vhostname)
-
-    def _parseComputersRecords(self, records, vhostname):
-        # Must have some results
-        if len(records) == 0:
-            raise OpenDirectoryInitError(
-                "Open Directory (node=%s) has no /Computers records with a virtual hostname: %s"
-                % (self.realmName, vhostname)
-            )
-
-        # Now find all appropriate records and determine the enabled (only) service tags for each.
-        for recordname, record in records:
-            self._parseServiceInfo(vhostname, recordname, record)
-
-        # Log all the matching records
-        for key, value in self.computerRecords.iteritems():
-            _ignore_recordname, enabled, servicetag = value
-            self.log_info("Matched Directory record: %s with ServicesLocator: %s, state: %s" % (
-                key,
-                servicetag,
-                {True:"enabled", False:"disabled"}[enabled]
-            ))
-
-        # Log all the enabled service tags - or generate an error if there are none
-        if self.servicetags:
-            for tag in self.servicetags:
-                self.log_info("Enabled ServicesLocator: %s" % (tag,))
-        else:
-            raise OpenDirectoryInitError(
-                "Open Directory (node=%s) no /Computers records with an enabled and valid "
-                "calendar service were found matching virtual hostname: %s"
-                % (self.realmName, vhostname)
-            )
-
-    def _parseServiceInfo(self, vhostname, recordname, record):
-
-        # Extract some useful attributes
-        recordguid = record[dsattributes.kDS1AttrGeneratedUID]
-        recordlocation = "%s/Computers/%s" % (record[dsattributes.kDSNAttrMetaNodeLocation], recordname)
-
-        # First check for apple-serviceinfo attribute
-        plist = record.get("dsAttrTypeNative:apple-serviceinfo", None)
-        if not plist:
-            return False
-
-        # Parse the plist and look for our special entry
-        plist = readPlistFromString(plist)
-        vhosts = plist.get("com.apple.macosxserver.virtualhosts", None)
-        if not vhosts:
-            self.log_error(
-                "Open Directory (node=%s) %s record does not have a "
-                "com.apple.macosxserver.virtualhosts in its apple-serviceinfo attribute value"
-                % (self.realmName, recordlocation)
-            )
-            return False
-        
-        # Iterate over each vhost and find one that is a calendar service
-        hostguid = None
-        for key, value in vhosts.iteritems():
-            serviceTypes = value.get("serviceType", None)
-            if serviceTypes:
-                for type in serviceTypes:
-                    if type == "calendar":
-                        hostguid = key
-                        break
-                    
-        if not hostguid:
-            # We can get false positives from the query - we ignore those.
-            return False
-            
-        # Get host name
-        hostname = vhosts[hostguid].get("hostname", None)
-        if not hostname:
-            self.log_error(
-                "Open Directory (node=%s) %s record does not have "
-                "any host name in its apple-serviceinfo attribute value"
-                % (self.realmName, recordlocation)
-            )
-            return False
-        if hostname != vhostname:
-            # We can get false positives from the query - we ignore those.
-            return False
-        
-        # Get host details. At this point we only check that it is present. We actually
-        # ignore the details themselves (scheme/port) as we use our own config for that.
-        hostdetails = vhosts[hostguid].get("hostDetails", None)
-        if not hostdetails:
-            self.log_error(
-                "Open Directory (node=%s) %s record does not have "
-                "any host details in its apple-serviceinfo attribute value"
-                % (self.realmName, recordlocation)
-            )
-            return False
-        
-        # Look at the service data
-        serviceInfos = vhosts[hostguid].get("serviceInfo", None)
-        if not serviceInfos or not serviceInfos.has_key("calendar"):
-            self.log_error(
-                "Open Directory (node=%s) %s record does not have a "
-                "calendar service in its apple-serviceinfo attribute value"
-                % (self.realmName, recordlocation)
-            )
-            return False
-        serviceInfo = serviceInfos["calendar"]
-        
-        # Check that this service is enabled
-        enabled = serviceInfo.get("enabled", True)
-
-        # Create the string we will use to match users with accounts on this server
-        servicetag = "%s:%s:calendar" % (recordguid, hostguid)
-        
-        self.computerRecords[recordlocation] = (recordname, enabled, servicetag)
-        
-        if enabled:
-            self.servicetags.add(servicetag)
-        
-        return True
-    
     def _calendarUserAddresses(self, recordType, recordName, record):
         """
         Extract specific attributes from the directory record for use as calendar user address.
@@ -409,6 +244,10 @@ class OpenDirectoryService(DirectoryService):
                         % (recordType, f)
                     )
 
+                # Reload the restricted access group details if reloading user records
+                if recordType == DirectoryService.recordType_users:
+                    self.restrictedGUIDs = None
+
                 d = deferToThread(self.reloadCache, recordType)
                 d.addErrback(onError)
 
@@ -418,7 +257,7 @@ class OpenDirectoryService(DirectoryService):
         """
         @param recordType: a record type
         @return: a dictionary containing all records for the given record
-        type.  Keys are short names and values are the cooresponding
+        type.  Keys are short names and values are the corresponding
         OpenDirectoryRecord for the given record type.
         """
         return self._storage(recordType)["records"]
@@ -552,52 +391,8 @@ class OpenDirectoryService(DirectoryService):
             disabledNames = storage["disabled names"]
             disabledGUIDs = storage["disabled guids"]
 
+        enabled_count = 0
         for (recordShortName, value) in results:
-            enabledForCalendaring = True
-
-            if self.requireComputerRecord:
-                servicesLocators = value.get(dsattributes.kDSNAttrServicesLocator)
-
-                def allowForACLs():
-                    return recordType in (
-                        DirectoryService.recordType_users,
-                        DirectoryService.recordType_groups,
-                    )
-
-                def disableForCalendaring():
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                        % (recordType, recordShortName)
-                    )
-
-                def invalidRecord():
-                    self.log_error(
-                        "Directory (incorrectly) returned a record with no applicable "
-                        "ServicesLocator attribute: (%s) %s"
-                        % (recordType, recordShortName)
-                    )
-
-                if servicesLocators:
-                    if type(servicesLocators) is str:
-                        servicesLocators = (servicesLocators,)
-
-                    for locator in servicesLocators:
-                        if locator in self.servicetags:
-                            break
-                    else:
-                        if allowForACLs():
-                            disableForCalendaring()
-                            enabledForCalendaring = False
-                        else:
-                            invalidRecord()
-                            continue
-                else:
-                    if allowForACLs():
-                        disableForCalendaring()
-                        enabledForCalendaring = False
-                    else:
-                        invalidRecord()
-                        continue
 
             # Now get useful record info.
             recordGUID     = value.get(dsattributes.kDS1AttrGeneratedUID)
@@ -611,6 +406,32 @@ class OpenDirectoryService(DirectoryService):
                 self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
                                % (recordType, recordShortName, recordNodeName))
                 continue
+
+            # Determine enabled state
+            enabledForCalendaring = True
+
+            if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
+                enabledForCalendaring = recordGUID in self.restrictedGUIDs
+
+            if not enabledForCalendaring:
+                # Some records we want to keep even though they are not enabled for calendaring.
+                # Others we discard.
+                if recordType in (
+                    DirectoryService.recordType_users,
+                    DirectoryService.recordType_groups,
+                ):
+                    self.log_debug(
+                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
+                        % (recordType, recordShortName)
+                    )
+                else:
+                    self.log_debug(
+                        "Record (%s) %s is not enabled for calendaring"
+                        % (recordType, recordShortName)
+                    )
+                    continue
+            else:
+                enabled_count += 1
 
             # Get calendar user addresses from directory record.
             if enabledForCalendaring:
@@ -702,6 +523,9 @@ class OpenDirectoryService(DirectoryService):
                     if record.guid != existing_record.guid or record.shortName != existing_record.shortName:
                         disableRecord(existing_record)
                         disableRecord(record)
+                        
+                        if existing_record.enabledForCalendaring:
+                            enabled_count -= 1
 
                 if record.shortName not in disabledNames:
                     records[record.shortName] = guids[record.guid] = record
@@ -740,8 +564,8 @@ class OpenDirectoryService(DirectoryService):
             self._records[recordType] = storage
 
             self.log_info(
-                "Added %d records to %s OD record cache; expires in %d seconds"
-                % (len(self._records[recordType]["guids"]), recordType, cacheTimeout)
+                "Added %d (%d enabled) records to %s OD record cache; expires in %d seconds"
+                % (len(self._records[recordType]["guids"]), enabled_count, recordType, cacheTimeout)
             )
 
     def _queryDirectory(self, recordType, shortName=None, guid=None):
@@ -751,11 +575,9 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDS1AttrFirstName,
             dsattributes.kDS1AttrLastName,
             dsattributes.kDSNAttrEMailAddress,
-            dsattributes.kDSNAttrServicesLocator,
             dsattributes.kDSNAttrMetaNodeLocation,
         ]
 
-        query = None
         if recordType == DirectoryService.recordType_users:
             listRecordType = dsattributes.kDSStdRecordTypeUsers
 
@@ -775,120 +597,70 @@ class OpenDirectoryService(DirectoryService):
         else:
             raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType))
 
-        if self.requireComputerRecord:
-            if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
-                if shortName is None and guid is None:
-                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                        self.directory,
-                        dsattributes.kDSNAttrRecordName,
-                        saclGroup,
-                        dsattributes.eDSExact,
-                        False,
-                        dsattributes.kDSStdRecordTypeGroups,
-                        [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups],
-                    ))
-                    results = opendirectory.queryRecordsWithAttribute_list(
-                        self.directory,
-                        dsattributes.kDSNAttrRecordName,
-                        saclGroup,
-                        dsattributes.eDSExact,
-                        False,
-                        dsattributes.kDSStdRecordTypeGroups,
-                        [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
-                    )
+        # If restricting enabled records, then make sure the restricted group member
+        # details are loaded. Do nested group expansion and include the nested groups
+        # as enabled records too.
+        if self.restrictEnabledRecords and self.restrictedGUIDs is None:
 
-                    if len(results) == 1:
-                        members      = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
-                        nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
-                    else:
-                        members = []
-                        nestedGroups = []
+            attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName 
+            valueToMatch = self.restrictToGroup
 
-                    guidQueries = []
-
-                    for GUID in self._expandGroupMembership(members, nestedGroups):
-                        guidQueries.append(
-                            dsquery.match(dsattributes.kDS1AttrGeneratedUID, GUID, dsattributes.eDSExact)
-                        )
-
-                    if not guidQueries:
-                        self.log_warn("No SACL enabled users found.")
-                        return ()
-
-                    query = dsquery.expression(dsquery.expression.OR, guidQueries)
-
-            #
-            # For users and groups, we'll load all entries, even if
-            # they don't have a services locator for this server.
-            #
-            elif (
-                recordType != DirectoryService.recordType_users and
-                recordType != DirectoryService.recordType_groups
-            ):
-                tag_queries = []
-
-                for tag in self.servicetags:
-                    tag_queries.append(dsquery.match(dsattributes.kDSNAttrServicesLocator, tag, dsattributes.eDSExact))
-
-                if len(tag_queries) == 1:
-                    subquery = tag_queries[0]
-                else:
-                    subquery = dsquery.expression(dsquery.expression.OR, tag_queries)
-
-                if query is None:
-                    query = subquery
-                else:
-                    query = dsquery.expression(dsquery.expression.AND, (subquery, query))
-
-        if shortName is not None:
-            subquery = dsquery.match(dsattributes.kDSNAttrRecordName, shortName, dsattributes.eDSExact)
-        elif guid is not None:
-            subquery = dsquery.match(dsattributes.kDS1AttrGeneratedUID, guid, dsattributes.eDSExact)
-        else:
-            subquery = None
-
-        if subquery is not None:
-            if query is None:
-                query = subquery
+            self.log_debug("Doing restricted group membership check")
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.directory,
+                attributeToMatch,
+                valueToMatch,
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeGroups,
+                [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+            ))
+            results = opendirectory.queryRecordsWithAttribute_list(
+                self.directory,
+                attributeToMatch,
+                valueToMatch,
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeGroups,
+                [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+            )
+    
+            if len(results) == 1:
+                members      = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
+                nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
             else:
-                query = dsquery.expression(dsquery.expression.AND, (subquery, query))
+                members = []
+                nestedGroups = []
+
+            self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
+            self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
+
+        query = None
+        if shortName is not None:
+            query = dsquery.match(dsattributes.kDSNAttrRecordName, shortName, dsattributes.eDSExact)
+        elif guid is not None:
+            query = dsquery.match(dsattributes.kDS1AttrGeneratedUID, guid, dsattributes.eDSExact)
 
         try:
             if query:
-                if isinstance(query, dsquery.match):
-                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                        self.directory,
-                        query.attribute,
-                        query.value,
-                        query.matchType,
-                        False,
-                        listRecordType,
-                        attrs,
-                    ))
-                    results = opendirectory.queryRecordsWithAttribute_list(
-                        self.directory,
-                        query.attribute,
-                        query.value,
-                        query.matchType,
-                        False,
-                        listRecordType,
-                        attrs,
-                    )
-                else:
-                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r)" % (
-                        self.directory,
-                        query.generate(),
-                        False,
-                        listRecordType,
-                        attrs,
-                    ))
-                    results = opendirectory.queryRecordsWithAttributes_list(
-                        self.directory,
-                        query.generate(),
-                        False,
-                        listRecordType,
-                        attrs,
-                    )
+                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                    self.directory,
+                    query.attribute,
+                    query.value,
+                    query.matchType,
+                    False,
+                    listRecordType,
+                    attrs,
+                ))
+                results = opendirectory.queryRecordsWithAttribute_list(
+                    self.directory,
+                    query.attribute,
+                    query.value,
+                    query.matchType,
+                    False,
+                    listRecordType,
+                    attrs,
+                )
             else:
                 self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
                     self.directory,

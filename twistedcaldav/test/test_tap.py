@@ -158,7 +158,7 @@ class CalDAVOptionsTest(unittest.TestCase):
         a '/' seperated path.  Such as '-o MultiProcess/ProcessCount=1'
         """
 
-        argv = ['-o', 'MultiProcess/ProcessCount=102']
+        argv = ['-o', 'MultiProcess/ProcessCount=102', '-f', 'conf/caldavd.plist',]
         self.config.parseOptions(argv)
 
         self.assertEquals(config.MultiProcess['ProcessCount'], 102)

@@ -123,8 +123,10 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>requireComputerRecord</key>
-        <true/>
+        <key>restrictEnabledRecords</key>
+        <false/>
+        <key>restrictToGroup</key>
+        <string></string>
       </dict>
     </dict>
 
