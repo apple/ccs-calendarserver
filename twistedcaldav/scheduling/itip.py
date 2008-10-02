@@ -295,7 +295,7 @@ class iTipProcessing(object):
 
         # Get attendee in from_component - there MUST be only one
         attendees = tuple(from_component.properties("ATTENDEE"))
-        assert len(attendees) == 1, "There must be one and only one ATTENDEE property in a REPLY"
+        assert len(attendees) == 1, "There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),)
         attendee = attendees[0]
         partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
         

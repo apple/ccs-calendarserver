@@ -19,6 +19,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.itip import iTipGenerator
 
 from vobject.icalendar import dateTimeToString
+from difflib import unified_diff
 
 """
 Class that handles diff'ing two calendar objects.
@@ -100,17 +101,20 @@ class iCalDiff(object):
         
         # Make sure the same VCALENDAR properties match
         if not self._checkVCALENDARProperties():
-            log.debug("attendeeMerge: VCALENDAR properties do not match")
+            self._logDiffError("attendeeMerge: VCALENDAR properties do not match")
             return False, False
         
         # Make sure the same VTIMEZONE components appear
         if not self._compareVTIMEZONEs():
-            log.debug("attendeeMerge: VTIMEZONEs do not match")
+            self._logDiffError("attendeeMerge: VTIMEZONEs do not match")
             return False, False
         
         # Compare each component instance from the new calendar with each derived
         # component instance from the old one
-        return self._compareComponents()
+        result = self._compareComponents()
+        if not result[0]:
+            self._logDiffError("attendeeMerge: Mismatched calendar objects")
+        return result
     
     def whatIsDifferent(self):
         """
@@ -332,3 +336,13 @@ class iCalDiff(object):
         if regular_changes or done_attendee or done_partstat:
             rid = comp1.getRecurrenceIDUTC()
             rids.add(dateTimeToString(rid) if rid is not None else "")
+
+    def _logDiffError(self, title):
+
+        diff = "\n".join(unified_diff(
+            str(self.calendar1).split("\n"),
+            str(self.calendar2).split("\n"),
+            fromfile='Existing Calendar Object',
+            tofile='New Calendar Object',
+        ))
+        log.debug("%s:\n%s" % (title, diff,))
