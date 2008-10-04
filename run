@@ -473,7 +473,7 @@ if type krb5-config > /dev/null; then
   if ! py_have_module kerberos; then
     kerberos="${top}/PyKerberos";
 
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 3060;
+    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 3108;
     py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
     py_install "PyKerberos" "${kerberos}";
 
@@ -489,7 +489,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   if ! py_have_module opendirectory; then
     opendirectory="${top}/PyOpenDirectory";
 
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 3081;
+    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 3107;
     py_build "PyOpenDirectory" "${opendirectory}" false;
     py_install "PyOpenDirectory" "${opendirectory}";
 
