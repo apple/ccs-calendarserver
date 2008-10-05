@@ -23,7 +23,6 @@ class TAP(object):
 
     def makeService(self, options):
         if self._serviceMaker is None:
-            from twisted.python import reflect
             self._serviceMaker = reflect.namedClass(self.serviceMakerClass)()
 
         return self._serviceMaker.makeService(options)
