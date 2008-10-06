@@ -31,6 +31,24 @@ Index: twisted/web2/auth/digest.py
  }
  
  # DigestCalcHA1
+@@ -228,7 +236,7 @@
+         # Now, what we do is encode the nonce, client ip and a timestamp
+         # in the opaque value with a suitable digest
+         key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
+-        digest = md5.new(key + self.privateKey).hexdigest()
++        digest = md5(key + self.privateKey).hexdigest()
+         ekey = key.encode('base64')
+         return "%s-%s" % (digest, ekey.strip('\n'))
+ 
+@@ -274,7 +282,7 @@
+                 'Invalid response, incompatible opaque/nonce too old')
+ 
+         # Verify the digest
+-        digest = md5.new(key + self.privateKey).hexdigest()
++        digest = md5(key + self.privateKey).hexdigest()
+         if digest != opaqueParts[0]:
+             raise error.LoginFailed('Invalid response, invalid opaque value')
+ 
 @@ -315,18 +323,18 @@
          @raise: L{error.LoginFailed} if the response does not contain a
              username, a nonce, an opaque, or if the opaque is invalid.
