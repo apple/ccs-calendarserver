@@ -61,7 +61,7 @@ class iCalDiff(object):
                 "LAST-MODIFIED",
             ))
             calendar.removeXProperties()
-            calendar.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+            calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-AGENT", "SCHEDULE-STATUS",))
             calendar.removePropertyParametersByValue("ATTENDEE", (("PARTSTAT", "NEEDS-ACTION"),))
             return calendar
             
