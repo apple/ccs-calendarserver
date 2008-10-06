@@ -751,6 +751,8 @@ class MailHandler(LoggingMixIn):
         # the icalendar attachment
         self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
         msgIcal = MIMEText(str(calendar), "calendar", "UTF-8")
+        method = calendar.propertyValue("METHOD").lower()
+        msgIcal.set_param("method", method)
         msgIcal.add_header("Content-Disposition",
             "attachment;filename=invitation.ics")
         msg.attach(msgIcal)
