@@ -109,6 +109,7 @@ class ImplicitScheduler(object):
         self.deleting = False
         self.internal_request = True
         self.except_attendees = attendees
+        self.changed_rids = None
         
         # Get some useful information from the calendar
         yield self.extractCalendarData()
