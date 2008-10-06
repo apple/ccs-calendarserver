@@ -239,7 +239,8 @@ class ImplicitScheduler(object):
             self.oldcalendar = self.resource.iCalendar()
             
             # Significant change
-            if self.isChangeInsignificant():
+            no_change, self.changed_rids = self.isChangeInsignificant()
+            if no_change:
                 # Nothing to do
                 log.debug("Implicit - organizer '%s' is updating UID: '%s' but change is not significant" % (self.organizer, self.uid))
                 returnValue(None)
@@ -251,14 +252,19 @@ class ImplicitScheduler(object):
         else:
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
             self.oldcalendar = None
+            self.changed_rids = None
             self.cancelledAttendees = ()   
             
         yield self.scheduleWithAttendees()
 
     def isChangeInsignificant(self):
         
+        rids = None
         differ = iCalDiff(self.oldcalendar, self.calendar)
-        return differ.organizerDiff()
+        no_change = differ.organizerDiff()
+        if not no_change:
+            _ignore_props, rids = differ.whatIsDifferent()
+        return no_change, rids
     
     def findRemovedAttendees(self):
         """
@@ -392,17 +398,17 @@ class ImplicitScheduler(object):
             if attendee in self.except_attendees:
                 continue
 
-            itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,))
+            itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
 
             # Send scheduling message
-
-            # This is a local CALDAV scheduling operation.
-            scheduler = CalDAVScheduler(self.request, self.resource)
-    
-            # Do the PUT processing
-            log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
-            response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
-            self.handleSchedulingResponse(response, True)
+            if itipmsg is not None:
+                # This is a local CALDAV scheduling operation.
+                scheduler = CalDAVScheduler(self.request, self.resource)
+        
+                # Do the PUT processing
+                log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
+                self.handleSchedulingResponse(response, True)
 
     def handleSchedulingResponse(self, response, is_organizer):
         

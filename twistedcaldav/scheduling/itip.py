@@ -132,6 +132,7 @@ class iTipProcessing(object):
                     if component.propertyValue("TZID") not in tzids:
                         calendar.addComponent(component)
                 else:
+                    component = component.duplicate()
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
                     calendar.addComponent(component)
                     if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
@@ -487,7 +488,7 @@ class iTipGenerator(object):
         return itip
 
     @staticmethod
-    def generateAttendeeRequest(original, attendees):
+    def generateAttendeeRequest(original, attendees, filter_rids):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
@@ -500,11 +501,17 @@ class iTipGenerator(object):
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees)
         
-        # Strip out unwanted bits
-        iTipGenerator.prepareSchedulingMessage(itip)
+        # Now filter out components except the ones specified
+        if itip.filterComponents(filter_rids):
 
-        return itip
+            # Strip out unwanted bits
+            iTipGenerator.prepareSchedulingMessage(itip)
+    
+            return itip
         
+        else:
+            return None
+
     @staticmethod
     def generateAttendeeReply(original, attendee, force_decline=False):
 

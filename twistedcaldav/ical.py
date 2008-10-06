@@ -1362,6 +1362,28 @@ class Component (object):
         if not removed_master and master_component is not None:
             for exdate in exdates:
                 master_component.addProperty(Property("EXDATE", (exdate,)))
+    
+    def filterComponents(self, rids):
+        
+        # If master is in rids do nothing
+        if not rids or "" in rids:
+            return True
+        
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+            
+        # Remove components not in the list
+        components = tuple(self.subcomponents())
+        remaining = len(components)
+        for component in components:
+            if component.name() == "VTIMEZONE":
+                remaining -= 1
+                continue
+            rid = component.getRecurrenceIDUTC()
+            if (dateTimeToString(rid) if rid else "") not in rids:
+                self.removeComponent(component)
+                remaining -= 1
+                
+        return remaining != 0
         
     def removeAllButOneAttendee(self, attendee):
         """
@@ -1478,14 +1500,6 @@ class Component (object):
                     component.removeProperty(prop)
                     for value in prop.value():
                         component.addProperty(Property(propname, [value,]))
-
-    def sortByValue(self, component):
-        """
-        Sort all multi-occurring properties by value.
-        """
-        
-        for prop in component.properties():
-            pass
 
 ##
 # Dates and date-times
