@@ -657,8 +657,10 @@ class MailHandler(LoggingMixIn):
         addressWithToken = "%s+%s@%s" % (pre, token, post)
         calendar.getOrganizerProperty().setValue("mailto:%s" %
             (addressWithToken,))
-        calendar.getAttendeeProperty([organizer]).setValue("mailto:%s" %
-            (addressWithToken,))
+
+        organizerAttendee = calendar.getAttendeeProperty([organizer])
+        if organizerAttendee is not None:
+            organizerAttendee.setValue("mailto:%s" % (addressWithToken,))
 
         msgId, message = self._generateTemplateMessage(calendar, organizer)
 
