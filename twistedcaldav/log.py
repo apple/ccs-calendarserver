@@ -233,7 +233,7 @@ class Logger (object):
             def _gotData(data):
                 iostr.write(data)
                 
-                request.stream = MemoryStream(data)
+                request.stream = MemoryStream(data if data is not None else "")
                 request.stream.doStartReading = None
             
                 self.emit(level, iostr.getvalue(), **kwargs)
@@ -272,7 +272,7 @@ class Logger (object):
             def _gotData(data):
                 iostr.write(data)
                 
-                response.stream = MemoryStream(data)
+                response.stream = MemoryStream(data if data is not None else "")
                 response.stream.doStartReading = None
             
                 self.emit(level, iostr.getvalue(), **kwargs)
