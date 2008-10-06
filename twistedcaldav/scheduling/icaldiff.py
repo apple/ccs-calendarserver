@@ -69,7 +69,10 @@ class iCalDiff(object):
         self.calendar1 = duplicateAndNormalize(self.calendar1)
         self.calendar2 = duplicateAndNormalize(self.calendar2)
 
-        return self.calendar1 == self.calendar2
+        result = self.calendar1 == self.calendar2
+        if not result:
+            self._logDiffError("organizerDiff: Mismatched calendar objects")
+        return result
 
     def attendeeMerge(self, attendee):
         """
