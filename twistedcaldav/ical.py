@@ -1395,7 +1395,7 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() == "VTIMEZONE":
                 continue
-            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value() != attendee]
+            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
             
     def removeAlarms(self):
         """
