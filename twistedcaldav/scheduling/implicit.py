@@ -26,6 +26,9 @@ from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav import caldavxml
 from twisted.web2.dav import davxml
+from twistedcaldav.scheduling import addressmapping
+from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
+    LocalCalendarUser
 
 __all__ = [
     "ImplicitScheduler",
@@ -81,7 +84,8 @@ class ImplicitScheduler(object):
         yield self.extractCalendarData()
 
         # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
-        if self.isOrganizerScheduling():
+        organizer_scheduling = (yield self.isOrganizerScheduling())
+        if organizer_scheduling:
             yield self.doImplicitOrganizer()
         elif self.isAttendeeScheduling():
             yield self.doImplicitAttendee()
@@ -114,7 +118,8 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
         self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
-        
+        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
+
         # Originator is the organizer in this case
         self.originatorPrincipal = self.organizerPrincipal
         self.originator = self.organizer
@@ -164,6 +169,7 @@ class ImplicitScheduler(object):
         # Some other useful things
         self.uid = self.calendar.resourceUID()
     
+    @inlineCallbacks
     def isOrganizerScheduling(self):
         """
         Test whether this is a scheduling operation by an organizer
@@ -171,18 +177,19 @@ class ImplicitScheduler(object):
         
         # First must have organizer property
         if not self.organizer:
-            return False
+            returnValue(False)
         
         # Organizer must map to a valid principal
         self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
+        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
         if not self.organizerPrincipal:
-            return False
+            returnValue(False)
         
         # Organizer must be the owner of the calendar resource
         if str(self.calendar_owner) != self.organizerPrincipal.principalURL():
-            return False
+            returnValue(False)
 
-        return True
+        returnValue(True)
 
     def isAttendeeScheduling(self):
         
@@ -444,13 +451,24 @@ class ImplicitScheduler(object):
         else:
             # Get the ORGANIZER's current copy of the calendar object
             yield self.getOrganizersCopy()
-            assert self.organizer_calendar, "Must have the organizer's copy of an invite"
+            if self.organizer_calendar:
             
-            # Determine whether the current change is allowed
-            if self.isAttendeeChangeInsignificant():
-                log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
-                returnValue(None)
-                
+                # Determine whether the current change is allowed
+                if self.isAttendeeChangeInsignificant():
+                    log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
+                    returnValue(None)
+            elif isinstance(self.organizerAddress, LocalCalendarUser):
+                assert self.organizer_calendar, "Must have the organizer's copy of an invite"
+            elif isinstance(self.organizerAddress, InvalidCalendarUser):
+                log.debug("Attendee '%s' is not allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+            else:
+                # We have a remote Organizer of some kind. For now we will allow the Attendee
+                # to make any change they like as we cannot verify what is reasonable. In reality
+                # we ought to be comparing the Attendee changes against the attendee's own copy
+                # and restrict changes based on that when the organizer's copy is not available.
+                pass
+
             log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
             yield self.scheduleWithOrganizer()
 
