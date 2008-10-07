@@ -614,10 +614,12 @@ class MailHandler(LoggingMixIn):
         calendar.removeAllButOneAttendee(attendee)
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
-            # this calendar body is incomplete, skip it
-            self.log_error("Mail gateway didn't find an organizer in message %s" % (msg['Message-ID'],))
-            return
-        organizerProperty.setValue(organizer)
+            # ORGANIZER is required per rfc2446 section 3.2.3
+            self.log_warning("Mail gateway didn't find an ORGANIZER in REPLY %s" % (msg['Message-ID'],))
+            calendar.addProperty(Property("ORGANIZER", organizer))
+        else:
+            organizerProperty.setValue(organizer)
+
         return fn(organizer, attendee, calendar, msg['Message-ID'])
 
 
@@ -664,18 +666,22 @@ class MailHandler(LoggingMixIn):
 
         msgId, message = self._generateTemplateMessage(calendar, organizer)
 
-        # The email's From: will be the calendar server's address (without
-        # + addressing), while the Reply-To: will be the organizer's email
-        # address (but only if it *is* an email address).
+        # The email's From will include the organizer's real name email
+        # address if available.  Otherwise it will be the server's email
+        # address (without # + addressing)
         if organizer.startswith("mailto:"):
-            message = message.replace("${replytoaddress}", organizer[7:])
+            fromAddr = organizer[7:]
         else:
-            message = message.replace("${replytoaddress}", addressWithToken)
+            fromAddr = serverAddress
+        cn = calendar.getOrganizerProperty().params().get('CN',
+            ['Calendar Server'])[0]
+        formattedFrom = "%s <%s>" % (cn, fromAddr)
+        message = message.replace("${fromaddress}", formattedFrom)
 
-        fromAddr = serverAddress
+        # Reply-to address will be the server+token address
+        message = message.replace("${replytoaddress}", addressWithToken)
+
         toAddr = attendee
-        message = message.replace("${fromaddress}", fromAddr)
-
         if not attendee.startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
@@ -754,10 +760,11 @@ class MailHandler(LoggingMixIn):
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)
         msgIcal.add_header("Content-Disposition",
-            "attachment;filename=invitation.ics")
+            "inline;filename=invitation.ics")
         msg.attach(msgIcal)
 
         return msgId, msg.as_string()
+
 
     def _generateCalendarSummary(self, calendar, organizer):
 
