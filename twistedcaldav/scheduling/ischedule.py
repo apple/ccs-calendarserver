@@ -34,6 +34,7 @@ from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.util import utf8String
 
 """
 Server to server utility functions and client requests.
@@ -145,11 +146,11 @@ class IScheduleRequest(object):
 
     def _generateHeaders(self):
         self.headers = Headers()
-        self.headers.setHeader('Host', self.server.host + ":%s" % (self.server.port,))
-        self.headers.addRawHeader('Originator', self.scheduler.originator.cuaddr)
+        self.headers.setHeader('Host', utf8String(self.server.host + ":%s" % (self.server.port,)))
+        self.headers.addRawHeader('Originator', utf8String(self.scheduler.originator.cuaddr))
         self._doAuthentication()
         for recipient in self.recipients:
-            self.headers.addRawHeader('Recipient', recipient.cuaddr)
+            self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))
         self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset":"utf-8"}))
 
     def _doAuthentication(self):

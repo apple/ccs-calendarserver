@@ -108,3 +108,8 @@ class Alternator (object):
         state = self._state
         self._state = not state
         return state
+
+def utf8String(s):
+    if isinstance(s, unicode):
+        s = s.encode("utf-8")
+    return s
