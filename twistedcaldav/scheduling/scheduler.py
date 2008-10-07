@@ -578,24 +578,27 @@ class IScheduleScheduler(Scheduler):
                 matched = True
             else:
                 # Now do hostname lookup
-                host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
-                for host in itertools.chain((host,), aliases):
-                    # Try simple match first
-                    if host in compare_with:
-                        matched = True
+                try:
+                    host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
+                    for host in itertools.chain((host,), aliases):
+                        # Try simple match first
+                        if host in compare_with:
+                            matched = True
+                            break
+                        
+                        # Try pattern match next
+                        for pattern in compare_with:
+                            try:
+                                if re.match(pattern, host) is not None:
+                                    matched = True
+                                    break
+                            except re.error:
+                                log.debug("Invalid regular expression for ServerToServer white list for server domain %s: %s" % (self.originator.domain, pattern,))
+                        else:
+                            continue
                         break
-                    
-                    # Try pattern match next
-                    for pattern in compare_with:
-                        try:
-                            if re.match(pattern, host) is not None:
-                                matched = True
-                                break
-                        except re.error:
-                            log.debug("Invalid regular expression for ServerToServer white list for server domain %s: %s" % (self.originator.domain, pattern,))
-                    else:
-                        continue
-                    break
+                except socket.herror, e:
+                    log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
                         
             if not matched:
                 log.err("Originator not on allowed server: %s" % (self.originator,))
