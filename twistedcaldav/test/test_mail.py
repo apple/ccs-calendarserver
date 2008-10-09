@@ -92,8 +92,9 @@ class MailHandlerTests(TestCase):
         # stick the token in the database first
         self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
 
-        result = self.handler.processReply(msg, echo)
-        self.assertEquals(result, None)
+        organizer, attendee, calendar, msgId = self.handler.processReply(msg,
+            echo)
+        self.assertEquals(organizer, "mailto:user01@example.com")
 
 
 class MailGatewayTokensDatabaseTests(TestCase):
