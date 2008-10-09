@@ -1,0 +1,616 @@
+
+
+
+Calendar Server Extension                                       C. Daboo
+                                                                   Apple
+                                                         August 14, 2008
+
+
+             Private Attendee Comments in CalDAV Scheduling
+
+Abstract
+
+   This document defines an extension to CalDAV Scheduling that enables
+   Attendees to communicate private comments back to an Organizer, and
+   for the Organizer to see each Attendees' comments.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  2
+   3.  New behavior . . . . . . . . . . . . . . . . . . . . . . . . .  2
+     3.1.  Attendee . . . . . . . . . . . . . . . . . . . . . . . . .  3
+     3.2.  Organizer  . . . . . . . . . . . . . . . . . . . . . . . .  3
+   4.  New features . . . . . . . . . . . . . . . . . . . . . . . . .  5
+     4.1.  iCalendar Changes  . . . . . . . . . . . . . . . . . . . .  5
+       4.1.1.  Changes to VEVENT Component  . . . . . . . . . . . . .  5
+       4.1.2.  Changes to VTODO Component . . . . . . . . . . . . . .  5
+       4.1.3.  Changes to VJOURNAL Component  . . . . . . . . . . . .  6
+       4.1.4.  Private Comment Property . . . . . . . . . . . . . . .  6
+       4.1.5.  Attendee Comment Property  . . . . . . . . . . . . . .  7
+       4.1.6.  Date-time Stamp Property Parameter . . . . . . . . . .  8
+       4.1.7.  Attendee Reference Property Parameter  . . . . . . . .  9
+     4.2.  CalDAV Changes . . . . . . . . . . . . . . . . . . . . . .  9
+       4.2.1.  OPTIONS Request  . . . . . . . . . . . . . . . . . . .  9
+         4.2.1.1.  Example: Using OPTIONS for the Discovery of
+                   Private Attendee Comments Support  . . . . . . . . 10
+       4.2.2.  Handling clients that do not preserve X- properties  . 10
+       4.2.3.  New pre-conditions for PUT . . . . . . . . . . . . . . 10
+   5.  Security Considerations  . . . . . . . . . . . . . . . . . . . 10
+   6.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 11
+   7.  Normative References . . . . . . . . . . . . . . . . . . . . . 11
+   Appendix A.  Acknowledgments . . . . . . . . . . . . . . . . . . . 11
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 1]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+1.  Introduction
+
+   Internet calendaring and scheduling standards are defined by
+   iCalendar [RFC2445] and iTIP [RFC2446].  The CalDAV Access [RFC4791]
+   standard defines a way to access calendar data stored on a server,
+   and the CalDAV Scheduling [I-D.desruisseaux-caldav-sched] draft
+   defines how scheduling occurs between users of a CalDAV server.
+
+   It is often the case that an Attendee of an event wants to
+   communicate information back to an Organizer when they respond to a
+   meeting invitation.  Sometimes this is to tell the Organizer the
+   reason why an invite was declined, sometimes to add addition
+   information to an acceptance.  Typically these communications are
+   expected to be private as they may contain comments about other
+   Attendees.
+
+   This specification defines new iCalendar properties and parameters
+   that are used by clients to pass private comments between Attendees
+   and Organizers of events being scheduling via CalDAV scheduling.  It
+   also defines an extension to CalDAV scheduling that defines how a
+   server automatically processes the comments to ensure they are
+   communicated properly between the Attendee and Organizer.
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   When XML element types in the namespaces "DAV:" and
+   "urn:ietf:params:xml:ns:caldav" are referenced in this document
+   outside of the context of an XML fragment, the string "DAV:" and
+   "CALDAV:" will be prefixed to the element type names respectively.
+
+   The namespace "http://calendarserver.org/ns/" is used for XML
+   elements defined in this specification.  When XML element types in
+   this namespace are referenced in this document outside of the context
+   of an XML fragment, the string "CS:" will be prefixed to the element
+   type names respectively.
+
+   The prefix X-CALENDARSERVER- is used for all iCalendar properties and
+   parameters defined in this extension.
+
+
+3.  New behavior
+
+
+
+
+
+Daboo                                                           [Page 2]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+3.1.  Attendee
+
+   When an Attendee wants to send a private comment to an Organizer, the
+   Attendee's calendar user agent adds or updates an "X-CALENDARSERVER-
+   PRIVATE-COMMENT" property in each calendar component of a scheduling
+   object resource to which the comment applies.  The value of the
+   comment is the actual message the Attendee is sending.
+
+   The addition or update of any "X-CALENDARSERVER-PRIVATE-COMMENT"
+   property causes the server to send a scheduling message to the
+   Organizer as an iTIP "REPLY", and that MUST include the
+   "X-CALENDARSERVER-PRIVATE-COMMENT" properties in addition to the
+   normal properties sent as part of that scheduling message.
+
+3.2.  Organizer
+
+   When a scheduling message from an Attendee is processed by the
+   server, the server will check for the presence of a
+   "X-CALENDARSERVER-PRIVATE-COMMENT" property in each component of the
+   scheduling message and compare this with the scheduling object
+   resource corresponding to the scheduling message currently stored on
+   a live calendar belonging to the Organizer.  For each component in
+   the scheduling message, the server will identify the corresponding
+   component in the scheduling object resource (possibly creating a new
+   overridden component instance if needed) and do the following:
+
+   +---------+---------------------------------------------------------+
+   | State   | Description                                             |
+   +---------+---------------------------------------------------------+
+   | State 1 | Does the scheduling message contain a                   |
+   |         | "X-CALENDARSERVER-PRIVATE-COMMENT" property             |
+   |         |                                                         |
+   | State 2 | Does the scheduling object resource contain a           |
+   |         | "X-CALENDARSERVER-ATTENDEE-COMMENT" property with an    |
+   |         | "X-CALENDARSERVER-ATTENDEE-REF" parameter value that    |
+   |         | matches the "ATTENDEE" value in the scheduling message  |
+   +---------+---------------------------------------------------------+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 3]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+        +---------+---------+------------------------------------+
+        | State 1 | State 2 | Server Action                      |
+        +---------+---------+------------------------------------+
+        | No      | No      | No additional processing required. |
+        |         |         |                                    |
+        | No      | Yes     | Note 1.                            |
+        |         |         |                                    |
+        | Yes     | No      | Note 2.                            |
+        |         |         |                                    |
+        | Yes     | Yes     | Note 3.                            |
+        +---------+---------+------------------------------------+
+
+   Note 1:  The server MUST update the "X-CALENDARSERVER-DTSTAMP"
+      parameter value on the "X-CALENDARSERVER-ATTENDEE-COMMENT"
+      property, and it MUST set the value of that property to an empty
+      string.  It MUST remove all property parameters other than
+      "X-CALENDARSERVER-DTSTAMP" and "X-CALENDARSERVER-ATTENDEE-REF".
+
+   Note 2:  The server MUST create an "X-CALENDARSERVER-ATTENDEE-
+      COMMENT" and MUST set the "X-CALENDARSERVER-DTSTAMP" and
+      "X-CALENDARSERVER-ATTENDEE-REF" parameter values, and MUST set the
+      value of the new property to the value of the "X-CALENDARSERVER-
+      PRIVATE-COMMENT" property.  Other parameter values on the
+      "X-CALENDARSERVER-PRIVATE-COMMENT" property MAY be copied to the
+      "X-CALENDARSERVER-ATTENDEE-COMMENT" property if supported.
+
+   Note 3:  The server MUST update the "X-CALENDARSERVER-DTSTAMP"
+      parameter value on the "X-CALENDARSERVER-ATTENDEE-COMMENT"
+      property, and MUST set the value of the new property to the value
+      of the "X-CALENDARSERVER-PRIVATE-COMMENT" property.  It MUST
+      remove all property parameters other than "X-CALENDARSERVER-
+      DTSTAMP" and "X-CALENDARSERVER-ATTENDEE-REF", and other parameter
+      values on the "X-CALENDARSERVER-PRIVATE-COMMENT" property MAY be
+      copied to the "X-CALENDARSERVER-ATTENDEE-COMMENT" property if
+      supported.
+
+   When creating or updating the "X-CALENDARSERVER-DTSTAMP" property
+   parameter value, the server MUST set it to the date-time UTC value
+   when the processing of the scheduling message took place.
+
+   When creating the "X-CALENDARSERVER-ATTENDEE-REF" property parameter
+   value, the server MUST set it to the "ATTENDEE" property value in the
+   scheduling message being processed.  As the scheduling message is an
+   iTIP "REPLY" only one "ATTENDEE" property will be present in each
+   component, and the value corresponds to the Attendee sending the
+   reply.
+
+   Servers MUST remove an "X-CALENDARSERVER-ATTENDEE-COMMENT" property
+
+
+
+Daboo                                                           [Page 4]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+   if the corresponding "ATTENDEE" property is removed by the Organizer.
+
+   Servers MUST NOT include "X-CALENDARSERVER-ATTENDEE-COMMENT"
+   properties in scheduling messages sent to Attendees triggered by
+   changes to an Organizer's scheduling object resource.  Clients SHOULD
+   ensure that "X-CALENDARSERVER-ATTENDEE-COMMENT" properties are not
+   included in any iCalendar data "exported" to other calendar systems
+   or sent as scheduling messages by the client.
+
+
+4.  New features
+
+4.1.  iCalendar Changes
+
+   This specification introduces a new iCalendar properties
+   "X-CALENDARSERVER-PRIVATE-COMMENT" and "X-CALENDARSERVER-ATTENDEE-
+   COMMENT" for use in iCalendar components.
+
+4.1.1.  Changes to VEVENT Component
+
+   The definition of the properties allowed in a "VEVENT" component is
+   extended as follows:
+
+   eventprop   /=
+
+              ; 'privatecomment' is optional,
+              ; but MUST NOT occur more than once
+
+              privatecomment /
+
+              ; 'attendeecomment' is optional,
+              ; and MAY occur more than once
+
+              attendeecomment
+
+4.1.2.  Changes to VTODO Component
+
+   The definition of the properties allowed in a "VTODO" component is
+   extended as follows:
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 5]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+   todoprop   /=
+
+              ; 'privatecomment' is optional,
+              ; but MUST NOT occur more than once
+
+              privatecomment /
+
+              ; 'attendeecomment' is optional,
+              ; and MAY occur more than once
+
+              attendeecomment
+
+4.1.3.  Changes to VJOURNAL Component
+
+   The definition of the properties allowed in a "VJOURNAL" component is
+   extended as follows:
+
+   jourprop   /=
+
+              ; 'privatecomment' is optional,
+              ; but MUST NOT occur more than once
+
+              privatecomment /
+
+              ; 'attendeecomment' is optional,
+              ; and MAY occur more than once
+
+              attendeecomment
+
+4.1.4.  Private Comment Property
+
+   Property Name:  X-CALENDARSERVER-PRIVATE-COMMENT
+
+   Purpose:  A private comment that an Attendee adds to their copy of an
+      event and that gets communicated to the Organizer by the server.
+
+   Value Type:  TEXT
+
+   Property Parameters:  IANA, non-standard, alternate text
+      representation and language property parameters can be specified
+      on this property.
+
+   Conformance:  This property can be specified once in "VEVENT",
+      "VTODO", and "VJOURNAL" calendar components.
+
+
+
+
+
+
+
+Daboo                                                           [Page 6]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+   Description:  This property can be added by an Attendee to their copy
+      of a calendar component in a scheduling object resource.  See
+      Section 3.1.
+
+   Format Definition:  This property is defined by the following
+      notation:
+
+   privatecomment      = "X-CALENDARSERVER-PRIVATE-COMMENT"
+                                   privatecommentparam ":" text CRLF
+
+   privatecommentparam = *(
+
+                          ; the following are OPTIONAL,
+                          ; but MUST NOT occur more than once
+
+                          (";" altrepparam) / (";" languageparam) /
+
+                          ; the following is OPTIONAL,
+                          ; and MAY occur more than once
+
+                          (";" other-param)
+
+                          )
+
+   Example:
+
+       X-CALENDARSERVER-PRIVATE-COMMENT:Sorry I cannot attend the mee
+        ting at the specified time. I am free one hour later though.
+
+4.1.5.  Attendee Comment Property
+
+   Property Name:  X-CALENDARSERVER-ATTENDEE-COMMENT
+
+   Purpose:  A private Attendee comment from an Attendee to the
+      Organizer, as recorded by the server.
+
+   Value Type:  TEXT
+
+   Property Parameters:  IANA, non-standard, alternate text
+      representation, language, timestamp and attendee property
+      parameters can be specified on this property.
+
+   Conformance:  This property can be specified multiple times in
+      "VEVENT", "VTODO", and "VJOURNAL" calendar components.  However,
+      it MUST only occur once in each component with the same
+      "X-CALENDARSERVER-ATTENDEE-REF" parameter value.
+
+
+
+
+
+Daboo                                                           [Page 7]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+   Description:  This property is added or updated by the server as a
+      result of receiving a scheduling message from an Attendee.  See
+      Section 3.2.
+
+   Format Definition:  This property is defined by the following
+      notation:
+
+   attendeecomment      = "X-CALENDARSERVER-ATTENDEE-COMMENT"
+                                   attendeecommentparam ":" text CRLF
+
+   attendeecommentparam = *(
+
+                          ; the following are REQUIRED,
+                          ; but MUST occur only once
+
+                          (";" dtstampparam) / (";" attendeerefparam) /
+
+                          ; the following are OPTIONAL,
+                          ; but MUST NOT occur more than once
+
+                          (";" altrepparam) / (";" languageparam) /
+
+                          ; the following is OPTIONAL,
+                          ; and MAY occur more than once
+
+                          (";" other-param)
+
+                          )
+
+   Example:
+
+    X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-DTSTAMP=20080814T
+     114816Z;X-CALENDARSERVER-ATTENDEE-REF="mailto:cyrus@example.com":So
+     rry I cannot attend the meeting at the specified time. I am free on
+     e hour later though.
+
+4.1.6.  Date-time Stamp Property Parameter
+
+   Parameter Name:  X-CALENDARSERVER-DTSTAMP
+
+   Purpose:  Indicates when an iCalendar property was updated by the
+      server.
+
+   Format Definition:  This property parameter is defined by the
+      following notation:
+
+   dtstampparam      = "X-CALENDARSERVER-DTSTAMP" "=" date-time
+                       ; MUST be a date-time in UTC
+
+
+
+Daboo                                                           [Page 8]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+   Description:  This parameter indicates when specific iCalendar
+      properties were added or changed as the result of the server
+      automatically updating a scheduling object resource.
+
+   Example:
+
+    X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-DTSTAMP=20080814T
+     114816Z;X-CALENDARSERVER-ATTENDEE-REF="mailto:cyrus@example.com":So
+     rry I cannot attend the meeting at the specified time. I am free on
+     e hour later though.
+
+4.1.7.  Attendee Reference Property Parameter
+
+   Parameter Name:  X-CALENDARSERVER-ATTENDEE-REF
+
+   Purpose:  Relates an iCalendar property to a particular "ATTENDEE"
+      property in the same calendar component.
+
+   Format Definition:  This property parameter is defined by the
+      following notation:
+
+   attendeerefparam  = "X-CALENDARSERVER-ATTENDEE-REF" "="
+                                    DQUOTE cal-address DQUOTE
+
+   Description:  This parameter relates a particular property to a
+      specific "ATTENDEE" property in the same calendar component.  It
+      is used to tie Attendee comments back to the actual Attendee who
+      made them.
+
+   Example:
+
+    X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-DTSTAMP=20080814T
+     114816Z;X-CALENDARSERVER-ATTENDEE-REF="mailto:cyrus@example.com":So
+     rry I cannot attend the meeting at the specified time. I am free on
+     e hour later though.
+
+4.2.  CalDAV Changes
+
+4.2.1.  OPTIONS Request
+
+   A server supporting the features described in this document MUST
+   include "calendarserver-private-comments" as a field in the DAV
+   response header from an OPTIONS request on all calendar resources.  A
+   value of "calendarserver-private-comments" in the DAV response header
+   MUST indicate that the server supports all MUST level requirements
+   specified in this document.
+
+
+
+
+
+Daboo                                                           [Page 9]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+4.2.1.1.  Example: Using OPTIONS for the Discovery of Private Attendee
+          Comments Support
+
+      >> Request <<
+
+      OPTIONS /home/cyrus/calendars/ HTTP/1.1
+      Host: cal.example.com
+
+      >> Response <<
+
+      HTTP/1.1 200 OK
+      Allow: OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, COPY, MOVE
+      Allow: PROPFIND, PROPPATCH, LOCK, UNLOCK, REPORT, ACL
+      DAV: 1, 2, access-control, calendar-access
+      DAV: calendarserver-private-comments
+      Date: Sat, 11 Nov 2006 09:32:12 GMT
+      Content-Length: 0
+
+   In this example, the OPTIONS method returns the value
+   "calendarserver-private-comments" in the DAV response header to
+   indicate that the collection "/home/cyrus/calendars/" supports the
+   behavior defined in this specification.
+
+4.2.2.  Handling clients that do not preserve X- properties
+
+   TODO:
+
+4.2.3.  New pre-conditions for PUT
+
+   The following pre-conditions for a PUT request against a calendar
+   resource are defined:
+
+      (CS:valid-attendee-comment-change):Only the server is allowed to
+      the value and parameters on an "X-CALENDARSERVER-ATTENDEE-COMMENT"
+      property.
+
+   If these pre-conditions are violated the server MUST return a DAV:
+   error response with the appropriate XML element indicating the pre-
+   condition being violated in the response to the PUT request.
+
+
+5.  Security Considerations
+
+   TODO:
+
+
+
+
+
+
+
+Daboo                                                          [Page 10]
+
+                    CalDAV Private Attendee Comments         August 2008
+
+
+6.  IANA Considerations
+
+   This document does not require any actions on the part of IANA.
+
+
+7.  Normative References
+
+   [I-D.desruisseaux-caldav-sched]
+              Daboo, C., Desruisseaux, B., and L. Dusseault, "CalDAV
+              Scheduling Extensions to WebDAV",
+              draft-desruisseaux-caldav-sched-04 (work in progress),
+              November 2007.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2445]  Dawson, F. and Stenerson, D., "Internet Calendaring and
+              Scheduling Core Object Specification (iCalendar)",
+              RFC 2445, November 1998.
+
+   [RFC2446]  Silverberg, S., Mansour, S., Dawson, F., and R. Hopson,
+              "iCalendar Transport-Independent Interoperability Protocol
+              (iTIP) Scheduling Events, BusyTime, To-dos and Journal
+              Entries", RFC 2446, November 1998.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+
+Appendix A.  Acknowledgments
+
+   This specification is the result of discussions between the Apple
+   calendar server and client teams.
+
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+
+
+
+Daboo                                                          [Page 11]
+
