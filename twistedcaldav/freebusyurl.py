@@ -219,9 +219,9 @@ class FreeBusyURLResource (CalDAVResource):
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox for principal: %s" % (principal,)))
             
         scheduler = Scheduler(request, self)
-        scheduler.timerange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
-        scheduler.timerange.start = self.start
-        scheduler.timerange.end = self.end
+        scheduler.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
+        scheduler.timeRange.start = self.start
+        scheduler.timeRange.end = self.end
         
         scheduler.organizer = LocalCalendarUser(cuaddr, principal, inbox, inboxURL)
         
