@@ -470,7 +470,7 @@
         <array>
         </array>
         <key>Servers</key>
-        <string>/etc/caldavd/servertoserver.xml</string>
+        <string>conf/servertoserver-test.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->
