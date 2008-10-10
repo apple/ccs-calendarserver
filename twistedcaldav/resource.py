@@ -693,6 +693,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (caldav_namespace, "calendar-user-address-set"),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
+        (caldav_namespace, "calendar-user-type"       ),
         (calendarserver_namespace, "first-name"       ),
         (calendarserver_namespace, "last-name"        ),
         (calendarserver_namespace, "email-address-set"),
@@ -742,6 +743,11 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                         return None
                     else:
                         return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+
+                if name == "calendar-user-type":
+                    return caldavxml.CalendarUserType(
+                        self.record.getCUType()
+                    )
 
             elif namespace == calendarserver_namespace:
                 if name == "dropbox-home-URL" and config.EnableDropBox:

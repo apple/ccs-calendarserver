@@ -359,10 +359,13 @@ class OpenDirectoryService(DirectoryService):
                 self.log_info("Got back %d records from OD" % (len(results),))
                 for key, val in results.iteritems():
                     self.log_debug("OD result: %s %s" % (key, val))
-                    guid = val[dsattributes.kDS1AttrGeneratedUID]
-                    rec = self.recordWithGUID(guid)
-                    if rec:
-                        yield rec
+                    try:
+                        guid = val[dsattributes.kDS1AttrGeneratedUID]
+                        rec = self.recordWithGUID(guid)
+                        if rec:
+                            yield rec
+                    except KeyError:
+                        pass
 
             except Exception, e:
                 self.log_error("OD search failed: %s" % (e,))

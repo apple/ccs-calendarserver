@@ -615,7 +615,7 @@ class MailHandler(LoggingMixIn):
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
-            self.log_warning("Mail gateway didn't find an ORGANIZER in REPLY %s" % (msg['Message-ID'],))
+            self.log_warn("Mail gateway didn't find an ORGANIZER in REPLY %s" % (msg['Message-ID'],))
             calendar.addProperty(Property("ORGANIZER", organizer))
         else:
             organizerProperty.setValue(organizer)

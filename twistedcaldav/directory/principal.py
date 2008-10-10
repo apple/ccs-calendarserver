@@ -49,12 +49,13 @@ from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
-from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource, DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
+from twistedcaldav import caldavxml, customxml
 
 log = Logger()
 
@@ -75,6 +76,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
 
 
 class DirectoryProvisioningResource (
+    DirectoryPrincipalPropertySearchMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
@@ -131,18 +133,49 @@ class DirectoryProvisioningResource (
 
     _cs_ns = "http://calendarserver.org/ns/"
     _fieldMap = {
-        ("DAV:" , "displayname") : "fullName",
-        (_cs_ns, "first-name") : "firstName",
-        (_cs_ns, "last-name") : "lastName",
-        (_cs_ns, "email-address-set") : "emailAddresses",
+        ("DAV:" , "displayname") :
+            ("fullName", None, "Display Name", davxml.DisplayName),
+        ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
+            ("recordType", DirectoryRecord.fromCUType, "Calendar User Type",
+            caldavxml.CalendarUserType),
+        (_cs_ns, "first-name") :
+            ("firstName", None, "First Name", customxml.FirstNameProperty),
+        (_cs_ns, "last-name") :
+            ("lastName", None, "Last Name", customxml.LastNameProperty),
+        (_cs_ns, "email-address-set") :
+            ("emailAddresses", None, "Email Addresses",
+            customxml.EmailAddressProperty),
     }
 
-    def propertyToField(self, property):
+    def propertyToField(self, property, match):
         """
         If property is a DAV property that maps to a directory field, return
         that field's name, otherwise return None
         """
-        return self._fieldMap.get(property.qname(), None)
+        field, converter, description, xmlClass = self._fieldMap.get(
+            property.qname(), (None, None, None))
+        if field is None:
+            return (None, None)
+        elif converter is not None:
+            match = converter(match)
+        return (field, match)
+
+    def principalSearchPropertySet(self):
+        props = []
+        for field, converter, description, xmlClass in self._fieldMap.itervalues():
+            props.append(
+                davxml.PrincipalSearchProperty(
+                    davxml.PropertyContainer(
+                        xmlClass()
+                    ),
+                    davxml.Description(
+                        davxml.PCDATAElement(description),
+                        **{"xml:lang":"en"}
+                    ),
+                )
+            )
+
+        return davxml.PrincipalSearchPropertySet(*props)
 
 
 class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
@@ -382,7 +415,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (DirectoryPrincipalPropertySearchMixIn, PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """

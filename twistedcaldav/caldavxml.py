@@ -1733,6 +1733,13 @@ class ScheduleUnprocessed (CalDAVEmptyElement):
     """
     name = "schedule-unprocessed"
 
+class CalendarUserType (CalDAVTextElement):
+    """
+    The CALDAV:calendar-user-type property from section 9.2.4 of caldav-sched-05
+    """
+    name = "calendar-user-type"
+    protected = True
+
 ##
 # Extensions to davxml.ResourceType
 ##

@@ -139,19 +139,20 @@ class DirectoryService(LoggingMixIn):
             for record in self.listRecords(recordType):
                 yield record
 
+    def recordsMatchingFieldsWithCUType(self, fields, operand="or",
+        cuType=None):
+        if cuType:
+            recordType = DirectoryRecord.fromCUType(cuType)
+        else:
+            recordType = None
+
+        return self.recordsMatchingFields(fields, operand=operand,
+            recordType=recordType)
+
+
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, bruteforce method; override with one optimized for each
         # service
-
-        if recordType is None:
-            recordTypes = (
-                DirectoryService.recordType_users,
-                DirectoryService.recordType_groups,
-                DirectoryService.recordType_locations,
-                DirectoryService.recordType_resources,
-            )
-        else:
-            recordTypes = (recordType,)
 
         def fieldMatches(fieldValue, value, caseless, matchType):
             if caseless:
@@ -194,6 +195,11 @@ class DirectoryService(LoggingMixIn):
                 return False
 
         try:
+            if recordType is None:
+                recordTypes = list(self.recordTypes())
+            else:
+                recordTypes = (recordType,)
+
             for recordType in recordTypes:
                 for record in self.listRecords(recordType):
                     if recordMatches(record):
@@ -287,6 +293,24 @@ class DirectoryRecord(LoggingMixIn):
 
     def verifyCredentials(self, credentials):
         return False
+
+    # Mapping from directory record.recordType to RFC2445 CUTYPE values
+    _cuTypes = {
+        'users' : 'INDIVIDUAL',
+        'groups' : 'GROUP',
+        'resources' : 'RESOURCE',
+        'locations' : 'ROOM',
+    }
+
+    def getCUType(self):
+        return self._cuTypes.get(self.recordType, "UNKNOWN")
+
+    @classmethod
+    def fromCUType(cls, cuType):
+        for key, val in cls._cuTypes.iteritems():
+            if val == cuType:
+                return key
+        return None
 
 class DirectoryError(RuntimeError):
     """

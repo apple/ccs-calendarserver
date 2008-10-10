@@ -35,7 +35,7 @@ import cgi
 import time
 
 from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
-from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import maybeDeferred, deferredGenerator, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response, RedirectResponse
 from twisted.web2.http import StatusResponse
@@ -44,11 +44,15 @@ from twisted.web2.stream import FileStream
 from twisted.web2.static import MetaDataMixin
 from twisted.web2.dav import davxml
 from twisted.web2.dav.davxml import dav_namespace
+from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.xattrprops import xattrPropertyStore
+from twisted.web2.dav.method import prop_common
+from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
+from twisted.web2.dav.method.report import max_number_of_matches
 
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
@@ -400,6 +404,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
             
         returnValue(match)
 
+
 class DAVPrincipalResource (SuperDAVPrincipalResource, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
@@ -710,6 +715,8 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
          )
 
 
+
+
 class ReadOnlyWritePropertiesResourceMixIn (object):
     """
     Read only that will allow writing of properties resource.
@@ -831,3 +838,148 @@ class CachingXattrPropertyStore(xattrPropertyStore, LoggingMixIn):
                 for name in super(CachingXattrPropertyStore, self).list()
             )
         return self._data
+
+
+class DirectoryPrincipalPropertySearchMixIn(object):
+
+    def report_DAV__principal_property_search(self, request,
+        principal_property_search):
+        """
+        Generate a principal-property-search REPORT. (RFC 3744, section 9.4)
+        Overrides twisted implementation, targetting only directory-enabled
+        searching.
+        """
+        # Verify root element
+        if not isinstance(principal_property_search,
+            davxml.PrincipalPropertySearch):
+            raise ValueError("%s expected as root element, not %s." %
+                (davxml.PrincipalPropertySearch.sname(),
+                principal_property_search.sname()))
+
+        # Should we AND (the default) or OR (if test="anyof")?
+        testMode = principal_property_search.attributes.get("test", "allof")
+        if testMode not in ("allof", "anyof"):
+            raise ValueError("Unknown value for test attribute: %s" %
+                (testMode,))
+        operand = "and" if testMode == "allof" else "or"
+
+        # Are we narrowing results down to a single CUTYPE?
+        cuType = principal_property_search.attributes.get("type", None)
+        if cuType not in ("INDIVIDUAL", "GROUP", "RESOURCE", "ROOM", None):
+            raise ValueError("Unknown value for type attribute: %s" % (cuType,))
+
+        # Only handle Depth: 0
+        depth = request.headers.getHeader("depth", "0")
+        if depth != "0":
+            log.err("Error in prinicpal-property-search REPORT, Depth set to %s" % (depth,))
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
+
+        # Get a single DAV:prop element from the REPORT request body
+        propertiesForResource = None
+        propElement = None
+        propertySearches = []
+        applyTo = False
+        for child in principal_property_search.children:
+            if child.qname() == (dav_namespace, "prop"):
+                propertiesForResource = prop_common.propertyListForResource
+                propElement = child
+            elif child.qname() == (dav_namespace,
+                "apply-to-principal-collection-set"):
+                applyTo = True
+            elif child.qname() == (dav_namespace, "property-search"):
+                props = child.childOfType(davxml.PropertyContainer)
+                props.removeWhitespaceNodes()
+
+                match = child.childOfType(davxml.Match)
+                caseless = match.attributes.get("caseless", "yes")
+                if caseless not in ("yes", "no"):
+                    raise ValueError("Unknown value for caseless attribute: %s"
+                        % (caseless,))
+                caseless = True if caseless == "yes" else False
+                matchType = match.attributes.get("match-type", "contains")
+                if matchType not in ("starts-with", "contains"):
+                    raise ValueError("Unknown value for match-type attribute: %s" %
+                        (matchType,))
+
+                propertySearches.append((props.children, str(match),
+                    caseless, matchType))
+
+        # Run report
+        try:
+
+            resources = []
+            if applyTo or not hasattr(self, "directory"):
+                for principalCollection in self.principalCollections():
+                    uri = principalCollection.principalCollectionURL()
+                    resource = waitForDeferred(request.locateResource(uri))
+                    yield resource
+                    resource = resource.getResult()
+                    if resource:
+                        resources.append((resource, uri))
+            else:
+                resources.append((self, request.uri))
+
+            # We need to access a directory service
+            principalCollection = resources[0][0]
+            dir = principalCollection.directory
+
+            # See if we can take advantage of the directory
+            fields = []
+            nonDirectorySearches = []
+            for props, match, caseless, matchType in propertySearches:
+                nonDirectoryProps = []
+                for prop in props:
+                    fieldName, match = principalCollection.propertyToField(
+                        prop, match)
+                    if fieldName:
+                        fields.append((fieldName, match, caseless, matchType))
+                    else:
+                        nonDirectoryProps.append(prop)
+                if nonDirectoryProps:
+                    nonDirectorySearches.append((nonDirectoryProps, match,
+                        caseless, matchType))
+
+            matchingResources = []
+            matchcount = 0
+
+            # nonDirectorySearches are ignored
+
+            if fields:
+
+                for record in dir.recordsMatchingFieldsWithCUType(fields,
+                    operand=operand, cuType=cuType):
+
+                    resource = principalCollection.principalForRecord(record)
+
+                    # We've determined this is a matching resource
+                    matchcount += 1
+                    if matchcount > max_number_of_matches:
+                        raise NumberOfMatchesWithinLimits
+                    matchingResources.append(resource)
+
+            # Generate the response
+            responses = []
+            for resource in matchingResources:
+                url = resource.url()
+                d = waitForDeferred(prop_common.responseForHref(
+                    request,
+                    responses,
+                    davxml.HRef.fromString(url),
+                    resource,
+                    propertiesForResource,
+                    propElement
+                ))
+                yield d
+                d.getResult()
+
+
+        except NumberOfMatchesWithinLimits:
+            log.err("Too many matching components in prinicpal-property-search report")
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (dav_namespace, "number-of-matches-within-limits")
+            ))
+
+        yield MultiStatusResponse(responses)
+
+    report_DAV__principal_property_search = deferredGenerator(report_DAV__principal_property_search)

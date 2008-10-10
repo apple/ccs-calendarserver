@@ -28,7 +28,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
-from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
+from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore, DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.config import config
 from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
@@ -49,7 +49,7 @@ class RootACLMixIn (object):
         return succeed(self.defaultAccessControlList())
 
 
-class RootResource (RootACLMixIn, DAVFile):
+class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.

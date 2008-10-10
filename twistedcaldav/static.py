@@ -57,7 +57,7 @@ from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import DAVFile, DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import CachingXattrPropertyStore
 from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
@@ -490,7 +490,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
         return True
 
-class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
+class CalendarHomeProvisioningFile (DirectoryPrincipalPropertySearchMixIn, AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.
     """
@@ -512,7 +512,7 @@ class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendar
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
+class CalendarHomeTypeProvisioningFile (DirectoryPrincipalPropertySearchMixIn, AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
     def __init__(self, path, parent, recordType):
         """
         @param path: the path to the file which will back the resource.
@@ -601,7 +601,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (DirectoryPrincipalPropertySearchMixIn, PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
