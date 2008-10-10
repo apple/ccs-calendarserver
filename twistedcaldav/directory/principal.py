@@ -76,7 +76,6 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
 
 
 class DirectoryProvisioningResource (
-    DirectoryPrincipalPropertySearchMixIn,
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
     DAVFile,
@@ -415,7 +414,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (DirectoryPrincipalPropertySearchMixIn, PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
     Directory principal resource.
     """

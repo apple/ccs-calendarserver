@@ -490,7 +490,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
         return True
 
-class CalendarHomeProvisioningFile (DirectoryPrincipalPropertySearchMixIn, AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
+class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.
     """
@@ -512,7 +512,7 @@ class CalendarHomeProvisioningFile (DirectoryPrincipalPropertySearchMixIn, AutoP
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeTypeProvisioningFile (DirectoryPrincipalPropertySearchMixIn, AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
+class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
     def __init__(self, path, parent, recordType):
         """
         @param path: the path to the file which will back the resource.
@@ -601,7 +601,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeFile (DirectoryPrincipalPropertySearchMixIn, PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
