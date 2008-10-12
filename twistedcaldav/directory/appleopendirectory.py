@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from uuid import UUID
 
 """
 Apple Open Directory directory service implementation.
@@ -27,6 +26,7 @@ __all__ = [
 import itertools
 import sys
 from random import random
+from uuid import UUID
 
 import opendirectory
 import dsattributes
@@ -90,6 +90,8 @@ class OpenDirectoryService(DirectoryService):
         self.cacheTimeout = cacheTimeout
         self._records = {}
         self._delayedCalls = set()
+        self._groupIndex = {}
+        self._groupIndexValid = False
 
         if dosetup:
             for recordType in self.recordTypes():
@@ -300,6 +302,26 @@ class OpenDirectoryService(DirectoryService):
         return record
 
 
+    def groupsForGUID(self, guid):
+        
+        # Check whether cache exists
+        if not self._groupIndexValid:
+            self._reindexGroups()
+        
+        # Lookup in index
+        try:
+            return self._groupIndex[guid]
+        except KeyError:
+            return ()
+
+    def _reindexGroups(self):
+        index = {}
+        for groupRecord in self.recordsForType(DirectoryService.recordType_groups).itervalues():
+            for guid in groupRecord._memberGUIDs:
+                index.setdefault(guid, set()).add(groupRecord)
+        self._groupIndex = index
+        self._groupIndexValid = True
+
     _ODFields = {
         'fullName' : dsattributes.kDS1AttrDistinguishedName,
         'firstName' : dsattributes.kDS1AttrFirstName,
@@ -373,6 +395,8 @@ class OpenDirectoryService(DirectoryService):
             self.log_info("Faulting record %s into %s record cache" % (shortName, recordType))
         elif guid is None:
             self.log_info("Reloading %s record cache" % (recordType,))
+
+        self._groupIndexValid = False
 
         results = self._queryDirectory(recordType, shortName=shortName, guid=guid)
 
@@ -732,9 +756,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield userRecord
 
     def groups(self):
-        for groupRecord in self.service.recordsForType(DirectoryService.recordType_groups).itervalues():
-            if self.guid in groupRecord._memberGUIDs:
-                yield groupRecord
+        return self.service.groupsForGUID(self.guid)
 
     def proxies(self):
         if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
