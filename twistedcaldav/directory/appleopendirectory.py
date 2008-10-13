@@ -90,8 +90,6 @@ class OpenDirectoryService(DirectoryService):
         self.cacheTimeout = cacheTimeout
         self._records = {}
         self._delayedCalls = set()
-        self._groupIndex = {}
-        self._groupIndexValid = False
 
         if dosetup:
             for recordType in self.recordTypes():
@@ -304,23 +302,15 @@ class OpenDirectoryService(DirectoryService):
 
     def groupsForGUID(self, guid):
         
-        # Check whether cache exists
-        if not self._groupIndexValid:
-            self._reindexGroups()
-        
         # Lookup in index
         try:
-            return self._groupIndex[guid]
+            return self._storage(DirectoryService.recordType_groups)["groupsForGUID"][guid]
         except KeyError:
             return ()
 
-    def _reindexGroups(self):
-        index = {}
-        for groupRecord in self.recordsForType(DirectoryService.recordType_groups).itervalues():
-            for guid in groupRecord._memberGUIDs:
-                index.setdefault(guid, set()).add(groupRecord)
-        self._groupIndex = index
-        self._groupIndexValid = True
+    def _indexGroup(self, group, index):
+        for guid in group._memberGUIDs:
+            index.setdefault(guid, set()).add(group)
 
     _ODFields = {
         'fullName' : dsattributes.kDS1AttrDistinguishedName,
@@ -396,8 +386,6 @@ class OpenDirectoryService(DirectoryService):
         elif guid is None:
             self.log_info("Reloading %s record cache" % (recordType,))
 
-        self._groupIndexValid = False
-
         results = self._queryDirectory(recordType, shortName=shortName, guid=guid)
 
         if shortName is None and guid is None:
@@ -406,6 +394,9 @@ class OpenDirectoryService(DirectoryService):
 
             disabledNames = set()
             disabledGUIDs = set()
+            
+            if recordType == DirectoryService.recordType_groups:
+                groupsForGUID = {}
         else:
             storage = self._records[recordType]
 
@@ -414,6 +405,9 @@ class OpenDirectoryService(DirectoryService):
 
             disabledNames = storage["disabled names"]
             disabledGUIDs = storage["disabled guids"]
+            
+            if recordType == DirectoryService.recordType_groups:
+                groupsForGUID = storage["groupsForGUID"]
 
         enabled_count = 0
         for (recordShortName, value) in results:
@@ -555,6 +549,10 @@ class OpenDirectoryService(DirectoryService):
                     records[record.shortName] = guids[record.guid] = record
                     self.log_debug("Added record %s to OD record cache" % (record,))
 
+                    # Do group indexing if needed
+                    if recordType == DirectoryService.recordType_groups:
+                        self._indexGroup(record, groupsForGUID)
+
         if shortName is None and guid is None:
             #
             # Replace the entire cache
@@ -566,6 +564,10 @@ class OpenDirectoryService(DirectoryService):
                 "disabled names": disabledNames,
                 "disabled guids": disabledGUIDs,
             }
+
+            # Add group indexing if needed
+            if recordType == DirectoryService.recordType_groups:
+                storage["groupsForGUID"] = groupsForGUID
 
             def rot():
                 storage["status"] = "stale"
