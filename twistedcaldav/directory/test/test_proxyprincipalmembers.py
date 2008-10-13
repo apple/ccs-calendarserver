@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList
+from twisted.internet.defer import DeferredList, inlineCallbacks
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -74,6 +74,13 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d = principal.groupMemberships()
         d.addCallback(gotMemberships)
         return d
+    
+    @inlineCallbacks
+    def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
+        principal = self._getPrincipalByShortName(recordType, recordName)
+        proxies = (yield principal.proxyFor(read_write))
+        proxies = set([principal.displayName() for principal in proxies])
+        self.assertEquals(proxies, set(expectedProxies))
 
     def test_groupMembersRegular(self):
         """
@@ -254,3 +261,20 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             self.assertEquals(notifier.changedCount, 1)
         finally:
             DirectoryPrincipalResource.cacheNotifierFactory = oldCacheNotifier
+
+    def test_proxyFor(self):
+
+        return self._proxyForTest(
+            DirectoryService.recordType_users, "wsanchez", 
+            ("Mecury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            True
+        )
+
+    def test_readOnlyProxyFor(self):
+
+        return self._proxyForTest(
+            DirectoryService.recordType_users, "wsanchez", 
+            ("Non-calendar proxy", ),
+            False
+        )
+

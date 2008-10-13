@@ -23,7 +23,6 @@ __all__ = [
     "OpenDirectoryInitError",
 ]
 
-import itertools
 import sys
 from random import random
 from uuid import UUID
@@ -308,8 +307,24 @@ class OpenDirectoryService(DirectoryService):
         except KeyError:
             return ()
 
-    def _indexGroup(self, group, index):
-        for guid in group._memberGUIDs:
+    def proxiesForGUID(self, recordType, guid):
+        
+        # Lookup in index
+        try:
+            return self._storage(recordType)["proxiesForGUID"][guid]
+        except KeyError:
+            return ()
+
+    def readOnlyProxiesForGUID(self, recordType, guid):
+        
+        # Lookup in index
+        try:
+            return self._storage(recordType)["readOnlyProxiesForGUID"][guid]
+        except KeyError:
+            return ()
+
+    def _indexGroup(self, group, guids, index):
+        for guid in guids:
             index.setdefault(guid, set()).add(group)
 
     _ODFields = {
@@ -397,6 +412,9 @@ class OpenDirectoryService(DirectoryService):
             
             if recordType == DirectoryService.recordType_groups:
                 groupsForGUID = {}
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                proxiesForGUID = {}
+                readOnlyProxiesForGUID = {}
         else:
             storage = self._records[recordType]
 
@@ -408,6 +426,9 @@ class OpenDirectoryService(DirectoryService):
             
             if recordType == DirectoryService.recordType_groups:
                 groupsForGUID = storage["groupsForGUID"]
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                proxiesForGUID = storage["proxiesForGUID"]
+                readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
 
         enabled_count = 0
         for (recordShortName, value) in results:
@@ -551,7 +572,12 @@ class OpenDirectoryService(DirectoryService):
 
                     # Do group indexing if needed
                     if recordType == DirectoryService.recordType_groups:
-                        self._indexGroup(record, groupsForGUID)
+                        self._indexGroup(record, record._memberGUIDs, groupsForGUID)
+
+                    # Do proxy indexing if needed
+                    elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                        self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
+                        self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
 
         if shortName is None and guid is None:
             #
@@ -568,6 +594,11 @@ class OpenDirectoryService(DirectoryService):
             # Add group indexing if needed
             if recordType == DirectoryService.recordType_groups:
                 storage["groupsForGUID"] = groupsForGUID
+
+            # Add proxy indexing if needed
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                storage["proxiesForGUID"] = proxiesForGUID
+                storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
 
             def rot():
                 storage["status"] = "stale"
@@ -772,12 +803,10 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield proxyRecord
 
     def proxyFor(self):
-        for proxyRecord in itertools.chain(
-            self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
-            self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
-        ):
-            if self.guid in proxyRecord._proxyGUIDs:
-                yield proxyRecord
+        result = set()
+        result.update(self.service.proxiesForGUID(DirectoryService.recordType_resources, self.guid))
+        result.update(self.service.proxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        return result
 
     def readOnlyProxies(self):
         if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
@@ -791,12 +820,10 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield proxyRecord
 
     def readOnlyProxyFor(self):
-        for proxyRecord in itertools.chain(
-            self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
-            self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
-        ):
-            if self.guid in proxyRecord._readOnlyProxyGUIDs:
-                yield proxyRecord
+        result = set()
+        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_resources, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        return result
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
