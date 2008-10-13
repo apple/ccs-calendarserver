@@ -765,6 +765,7 @@ class XMPPNotifier(LoggingMixIn):
                             defaultUri='jabber:x:data')
                         filledForm['type'] = 'submit'
 
+                        configMatches = True
                         for field in formElement.elements():
                             if field.name == 'field':
                                 var = field['var']
@@ -772,16 +773,33 @@ class XMPPNotifier(LoggingMixIn):
                                     filledForm.addChild(field)
                                 else:
                                     value = self.nodeConf.get(var, None)
-                                    if value is not None:
+                                    if (value is not None and
+                                        (str(self._getChild(field,
+                                        "value")) != value)):
+                                        # this field needs configuring
+                                        configMatches = False
                                         filledField = filledForm.addElement('field')
                                         filledField['var'] = var
                                         filledField['type'] = field['type']
                                         valueElement = filledField.addElement('value')
                                         valueElement.addContent(value)
                                         # filledForm.addChild(field)
-                        self.sendDebug("Sending configuration form (%s)"
-                                       % (nodeName,), filledIq)
-                        d = filledIq.send(to=self.settings['ServiceAddress'])
+                        if configMatches:
+                            cancelIq = IQ(self.xmlStream, type='set')
+                            cancelPubSub = cancelIq.addElement('pubsub',
+                                defaultUri=self.pubsubNS+"#owner")
+                            cancelConfig = cancelPubSub.addElement('configure')
+                            cancelConfig['node'] = nodeName
+                            cancelX = cancelConfig.addElement('x',
+                                defaultUri='jabber:x:data')
+                            cancelX['type'] = 'cancel'
+                            self.sendDebug("Cancelling configuration (%s)"
+                                           % (nodeName,), cancelIq)
+                            d = cancelIq.send(to=self.settings['ServiceAddress'])
+                        else:
+                            self.sendDebug("Sending configuration form (%s)"
+                                           % (nodeName,), filledIq)
+                            d = filledIq.send(to=self.settings['ServiceAddress'])
                         d.addCallback(self.configurationSuccess, nodeName,
                             publish)
                         d.addErrback(self.configurationFailure, nodeName)
