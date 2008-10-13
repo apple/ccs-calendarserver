@@ -347,7 +347,10 @@ class XMPPNotifierTests(TestCase):
 
     def setUp(self):
         self.xmlStream = StubXmlStream()
-        self.settings = { 'ServiceAddress' : 'pubsub.example.com' }
+        self.settings = { 'ServiceAddress' : 'pubsub.example.com',
+            'NodeConfiguration' : { 'pubsub#deliver_payloads' : '1' },
+            'HeartbeatMinutes' : 30,
+        }
         self.notifier = XMPPNotifier(self.settings, reactor=Clock(),
             configOverride=self.xmppEnabledConfig, heartbeat=False)
         self.notifier.streamOpened(self.xmlStream)
@@ -430,13 +433,13 @@ class XMPPNotifierTests(TestCase):
         formElement['type'] = 'form'
         fields = [
             ( "unknown", "don't edit me", "text-single" ),
-            ( "pubsub#deliver_payloads", "1", "boolean" ),
-            ( "pubsub#persist_items", "1", "boolean" ),
+            ( "pubsub#deliver_payloads", "0", "boolean" ),
+            ( "pubsub#persist_items", "0", "boolean" ),
         ]
         expectedFields = {
             "unknown" : "don't edit me",
             "pubsub#deliver_payloads" : "1",
-            "pubsub#persist_items" : "0",
+            "pubsub#persist_items" : "1",
         }
         for field in fields:
             fieldElement = formElement.addElement("field")
@@ -478,6 +481,7 @@ class XMPPNotifierTests(TestCase):
         xmlStream = StubXmlStream()
         settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
             'Password' : 'password', 'KeepAliveSeconds' : 5,
+            'NodeConfiguration' : { 'pubsub#deliver_payloads' : "1" },
             'HeartbeatMinutes' : 30 }
         notifier = XMPPNotifier(settings, reactor=clock, heartbeat=True,
             roster=False, configOverride=xmppConfig)
@@ -508,6 +512,7 @@ class XMPPNotificationFactoryTests(TestCase):
         clock = Clock()
         xmlStream = StubXmlStream()
         settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
+            'NodeConfiguration' : { 'pubsub#deliver_payloads' : "1" },
             'Password' : 'password', 'KeepAliveSeconds' : 5 }
         notifier = XMPPNotifier(settings, reactor=clock, heartbeat=False)
         factory = XMPPNotificationFactory(notifier, settings, reactor=clock)

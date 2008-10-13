@@ -568,11 +568,6 @@ class XMPPNotifier(LoggingMixIn):
 
     pubsubNS = 'http://jabber.org/protocol/pubsub'
 
-    nodeConf = {
-        'pubsub#deliver_payloads': '1',
-        'pubsub#persist_items'   : '0',
-    }
-
     def __init__(self, settings, reactor=None, configOverride=None,
         heartbeat=True, roster=True):
         self.xmlStream = None
@@ -581,7 +576,7 @@ class XMPPNotifier(LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
         self.config = configOverride or config
-        self.doHeartbeat = heartbeat
+        self.doHeartbeat = heartbeat and self.settings['HeartbeatMinutes'] != 0
         self.doRoster = roster
 
         self.roster = {}
@@ -636,9 +631,11 @@ class XMPPNotifier(LoggingMixIn):
             pubsubElement = iq.addElement('pubsub', defaultUri=self.pubsubNS)
             publishElement = pubsubElement.addElement('publish')
             publishElement['node'] = nodeName
-            itemElement = publishElement.addElement('item')
-            payloadElement = itemElement.addElement('plistfrag',
-                defaultUri='plist-apple')
+            if self.settings["NodeConfiguration"]["pubsub#deliver_payloads"] == '1':
+                itemElement = publishElement.addElement('item')
+                payloadElement = itemElement.addElement('plistfrag',
+                    defaultUri='plist-apple')
+
             self.sendDebug("Publishing (%s)" % (nodeName,), iq)
             d = iq.send(to=self.settings['ServiceAddress'])
             d.addCallback(self.publishNodeSuccess, nodeName)
@@ -748,6 +745,7 @@ class XMPPNotifier(LoggingMixIn):
             return
 
         try:
+            nodeConf = self.settings["NodeConfiguration"]
             self.sendDebug("Received configuration form (%s)" % (nodeName,), iq)
             pubsubElement = self._getChild(iq, 'pubsub')
             if pubsubElement:
@@ -772,7 +770,7 @@ class XMPPNotifier(LoggingMixIn):
                                 if var == "FORM_TYPE":
                                     filledForm.addChild(field)
                                 else:
-                                    value = self.nodeConf.get(var, None)
+                                    value = nodeConf.get(var, None)
                                     if (value is not None and
                                         (str(self._getChild(field,
                                         "value")) != value)):
@@ -850,6 +848,42 @@ class XMPPNotifier(LoggingMixIn):
             self.log_error("PubSub node configuration error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendError("Failed to configure node (%s)" % (nodeName,), iq)
+        finally:
+            self.unlockNode(None, nodeName)
+
+    def deleteNode(self, nodeName):
+        if self.xmlStream is None:
+            # We lost our connection
+            self.unlockNode(None, nodeName)
+            return
+
+        try:
+            if not self.lockNode(nodeName):
+                return
+
+            iq = IQ(self.xmlStream)
+            pubsubElement = iq.addElement('pubsub',
+                defaultUri=self.pubsubNS+"#owner")
+            publishElement = pubsubElement.addElement('delete')
+            publishElement['node'] = nodeName
+            self.sendDebug("Deleting (%s)" % (nodeName,), iq)
+            d = iq.send(to=self.settings['ServiceAddress'])
+            d.addCallback(self.deleteNodeSuccess, nodeName)
+            d.addErrback(self.deleteNodeFailure, nodeName)
+        except:
+            self.unlockNode(None, nodeName)
+            raise
+
+    def deleteNodeSuccess(self, iq, nodeName):
+        self.unlockNode(None, nodeName)
+        self.sendDebug("Node delete successful (%s)" % (nodeName,), iq)
+
+    def deleteNodeFailure(self, result, nodeName):
+        try:
+            iq = result.value.getElement()
+            self.log_error("PubSub node delete error: %s" %
+                (iq.toXml().encode('ascii', 'replace')),)
+            self.sendDebug("Node delete failed (%s)" % (nodeName,), iq)
         finally:
             self.unlockNode(None, nodeName)
 
@@ -988,16 +1022,24 @@ class XMPPNotifier(LoggingMixIn):
                     response = "Outstanding: %s" % (str(self.outstanding),)
                 elif txt.startswith("publish"):
                     try:
-                        publish, nodeName = txt.split()
+                        publish, nodeName = str(body).split()
                     except ValueError:
                         response = "Please phrase it like 'publish nodename'"
                     else:
                         response = "Publishing node %s" % (nodeName,)
                         self.reactor.callLater(1, self.enqueue, "update",
                             nodeName)
+                elif txt.startswith("delete"):
+                    try:
+                        delete, nodeName = str(body).split()
+                    except ValueError:
+                        response = "Please phrase it like 'delete nodename'"
+                    else:
+                        response = "Deleting node %s" % (nodeName,)
+                        self.reactor.callLater(1, self.deleteNode, nodeName)
                 elif txt.startswith("create"):
                     try:
-                        publish, nodeName = txt.split()
+                        publish, nodeName = str(body).split()
                     except ValueError:
                         response = "Please phrase it like 'create nodename'"
                     else:

@@ -254,6 +254,10 @@ defaultConfig = {
                 "JID" : "", # "jid@xmpp.host.name/resource"
                 "Password" : "",
                 "ServiceAddress" : "", # "pubsub.xmpp.host.name"
+                "NodeConfiguration" : {
+                    "pubsub#deliver_payloads" : "1",
+                    "pubsub#persist_items" : "1",
+                },
                 "KeepAliveSeconds" : 120,
                 "HeartbeatMinutes" : 30,
                 "AllowedJIDs": [],
@@ -544,7 +548,7 @@ class Config (object):
                 service["Enabled"]
             ):
                 for key, value in service.iteritems():
-                    if not value and key not in ("AllowedJIDs"):
+                    if not value and key not in ("AllowedJIDs", "HeartbeatMinutes"):
                         raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                                  % (key, value))
 
