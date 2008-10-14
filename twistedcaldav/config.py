@@ -120,6 +120,12 @@ defaultConfig = {
             "Enabled": False,
             "ServicePrincipal": ""
         },
+        "Wiki": {
+            "Enabled": False,
+            "Cookie": "sessionID",
+            "URL": "http://127.0.0.1/RPC2",
+            "method": "userForSession",
+        },
     },
 
     #

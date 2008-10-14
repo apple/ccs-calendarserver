@@ -27,6 +27,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
+from twisted.web.xmlrpc import Proxy
 
 from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore, DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.config import config
@@ -168,6 +169,45 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
+
+
+        # Examine cookies for wiki auth token
+
+        def validSessionID(username):
+            directory = request.site.resource.getDirectory()
+            record = directory.recordWithShortName("users", username)
+            if record is None:
+                raise HTTPError(StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "The username (%s) corresponding to your sessionID was not found by calendar server." % (username,)
+                ))
+            request.authnUser = request.authzUser = davxml.Principal(
+                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
+
+        def invalidSessionID(error):
+            raise HTTPError(StatusResponse(
+                responsecode.FORBIDDEN,
+                "Your sessionID was rejected by the authenticating wiki server."
+            ))
+
+        wikiConfig = config.Authentication["Wiki"]
+        cookies = request.headers.getHeader('cookie')
+        if wikiConfig["Enabled"] and cookies is not None:
+            for cookie in cookies:
+                if cookie.name == wikiConfig["Cookie"]:
+                    token = cookie.value
+                    break
+            else:
+                token = None
+
+            if token is not None:
+                proxy = Proxy(wikiConfig["URL"])
+                d = proxy.callRemote(wikiConfig["method"], token).addCallbacks(
+                    validSessionID, invalidSessionID)
+                d.addCallback(lambda _: super(RootResource, self
+                                              ).locateChild(request, segments))
+                return d
+
 
         if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             d = self.checkSacl(request)
