@@ -263,7 +263,7 @@
         <string></string>
       </dict>
 
-      <!-- Wikiserver authentication -->
+      <!-- Wikiserver authentication (Mac OS X) -->
       <key>Wiki</key>
       <dict>
         <key>Enabled</key>

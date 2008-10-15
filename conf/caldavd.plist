@@ -214,6 +214,19 @@
         <string></string>
       </dict>
 
+      <!-- Wikiserver authentication (Mac OS X) -->
+      <key>Wiki</key>
+      <dict>
+        <key>Enabled</key>
+        <false/>
+        <key>Cookie</key>
+        <string>sessionID</string>
+        <key>URL</key>
+        <string>http://127.0.0.1/RPC2</string>
+        <key>method</key>
+        <string>userForSession</string>
+      </dict>
+
     </dict>
 
 
