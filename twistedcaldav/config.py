@@ -124,7 +124,8 @@ defaultConfig = {
             "Enabled": False,
             "Cookie": "sessionID",
             "URL": "http://127.0.0.1/RPC2",
-            "method": "userForSession",
+            "UserMethod": "userForSession",
+            "WikiMethod": "accessLevelForUserWikiCalendar",
         },
     },
 

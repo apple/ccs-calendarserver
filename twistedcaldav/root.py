@@ -183,6 +183,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 ))
             request.authnUser = request.authzUser = davxml.Principal(
                 davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
+            request.wikiUser = username
 
         def invalidSessionID(error):
             raise HTTPError(StatusResponse(
@@ -202,11 +203,15 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
             if token is not None:
                 proxy = Proxy(wikiConfig["URL"])
-                d = proxy.callRemote(wikiConfig["method"], token).addCallbacks(
-                    validSessionID, invalidSessionID)
+                d = proxy.callRemote(wikiConfig["UserMethod"],
+                    token).addCallbacks(validSessionID, invalidSessionID)
                 d.addCallback(lambda _: super(RootResource, self
                                               ).locateChild(request, segments))
                 return d
+
+        # TODO: REMOVE!!!!!
+        validSessionID("sagen")
+        return super(RootResource, self).locateChild(request, segments)
 
 
         if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):

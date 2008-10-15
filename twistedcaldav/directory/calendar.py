@@ -27,7 +27,7 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
@@ -42,6 +42,7 @@ from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiACL
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
 # Use __underbars__ convention to avoid conflicts with directory resource types.
@@ -410,9 +411,26 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
         return davxml.ACL(*aces)
 
+    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+
+        # If this is a wiki-related resource, ACL depends on wiki server:
+        if self.record.recordType == WikiDirectoryService.recordType_wikis:
+
+            if hasattr(request, 'wikiACL'):
+                # We've already looked up wikiACL during this request
+                returnValue(request.wikiACL)
+
+            # query the wiki server
+            # import pdb; pdb.set_trace()
+            request.wikiACL = yield (getWikiACL(request, request.wikiUser,
+                self.record.shortName))
+
+            returnValue(request.wikiACL)
+
+        # ...otherwise permissions are fixed, and are not subject to
+        # inheritance rules, etc.
+        returnValue(self.defaultAccessControlList())
 
     def principalCollections(self):
         return self.parent.principalCollections()
