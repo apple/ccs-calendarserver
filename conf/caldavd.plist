@@ -233,7 +233,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>info</string> <!-- debug, info, warn, error -->
+    <string>warn</string> <!-- debug, info, warn, error -->
 
     <!-- Server statistics file -->
     <key>ServerStatsFile</key>
