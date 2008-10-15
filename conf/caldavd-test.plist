@@ -449,8 +449,8 @@
           <key>AllowedJIDs</key>
           <array>
             <!--
-            <string>*.apple.com</string>
-            -->
+            <string>*.example.com</string>
+             -->
           </array>
         </dict>
       </array>
