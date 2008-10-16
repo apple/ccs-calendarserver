@@ -300,6 +300,7 @@ class ImplicitScheduler(object):
         oldInstances = set(self.oldcalendar.getComponentInstances())
         newInstances = set(self.calendar.getComponentInstances())
         removedInstances = oldInstances - newInstances
+        addedInstances = newInstances - oldInstances
 
         # Also look for new EXDATEs
         oldexdates = set()
@@ -341,6 +342,12 @@ class ImplicitScheduler(object):
                 # will have been accounted for by the previous attendee/instance logic.
                 if exdate not in removedInstances:
                     self.cancelledAttendees.add((attendee, exdate))
+
+        # For overridden instances added, check whether any attendees were removed from the master
+        for attendee, _ignore in master_attendees:
+            for rid in addedInstances:
+                if (attendee, rid) not in mappedNew and rid not in oldexdates:
+                    self.cancelledAttendees.add((attendee, rid))
 
     @inlineCallbacks
     def scheduleWithAttendees(self):
