@@ -108,7 +108,7 @@ class iTipProcessor(object):
         except Exception, e:
             log.error(e)
             yield _lock.clean()
-            raise
+            raise e
 
     @inlineCallbacks
     def processRequest(self):
