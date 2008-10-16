@@ -321,8 +321,8 @@ class iCalDiff(object):
         changed.update(regular_changes)
         
         attendees = set([prop for prop in propdiff if prop.name() == "ATTENDEE"])
-        done_attendee = ("ATTENDEE" in changed)
-        done_partstat = ("PARTSTAT" in changed)
+        done_attendee = False
+        done_partstat = False
         for ctr, attendee in enumerate(attendees):
             for check_ctr, check_attendee in enumerate(attendees):
                 if (ctr != check_ctr) and check_attendee.value() == attendee.value():
