@@ -25,14 +25,18 @@ __all__ = [
 
 from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
-from twisted.web.xmlrpc import Proxy
+from twisted.web.xmlrpc import Proxy, Fault
 from twisted.web2.http import HTTPError, StatusResponse
+from twisted.internet.defer import inlineCallbacks, returnValue
 
+
+from twisted.web2.dav.resource import TwistedACLInheritable
 from twistedcaldav.config import config
 from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 class WikiDirectoryService(DirectoryService):
     """
@@ -40,7 +44,7 @@ class WikiDirectoryService(DirectoryService):
     """
     baseGUID = "d79ef1e0-9a42-11dd-ad8b-0800200c9a66"
 
-    realmName = None
+    realmName = "Wiki"
 
     recordType_wikis = "wikis"
 
@@ -112,52 +116,73 @@ class WikiDirectoryRecord(DirectoryRecord):
         return super(WikiDirectoryRecord, self).verifyCredentials(credentials)
 
 
-def getWikiACL(request, userID, wikiID):
+@inlineCallbacks
+def getWikiACL(request, wikiID):
 
-    def wikiACLSuccess(access):
-        import pdb; pdb.set_trace()
+    wikiConfig = config.Authentication["Wiki"]
+
+    userID = "unauthenticated"
+
+    try:
+        url = str(request.authzUser.children[0])
+        principal = (yield request.locateResource(url))
+        if isinstance(principal, DirectoryCalendarPrincipalResource):
+            userID = principal.record.guid
+    except:
+        # TODO: better error handling
+        pass
+
+    proxy = Proxy(wikiConfig["URL"])
+    try:
+
+        access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
+            userID, wikiID))
+
 
         if access == "read":
-            return davxml.ACL(
-                (
+            returnValue(
+                davxml.ACL(
                     davxml.ACE(
                         request.authnUser,
                         davxml.Grant(
                             davxml.Privilege(davxml.Read()),
                         ),
-                    ),
+                        TwistedACLInheritable(),
+                    )
                 )
             )
 
         elif access in ("write", "admin"):
-            return davxml.ACL(
-                (
+            returnValue(
+                davxml.ACL(
                     davxml.ACE(
                         request.authnUser,
                         davxml.Grant(
                             davxml.Privilege(davxml.Read()),
                         ),
+                        TwistedACLInheritable(),
                     ),
                     davxml.ACE(
                         request.authnUser,
                         davxml.Grant(
                             davxml.Privilege(davxml.Write()),
                         ),
-                    ),
+                        TwistedACLInheritable(),
+                    )
                 )
             )
         else:
-            return davxml.ACL( )
+            returnValue( davxml.ACL( ) )
 
-    def wikiACLFailure(error):
-        if error.value.faultCode == 12:
-            raise HTTPError(StatusResponse(404, error.value.faultString))
+    except Fault, fault:
 
-        return davxml.ACL( )
+        # return wikiACLSuccess("write")
 
-    wikiConfig = config.Authentication["Wiki"]
+        if fault.faultCode == 2:
+            raise HTTPError(StatusResponse(403, fault.faultString))
 
-    proxy = Proxy(wikiConfig["URL"])
-    d = proxy.callRemote(wikiConfig["WikiMethod"], userID, wikiID).addCallbacks(
-        wikiACLSuccess, wikiACLFailure)
-    return d
+        elif fault.faultCode == 12:
+            raise HTTPError(StatusResponse(404, fault.faultString))
+
+        returnValue( davxml.ACL( ) )
+

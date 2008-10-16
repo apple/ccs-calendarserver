@@ -422,8 +422,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
                 returnValue(request.wikiACL)
 
             # query the wiki server
-            # import pdb; pdb.set_trace()
-            request.wikiACL = yield (getWikiACL(request, request.wikiUser,
+            request.wikiACL = yield (getWikiACL(request,
                 self.record.shortName))
 
             returnValue(request.wikiACL)

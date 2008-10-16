@@ -174,6 +174,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
         # Examine cookies for wiki auth token
 
         def validSessionID(username):
+            print "GOT BACK: %s" % username
             directory = request.site.resource.getDirectory()
             record = directory.recordWithShortName("users", username)
             if record is None:
@@ -183,9 +184,10 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 ))
             request.authnUser = request.authzUser = davxml.Principal(
                 davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
-            request.wikiUser = username
+            request.username = username
 
         def invalidSessionID(error):
+            print "INVALID SESSION ID", error
             raise HTTPError(StatusResponse(
                 responsecode.FORBIDDEN,
                 "Your sessionID was rejected by the authenticating wiki server."
@@ -203,6 +205,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
             if token is not None:
                 proxy = Proxy(wikiConfig["URL"])
+                print "session id: %s" % token
                 d = proxy.callRemote(wikiConfig["UserMethod"],
                     token).addCallbacks(validSessionID, invalidSessionID)
                 d.addCallback(lambda _: super(RootResource, self
@@ -210,8 +213,8 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 return d
 
         # TODO: REMOVE!!!!!
-        validSessionID("sagen")
-        return super(RootResource, self).locateChild(request, segments)
+        # validSessionID("sagen")
+        # return super(RootResource, self).locateChild(request, segments)
 
 
         if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
