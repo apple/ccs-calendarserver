@@ -97,7 +97,7 @@ class MemcacheLock(Memcacher):
     def clean(self):
         
         if self._hasLock:
-            return self.delete(self._locktoken)
+            return self.release()
         else:
             return succeed(True)
 
