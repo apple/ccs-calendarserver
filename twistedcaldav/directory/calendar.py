@@ -42,8 +42,11 @@ from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiACL
+from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+
+from twistedcaldav.log import Logger
+log = Logger()
 
 # Use __underbars__ convention to avoid conflicts with directory resource types.
 uidsResourceName = "__uids__"
@@ -414,22 +417,15 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
-        # If this is a wiki-related resource, ACL depends on wiki server:
-        if self.record.recordType == WikiDirectoryService.recordType_wikis:
-
-            if hasattr(request, 'wikiACL'):
-                # We've already looked up wikiACL during this request
-                returnValue(request.wikiACL)
-
-            # query the wiki server
-            request.wikiACL = yield (getWikiACL(request,
-                self.record.shortName))
-
-            returnValue(request.wikiACL)
-
-        # ...otherwise permissions are fixed, and are not subject to
-        # inheritance rules, etc.
-        returnValue(self.defaultAccessControlList())
+        wikiACL = (yield getWikiACL(self, request))
+        if wikiACL is not None:
+            # ACL depends on wiki server...
+            log.info("Wiki ACL: %s" % (wikiACL,))
+            returnValue(wikiACL)
+        else:
+            # ...otherwise permissions are fixed, and are not subject to
+            # inheritance rules, etc.
+            returnValue(self.defaultAccessControlList())
 
     def principalCollections(self):
         return self.parent.principalCollections()

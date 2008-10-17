@@ -214,6 +214,12 @@
         <string></string>
       </dict>
 
+      <!-- Wikiserver authentication -->
+      <key>Wiki</key>
+      <dict>
+        <key>Enabled</key>
+        <false/>
+      </dict>
     </dict>
 
 

@@ -56,6 +56,7 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource, Calendar
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.directory.wiki import getWikiACL
 
 log = Logger()
 
@@ -73,25 +74,15 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
-        log.info("REQUEST in accessControlList: %s" % (request.authzUser))
-        # TODO: Fix the circular dependency between wiki.py and principal.py
-        from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiACL
-        # If this is a wiki-related principal, ACL depends on wiki server:
-        if self.record.recordType == WikiDirectoryService.recordType_wikis:
-
-            if hasattr(request, 'wikiACL'):
-                # We've already looked up wikiACL during this request
-                returnValue(request.wikiACL)
-
-            # query the wiki server
-            request.wikiACL = (yield getWikiACL(request, self.record.shortName))
-            log.info("Wiki ACL: %s" % (request.wikiACL,))
-            returnValue(request.wikiACL)
-
-
-        # ...otherwise permissions are fixed, and are not subject to
-        # inheritance rules, etc.
-        returnValue(self.defaultAccessControlList())
+        wikiACL = (yield getWikiACL(self, request))
+        if wikiACL is not None:
+            # ACL depends on wiki server...
+            log.info("Wiki ACL: %s" % (wikiACL,))
+            returnValue(wikiACL)
+        else:
+            # ...otherwise permissions are fixed, and are not subject to
+            # inheritance rules, etc.
+            returnValue(self.defaultAccessControlList())
 
 
 class DirectoryProvisioningResource (

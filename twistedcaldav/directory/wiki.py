@@ -38,7 +38,6 @@ from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
-from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.log import Logger
 
 log = Logger()
@@ -49,7 +48,7 @@ class WikiDirectoryService(DirectoryService):
     """
     baseGUID = "d79ef1e0-9a42-11dd-ad8b-0800200c9a66"
 
-    realmName = "Wiki"
+    realmName = None
 
     recordType_wikis = "wikis"
 
@@ -66,7 +65,7 @@ class WikiDirectoryService(DirectoryService):
         return (WikiDirectoryService.recordType_wikis,)
 
     def listRecords(self, recordType):
-        return []
+        return ()
 
     def recordWithShortName(self, recordType, shortName):
         if recordType != WikiDirectoryService.recordType_wikis:
@@ -113,16 +112,24 @@ class WikiDirectoryRecord(DirectoryRecord):
 
 
 @inlineCallbacks
-def getWikiACL(request, wikiID):
+def getWikiACL(resource, request):
+
+    from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+
+    if (not hasattr(resource, "record") or
+        resource.record.recordType != WikiDirectoryService.recordType_wikis):
+        returnValue(None)
+
+    if hasattr(request, 'wikiACL'):
+        returnValue(request.wikiACL)
 
     wikiConfig = config.Authentication["Wiki"]
-
     userID = "unauthenticated"
+    wikiID = resource.record.shortName
 
     try:
         url = str(request.authzUser.children[0])
         principal = (yield request.locateResource(url))
-        # TODO: Fix the circular dependency between wiki.py and calendar.py
         if isinstance(principal, DirectoryCalendarPrincipalResource):
             userID = principal.record.guid
     except:
@@ -139,37 +146,35 @@ def getWikiACL(request, wikiID):
             wikiID, access))
 
         if access == "read":
-            returnValue(
-                davxml.ACL(
-                    davxml.ACE(
-                        request.authnUser,
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Read()),
-                        ),
-                        TwistedACLInheritable(),
-                    )
-                )
-            )
+            request.wikiACL =   davxml.ACL(
+                                    davxml.ACE(
+                                        request.authnUser,
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Read()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    )
+                                )
+            returnValue(request.wikiACL)
 
         elif access in ("write", "admin"):
-            returnValue(
-                davxml.ACL(
-                    davxml.ACE(
-                        request.authnUser,
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Read()),
-                        ),
-                        TwistedACLInheritable(),
-                    ),
-                    davxml.ACE(
-                        request.authnUser,
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Write()),
-                        ),
-                        TwistedACLInheritable(),
-                    )
-                )
-            )
+            request.wikiACL =   davxml.ACL(
+                                    davxml.ACE(
+                                        request.authnUser,
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Read()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    ),
+                                    davxml.ACE(
+                                        request.authnUser,
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Write()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    )
+                                )
+            returnValue(request.wikiACL)
 
         else: # "no-access":
 
