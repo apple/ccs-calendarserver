@@ -27,7 +27,7 @@ See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 
 import datetime
 
-from vobject.icalendar import utc
+from vobject.icalendar import utc, TimezoneComponent
 
 from twisted.web2.dav import davxml
 
@@ -152,7 +152,10 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
         found = False
 
         for subcomponent in calendar.subcomponents():
-            if subcomponent.name() == "VTIMEZONE":
+            if (
+                subcomponent.name() == "VTIMEZONE" and
+                isinstance(subcomponent._vobject, TimezoneComponent)
+            ):
                 if found:
                     return False
                 else:
