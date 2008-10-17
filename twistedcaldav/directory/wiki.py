@@ -27,6 +27,8 @@ from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
 from twisted.web.xmlrpc import Proxy, Fault
 from twisted.web2.http import HTTPError, StatusResponse
+from twisted.web2.auth.wrapper import UnauthorizedResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 
@@ -37,6 +39,9 @@ from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class WikiDirectoryService(DirectoryService):
     """
@@ -126,6 +131,7 @@ def getWikiACL(request, wikiID):
     try:
         url = str(request.authzUser.children[0])
         principal = (yield request.locateResource(url))
+        # TODO: Fix the circular dependency between wiki.py and calendar.py
         if isinstance(principal, DirectoryCalendarPrincipalResource):
             userID = principal.record.guid
     except:
@@ -138,6 +144,8 @@ def getWikiACL(request, wikiID):
         access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
             userID, wikiID))
 
+        log.info("getWikiACL: user [%s], wiki [%s], access [%s]" % (userID,
+            wikiID, access))
 
         if access == "read":
             returnValue(
@@ -171,18 +179,33 @@ def getWikiACL(request, wikiID):
                     )
                 )
             )
-        else:
-            returnValue( davxml.ACL( ) )
+
+        else: # "no-access":
+
+            if userID == "unauthenticated":
+                # Return a 401 so they have an opportunity to log in
+                raise HTTPError(
+                    UnauthorizedResponse(
+                        request.credentialFactories,
+                        request.remoteAddr
+                    )
+                )
+
+            raise HTTPError(
+                StatusResponse(
+                    403,
+                    "You are not allowed to access this wiki"
+                )
+            )
 
     except Fault, fault:
 
-        # return wikiACLSuccess("write")
+        log.info("getWikiACL: user [%s], wiki [%s], FAULT [%s]" % (userID,
+            wikiID, fault))
 
-        if fault.faultCode == 2:
+        if fault.faultCode == 2: # non-existent user
             raise HTTPError(StatusResponse(403, fault.faultString))
 
-        elif fault.faultCode == 12:
+        else: # fault.faultCode == 12, non-existent wiki
             raise HTTPError(StatusResponse(404, fault.faultString))
-
-        returnValue( davxml.ACL( ) )
 

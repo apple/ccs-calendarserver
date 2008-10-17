@@ -174,7 +174,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
         # Examine cookies for wiki auth token
 
         def validSessionID(username):
-            print "GOT BACK: %s" % username
+            log.info("Wiki lookup returned user: %s" % (username,))
             directory = request.site.resource.getDirectory()
             record = directory.recordWithShortName("users", username)
             if record is None:
@@ -187,7 +187,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
             request.username = username
 
         def invalidSessionID(error):
-            print "INVALID SESSION ID", error
+            log.info("Wiki lookup returned ERROR: %s" % (error,))
             raise HTTPError(StatusResponse(
                 responsecode.FORBIDDEN,
                 "Your sessionID was rejected by the authenticating wiki server."
@@ -204,17 +204,13 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 token = None
 
             if token is not None:
+                log.info("Wiki sessionID cookie value: %s" % (token,))
                 proxy = Proxy(wikiConfig["URL"])
-                print "session id: %s" % token
                 d = proxy.callRemote(wikiConfig["UserMethod"],
                     token).addCallbacks(validSessionID, invalidSessionID)
                 d.addCallback(lambda _: super(RootResource, self
                                               ).locateChild(request, segments))
                 return d
-
-        # TODO: REMOVE!!!!!
-        # validSessionID("sagen")
-        # return super(RootResource, self).locateChild(request, segments)
 
 
         if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):

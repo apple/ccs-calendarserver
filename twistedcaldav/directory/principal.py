@@ -70,9 +70,28 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
+    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+
+        log.info("REQUEST in accessControlList: %s" % (request.authzUser))
+        # TODO: Fix the circular dependency between wiki.py and principal.py
+        from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiACL
+        # If this is a wiki-related principal, ACL depends on wiki server:
+        if self.record.recordType == WikiDirectoryService.recordType_wikis:
+
+            if hasattr(request, 'wikiACL'):
+                # We've already looked up wikiACL during this request
+                returnValue(request.wikiACL)
+
+            # query the wiki server
+            request.wikiACL = (yield getWikiACL(request, self.record.shortName))
+            log.info("Wiki ACL: %s" % (request.wikiACL,))
+            returnValue(request.wikiACL)
+
+
+        # ...otherwise permissions are fixed, and are not subject to
+        # inheritance rules, etc.
+        returnValue(self.defaultAccessControlList())
 
 
 class DirectoryProvisioningResource (
