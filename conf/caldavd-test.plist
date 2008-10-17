@@ -272,8 +272,10 @@
         <string>sessionID</string>
         <key>URL</key>
         <string>http://127.0.0.1/RPC2</string>
-        <key>method</key>
+        <key>UserMethod</key>
         <string>userForSession</string>
+        <key>WikiMethod</key>
+        <string>accessLevelForUserWikiCalendar</string>
       </dict>
 
     </dict>
