@@ -478,30 +478,32 @@ class CalendarData (CalDAVElement):
         
         return False
 
-    def elementFromResource(self, resource):
+    def elementFromResource(self, resource, timezone=None):
         """
         Return a new CalendarData element comprised of the possibly filtered
         calendar data from the specified resource. If no filter is being applied
         read the data directly from the resource without parsing it. If a filter
         is required, parse the iCal data and filter using this CalendarData.
         @param resource: the resource whose calendar data is to be returned.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendar(resource.iCalendar())
+        return self.elementFromCalendar(resource.iCalendar(), timezone)
 
-    def elementFromCalendar(self, calendar):
+    def elementFromCalendar(self, calendar, timezone=None):
         """
         Return a new CalendarData element comprised of the possibly filtered
         calendar.
         @param calendar: the calendar that is to be filtered and returned.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
         
         # Check for filtering or not
-        filtered = self.getFromICalendar(calendar)
+        filtered = self.getFromICalendar(calendar, timezone)
         return CalendarData.fromCalendar(filtered)
 
-    def elementFromResourceWithAccessRestrictions(self, resource, access):
+    def elementFromResourceWithAccessRestrictions(self, resource, access, timezone=None):
         """
         Return a new CalendarData element comprised of the possibly filtered
         calendar data from the specified resource. If no filter is being applied
@@ -512,11 +514,12 @@ class CalendarData (CalDAVElement):
 
         @param resource: the resource whose calendar data is to be returned.
         @param access: private event access restriction level.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access)
+        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access, timezone)
 
-    def elementFromCalendarWithAccessRestrictions(self, calendar, access):
+    def elementFromCalendarWithAccessRestrictions(self, calendar, access, timezone=None):
         """
         Return a new CalendarData element comprised of the possibly filtered
         calendar.
@@ -525,11 +528,12 @@ class CalendarData (CalDAVElement):
 
         @param calendar: the calendar that is to be filtered and returned.
         @param access: private event access restriction level.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
         
         # Do normal filtering first
-        filtered_calendar = self.getFromICalendar(calendar)
+        filtered_calendar = self.getFromICalendar(calendar, timezone)
         
         if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
             # Create a CALDAV:calendar-data element with the appropriate iCalendar Component/Property
@@ -629,12 +633,14 @@ class CalendarData (CalDAVElement):
             )
 
             # Now "filter" the resource calendar data through the CALDAV:calendar-data element
-            return filter.elementFromCalendar(filtered_calendar)
+            return filter.elementFromCalendar(filtered_calendar, timezone)
         else:
             return CalendarData.fromCalendar(filtered_calendar)
 
-    def getFromICalendar(self, calendar):
+    def getFromICalendar(self, calendar, timezone=None):
         """
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
+
         Returns a calendar object containing the data in the given calendar
         which is specified by this CalendarData.
         """
@@ -659,7 +665,7 @@ class CalendarData (CalDAVElement):
             if isinstance(self.recurrence_set, LimitRecurrenceSet):
                 calendar = self.limitRecurrence(calendar)
             elif isinstance(self.recurrence_set, Expand):
-                calendar = self.expandRecurrence(calendar)
+                calendar = self.expandRecurrence(calendar, timezone)
         
         return calendar
 
@@ -686,13 +692,14 @@ class CalendarData (CalDAVElement):
 
         return str(data)
 
-    def expandRecurrence(self, calendar):
+    def expandRecurrence(self, calendar, timezone=None):
         """
         Expand the recurrence set into individual items.
         @param calendar: the L{Component} for the calendar to operate on.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: the L{Component} for the result.
         """
-        return calendar.expand(self.recurrence_set.start, self.recurrence_set.end)
+        return calendar.expand(self.recurrence_set.start, self.recurrence_set.end, timezone)
     
     def limitRecurrence(self, calendar):
         """

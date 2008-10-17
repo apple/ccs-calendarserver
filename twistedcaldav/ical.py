@@ -721,16 +721,19 @@ class Component (object):
         
         return results
     
-    def expand(self, start, end):
+    def expand(self, start, end, timezone=None):
         """
         Expand the components into a set of new components, one for each
         instance in the specified range. Date-times are converted to UTC. A
         new calendar object is returned.
         @param start: the L{datetime.datetime} for the start of the range.
         @param end: the L{datetime.datetime} for the end of the range.
+        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: the L{Component} for the new calendar with expanded instances.
         """
         
+        tzinfo = timezone.gettzinfo() if timezone else None
+
         # Create new calendar object with same properties as the original, but
         # none of the originals sub-components
         calendar = Component("VCALENDAR")
@@ -744,7 +747,7 @@ class Component (object):
         first = True
         for key in instances:
             instance = instances[key]
-            if timeRangesOverlap(instance.start, instance.end, start, end):
+            if timeRangesOverlap(instance.start, instance.end, start, end, tzinfo):
                 calendar.addComponent(self.expandComponent(instance, first))
             first = False
         

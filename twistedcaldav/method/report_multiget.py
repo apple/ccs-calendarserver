@@ -167,7 +167,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
             # Get properties for all valid readable resources
             for resource, href in ok_resources:
-                yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, propertiesForResource, propertyreq, isowner=isowner)
+                yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, None, propertiesForResource, propertyreq, isowner=isowner)
     
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
@@ -247,6 +247,6 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
         
-                yield report_common.responseForHref(request, responses, href, child, None, propertiesForResource, propertyreq, isowner=isowner)
+                yield report_common.responseForHref(request, responses, href, child, None, None, propertiesForResource, propertyreq, isowner=isowner)
 
     returnValue(MultiStatusResponse(responses))

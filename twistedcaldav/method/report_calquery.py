@@ -65,12 +65,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     assert query is not None
     
     # Get the original timezone provided in the query, if any, and validate it now
+    query_timezone = None
     query_tz = calendar_query.timezone
     if query_tz is not None and not query_tz.valid():
         log.err("CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
     if query_tz:
         filter.settimezone(query_tz)
+        query_timezone = tuple(calendar_query.timezone.calendar().subcomponents())[0]
 
     if query.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
@@ -108,7 +110,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param uri: the uri for the calendar collecton resource.
         """
         
-        def queryCalendarObjectResource(resource, uri, name, calendar, query_ok=False, isowner=True):
+        def queryCalendarObjectResource(resource, uri, name, calendar, timezone, query_ok=False, isowner=True):
             """
             Run a query on the specified calendar.
             @param resource: the L{CalDAVFile} for the calendar.
@@ -137,7 +139,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, calendar, propertiesForResource, query, isowner)
+                return report_common.responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, query, isowner)
             else:
                 return succeed(None)
     
@@ -146,9 +148,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query filter for later use
             has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+            timezone = query_timezone
             if query_tz is None and has_prop:
                 tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
                 filter.settimezone(tz)
+                timezone = tuple(tz.calendar().subcomponents())[0]
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
@@ -189,10 +193,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     else:
                         calendar = None
                     
-                    yield queryCalendarObjectResource(child, uri, child_uri_name, calendar, query_ok = index_query_ok, isowner=isowner)
+                    yield queryCalendarObjectResource(child, uri, child_uri_name, calendar, timezone, query_ok = index_query_ok, isowner=isowner)
         else:
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query object for later use
+            timezone = query_timezone
             if query_tz is None:
 
                 parent = (yield calresource.locateParent(request, uri))
@@ -202,12 +207,13 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 if has_prop:
                     tz = (yield parent.readProperty((caldav_namespace, "calendar-timezone"), request))
                     filter.settimezone(tz)
+                    timezone = tuple(tz.calendar().subcomponents())[0]
 
             # Check private events access status
             isowner = (yield calresource.isOwner(request))
 
             calendar = calresource.iCalendar()
-            yield queryCalendarObjectResource(calresource, uri, None, calendar)
+            yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)
 
         returnValue(True)
 

@@ -93,14 +93,14 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         if not result:
             break
 
-def responseForHref(request, responses, href, resource, calendar, propertiesForResource, propertyreq, isowner=True):
+def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True):
     """
     Create an appropriate property status response for the given resource.
 
     @param request: the L{IRequest} for the current request.
     @param responses: the list of responses to append the result of this method to.
-    @param href: the L{HRef} element of the resource being targetted.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param href: the L{HRef} element of the resource being targeted.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -124,11 +124,11 @@ def responseForHref(request, responses, href, resource, calendar, propertiesForR
                     )
                 )
 
-    d = propertiesForResource(request, propertyreq, resource, calendar, isowner)
+    d = propertiesForResource(request, propertyreq, resource, calendar, timezone, isowner)
     d.addCallback(_defer)
     return d
 
-def allPropertiesForResource(request, prop, resource, calendar=None, isowner=True): #@UnusedVariable
+def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, isowner=True):
     """
     Return all (non-hidden) properties for the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -137,19 +137,20 @@ def allPropertiesForResource(request, prop, resource, calendar=None, isowner=Tru
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
+    @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
 
     def _defer(props):
-        return _namedPropertiesForResource(request, props, resource, calendar, isowner)
+        return _namedPropertiesForResource(request, props, resource, calendar, timezone, isowner)
 
     d = resource.listAllprop(request)
     d.addCallback(_defer)
     return d
 
-def propertyNamesForResource(request, prop, resource, calendar=None, isowner=True): #@UnusedVariable
+def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, isowner=True): #@UnusedVariable
     """
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -158,6 +159,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, isowner=Tru
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
+    @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
@@ -173,7 +175,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, isowner=Tru
     d.addCallback(_defer)
     return d
 
-def propertyListForResource(request, prop, resource, calendar=None, isowner=True):
+def propertyListForResource(request, prop, resource, calendar=None, timezone=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -182,12 +184,13 @@ def propertyListForResource(request, prop, resource, calendar=None, isowner=True
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
+    @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
     
-    return _namedPropertiesForResource(request, prop.children, resource, calendar, isowner)
+    return _namedPropertiesForResource(request, prop.children, resource, calendar, timezone, isowner)
 
 def validPropertyListCalendarDataTypeVersion(prop):
     """
@@ -213,7 +216,7 @@ def validPropertyListCalendarDataTypeVersion(prop):
     return result, message, generate_calendar_data
 
 @inlineCallbacks
-def _namedPropertiesForResource(request, props, resource, calendar=None, isowner=True):
+def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -222,6 +225,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
+    @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
@@ -243,9 +247,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
                 access = None
 
             if calendar:
-                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access)
+                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access, timezone)
             else:
-                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access)
+                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
             if propvalue is None:
                 raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
             properties_by_status[responsecode.OK].append(propvalue)
