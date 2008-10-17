@@ -337,7 +337,102 @@ else:
                 ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
             )
 
-def fakeODRecord(fullName, shortName=None, guid=None, email=None):
+        def test_groupmembers(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01", members=[
+                        guidForShortName("user01"),
+                        guidForShortName("user02"),
+                    ]),
+                    fakeODRecord("Group 02", members=[
+                        guidForShortName("resource01"),
+                        guidForShortName("user02"),
+                    ]),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                ],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users)
+            self._service.reloadCache(DirectoryService.recordType_groups)
+            self._service.reloadCache(DirectoryService.recordType_resources)
+            self._service.reloadCache(DirectoryService.recordType_locations)
+
+            group1 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group01")
+            self.assertTrue(group1 is not None)
+
+            group2 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group02")
+            self.assertTrue(group2 is not None)
+
+            user1 = self._service.recordWithShortName(DirectoryService.recordType_users, "user01")
+            self.assertTrue(user1 is not None)
+            self.assertEqual(set((group1,)), user1.groups()) 
+            
+            user2 = self._service.recordWithShortName(DirectoryService.recordType_users, "user02")
+            self.assertTrue(user2 is not None)
+            self.assertEqual(set((group1, group2)), user2.groups()) 
+            
+            self._service.fakerecords[DirectoryService.recordType_groups] = [
+                fakeODRecord("Group 01", members=[
+                    guidForShortName("user01"),
+                ]),
+                fakeODRecord("Group 02", members=[
+                    guidForShortName("resource01"),
+                    guidForShortName("user02"),
+                ]),
+            ]
+            self._service.reloadCache(DirectoryService.recordType_groups)
+
+            group1 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group01")
+            self.assertTrue(group1 is not None)
+
+            group2 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group02")
+            self.assertTrue(group2 is not None)
+
+            user1 = self._service.recordWithShortName(DirectoryService.recordType_users, "user01")
+            self.assertTrue(user1 is not None)
+            self.assertEqual(set((group1,)), user1.groups()) 
+            
+            user2 = self._service.recordWithShortName(DirectoryService.recordType_users, "user02")
+            self.assertTrue(user2 is not None)
+            self.assertEqual(set((group2,)), user2.groups()) 
+            
+            self._service.fakerecords[DirectoryService.recordType_groups] = [
+                fakeODRecord("Group 03", members=[
+                    guidForShortName("user01"),
+                    guidForShortName("user02"),
+                ]),
+            ]
+            self._service.reloadCache(DirectoryService.recordType_groups, guid=guidForShortName("group03"))
+
+            group1 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group01")
+            self.assertTrue(group1 is not None)
+
+            group2 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group02")
+            self.assertTrue(group2 is not None)
+
+            group3 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group03")
+            self.assertTrue(group2 is not None)
+
+            user1 = self._service.recordWithShortName(DirectoryService.recordType_users, "user01")
+            self.assertTrue(user1 is not None)
+            self.assertEqual(set((group1, group3)), user1.groups()) 
+            
+            user2 = self._service.recordWithShortName(DirectoryService.recordType_users, "user02")
+            self.assertTrue(user2 is not None)
+            self.assertEqual(set((group2, group3)), user2.groups()) 
+
+def fakeODRecord(fullName, shortName=None, guid=None, email=None, members=None):
     if shortName is None:
         shortName = shortNameForFullName(fullName)
 
@@ -355,6 +450,9 @@ def fakeODRecord(fullName, shortName=None, guid=None, email=None):
         dsattributes.kDSNAttrEMailAddress: email,
         dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
     }
+    
+    if members:
+        attrs[dsattributes.kDSNAttrGroupMembers] = members
 
     return [ shortName, attrs ]
 

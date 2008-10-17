@@ -23,6 +23,7 @@ This API is considered private to static.py and is therefore subject to
 change.
 """
 
+from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.davxml import twisted_dav_namespace
 from twisted.web2.dav import davxml
 
@@ -95,6 +96,30 @@ class CalendarProxyWrite (davxml.WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "calendar-proxy-write"
+
+class CalendarProxyReadFor (davxml.WebDAVElement):
+    """
+    List of principals granting read-only proxy status.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "calendar-proxy-read-for"
+    hidden = True
+    protected = True
+
+    allowed_children = { (dav_namespace, "href"): (0, None) }
+
+class CalendarProxyWriteFor (davxml.WebDAVElement):
+    """
+    List of principals granting read-write proxy status.
+    (Apple Extension to CalDAV)
+    """
+    namespace = calendarserver_namespace
+    name = "calendar-proxy-write-for"
+    hidden = True
+    protected = True
+
+    allowed_children = { (dav_namespace, "href"): (0, None) }
 
 class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
     """

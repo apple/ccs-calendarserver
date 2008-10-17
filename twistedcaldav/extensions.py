@@ -773,7 +773,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
 
                 return f
 
-            for qname in qnames:
+            for qname in sorted(qnames):
                 d = self.readProperty(qname, request)
                 d.addCallback(gotProperty)
                 d.addErrback(gotError, qname)

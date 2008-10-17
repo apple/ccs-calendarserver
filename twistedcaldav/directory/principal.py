@@ -476,6 +476,10 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         members = (yield self.groupMembers())
         
         memberships = (yield self.groupMemberships())
+        
+        proxyFor = (yield self.proxyFor(True))
+        
+        readOnlyProxyFor = (yield self.proxyFor(False))
 
         returnValue("".join((
             """<div class="directory-listing">"""
@@ -500,6 +504,8 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
             """\nGroup members:\n"""           , format_principals(members),
             """\nGroup memberships:\n"""       , format_principals(memberships),
+            """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
+            """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
             """</pre></blockquote></div>""",
             output
         )))
@@ -597,6 +603,36 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
         returnValue(groups)
 
+    @inlineCallbacks
+    def proxyFor(self, read_write, resolve_memberships=True):
+        proxyFors = set()
+
+        if resolve_memberships:
+            memberships = self._getRelatives("groups")
+            for membership in memberships:
+                results = (yield membership.proxyFor(read_write, False))
+                proxyFors.update(results)
+
+        if config.EnableProxyPrincipals:
+            # Get any directory specified proxies
+            if read_write:
+                directoryProxies = self._getRelatives("proxyFor", proxy='read-write')
+            else:
+                directoryProxies = self._getRelatives("readOnlyProxyFor", proxy='read-only')
+            proxyFors.update([subprincipal.parent for subprincipal in directoryProxies])
+
+            # Get proxy group UIDs and map to principal resources
+            proxies = []
+            memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
+            for uid in memberships:
+                subprincipal = self.parent.principalForUID(uid)
+                if subprincipal and subprincipal.isProxyType(read_write):
+                    proxies.append(subprincipal.parent)
+
+            proxyFors.update(proxies)
+
+        returnValue(proxyFors)
+
     def principalCollections(self):
         return self.parent.principalCollections()
 
@@ -640,6 +676,10 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         
         memberships = (yield self.groupMemberships())
         
+        proxyFor = (yield self.proxyFor(True))
+        
+        readOnlyProxyFor = (yield self.proxyFor(False))
+        
         returnValue("".join((
             """<div class="directory-listing">"""
             """<h1>Principal Details</h1>"""
@@ -663,6 +703,8 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
             """\nGroup members:\n"""           , format_principals(members),
             """\nGroup memberships:\n"""       , format_principals(memberships),
+            """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
+            """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
             """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
             """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
             """</pre></blockquote></div>""",

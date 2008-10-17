@@ -133,6 +133,15 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
+    def isProxyType(self, read_write):
+        if (
+            read_write and self.proxyType == "calendar-proxy-write" or
+            not read_write and self.proxyType == "calendar-proxy-read"
+        ):
+            return True
+        else:
+            return False
+
     def isCollection(self):
         return True
 

@@ -697,6 +697,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (calendarserver_namespace, "first-name"       ),
         (calendarserver_namespace, "last-name"        ),
         (calendarserver_namespace, "email-address-set"),
+        (calendarserver_namespace, "calendar-proxy-read-for"  ),
+        (calendarserver_namespace, "calendar-proxy-write-for" ),
     )
 
     @classmethod
@@ -710,75 +712,84 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     def isCollection(self):
         return True
 
+    @inlineCallbacks
     def readProperty(self, property, request):
-        def defer():
-            if type(property) is tuple:
-                qname = property
-            else:
-                qname = property.qname()
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
 
-            namespace, name = qname
+        namespace, name = qname
 
-            if namespace == caldav_namespace:
-                if name == "calendar-home-set":
-                    return caldavxml.CalendarHomeSet(
-                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
-                    )
+        if namespace == caldav_namespace:
+            if name == "calendar-home-set":
+                returnValue(caldavxml.CalendarHomeSet(
+                    *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                ))
 
-                if name == "calendar-user-address-set":
-                    return succeed(caldavxml.CalendarUserAddressSet(
-                        *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
-                    ))
+            elif name == "calendar-user-address-set":
+                returnValue(caldavxml.CalendarUserAddressSet(
+                    *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                ))
 
-                if name == "schedule-inbox-URL":
-                    url = self.scheduleInboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return caldavxml.ScheduleInboxURL(davxml.HRef(url))
+            elif name == "schedule-inbox-URL":
+                url = self.scheduleInboxURL()
+                if url is None:
+                    returnValue(None)
+                else:
+                    returnValue(caldavxml.ScheduleInboxURL(davxml.HRef(url)))
 
-                if name == "schedule-outbox-URL":
-                    url = self.scheduleOutboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+            elif name == "schedule-outbox-URL":
+                url = self.scheduleOutboxURL()
+                if url is None:
+                    returnValue(None)
+                else:
+                    returnValue(caldavxml.ScheduleOutboxURL(davxml.HRef(url)))
 
-                if name == "calendar-user-type":
-                    return caldavxml.CalendarUserType(
-                        self.record.getCUType()
-                    )
+            elif name == "calendar-user-type":
+                returnValue(caldavxml.CalendarUserType(self.record.getCUType()))
 
-            elif namespace == calendarserver_namespace:
-                if name == "dropbox-home-URL" and config.EnableDropBox:
-                    url = self.dropboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return customxml.DropBoxHomeURL(davxml.HRef(url))
+        elif namespace == calendarserver_namespace:
+            if name == "dropbox-home-URL" and config.EnableDropBox:
+                url = self.dropboxURL()
+                if url is None:
+                    returnValue(None)
+                else:
+                    returnValue(customxml.DropBoxHomeURL(davxml.HRef(url)))
 
-                if name == "first-name":
-                    firstName = self.record.firstName
-                    if firstName:
-                        return customxml.FirstNameProperty(firstName)
-                    else:
-                        return None
+            elif name == "first-name":
+                firstName = self.record.firstName
+                if firstName:
+                    returnValue(customxml.FirstNameProperty(firstName))
+                else:
+                    returnValue(None)
 
-                if name == "last-name":
-                    lastName = self.record.lastName
-                    if lastName:
-                        return customxml.LastNameProperty(lastName)
-                    else:
-                        return None
+            elif name == "last-name":
+                lastName = self.record.lastName
+                if lastName:
+                    returnValue(customxml.LastNameProperty(lastName))
+                else:
+                    returnValue(None)
 
-                if name == "email-address-set":
-                    return succeed(customxml.EmailAddressSet(
-                        *[customxml.EmailAddressProperty(addr) for addr in self.record.emailAddresses]
-                    ))
+            elif name == "email-address-set":
+                returnValue(customxml.EmailAddressSet(
+                    *[customxml.EmailAddressProperty(addr) for addr in self.record.emailAddresses]
+                ))
 
-            return super(CalendarPrincipalResource, self).readProperty(property, request)
+            elif name == "calendar-proxy-read-for":
+                results = (yield self.proxyFor(False))
+                returnValue(customxml.CalendarProxyReadFor(
+                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                ))
 
-        return maybeDeferred(defer)
+            elif name == "calendar-proxy-write-for":
+                results = (yield self.proxyFor(True))
+                returnValue(customxml.CalendarProxyWriteFor(
+                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                ))
+
+        result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
+        returnValue(result)
 
     def groupMembers(self):
         return succeed(())
