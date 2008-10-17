@@ -111,15 +111,6 @@ class WikiDirectoryRecord(DirectoryRecord):
             enabledForCalendaring=True)
 
 
-    def verifyCredentials(self, credentials):
-        import pdb; pdb.set_trace()
-        if IUsernamePassword.providedBy(credentials):
-            return credentials.checkPassword(self.password)
-        elif IUsernameHashedPassword.providedBy(credentials):
-            return credentials.checkPassword(self.password)
-
-        return super(WikiDirectoryRecord, self).verifyCredentials(credentials)
-
 
 @inlineCallbacks
 def getWikiACL(request, wikiID):
