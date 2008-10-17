@@ -56,6 +56,7 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource, Calendar
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.directory.wiki import getWikiACL
 
 log = Logger()
 
@@ -70,9 +71,18 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
+    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+
+        wikiACL = (yield getWikiACL(self, request))
+        if wikiACL is not None:
+            # ACL depends on wiki server...
+            log.info("Wiki ACL: %s" % (wikiACL,))
+            returnValue(wikiACL)
+        else:
+            # ...otherwise permissions are fixed, and are not subject to
+            # inheritance rules, etc.
+            returnValue(self.defaultAccessControlList())
 
 
 class DirectoryProvisioningResource (

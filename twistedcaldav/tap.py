@@ -51,6 +51,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
+from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
@@ -455,6 +456,7 @@ class CalDAVServiceMaker(object):
         #
         directories = []
 
+
         directoryClass = namedClass(config.DirectoryService["type"])
 
         log.info("Configuring directory service of type: %s"
@@ -479,11 +481,21 @@ class CalDAVServiceMaker(object):
             log.info("Not using SudoDirectoryService; file doesn't exist: %s"
                      % (config.SudoersFile,))
 
+        #
+        # Add wiki directory service
+        #
+        if config.Authentication["Wiki"]["Enabled"]:
+            wikiDirectory = WikiDirectoryService()
+            wikiDirectory.realmName = baseDirectory.realmName
+            directories.append(wikiDirectory)
+
+
         directory = AggregateDirectoryService(directories)
 
         if sudoDirectory:
             directory.userRecordTypes.insert(0,
                 SudoDirectoryService.recordType_sudoers)
+
 
         #
         # Configure Memcached Client Pool
