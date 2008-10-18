@@ -52,10 +52,10 @@ class IDirectoryService(Interface):
             C{None} if no such record exists.
         """
 
-    def recordWithGUID(guid):
+    def recordWithUID(uid):
         """
-        @param shortName: the GUID of the record to look up.
-        @return: an L{IDirectoryRecord} provider with the given GUID, or C{None}
+        @param shortName: the UID of the record to look up.
+        @return: an L{IDirectoryRecord} provider with the given UID, or C{None}
             if no such record exists.
         """
 
@@ -86,6 +86,7 @@ class IDirectoryRecord(Interface):
     service               = Attribute("The L{IDirectoryService} this record exists in.")
     recordType            = Attribute("The type of this record.")
     guid                  = Attribute("The GUID of this record.")
+    uid                   = Attribute("The UID of this record.")
     shortName             = Attribute("The name of this record.")
     fullName              = Attribute("The full name of this record.")
     firstName             = Attribute("The first name of this record.")

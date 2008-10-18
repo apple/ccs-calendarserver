@@ -81,7 +81,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 def convertUIDtoShortName(uid):
                     uid = uid.rstrip("/")
                     uid = uid[uid.rfind("/") + 1:]
-                    record = request.site.resource.getDirectory().recordWithGUID(uid)
+                    record = request.site.resource.getDirectory().recordWithUID(uid)
                     if record:
                         if record.recordType == DirectoryService.recordType_users:
                             return record.shortName

@@ -123,7 +123,7 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         if uidResource is None:
             return None
         else:
-            return uidResource.getChild(record.guid)
+            return uidResource.getChild(record.uid)
 
     ##
     # DAV
@@ -220,7 +220,7 @@ class DirectoryCalendarHomeUIDProvisioningResource (DirectoryCalendarProvisionin
             return self
 
         if record is None:
-            record = self.directory.recordWithGUID(name)
+            record = self.directory.recordWithUID(name)
             if record is None:
                 return None
 
@@ -336,7 +336,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         raise NotImplementedError("Subclass must implement provisionChild()")
 
     def url(self):
-        return joinURL(self.parent.url(), self.record.guid)
+        return joinURL(self.parent.url(), self.record.uid)
         ##
         ## While the underlying primary location is GUID-based, we want
         ## the canonical user-facing location to be recordType &

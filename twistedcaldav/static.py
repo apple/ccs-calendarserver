@@ -535,7 +535,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
             self.homeResourceClass = homeResourceClass
 
     def provisionChild(self, name):
-        record = self.directory.recordWithGUID(name)
+        record = self.directory.recordWithUID(name)
 
         if record is None:
             log.msg("No directory record with GUID %r" % (name,))

@@ -52,13 +52,15 @@ class WikiDirectoryService(DirectoryService):
 
     recordType_wikis = "wikis"
 
+    UIDPrefix = "wiki-"
+
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.realmName)
 
     def __init__(self):
         super(WikiDirectoryService, self).__init__()
-        self.byGUID = {}
+        self.byUID = {}
         self.byShortName = {}
 
     def recordTypes(self):
@@ -72,7 +74,30 @@ class WikiDirectoryService(DirectoryService):
             raise UnknownRecordTypeError(recordType)
 
         if self.byShortName.has_key(shortName):
-            return self.byShortName[shortName]
+            record = self.byShortName[shortName]
+            self.log_info("Returning existing wiki record with UID %s" %
+                (record.uid,))
+            return record
+
+        record = self._addRecord(shortName)
+        return record
+
+    def recordWithUID(self, uid):
+
+        if self.byUID.has_key(uid):
+            record = self.byUID[uid]
+            self.log_info("Returning existing wiki record with UID %s" %
+                (record.uid,))
+            return record
+
+        if uid.startswith(self.UIDPrefix):
+            shortName = uid[len(self.UIDPrefix):]
+            record = self._addRecord(shortName)
+            return record
+        else:
+            return None
+
+    def _addRecord(self, shortName):
 
         record = WikiDirectoryRecord(
             self,
@@ -80,13 +105,13 @@ class WikiDirectoryService(DirectoryService):
             shortName,
             None
         )
-        self.log_info("Returning wiki record with GUID %s" % (record.guid,))
-        self.byGUID[record.guid] = record
+        self.log_info("Creating wiki record with GUID %s" % (record.guid,))
+        self.byUID[record.uid] = record
         self.byShortName[shortName] = record
         return record
 
     def recordWithGUID(self, guid):
-        return self.byGUID.get(guid, None)
+        raise NotImplementedError("recordWithGUID() not valid for wiki records")
 
 
 
@@ -100,6 +125,7 @@ class WikiDirectoryRecord(DirectoryRecord):
             service=service,
             recordType=recordType,
             guid=None,
+            uid="%s%s" % (WikiDirectoryService.UIDPrefix, shortName),
             shortName=shortName,
             fullName=shortName,
             firstName="",
@@ -139,10 +165,12 @@ def getWikiACL(resource, request):
     proxy = Proxy(wikiConfig["URL"])
     try:
 
+        log.info("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
+            wikiID))
         access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
             userID, wikiID))
 
-        log.info("getWikiACL: user [%s], wiki [%s], access [%s]" % (userID,
+        log.info("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
             wikiID, access))
 
         if access == "read":
@@ -196,7 +224,7 @@ def getWikiACL(resource, request):
 
     except Fault, fault:
 
-        log.info("getWikiACL: user [%s], wiki [%s], FAULT [%s]" % (userID,
+        log.info("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
             wikiID, fault))
 
         if fault.faultCode == 2: # non-existent user

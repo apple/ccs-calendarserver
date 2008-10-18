@@ -122,16 +122,13 @@ class DirectoryProvisioningResource (
     def principalForUser(self, user):
         return self.principalForShortName(DirectoryService.recordType_users, user)
 
-    def principalForGUID(self, guid):
-        return self.principalForRecord(self.directory.recordWithGUID(guid))
-
     def principalForUID(self, uid):
         raise NotImplementedError("Subclass must implement principalForUID()")
 
     def principalForRecord(self, record):
         if record is None:
             return None
-        return self.principalForUID(record.guid)
+        return self.principalForUID(record.uid)
 
     def principalForCalendarUserAddress(self, address):
         raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
@@ -238,7 +235,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
         elif scheme == "urn":
             if path.startswith("uuid:"):
-                return self.principalForGUID(path[5:])
+                return self.principalForUID(path[5:])
             else:
                 return None
         else:
@@ -397,7 +394,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             primaryUID = name
             subType = None
 
-        record = self.directory.recordWithGUID(primaryUID)
+        record = self.directory.recordWithUID(primaryUID)
 
         if record is None:
             log.err("No principal found for UID: %s" % (name,))
@@ -647,7 +644,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         return self.parent.principalCollections()
 
     def principalUID(self):
-        return self.record.guid
+        return self.record.uid
 
     ##
     # Static

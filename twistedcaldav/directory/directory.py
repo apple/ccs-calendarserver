@@ -121,9 +121,9 @@ class DirectoryService(LoggingMixIn):
     def recordWithShortName(self, recordType, shortName):
         raise NotImplementedError("Subclass must implement recordWithShortName()")
 
-    def recordWithGUID(self, guid):
+    def recordWithUID(self, uid):
         for record in self.allRecords():
-            if record.guid == guid:
+            if record.uid == uid:
                 return record
         return None
 
@@ -227,6 +227,7 @@ class DirectoryRecord(LoggingMixIn):
         self, service, recordType, guid, shortName, fullName,
         firstName, lastName, emailAddresses,
         calendarUserAddresses, autoSchedule, enabledForCalendaring=True,
+        uid=None,
     ):
         assert service.realmName is not None
         assert recordType
@@ -234,6 +235,9 @@ class DirectoryRecord(LoggingMixIn):
 
         if not guid:
             guid = uuidFromName(service.guid, "%s:%s" % (recordType, shortName))
+
+        if uid is None:
+            uid = guid
 
         if enabledForCalendaring:
             calendarUserAddresses.add("urn:uuid:%s" % (guid,))
@@ -243,6 +247,7 @@ class DirectoryRecord(LoggingMixIn):
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
+        self.uid                   = uid
         self.shortName             = shortName
         self.fullName              = fullName
         self.firstName             = firstName

@@ -146,12 +146,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
 
-    def test_principalForGUID(self):
+    def test_principalForUID(self):
         """
-        DirectoryPrincipalProvisioningResource.principalForGUID()
+        DirectoryPrincipalProvisioningResource.principalForUID()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            principal = provisioningResource.principalForGUID(record.guid)
+            principal = provisioningResource.principalForUID(record.uid)
             self.failIf(principal is None)
             self.assertEquals(record, principal.record)
 

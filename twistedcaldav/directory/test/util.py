@@ -127,14 +127,14 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
                     continue
                 self.assertEquals(record, None)
 
-    def test_recordWithGUID(self):
+    def test_recordWithUID(self):
         service = self.service()
         record = None
 
         for shortName, what in self.allEntries():
             guid = what["guid"]
             if guid is not None:
-                record = service.recordWithGUID(guid)
+                record = service.recordWithUID(guid)
                 self.compare(record, shortName, what)
 
         if record is None:
