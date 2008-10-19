@@ -38,6 +38,7 @@ from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import StatusResponse
+from twisted.web2.http_headers import generateContentType
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -614,8 +615,6 @@ class StoreCalendarObjectResource(object):
                 responsecode.FORBIDDEN,
                     NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
                 ))
-
-            self.source.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
             return None
 
     def doDestinationIndex(self, caltoindex):
@@ -643,7 +642,11 @@ class StoreCalendarObjectResource(object):
             log.err("Cannot index calendar resource: %s" % (ex,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
 
-        self.destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
+        content_type = self.request.headers.getHeader("content-type")
+        if content_type is not None:
+            self.destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(content_type)))
+        else:
+            self.destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
         return None
 
     def doRemoveDestinationIndex(self):
