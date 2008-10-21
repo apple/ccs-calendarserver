@@ -129,6 +129,27 @@ class ImplicitScheduler(object):
         returnValue(result)
 
     @inlineCallbacks
+    def sendAttendeeReply(self, request, resource, calendar, attendee):
+        
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.calendar_owner = None
+        self.deleting = False
+        self.internal_request = True
+        self.changed_rids = None
+        
+        # Get some useful information from the calendar
+        yield self.extractCalendarData()        
+
+        self.attendee = attendee.cuaddr
+        self.attendeePrincipal = attendee.principal
+        
+        result = (yield self.scheduleWithOrganizer())
+
+        returnValue(result)
+
+    @inlineCallbacks
     def extractCalendarData(self):
         
         # Get the originator who is the authenticated user

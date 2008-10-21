@@ -51,7 +51,7 @@ __all__ = [
 class iTipProcessing(object):
 
     @staticmethod
-    def processNewRequest(itip_message, recipient=None):
+    def processNewRequest(itip_message, recipient=None, autoprocessing=False):
         """
         Process a METHOD=REQUEST for a brand new calendar object.
         
@@ -67,13 +67,13 @@ class iTipProcessing(object):
         if method:
             calendar.removeProperty(method)
         
-        if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
+        if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient and not autoprocessing:
             iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient)
 
         return calendar
         
     @staticmethod
-    def processRequest(itip_message, calendar, recipient):
+    def processRequest(itip_message, calendar, recipient, autoprocessing=False):
         """
         Process a METHOD=REQUEST.
         
@@ -104,7 +104,7 @@ class iTipProcessing(object):
         if itip_message.masterComponent() is not None:
             
             # Get a new calendar object first
-            new_calendar = iTipProcessing.processNewRequest(itip_message, recipient)
+            new_calendar = iTipProcessing.processNewRequest(itip_message, recipient, autoprocessing)
             
             # Copy over master alarms, comments
             master_component = new_calendar.masterComponent()
@@ -135,7 +135,7 @@ class iTipProcessing(object):
                     component = component.duplicate()
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
                     calendar.addComponent(component)
-                    if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient:
+                    if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient and not autoprocessing:
                         iTipProcessing.fixForiCal3((component,), recipient)
 
             # Write back the modified object

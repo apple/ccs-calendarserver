@@ -1287,14 +1287,14 @@ class Component (object):
         @param propname: the property name
         @type propname: C{str}
         @param propvalue: the property value to test
-        @type propvalue: C{str}
+        @type propvalue: C{str} or C{None}
         """
         
         for component in self.subcomponents():
             if component.name() == "VTIMEZONE":
                 continue
             for property in component.properties(propname):
-                if property.value() == propvalue:
+                if propvalue is None or property.value() == propvalue:
                     property.params()[paramname] = [paramvalue]
     
     def hasPropertyInAnyComponent(self, properties):

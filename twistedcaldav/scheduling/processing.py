@@ -14,15 +14,19 @@
 # limitations under the License.
 ##
 
+from hashlib import md5
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.web2.dav.fileop import delete
+from twisted.web2.dav.util import joinURL
+from twistedcaldav import customxml, caldavxml
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
-from twisted.web2.dav.fileop import delete
+from twistedcaldav.method.report import NumberOfMatchesWithinLimits
 from twistedcaldav.scheduling.itip import iTipProcessing
-from hashlib import md5
-from twisted.web2.dav.util import joinURL
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav import customxml
+from twisted.internet import reactor
+import datetime
 import time
 
 __all__ = [
@@ -226,6 +230,9 @@ class ImplicitProcessor(object):
         elif self.method == "ADD":
             # TODO: implement ADD
             result = (False, False, None)
+        else:
+            # NB We should never get here as we will have rejected unsupported METHODs earlier.
+            result = (True, True, None,)
             
         returnValue(result)
 
@@ -242,13 +249,27 @@ class ImplicitProcessor(object):
                 default = (yield self.request.locateResource(defaultURL))
             else:
                 default = None
+            
+            # Must have a calendar if auto-replying
+            if default is None and self.recipient.principal.autoSchedule():
+                log.error("No default calendar for auto-replying recipient: '%s'." % (self.recipient.cuaddr,))
+                raise ImplicitProcessorException("5.3;No scheduling support for user")
 
             if default:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
+                autoprocessed = self.recipient.principal.autoSchedule()
+                new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
                 name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
-                yield self.writeCalendarResource(defaultURL, default, name, new_calendar)
                 
+                # Handle auto-reply behavior
+                if autoprocessed:
+                    send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
+
+                new_resource = (yield self.writeCalendarResource(defaultURL, default, name, new_calendar))
+                
+                if autoprocessed and send_reply:
+                    reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
+
                 # Build the schedule-changes XML element
                 changes = customxml.ScheduleChanges(
                     customxml.DTStamp(),
@@ -256,18 +277,26 @@ class ImplicitProcessor(object):
                         customxml.Create(),
                     ),
                 )
-                result = (True, False, changes,)
+                result = (True, autoprocessed, changes,)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new not processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 result = (False, False, None,)
         else:
             # Processing update to existing event
-            new_calendar, props_changed, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr)
+            autoprocessed = self.recipient.principal.autoSchedule()
+            new_calendar, props_changed, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
             if new_calendar:
      
+                # Handle auto-reply behavior
+                if autoprocessed:
+                    send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
+
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar)
+                new_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar))
+                
+                if autoprocessed and send_reply:
+                    reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
                 # Build the schedule-changes XML element
                 changes = ()
@@ -302,7 +331,7 @@ class ImplicitProcessor(object):
                         customxml.Update(*update_details),
                     ),
                 )
-                result = (True, False, changes,)
+                result = (True, autoprocessed, changes,)
                 
             else:
                 # Request needs to be ignored
@@ -320,6 +349,10 @@ class ImplicitProcessor(object):
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             result = (True, True, None)
         else:
+            # Need to check for auto-respond attendees. These need to suppress the inbox message
+            # if the cancel is processed.
+            autoprocessed = self.recipient.principal.autoSchedule()
+
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar)
             if processed_message:
@@ -336,7 +369,7 @@ class ImplicitProcessor(object):
                             customxml.Cancel(),
                         ),
                     )
-                    result = (True, False, changes,)
+                    result = (True, autoprocessed, changes,)
                     
                 else:
          
@@ -354,12 +387,122 @@ class ImplicitProcessor(object):
                             ),
                         ),
                     )
-                    result = (True, False, changes)
+                    result = (True, autoprocessed, changes)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 result = (True, True, None)
 
         returnValue(result)
+
+    def sendAttendeeAutoReply(self, calendar, resource, partstat):
+        """
+        Auto-process the calendar option to generate automatic accept/decline status and
+        send a reply if needed.
+
+        @param calendar: calendar data to examine
+        @type calendar: L{Component}
+        
+        @return: L{Component} for the new calendar data to write
+        """
+        
+        # Send out a reply
+        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
+        from twistedcaldav.scheduling.implicit import ImplicitScheduler
+        scheduler = ImplicitScheduler()
+        scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+
+    @inlineCallbacks
+    def checkAttendeeAutoReply(self, calendar):
+        """
+        Check whether a reply to the given iTIP message is needed. We will not process a reply
+        A reply will either be positive (accepted invitation) or negative (denied invitation).
+        In addition we will modify calendar to reflect
+        any new state (e.g. set PARTSTAT to ACCEPTED or DECLINED).
+        
+        BTW The incoming iTIP message may contain multiple components so we need to iterate over all those.
+        At the moment we will treat a failure on one instance as a DECLINE of the entire set.
+
+        @return: C{bool} indicating whether changes were made.
+        """
+        
+        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply" % (self.recipient.cuaddr, self.uid))
+
+        # First expand current one to get instances (only go 1 year into the future)
+        default_future_expansion_duration = datetime.timedelta(days=356*1)
+        expand_max = datetime.date.today() + default_future_expansion_duration
+        instances = calendar.expandTimeRanges(expand_max)
+        instance_states = dict([(instance, True) for instance in instances.instances.itervalues()])
+        
+        # Extract UID from primary component as we want to ignore this one if we match it
+        # in any calendars.
+        comp = calendar.mainComponent(allow_multiple=True)
+        uid = comp.propertyValue("UID")
+    
+        # Now compare each instance time-range with the index and see if there is an overlap
+        calendars = (yield self._getCalendarsToMatch())
+    
+        for calURL in calendars:
+            testcal = (yield self.request.locateResource(calURL))
+            
+            # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
+            fbinfo = ([], [], [])
+            
+            # Now do search for overlapping time-range
+            for instance in instances.instances.itervalues():
+                try:
+                    tr = caldavxml.TimeRange(start="20000101", end="20000101")
+                    tr.start = instance.start
+                    tr.end = instance.end
+                    yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
+                    
+                    # If any fbinfo entries exist we have an overlap
+                    if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
+                        instance_states[instance] = False
+                except NumberOfMatchesWithinLimits:
+                    instance_states[instance] = False
+                    log.info("Exceeded number of matches whilst trying to find free-time.")
+            
+            # If everything is declined we can exit now
+            if all([not state for state in instance_states.itervalues()]):
+                break
+        
+        # TODO: here we should do per-instance ACCEPT/DECLINE behavior
+        # For now we will assume overall ACCEPT/DECLINE
+
+        # Collect all the accepted and declined states
+        accepted = all(instance_states.itervalues())
+
+        # Extract the ATTENDEE property matching current recipient from the calendar data
+        cuas = self.recipient.principal.calendarUserAddresses()
+        attendeeProps = calendar.getAttendeeProperties(cuas)
+        if not attendeeProps:
+            returnValue((False, "",))
+    
+        if accepted:
+            partstat = "ACCEPTED"
+        else:
+            partstat = "DECLINED"
+            
+            # Make sure declined events are TRANSPARENT on the calendar
+            calendar.replacePropertyInAllComponents(Property("TRANSP", "TRANSPARENT"))
+
+        made_changes = False
+        for attendeeProp in attendeeProps:
+            if attendeeProp.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
+                attendeeProp.params()["PARTSTAT"] = [partstat]
+                made_changes = True
+        
+        # Fake a SCHEDULE-STATUS on the ORGANIZER property
+        if made_changes:
+            calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", "2.0;Success", "ORGANIZER", None)
+        
+        returnValue((made_changes, partstat,))
+
+    def _getCalendarsToMatch(self):
+        # Determine the set of calendar URIs for a principal need to be searched.
+        
+        # Find the current recipients calendar-free-busy-set
+        return self.recipient.principal.calendarFreeBusyURIs(self.request)
 
     @inlineCallbacks
     def writeCalendarResource(self, collURL, collection, name, calendar):

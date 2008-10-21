@@ -14,7 +14,6 @@
 # limitations under the License.
 ##
 
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.python.failure import Failure
@@ -30,7 +29,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.itip import iTipProcessor
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
@@ -96,7 +94,6 @@ class ScheduleViaCalDAV(DeliveryService):
         organizerProp = self.scheduler.calendar.getOrganizerProperty()
         uid = self.scheduler.calendar.resourceUID()
 
-        autoresponses = []
         for recipient in self.recipients:
 
             #
@@ -123,22 +120,10 @@ class ScheduleViaCalDAV(DeliveryService):
             if self.freebusy:
                 yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid)
             else:
-                yield self.generateResponse(recipient, self.responses, autoresponses)
-
-        # Now we have to do auto-respond
-        if len(autoresponses) != 0:
-            # First check that we have a method that we can auto-respond to
-            if not iTipProcessor.canAutoRespond(self.scheduler.calendar):
-                autoresponses = []
-            
-        # Now do the actual auto response
-        for principal, inbox, child in autoresponses:
-            # Add delayed reactor task to handle iTIP responses
-            itip = iTipProcessor()
-            reactor.callLater(2.0, itip.handleRequest, *(self.scheduler.request, principal, inbox, self.scheduler.calendar.duplicate(), child))
+                yield self.generateResponse(recipient, self.responses)
 
     @inlineCallbacks
-    def generateResponse(self, recipient, responses, autoresponses):
+    def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
         calendar_str = str(self.scheduler.calendar)
         name = md5.new(calendar_str + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
@@ -147,25 +132,20 @@ class ScheduleViaCalDAV(DeliveryService):
         childURL = joinURL(recipient.inboxURL, name)
         child = (yield self.scheduler.request.locateResource(childURL))
 
-        # Do implicit scheduling message processing - but not for auto-accept principals.
-        # Auto-accepts will be processed internally by the server a little later on.
-        if not recipient.principal.autoSchedule():
-            try:
-                processor = ImplicitProcessor()
-                processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
-                    self.scheduler.request,
-                    self.scheduler.calendar,
-                    self.scheduler.originator,
-                    recipient
-                ))
-            except ImplicitProcessorException, e:
-                log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
-                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
-                returnValue(False)
-        else:
-            processed = autoprocessed = False
-            changes = None
+        # Do implicit scheduling message processing.
+        try:
+            processor = ImplicitProcessor()
+            processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
+                self.scheduler.request,
+                self.scheduler.calendar,
+                self.scheduler.originator,
+                recipient
+            ))
+        except ImplicitProcessorException, e:
+            log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
+            returnValue(False)
 
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
@@ -205,10 +185,6 @@ class ScheduleViaCalDAV(DeliveryService):
                 # Store CS:schedule-changes property if present
                 if changes:
                     child.writeDeadProperty(changes)
-            
-                # Look for auto-schedule option
-                if recipient.principal.autoSchedule():
-                    autoresponses.append((recipient.principal, recipient.inbox, child))
                     
                 returnValue(True)
     
