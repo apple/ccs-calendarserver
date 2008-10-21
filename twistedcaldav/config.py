@@ -152,6 +152,7 @@ defaultConfig = {
     "SSLPrivateKey"      : "",  # Private key
     "SSLAuthorityChain"  : "",  # Certificate Authority Chain
     "SSLPassPhraseDialog": "/etc/apache2/getsslpassphrase",
+    "SSLCertAdmin"       : "/usr/sbin/certadmin",
 
     #
     # Process management

@@ -16,6 +16,7 @@
 
 import os
 import stat
+import commands
 
 from zope.interface import implements
 
@@ -365,30 +366,41 @@ from OpenSSL import SSL
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
 
 def _getSSLPassphrase(*args):
-    sslPrivKey = open(config.SSLPrivateKey)
 
-    type = None
-    for line in sslPrivKey.readlines():
-        if "-----BEGIN RSA PRIVATE KEY-----" in line:
-            type = "RSA"
-            break
-        elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-            type = "DSA"
-            break
+    if os.path.exists(config.SSLCertAdmin):
+        cmd = "sudo %s --get-private-key-passphrase %s" % (config.SSLCertAdmin,
+            config.SSLPrivateKey)
+        status, output = commands.getstatusoutput(cmd)
+        if status != 0:
+            log.err("Could not get passphrase for %s. %s" %
+                (config.SSLPrivateKey, output))
+            return False
+        return output
 
-    sslPrivKey.close()
+    else:
+        sslPrivKey = open(config.SSLPrivateKey)
 
-    if type is None:
-        log.err("Could not get private key type for %s" % (config.SSLPrivateKey,))
-        return False
+        type = None
+        for line in sslPrivKey.readlines():
+            if "-----BEGIN RSA PRIVATE KEY-----" in line:
+                type = "RSA"
+                break
+            elif "-----BEGIN DSA PRIVATE KEY-----" in line:
+                type = "DSA"
+                break
 
-    import commands
-    return commands.getoutput("%s %s:%s %s" % (
-        config.SSLPassPhraseDialog,
-        config.ServerHostName,
-        config.SSLPort,
-        type
-    ))
+        sslPrivKey.close()
+
+        if type is None:
+            log.err("Could not get private key type for %s" % (config.SSLPrivateKey,))
+            return False
+
+        return commands.getoutput("%s %s:%s %s" % (
+            config.SSLPassPhraseDialog,
+            config.ServerHostName,
+            config.SSLPort,
+            type
+        ))
 
 
 class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
