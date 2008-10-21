@@ -30,9 +30,9 @@
         proxy which forwards connections to the server.
       -->
 
-    <!-- Network host name -->
+    <!-- Network host name [empty = system host name] -->
     <key>ServerHostName</key>
-    <string>localhost</string> <!-- The hostname clients use when connecting -->
+    <string></string> <!-- The hostname clients use when connecting -->
 
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>

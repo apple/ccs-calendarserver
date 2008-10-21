@@ -51,9 +51,9 @@ defaultConfig = {
     #    default.  For example, it may be the address of a load balancer or
     #    proxy which forwards connections to the server.
     #
-    "ServerHostName": "localhost", # Network host name.
-    "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
+    "ServerHostName": "", # Network host name.
+    "HTTPPort": 0,        # HTTP port (0 to disable HTTP)
+    "SSLPort" : 0,        # SSL port (0 to disable HTTPS)
 
     # Note: we'd use None above, but that confuses the command-line parser.
 
@@ -344,6 +344,7 @@ class Config (object):
         self._data = copy.deepcopy(self._defaults)
         self._configFile = None
         self._hooks = [
+            self.updateHostName,
             self.updateDirectoryService,
             self.updateACLs,
             self.updateRejectClients,
@@ -364,6 +365,15 @@ class Config (object):
         #
         for hook in self._hooks:
             hook(self, items)
+
+    @staticmethod
+    def updateHostName(self, items):
+        if not self.ServerHostName:
+            from socket import getfqdn
+            hostname = getfqdn()
+            if not hostname:
+                hostname = "localhost"
+            self.ServerHostName = hostname
 
     @staticmethod
     def updateDirectoryService(self, items):
