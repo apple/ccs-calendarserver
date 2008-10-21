@@ -42,7 +42,7 @@ def normalizeToUTC(dt):
     @return: the normalized date or datetime
     """
     if not isinstance(dt, datetime.date):
-        raise TypeError("$r is not a datetime.date instance" % (dt,))
+        raise TypeError("%r is not a datetime.date instance" % (dt,))
     
     if isinstance(dt, datetime.datetime):
         if dt.tzinfo is not None:
@@ -61,7 +61,7 @@ def normalizeForIndex(dt):
     @return: the normalized date or datetime
     """
     if not isinstance(dt, datetime.date):
-        raise TypeError("$r is not a datetime.date instance" % (dt,))
+        raise TypeError("%r is not a datetime.date instance" % (dt,))
     
     if isinstance(dt, datetime.datetime):
         if dt.tzinfo is not None:
@@ -125,7 +125,7 @@ def differenceDateTime(start, end, defaulttz = None):
 
 def makeComparableDateTime(dt1, dt2, defaulttz = None):  
     """
-    Ensure that the two datetime objects passed in are of a comparable type for arithemtic
+    Ensure that the two datetime objects passed in are of a comparable type for arithmetic
     and comparison operations..
     
     @param start: a L{datetime.datetime} or L{datetime.date} specifying one time.
@@ -137,7 +137,7 @@ def makeComparableDateTime(dt1, dt2, defaulttz = None):
 
     for dt in (dt1, dt2):
         if not isinstance(dt, datetime.date):
-            raise TypeError("$r is not a datetime.date instance" % (dt,))
+            raise TypeError("%r is not a datetime.date instance" % (dt,))
 
     # Pick appropriate tzinfo
     tzi = [None]

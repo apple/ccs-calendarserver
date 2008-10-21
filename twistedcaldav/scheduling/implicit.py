@@ -459,7 +459,12 @@ class ImplicitScheduler(object):
             # Get the ORGANIZER's current copy of the calendar object
             yield self.getOrganizersCopy()
             if self.organizer_calendar:
-            
+
+                if self.resource.exists():
+                    self.oldcalendar = self.resource.iCalendar()
+                else:
+                    self.oldcalendar = None
+
                 # Determine whether the current change is allowed
                 if self.isAttendeeChangeInsignificant():
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
@@ -519,7 +524,11 @@ class ImplicitScheduler(object):
         instances. Raise an exception if it is not allowed.
         """
         
-        differ = iCalDiff(self.organizer_calendar, self.calendar)
+        oldcalendar = self.oldcalendar
+        if oldcalendar is None:
+            oldcalendar = self.organizer_calendar
+            oldcalendar.attendeesView((self.attendee,))
+        differ = iCalDiff(oldcalendar, self.calendar)
         change_allowed, no_itip = differ.attendeeMerge(self.attendee)
         if not change_allowed:
             log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))

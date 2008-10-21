@@ -46,7 +46,8 @@ from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.customxml import calendarserver_namespace 
+from twistedcaldav.customxml import calendarserver_namespace ,\
+    TwistedCalendarHasPrivateCommentsProperty
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.fileops import copyToWithXAttrs
 from twistedcaldav.fileops import putWithXAttrs
@@ -693,7 +694,29 @@ class StoreCalendarObjectResource(object):
             
             # Get current quota state.
             yield self.checkQuota()
-
+    
+            # Check for private comments on the old resource and the new resource and re-insert
+            # ones that are lost.
+            #
+            # NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
+            # the X- property is missing.
+            if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
+                old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasDeadProperty(TwistedCalendarHasPrivateCommentsProperty)
+                new_has_private_comments = self.calendar.hasPropertyInAnyComponent((
+                    "X-CALENDARSERVER-PRIVATE-COMMENT",
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ))
+                
+                if old_has_private_comments and not new_has_private_comments:
+                    # Transfer old comments to new calendar
+                    log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                    old_calendar = self.destination.iCalendar()
+                    self.calendar.transferProperties(old_calendar, (
+                        "X-CALENDARSERVER-PRIVATE-COMMENT",
+                        "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                    ))
+                    self.calendardata = None
+    
             # Do scheduling
             if not self.isiTIP and self.allowImplicitSchedule:
                 scheduler = ImplicitScheduler()
@@ -722,6 +745,14 @@ class StoreCalendarObjectResource(object):
             # Do the actual put or copy
             response = (yield self.doStore())
             
+
+            # Check for existence of private comments and write property
+            if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
+                if new_has_private_comments:
+                    self.destination.writeDeadProperty(TwistedCalendarHasPrivateCommentsProperty())
+                elif not self.destinationcal:
+                    self.destination.removeDeadProperty(TwistedCalendarHasPrivateCommentsProperty)                
+
             # Delete the original source if needed.
             if self.deletesource:
                 yield self.doSourceDelete()

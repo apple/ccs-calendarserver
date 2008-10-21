@@ -89,12 +89,11 @@ class iCalendar (twistedcaldav.test.util.TestCase):
 
         year = 2004
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 0, 0))
+        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            # FIXME: This logic is wrong
             self.assertEqual(start, datetime.datetime(year, 7, 4))
             self.assertEqual(end  , datetime.datetime(year, 7, 5))
             if year == 2050: break
@@ -106,17 +105,23 @@ class iCalendar (twistedcaldav.test.util.TestCase):
         # This event is the Thanksgiving holiday (2 days)
         #
         calendar = Component.fromStream(file(os.path.join(self.data_dir, "Holidays", "C318ABFE-1ED0-11D9-A5E0-000A958A3252.ics")))
-
+        results = {
+            2004: (11, 25, 27),
+            2005: (11, 24, 26),
+            2006: (11, 23, 25),
+            2007: (11, 22, 24),
+            2008: (11, 27, 29),
+        }
         year = 2004
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 0, 0))
+        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            # FIXME: This logic is wrong: we want the 3rd Thursday and Friday
-            self.assertEqual(start, datetime.datetime(year, 11, 25))
-            self.assertEqual(end  , datetime.datetime(year, 11, 27))
+            if year in results:
+                self.assertEqual(start, datetime.datetime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , datetime.datetime(year, results[year][0], results[year][2]))
             if year == 2050: break
             year += 1
 
@@ -126,7 +131,13 @@ class iCalendar (twistedcaldav.test.util.TestCase):
         # This event is Father's Day
         #
         calendar = Component.fromStream(file(os.path.join(self.data_dir, "Holidays", "C3186426-1ED0-11D9-A5E0-000A958A3252.ics")))
-
+        results = {
+            2002: (6, 16, 17),
+            2003: (6, 15, 16),
+            2004: (6, 20, 21),
+            2005: (6, 19, 20),
+            2006: (6, 18, 19),
+        }
         year = 2002
 
         instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
@@ -134,15 +145,13 @@ class iCalendar (twistedcaldav.test.util.TestCase):
             instance = instances[key]
             start = instance.start
             end = instance.end
-            # FIXME: This logic is wrong: we want the 3rd Sunday of June
-            self.assertEqual(start, datetime.datetime(year, 6, 16))
-            self.assertEqual(end  , datetime.datetime(year, 6, 17))
+            if year in results:
+                self.assertEqual(start, datetime.datetime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , datetime.datetime(year, results[year][0], results[year][2]))
             if year == 2050: break
             year += 1
 
         self.assertEqual(year, 2050)
-
-    test_component_timeranges.todo = "recurrance expansion should give us annual date pairs here"
 
     def test_component_timerange(self):
         """
@@ -1527,4 +1536,424 @@ END:VCALENDAR
             self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
             for instance in instances:
                 self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
+       
+    def test_has_property_in_any_component(self):
+        
+        data = (
+            (
+                "Single component - True",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTSTART",),
+                True,
+            ),
+            (
+                "Single component - False",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTEND",),
+                False,
+            ),
+            (
+                "Multiple components - True in both",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTSTART",),
+                True,
+            ),
+            (
+                "Multiple components - True in one",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("RECURRENCE-ID",),
+                True,
+            ),
+            (
+                "Multiple components - False",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTEND",),
+                False,
+            ),
+            (
+                "Multiple components/propnames - True in both",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("DTSTART", "RECURRENCE-ID",),
+                True,
+            ),
+            (
+                "Multiple components - True in one",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("STATUS", "RECURRENCE-ID",),
+                True,
+            ),
+            (
+                "Multiple components - False",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                ("STATUS", "DTEND",),
+                False,
+            ),
+        )
+        
+        for description, caldata, propnames, result in data:
+            component = Component.fromString(caldata)
+            self.assertTrue(component.hasPropertyInAnyComponent(propnames) == result, "Property name match incorrect: %s" % (description,))
+       
+    def test_transfer_properties(self):
+        
+        data = (
+            (
+                "Non recurring - one property",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM2:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+X-ITEM2:True
+END:VEVENT
+END:VCALENDAR
+""",
+            ("X-ITEM2",),
+            ),
+            (
+                "Non recurring - two properties",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM2:True
+X-ITEM3:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+X-ITEM2:True
+X-ITEM3:True
+END:VEVENT
+END:VCALENDAR
+""",
+            ("X-ITEM2","X-ITEM3",),
+            ),
+            (
+                "Non recurring - two properties - one overlap",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM2:True
+X-ITEM1:False
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+X-ITEM1:True
+X-ITEM2:True
+X-ITEM1:False
+END:VEVENT
+END:VCALENDAR
+""",
+            ("X-ITEM2","X-ITEM1",),
+            ),
+            (
+                "Non recurring - one property",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM1:True
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+X-ITEM1:False
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM2:True
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+X-ITEM2:False
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM1:True
+X-ITEM2:True
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+X-ITEM1:False
+X-ITEM2:False
+END:VEVENT
+END:VCALENDAR
+""",
+            ("X-ITEM2",),
+            ),
+            (
+                "Non recurring - new override, one property",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM1:True
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+X-ITEM1:False
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM2:True
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY
+X-ITEM1:True
+X-ITEM2:True
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+X-ITEM1:False
+X-ITEM2:True
+END:VEVENT
+END:VCALENDAR
+""",
+            ("X-ITEM2",),
+            ),
+        )
+        
+        for description, transfer_to, transfer_from, result, propnames in data:
+            component_to = Component.fromString(transfer_to)
+            component_from = Component.fromString(transfer_from)
+            component_result = Component.fromString(result)
+            component_to.transferProperties(component_from, propnames)
+            self.assertEqual(str(component_to), str(component_result), "%s: mismatch" % (description,))
        

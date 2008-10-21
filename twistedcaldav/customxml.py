@@ -25,6 +25,7 @@ change.
 
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.davxml import twisted_dav_namespace
+from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav import davxml
 
 from twistedcaldav.ical import Component as iComponent
@@ -80,6 +81,18 @@ class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
 
     def getValue(self):
         return str(self)
+
+class TwistedCalendarHasPrivateCommentsProperty (davxml.WebDAVEmptyElement):
+    """
+    Indicates that a calendar resource has private comments.
+    
+    NB This MUST be a private property as we don't want to expose the presence of private comments
+    in private events.
+    
+    """
+    namespace = twisted_private_namespace
+    name = "calendar-has-private-comments"
+    hidden = True
 
 class CalendarProxyRead (davxml.WebDAVEmptyElement):
     """

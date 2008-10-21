@@ -407,7 +407,9 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             rid = component.getRecurrenceIDUTC()
-            if rid and compareDateTime(rid, recurrence_id) == 0:
+            if rid and recurrence_id and compareDateTime(rid, recurrence_id) == 0:
+                return component
+            elif rid is None and recurrence_id is None:
                 return component
         
         return None
@@ -1303,6 +1305,24 @@ class Component (object):
                 if property.value() == propvalue:
                     property.params()[paramname] = [paramvalue]
     
+    def hasPropertyInAnyComponent(self, properties):
+        """
+        Test for the existence of one or more properties in any component.
+        
+        @param properties: property names to test for
+        @type properties: C{list} or C{tuple}
+        """
+
+        for property in properties:
+            if self.hasProperty(property):
+                return True
+
+        for component in self.subcomponents():
+            if component.hasPropertyInAnyComponent(properties):
+                return True
+
+        return False
+
     def addPropertyToAllComponents(self, property):
         """
         Add a property to all top-level components except VTIMEZONE.
@@ -1326,7 +1346,39 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             component.replaceProperty(property)
+    
+    def transferProperties(self, from_calendar, properties):
+        """
+        Transfer specified properties from old calendar into all components
+        of this calendar, synthesizing any for new overridden instances.
+ 
+        @param from_calendar: the old calendar to copy from
+        @type from_calendar: L{Component}
+        @param properties: the property names to copy over
+        @type properties: C{typle} or C{list}
+        """
+
+        assert from_calendar.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
         
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.transferProperties(from_calendar, properties)
+        else:
+            # Is there a matching component
+            rid = self.getRecurrenceIDUTC()
+            matched = from_calendar.overriddenComponent(rid)
+            
+            # If no match found, we are processing a new overridden instance so copy from the original master
+            if not matched:
+                matched = from_calendar.masterComponent()
+
+            if matched:
+                for propname in properties:
+                    for prop in matched.properties(propname):
+                        self.addProperty(prop)
+            
     def attendeesView(self, attendees):
         """
         Filter out any components that all attendees are not present in. Use EXDATEs

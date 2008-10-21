@@ -88,13 +88,13 @@ class iCalDiff(object):
         def duplicateAndNormalize(calendar):
             calendar = calendar.duplicate()
             calendar.normalizePropertyValueLists("EXDATE")
+            calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
             calendar.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
             iTipGenerator.prepareSchedulingMessage(calendar)
             return calendar
 
         # Do straight comparison without alarms
         self.calendar1 = duplicateAndNormalize(self.calendar1)
-        self.calendar1.attendeesView((attendee,))
         self.calendar2 = duplicateAndNormalize(self.calendar2)
 
         if self.calendar1 == self.calendar2:
