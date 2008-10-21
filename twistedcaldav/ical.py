@@ -35,6 +35,7 @@ __all__ = [
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
 from vobject import newFromBehavior, readComponents
@@ -1214,19 +1215,10 @@ class Component (object):
         @return: the matching Attendee property, or None
         """
         
-        # FIXME: we should really have a URL class and have it manage comparisons
-        # in a sensible fashion.
-        def _normalizeCUAddress(addr):
-            addr = addr.lower()
-            if addr.startswith("/") or addr.startswith("http:") or addr.startswith("https:"):
-                return addr.rstrip("/")
-            else:
-                return addr
-
         # Need to normalize http/https cu addresses
         test = set()
         for item in match:
-            test.add(_normalizeCUAddress(item))
+            test.add(normalizeCUAddr(item))
         
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
@@ -1238,7 +1230,7 @@ class Component (object):
         else:
             # Find the primary subcomponent
             for attendee in self.properties("ATTENDEE"):
-                if _normalizeCUAddress(attendee.value()) in test:
+                if normalizeCUAddr(attendee.value()) in test:
                     return attendee
 
         return None

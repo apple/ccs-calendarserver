@@ -22,6 +22,7 @@ __all__ = [
     "RemoteCalendarUser",
     "EmailCalendarUser",
     "InvalidCalendarUser",
+    "normalizeCUAddr",
 ]
 
 log = Logger()
@@ -75,3 +76,20 @@ class InvalidCalendarUser(CalendarUser):
     def __str__(self):
         return "Invalid calendar user: %s" % (self.cuaddr,)
 
+
+def normalizeCUAddr(addr):
+    """
+    Normalize a cuaddr string by lower()ing it if it's a mailto:, or
+    removing trailing slash if it's a URL.
+    @param addr: a cuaddr string to normalize
+    @return: normalized string
+    """
+    lower = addr.lower()
+    if lower.startswith("mailto:"):
+        addr = lower
+    if (addr.startswith("/") or
+        addr.startswith("http:") or
+        addr.startswith("https:")):
+        return addr.rstrip("/")
+    else:
+        return addr

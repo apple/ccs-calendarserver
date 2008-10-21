@@ -37,6 +37,7 @@ from twisted.web2.dav.auth import IPrincipalCredentials
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
@@ -128,7 +129,7 @@ class DirectoryService(LoggingMixIn):
         return None
 
     def recordWithCalendarUserAddress(self, address):
-        address = address.lower()
+        address = normalizeCUAddr(address)
         for record in self.allRecords():
             if address in record.calendarUserAddresses:
                 return record
