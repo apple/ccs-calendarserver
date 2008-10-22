@@ -379,7 +379,7 @@ def _getSSLPassphrase(*args):
         )
         output, error = child.communicate()
 
-        if child.poll():
+        if child.returncode:
             log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
         else:
             return output
@@ -411,7 +411,7 @@ def _getSSLPassphrase(*args):
             )
             output, error = child.communicate()
 
-            if child.poll():
+            if child.returncode:
                 log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
             else:
                 return output
