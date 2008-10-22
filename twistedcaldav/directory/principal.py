@@ -456,13 +456,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def __str__(self):
         return "(%s) %s" % (self.record.recordType, self.record.shortName)
 
-    def provisionFile(self):
-
-        result = super(DirectoryPrincipalResource, self).provisionFile()
-        if result:
-            self.writeDeadProperty(RecordTypeProperty(self.record.recordType))
-        return result
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
@@ -828,12 +821,6 @@ authReadACL = davxml.ACL(
         davxml.Protected(),
     ),
 )
-
-class RecordTypeProperty (davxml.WebDAVTextElement):
-    namespace = twisted_private_namespace
-    name = "record-type"
-
-davxml.registerElement(RecordTypeProperty)
 
 def format_list(items, *args):
     def genlist():
