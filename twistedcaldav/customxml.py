@@ -49,28 +49,6 @@ calendarserver_private_comments_compliance = (
     "calendarserver-private-comments",
 )
 
-class TwistedGUIDProperty (davxml.WebDAVTextElement):
-    """
-    Contains the GUID value for a directory record corresponding to a principal.
-    """
-    namespace = twisted_dav_namespace
-    name = "guid"
-    hidden = True
-
-    def getValue(self):
-        return str(self)
-
-class TwistedLastModifiedProperty (davxml.WebDAVTextElement):
-    """
-    Contains the Last-Modified value for a directory record corresponding to a principal.
-    """
-    namespace = twisted_dav_namespace
-    name = "last-modified"
-    hidden = True
-
-    def getValue(self):
-        return str(self)
-
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.
@@ -133,27 +111,6 @@ class CalendarProxyWriteFor (davxml.WebDAVElement):
     protected = True
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
-
-class TwistedCalendarPrincipalURI(davxml.WebDAVTextElement):
-    """
-    Contains the calendarPrincipalURI value for a directory record corresponding to a principal.
-    """
-    namespace = twisted_dav_namespace
-    name = "calendar-principal-uri"
-    hidden = True
-
-    def getValue(self):
-        return str(self)
-
-class TwistedGroupMemberGUIDs(davxml.WebDAVElement):
-    """
-    Contains a list of GUIDs (TwistedGUIDProperty) for members of a group. Only used on group principals.
-    """
-    namespace = twisted_dav_namespace
-    name = "group-member-guids"
-    hidden = True
-
-    allowed_children = { (twisted_dav_namespace, "guid"): (0, None) }
 
 class DropBoxHome (davxml.WebDAVEmptyElement):
     """
