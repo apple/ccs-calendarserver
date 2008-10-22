@@ -16,7 +16,7 @@
 
 import os
 import stat
-import commands
+from subprocess import Popen, PIPE
 
 from zope.interface import implements
 
@@ -366,42 +366,57 @@ from OpenSSL import SSL
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
 
 def _getSSLPassphrase(*args):
+    if not config.SSLPrivateKey:
+        return None
 
-    if os.path.exists(config.SSLCertAdmin):
-        cmd = "sudo %s --get-private-key-passphrase %s" % (config.SSLCertAdmin,
-            config.SSLPrivateKey)
-        status, output = commands.getstatusoutput(cmd)
-        if status != 0:
-            log.err("Could not get passphrase for %s. %s" %
-                (config.SSLPrivateKey, output))
-            return False
-        return output
+    if config.SSLCertAdmin and os.path.isfile(config.SSLCertAdmin):
+        child = Popen(
+            args=[
+                "sudo", config.SSLCertAdmin,
+                "--get-private-key-passphrase", config.SSLPrivateKey,
+            ],
+            stdout=PIPE, stderr=PIPE,
+        )
+        output, error = child.communicate()
 
-    else:
+        if child.poll():
+            log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
+        else:
+            return output
+
+    if config.SSLPassPhraseDialog and os.path.isfile(config.SSLPassPhraseDialog):
         sslPrivKey = open(config.SSLPrivateKey)
-
-        type = None
-        for line in sslPrivKey.readlines():
-            if "-----BEGIN RSA PRIVATE KEY-----" in line:
-                type = "RSA"
-                break
-            elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-                type = "DSA"
-                break
-
-        sslPrivKey.close()
+        try:
+            type = None
+            for line in sslPrivKey.readlines():
+                if "-----BEGIN RSA PRIVATE KEY-----" in line:
+                    type = "RSA"
+                    break
+                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
+                    type = "DSA"
+                    break
+        finally:
+            sslPrivKey.close()
 
         if type is None:
             log.err("Could not get private key type for %s" % (config.SSLPrivateKey,))
-            return False
+        else:
+            child = Popen(
+                args=[
+                    config.SSLPassPhraseDialog,
+                    "%s:%s" % (config.ServerHostName, config.SSLPort),
+                    type,
+                ],
+                stdout=PIPE, stderr=PIPE,
+            )
+            output, error = child.communicate()
 
-        return commands.getoutput("%s %s:%s %s" % (
-            config.SSLPassPhraseDialog,
-            config.ServerHostName,
-            config.SSLPort,
-            type
-        ))
+            if child.poll():
+                log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
+            else:
+                return output
 
+    return None
 
 class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
     def __init__(
