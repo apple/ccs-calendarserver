@@ -2,13 +2,14 @@ Index: twisted/web2/dav/static.py
 ===================================================================
 --- twisted/web2/dav/static.py	(revision 19773)
 +++ twisted/web2/dav/static.py	(working copy)
-@@ -28,16 +28,16 @@
+@@ -28,16 +28,17 @@
  
  __all__ = ["DAVFile"]
  
 -import os
 -
 +from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
++from twisted.python.filepath import InsecurePath
  from twisted.python import log
 -from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 -from twisted.web2.static import File
@@ -19,12 +20,12 @@ Index: twisted/web2/dav/static.py
  from twisted.web2.dav.resource import DAVResource, davPrivilegeSet
 +from twisted.web2.dav.resource import TwistedGETContentMD5
  from twisted.web2.dav.util import bindMethods
-+from twisted.web2.http import RedirectResponse
++from twisted.web2.http import HTTPError, StatusResponse, RedirectResponse
 +from twisted.web2.static import File
  
  try:
      from twisted.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
-@@ -52,9 +52,11 @@
+@@ -52,9 +53,11 @@
  
      Extends twisted.web2.static.File to handle WebDAV methods.
      """
@@ -39,7 +40,7 @@ Index: twisted/web2/dav/static.py
          """
          @param path: the path of the file backing this resource.
          @param defaultType: the default mime type (as a string) for this
-@@ -62,11 +64,14 @@
+@@ -62,11 +65,14 @@
          @param indexNames: a sequence of index file names.
          @param acl: an L{IDAVAccessControlList} with the .
          """
@@ -59,7 +60,7 @@ Index: twisted/web2/dav/static.py
  
      def __repr__(self):
          return "<%s: %s>" % (self.__class__.__name__, self.fp.path)
-@@ -75,6 +80,12 @@
+@@ -75,6 +81,12 @@
      # WebDAV
      ##
  
@@ -72,7 +73,7 @@ Index: twisted/web2/dav/static.py
      def davComplianceClasses(self):
          return ("1", "access-control") # Add "2" when we have locking
  
-@@ -87,7 +98,6 @@
+@@ -87,7 +99,6 @@
          """
          See L{IDAVResource.isCollection}.
          """
@@ -80,7 +81,7 @@ Index: twisted/web2/dav/static.py
          return self.fp.isdir()
  
      ##
-@@ -98,6 +108,50 @@
+@@ -98,6 +109,50 @@
          return succeed(davPrivilegeSet)
  
      ##
@@ -131,7 +132,22 @@ Index: twisted/web2/dav/static.py
      # Workarounds for issues with File
      ##
  
-@@ -132,7 +186,9 @@
+@@ -112,8 +167,12 @@
+         See L{IResource}C{.locateChild}.
+         """
+         # If getChild() finds a child resource, return it
+-        child = self.getChild(segments[0])
+-        if child is not None: return (child, segments[1:])
++        try:
++            child = self.getChild(segments[0])
++            if child is not None:
++                return (child, segments[1:])
++        except InsecurePath:
++            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid URL path"))
+         
+         # If we're not backed by a directory, we have no children.
+         # But check for existance first; we might be a collection resource
+@@ -132,7 +191,9 @@
          return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
  
      def createSimilarFile(self, path):
