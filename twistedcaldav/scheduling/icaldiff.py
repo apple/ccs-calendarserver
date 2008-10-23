@@ -89,8 +89,7 @@ class iCalDiff(object):
             calendar = calendar.duplicate()
             calendar.normalizePropertyValueLists("EXDATE")
             calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
-            calendar.removeXProperties(("X-CALENDARSERVER-PRIVATE-COMMENT",))
-            iTipGenerator.prepareSchedulingMessage(calendar)
+            iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
             return calendar
 
         # Do straight comparison without alarms

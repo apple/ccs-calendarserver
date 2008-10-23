@@ -557,12 +557,12 @@ class iTipGenerator(object):
         itip.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success",]))
         
         # Strip out unwanted bits
-        iTipGenerator.prepareSchedulingMessage(itip)
+        iTipGenerator.prepareSchedulingMessage(itip, reply=True)
 
         return itip
 
     @staticmethod
-    def prepareSchedulingMessage(itip):
+    def prepareSchedulingMessage(itip, reply=False):
         """
         Remove properties and parameters that should not be sent in an iTIP message
         """
@@ -570,11 +570,12 @@ class iTipGenerator(object):
         # Alarms
         itip.removeAlarms()
 
-        # Top-level properties
-        itip.filterProperties(remove=("X-CALENDARSERVER-ACCESS",), do_subcomponents=False)
+        # Top-level properties - remove all X-
+        itip.removeXProperties(do_subcomponents=False)
                 
-        # Component properties
-        itip.filterProperties(remove=("X-CALENDARSERVER-ATTENDEE-COMMENT",))
+        # Component properties - remove all X- except for those specified
+        keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",) if reply else ()
+        itip.removeXProperties(keep_properties=keep_properties)
         
         # Property Parameters
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))

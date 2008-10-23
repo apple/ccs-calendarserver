@@ -1470,26 +1470,25 @@ class Component (object):
         else:
             if self.name() == "VTIMEZONE":
                 return
-            if keep:
-                [self.removeProperty(p) for p in tuple(self.properties()) if p.name() not in keep]
-            if remove:
-                [self.removeProperty(p) for p in tuple(self.properties()) if p.name() in remove]
+            
+            for p in tuple(self.properties()):
+                if (keep and p.name() not in keep) or (remove and p.name() in remove):
+                    self.removeProperty(p)
                 
-    def removeXProperties(self, keep_properties=()):
+    def removeXProperties(self, keep_properties=(), do_subcomponents=True):
         """
         Remove all X- properties except the specified ones
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
-
-        for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
-            [
-                component.removeProperty(p)
-                for p in tuple(component.properties())
-                if p.name().startswith("X-") and p.name() not in keep_properties
-            ]
+        if do_subcomponents:
+            for component in self.subcomponents():
+                component.removeXProperties(keep_properties, do_subcomponents=False)
+        else:
+            if self.name() == "VTIMEZONE":
+                return
+            for p in tuple(self.properties()):
+                if p.name().startswith("X-") and p.name() not in keep_properties:
+                    self.removeProperty(p)
             
     def removePropertyParameters(self, property, params):
         """

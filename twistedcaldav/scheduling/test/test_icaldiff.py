@@ -691,7 +691,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (True, True,)
             ),
             (
                 "#1.7 Simple component, vtimezone no change",
