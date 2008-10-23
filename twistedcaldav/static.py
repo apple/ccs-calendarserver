@@ -754,14 +754,6 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
-
-    ##
-    # ACL
-    ##
-
-    def supportedPrivileges(self, request):
-        return succeed(schedulePrivilegeSet)
-
 class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     """
     Calendar scheduling inbox collection resource.
@@ -784,6 +776,14 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
+
 class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     """
     Calendar scheduling outbox collection resource.
@@ -801,6 +801,14 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
 
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(sendSchedulePrivilegeSet)
 
 class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
     """
@@ -837,6 +845,13 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
+
 class IMIPInboxFile (IMIPInboxResource, CalDAVFile):
     """
     Mail gateway IMIP-delivery resource.
@@ -871,6 +886,13 @@ class IMIPInboxFile (IMIPInboxResource, CalDAVFile):
             responsecode.FORBIDDEN,
             (caldav_namespace, "calendar-collection-location-ok")
         )
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
 
 class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFile):
     """
@@ -909,7 +931,7 @@ class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFil
     ##
 
     def supportedPrivileges(self, request):
-        return succeed(schedulePrivilegeSet)
+        return succeed(deliverSchedulePrivilegeSet)
 
 class DropBoxHomeFile (AutoProvisioningFileMixIn, DropBoxHomeResource, CalDAVFile):
     def __init__(self, path, parent):
@@ -994,7 +1016,7 @@ def locateExistingChild(resource, request, segments):
     # Otherwise, there is no child
     return (None, ())
 
-def _schedulePrivilegeSet():
+def _schedulePrivilegeSet(deliver):
     edited = False
 
     top_supported_privileges = []
@@ -1006,10 +1028,17 @@ def _schedulePrivilegeSet():
             all_supported_privileges = list(supported_privilege.childrenOfType(davxml.SupportedPrivilege))
             all_supported_privileges.append(
                 davxml.SupportedPrivilege(
-                    davxml.Privilege(caldavxml.Schedule()),
+                    davxml.Privilege(caldavxml.ScheduleDeliver() if deliver else caldavxml.ScheduleSend()),
                     davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
                 ),
             )
+            if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+                all_supported_privileges.append(
+                    davxml.SupportedPrivilege(
+                        davxml.Privilege(caldavxml.Schedule()),
+                        davxml.Description("old-style schedule privileges for current principal", **{"xml:lang": "en"}),
+                    ),
+                )
             top_supported_privileges.append(
                 davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
             )
@@ -1021,7 +1050,8 @@ def _schedulePrivilegeSet():
 
     return davxml.SupportedPrivilegeSet(*top_supported_privileges)
 
-schedulePrivilegeSet = _schedulePrivilegeSet()
+deliverSchedulePrivilegeSet = _schedulePrivilegeSet(True)
+sendSchedulePrivilegeSet = _schedulePrivilegeSet(False)
 
 def _calendarPrivilegeSet ():
     edited = False

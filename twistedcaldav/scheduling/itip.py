@@ -67,7 +67,7 @@ class iTipProcessing(object):
         if method:
             calendar.removeProperty(method)
         
-        if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient and not autoprocessing:
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"] and recipient and not autoprocessing:
             iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient)
 
         return calendar
@@ -135,7 +135,7 @@ class iTipProcessing(object):
                     component = component.duplicate()
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
                     calendar.addComponent(component)
-                    if config.Scheduling["CalDAV"]["OldDraftCompatability"] and recipient and not autoprocessing:
+                    if config.Scheduling["CalDAV"]["OldDraftCompatibility"] and recipient and not autoprocessing:
                         iTipProcessing.fixForiCal3((component,), recipient)
 
             # Write back the modified object

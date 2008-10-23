@@ -169,14 +169,17 @@ class IMIPInboxResource(CalDAVResource):
         self.parent = parent
 
     def defaultAccessControlList(self):
+        privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
         return davxml.ACL(
-            # DAV:Read, CalDAV:schedule for all principals (includes anonymous)
+            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
             davxml.ACE(
                 davxml.Principal(davxml.All()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(caldavxml.Schedule()),
-                ),
+                davxml.Grant(*privs),
                 davxml.Protected(),
             ),
         )
@@ -214,7 +217,7 @@ class IMIPInboxResource(CalDAVResource):
         """
 
         # Check authentication and access controls
-        # yield self.authorize(request, (caldavxml.Schedule(),))
+        # yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
 
         # Inject using the IMIPScheduler.
         scheduler = IMIPScheduler(request, self)

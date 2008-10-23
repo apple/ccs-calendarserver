@@ -476,7 +476,7 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>OldDraftCompatability</key>
+        <key>OldDraftCompatibility</key>
         <true/>
         <key>DefaultCalendarProvisioned</key>
         <true/>

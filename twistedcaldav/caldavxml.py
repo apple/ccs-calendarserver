@@ -1716,6 +1716,20 @@ class Schedule (CalDAVEmptyElement):
     """
     name = "schedule"
     
+class ScheduleDeliver (CalDAVEmptyElement):
+    """
+    Privilege which controls scheduling messages going into the Inbox.
+    (CalDAV-schedule, section x.x.x)
+    """
+    name = "schedule-deliver"
+    
+class ScheduleSend (CalDAVEmptyElement):
+    """
+    Privilege which controls the ability to send scheduling messages.
+    (CalDAV-schedule, section x.x.x)
+    """
+    name = "schedule-send"
+    
 class ScheduleState (CalDAVElement):
     """
     Indicates whether a scheduling message in an inbox has been processed

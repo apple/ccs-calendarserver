@@ -243,7 +243,7 @@ class ImplicitScheduler(object):
         # Find outbox
         outboxURL = principal.scheduleOutboxURL()
         outbox = (yield self.request.locateResource(outboxURL))
-        yield outbox.authorize(self.request, (caldavxml.Schedule(),))
+        yield outbox.authorize(self.request, (caldavxml.ScheduleSend(),))
 
     @inlineCallbacks
     def doImplicitOrganizer(self):

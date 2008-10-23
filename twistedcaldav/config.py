@@ -198,7 +198,7 @@ defaultConfig = {
             "EmailDomain"                : "",    # Domain for mailto calendar user addresses on this server
             "HTTPDomain"                 : "",    # Domain for http calendar user addresses on this server
             "AddressPatterns"            : [],    # Reg-ex patterns to match local calendar user addresses
-            "OldDraftCompatability"      : True,  # Whether to maintain compatibility with non-implicit mode
+            "OldDraftCompatibility"      : True,  # Whether to maintain compatibility with non-implicit mode
             "DefaultCalendarProvisioned" : True,  # Whether the provisioned default calendar is marked as the scheduling default
             "EnablePrivateComments"      : True,  # Private comments from attendees to organizer
         },

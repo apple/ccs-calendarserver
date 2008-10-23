@@ -67,14 +67,18 @@ class FreeBusyURLResource (CalDAVResource):
         self.parent = parent
 
     def defaultAccessControlList(self):
+        privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+
         aces = (
-            # DAV:Read, CalDAV:schedule for all principals (does not include anonymous)
+            # DAV:Read, CalDAV:schedule-deliver for all principals (does not include anonymous)
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(caldavxml.Schedule()),
-                ),
+                davxml.Grant(*privs),
                 davxml.Protected(),
             ),
         )

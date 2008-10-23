@@ -92,13 +92,18 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         return davxml.ResourceType.scheduleInbox
 
     def defaultAccessControlList(self):
+        
+        privs = (
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+
         return davxml.ACL(
-            # CalDAV:schedule for any authenticated user
+            # CalDAV:schedule-deliver for any authenticated user
             davxml.ACE(
                 davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(caldavxml.Schedule()),
-                ),
+                davxml.Grant(*privs),
             ),
         )
 
@@ -195,11 +200,17 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         if config.EnableProxyPrincipals:
             myPrincipal = self.parent.principalForRecord()
     
+            privs = (
+                davxml.Privilege(caldavxml.ScheduleSend()),
+            )
+            if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+                privs += (davxml.Privilege(caldavxml.Schedule()),)
+    
             return davxml.ACL(
                 # CalDAV:schedule for associated write proxies
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write"))),
-                    davxml.Grant(davxml.Privilege(caldavxml.Schedule()),),
+                    davxml.Grant(*privs),
                     davxml.Protected(),
                 ),
             )
@@ -220,7 +231,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         issues which the other approach would have with large numbers of recipients.
         """
         # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.Schedule(),))
+        yield self.authorize(request, (caldavxml.ScheduleSend(),))
 
         # This is a local CALDAV scheduling operation.
         scheduler = CalDAVScheduler(request, self)
@@ -247,14 +258,18 @@ class IScheduleInboxResource (CalDAVResource):
         self.parent = parent
 
     def defaultAccessControlList(self):
+        privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+
         return davxml.ACL(
-            # DAV:Read, CalDAV:schedule for all principals (includes anonymous)
+            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
             davxml.ACE(
                 davxml.Principal(davxml.All()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(caldavxml.Schedule()),
-                ),
+                davxml.Grant(*privs),
                 davxml.Protected(),
             ),
         )
@@ -292,7 +307,7 @@ class IScheduleInboxResource (CalDAVResource):
         """
 
         # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.Schedule(),))
+        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
 
         # This is a server-to-server scheduling operation.
         scheduler = IScheduleScheduler(request, self)

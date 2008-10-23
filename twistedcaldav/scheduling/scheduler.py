@@ -533,7 +533,7 @@ class CalDAVScheduler(Scheduler):
             
             # Anything else is not allowed. However, for compatIbility we will optionally 
             # return a success response for all attendees.
-            if config.Scheduling["CalDAV"]["OldDraftCompatability"]:
+            if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
                 self.fakeTheResult = True
             else:
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid iTIP message for implicit scheduling"))

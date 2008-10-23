@@ -70,7 +70,7 @@ else:
 class CalDAVComplianceMixIn(object):
 
     def davComplianceClasses(self):
-        if config.Scheduling["CalDAV"]["OldDraftCompatability"]:
+        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
             extra_compliance = caldavxml.caldav_full_compliance
         else:
             extra_compliance = caldavxml.caldav_implicit_compliance

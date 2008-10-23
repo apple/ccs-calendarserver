@@ -101,7 +101,7 @@ class ScheduleViaCalDAV(DeliveryService):
             #
             if isinstance(self.scheduler.organizer, LocalCalendarUser):
                 try:
-                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.Schedule(),), principal=davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL())))
+                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL())))
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permissions")))

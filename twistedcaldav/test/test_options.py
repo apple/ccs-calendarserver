@@ -40,7 +40,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             self.assertIn("calendar-auto-schedule", dav, "no DAV calendar-auto-schedule header")
             self.assertIn("calendar-availability", dav, "no DAV calendar-availability header")
 
-        config.Scheduling["CalDAV"]["OldDraftCompatability"] = True
+        config.Scheduling["CalDAV"]["OldDraftCompatibility"] = True
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
@@ -60,7 +60,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             self.assertIn("calendar-auto-schedule", dav, "no DAV calendar-auto-schedule header")
             self.assertIn("calendar-availability", dav, "no DAV calendar-availability header")
 
-        config.Scheduling["CalDAV"]["OldDraftCompatability"] = False
+        config.Scheduling["CalDAV"]["OldDraftCompatibility"] = False
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
