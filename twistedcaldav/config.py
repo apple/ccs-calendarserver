@@ -273,6 +273,20 @@ defaultConfig = {
     },
 
     #
+    # Performance tuning
+    #
+
+    # Configure the number of seconds that Propfinds should be cached for.
+    "ResponseCacheSize": 1000,
+
+    # Set the maximum number of outstanding requests to this server.
+    "MaxRequests": 600,
+
+    "ListenBacklog": 50,
+    "IdleConnectionTimeOut": 15,
+    "UIDReservationTimeOut": 30 * 60
+
+    #
     # Implementation details
     #
     #    The following are specific to how the server is built, and useful
@@ -303,19 +317,11 @@ defaultConfig = {
     # RFC2616 Section 3.5
     "ResponseCompression": True,
 
-    # Set the maximum number of outstanding requests to this server.
-    "MaxRequests": 600,
-
-    # Configure the number of seconds that Propfinds should be cached for.
-    "ResponseCacheSize": 1000,
-
     # Profiling options
     "Profiling": {
         "Enabled": False,
         "BaseDirectory": "/tmp/stats",
     },
-
-    "ListenBacklog": 50,
 
     "Memcached": {
         "MaxClients": 5,
@@ -329,8 +335,6 @@ defaultConfig = {
     },
 
     "EnableKeepAlive": True,
-    "IdleConnectionTimeOut": 15,
-    "UIDReservationTimeOut": 30 * 60
 }
 
 
