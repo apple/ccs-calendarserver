@@ -85,8 +85,7 @@ or with different punctuation.
 
 import gettext
 import inspect
-
-
+import datetime
 
 
 class translationTo(object):
@@ -125,9 +124,64 @@ class translationTo(object):
         # Don't swallow exceptions
         return False
 
-    def date(self, val):
-        # val is either a date (allday) or datetime
+    def date(self, component):
+        dtStart = component.propertyNativeValue("DTSTART")
+        return self.dtDate(dtStart)
 
+    def time(self, component):
+        """
+        Examples:
+
+        3:30 PM to 4:30 PM PDT
+        All day
+        3:30 PM PDT
+        3:30 PM PDT to 7:30 PM EDT
+        """
+
+        dtStart = component.propertyNativeValue("DTSTART")
+        if isinstance(dtStart, datetime.datetime):
+            tzStart = dtStart.tzname()
+        else:
+            tzStart = None
+        # tzStart = component.getProperty("DTSTART").params().get("TZID", "UTC")
+
+        dtEnd = component.propertyNativeValue("DTEND")
+        if dtEnd:
+            if isinstance(dtEnd, datetime.datetime):
+                tzEnd = dtEnd.tzname()
+            # tzEnd = component.getProperty("DTEND").params().get("TZID", "UTC")
+            duration = dtEnd - dtStart
+        else:
+            tzEnd = tzStart
+            duration = component.propertyNativeValue("DURATION")
+            if duration:
+                dtEnd = dtStart + duration
+            else:
+                if isinstance(dtStart, datetime.date):
+                    dtEnd = None
+                    duration = datetime.timedelta(days=1)
+                else:
+                    dtEnd = dtStart + datetime.timedelta(days=1)
+                    dtEnd.hour = dtEnd.minute = dtEnd.second = 0
+                    duration = dtEnd - dtStart
+
+        if dtEnd is None:
+            return _("All day")
+
+        if dtStart == dtEnd:
+            return self.dtTime(dtStart)
+
+        return (
+            _("%(startTime)s to %(endTime)s")
+            % {
+                'startTime'      : self.dtTime(dtStart,
+                                    includeTimezone=(tzStart != tzEnd)),
+                'endTime'        : self.dtTime(dtEnd),
+            }
+        )
+
+
+    def dtDate(self, val):
         # Bind to '_' so pygettext.py will pick this up for translation
         _ = self.translation.gettext
 
@@ -140,6 +194,35 @@ class translationTo(object):
                 'yearNumber' : val.year,
             }
         )
+
+    def dtTime(self, val, includeTimezone=True):
+        if not isinstance(val, (datetime.datetime, datetime.time)):
+            return None
+
+        # Bind to '_' so pygettext.py will pick this up for translation
+        _ = self.translation.gettext
+
+        ampm = _("AM") if val.hour < 12 else _("PM")
+        hour12 = val.hour % 12
+        if hour12 == 0:
+            hour12 = 12
+
+        result = (
+            _("%(hour12Number)d:%(minuteNumber)02d %(ampm)s")
+            % {
+                'hour24Number' : val.hour, # 0-23
+                'hour12Number' : hour12, # 1-12
+                'minuteNumber' : val.minute, # 0-59
+                'ampm'         : _(ampm),
+            }
+        )
+
+        if includeTimezone:
+            result += " %s" % (val.tzname())
+
+        return result
+
+
 
 
 # The strings below are wrapped in _( ) for the benefit of pygettext.  We don't
