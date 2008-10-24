@@ -67,12 +67,12 @@ If you use the with/as form, you will get an object that implements some
 helper methods for date formatting:
 
     with translationTo('en') as trans:
-        print trans.date(datetime.today())
+        print trans.dtDate(datetime.today())
 
     ... Thursday, October 23, 2008
 
     with translationTo('fr') as trans:
-        print trans.date(datetime.today())
+        print trans.dtDate(datetime.today())
 
     ... Jeudi, Octobre 23, 2008
 
@@ -217,7 +217,7 @@ class translationTo(object):
             }
         )
 
-        if includeTimezone:
+        if includeTimezone and val.tzname():
             result += " %s" % (val.tzname())
 
         return result
