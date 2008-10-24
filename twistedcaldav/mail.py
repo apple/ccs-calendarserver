@@ -662,6 +662,8 @@ class MailHandler(LoggingMixIn):
         name, serverAddress = email.utils.parseaddr(fullServerAddress)
         pre, post = serverAddress.split('@')
         addressWithToken = "%s+%s@%s" % (pre, token, post)
+
+        attendees = list(calendar.getAttendees())
         calendar.getOrganizerProperty().setValue("mailto:%s" %
             (addressWithToken,))
 
@@ -688,8 +690,8 @@ class MailHandler(LoggingMixIn):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
 
-        msgId, message = self.generateEmail(calendar, organizer, formattedFrom,
-            addressWithToken, attendee, language=language)
+        msgId, message = self.generateEmail(calendar, organizer, attendees,
+            formattedFrom, addressWithToken, attendee, language=language)
 
         self.log_debug("Sending: %s" % (message,))
         def _success(result, msgId, fromAddr, toAddr):
@@ -707,10 +709,11 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def generateEmail(self, calendar, organizer, fromAddress, replyToAddress,
-        toAddress, language='en'):
+    def generateEmail(self, calendar, organizer, attendees, fromAddress,
+        replyToAddress, toAddress, language='en'):
 
-        details = self.getEventDetails(calendar, organizer, language=language)
+        details = self.getEventDetails(calendar, organizer, attendees,
+            language=language)
 
         with translationTo(language):
             msg = MIMEMultipart()
@@ -749,8 +752,10 @@ class MailHandler(LoggingMixIn):
 %(dateLabel)s: %(dateInfo)s
 %(timeLabel)s: %(timeInfo)s
 %(descLabel)s: %(description)s
+%(attLabel)s: %(attendees)s
 """
 
+            # TODO: work on cancellations
             if cancelled:
                 plainText = _("Event cancelled")
             else:
@@ -785,6 +790,9 @@ class MailHandler(LoggingMixIn):
     </p>
     <p>
     <h3>%(descLabel)s:</h3> %(description)s
+    </p>
+    <p>
+    <h3>%(attLabel)s:</h3> %(attendees)s
     </p>
 
     """
@@ -822,7 +830,7 @@ class MailHandler(LoggingMixIn):
         return msgId, msg.as_string()
 
 
-    def getEventDetails(self, calendar, organizer, language='en'):
+    def getEventDetails(self, calendar, organizer, attendees, language='en'):
 
         # Get the most appropriate component
         component = calendar.masterComponent()
@@ -841,6 +849,8 @@ class MailHandler(LoggingMixIn):
         else:
             results['organizerName'] = ''
 
+        # TODO: get attendee names if available
+        results['attendees'] = ", ".join(attendees)
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:

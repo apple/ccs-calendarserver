@@ -80,6 +80,9 @@ The .po files contain localizable strings for month and day names, as well as
 date format strings, in case a locale likes these values in a different order
 or with different punctuation.
 
+
+TODO: durations (including pluralization localization)
+TODO: recurrence
 """
 
 
