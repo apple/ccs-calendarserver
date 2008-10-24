@@ -157,7 +157,7 @@ daysFull = [
     _("Sunday"),
 ]
 
-daysAbrev = [
+daysAbbrev = [
     _("Mon"),
     _("Tue"),
     _("Wed"),
