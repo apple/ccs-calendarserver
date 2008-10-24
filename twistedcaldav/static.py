@@ -237,7 +237,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             returnValue(calendar)
 
-        raise HTTPError((ErrorResponse(responsecode.BAD_REQUEST)))
+        raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST))
 
     def iCalendarTextFiltered(self, isowner):
         try:
