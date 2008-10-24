@@ -17,11 +17,11 @@ msgstr ""
 
 #: localization.py:171
 msgid "All day"
-msgstr "toute la journÃ©e"
+msgstr "Toute la journée"
 
 #: localization.py:177
 msgid "%(startTime)s to %(endTime)s"
-msgstr "jusqu'Ã  ce que"
+msgstr "%(startTime)s jusqu'à ce que %(endTime)s"
 
 #: localization.py:191
 msgid "%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d"
@@ -33,7 +33,7 @@ msgstr "%(hour24Number)d:%(minuteNumber)02d"
 
 #: mail.py:726 mail.py:755 mail.py:792
 msgid "Event cancelled"
-msgstr "ÃvÃ©nement annulÃ©"
+msgstr "Événement annulé"
 
 #: mail.py:727
 msgid "Event invitation: %(summary)s"

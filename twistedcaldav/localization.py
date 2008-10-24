@@ -114,7 +114,7 @@ class translationTo(object):
             self.prev = caller_globals['_']
 
         # Rebind '_' to our translator
-        caller_globals['_'] = self.translation.gettext
+        caller_globals['_'] = self.translation.ugettext
 
         # What we return here is accessible to the caller via the 'as' clause
         return self
@@ -141,11 +141,16 @@ class translationTo(object):
         3:30 PM PDT to 7:30 PM EDT
         """
 
+        # Bind to '_' so pygettext.py will pick this up for translation
+        _ = self.translation.ugettext
+
+        tzStart = tzEnd = None
         dtStart = component.propertyNativeValue("DTSTART")
         if isinstance(dtStart, datetime.datetime):
             tzStart = dtStart.tzname()
         else:
-            tzStart = None
+            return _("All day")
+
         # tzStart = component.getProperty("DTSTART").params().get("TZID", "UTC")
 
         dtEnd = component.propertyNativeValue("DTEND")
@@ -168,9 +173,6 @@ class translationTo(object):
                     dtEnd.hour = dtEnd.minute = dtEnd.second = 0
                     duration = dtEnd - dtStart
 
-        if dtEnd is None:
-            return _("All day")
-
         if dtStart == dtEnd:
             return self.dtTime(dtStart)
 
@@ -186,7 +188,7 @@ class translationTo(object):
 
     def dtDate(self, val):
         # Bind to '_' so pygettext.py will pick this up for translation
-        _ = self.translation.gettext
+        _ = self.translation.ugettext
 
         return (
             _("%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d")
@@ -203,7 +205,7 @@ class translationTo(object):
             return None
 
         # Bind to '_' so pygettext.py will pick this up for translation
-        _ = self.translation.gettext
+        _ = self.translation.ugettext
 
         ampm = _("AM") if val.hour < 12 else _("PM")
         hour12 = val.hour % 12
