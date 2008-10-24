@@ -27,6 +27,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 """
 Class that handles delivery of scheduling messages via iMIP.
@@ -70,17 +71,17 @@ class ScheduleViaIMip(DeliveryService):
                     # Generated failed response for this recipient
                     log.err("Could not do server-to-imip request : %s %s" % (self, e))
                     err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
+                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
                 
                 else:
-                    self.responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+                    self.responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_SENT)
 
         except Exception, e:
             # Generated failed responses for each recipient
             log.err("Could not do server-to-imip request : %s %s" % (self, e))
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
     def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
         if reactor is None:

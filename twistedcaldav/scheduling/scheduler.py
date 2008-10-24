@@ -27,6 +27,7 @@ from twisted.web2.http_headers import MimeType
 from twistedcaldav import caldavxml
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger, LoggingMixIn
@@ -37,7 +38,7 @@ from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
-from twistedcaldav.config import config
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 import itertools
 import re
@@ -294,7 +295,7 @@ class Scheduler(object):
         for recipient in self.recipients:
     
             if self.fakeTheResult:
-                responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+                responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.SUCCESS if freebusy else iTIPRequestStatus.MESSAGE_DELIVERED)
                 
             elif isinstance(recipient, LocalCalendarUser):
                 caldav_recipients.append(recipient)
@@ -307,7 +308,7 @@ class Scheduler(object):
 
             else:
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.7;Invalid Calendar User")
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
             
         # Now process local recipients
         if caldav_recipients:

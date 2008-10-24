@@ -35,6 +35,7 @@ from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
     RemoteCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor,\
     ImplicitProcessorException
 
@@ -105,7 +106,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permissions")))
-                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 
                     # Process next recipient
                     continue
@@ -149,7 +150,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
-            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+            responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
             returnValue(True)
         else:
             # Copy calendar to inbox 
@@ -168,10 +169,10 @@ class ScheduleViaCalDAV(DeliveryService):
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 returnValue(False)
             else:
-                responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success")
+                responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
     
                 # Store CALDAV:originator property
                 child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
@@ -208,10 +209,10 @@ class ScheduleViaCalDAV(DeliveryService):
         except:
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
             err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="3.8;No authority")
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
             returnValue(False)
         else:
-            responses.add(recipient.cuaddr, responsecode.OK, reqstatus="2.0;Success", calendar=fbresult)
+            responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.SUCCESS, calendar=fbresult)
             returnValue(True)
     
     @inlineCallbacks

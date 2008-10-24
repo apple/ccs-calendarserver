@@ -24,7 +24,7 @@ from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.method.report import NumberOfMatchesWithinLimits
-from twistedcaldav.scheduling.itip import iTipProcessing
+from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from twisted.internet import reactor
 import datetime
 import time
@@ -253,7 +253,7 @@ class ImplicitProcessor(object):
             # Must have a calendar if auto-replying
             if default is None and self.recipient.principal.autoSchedule():
                 log.error("No default calendar for auto-replying recipient: '%s'." % (self.recipient.cuaddr,))
-                raise ImplicitProcessorException("5.3;No scheduling support for user")
+                raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             if default:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
@@ -494,7 +494,7 @@ class ImplicitProcessor(object):
         
         # Fake a SCHEDULE-STATUS on the ORGANIZER property
         if made_changes:
-            calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", "2.0;Success", "ORGANIZER", None)
+            calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED, "ORGANIZER", None)
         
         returnValue((made_changes, partstat,))
 

@@ -294,6 +294,14 @@ class iTipProcessing(object):
         partstat_changed = False
         private_comment_changed = False
 
+        # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
+        reqstatus = tuple(from_component.properties("REQUEST-STATUS"))
+        assert len(reqstatus) <= 1, "There must be zero or REQUEST-STATUS properties in a REPLY\n%s" % (str(from_component),)
+        if reqstatus:
+            reqstatus = ";".join(reqstatus[0].value()[0:2])
+        else:
+            reqstatus = iTIPRequestStatus.SUCCESS
+
         # Get attendee in from_component - there MUST be only one
         attendees = tuple(from_component.properties("ATTENDEE"))
         assert len(attendees) == 1, "There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),)
@@ -304,7 +312,8 @@ class iTipProcessing(object):
         existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
         if existing_attendee:
             oldpartstat = existing_attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
-            existing_attendee.params().setdefault("PARTSTAT", [partstat])[0] = partstat
+            existing_attendee.params()["PARTSTAT"] = [partstat]
+            existing_attendee.params()["SCHEDULE-STATUS"] = [reqstatus]
             partstat_changed = (oldpartstat != partstat)
             
             # Handle attendee comments
@@ -580,3 +589,22 @@ class iTipGenerator(object):
         # Property Parameters
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
         itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+
+class iTIPRequestStatus(object):
+    """
+    String constants for various iTIP status codes we use.
+    """
+    
+    MESSAGE_PENDING         = "1.0;Scheduling message send is pending"
+    MESSAGE_SENT            = "1.1;Scheduling message has been sent"
+    MESSAGE_DELIVERED       = "1.2;Scheduling message has been delivered"
+    
+    SUCCESS                 = "2.0;Success"
+
+    INVALID_CALENDAR_USER   = "3.7;Invalid Calendar User"
+    NO_AUTHORITY            = "3.8;No authority"
+
+    BAD_REQUEST             = "5.0;Service cannot handle request"
+    SERVICE_UNAVAILABLE     = "5.1;Service unavailable"
+    INVALID_SERVICE         = "5.2;Invalid calendar service"
+    NO_USER_SUPPORT         = "5.3;No scheduling support for user"

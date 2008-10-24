@@ -34,6 +34,7 @@ from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String
 
 """
@@ -75,7 +76,7 @@ class ScheduleViaISchedule(DeliveryService):
             if not server:
                 # Cannot do server-to-server for this recipient.
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.3;No scheduling support for user")
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
             
                 # Process next recipient
                 continue
@@ -83,13 +84,13 @@ class ScheduleViaISchedule(DeliveryService):
             if not server.allow_to:
                 # Cannot do server-to-server outgoing requests for this server.
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
             
                 # Process next recipient
                 continue
             
             groups.setdefault(server, []).append(recipient)
-        
+
         if len(groups) == 0:
             return
 
@@ -142,7 +143,7 @@ class IScheduleRequest(object):
             log.err("Could not do server-to-server request : %s %s" % (self, e))
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus="5.1;Service unavailable")
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
     def _generateHeaders(self):
         self.headers = Headers()
