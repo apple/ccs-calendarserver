@@ -18,6 +18,7 @@
 Mail Gateway for Calendar Server
 
 """
+from __future__ import with_statement
 
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -42,6 +43,7 @@ from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.localization import translationTo
 
 from zope.interface import implements
 
@@ -481,7 +483,7 @@ class IScheduleService(service.Service, LoggingMixIn):
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
             self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar)
+                calendar, language='en')
 
             # TODO: what to return?
             return """
@@ -646,7 +648,7 @@ class MailHandler(LoggingMixIn):
 
 
 
-    def outbound(self, organizer, attendee, calendar):
+    def outbound(self, organizer, attendee, calendar, language='en'):
         # create token, send email
         token = self.db.getToken(organizer, attendee)
         if token is None:
@@ -667,7 +669,6 @@ class MailHandler(LoggingMixIn):
         if organizerAttendee is not None:
             organizerAttendee.setValue("mailto:%s" % (addressWithToken,))
 
-        msgId, message = self._generateTemplateMessage(calendar, organizer)
 
         # The email's From will include the organizer's real name email
         # address if available.  Otherwise it will be the server's email
@@ -679,16 +680,16 @@ class MailHandler(LoggingMixIn):
         cn = calendar.getOrganizerProperty().params().get('CN',
             ['Calendar Server'])[0]
         formattedFrom = "%s <%s>" % (cn, fromAddr)
-        message = message.replace("${fromaddress}", formattedFrom)
 
         # Reply-to address will be the server+token address
-        message = message.replace("${replytoaddress}", addressWithToken)
 
         toAddr = attendee
         if not attendee.startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
-        message = message.replace("${toaddress}", attendee)
+
+        msgId, message = self.generateEmail(calendar, organizer, formattedFrom,
+            addressWithToken, attendee, language=language)
 
         self.log_debug("Sending: %s" % (message,))
         def _success(result, msgId, fromAddr, toAddr):
@@ -706,41 +707,93 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def _generateTemplateMessage(self, calendar, organizer):
+    def generateEmail(self, calendar, organizer, fromAddress, replyToAddress,
+        toAddress, language='en'):
 
-        title, summary = self._generateCalendarSummary(calendar, organizer)
+        details = self.getEventDetails(calendar, organizer, language=language)
 
-        msg = MIMEMultipart()
-        msg["From"] = "${fromaddress}"
-        msg["Reply-To"] = "${replytoaddress}"
-        msg["To"] = "${toaddress}"
-        msg["Date"] = rfc822date()
-        msgId = messageid()
-        msg["Message-ID"] = msgId
+        with translationTo(language):
+            msg = MIMEMultipart()
+            msg["From"] = fromAddress
+            msg["Reply-To"] = replyToAddress
+            msg["To"] = toAddress
+            msg["Date"] = rfc822date()
+            msgId = messageid()
+            msg["Message-ID"] = msgId
 
-        msgAlt = MIMEMultipart("alternative")
-        msg.attach(msgAlt)
+            cancelled = (calendar.propertyValue("METHOD") == "CANCEL")
+            msg["Subject"] = (
+                _("Event cancelled") if cancelled else
+                _("Event invitation: %(summary)s") % {
+                    'summary' : details['summary']
+                }
+            )
 
-        # plain text version
-        if calendar.propertyValue("METHOD") == "CANCEL":
-            msg["Subject"] = "Event cancelled"
-            plainText = u"An event has been cancelled.  Click the link below.\n"
-        else:
-            msg["Subject"] = "Event invitation: %s" % (title,)
-            plainText = u"You've been invited to the following event:  %s To accept or decline this invitation, click the link below.\n" % (summary,)
+            msgAlt = MIMEMultipart("alternative")
+            msg.attach(msgAlt)
 
-        msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
-        msgAlt.attach(msgPlain)
+            # Get localized labels
+            details['inviteLabel'] = _("Event Invitation")
+            details['dateLabel'] = _("Date")
+            details['timeLabel'] = _("Time")
+            details['descLabel'] = _("Description")
+            details['orgLabel'] = _("Organizer")
+            details['attLabel'] = _("Attendees")
+            details['locLabel'] = _("Location")
 
-        # html version
-        msgHtmlRelated = MIMEMultipart("related", type="text/html")
-        msgAlt.attach(msgHtmlRelated)
-        htmlText = u"""
-<html><body><div>
-<img src="cid:ical.jpg">
-%s
-</div></body></html>
-""" % plainText
+            # plain text version
+            plainTemplate = u"""%(inviteLabel)s: %(summary)s
+
+%(orgLabel)s: %(organizerName)s %(organizerAddr)s
+%(locLabel)s: %(location)s
+%(dateLabel)s: %(dateInfo)s
+%(timeLabel)s: %(timeInfo)s
+%(descLabel)s: %(description)s
+"""
+
+            if cancelled:
+                plainText = _("Event cancelled")
+            else:
+                print plainTemplate, details
+                plainText = plainTemplate % details
+
+            msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
+            msgAlt.attach(msgPlain)
+
+            # html version
+            msgHtmlRelated = MIMEMultipart("related", type="text/html")
+            msgAlt.attach(msgHtmlRelated)
+
+            htmlTemplate = u"""<html>
+    <body><div>
+    <img src="cid:ical.jpg"/>
+
+    <p>%(inviteLabel)s</p>
+
+    <h1>%(summary)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(organizerName)s %(organizerAddr)s
+    </p>
+    <p>
+    <h3>%(locLabel)s:</h3> %(location)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s
+    </p>
+    <p>
+    <h3>%(descLabel)s:</h3> %(description)s
+    </p>
+
+    """
+            if cancelled:
+                htmlText = _("Event cancelled")
+            else:
+                htmlText = htmlTemplate % details
+
+        self.log_info(htmlText)
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
@@ -769,129 +822,47 @@ class MailHandler(LoggingMixIn):
         return msgId, msg.as_string()
 
 
-    def _generateCalendarSummary(self, calendar, organizer):
+    def getEventDetails(self, calendar, organizer, language='en'):
 
         # Get the most appropriate component
         component = calendar.masterComponent()
         if component is None:
             component = calendar.mainComponent(True)
 
+        results = { }
+
+        # The organizer in calendar has already been replaced with
+        # special token address
+        results['organizerAddr'] = organizer
+
         organizerProp = component.getOrganizerProperty()
         if "CN" in organizerProp.params():
-            organizer = "%s <%s>" % (organizerProp.params()["CN"][0],
-                organizer,)
-
-        if calendar.propertyValue("METHOD") == "CANCEL":
-            dtinfo = ""
+            results['organizerName'] = organizerProp.params()["CN"][0]
         else:
-            dtinfo = self._getDateTimeInfo(component)
+            results['organizerName'] = ''
+
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:
             summary = ""
+        results['summary'] = summary
 
         description = component.propertyValue("DESCRIPTION")
         if description is None:
             description = ""
+        results['description'] = description
 
-        return summary, """
+        location = component.propertyValue("LOCATION")
+        if location is None:
+            location = ""
+        results['location'] = location
 
-Summary: %s
-Organizer: %s
-%sDescription: %s
+        with translationTo(language) as trans:
+            results['dateInfo'] = trans.date(component)
+            results['timeInfo'] = trans.time(component)
 
-""" % (summary, organizer, dtinfo, description,)
+        return results
 
-    def _getDateTimeInfo(self, component):
-
-        dtstart = component.propertyNativeValue("DTSTART")
-        tzid_start = component.getProperty("DTSTART").params().get("TZID", "UTC")
-
-        dtend = component.propertyNativeValue("DTEND")
-        if dtend:
-            tzid_end = component.getProperty("DTEND").params().get("TZID", "UTC")
-            duration = dtend - dtstart
-        else:
-            duration = component.propertyNativeValue("DURATION")
-            if duration:
-                dtend = dtstart + duration
-                tzid_end = tzid_start
-            else:
-                if isinstance(dtstart, datetime.date):
-                    dtend = None
-                    duration = datetime.timedelta(days=1)
-                else:
-                    dtend = dtstart + datetime.timedelta(days=1)
-                    dtend.hour = dtend.minute = dtend.second = 0
-                    duration = dtend - dtstart
-        result = "Starts:      %s\n" % (self._getDateTimeText(dtstart, tzid_start),)
-        if dtend is not None:
-            result += "Ends:        %s\n" % (self._getDateTimeText(dtend, tzid_end),)
-        result += "Duration:    %s\n" % (self._getDurationText(duration),)
-
-        if not isinstance(dtstart, datetime.datetime):
-            result += "All Day\n"
-
-        for property_name in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
-            if component.hasProperty(property_name):
-                result += "Recurring\n"
-                break
-
-        return result
-
-    def _getDateTimeText(self, dtvalue, tzid):
-
-        if isinstance(dtvalue, datetime.datetime):
-            timeformat = "%A, %B %e, %Y %I:%M %p"
-        elif isinstance(dtvalue, datetime.date):
-            timeformat = "%A, %B %e, %Y"
-            tzid = ""
-        if tzid:
-            tzid = " (%s)" % (tzid,)
-
-        return "%s%s" % (dtvalue.strftime(timeformat), tzid,)
-
-    def _getDurationText(self, duration):
-
-        result = ""
-        if duration.days > 0:
-            result += "%d %s" % (
-                duration.days,
-                self._pluralize(duration.days, "day", "days")
-            )
-
-        hours = duration.seconds / 3600
-        minutes = divmod(duration.seconds / 60, 60)[1]
-        seconds = divmod(duration.seconds, 60)[1]
-
-        if hours > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                hours,
-                self._pluralize(hours, "hour", "hours")
-            )
-
-        if minutes > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                minutes,
-                self._pluralize(minutes, "minute", "minutes")
-            )
-
-        if seconds > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                seconds,
-                self._pluralize(seconds, "second", "seconds")
-            )
-
-        return result
-
-    def _pluralize(self, number, unit1, unitS):
-        return unit1 if number == 1 else unitS
 
 
 

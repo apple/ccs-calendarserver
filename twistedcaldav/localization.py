@@ -103,15 +103,15 @@ class translationTo(object):
             self.translations[key] = self.translation
 
     def __enter__(self):
-        # Get the caller's locals so we can rebind their '_' to our translator
-        caller_locals = inspect.stack()[-1][0].f_locals
+        # Get the caller's globals so we can rebind their '_' to our translator
+        caller_globals = inspect.stack()[1][0].f_globals
 
         # Store whatever '_' is already bound to so we can restore it later
-        if caller_locals.has_key('_'):
-            self.prev = caller_locals['_']
+        if caller_globals.has_key('_'):
+            self.prev = caller_globals['_']
 
         # Rebind '_' to our translator
-        caller_locals['_'] = self.translation.gettext
+        caller_globals['_'] = self.translation.gettext
 
         # What we return here is accessible to the caller via the 'as' clause
         return self
@@ -119,7 +119,7 @@ class translationTo(object):
     def __exit__(self, type, value, traceback):
         # Restore '_' if it previously had a value
         if hasattr(self, 'prev'):
-            inspect.stack()[-1][0].f_locals['_'] = self.prev
+            inspect.stack()[1][0].f_globals['_'] = self.prev
 
         # Don't swallow exceptions
         return False

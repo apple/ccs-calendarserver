@@ -284,7 +284,7 @@ defaultConfig = {
 
     "ListenBacklog": 50,
     "IdleConnectionTimeOut": 15,
-    "UIDReservationTimeOut": 30 * 60
+    "UIDReservationTimeOut": 30 * 60,
 
     #
     # Implementation details
