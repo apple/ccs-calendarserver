@@ -408,6 +408,7 @@ def makeService_Combined(self, options):
         log.msg("Adding notification service")
 
         notificationsArgv = [
+            sys.executable,
             config.Twisted["twistd"],
             "-n", "caldav_notifier",
             "-f", options["config"],
@@ -421,6 +422,7 @@ def makeService_Combined(self, options):
         log.msg("Adding mail gateway service")
 
         mailGatewayArgv = [
+            sys.executable,
             config.Twisted["twistd"],
             "-n", "caldav_mailgateway",
             "-f", options["config"],
