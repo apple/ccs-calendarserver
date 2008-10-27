@@ -290,6 +290,8 @@
     <string>logs/access.log</string>
     <key>RotateAccessLog</key>
     <false/>
+	<key>MoreAccessLogData</key>
+	<true/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>

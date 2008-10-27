@@ -136,9 +136,10 @@ defaultConfig = {
     "ErrorLogFile"   : "/var/log/caldavd/error.log",   # Server activity log
     "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
-    "RotateAccessLog": False,
-    "DefaultLogLevel": "",
-    "LogLevels": {},
+    "RotateAccessLog"   : False,
+    "MoreAccessLogData" : False,
+    "DefaultLogLevel"   : "",
+    "LogLevels"         : {},
     "AccountingCategories": {
         "iTIP": False,
     },
