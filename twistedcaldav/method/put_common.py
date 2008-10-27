@@ -509,11 +509,15 @@ class StoreCalendarObjectResource(object):
         so rename the original file in case we need to rollback.
         """
 
+        def _createRollbackPath(path):
+            parent, child = os.path.split(path)
+            child = "." + child + ".rollback"
+            return os.path.join(parent, child)
+
         self.rollback = StoreCalendarObjectResource.RollbackState(self)
         self.overwrite = self.destination.exists()
         if self.overwrite:
-            self.rollback.destination_copy = FilePath(self.destination.fp.path)
-            self.rollback.destination_copy.path += ".rollback"
+            self.rollback.destination_copy = FilePath(_createRollbackPath(self.destination.fp.path))
             copyToWithXAttrs(self.destination.fp, self.rollback.destination_copy)
             log.debug("Rollback: backing up destination %s to %s" % (self.destination.fp.path, self.rollback.destination_copy.path))
         else:
@@ -521,8 +525,7 @@ class StoreCalendarObjectResource(object):
             log.debug("Rollback: will create new destination %s" % (self.destination.fp.path,))
 
         if self.deletesource:
-            self.rollback.source_copy = FilePath(self.source.fp.path)
-            self.rollback.source_copy.path += ".rollback"
+            self.rollback.source_copy = FilePath(_createRollbackPath(self.source.fp.path))
             copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
             log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
 
