@@ -125,6 +125,22 @@ class MemCacheTestCase(TestCase):
         self.assertTrue(lock._hasLock)
 
     @inlineCallbacks
+    def test_acquire_ok_timeout_0(self):
+        """
+        L{MemCacheProtocol.get} should return a L{Deferred} which is
+        called back with the value and the flag associated with the given key
+        if the server returns a successful result.
+        """
+        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking", timeout=0)
+        yield self._test(
+            lock.acquire(),
+            "add lock:locking 0 0 1\r\n1\r\n",
+            "STORED\r\n",
+            True
+        )
+        self.assertTrue(lock._hasLock)
+
+    @inlineCallbacks
     def test_acquire_fails_timeout_0(self):
         """
         L{MemCacheProtocol.get} should return a L{Deferred} which is
