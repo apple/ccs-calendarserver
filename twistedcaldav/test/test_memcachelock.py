@@ -168,3 +168,29 @@ class MemCacheTestCase(TestCase):
             True
         )
 
+    @inlineCallbacks
+    def test_acquire_unicode(self):
+        """
+        L{MemCacheProtocol.get} should return a L{Deferred} which is
+        called back with the value and the flag associated with the given key
+        if the server returns a successful result.
+        """
+        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", u"locking")
+        yield self._test(
+            lock.acquire(),
+            "add lock:locking 0 0 1\r\n1\r\n",
+            "STORED\r\n",
+            True
+        )
+        self.assertTrue(lock._hasLock)
+
+    def test_acquire_invalid_token(self):
+        """
+        L{MemCacheProtocol.get} should return a L{Deferred} which is
+        called back with the value and the flag associated with the given key
+        if the server returns a successful result.
+        """
+        
+        self.assertRaises(AssertionError, MemCacheTestCase.FakedMemcacheLock, *(self.proto, "lock", 1))
+        self.assertRaises(AssertionError, MemCacheTestCase.FakedMemcacheLock, *(self.proto, "lock", ("abc",)))
+

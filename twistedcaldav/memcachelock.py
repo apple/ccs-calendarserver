@@ -38,6 +38,9 @@ class MemcacheLock(Memcacher):
         """
 
         super(MemcacheLock, self).__init__(namespace)
+        if isinstance(locktoken, unicode):
+            locktoken = locktoken.encode("utf-8")
+        assert isinstance(locktoken, str), "Lock token must be a str."
         self._locktoken = locktoken
         self._timeout = timeout
         self._retry_interval = retry_interval
