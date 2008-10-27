@@ -6,12 +6,12 @@ Test the memcache client protocol.
 """
 
 from twistedcaldav.memcache import MemCacheProtocol
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 
 from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransportWithDisconnection
 from twisted.internet.task import Clock
 from twisted.internet.defer import inlineCallbacks
-from twistedcaldav.memcachelock import MemcacheLock
 
 
 class MemCacheTestCase(TestCase):
@@ -123,6 +123,29 @@ class MemCacheTestCase(TestCase):
             True
         )
         self.assertTrue(lock._hasLock)
+
+    @inlineCallbacks
+    def test_acquire_fails_timeout_0(self):
+        """
+        L{MemCacheProtocol.get} should return a L{Deferred} which is
+        called back with the value and the flag associated with the given key
+        if the server returns a successful result.
+        """
+        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking", timeout=0)
+        try:
+            yield self._test(
+                lock.acquire(),
+                "add lock:locking 0 0 1\r\n1\r\n",
+                "NOT_STORED\r\n",
+                True
+            )
+        except MemcacheLockTimeoutError:
+            pass
+        except Exception, e:
+            self.fail("Unknown exception thrown: %s" % (e,))
+        else:
+            self.fail("No timeout exception thrown")
+        self.assertFalse(lock._hasLock)
 
     @inlineCallbacks
     def test_acquire_release(self):

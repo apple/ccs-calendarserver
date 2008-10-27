@@ -61,9 +61,9 @@ class MemcacheLock(Memcacher):
         
         assert not self._hasLock, "Lock already acquired."
     
-        start_time = time.time()
+        timeout_at = time.time() + self._timeout
         waiting = False
-        while time.time() < start_time + self._timeout:
+        while True:
             
             result = (yield self.add(self._locktoken, "1", self._expire_time))
             if result:
@@ -72,16 +72,17 @@ class MemcacheLock(Memcacher):
                     self.log_debug("Got lock after waiting on %s" % (self._locktoken,))
                 break
             
-            waiting = True
-            self.log_debug("Waiting for lock on %s" % (self._locktoken,))
-            pause = Deferred()
-            def _timedDeferred():
-                pause.callback(True)
-            reactor.callLater(self._retry_interval, _timedDeferred)
-            yield pause
-        else:
-            self.log_debug("Timed out lock after waiting on %s" % (self._locktoken,))
-            raise MemcacheLockTimeoutError()
+            if self._timeout and time.time() < timeout_at:
+                waiting = True
+                self.log_debug("Waiting for lock on %s" % (self._locktoken,))
+                pause = Deferred()
+                def _timedDeferred():
+                    pause.callback(True)
+                reactor.callLater(self._retry_interval, _timedDeferred)
+                yield pause
+            else:
+                self.log_debug("Timed out lock after waiting on %s" % (self._locktoken,))
+                raise MemcacheLockTimeoutError()
         
         returnValue(True)
 
