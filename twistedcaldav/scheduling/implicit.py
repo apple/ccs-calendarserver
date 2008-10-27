@@ -491,6 +491,7 @@ class ImplicitScheduler(object):
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
                     returnValue(None)
             elif isinstance(self.organizerAddress, LocalCalendarUser):
+                log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy" % (self.attendee, self.uid,))
                 assert self.organizer_calendar, "Must have the organizer's copy of an invite"
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
                 log.debug("Attendee '%s' is not allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
