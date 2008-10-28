@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.memcachelock import MemcacheLock
+from twistedcaldav.memcacher import Memcacher
 
 import os
 
@@ -31,6 +33,19 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
     PUT request
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
+
+    def setUp(self):
+        def _getFakeMemcacheProtocol(self):
+            
+            result = super(MemcacheLock, self)._getMemcacheProtocol()
+            if isinstance(result, Memcacher.nullCacher):
+                result = self._memcacheProtocol = Memcacher.memoryCacher()
+            
+            return result
+        
+        MemcacheLock._getMemcacheProtocol = _getFakeMemcacheProtocol
+
+        super(CollectionContents, self).setUp()
 
     def test_collection_in_calendar(self):
         """

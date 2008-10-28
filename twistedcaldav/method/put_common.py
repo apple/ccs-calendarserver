@@ -20,6 +20,7 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreCalendarObjectResource"]
 
+import os
 import types
 
 from twisted.internet import reactor
@@ -56,6 +57,7 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.log import Logger
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
@@ -141,7 +143,11 @@ class StoreCalendarObjectResource(object):
 
     class UIDReservation(object):
         
-        def __init__(self, index, uid, uri):
+        def __init__(self, index, uid, uri, internal_request):
+            if internal_request:
+                self._lock = None
+            else:
+                self._lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
             self.reserved = False
             self.index = index
             self.uid = uid
@@ -150,6 +156,13 @@ class StoreCalendarObjectResource(object):
         @inlineCallbacks
         def reserve(self):
             
+            # Implicit lock
+            if self._lock:
+                try:
+                    yield self._lock.acquire()
+                except MemcacheLockTimeoutError:
+                    raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
+
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
             # time to whoever has the reservation to finish and release it.
             failure_count = 0
@@ -169,13 +182,17 @@ class StoreCalendarObjectResource(object):
                 yield pause
             
             if self.uri and not self.reserved:
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (self.uri,)))
+                if self._lock:
+                    yield self._lock.release()
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
         
         @inlineCallbacks
         def unreserve(self):
             if self.reserved:
                 yield self.index.unreserveUID(self.uid)
                 self.reserved = False
+            if self._lock:
+                yield self._lock.clean()
 
     def __init__(
         self,
@@ -682,7 +699,7 @@ class StoreCalendarObjectResource(object):
             if self.destinationcal:    
                 # Reserve UID
                 self.destination_index = self.destinationparent.index()
-                reservation = StoreCalendarObjectResource.UIDReservation(self.destination_index, self.uid, self.destination_uri)
+                reservation = StoreCalendarObjectResource.UIDReservation(self.destination_index, self.uid, self.destination_uri, self.internal_request or self.isiTIP)
                 yield reservation.reserve()
             
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests

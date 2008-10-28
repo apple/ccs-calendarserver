@@ -23,7 +23,9 @@ __all__ = ["http_DELETE"]
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.util import parentForURL
+from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
@@ -43,31 +45,49 @@ def http_DELETE(self, request):
     calendar = None
     is_calendar_collection = False
     is_calendar_resource = False
+    _lock = None
     if self.exists():
         if isCalendarCollectionResource(parent):
             is_calendar_resource = True
             calendar = self.iCalendar()
+            _lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+            
         elif isCalendarCollectionResource(self):
             is_calendar_collection = True
 
-    response = (yield super(CalDAVFile, self).http_DELETE(request))
+    try:
+        if _lock:
+            yield _lock.acquire()
 
-    if response == responsecode.NO_CONTENT:
-        if is_calendar_resource:
+        response = (yield super(CalDAVFile, self).http_DELETE(request))
+    
+        if response == responsecode.NO_CONTENT:
+            if is_calendar_resource:
+    
+                index = parent.index()
+                index.deleteResource(self.fp.basename())
+    
+                # Change CTag on the parent calendar collection
+                yield parent.updateCTag()
+    
+                # Do scheduling
+                scheduler = ImplicitScheduler()
+                yield scheduler.doImplicitScheduling(request, self, calendar, True)
+     
+            elif is_calendar_collection:
+                
+                # Do some clean up
+                yield self.deletedCalendar(request)
+                
+        if _lock:
+            yield _lock.release()
 
-            index = parent.index()
-            index.deleteResource(self.fp.basename())
+    except MemcacheLockTimeoutError:
+        raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
 
-            # Change CTag on the parent calendar collection
-            yield parent.updateCTag()
-
-            # Do scheduling
-            scheduler = ImplicitScheduler()
-            yield scheduler.doImplicitScheduling(request, self, calendar, True)
- 
-        elif is_calendar_collection:
-            
-            # Do some clean up
-            yield self.deletedCalendar(request)
+    except Exception, e:
+        if _lock:
+            yield _lock.clean()
+        raise e
 
     returnValue(response)
