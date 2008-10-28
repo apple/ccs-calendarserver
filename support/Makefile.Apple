@@ -46,17 +46,16 @@ PyXML-0.8.4::           $(BuildDirectory)/PyXML-0.8.4
 vobject::               $(BuildDirectory)/vobject
 Twisted::               $(BuildDirectory)/Twisted
 pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
-select26-0.1a3::	$(BuildDirectory)/select26-0.1a3
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1a3 Twisted $(Project)
+build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
 
 setup:
 	$(_v) $(Sources)/run -g
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz select26-0.1a3.tgz Twisted.tgz
+prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
 
-PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1.a3 $(Project)::
+PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -81,7 +80,6 @@ install:: build
 	$(_v) cd $(BuildDirectory)/pydirector-1.0.0      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4           && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/select26-0.1a3        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py    install $(PY_INSTALL_FLAGS)
