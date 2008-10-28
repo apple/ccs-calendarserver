@@ -37,7 +37,7 @@ msgstr "PMAY"
 
 #: localization.py:213
 msgid "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
-msgstr "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
+msgstr "%(hour24Number)02d:%(minuteNumber)02d"
 
 #: localization.py:236
 msgid "Monday"
@@ -223,8 +223,6 @@ msgstr "Attendeesway"
 msgid "Location"
 msgstr "Ocationlay"
 
-msgid "Duration"
-msgstr "Urationday"
 
 msgid "1 day"
 msgstr "1 ayday"

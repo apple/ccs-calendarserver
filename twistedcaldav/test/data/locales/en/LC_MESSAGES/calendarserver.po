@@ -1,4 +1,4 @@
-# Pig Latin Translation
+# SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR ORGANIZATION
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
@@ -17,55 +17,55 @@ msgstr ""
 
 #: localization.py:171
 msgid "All day"
-msgstr "Allway ayday"
+msgstr ""
 
 #: localization.py:177
 msgid "%(startTime)s to %(endTime)s"
-msgstr "%(startTime)s otay %(endTime)s"
+msgstr ""
 
 #: localization.py:191
 msgid "%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d"
-msgstr "%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d"
+msgstr ""
 
 #: localization.py:207
 msgid "AM"
-msgstr "AMWAY"
+msgstr ""
 
 #: localization.py:207
 msgid "PM"
-msgstr "PMAY"
+msgstr ""
 
 #: localization.py:213
 msgid "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
-msgstr "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
+msgstr ""
 
 #: localization.py:236
 msgid "Monday"
-msgstr "Ondaymay"
+msgstr ""
 
 #: localization.py:237
 msgid "Tuesday"
-msgstr "Uesdaytay"
+msgstr ""
 
 #: localization.py:238
 msgid "Wednesday"
-msgstr "Ednesdayway"
+msgstr ""
 
 #: localization.py:239
 msgid "Thursday"
-msgstr "Ursdaythay"
+msgstr ""
 
 #: localization.py:240
 msgid "Friday"
-msgstr "Idayfray"
+msgstr ""
 
 #: localization.py:241
 msgid "Saturday"
-msgstr "Aturdaysay"
+msgstr ""
 
 #: localization.py:242
 msgid "Sunday"
-msgstr "Undaysay"
+msgstr ""
 
 #: localization.py:246
 msgid "Mon"
@@ -97,51 +97,51 @@ msgstr ""
 
 #: localization.py:257
 msgid "January"
-msgstr "Anuaryjay"
+msgstr ""
 
 #: localization.py:258
 msgid "February"
-msgstr "Ebruaryfay"
+msgstr ""
 
 #: localization.py:259
 msgid "March"
-msgstr "Archmay"
+msgstr ""
 
 #: localization.py:260
 msgid "April"
-msgstr "Aprilway"
+msgstr ""
 
 #: localization.py:261 localization.py:277
 msgid "May"
-msgstr "Aymay"
+msgstr ""
 
 #: localization.py:262
 msgid "June"
-msgstr "Unejay"
+msgstr ""
 
 #: localization.py:263
 msgid "July"
-msgstr "Ulyjay"
+msgstr ""
 
 #: localization.py:264
 msgid "August"
-msgstr "Augustway"
+msgstr ""
 
 #: localization.py:265
 msgid "September"
-msgstr "Eptembersay"
+msgstr ""
 
 #: localization.py:266
 msgid "October"
-msgstr "Octoberway"
+msgstr ""
 
 #: localization.py:267
 msgid "November"
-msgstr "Ovembernay"
+msgstr ""
 
 #: localization.py:268
 msgid "December"
-msgstr "Ecemberday"
+msgstr ""
 
 #: localization.py:273
 msgid "Jan"
@@ -189,64 +189,61 @@ msgstr ""
 
 #: mail.py:726 mail.py:755 mail.py:792
 msgid "Event cancelled"
-msgstr "Eventway ancelledcay"
+msgstr ""
 
 #: mail.py:727
 msgid "Event invitation: %(summary)s"
-msgstr "Eventway invitationway: %(summary)s"
+msgstr ""
 
 #: mail.py:736
 msgid "Event Invitation"
-msgstr "Eventway invitationway"
+msgstr ""
 
 #: mail.py:737
 msgid "Date"
-msgstr "Ateday"
+msgstr ""
 
 #: mail.py:738
 msgid "Time"
-msgstr "Imetay"
+msgstr ""
 
 #: mail.py:739
 msgid "Description"
-msgstr "Escriptionday"
+msgstr ""
 
 #: mail.py:740
 msgid "Organizer"
-msgstr "Organizerway"
+msgstr ""
 
 #: mail.py:741
 msgid "Attendees"
-msgstr "Attendeesway"
+msgstr ""
 
 #: mail.py:742
 msgid "Location"
-msgstr "Ocationlay"
+msgstr ""
 
-msgid "Duration"
-msgstr "Urationday"
 
 msgid "1 day"
-msgstr "1 ayday"
+msgstr
 
 msgid "%(dayCount)d days"
-msgstr "%(dayCount)d aysday"
+msgstr
 
 msgid "1 hour"
-msgstr "1 ourhay"
 
 msgid "%(hourCount)d hours"
-msgstr "%(hourCount)d ourshay"
+msgstr
 
 msgid "1 minute"
-msgstr "1 inutemay"
+msgstr
 
 msgid "%(minuteCount)d minutes"
-msgstr "%(minuteCount)d inutesmay"
+msgstr
 
 msgid "1 second"
-msgstr "1 econdsay"
+msgstr
 
 msgid "%(secondCount)d seconds"
-msgstr "%(secondCount)d econdsay"
+msgstr
 

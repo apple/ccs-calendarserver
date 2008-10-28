@@ -67,6 +67,10 @@ msgstr "Participants"
 msgid "Location"
 msgstr "Emplacement"
 
+msgid "Duration"
+msgstr "Durée"
+
+
 
 #: twistedcaldav/localization.py:131
 msgid "Monday"
@@ -78,7 +82,7 @@ msgstr "Mardi"
 
 #: twistedcaldav/localization.py:133
 msgid "Wednesday"
-msgstr "Mer."
+msgstr "Mercredi"
 
 #: twistedcaldav/localization.py:134
 msgid "Thursday"
@@ -130,7 +134,7 @@ msgstr "Janvier"
 
 #: twistedcaldav/localization.py:153
 msgid "February"
-msgstr "FÃ©vrier"
+msgstr "Février"
 
 #: twistedcaldav/localization.py:154
 msgid "March"
@@ -154,7 +158,7 @@ msgstr "Juillet"
 
 #: twistedcaldav/localization.py:159
 msgid "August"
-msgstr "AoÃ»t"
+msgstr "Août"
 
 #: twistedcaldav/localization.py:160
 msgid "September"
@@ -170,7 +174,7 @@ msgstr "Novembre"
 
 #: twistedcaldav/localization.py:163
 msgid "December"
-msgstr "DÃ©cembre"
+msgstr "Décembre"
 
 #: twistedcaldav/localization.py:168
 msgid "Jan"
@@ -216,3 +220,26 @@ msgstr ""
 msgid "Dec"
 msgstr ""
 
+msgid "1 day"
+msgstr
+
+msgid "%(dayCount)d days"
+msgstr
+
+msgid "1 hour"
+msgstr "1 jour"
+
+msgid "%(hourCount)d hours"
+msgstr "%(hourCount)d jours"
+
+msgid "1 minute"
+msgstr "1 minute"
+
+msgid "%(minuteCount)d minutes"
+msgstr "%(minuteCount)d minutes"
+
+msgid "1 second"
+msgstr "1 seconde"
+
+msgid "%(secondCount)d seconds"
+msgstr "%(secondCount)d secondes"

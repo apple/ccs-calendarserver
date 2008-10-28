@@ -223,3 +223,30 @@ msgstr ""
 msgid "Location"
 msgstr ""
 
+msgid "Duration"
+msgstr ""
+
+
+msgid "1 day"
+msgstr
+
+msgid "%(dayCount)d days"
+msgstr
+
+msgid "1 hour"
+
+msgid "%(hourCount)d hours"
+msgstr
+
+msgid "1 minute"
+msgstr
+
+msgid "%(minuteCount)d minutes"
+msgstr
+
+msgid "1 second"
+msgstr
+
+msgid "%(secondCount)d seconds"
+msgstr
+

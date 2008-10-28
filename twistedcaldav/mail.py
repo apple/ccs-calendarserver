@@ -483,7 +483,7 @@ class IScheduleService(service.Service, LoggingMixIn):
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
             self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar, language='en')
+                calendar, language='fr')
 
             # TODO: what to return?
             return """
@@ -739,6 +739,7 @@ class MailHandler(LoggingMixIn):
             details['inviteLabel'] = _("Event Invitation")
             details['dateLabel'] = _("Date")
             details['timeLabel'] = _("Time")
+            details['durationLabel'] = _("Duration")
             details['descLabel'] = _("Description")
             details['orgLabel'] = _("Organizer")
             details['attLabel'] = _("Attendees")
@@ -751,6 +752,7 @@ class MailHandler(LoggingMixIn):
 %(locLabel)s: %(location)s
 %(dateLabel)s: %(dateInfo)s
 %(timeLabel)s: %(timeInfo)s
+%(durationLabel)s: %(durationInfo)s
 %(descLabel)s: %(description)s
 %(attLabel)s: %(attendees)s
 """
@@ -759,7 +761,7 @@ class MailHandler(LoggingMixIn):
             if cancelled:
                 plainText = _("Event cancelled")
             else:
-                print plainTemplate, details
+                # print plainTemplate, details
                 plainText = plainTemplate % details
 
             msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
@@ -787,6 +789,9 @@ class MailHandler(LoggingMixIn):
     </p>
     <p>
     <h3>%(timeLabel)s:</h3> %(timeInfo)s
+    </p>
+    <p>
+    <h3>%(durationLabel)s:</h3> %(durationInfo)s
     </p>
     <p>
     <h3>%(descLabel)s:</h3> %(description)s
@@ -869,7 +874,7 @@ class MailHandler(LoggingMixIn):
 
         with translationTo(language) as trans:
             results['dateInfo'] = trans.date(component)
-            results['timeInfo'] = trans.time(component)
+            results['timeInfo'], results['durationInfo'] = trans.time(component)
 
         return results
 

@@ -95,14 +95,14 @@ class translationTo(object):
 
     translations = {}
 
-    def __init__(self, lang, domain='calendarserver', localedir='locales'):
+    def __init__(self, lang, domain='calendarserver', localeDir='locales'):
 
         # Cache gettext translation objects in class.translations
-        key = (lang, domain, localedir)
+        key = (lang, domain, localeDir)
         self.translation = self.translations.get(key, None)
         if self.translation is None:
             self.translation = gettext.translation(domain=domain,
-                localedir=localedir, languages=[lang, 'en'])
+                localedir=localeDir, languages=[lang, 'en'])
             self.translations[key] = self.translation
 
     def __enter__(self):
@@ -139,6 +139,11 @@ class translationTo(object):
         All day
         3:30 PM PDT
         3:30 PM PDT to 7:30 PM EDT
+
+        1 day
+        2 days
+        1 day 1 hour
+        1 day 4 hours 18 minutes
         """
 
         # Bind to '_' so pygettext.py will pick this up for translation
@@ -149,7 +154,7 @@ class translationTo(object):
         if isinstance(dtStart, datetime.datetime):
             tzStart = dtStart.tzname()
         else:
-            return _("All day")
+            return ("", _("All day"))
 
         # tzStart = component.getProperty("DTSTART").params().get("TZID", "UTC")
 
@@ -174,7 +179,7 @@ class translationTo(object):
                     duration = dtEnd - dtStart
 
         if dtStart == dtEnd:
-            return self.dtTime(dtStart)
+            return (self.dtTime(dtStart), "")
 
         return (
             _("%(startTime)s to %(endTime)s")
@@ -182,7 +187,8 @@ class translationTo(object):
                 'startTime'      : self.dtTime(dtStart,
                                     includeTimezone=(tzStart != tzEnd)),
                 'endTime'        : self.dtTime(dtEnd),
-            }
+            },
+            self.dtDuration(duration)
         )
 
 
@@ -202,7 +208,7 @@ class translationTo(object):
 
     def dtTime(self, val, includeTimezone=True):
         if not isinstance(val, (datetime.datetime, datetime.time)):
-            return None
+            return ""
 
         # Bind to '_' so pygettext.py will pick this up for translation
         _ = self.translation.ugettext
@@ -227,7 +233,42 @@ class translationTo(object):
 
         return result
 
+    def dtDuration(self, val):
 
+        # Bind to '_' so pygettext.py will pick this up for translation
+        _ = self.translation.ugettext
+
+        parts = []
+
+        if val.days == 1:
+            parts.append(_("1 day"))
+        elif val.days > 1:
+            parts.append(_("%(dayCount)d days" %
+                { 'dayCount' : val.days }))
+
+        hours = val.seconds / 3600
+        minutes = divmod(val.seconds / 60, 60)[1]
+        seconds = divmod(val.seconds, 60)[1]
+
+        if hours == 1:
+            parts.append(_("1 hour"))
+        elif hours > 1:
+            parts.append(_("%(hourCount)d hours") %
+                { 'hourCount' : hours })
+
+        if minutes == 1:
+            parts.append(_("1 minute"))
+        elif minutes > 1:
+            parts.append(_("%(minuteCount)d minutes") %
+                { 'minuteCount' : minutes })
+
+        if seconds == 1:
+            parts.append(_("1 second"))
+        elif seconds > 1:
+            parts.append(_("%(secondCount)d seconds") %
+                { 'secondCount' : seconds })
+
+        return " ".join(parts)
 
 
 # The strings below are wrapped in _( ) for the benefit of pygettext.  We don't
