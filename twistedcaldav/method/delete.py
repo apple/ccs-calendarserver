@@ -43,26 +43,27 @@ def http_DELETE(self, request):
     parent = (yield request.locateResource(parentURL))
 
     calendar = None
-    is_calendar_collection = False
-    is_calendar_resource = False
-    _lock = None
+    isCalendarCollection = False
+    isCalendarResource = False
+    lock = None
+
     if self.exists():
         if isCalendarCollectionResource(parent):
-            is_calendar_resource = True
+            isCalendarResource = True
             calendar = self.iCalendar()
-            _lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+            lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
             
         elif isCalendarCollectionResource(self):
-            is_calendar_collection = True
+            isCalendarCollection = True
 
     try:
-        if _lock:
-            yield _lock.acquire()
+        if lock:
+            yield lock.acquire()
 
         response = (yield super(CalDAVFile, self).http_DELETE(request))
     
         if response == responsecode.NO_CONTENT:
-            if is_calendar_resource:
+            if isCalendarResource:
     
                 index = parent.index()
                 index.deleteResource(self.fp.basename())
@@ -74,20 +75,20 @@ def http_DELETE(self, request):
                 scheduler = ImplicitScheduler()
                 yield scheduler.doImplicitScheduling(request, self, calendar, True)
      
-            elif is_calendar_collection:
+            elif isCalendarCollection:
                 
                 # Do some clean up
                 yield self.deletedCalendar(request)
                 
-        if _lock:
-            yield _lock.release()
+        if lock:
+            yield lock.release()
 
     except MemcacheLockTimeoutError:
         raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
 
     except Exception, e:
-        if _lock:
-            yield _lock.clean()
+        if lock:
+            yield lock.clean()
         raise e
 
     returnValue(response)
