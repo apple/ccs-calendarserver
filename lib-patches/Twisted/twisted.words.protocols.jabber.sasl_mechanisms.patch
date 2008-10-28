@@ -1,0 +1,34 @@
+Index: twisted/words/protocols/jabber/sasl_mechanisms.py
+===================================================================
+--- twisted/words/protocols/jabber/sasl_mechanisms.py	(revision 19773)
++++ twisted/words/protocols/jabber/sasl_mechanisms.py	(working copy)
+@@ -7,8 +7,13 @@
+ Protocol agnostic implementations of SASL authentication mechanisms.
+ """
+ 
+-import md5, binascii, random, time, os
++import binascii, random, time, os
+ 
++try:
++    from hashlib import md5
++except ImportError:
++    import md5.new as md5
++
+ from zope.interface import Interface, Attribute, implements
+ 
+ class ISASLMechanism(Interface):
+@@ -153,7 +158,7 @@
+         """
+ 
+         def H(s):
+-            return md5.new(s).digest()
++            return md5(s).digest()
+ 
+         def HEX(n):
+             return binascii.b2a_hex(n)
+@@ -196,4 +201,4 @@
+ 
+ 
+     def _gen_nonce(self):
+-        return md5.new("%s:%s:%s" % (str(random.random()) , str(time.gmtime()),str(os.getpid()))).hexdigest()
++        return md5("%s:%s:%s" % (str(random.random()) , str(time.gmtime()),str(os.getpid()))).hexdigest()

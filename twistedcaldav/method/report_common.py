@@ -29,8 +29,12 @@ __all__ = [
 ]
 
 import datetime
-import md5
 import time
+
+try:
+    from hashlib import md5
+except ImportError:
+    import md5.new as md5
 
 from vobject.icalendar import utc
 
@@ -616,7 +620,7 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     if uid is not None:
         fb.addProperty(Property("UID", uid))
     else:
-        uid = md5.new(str(fbcalendar) + str(time.time())).hexdigest()
+        uid = md5(str(fbcalendar) + str(time.time())).hexdigest()
         fb.addProperty(Property("UID", uid))
 
     return fbcalendar

@@ -2,7 +2,7 @@ Index: twisted/web2/dav/stream.py
 ===================================================================
 --- twisted/web2/dav/stream.py	(revision 0)
 +++ twisted/web2/dav/stream.py	(revision 0)
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,79 @@
 +##
 +# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
 +#
@@ -37,7 +37,10 @@ Index: twisted/web2/dav/stream.py
 +from twisted.internet.defer import Deferred
 +from twisted.web2.stream import SimpleStream
 +
-+import md5
++try:
++    from hashlib import md5
++except ImportError:
++    import md5.new as md5
 +
 +class MD5StreamWrapper(SimpleStream):
 + 
@@ -48,7 +51,7 @@ Index: twisted/web2/dav/stream.py
 +        self.stream = wrap
 +
 +        # Init MD5
-+        self.md5 = md5.new()
++        self.md5 = md5()
 +    
 +    def read(self):
 +        assert self.md5 is not None, "Cannot call read after close."

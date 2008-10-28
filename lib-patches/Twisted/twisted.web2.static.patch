@@ -2,7 +2,15 @@ Index: twisted/web2/static.py
 ===================================================================
 --- twisted/web2/static.py	(revision 19773)
 +++ twisted/web2/static.py	(working copy)
-@@ -200,7 +200,10 @@
+@@ -9,7 +9,6 @@
+ # System Imports
+ import os, time, stat
+ import tempfile
+-import md5
+ 
+ # Sibling Imports
+ from twisted.web2 import http_headers, resource
+@@ -200,7 +199,10 @@
          super(File, self).__init__()
  
          self.putChildren = {}
@@ -14,7 +22,7 @@ Index: twisted/web2/static.py
          # Remove the dots from the path to split
          self.defaultType = defaultType
          self.ignoredExts = list(ignoredExts)
-@@ -383,7 +386,7 @@
+@@ -383,7 +385,7 @@
              return responsecode.NOT_FOUND
  
          if self.fp.isdir():

@@ -14,10 +14,15 @@
 # limitations under the License.
 ##
 
+import time
+
+try:
+    from hashlib import md5
+except ImportError:
+    import md5.new as md5
+
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twisted.python.failure import Failure
-
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
@@ -32,15 +37,10 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
-    RemoteCalendarUser
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.scheduling.processing import ImplicitProcessor,\
-    ImplicitProcessorException
-
-import md5
-import time
+from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
 
 """
 Class that handles delivery of scheduling messages via CalDAV.
