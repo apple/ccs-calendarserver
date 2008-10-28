@@ -120,7 +120,7 @@ try_python ()
   return 0;
 }
 
-for v in "" "2.5"; do
+for v in "" "2.6" "2.5"; do
   for p in								\
     "${PYTHON:=}"							\
     "python${v}"							\
@@ -144,6 +144,8 @@ if [ -z "${python:-}" ]; then
   echo "No suitable python found. Python 2.5 is required.";
   exit 1;
 fi;
+
+echo "Using ${python} as Python";
 
 if [ -z "${caldav:-}" ]; then
   caldav="${wd}";
