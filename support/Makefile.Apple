@@ -51,7 +51,7 @@ $(Project)::            $(BuildDirectory)/$(Project)
 build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
 
 setup:
-	$(_v) $(Sources)/run -g
+	$(_v) ./run -g
 
 prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
 
