@@ -277,9 +277,6 @@ defaultConfig = {
     # Performance tuning
     #
 
-    # Configure the number of seconds that Propfinds should be cached for.
-    "ResponseCacheSize": 1000,
-
     # Set the maximum number of outstanding requests to this server.
     "MaxRequests": 600,
 
