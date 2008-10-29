@@ -29,7 +29,7 @@ from twisted.python.filepath import FilePath
 from twisted.cred.credentials import UsernamePassword
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryConfigurationError
 
 class AbstractDirectoryService(DirectoryService):
     """
