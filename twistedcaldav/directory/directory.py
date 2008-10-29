@@ -22,6 +22,7 @@ __all__ = [
     "DirectoryService",
     "DirectoryRecord",
     "DirectoryError",
+    "DirectoryConfigurationError",
     "UnknownRecordError",
     "UnknownRecordTypeError",
 ]
@@ -321,6 +322,11 @@ class DirectoryRecord(LoggingMixIn):
 class DirectoryError(RuntimeError):
     """
     Generic directory error.
+    """
+
+class DirectoryConfigurationError(DirectoryError):
+    """
+    Invlid directory configuration.
     """
 
 class UnknownRecordTypeError(DirectoryError):

@@ -38,13 +38,18 @@ class AbstractDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r %r>" % (self.__class__.__name__, self.realmName, self.userFile, self.groupFile)
 
-    def __init__(self, realmName, userFile, groupFile=None):
+    def __init__(self, realmName="", userFile=None, groupFile=None):
         super(AbstractDirectoryService, self).__init__()
 
-        if type(userFile) is str:
+        if userFile and type(userFile) is str:
             userFile = FilePath(userFile)
-        if type(groupFile) is str:
+        else:
+            raise DirectoryConfigurationError("Invalid Apache user file name: %r" % (userFile,))
+
+        if groupFile and type(groupFile) is str:
             groupFile = FilePath(groupFile)
+        else:
+            groupFile = None
 
         self.realmName = realmName
         self.userFile = userFile
@@ -76,7 +81,7 @@ class AbstractDirectoryService(DirectoryService):
 
             else:
                 # Subclass should cover the remaining record types
-                raise AssertionError("Unknown record type: %r" % (recordType,))
+                raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
 
     def recordWithShortName(self, recordType, shortName):
         for entryShortName, entryData in self.entriesForRecordType(recordType):
@@ -98,7 +103,7 @@ class AbstractDirectoryService(DirectoryService):
                     )
 
                 # Subclass should cover the remaining record types
-                raise AssertionError("Unknown record type: %r" % (recordType,))
+                raise UnknownRecordTypeError("Unknown record type: %s" % (recordType,))
 
         return None
 
@@ -113,10 +118,22 @@ class AbstractDirectoryService(DirectoryService):
         if recordFile is None:
             return
 
-        for entry in recordFile.open():
-            if entry and entry[0] != "#":
-                shortName, rest = entry.rstrip("\n").split(":", 1)
-                yield shortName, rest
+        try:
+            handle = recordFile.open()
+        except IOError, OSError:
+            self.log_error("Auth file (for %s) not found: %s" % (recordType, recordFile.path))
+            return
+
+        try:
+            for entry in handle:
+                if entry and entry[0] != "#":
+                    try:
+                        shortName, rest = entry.rstrip("\n").split(":", 1)
+                    except ValueError:
+                        continue
+                    yield shortName, rest
+        finally:
+            handle.close()
 
 class AbstractDirectoryRecord(DirectoryRecord):
     """
