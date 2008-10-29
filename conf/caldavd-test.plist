@@ -105,7 +105,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>conf/accounts-test.xml</string>
+        <string>conf/auth/accounts-test.xml</string>
       </dict>
     </dict>
     
@@ -137,10 +137,12 @@
       
       <key>params</key>
       <dict>
+        <key>realmName</key>
+        <string>Test Realm</string>
         <key>userFile</key>
-        <string>conf/basic</string>
+        <string>conf/auth/accounts.htauth</string>
         <key>groupFile</key>
-        <string>conf/group</string>
+        <string>conf/auth/groups</string>
       </dict>
     </dict>
     -->
@@ -154,13 +156,15 @@
       
       <key>params</key>
       <dict>
+        <key>realmName</key>
+        <string>Test Realm</string>
         <key>userFile</key>
-        <string>conf/digest</string>
+        <string>conf/auth/accounts.htdigest</string>
         <key>groupFile</key>
-        <string>conf/group</string>
+        <string>conf/auth/groups</string>
       </dict>
     </dict>
-    -->
+     -->
 
     <!-- SQL Directory Service (Experimental) -->
     <!--
@@ -174,7 +178,7 @@
         <key>dbParentPath</key>
         <string>twistedcaldav/test/data/</string>
         <key>xmlFile</key>
-        <string>conf/accounts-test.xml</string>
+        <string>conf/auth/accounts-test.xml</string>
       </dict>
     </dict>
     -->
