@@ -1255,6 +1255,25 @@ class Component (object):
 
         return results
 
+    def getAllAttendeeProperties(self):
+        """
+        Yield all attendees as Property objects.  Works on either a VCALENDAR or
+        on a component.
+        @return: a generator yielding Property objects
+        """
+
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    for attendee in component.getAllAttendeeProperties():
+                        yield attendee
+        else:
+            # Find the primary subcomponent
+            for attendee in self.properties("ATTENDEE"):
+                yield attendee
+
+
     def getMaskUID(self):
         """
         Get the X-CALENDARSEREVR-MASK-UID value. Works on either a VCALENDAR or on a component.

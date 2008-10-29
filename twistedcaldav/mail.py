@@ -42,6 +42,7 @@ from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.localization import translationTo
 
@@ -663,7 +664,23 @@ class MailHandler(LoggingMixIn):
         pre, post = serverAddress.split('@')
         addressWithToken = "%s+%s@%s" % (pre, token, post)
 
-        attendees = list(calendar.getAttendees())
+        attendees = []
+        for attendeeProp in calendar.getAllAttendeeProperties():
+            params = attendeeProp.params()
+            cutype = params.get('CUTYPE', (None,))[0]
+            if cutype == "INDIVIDUAL":
+                cn = params.get("CN", (None,))[0]
+                cuaddr = normalizeCUAddr(attendeeProp.value())
+                if cuaddr.startswith("mailto:"):
+                    mailto = cuaddr[7:]
+                    if not cn:
+                        cn = mailto
+                else:
+                    mailto = None
+
+                if cn or mailto:
+                    attendees.append( (cn, mailto) )
+
         calendar.getOrganizerProperty().setValue("mailto:%s" %
             (addressWithToken,))
 
@@ -676,11 +693,16 @@ class MailHandler(LoggingMixIn):
         # address if available.  Otherwise it will be the server's email
         # address (without # + addressing)
         if organizer.startswith("mailto:"):
-            fromAddr = organizer[7:]
+            orgEmail = fromAddr = organizer[7:]
         else:
             fromAddr = serverAddress
-        cn = calendar.getOrganizerProperty().params().get('CN',
-            ['Calendar Server'])[0]
+            orgEmail = None
+        cn = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+        if cn is None:
+            cn = 'Calendar Server'
+            orgCN = orgEmail
+        else:
+            orgCN = cn
         formattedFrom = "%s <%s>" % (cn, fromAddr)
 
         # Reply-to address will be the server+token address
@@ -690,8 +712,9 @@ class MailHandler(LoggingMixIn):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
 
-        msgId, message = self.generateEmail(calendar, organizer, attendees,
-            formattedFrom, addressWithToken, attendee, language=language)
+        msgId, message = self.generateEmail(calendar, orgEmail, orgCN,
+            attendees, formattedFrom, addressWithToken, attendee,
+            language=language)
 
         self.log_debug("Sending: %s" % (message,))
         def _success(result, msgId, fromAddr, toAddr):
@@ -709,11 +732,10 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def generateEmail(self, calendar, organizer, attendees, fromAddress,
+    def generateEmail(self, calendar, orgEmail, orgCN, attendees, fromAddress,
         replyToAddress, toAddress, language='en'):
 
-        details = self.getEventDetails(calendar, organizer, attendees,
-            language=language)
+        details = self.getEventDetails(calendar, language=language)
 
         with translationTo(language):
             msg = MIMEMultipart()
@@ -746,17 +768,31 @@ class MailHandler(LoggingMixIn):
             details['attLabel'] = _("Attendees")
             details['locLabel'] = _("Location")
 
+
+            plainAttendeeList = []
+            for cn, mailto in attendees:
+                if cn:
+                    plainAttendeeList.append(cn if not mailto else
+                        "%s <%s>" % (cn, mailto))
+                elif mailto:
+                    plainAttendeeList.append("<%s>" % (mailto,))
+
+            details['plainAttendees'] = ", ".join(plainAttendeeList)
+
+            details['plainOrganizer'] = (orgCN if not orgEmail else
+                "%s <%s>" % (orgCN, orgEmail))
+
             # plain text version
             plainTemplate = u"""%(inviteLabel)s: %(summary)s
 
-%(orgLabel)s: %(organizerName)s %(organizerAddr)s
+%(orgLabel)s: %(plainOrganizer)s
 %(locLabel)s: %(location)s
 %(dateLabel)s: %(dateInfo)s
 %(timeLabel)s: %(timeInfo)s
 %(durationLabel)s: %(durationInfo)s
 %(recurrenceLabel)s: %(recurrenceInfo)s
 %(descLabel)s: %(description)s
-%(attLabel)s: %(attendees)s
+%(attLabel)s: %(plainAttendees)s
 """
 
             # TODO: work on cancellations
@@ -773,6 +809,23 @@ class MailHandler(LoggingMixIn):
             msgHtmlRelated = MIMEMultipart("related", type="text/html")
             msgAlt.attach(msgHtmlRelated)
 
+
+            htmlAttendees = []
+            for cn, mailto in attendees:
+                if mailto:
+                    htmlAttendees.append('<a href="mailto:%s">%s</a>' %
+                        (mailto, cn))
+                else:
+                    htmlAttendees.append(cn)
+
+            details['htmlAttendees'] = ", ".join(htmlAttendees)
+
+            if orgEmail:
+                details['htmlOrganizer'] = '<a href="mailto:%s">%s</a>' % (
+                    orgEmail, orgCN)
+            else:
+                details['htmlOrganizer'] = orgCN
+
             htmlTemplate = u"""<html>
     <body><div>
     <img src="cid:ical.jpg"/>
@@ -781,7 +834,7 @@ class MailHandler(LoggingMixIn):
 
     <h1>%(summary)s</h1>
     <p>
-    <h3>%(orgLabel)s:</h3> %(organizerName)s %(organizerAddr)s
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
     </p>
     <p>
     <h3>%(locLabel)s:</h3> %(location)s
@@ -802,7 +855,7 @@ class MailHandler(LoggingMixIn):
     <h3>%(descLabel)s:</h3> %(description)s
     </p>
     <p>
-    <h3>%(attLabel)s:</h3> %(attendees)s
+    <h3>%(attLabel)s:</h3> %(htmlAttendees)s
     </p>
 
     """
@@ -840,7 +893,7 @@ class MailHandler(LoggingMixIn):
         return msgId, msg.as_string()
 
 
-    def getEventDetails(self, calendar, organizer, attendees, language='en'):
+    def getEventDetails(self, calendar, language='en'):
 
         # Get the most appropriate component
         component = calendar.masterComponent()
@@ -848,19 +901,6 @@ class MailHandler(LoggingMixIn):
             component = calendar.mainComponent(True)
 
         results = { }
-
-        # The organizer in calendar has already been replaced with
-        # special token address
-        results['organizerAddr'] = organizer
-
-        organizerProp = component.getOrganizerProperty()
-        if "CN" in organizerProp.params():
-            results['organizerName'] = organizerProp.params()["CN"][0]
-        else:
-            results['organizerName'] = ''
-
-        # TODO: get attendee names if available
-        results['attendees'] = ", ".join(attendees)
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:
@@ -882,7 +922,7 @@ class MailHandler(LoggingMixIn):
             results['timeInfo'], results['durationInfo'] = trans.time(component)
 
 
-            for propertyName in ("RRULE", "REDATE", "EXRULE", "EXDATE",
+            for propertyName in ("RRULE", "RDATE", "EXRULE", "EXDATE",
                 "RECURRENCE-ID"):
                 if component.hasProperty(propertyName):
                     results['recurrenceInfo'] = _("Repeating")
