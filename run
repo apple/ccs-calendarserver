@@ -42,6 +42,16 @@ disable_setup="false";
       profile="";
       reactor="";
 
+if [ "${CALENDARSERVER_CACHE_DEPS-__NO__}" == "__NO__" ]; then
+  cache_deps="";
+else
+  if [ -z "${CALENDARSERVER_CACHE_DEPS}" ]; then
+    cache_deps="${HOME}/.calendarserver_deps";
+  else
+    cache_deps="${CALENDARSERVER_CACHE_DEPS}";
+  fi;
+fi;
+
 usage ()
 {
   program="$(basename "$0")";
@@ -235,9 +245,12 @@ run () {
 
   if "${do_run}"; then
     if [ ! -f "${config}" ]; then
+      echo "";
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
+      echo "";
       echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
+      echo "";
       exit 1;
     fi;
 
@@ -246,6 +259,7 @@ run () {
       mkdir "${wd}/logs";
     fi;
 
+    echo "";
     exec ${caldavd_wrapper_command}                   \
         "${caldav}/bin/caldavd" ${daemonize}          \
         -f "${config}"                                \
@@ -290,24 +304,41 @@ www_get () {
   local path="$1"; shift;
   local  url="$1"; shift;
 
-  local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
-
-  case "${ext}" in
-    gz|tgz) decompress="gzip -d -c"; ;;
-    bz2)    decompress="bzip2 -d -c"; ;;
-    tar)    decompress="cat"; ;;
-    *)
-      echo "Unknown extension: ${ext}";
-      exit 1;
-      ;;
-  esac;
-
   if "${force_setup}" || [ ! -d "${path}" ]; then
+    local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
+
+    case "${ext}" in
+      gz|tgz) decompress="gzip -d -c"; ;;
+      bz2)    decompress="bzip2 -d -c"; ;;
+      tar)    decompress="cat"; ;;
+      *)
+        echo "Unknown extension: ${ext}";
+        exit 1;
+        ;;
+    esac;
+
     echo "";
-    echo "Downloading ${name}...";
+
+    if [ -n "${cache_deps}" ]; then
+      mkdir -p "${cache_deps}";
+
+      cache_file="${cache_deps}/${name}-$(echo "${url}" | md5)-$(basename "${url}")";
+
+      if [ ! -f "${cache_file}" ]; then
+	echo "Downloading ${name}...";
+	curl "${url}" -o "${cache_file}";
+      fi;
+
+      echo "Unpacking ${name} from cache...";
+      get () { cat "${cache_file}"; }
+    else
+      echo "Downloading ${name}..."; 
+      get () { curl "${url}"; }
+    fi;
+
     rm -rf "${path}";
     cd "$(dirname "${path}")";
-    curl "${url}" | ${decompress} | tar xvf -;
+    get | ${decompress} | tar -xvf -;
     apply_patches "${name}" "${path}";
     cd /;
   fi;
