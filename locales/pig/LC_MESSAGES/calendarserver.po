@@ -229,8 +229,8 @@ msgstr "Urationday"
 msgid "Occurs"
 msgstr "Occursway"
 
-msgid "Repeating"
-msgstr "Epeatingray"
+msgid "(Repeating)"
+msgstr "(Epeatingray)"
 
 msgid "Once"
 msgstr "Onceway"

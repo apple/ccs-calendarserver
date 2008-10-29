@@ -73,8 +73,8 @@ msgstr "Durée"
 msgid "Occurs"
 msgstr "Se produit"
 
-msgid "Repeating"
-msgstr "Répétition"
+msgid "(Repeating)"
+msgstr "(Répétition)"
 
 msgid "Once"
 msgstr "Une fois"

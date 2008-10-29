@@ -787,10 +787,8 @@ class MailHandler(LoggingMixIn):
 
 %(orgLabel)s: %(plainOrganizer)s
 %(locLabel)s: %(location)s
-%(dateLabel)s: %(dateInfo)s
-%(timeLabel)s: %(timeInfo)s
-%(durationLabel)s: %(durationInfo)s
-%(recurrenceLabel)s: %(recurrenceInfo)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
 %(descLabel)s: %(description)s
 %(attLabel)s: %(plainAttendees)s
 """
@@ -840,16 +838,10 @@ class MailHandler(LoggingMixIn):
     <h3>%(locLabel)s:</h3> %(location)s
     </p>
     <p>
-    <h3>%(dateLabel)s:</h3> %(dateInfo)s
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
     </p>
     <p>
-    <h3>%(timeLabel)s:</h3> %(timeInfo)s
-    </p>
-    <p>
-    <h3>%(durationLabel)s:</h3> %(durationInfo)s
-    </p>
-    <p>
-    <h3>%(recurrenceLabel)s:</h3> %(recurrenceInfo)s
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
     </p>
     <p>
     <h3>%(descLabel)s:</h3> %(description)s
@@ -919,16 +911,16 @@ class MailHandler(LoggingMixIn):
 
         with translationTo(language) as trans:
             results['dateInfo'] = trans.date(component)
-            results['timeInfo'], results['durationInfo'] = trans.time(component)
-
+            results['timeInfo'], duration = trans.time(component)
+            results['durationInfo'] = "(%s)" % (duration,) if duration else ""
 
             for propertyName in ("RRULE", "RDATE", "EXRULE", "EXDATE",
                 "RECURRENCE-ID"):
                 if component.hasProperty(propertyName):
-                    results['recurrenceInfo'] = _("Repeating")
+                    results['recurrenceInfo'] = _("(Repeating)")
                     break
             else:
-                results['recurrenceInfo'] = _("Once")
+                results['recurrenceInfo'] = ""
 
         return results
 
