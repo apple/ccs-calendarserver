@@ -41,15 +41,14 @@ class AbstractDirectoryService(DirectoryService):
     def __init__(self, realmName="", userFile=None, groupFile=None):
         super(AbstractDirectoryService, self).__init__()
 
+        if not userFile:
+            raise DirectoryConfigurationError("Invalid Apache user file name: %r" % (userFile,))
+
         if userFile and type(userFile) is str:
             userFile = FilePath(userFile)
-        else:
-            raise DirectoryConfigurationError("Invalid Apache user file name: %r" % (userFile,))
 
         if groupFile and type(groupFile) is str:
             groupFile = FilePath(groupFile)
-        else:
-            groupFile = None
 
         self.realmName = realmName
         self.userFile = userFile
