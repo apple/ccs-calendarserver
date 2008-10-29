@@ -400,14 +400,15 @@ class Config (object):
                     self._data["DirectoryService"]["params"] = {}
 
         for param in items.get("DirectoryService", {}).get("params", {}):
-            if param not in serviceDefaultParams[dsType]:
+            if dsType in serviceDefaultParams and param not in serviceDefaultParams[dsType]:
                 raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
 
         _mergeData(self._data, items)
 
-        for param in tuple(self._data["DirectoryService"]["params"]):
-            if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
-                del self._data["DirectoryService"]["params"][param]
+        if self._data["DirectoryService"]["type"] in serviceDefaultParams:
+            for param in tuple(self._data["DirectoryService"]["params"]):
+                if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
+                    del self._data["DirectoryService"]["params"][param]
 
     @staticmethod
     def updateACLs(self, items):
