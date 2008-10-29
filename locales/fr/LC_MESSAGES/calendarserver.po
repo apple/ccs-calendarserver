@@ -70,7 +70,14 @@ msgstr "Emplacement"
 msgid "Duration"
 msgstr "Durée"
 
+msgid "Occurs"
+msgstr "Se produit"
 
+msgid "Repeating"
+msgstr "Répétition"
+
+msgid "Once"
+msgstr "Une fois"
 
 #: twistedcaldav/localization.py:131
 msgid "Monday"

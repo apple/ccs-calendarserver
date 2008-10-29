@@ -226,6 +226,16 @@ msgstr "Ocationlay"
 msgid "Duration"
 msgstr "Urationday"
 
+msgid "Occurs"
+msgstr "Occursway"
+
+msgid "Repeating"
+msgstr "Epeatingray"
+
+msgid "Once"
+msgstr "Onceway"
+
+
 msgid "1 day"
 msgstr "1 ayday"
 

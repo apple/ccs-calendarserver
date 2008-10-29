@@ -226,6 +226,14 @@ msgstr ""
 msgid "Duration"
 msgstr ""
 
+msgid "Occurs"
+msgstr ""
+
+msgid "Repeating"
+msgstr ""
+
+msgid "Once"
+msgstr ""
 
 msgid "1 day"
 msgstr

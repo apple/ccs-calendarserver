@@ -740,6 +740,7 @@ class MailHandler(LoggingMixIn):
             details['dateLabel'] = _("Date")
             details['timeLabel'] = _("Time")
             details['durationLabel'] = _("Duration")
+            details['recurrenceLabel'] = _("Occurs")
             details['descLabel'] = _("Description")
             details['orgLabel'] = _("Organizer")
             details['attLabel'] = _("Attendees")
@@ -753,6 +754,7 @@ class MailHandler(LoggingMixIn):
 %(dateLabel)s: %(dateInfo)s
 %(timeLabel)s: %(timeInfo)s
 %(durationLabel)s: %(durationInfo)s
+%(recurrenceLabel)s: %(recurrenceInfo)s
 %(descLabel)s: %(description)s
 %(attLabel)s: %(attendees)s
 """
@@ -792,6 +794,9 @@ class MailHandler(LoggingMixIn):
     </p>
     <p>
     <h3>%(durationLabel)s:</h3> %(durationInfo)s
+    </p>
+    <p>
+    <h3>%(recurrenceLabel)s:</h3> %(recurrenceInfo)s
     </p>
     <p>
     <h3>%(descLabel)s:</h3> %(description)s
@@ -875,6 +880,15 @@ class MailHandler(LoggingMixIn):
         with translationTo(language) as trans:
             results['dateInfo'] = trans.date(component)
             results['timeInfo'], results['durationInfo'] = trans.time(component)
+
+
+            for propertyName in ("RRULE", "REDATE", "EXRULE", "EXDATE",
+                "RECURRENCE-ID"):
+                if component.hasProperty(propertyName):
+                    results['recurrenceInfo'] = _("Repeating")
+                    break
+            else:
+                results['recurrenceInfo'] = _("Once")
 
         return results
 
