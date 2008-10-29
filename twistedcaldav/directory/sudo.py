@@ -23,16 +23,17 @@ __all__ = [
     "SudoDirectoryService",
 ]
 
+try:
+    from plistlib import readPlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist
+
 from twisted.python.filepath import FilePath
-
-from twisted.cred.credentials import (IUsernamePassword,
-                                      IUsernameHashedPassword)
-
+from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
 from twisted.cred.error import UnauthorizedLogin
 
-from twistedcaldav.directory.directory import (DirectoryService,
-                                               DirectoryRecord,
-                                               UnknownRecordTypeError)
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import UnknownRecordTypeError
 
 class SudoDirectoryService(DirectoryService):
     """
