@@ -23,7 +23,7 @@ __all__ = [
     "NotFilePath",
 ]
 
-from hashlib import sha1
+from uuid import UUID, uuid5
 
 def uuidFromName(namespace, name):
     """
@@ -32,37 +32,11 @@ def uuidFromName(namespace, name):
     @param namespace: a UUID denoting the namespace of the generated UUID.
     @param name: a byte string to generate the UUID from.
     """
-    # Logic distilled from http://zesty.ca/python/uuid.py
-    # by Ka-Ping Yee <ping@zesty.ca>
-    
-    # Convert from string representation to 16 bytes
-    namespace = long(namespace.replace("-", ""), 16)
-    bytes = ""
-    for shift in xrange(0, 128, 8):
-        bytes = chr((namespace >> shift) & 0xff) + bytes
-    namespace = bytes
-
     # We don't want Unicode here; convert to UTF-8
     if type(name) is unicode:
         name = name.encode("utf-8")
 
-    # Start with a SHA-1 hash of the namespace and name
-    uuid = sha1(namespace + name).digest()[:16]
-
-    # Convert from hexadecimal to long integer
-    uuid = long("%02x"*16 % tuple(map(ord, uuid)), 16)
-
-    # Set the variant to RFC 4122.
-    uuid &= ~(0xc000 << 48L)
-    uuid |= 0x8000 << 48L
-    
-    # Set to version 5.
-    uuid &= ~(0xf000 << 64L)
-    uuid |= 5 << 76L
-
-    # Convert from long integer to string representation
-    uuid = "%032x" % (uuid,)
-    return "%s-%s-%s-%s-%s" % (uuid[:8], uuid[8:12], uuid[12:16], uuid[16:20], uuid[20:])
+    return str(uuid5(UUID(namespace), name))
 
 import errno
 import time
