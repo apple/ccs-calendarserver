@@ -23,9 +23,13 @@
 """
 
 import datetime
-import plistlib
 import sys
 import time
+
+try:
+    from plistlib import readPlist, writePlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist, writePlist
 
 from twistedcaldav.admin import util
 
@@ -58,7 +62,7 @@ class Stats(object):
         self._data = None
 
         if self.fp.exists() and append:
-            self._data = plistlib.readPlist(self.fp.path)
+            self._data = readPlist(self.fp.path)
             if self._data.version != PLIST_VERSION:
                 self._data = None
         
@@ -196,7 +200,7 @@ class Stats(object):
         return self._data.activeUsers
 
     def save(self):
-        plistlib.writePlist(self._data, self.fp.path)
+        writePlist(self._data, self.fp.path)
 
 NORMAL = 1
 INDATE = 2

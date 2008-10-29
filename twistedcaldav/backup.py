@@ -21,8 +21,12 @@ Utility code for backup and restore
 import os
 import shutil
 import fnmatch
-import plistlib
 import commands
+
+try:
+    from plistlib import readPlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist
 
 VERBOSE = os.environ.get('VERBOSE', False)
 FUNCLOG = os.environ.get('FUNCLOG', False)
@@ -81,10 +85,10 @@ def logFuncCall(func):
 
 @logFuncCall
 def readConfig(configFile):
-    config = plistlib.readPlist(configFile + '.default')
+    config = readPlist(configFile + '.default')
 
     if os.path.exists(configFile):
-        config.update(plistlib.readPlist(configFile))
+        config.update(readPlist(configFile))
 
     return config
         

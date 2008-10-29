@@ -1,3 +1,6 @@
+#
+# Added to standard library in Python 2.6 (Mac only in prior versions)
+#
 """plistlib.py -- a tool to generate and parse MacOSX .plist files.
 
 The PropertList (.plist) file format is a simple XML pickle supporting

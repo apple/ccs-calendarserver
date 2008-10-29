@@ -16,11 +16,16 @@
 # limitations under the License.
 ##
 
-from plistlib import readPlist
 import commands
 import getopt
 import os
 import sys
+
+try:
+    from plistlib import readPlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist
+
 try:
     import opendirectory
     import dsattributes

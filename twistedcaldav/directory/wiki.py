@@ -34,7 +34,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twistedcaldav.config import config
-from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)

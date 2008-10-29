@@ -16,6 +16,11 @@
 
 import sys
 
+try:
+    import plistlib
+except ImportError:
+    import twistedcaldav.py.plistlib
+
 FORMATTERS = {}
 
 def registerFormatter(formatter):
@@ -326,8 +331,6 @@ class CsvFormatter(BaseFormatter):
     report_logs = report_stats
 
 registerFormatter(CsvFormatter)
-
-import plistlib
 
 class PlistFormatter(BaseFormatter):
     name = "plist"

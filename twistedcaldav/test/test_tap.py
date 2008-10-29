@@ -17,6 +17,11 @@
 import os
 from copy import deepcopy
 
+try:
+    from plistlib import writePlist
+except ImportError:
+    from twistedcaldav.py.plistlib import writePlist
+
 from twisted.trial import unittest
 
 from twisted.python.usage import Options, UsageError
@@ -33,7 +38,6 @@ from twistedcaldav import tap
 
 from twistedcaldav.config import config
 from twistedcaldav import config as config_mod
-from twistedcaldav.py.plistlib import writePlist
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService

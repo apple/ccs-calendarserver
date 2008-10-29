@@ -18,7 +18,11 @@
 import os
 import sys
 import fnmatch
-import plistlib
+
+try:
+    from plistlib import readPlist
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlist
 
 ServiceConf = "85-calendarServer.plist"
 
@@ -40,10 +44,10 @@ class Options(dict):
 def cleanDocRoot():
     root = None
     if os.path.exists(configFile):
-        root = plistlib.readPlist(configFile)['DocumentRoot']
+        root = readPlist(configFile)['DocumentRoot']
         
     if not root and os.path.exists(configFile + '.default'):
-        root = plistlib.readPlist(configFile + '.default')['DocumentRoot']
+        root = readPlist(configFile + '.default')['DocumentRoot']
 
         if not root: 
             root = documentRoot

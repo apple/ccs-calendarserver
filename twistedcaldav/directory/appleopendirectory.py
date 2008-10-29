@@ -27,6 +27,11 @@ import sys
 from random import random
 from uuid import UUID
 
+try:
+    from plistlib import readPlistFromString
+except ImportError:
+    from twistedcaldav.py.plistlib import readPlistFromString
+
 import opendirectory
 import dsattributes
 import dsquery
@@ -38,8 +43,6 @@ from twisted.web2.auth.digest import DigestedCredentials
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
-
-from plistlib import readPlistFromString
 
 class OpenDirectoryService(DirectoryService):
     """

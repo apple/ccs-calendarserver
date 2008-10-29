@@ -30,7 +30,6 @@ from twisted.cred.credentials import (IUsernamePassword,
 
 from twisted.cred.error import UnauthorizedLogin
 
-from twistedcaldav.py.plistlib import readPlist
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
