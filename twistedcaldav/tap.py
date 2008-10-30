@@ -208,7 +208,7 @@ class CalDAVOptions(Options):
             config.DataRoot,
             "Data root",
             access=os.W_OK,
-            create=(0750, config.UserName, config.GroupName,),
+            create=(0750, config.UserName, config.GroupName),
         )
 
         #
@@ -224,11 +224,7 @@ class CalDAVOptions(Options):
             log.info("WARNING: changing umask from: 0%03o to 0%03o"
                      % (oldmask, config.umask,))
 
-    def checkDirectory(
-        self, dirpath, description,
-        access=None, fail=False, permissions=None,
-        uname=None, gname=None, create=None
-    ):
+    def checkDirectory(self, dirpath, description, access=None, create=None):
         if not os.path.exists(dirpath):
             try:
                 mode, username, groupname = create
@@ -272,92 +268,6 @@ class CalDAVOptions(Options):
                 "Insufficient permissions for server on %s directory: %s"
                 % (description, dirpath,)
             )
-
-        self.securityCheck(
-            dirpath, description,
-            fail=fail, permissions=permissions,
-            uname=uname, gname=gname
-        )
-
-    def checkFile(
-        self, filepath, description,
-        access=None, fail=False, permissions=None,
-        uname=None, gname=None
-    ):
-        if not os.path.exists(filepath):
-            raise ConfigurationError(
-                "%s does not exist: %s"
-                % (description, filepath,)
-            )
-        elif not os.path.isfile(filepath):
-            raise ConfigurationError(
-                "%s is not a file: %s"
-                % (description, filepath,)
-            )
-        elif access and not os.access(filepath, access):
-            raise ConfigurationError(
-                "Insufficient permissions for server on %s directory: %s"
-                % (description, filepath,)
-            )
-        self.securityCheck(
-            filepath, description,
-            fail=fail, permissions=permissions,
-            uname=uname, gname=gname
-        )
-
-    def securityCheck(
-        self, path, description,
-        fail=False, permissions=None,
-        uname=None, gname=None
-    ):
-        def raiseOrPrint(txt):
-            if fail:
-                raise ConfigurationError(txt)
-            else:
-                log.msg("WARNING: %s" % (txt,))
-
-        pathstat = os.stat(path)
-        if permissions:
-            if stat.S_IMODE(pathstat[stat.ST_MODE]) != permissions:
-                raiseOrPrint(
-                    "The permisions on %s directory %s are 0%03o "
-                    "and do not match expected permissions: 0%03o"
-                    % (description, path,
-                       stat.S_IMODE(pathstat[stat.ST_MODE]), permissions)
-                )
-        if uname:
-            import pwd
-            try:
-                pathuname = pwd.getpwuid(pathstat[stat.ST_UID])[0]
-                if pathuname not in (uname, "_" + uname):
-                    raiseOrPrint(
-                        "The owner of %s directory %s is %s "
-                        "and does not match the expected owner: %s"
-                        % (description, path, pathuname, uname)
-                    )
-            except KeyError:
-                raiseOrPrint(
-                    "The owner of %s directory %s is unknown (%s) "
-                    "and does not match the expected owner: %s"
-                    % (description, path, pathstat[stat.ST_UID], uname)
-                )
-
-        if gname:
-            import grp
-            try:
-                pathgname = grp.getgrgid(pathstat[stat.ST_GID])[0]
-                if pathgname != gname:
-                    raiseOrPrint(
-                        "The group of %s directory %s is %s "
-                        "and does not match the expected group: %s"
-                        % (description, path, pathgname, gname)
-                    )
-            except KeyError:
-                raiseOrPrint(
-                    "The group of %s directory %s is unknown (%s) "
-                    "and does not match the expected group: %s"
-                    % (description, path, pathstat[stat.ST_GID], gname)
-                )
 
 from OpenSSL import SSL
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
