@@ -737,6 +737,11 @@ class MailHandler(LoggingMixIn):
 
         details = self.getEventDetails(calendar, language=language)
 
+        iconDir = config.Scheduling["iMIP"]["MailIconsDirectory"].rstrip("/")
+        iconName = "cal-icon-%02d-%02d.tiff" % (details['month'],
+            details['day'])
+        iconPath = os.path.join(iconDir, iconName)
+
         with translationTo(language):
             msg = MIMEMultipart()
             msg["From"] = fromAddress
@@ -824,9 +829,11 @@ class MailHandler(LoggingMixIn):
             else:
                 details['htmlOrganizer'] = orgCN
 
+            details['iconName'] = iconName
+
             htmlTemplate = u"""<html>
     <body><div>
-    <img src="cid:ical.jpg"/>
+    <img src="cid:%(iconName)s"/>
 
     <p>%(inviteLabel)s</p>
 
@@ -861,17 +868,15 @@ class MailHandler(LoggingMixIn):
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version
-        imageName = "ical.jpg"
-        imageFile = open(os.path.join(os.path.dirname(__file__),
-            "images", "mail", imageName))
-        msgImage = MIMEImage(imageFile.read(),
-            _subtype='jpeg;x-apple-mail-type=stationery;name="%s"' %
-            (imageName,))
-        imageFile.close()
-        msgImage.add_header("Content-ID", "<%s>" % (imageName,))
-        msgImage.add_header("Content-Disposition", "inline;filename=%s" %
-            (imageName,))
-        msgHtmlRelated.attach(msgImage)
+        iconFile = open(iconPath)
+        msgIcon = MIMEImage(iconFile.read(),
+            _subtype='tiff;x-apple-mail-type=stationery;name="%s"' %
+            (iconName,))
+        iconFile.close()
+        msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
+        msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
+            (iconName,))
+        msgHtmlRelated.attach(msgIcon)
 
         # the icalendar attachment
         self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
@@ -893,6 +898,10 @@ class MailHandler(LoggingMixIn):
             component = calendar.mainComponent(True)
 
         results = { }
+
+        dtStart = component.propertyNativeValue("DTSTART")
+        results['month'] = dtStart.month
+        results['day'] = dtStart.day
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:
