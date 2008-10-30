@@ -16,7 +16,10 @@
 
 import os
 import stat
+
 from subprocess import Popen, PIPE
+from pwd import getpwnam
+from grp import getgrnam
 
 from zope.interface import implements
 
@@ -187,7 +190,9 @@ class CalDAVOptions(Options):
         if gid and gid != os.getgid():
             gottaBeRoot()
 
+        #
         # Ignore the logfile parameter if not daemonized and log to stdout.
+        #
         if self.parent["nodaemon"]:
             self.parent["logfile"] = None
         else:
@@ -195,24 +200,14 @@ class CalDAVOptions(Options):
 
         self.parent["pidfile"] = config.PIDFile
 
-        # Verify that document root actually exists
-        self.checkDirectory(
-            config.DocumentRoot,
-            "Document root",
-            access=os.W_OK,
-            #permissions=0750,
-            #uname=config.UserName,
-            #gname=config.GroupName,
-        )
-
-        # Verify that data root actually exists
+        #
+        # Verify that document root, data root actually exist
+        #
+        self.checkDirectory(config.DocumentRoot, "Document root")
         self.checkDirectory(
             config.DataRoot,
             "Data root",
             access=os.W_OK,
-            #permissions=0750,
-            #uname=config.UserName,
-            #gname=config.GroupName,
             create=(0750, config.UserName, config.GroupName,),
         )
 
@@ -226,8 +221,8 @@ class CalDAVOptions(Options):
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)
         if oldmask != config.umask:
-            log.msg("WARNING: changing umask from: 0%03o to 0%03o"
-                    % (oldmask, config.umask,))
+            log.info("WARNING: changing umask from: 0%03o to 0%03o"
+                     % (oldmask, config.umask,))
 
     def checkDirectory(
         self, dirpath, description,
@@ -235,28 +230,38 @@ class CalDAVOptions(Options):
         uname=None, gname=None, create=None
     ):
         if not os.path.exists(dirpath):
-            if create is not None:
-                # create is a tuple of (mode, username, groupname)
-                try:
-                    os.mkdir(dirpath)
-                    os.chmod(dirpath, create[0])
-                    if create[1] and create[2]:
-                        import pwd
-                        import grp
-                        uid = pwd.getpwnam(create[1])[2]
-                        gid = grp.getgrnam(create[2])[2]
-                        os.chown(dirpath, uid, gid)
-                except:
-                    log.msg("Could not create %s" % (dirpath,))
-                    raise ConfigurationError(
-                        "%s does not exist and cannot be created: %s"
-                        % (description, dirpath,)
-                    )
-
-                log.msg("Created %s" % (dirpath,))
-            else:
+            try:
+                mode, username, groupname = create
+            except TypeError:
                 raise ConfigurationError("%s does not exist: %s"
                                          % (description, dirpath,))
+            try:
+                os.mkdir(dirpath)
+            except (OSError, IOError), e:
+                log.error("Could not create %s: %s" % (dirpath, e))
+                raise ConfigurationError(
+                    "%s does not exist and cannot be created: %s"
+                    % (description, dirpath,)
+                )
+
+            if username:
+                uid = getpwnam(username)[2]
+            else:
+                uid = -1
+
+            if groupname:
+                gid = getgrnam(groupname)[2]
+            else:
+                gid = -1
+
+            try:
+                os.chmod(dirpath, mode)
+                os.chown(dirpath, uid, gid)
+            except (OSError, IOError), e:
+                log.error("Unable to change mode/owner of %s: %s"
+                          % (dirpath, e))
+
+            log.info("Created directory: %s" % (dirpath,))
 
         if not os.path.isdir(dirpath):
             raise ConfigurationError("%s is not a directory: %s"

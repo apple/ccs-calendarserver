@@ -74,11 +74,11 @@
 
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>/var/run/caldavd</string>
+    <string>/var/run/caldavd/</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>/Library/CalendarServer/Documents</string>
+    <string>/Library/CalendarServer/Documents/</string>
 
     <!-- User quota (in bytes) -->
     <key>UserQuota</key>
