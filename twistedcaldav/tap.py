@@ -271,7 +271,7 @@ class CalDAVOptions(Options):
                 % (description, dirpath,)
             )
 
-def _getSSLPassphrase(*args):
+def getSSLPassphrase(*args):
     if not config.SSLPrivateKey:
         return None
 
@@ -363,15 +363,12 @@ class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
 
     tapname = "caldav"
-
     description = "The Darwin Calendar Server"
-
     options = CalDAVOptions
 
     #
-    # default resource classes
+    # Default resource classes
     #
-
     rootResourceClass            = RootResource
     principalResourceClass       = DirectoryPrincipalProvisioningResource
     calendarResourceClass        = CalendarHomeProvisioningFile
@@ -391,7 +388,6 @@ class CalDAVServiceMaker(object):
         # Setup the Directory
         #
         directories = []
-
 
         directoryClass = namedClass(config.DirectoryService["type"])
 
@@ -425,13 +421,11 @@ class CalDAVServiceMaker(object):
             wikiDirectory.realmName = baseDirectory.realmName
             directories.append(wikiDirectory)
 
-
         directory = AggregateDirectoryService(directories)
 
         if sudoDirectory:
             directory.userRecordTypes.insert(0,
                 SudoDirectoryService.recordType_sudoers)
-
 
         #
         # Configure Memcached Client Pool
@@ -441,8 +435,10 @@ class CalDAVServiceMaker(object):
                 IPv4Address(
                     "TCP",
                     config.Memcached["BindAddress"],
-                    config.Memcached["Port"]),
-                config.Memcached["MaxClients"])
+                    config.Memcached["Port"],
+                ),
+                config.Memcached["MaxClients"],
+            )
 
         #
         # Configure NotificationClient
@@ -456,24 +452,29 @@ class CalDAVServiceMaker(object):
         #
         # Setup Resource hierarchy
         #
+        log.info("Setting up document root at: %s"
+                 % (config.DocumentRoot,))
+        log.info("Setting up principal collection: %r"
+                 % (self.principalResourceClass,))
 
-        log.info("Setting up document root at: %s" % (config.DocumentRoot,))
-        log.info("Setting up principal collection: %r" % (self.principalResourceClass,))
+        principalCollection = self.principalResourceClass(
+            "/principals/",
+            directory,
+        )
 
-        principalCollection = self.principalResourceClass("/principals/", directory)
-
-        log.info("Setting up calendar collection: %r" % (self.calendarResourceClass,))
+        log.info("Setting up calendar collection: %r"
+                 % (self.calendarResourceClass,))
 
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, "calendars"),
-            directory, "/calendars/"
+            directory, "/calendars/",
         )
 
         log.info("Setting up root resource: %r" % (self.rootResourceClass,))
 
         root = self.rootResourceClass(
             config.DocumentRoot,
-            principalCollections=(principalCollection,)
+            principalCollections=(principalCollection,),
         )
 
         root.putChild("principals", principalCollection)
@@ -481,9 +482,12 @@ class CalDAVServiceMaker(object):
 
         # Timezone service is optional
         if config.EnableTimezoneService:
+            log.info("Setting up time zone service resource: %r"
+                     % (self.timezoneServiceResourceClass,))
+
             timezoneService = self.timezoneServiceResourceClass(
                 os.path.join(config.DocumentRoot, "timezones"),
-                root
+                root,
             )
             root.putChild("timezones", timezoneService)
 
@@ -501,12 +505,14 @@ class CalDAVServiceMaker(object):
         #
         # IMIP delivery resource
         #
+        log.info("Setting up iMIP inbox resource: %r"
+                 % (self.imipResourceClass,))
+
         imipInbox = self.imipResourceClass(
             os.path.join(config.DocumentRoot, "inbox"),
             root,
         )
         root.putChild("inbox", imipInbox)
-
 
         #
         # Configure ancillary data
@@ -517,7 +523,6 @@ class CalDAVServiceMaker(object):
         #
         # Configure the Site and Wrappers
         #
-
         credentialFactories = []
 
         portal = Portal(auth.DavRealm())
@@ -546,11 +551,11 @@ class CalDAVServiceMaker(object):
                         if not principal:
                             credFactory = NegotiateCredentialFactory(
                                 type="http",
-                                hostname=config.ServerHostName
+                                hostname=config.ServerHostName,
                             )
                         else:
                             credFactory = NegotiateCredentialFactory(
-                                principal=principal
+                                principal=principal,
                             )
                     except ValueError:
                         log.info("Could not start Kerberos")
@@ -579,18 +584,17 @@ class CalDAVServiceMaker(object):
             root,
             portal,
             credentialFactories,
-            (auth.IPrincipal,)
+            (auth.IPrincipal,),
         )
 
         logWrapper = DirectoryLogWrapperResource(
             authWrapper,
-            directory
+            directory,
         )
 
         #
         # Configure the service
         #
-
         log.info("Setting up service")
 
         if config.ProcessType == "Slave":
@@ -601,20 +605,20 @@ class CalDAVServiceMaker(object):
                 realRoot = pdmonster.PDClientAddressWrapper(
                     logWrapper,
                     config.PythonDirector["ControlSocket"],
-                    directory
+                    directory,
                 )
             else:
                 realRoot = logWrapper
 
             logObserver = AMPCommonAccessLoggingObserver(
-                config.ControlSocket
+                config.ControlSocket,
             )
 
         elif config.ProcessType == "Single":
             realRoot = logWrapper
 
             logObserver = RotatingFileAccessLoggingObserver(
-                config.AccessLogFile
+                config.AccessLogFile,
             )
 
         log.info("Configuring log observer: %s" % (logObserver,))
@@ -626,7 +630,8 @@ class CalDAVServiceMaker(object):
         channel = http.HTTPFactory(
             site,
             maxRequests=config.MaxRequests,
-            betweenRequestsTimeOut=config.IdleConnectionTimeOut)
+            betweenRequestsTimeOut=config.IdleConnectionTimeOut,
+        )
 
         def updateChannel(config, items):
             channel.maxRequests = config.MaxRequests
@@ -659,7 +664,7 @@ class CalDAVServiceMaker(object):
                 httpService = internet.TCPServer(
                     int(port), channel,
                     interface=bindAddress,
-                    backlog=config.ListenBacklog
+                    backlog=config.ListenBacklog,
                 )
                 httpService.setServiceParent(service)
 
@@ -671,7 +676,7 @@ class CalDAVServiceMaker(object):
                         config.SSLPrivateKey,
                         config.SSLCertificate,
                         certificateChainFile=config.SSLAuthorityChain,
-                        passwdCallback=_getSSLPassphrase
+                        passwdCallback=getSSLPassphrase,
                     )
                 except SSL.Error, e:
                     log.error("Unable to set up SSL context factory: %s" % (e,))
@@ -680,7 +685,7 @@ class CalDAVServiceMaker(object):
                     httpsService = internet.SSLServer(
                         int(port), channel,
                         contextFactory, interface=bindAddress,
-                        backlog=config.ListenBacklog
+                        backlog=config.ListenBacklog,
                     )
                     httpsService.setServiceParent(service)
 
