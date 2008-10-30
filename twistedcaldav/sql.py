@@ -162,8 +162,7 @@ class AbstractSQLDatabase(object):
         # We need an exclusive lock here as we are making a big change to the database and we don't
         # want other processes to get stomped on or stomp on us.
         old_isolation = self._db_connection.isolation_level
-        self._db_connection.isolation_level = None
-        q.execute("begin exclusive transaction")
+        self._db_connection.isolation_level = "EXCLUSIVE"
         
         # We re-check whether the schema table is present again AFTER we've got an exclusive
         # lock as some other server process may have snuck in and already created it
@@ -173,7 +172,6 @@ class AbstractSQLDatabase(object):
             self._db_init_data_tables(q)
             self._db_recreate()
 
-        q.execute("commit")
         self._db_connection.isolation_level = old_isolation
 
     def _db_init_schema_table(self, q):

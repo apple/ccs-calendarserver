@@ -808,6 +808,9 @@ class IndexSchedule (CalendarIndex):
                     log.err("Non-calendar resource: %s" % (name,))
                 else:
                     #log.msg("Indexing resource: %s" % (name,))
-                    self.addResource(name, calendar)
+                    self.addResource(name, calendar, True)
             finally:
                 stream.close()
+
+        # Do commit outside of the loop for better performance
+        self._db_commit()
