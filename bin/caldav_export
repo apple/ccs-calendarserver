@@ -19,9 +19,21 @@ import sys
 
 #PYTHONPATH
 
-if __name__ == '__main__':
-    if 'PYTHONPATH' in globals():
+if __name__ == "__main__":
+    if "PYTHONPATH" in globals():
         sys.path.insert(0, PYTHONPATH)
+    else:
+        from os.path import dirname, abspath, join
+        from subprocess import Popen, PIPE
 
-        from calendarserver.tools.export import main
-        main()
+        home = dirname(dirname(abspath(__file__)))
+        run = join(home, "run")
+
+        child = Popen((run, "-p"), stdout=PIPE)
+        path, stderr = child.communicate()
+
+        if child.wait() == 0:
+            sys.path[0:0] = path.split(":")
+
+    from calendarserver.tools.export import main
+    main()
