@@ -146,7 +146,6 @@ class CalDAVOptions(Options):
         one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
-
         if "=" in option:
             path, value = option.split("=")
             self.setOverride(
@@ -173,22 +172,20 @@ class CalDAVOptions(Options):
         uid, gid = None, None
 
         if self.parent["uid"] or self.parent["gid"]:
-            uid, gid = getid(self.parent["uid"],
-                             self.parent["gid"])
+            uid, gid = getid(self.parent["uid"], self.parent["gid"])
 
-        if uid:
-            if uid != os.getuid() and os.getuid() != 0:
+        def gottaBeRoot():
+            if os.getuid() != 0:
                 import pwd
                 username = pwd.getpwuid(os.getuid())[0]
-                raise UsageError("Only root can drop privileges you are: %r"
+                raise UsageError("Only root can drop privileges.  You are: %r"
                                  % (username,))
 
-        if gid:
-            if gid != os.getgid() and os.getgid() != 0:
-                import grp
-                groupname = grp.getgrgid(os.getgid())[0]
-                raise UsageError("Only root can drop privileges, you are: %s"
-                                 % (groupname,))
+        if uid and uid != os.getuid():
+            gottaBeRoot()
+
+        if gid and gid != os.getgid():
+            gottaBeRoot()
 
         # Ignore the logfile parameter if not daemonized and log to stdout.
         if self.parent["nodaemon"]:
