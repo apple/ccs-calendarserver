@@ -233,6 +233,8 @@ defaultConfig = {
                 "Password"      : "",    # For account receving mail
             },
             "AddressPatterns"   : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+            "MailTemplatesDirectory": "/usr/share/caldavd/templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
+            "MailIconsDirectory": "/usr/share/caldavd/images", # Directory containing date-specific icons for email invitations (cal-icon-mm-dd.tiff)
         },
 
     },
