@@ -20,9 +20,11 @@ import stat
 from subprocess import Popen, PIPE
 from pwd import getpwnam
 from grp import getgrnam
+from OpenSSL import SSL
 
 from zope.interface import implements
 
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.internet.address import IPv4Address
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
@@ -164,7 +166,7 @@ class CalDAVOptions(Options):
 
     def postOptions(self):
         if not os.path.exists(self["config"]):
-            log.msg("Config file %s not found, using defaults"
+            log.info("Config file %s not found, using defaults"
                     % (self["config"],))
 
         log.info("Reading configuration from file: %s" % (self["config"],))
@@ -269,9 +271,6 @@ class CalDAVOptions(Options):
                 % (description, dirpath,)
             )
 
-from OpenSSL import SSL
-from twisted.internet.ssl import DefaultOpenSSLContextFactory
-
 def _getSSLPassphrase(*args):
     if not config.SSLPrivateKey:
         return None
@@ -287,7 +286,8 @@ def _getSSLPassphrase(*args):
         output, error = child.communicate()
 
         if child.returncode:
-            log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
+            log.error("Could not get passphrase for %s: %s"
+                      % (config.SSLPrivateKey, error))
         else:
             return output
 
@@ -306,7 +306,8 @@ def _getSSLPassphrase(*args):
             sslPrivKey.close()
 
         if type is None:
-            log.err("Could not get private key type for %s" % (config.SSLPrivateKey,))
+            log.error("Could not get private key type for %s"
+                      % (config.SSLPrivateKey,))
         else:
             child = Popen(
                 args=[
@@ -319,7 +320,8 @@ def _getSSLPassphrase(*args):
             output, error = child.communicate()
 
             if child.returncode:
-                log.err("Could not get passphrase for %s: %s" % (config.SSLPrivateKey, error))
+                log.error("Could not get passphrase for %s: %s"
+                          % (config.SSLPrivateKey, error))
             else:
                 return output
 
@@ -487,7 +489,8 @@ class CalDAVServiceMaker(object):
 
         # iSchedule service is optional
         if config.Scheduling["iSchedule"]["Enabled"]:
-            log.msg("Setting up iSchedule inbox resource: %r" % (self.iScheduleResourceClass,))
+            log.info("Setting up iSchedule inbox resource: %r"
+                     % (self.iScheduleResourceClass,))
     
             ischedule = self.iScheduleResourceClass(
                 os.path.join(config.DocumentRoot, "ischedule"),
@@ -565,7 +568,7 @@ class CalDAVServiceMaker(object):
                     credFactory = BasicCredentialFactory(realm)
 
                 else:
-                    log.err("Unknown scheme: %s" % (scheme,))
+                    log.error("Unknown scheme: %s" % (scheme,))
 
             if credFactory:
                 credentialFactories.append(credFactory)
