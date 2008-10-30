@@ -45,7 +45,7 @@ class WikiDirectoryService(DirectoryService):
     """
     L{IDirectoryService} implementation for Wikis.
     """
-    baseGUID = "d79ef1e0-9a42-11dd-ad8b-0800200c9a66"
+    baseGUID = "D79EF1E0-9A42-11DD-AD8B-0800200C9A66"
 
     realmName = None
 
