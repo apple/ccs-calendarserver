@@ -484,7 +484,7 @@ class IScheduleService(service.Service, LoggingMixIn):
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
             self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar, language='fr')
+                calendar, language='en')
 
             # TODO: what to return?
             return """
@@ -752,12 +752,11 @@ class MailHandler(LoggingMixIn):
             msg["Message-ID"] = msgId
 
             cancelled = (calendar.propertyValue("METHOD") == "CANCEL")
-            msg["Subject"] = (
-                _("Event cancelled") if cancelled else
-                _("Event invitation: %(summary)s") % {
-                    'summary' : details['summary']
-                }
-            )
+            formatString = (_("Event cancelled: %(summary)s") if cancelled else
+                _("Event invitation: %(summary)s"))
+            details['subject'] = msg['Subject'] = formatString % {
+                'summary' : details['summary']
+            }
 
             msgAlt = MIMEMultipart("alternative")
             msg.attach(msgAlt)
@@ -788,7 +787,15 @@ class MailHandler(LoggingMixIn):
                 "%s <%s>" % (orgCN, orgEmail))
 
             # plain text version
-            plainTemplate = u"""%(inviteLabel)s: %(summary)s
+            if cancelled:
+                plainTemplate = u"""%(subject)s
+
+%(orgLabel)s: %(plainOrganizer)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
+"""
+            else:
+                plainTemplate = u"""%(subject)s
 
 %(orgLabel)s: %(plainOrganizer)s
 %(locLabel)s: %(location)s
@@ -798,12 +805,7 @@ class MailHandler(LoggingMixIn):
 %(attLabel)s: %(plainAttendees)s
 """
 
-            # TODO: work on cancellations
-            if cancelled:
-                plainText = _("Event cancelled")
-            else:
-                # print plainTemplate, details
-                plainText = plainTemplate % details
+            plainText = plainTemplate % details
 
             msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
             msgAlt.attach(msgPlain)
@@ -831,10 +833,34 @@ class MailHandler(LoggingMixIn):
 
             details['iconName'] = iconName
 
-            htmlTemplate = u"""<html>
-    <body><div>
-    <img src="cid:%(iconName)s"/>
+            templateDir = config.Scheduling["iMIP"]["MailTemplatesDirectory"].rstrip("/")
+            templateName = "cancel.html" if cancelled else "invite.html"
+            templatePath = os.path.join(templateDir, templateName)
 
+            if not os.path.exists(templatePath):
+                # Fall back to built-in simple templates:
+                if cancelled:
+
+                    htmlTemplate = u"""<html>
+    <body><div>
+
+    <h1>%(subject)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
+    </p>
+
+    """
+
+                else:
+
+                    htmlTemplate = u"""<html>
+    <body><div>
     <p>%(inviteLabel)s</p>
 
     <h1>%(summary)s</h1>
@@ -858,25 +884,29 @@ class MailHandler(LoggingMixIn):
     </p>
 
     """
-            if cancelled:
-                htmlText = _("Event cancelled")
-            else:
-                htmlText = htmlTemplate % details
+            else: # HTML template file exists
+
+                with open(templatePath) as templateFile:
+                    htmlTemplate = templateFile.read()
+
+            htmlText = htmlTemplate % details
 
         self.log_info(htmlText)
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version
-        iconFile = open(iconPath)
-        msgIcon = MIMEImage(iconFile.read(),
-            _subtype='tiff;x-apple-mail-type=stationery;name="%s"' %
-            (iconName,))
-        iconFile.close()
-        msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
-        msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
-            (iconName,))
-        msgHtmlRelated.attach(msgIcon)
+        if os.path.exists(iconPath) and htmlTemplate.find("cid:%(iconName)s") != -1:
+
+            with open(iconPath) as iconFile:
+                msgIcon = MIMEImage(iconFile.read(),
+                    _subtype='tiff;x-apple-mail-type=stationery;name="%s"' %
+                    (iconName,))
+
+            msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
+            msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
+                (iconName,))
+            msgHtmlRelated.attach(msgIcon)
 
         # the icalendar attachment
         self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
