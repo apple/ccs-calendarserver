@@ -242,6 +242,7 @@ class DirectoryRecord(LoggingMixIn):
             uid = guid
 
         if enabledForCalendaring:
+            calendarUserAddresses = set(calendarUserAddresses)
             calendarUserAddresses.add("urn:uuid:%s" % (guid,))
         else:
             assert len(calendarUserAddresses) == 0
