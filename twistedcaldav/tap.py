@@ -21,23 +21,16 @@ from subprocess import Popen, PIPE
 from zope.interface import implements
 
 from twisted.internet.address import IPv4Address
-#from twisted.internet import defer
-
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
-
 from twisted.application import internet, service
 from twisted.plugin import IPlugin
-
 from twisted.scripts.mktap import getid
-
 from twisted.cred.portal import Portal
-
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.channel import http
-
 from twisted.web2.server import Site
 
 from twistedcaldav.log import Logger, logLevelForNamespace, setLogLevelForNamespace
@@ -96,7 +89,8 @@ class CalDAVOptions(Options):
 
         self.overrides = {}
 
-    def _coerceOption(self, configDict, key, value):
+    @staticmethod
+    def coerceOption(configDict, key, value):
         """
         Coerce the given C{val} to type of C{configDict[key]}
         """
@@ -108,26 +102,27 @@ class CalDAVOptions(Options):
                 value = type(configDict[key])(value)
 
             elif isinstance(configDict[key], (list, tuple)):
-                value = value.split(',')
+                value = value.split(",")
 
             elif isinstance(configDict[key], dict):
                 raise UsageError(
                     "Dict options not supported on the command line"
                 )
 
-            elif value == 'None':
+            elif value == "None":
                 value = None
 
         return value
 
-    def _setOverride(self, configDict, path, value, overrideDict):
+    @classmethod
+    def setOverride(cls, configDict, path, value, overrideDict):
         """
         Set the value at path in configDict
         """
         key = path[0]
 
         if len(path) == 1:
-            overrideDict[key] = self._coerceOption(configDict, key, value)
+            overrideDict[key] = cls.coerceOption(configDict, key, value)
             return
 
         if key in configDict:
@@ -139,7 +134,7 @@ class CalDAVOptions(Options):
             if key not in overrideDict:
                 overrideDict[key] = {}
 
-            self._setOverride(
+            cls.setOverride(
                 configDict[key], path[1:],
                 value, overrideDict[key]
             )
@@ -153,33 +148,33 @@ class CalDAVOptions(Options):
         """
 
         if "=" in option:
-            path, value = option.split('=')
-            self._setOverride(
+            path, value = option.split("=")
+            self.setOverride(
                 defaultConfig,
-                path.split('/'),
+                path.split("/"),
                 value,
                 self.overrides
             )
         else:
-            self.opt_option('%s=True' % (option,))
+            self.opt_option("%s=True" % (option,))
 
     opt_o = opt_option
 
     def postOptions(self):
-        if not os.path.exists(self['config']):
+        if not os.path.exists(self["config"]):
             log.msg("Config file %s not found, using defaults"
-                    % (self['config'],))
+                    % (self["config"],))
 
-        log.info("Reading configuration from file: %s" % (self['config'],))
-        parseConfig(self['config'])
+        log.info("Reading configuration from file: %s" % (self["config"],))
+        parseConfig(self["config"])
 
         config.updateDefaults(self.overrides)
 
         uid, gid = None, None
 
-        if self.parent['uid'] or self.parent['gid']:
-            uid, gid = getid(self.parent['uid'],
-                             self.parent['gid'])
+        if self.parent["uid"] or self.parent["gid"]:
+            uid, gid = getid(self.parent["uid"],
+                             self.parent["gid"])
 
         if uid:
             if uid != os.getuid() and os.getuid() != 0:
@@ -196,12 +191,12 @@ class CalDAVOptions(Options):
                                  % (groupname,))
 
         # Ignore the logfile parameter if not daemonized and log to stdout.
-        if self.parent['nodaemon']:
-            self.parent['logfile'] = None
+        if self.parent["nodaemon"]:
+            self.parent["logfile"] = None
         else:
-            self.parent['logfile'] = config.ErrorLogFile
+            self.parent["logfile"] = config.ErrorLogFile
 
-        self.parent['pidfile'] = config.PIDFile
+        self.parent["pidfile"] = config.PIDFile
 
         # Verify that document root actually exists
         self.checkDirectory(
@@ -530,7 +525,7 @@ class CalDAVServiceMaker(object):
         if config.Memcached["ClientEnabled"]:
             memcachepool.installPool(
                 IPv4Address(
-                    'TCP',
+                    "TCP",
                     config.Memcached["BindAddress"],
                     config.Memcached["Port"]),
                 config.Memcached["MaxClients"])
@@ -567,8 +562,8 @@ class CalDAVServiceMaker(object):
             principalCollections=(principalCollection,)
         )
 
-        root.putChild('principals', principalCollection)
-        root.putChild('calendars', calendarCollection)
+        root.putChild("principals", principalCollection)
+        root.putChild("calendars", calendarCollection)
 
         # Timezone service is optional
         if config.EnableTimezoneService:
@@ -576,26 +571,26 @@ class CalDAVServiceMaker(object):
                 os.path.join(config.DocumentRoot, "timezones"),
                 root
             )
-            root.putChild('timezones', timezoneService)
+            root.putChild("timezones", timezoneService)
 
         # iSchedule service is optional
         if config.Scheduling["iSchedule"]["Enabled"]:
             log.msg("Setting up iSchedule inbox resource: %r" % (self.iScheduleResourceClass,))
     
             ischedule = self.iScheduleResourceClass(
-                os.path.join(config.DocumentRoot, 'ischedule'),
+                os.path.join(config.DocumentRoot, "ischedule"),
                 root,
             )
-            root.putChild('ischedule', ischedule)
+            root.putChild("ischedule", ischedule)
 
         #
         # IMIP delivery resource
         #
         imipInbox = self.imipResourceClass(
-            os.path.join(config.DocumentRoot, 'inbox'),
+            os.path.join(config.DocumentRoot, "inbox"),
             root,
         )
-        root.putChild('inbox', imipInbox)
+        root.putChild("inbox", imipInbox)
 
 
         #
@@ -646,15 +641,15 @@ class CalDAVServiceMaker(object):
                         log.info("Could not start Kerberos")
                         continue
 
-                elif scheme == 'digest':
+                elif scheme == "digest":
                     credFactory = QopDigestCredentialFactory(
-                        schemeConfig['Algorithm'],
-                        schemeConfig['Qop'],
+                        schemeConfig["Algorithm"],
+                        schemeConfig["Qop"],
                         realm,
                         config.DataRoot,
                     )
 
-                elif scheme == 'basic':
+                elif scheme == "basic":
                     credFactory = BasicCredentialFactory(realm)
 
                 else:
@@ -784,9 +779,6 @@ class CalDAVServiceMaker(object):
     makeService_Single   = makeService_Slave
 
     def makeService(self, options):
-        
-        #defer.setDebugging(True)
-
         serverType = config.ProcessType
 
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
