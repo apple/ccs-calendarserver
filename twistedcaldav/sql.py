@@ -216,7 +216,9 @@ class AbstractSQLDatabase(object):
         """
         Recreate the database tables.
         """
-        pass
+
+        # Always commit at the end of this method as we have an open transaction from previous methods.
+        self._db_commit()
 
     def _db_upgrade(self, old_version):
         """
