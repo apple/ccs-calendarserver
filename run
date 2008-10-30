@@ -155,8 +155,6 @@ if [ -z "${python:-}" ]; then
   exit 1;
 fi;
 
-echo "Using ${python} as Python";
-
 if [ -z "${caldav:-}" ]; then
   caldav="${wd}";
 fi;
@@ -242,6 +240,8 @@ run () {
     echo "${PYTHONPATH}";
     exit 0;
   fi;
+
+  echo "Using ${python} as Python";
 
   if "${do_run}"; then
     if [ ! -f "${config}" ]; then
