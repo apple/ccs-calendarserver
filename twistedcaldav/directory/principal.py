@@ -102,6 +102,9 @@ class DirectoryProvisioningResource (
 
         self.directory = IDirectoryService(directory)
 
+    def __repr__(self):
+        return "<%s: %s %s>" % (self.__class__.__name__, self.directory, self._url)
+
     def locateChild(self, req, segments):
         child = self.getChild(segments[0])
         if child is not None:
