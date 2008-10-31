@@ -73,7 +73,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         def __init__(self, path, persistent=False, autocommit=False):
             super(SQL.TestDBRecreateUpgrade, self).__init__(path, persistent, autocommit=autocommit, version="2")
 
-        def _db_recreate(self):
+        def _db_recreate(self, do_commit=True):
             raise self.RecreateDBException()
 
     class TestDBCreateIndexOnUpgrade(TestDB):
