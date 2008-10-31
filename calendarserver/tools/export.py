@@ -37,14 +37,17 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [-f config] [-c collection_path] [-H calendar_home_path] [-u user]" % (name,)
+    print "usage: %s [options] [input_specifiers]" % (name,)
     print ""
     print "Generate an iCalendar file containing the merged content of each calendar"
     print "collection read."
     print ""
     print "options:"
-    print "  -h --help: print this help"
+    print "  -h --help: print this help and exit"
     print "  -f --config: Specify caldavd.plist configuration path"
+    print "  -o --output: Specify output file path (default: '-', meaning stdout)"
+    print ""
+    print "input specifiers:"
     print "  -c --collection: add a calendar collection"
     print "  -H --home: add a calendar home (and all calendars within it)"
     print "  -u --user: add a user's calendar home (and all calendars within it)"
@@ -57,8 +60,9 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:c:H:u:", [
+            sys.argv[1:], "hf:o:c:H:u:", [
                 "config=",
+                "output=",
                 "help",
                 "collection=", "home=", "user=",
             ],
@@ -67,6 +71,7 @@ def main():
         usage(e)
 
     configFileName = None
+    outputFileName = None
 
     collections = set()
     calendarHomes = set()
@@ -83,6 +88,12 @@ def main():
 
         elif opt in ("-f", "--config"):
             configFileName = arg
+
+        elif opt in ("-o", "--output"):
+            if arg == "-":
+                outputFileName = None
+            else:
+                outputFileName = arg
 
         elif opt in ("-c", "--collection"):
             path = abspath(arg)
@@ -156,7 +167,18 @@ def main():
 
                     calendar.addComponent(component)
 
-        print calendar
+        calendarData = str(calendar)
+
+        if outputFileName:
+            try:
+                output = open(outputFileName, "w")
+            except IOError, e:
+                sys.stderr.write("Unable to open output file for writing %s: %s\n" % (outputFileName, e))
+                sys.exit(1)
+        else:
+            output = sys.stdout
+
+        output.write(calendarData)
 
     except UsageError, e:
         usage(e)
