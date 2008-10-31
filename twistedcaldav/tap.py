@@ -43,7 +43,7 @@ from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.cluster import makeService_Combined, makeService_Master
-from twistedcaldav.config import config, parseConfig, defaultConfig, ConfigurationError
+from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile, ConfigurationError
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -84,7 +84,7 @@ class CalDAVService(service.MultiService):
 
 class CalDAVOptions(Options):
     optParameters = [[
-        "config", "f", "/etc/caldavd/caldavd.plist", "Path to configuration file."
+        "config", "f", defaultConfigFile, "Path to configuration file."
     ]]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}

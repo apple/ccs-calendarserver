@@ -36,7 +36,7 @@ from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import ical, caldavxml
-from twistedcaldav.config import config, parseConfig, defaultConfig
+from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.resource import CalDAVResource
@@ -66,7 +66,7 @@ log = Logger()
 
 class MailGatewayOptions(Options):
     optParameters = [[
-        "config", "f", "/etc/caldavd/caldavd.plist", "Path to configuration file."
+        "config", "f", defaultConfigFile, "Path to configuration file."
     ]]
 
     def __init__(self, *args, **kwargs):
