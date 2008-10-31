@@ -666,7 +666,7 @@ class Index (CalendarIndex):
         # Create database where the RESOURCE table has unique UID column.
         self._db_init_data_tables_base(q, True)
 
-    def _db_recreate(self):
+    def _db_recreate(self, do_commit=True):
         """
         Re-create the database tables from existing calendar data.
         """
@@ -701,7 +701,8 @@ class Index (CalendarIndex):
                 stream.close()
 
         # Do commit outside of the loop for better performance
-        self._db_commit()
+        if do_commit:
+            self._db_commit()
 
 class IndexSchedule (CalendarIndex):
     """
@@ -777,7 +778,7 @@ class IndexSchedule (CalendarIndex):
         # Create database where the RESOURCE table has a UID column that is not unique.
         self._db_init_data_tables_base(q, False)
 
-    def _db_recreate(self):
+    def _db_recreate(self, do_commit=True):
         """
         Re-create the database tables from existing calendar data.
         """
@@ -813,4 +814,5 @@ class IndexSchedule (CalendarIndex):
                 stream.close()
 
         # Do commit outside of the loop for better performance
-        self._db_commit()
+        if do_commit:
+            self._db_commit()

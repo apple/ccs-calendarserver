@@ -171,7 +171,9 @@ class AbstractSQLDatabase(object):
         if not self._test_schema_table(q):
             self._db_init_schema_table(q)
             self._db_init_data_tables(q)
-            self._db_recreate()
+            self._db_recreate(False)
+
+        q.execute("commit")
 
         self._db_connection.isolation_level = old_isolation
 
@@ -213,13 +215,14 @@ class AbstractSQLDatabase(object):
         """
         raise NotImplementedError
 
-    def _db_recreate(self):
+    def _db_recreate(self, do_commit=True):
         """
         Recreate the database tables.
         """
 
         # Always commit at the end of this method as we have an open transaction from previous methods.
-        self._db_commit()
+        if do_commit:
+            self._db_commit()
 
     def _db_upgrade(self, old_version):
         """
