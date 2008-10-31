@@ -18,11 +18,13 @@
 
 import os
 import sys
-import getopt
+from getopt import getopt, GetoptError
+from os.path import dirname, abspath, join
 
 from twistedcaldav.ical import Component as iComponent, Property as iProperty
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile
+from twistedcaldav.static import CalDAVFile, CalendarHomeFile
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
 class UsageError (StandardError):
     pass
@@ -33,13 +35,15 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [-c collection]" % (name,)
+    print "usage: %s [-c collection_path] [-H calendar_home_path]" % (name,)
     print ""
     print "Generate an iCalendar file containing the merged content of each calendar"
-    print "collection specified."
+    print "collection read."
     print ""
     print "options:"
-    print "  -h: print this help"
+    print "  -h --help: print this help"
+    print "  -c --collection: add a calendar collection"
+    print "  -H --home: add a calendar home (and all calendars within it)"
 
     if e:
         sys.exit(64)
@@ -48,20 +52,51 @@ def usage(e=None):
 
 def main():
     try:
-        (optargs, args) = getopt.getopt(sys.argv[1:], "hc:", ["help", "collection="])
-    except getopt.GetoptError, e:
+        (optargs, args) = getopt(
+            sys.argv[1:], "hc:H:", [
+                "help",
+                "collection=", "home="
+            ],
+        )
+    except GetoptError, e:
         usage(e)
 
     collections = set()
+    calendarHomes = set()
+
+    def checkExists(resource):
+        if not resource.exists():
+            sys.stderr.write("No such file: %s\n" % (resource.fp.path,))
+            sys.exit(1)
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
-        if opt in ("-c", "--collection"):
-            collections.add(arg)
+
+        elif opt in ("-c", "--collection"):
+            path = abspath(arg)
+            collection = CalDAVFile(path)
+            checkExists(collection)
+            if not isCalendarCollectionResource(collection):
+                sys.stderr.write("Not a calendar collection: %s\n" % (path,))
+                sys.exit(1)
+            collections.add(collection)
+
+        elif opt in ("-H", "--home"):
+            path = abspath(arg)
+            parent = CalDAVFile(dirname(abspath(path)))
+            calendarHome = CalendarHomeFile(arg, parent, dummyDirectoryRecord())
+            checkExists(calendarHome)
+            calendarHomes.add(calendarHome)
 
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
+
+    for calendarHome in calendarHomes:
+        for childName in calendarHome.listChildren():
+            child = calendarHome.getChild(childName)
+            if isCalendarCollectionResource(child):
+                collections.add(child)
 
     try:
         calendar = iComponent("VCALENDAR")
@@ -71,29 +106,23 @@ def main():
         tzids = set()
 
         for collection in collections:
-            resource = CalDAVFile(collection)
-
-            if not resource.exists() or not isCalendarCollectionResource(resource):
-                sys.stderr.write("Not a calendar collection: %s\n" % (collection,))
-                sys.exit(1)
-            
-            for name, uid, type in resource.index().search(None):
-                child = resource.getChild(name)
-                child_data = child.iCalendarText()
+            for name, uid, type in collection.index().search(None):
+                child = collection.getChild(name)
+                childData = child.iCalendarText()
 
                 try:
-                    child_calendar = iComponent.fromString(child_data)
+                    childCalendar = iComponent.fromString(childData)
                 except ValueError:
                     continue
-                assert child_calendar.name() == "VCALENDAR"
+                assert childCalendar.name() == "VCALENDAR"
 
                 if uid in uids:
-                    sys.stderr.write("Skipping duplicate event UID: %s" % (uid,))
+                    sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
                     continue
                 else:
                     uids.add(uid)
 
-                for component in child_calendar.subcomponents():
+                for component in childCalendar.subcomponents():
                     # Only insert VTIMEZONEs once
                     if component.name() == "VTIMEZONE":
                         tzid = component.propertyValue("TZID")
@@ -104,8 +133,35 @@ def main():
 
                     calendar.addComponent(component)
 
+        print calendar
+
     except UsageError, e:
         usage(e)
+
+def dummyDirectoryRecord():
+    global _dummyDirectoryRecord
+    if _dummyDirectoryRecord is None:
+        class DummyDirectoryService (DirectoryService):
+            realmName = ""
+            baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
+            def recordTypes(self): return ()
+            def listRecords(self): return ()
+            def recordWithShortName(self): return None
+
+        _dummyDirectoryRecord = DirectoryRecord(
+            service = DummyDirectoryService(),
+            recordType = "dummy",
+            guid = "8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
+            shortName = "dummy",
+            fullName = "Dummy McDummerson",
+            firstName = "Dummy",
+            lastName = "McDummerson",
+            emailAddresses = (),
+            calendarUserAddresses = (),
+            autoSchedule = False,
+        )
+    return _dummyDirectoryRecord
+_dummyDirectoryRecord = None
 
 if __name__ == "__main__":
     main()
