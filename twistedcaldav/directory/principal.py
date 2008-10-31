@@ -40,7 +40,6 @@ from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import twisted_private_namespace
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.noneprops import NonePropertyStore
 
@@ -51,7 +50,7 @@ from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource, DirectoryPrincipalPropertySearchMixIn
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
