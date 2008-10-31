@@ -100,9 +100,6 @@ class AggregateDirectoryService(DirectoryService):
     def recordWithUID(self, uid):
         return self._queryAll("recordWithUID", uid)
 
-    def recordWithUID(self, uid):
-        return self._queryAll("recordWithUID", uid)
-
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
 
