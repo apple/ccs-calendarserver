@@ -19,9 +19,10 @@
 import os
 import sys
 from getopt import getopt, GetoptError
-from os.path import dirname, abspath, join
+from os.path import dirname, abspath
 
-from twistedcaldav.ical import Component as iComponent, Property as iProperty
+from twistedcaldav.ical import Component as iComponent, Property as iProperty,\
+    iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -101,6 +102,7 @@ def main():
     try:
         calendar = iComponent("VCALENDAR")
         calendar.addProperty(iProperty("VERSION", "2.0"))
+        calendar.addProperty(iProperty("PRODID", iCalendarProductID))
 
         uids  = set()
         tzids = set()
