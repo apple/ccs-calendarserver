@@ -22,12 +22,17 @@ __all__ = ["http_DELETE"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
+from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 @inlineCallbacks
 def http_DELETE(self, request):
@@ -39,10 +44,28 @@ def http_DELETE(self, request):
     # TODO: need to use transaction based delete on live scheduling object resources
     # as the iTIP operation may fail and may need to prevent the delete from happening.
 
+    if not self.fp.exists():
+        log.err("File not found: %s" % (self.fp.path,))
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    depth = request.headers.getHeader("depth", "infinity")
+
+    #
+    # Check authentication and access controls
+    #
     parentURL = parentForURL(request.uri)
     parent = (yield request.locateResource(parentURL))
 
-    calendar = None
+    yield parent.authorize(request, (davxml.Unbind(),))
+
+    # Do quota checks before we start deleting things
+    myquota = (yield self.quota(request))
+    if myquota is not None:
+        old_size = (yield self.quotaSize(request))
+    else:
+        old_size = 0
+
+    scheduler = None
     isCalendarCollection = False
     isCalendarResource = False
     lock = None
@@ -51,7 +74,12 @@ def http_DELETE(self, request):
         if isCalendarCollectionResource(parent):
             isCalendarResource = True
             calendar = self.iCalendar()
-            lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+            scheduler = ImplicitScheduler()
+            do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(request, self, calendar))
+            if do_implicit_action:
+                lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+            else:
+                scheduler = None
             
         elif isCalendarCollectionResource(self):
             isCalendarCollection = True
@@ -60,8 +88,14 @@ def http_DELETE(self, request):
         if lock:
             yield lock.acquire()
 
-        response = (yield super(CalDAVFile, self).http_DELETE(request))
+        # Do delete
+        response = (yield delete(request.uri, self.fp, depth))
     
+
+        # Adjust quota
+        if myquota is not None:
+            yield self.quotaSizeAdjust(request, -old_size)
+
         if response == responsecode.NO_CONTENT:
             if isCalendarResource:
     
@@ -72,8 +106,8 @@ def http_DELETE(self, request):
                 yield parent.updateCTag()
     
                 # Do scheduling
-                scheduler = ImplicitScheduler()
-                yield scheduler.doImplicitScheduling(request, self, calendar, True)
+                if scheduler:
+                    yield scheduler.doImplicitScheduling()
      
             elif isCalendarCollection:
                 

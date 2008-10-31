@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.memcachelock import MemcacheLock
-from twistedcaldav.memcacher import Memcacher
 
 import os
 
@@ -26,6 +24,9 @@ from twisted.web2.http_headers import MimeType
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.ical import Component
+from twistedcaldav.memcachelock import MemcacheLock
+from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 import twistedcaldav.test.util
 
 class CollectionContents (twistedcaldav.test.util.TestCase):
@@ -35,6 +36,8 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
 
     def setUp(self):
+        
+        # Need to fake out memcache
         def _getFakeMemcacheProtocol(self):
             
             result = super(MemcacheLock, self)._getMemcacheProtocol()
@@ -44,6 +47,12 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
             return result
         
         MemcacheLock._getMemcacheProtocol = _getFakeMemcacheProtocol
+
+        # Need to not do implicit behavior during these tests
+        def _fakeDoImplicitScheduling(self):
+            return False, False
+        
+        StoreCalendarObjectResource.doImplicitScheduling = _fakeDoImplicitScheduling
 
         super(CollectionContents, self).setUp()
 

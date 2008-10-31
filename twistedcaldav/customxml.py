@@ -60,6 +60,14 @@ class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
+class TwistedSchedulingObjectResource (davxml.WebDAVEmptyElement):
+    """
+    Indicates that the resource is a scheduling object resource.    
+    """
+    namespace = twisted_private_namespace
+    name = "scheduling-object-resource"
+    hidden = True
+
 class TwistedCalendarHasPrivateCommentsProperty (davxml.WebDAVEmptyElement):
     """
     Indicates that a calendar resource has private comments.

@@ -17,7 +17,10 @@
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2 import responsecode
 from twisted.web2.dav.http import ErrorResponse
+from twisted.web2.dav.util import joinURL
+from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError
+
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.log import Logger
@@ -29,6 +32,7 @@ from twisted.web2.dav import davxml
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
     LocalCalendarUser
+from twistedcaldav.customxml import TwistedSchedulingObjectResource
 
 __all__ = [
     "ImplicitScheduler",
@@ -51,48 +55,154 @@ class ImplicitScheduler(object):
         pass
 
     @inlineCallbacks
-    def doImplicitScheduling(self, request, resource, calendar, deleting, internal_request=False):
-        """
-        Do implicit scheduling operation based on the calendar data that is being PUT
+    def testImplicitSchedulingPUT(self, request, resource, resource_uri, calendar, internal_request=False):
+        
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.internal_request = internal_request
 
-        @param request:
-        @type request:
-        @param resource:
-        @type resource:
-        @param calendar: the calendar data being written, or None if deleting
-        @type calendar: L{Component} or C{None}
-        @param deleting: C{True} if the resource is being deleting
-        @type deleting: bool
+        existing_resource = resource.exists()
+        existing_type = "schedule" if existing_resource and resource.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+        new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
+
+        if existing_type == "calendar":
+            self.action = "create" if new_type == "schedule" else "none"
+        else:
+            self.action = "modify" if new_type == "schedule" else "remove"
+                
+        # Cannot create new resource with existing UID
+        if not existing_resource or self.action == "create":
+            yield self.hasCalendarResourceUIDSomewhereElse(None, resource_uri, new_type)
+
+        # If action is remove we actually need to get state from the existing scheduling object resource
+        if self.action == "remove":
+            # Also make sure that we return the new calendar being be written rather than the old one
+            # when the implicit action is executed
+            self.return_calendar = calendar
+            self.calendar = resource.iCalendar()
+            yield self.checkImplicitState()
+        
+        # Attendees are not allowed to overwrite one type with another
+        if self.state == "attendee" and (existing_type != new_type) and existing_resource:
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+
+        returnValue((self.action != "none", new_type == "schedule",))
+
+    @inlineCallbacks
+    def testImplicitSchedulingMOVE(self, request, srcresource, srccal, src_uri, destresource, destcal, dest_uri, calendar, internal_request=False):
+        
+        self.request = request
+        self.resource = destresource
+        self.calendar = calendar
+        self.internal_request = internal_request
+
+        new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
+
+        dest_exists = destresource.exists()
+        dest_is_implicit = destresource.hasDeadProperty(TwistedSchedulingObjectResource()) if dest_exists else False
+        src_is_implicit = srcresource.hasDeadProperty(TwistedSchedulingObjectResource()) or new_type == "schedule"
+
+        if srccal and destcal:
+            if src_is_implicit and dest_exists or dest_is_implicit:
+                log.debug("Implicit - cannot MOVE with a scheduling object resource")
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+            else:
+                self.action = "none"
+        elif srccal and not destcal:
+            result = (yield self.testImplicitSchedulingDELETE(request, srcresource, calendar))
+            returnValue((result[0], new_type == "schedule",))
+        elif not srccal and destcal:
+            result = (yield self.testImplicitSchedulingPUT(request, destresource, dest_uri, calendar))
+            returnValue(result)
+        else:
+            self.action = "none"
+
+        returnValue((self.action != "none", new_type == "schedule",))
+
+    @inlineCallbacks
+    def testImplicitSchedulingCOPY(self, request, srcresource, srccal, src_uri, destresource, destcal, dest_uri, calendar, internal_request=False):
+        
+        self.request = request
+        self.resource = destresource
+        self.calendar = calendar
+        self.internal_request = internal_request
+
+        new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
+
+        dest_exists = destresource.exists()
+        dest_is_implicit = destresource.hasDeadProperty(TwistedSchedulingObjectResource()) if dest_exists else False
+        src_is_implicit = srcresource.hasDeadProperty(TwistedSchedulingObjectResource()) or new_type == "schedule"
+
+        if srccal and destcal:
+            if src_is_implicit or dest_is_implicit:
+                log.debug("Implicit - cannot COPY with a scheduling object resource")
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+            else:
+                self.action = "none"
+        elif srccal and not destcal:
+            self.action = "none"
+        elif not srccal and destcal:
+            result = (yield self.testImplicitSchedulingPUT(request, destresource, dest_uri, calendar))
+            returnValue(result)
+        else:
+            self.action = "none"
+
+        returnValue((self.action != "none", src_is_implicit,))
+
+    @inlineCallbacks
+    def testImplicitSchedulingDELETE(self, request, resource, calendar, internal_request=False):
+        
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.internal_request = internal_request
+
+        yield self.checkImplicitState()
+
+        resource_type = "schedule" if resource.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+        self.action = "remove" if resource_type == "schedule" else "none"
+
+        returnValue((self.action != "none", False,))
+
+    @inlineCallbacks
+    def checkImplicitState(self):
+        # Get some useful information from the calendar
+        yield self.extractCalendarData()
+        self.calendar_owner = (yield self.resource.owner(self.request))
+
+        # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
+        organizer_scheduling = (yield self.isOrganizerScheduling())
+        if organizer_scheduling:
+            self.state = "organizer"
+        elif self.isAttendeeScheduling():
+            self.state = "attendee"
+        else:
+            self.state = None
+
+        returnValue(self.state is not None)
+
+    @inlineCallbacks
+    def doImplicitScheduling(self):
+        """
+        Do implicit scheduling operation based on the data already set by call to checkImplicitScheduling.
 
         @return: a new calendar object modified with scheduling information,
             or C{None} if nothing happened
         """
         
-        self.request = request
-        self.resource = resource
-        self.calendar = calendar
-        self.calendar_owner = (yield self.resource.owner(self.request))
-        self.deleting = deleting
-        self.internal_request = internal_request
+        # Setup some parameters
         self.except_attendees = ()
 
-        # When deleting we MUST have the calendar as the actual resource
-        # will have been deleted by now
-        assert deleting and calendar or not deleting
-
-        # Get some useful information from the calendar
-        yield self.extractCalendarData()
-
         # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
-        organizer_scheduling = (yield self.isOrganizerScheduling())
-        if organizer_scheduling:
+        if self.state == "organizer":
             yield self.doImplicitOrganizer()
-        elif self.isAttendeeScheduling():
+        elif self.state == "attendee":
             yield self.doImplicitAttendee()
         else:
             returnValue(None)
 
-        returnValue(self.calendar)
+        returnValue(self.return_calendar if hasattr(self, "return_calendar") else self.calendar)
 
     @inlineCallbacks
     def refreshAllAttendeesExceptSome(self, request, resource, calendar, attendees):
@@ -109,8 +219,10 @@ class ImplicitScheduler(object):
         self.request = request
         self.resource = resource
         self.calendar = calendar
+        self.state = "organizer"
+        self.action = "modify"
+
         self.calendar_owner = None
-        self.deleting = False
         self.internal_request = True
         self.except_attendees = attendees
         self.changed_rids = None
@@ -134,8 +246,10 @@ class ImplicitScheduler(object):
         self.request = request
         self.resource = resource
         self.calendar = calendar
+        self.action = "modify"
+        self.state = "attendee"
+
         self.calendar_owner = None
-        self.deleting = False
         self.internal_request = True
         self.changed_rids = None
         
@@ -190,6 +304,53 @@ class ImplicitScheduler(object):
         # Some other useful things
         self.uid = self.calendar.resourceUID()
     
+    @inlineCallbacks
+    def hasCalendarResourceUIDSomewhereElse(self, src_uri, dest_uri, type):
+        """
+        See if a calendar component with a matching UID exists anywhere in the calendar home of the
+        current recipient owner and is not the resource being targeted.
+        """
+
+        # Don't care in some cases
+        if self.internal_request or self.action == "remove":
+            returnValue(None)
+
+        # Get owner's calendar-home
+        calendar_owner_principal = (yield self.resource.ownerPrincipal(self.request))
+        calendar_home = calendar_owner_principal.calendarHome()
+        
+        source_parent_uri = parentForURL(src_uri)[:-1] if src_uri else None
+        destination_parent_uri = parentForURL(dest_uri)[:-1] if dest_uri else None
+
+        # FIXME: because of the URL->resource request mapping thing, we have to force the request
+        # to recognize this resource
+        self.request._rememberResource(calendar_home, calendar_home.url())
+
+        # Run a UID query against the UID
+
+        @inlineCallbacks
+        def queryCalendarCollection(collection, uri):
+            rname = collection.index().resourceNameForUID(self.uid)
+            if rname:
+                child = (yield self.request.locateResource(joinURL(uri, rname)))
+                matched_type = "schedule" if child and child.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+                if (
+                    uri != destination_parent_uri and
+                    (source_parent_uri is None or uri != source_parent_uri) and
+                    (type == "schedule" or matched_type == "schedule")
+                ):
+                    log.debug("Implicit - found component with same UID in a different collection: %s" % (uri,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+
+                # Here we can always return true as the unique UID in a calendar collection
+                # requirement will already have been tested.
+
+            returnValue(True)
+
+        # NB We are by-passing privilege checking here. That should be OK as the data found is not
+        # exposed to the user.
+        yield report_common.applyToCalendarCollections(calendar_home, self.request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+
     @inlineCallbacks
     def isOrganizerScheduling(self):
         """
@@ -253,16 +414,16 @@ class ImplicitScheduler(object):
             yield self.doAccessControl(self.organizerPrincipal, True)
 
         # Check for a delete
-        if self.deleting:
+        if self.action == "remove":
 
-            log.debug("Implicit - organizer '%s' is deleting UID: '%s'" % (self.organizer, self.uid))
+            log.debug("Implicit - organizer '%s' is removing UID: '%s'" % (self.organizer, self.uid))
             self.oldcalendar = self.calendar
 
             # Cancel all attendees
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
 
         # Check for a new resource or an update
-        elif self.resource.exists():
+        elif self.action == "modify":
 
             # Read in existing data
             self.oldcalendar = self.resource.iCalendar()
@@ -271,14 +432,15 @@ class ImplicitScheduler(object):
             no_change, self.changed_rids = self.isChangeInsignificant()
             if no_change:
                 # Nothing to do
-                log.debug("Implicit - organizer '%s' is updating UID: '%s' but change is not significant" % (self.organizer, self.uid))
+                log.debug("Implicit - organizer '%s' is modifying UID: '%s' but change is not significant" % (self.organizer, self.uid))
                 returnValue(None)
             
-            log.debug("Implicit - organizer '%s' is updating UID: '%s'" % (self.organizer, self.uid))
+            log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
 
             # Check for removed attendees
             self.findRemovedAttendees()
-        else:
+
+        elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
             self.oldcalendar = None
             self.changed_rids = None
@@ -377,7 +539,7 @@ class ImplicitScheduler(object):
         yield self.processCancels()
         
         # Process regular requests next
-        if not self.deleting:
+        if self.action in ("create", "modify",):
             yield self.processRequests()
 
     @inlineCallbacks
@@ -402,7 +564,7 @@ class ImplicitScheduler(object):
             
             if None in rids:
                 # One big CANCEL will do
-                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None, self.deleting)
+                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None, self.action == "remove")
             else:
                 # Multiple CANCELs
                 itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), rids)
@@ -470,9 +632,7 @@ class ImplicitScheduler(object):
         if not self.internal_request:
             yield self.doAccessControl(self.attendeePrincipal, False)
 
-        if self.deleting:
-            #log.error("Attendee '%s' is not allowed to delete an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
-            #raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+        if self.action == "remove":
             log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
             yield self.scheduleCancelWithOrganizer()
         

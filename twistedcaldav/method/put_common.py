@@ -25,7 +25,7 @@ import types
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
-from twisted.internet.defer import maybeDeferred, returnValue
+from twisted.internet.defer import returnValue
 from twisted.python import failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -48,9 +48,9 @@ from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace ,\
-    TwistedCalendarHasPrivateCommentsProperty
+    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.fileops import copyToWithXAttrs
+from twistedcaldav.fileops import copyToWithXAttrs, copyXAttrs
 from twistedcaldav.fileops import putWithXAttrs
 from twistedcaldav.fileops import copyWithXAttrs
 from twistedcaldav.ical import Component, Property
@@ -265,10 +265,14 @@ class StoreCalendarObjectResource(object):
         self.rollback = None
         self.access = None
 
+    @inlineCallbacks
     def fullValidation(self):
         """
         Do full validation of source and destination calendar data.
         """
+
+        # Basic validation
+        yield self.validCopyMoveOperation()
 
         if self.destinationcal:
             # Valid resource name check
@@ -330,10 +334,38 @@ class StoreCalendarObjectResource(object):
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
-                return self.validAccess()
+                result = (yield self.validAccess())
+                returnValue(result)
             else:
-                return succeed(None)
+                returnValue(None)
+
+        elif self.sourcecal:
+            self.source_index = self.sourceparent.index()
+            self.calendar = self.source.iCalendar()
     
+    @inlineCallbacks
+    def validCopyMoveOperation(self):
+        """
+        Check that copy/move type behavior is valid.
+        """
+        if self.source:
+            if not self.destinationcal:
+                # Don't care about copies/moves to non-calendar destinations
+                # In theory this state should not occur here as COPY/MOVE won't call into this as
+                # they detect this state and do regular WebDAV copy/move.
+                pass
+            elif not self.sourcecal:
+                # Moving into a calendar requires regular checks
+                pass
+            else:
+                # Calendar to calendar moves are OK if the owner is the same
+                sourceowner = (yield self.sourceparent.owner(self.request))
+                destowner = (yield self.destinationparent.owner(self.request))
+                if sourceowner != destowner:
+                    msg = "Calendar-to-calendar %s with different owners are not supported" % ("moves" if self.deletesource else "copies",)
+                    log.debug(msg)
+                    raise HTTPError(StatusResponse(responsecode.FORBIDDEN, msg))
+
     def validResourceName(self):
         """
         Make sure that the resource name for the new resource is valid.
@@ -546,29 +578,99 @@ class StoreCalendarObjectResource(object):
             copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
             log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
 
+    def preservePrivateComments(self):
+        # Check for private comments on the old resource and the new resource and re-insert
+        # ones that are lost.
+        #
+        # NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
+        # the X- property is missing.
+        new_has_private_comments = False
+        if config.Scheduling["CalDAV"].get("EnablePrivateComments", True) and self.calendar is not None:
+            old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasDeadProperty(TwistedCalendarHasPrivateCommentsProperty)
+            new_has_private_comments = self.calendar.hasPropertyInAnyComponent((
+                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                "X-CALENDARSERVER-ATTENDEE-COMMENT",
+            ))
+            
+            if old_has_private_comments and not new_has_private_comments:
+                # Transfer old comments to new calendar
+                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                old_calendar = self.destination.iCalendar()
+                self.calendar.transferProperties(old_calendar, (
+                    "X-CALENDARSERVER-PRIVATE-COMMENT",
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ))
+                self.calendardata = None
+        
+        return new_has_private_comments
+
     @inlineCallbacks
-    def doStore(self):
+    def doImplicitScheduling(self):
+        data_changed = False
+
+        # Do scheduling
+        if not self.isiTIP:
+            scheduler = ImplicitScheduler()
+            
+            # Determine type of operation PUT, COPY or DELETE
+            if not self.source:
+                # PUT
+                do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
+                    self.request,
+                    self.destination,
+                    self.destination_uri,
+                    self.calendar,
+                    internal_request=self.internal_request,
+                ))
+            elif self.deletesource:
+                # MOVE
+                do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingMOVE(
+                    self.request,
+                    self.source,
+                    self.sourcecal,
+                    self.source_uri,
+                    self.destination,
+                    self.destinationcal,
+                    self.destination_uri,
+                    self.calendar,
+                    internal_request=self.internal_request,
+                ))
+            else:
+                # COPY
+                do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingCOPY(
+                    self.request,
+                    self.source,
+                    self.sourcecal,
+                    self.source_uri,
+                    self.destination,
+                    self.destinationcal,
+                    self.destination_uri,
+                    self.calendar,
+                    internal_request=self.internal_request,
+                ))
+            
+            if do_implicit_action and self.allowImplicitSchedule:
+                new_calendar = (yield scheduler.doImplicitScheduling())
+                if new_calendar:
+                    self.calendar = new_calendar
+                    self.calendardata = str(self.calendar)
+                    data_changed = True
+        else:
+            is_scheduling_resource = False
+            
+        returnValue((is_scheduling_resource, data_changed,))
+
+    @inlineCallbacks
+    def doStore(self, implicit):
         # Do put or copy based on whether source exists
         if self.source is not None:
-            response = maybeDeferred(copyWithXAttrs, self.source.fp, self.destination.fp, self.destination_uri)
+            if implicit:
+                response = (yield self.doStorePut())
+                copyXAttrs(self.source.fp, self.destination.fp)
+            else:
+                response = (yield copyWithXAttrs(self.source.fp, self.destination.fp, self.destination_uri))
         else:
-            if self.calendardata is None:
-                self.calendardata = str(self.calendar)
-            md5 = MD5StreamWrapper(MemoryStream(self.calendardata))
-            response = maybeDeferred(putWithXAttrs, md5, self.destination.fp)
-        response = (yield response)
-
-        # Update the MD5 value on the resource
-        if self.source is not None:
-            # Copy MD5 value from source to destination
-            if self.source.hasDeadProperty(TwistedGETContentMD5):
-                md5 = self.source.readDeadProperty(TwistedGETContentMD5)
-                self.destination.writeDeadProperty(md5)
-        else:
-            # Finish MD5 calculation and write dead property
-            md5.close()
-            md5 = md5.getMD5()
-            self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
+            response = (yield self.doStorePut())
     
         # Update calendar-access property value on the resource
         if self.access:
@@ -581,6 +683,21 @@ class StoreCalendarObjectResource(object):
             self.destination.removeDeadProperty(TwistedCalendarAccessProperty)                
 
         returnValue(IResponse(response))
+
+    @inlineCallbacks
+    def doStorePut(self):
+
+        if self.calendardata is None:
+            self.calendardata = str(self.calendar)
+        md5 = MD5StreamWrapper(MemoryStream(self.calendardata))
+        response = (yield putWithXAttrs(md5, self.destination.fp))
+
+        # Finish MD5 calculation and write dead property
+        md5.close()
+        md5 = md5.getMD5()
+        self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
+
+        returnValue(response)
 
     @inlineCallbacks
     def doSourceDelete(self):
@@ -715,35 +832,11 @@ class StoreCalendarObjectResource(object):
             # Get current quota state.
             yield self.checkQuota()
     
-            # Check for private comments on the old resource and the new resource and re-insert
-            # ones that are lost.
-            #
-            # NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
-            # the X- property is missing.
-            if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
-                old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasDeadProperty(TwistedCalendarHasPrivateCommentsProperty)
-                new_has_private_comments = self.calendar.hasPropertyInAnyComponent((
-                    "X-CALENDARSERVER-PRIVATE-COMMENT",
-                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
-                ))
-                
-                if old_has_private_comments and not new_has_private_comments:
-                    # Transfer old comments to new calendar
-                    log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
-                    old_calendar = self.destination.iCalendar()
-                    self.calendar.transferProperties(old_calendar, (
-                        "X-CALENDARSERVER-PRIVATE-COMMENT",
-                        "X-CALENDARSERVER-ATTENDEE-COMMENT",
-                    ))
-                    self.calendardata = None
+            # Preserve private comments
+            new_has_private_comments = self.preservePrivateComments()
     
             # Do scheduling
-            if not self.isiTIP and self.allowImplicitSchedule:
-                scheduler = ImplicitScheduler()
-                new_calendar = (yield scheduler.doImplicitScheduling(self.request, self.destination, self.calendar, False, internal_request=self.internal_request))
-                if new_calendar:
-                    self.calendar = new_calendar
-                    self.calendardata = str(self.calendar)
+            is_scheduling_resource, data_changed = (yield self.doImplicitScheduling())
 
             # Initialize the rollback system
             self.setupRollback()
@@ -763,8 +856,14 @@ class StoreCalendarObjectResource(object):
             """
     
             # Do the actual put or copy
-            response = (yield self.doStore())
+            response = (yield self.doStore(data_changed))
             
+
+            # Check for scheduling object resource and write property
+            if is_scheduling_resource:
+                self.destination.writeDeadProperty(TwistedSchedulingObjectResource())
+            elif not self.destinationcal:
+                self.destination.removeDeadProperty(TwistedSchedulingObjectResource)                
 
             # Check for existence of private comments and write property
             if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
