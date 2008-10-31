@@ -50,7 +50,8 @@ def usage(e=None):
     print "input specifiers:"
     print "  -c --collection: add a calendar collection"
     print "  -H --home: add a calendar home (and all calendars within it)"
-    print "  -u --user: add a user's calendar home (and all calendars within it)"
+    print "  -r --record: add a directory record's calendar home (format: 'recordType:shortName')"
+    print "  -u --user: add a user's calendar home (shorthand for '-r users:shortName')"
 
     if e:
         sys.exit(64)
@@ -60,11 +61,11 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:o:c:H:u:", [
+            sys.argv[1:], "hf:o:c:H:r:u:", [
                 "config=",
                 "output=",
                 "help",
-                "collection=", "home=", "user=",
+                "collection=", "home=", "record=", "user=",
             ],
         )
     except GetoptError, e:
@@ -75,7 +76,7 @@ def main():
 
     collections = set()
     calendarHomes = set()
-    users = set()
+    records = set()
 
     def checkExists(resource):
         if not resource.exists():
@@ -111,18 +112,33 @@ def main():
             checkExists(calendarHome)
             calendarHomes.add(calendarHome)
 
+        elif opt in ("-r", "--record"):
+            try:
+                recordType, shortName = arg.split(":", 1)
+                if not recordType or not shortName:
+                    raise ValueError()
+            except ValueError:
+                sys.stderr.write("Invalid record identifier: %r\n" % (arg,))
+                sys.exit(1)
+
+            records.add((recordType, shortName))
+
         elif opt in ("-u", "--user"):
-            users.add(arg)
+            records.add((DirectoryService.recordType_users, arg))
 
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
 
-    if users:
+    if records:
         config = getConfig(configFileName)
         directory = getDirectory(config)
 
-    for user in users:
-        calendarHome = directory.calendarHomeForShortName(directory.recordType_users, user)
+    for record in records:
+        recordType, shortName = record
+        calendarHome = directory.calendarHomeForShortName(recordType, shortName)
+        if not calendarHome:
+            sys.stderr.write("No calendar home found for record: (%s)%s\n" % (recordType, shortName))
+            sys.exit(1)
         calendarHomes.add(calendarHome)
 
     for calendarHome in calendarHomes:
@@ -251,7 +267,10 @@ def getDirectory(config):
                 return self._principalCollection
 
             def calendarHomeForShortName(self, recordType, shortName):
-                return self.principalCollection().principalForShortName(recordType, shortName).calendarHome()
+                principal = self.principalCollection().principalForShortName(recordType, shortName)
+                if principal:
+                    return principal.calendarHome()
+                return None
 
         _directory = MyDirectoryService(**config.DirectoryService["params"])
 
