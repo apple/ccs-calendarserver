@@ -21,8 +21,9 @@ import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
-from twistedcaldav.ical import Component as iComponent, Property as iProperty,\
-    iCalendarProductID
+from twisted.python.reflect import namedClass
+from twistedcaldav.ical import Component as iComponent, Property as iProperty
+from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -36,15 +37,17 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [-c collection_path] [-H calendar_home_path]" % (name,)
+    print "usage: %s [-f config] [-c collection_path] [-H calendar_home_path] [-u user]" % (name,)
     print ""
     print "Generate an iCalendar file containing the merged content of each calendar"
     print "collection read."
     print ""
     print "options:"
     print "  -h --help: print this help"
+    print "  -f --config: Specify caldavd.plist configuration path"
     print "  -c --collection: add a calendar collection"
     print "  -H --home: add a calendar home (and all calendars within it)"
+    print "  -u --user: add a user's calendar home (and all calendars within it)"
 
     if e:
         sys.exit(64)
@@ -54,16 +57,20 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hc:H:", [
+            sys.argv[1:], "hf:c:H:u:", [
+                "config=",
                 "help",
-                "collection=", "home="
+                "collection=", "home=", "user=",
             ],
         )
     except GetoptError, e:
         usage(e)
 
+    configFileName = None
+
     collections = set()
     calendarHomes = set()
+    users = set()
 
     def checkExists(resource):
         if not resource.exists():
@@ -73,6 +80,9 @@ def main():
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
+
+        elif opt in ("-f", "--config"):
+            configFileName = arg
 
         elif opt in ("-c", "--collection"):
             path = abspath(arg)
@@ -90,8 +100,19 @@ def main():
             checkExists(calendarHome)
             calendarHomes.add(calendarHome)
 
+        elif opt in ("-u", "--user"):
+            users.add(arg)
+
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
+
+    if users:
+        config = getConfig(configFileName)
+        directory = getDirectory(config)
+
+    for user in users:
+        calendarHome = directory.calendarHomeForShortName(directory.recordType_users, user)
+        calendarHomes.add(calendarHome)
 
     for calendarHome in calendarHomes:
         for childName in calendarHome.listChildren():
@@ -140,6 +161,7 @@ def main():
     except UsageError, e:
         usage(e)
 
+_dummyDirectoryRecord = None
 def dummyDirectoryRecord():
     global _dummyDirectoryRecord
     if _dummyDirectoryRecord is None:
@@ -163,7 +185,55 @@ def dummyDirectoryRecord():
             autoSchedule = False,
         )
     return _dummyDirectoryRecord
-_dummyDirectoryRecord = None
+
+_config = None
+def getConfig(configFileName):
+    global _config
+    if _config is None:
+        from twistedcaldav.config import config, defaultConfigFile
+
+        if configFileName is None:
+            configFileName = defaultConfigFile
+
+        if not os.path.isfile(configFileName):
+            sys.stderr.write("No config file: %s\n" % (configFileName,))
+            sys.exit(1)
+
+        config.loadConfig(configFileName)
+
+        _config = config
+
+    return _config
+
+_directory = None
+def getDirectory(config):
+    global _directory
+    if _directory is None:
+        BaseDirectoryService = namedClass(config.DirectoryService["type"])
+
+        class MyDirectoryService (BaseDirectoryService):
+            def principalCollection(self):
+                if not hasattr(self, "_principalCollection"):
+                    #
+                    # Instantiating a CalendarHomeProvisioningResource with a directory
+                    # will register it with the directory (still smells like a hack).
+                    #
+                    # We need that in order to locate calendar homes via the directory.
+                    #
+                    from twistedcaldav.static import CalendarHomeProvisioningFile
+                    CalendarHomeProvisioningFile(os.path.join(config.DocumentRoot, "calendars"), self, "/calendars/")
+
+                    from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+                    self._principalCollection = DirectoryPrincipalProvisioningResource("/principals/", self)
+
+                return self._principalCollection
+
+            def calendarHomeForShortName(self, recordType, shortName):
+                return self.principalCollection().principalForShortName(recordType, shortName).calendarHome()
+
+        _directory = MyDirectoryService(**config.DirectoryService["params"])
+
+    return _directory
 
 if __name__ == "__main__":
     main()
