@@ -638,6 +638,13 @@
       <string>logs/caldavd-pydir.sock</string>
     </dict>
 
+    <key>Localization</key>
+    <dict>
+      <key>LocalesDirectory</key>
+      <string>locales</string>
+      <key>Language</key>
+      <string>en</string>
+    </dict>
 
   </dict>
 </plist>

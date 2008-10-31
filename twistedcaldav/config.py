@@ -290,6 +290,16 @@ defaultConfig = {
     "IdleConnectionTimeOut": 15,
     "UIDReservationTimeOut": 30 * 60,
 
+
+    #
+    # Localization
+    #
+    "Localization" : {
+        "LocalesDirectory" : "/usr/share/caldavd/locales",
+        "Language" : "en",
+    },
+
+
     #
     # Implementation details
     #

@@ -88,20 +88,24 @@ TODO: recurrence
 import gettext
 import inspect
 import datetime
+from twistedcaldav.config import config
 
 
 class translationTo(object):
 
     translations = {}
 
-    def __init__(self, lang, domain='calendarserver', localeDir='locales'):
+    def __init__(self, lang, domain='calendarserver', localeDir=None):
+
+        if localeDir is None:
+            localeDir = config.Localization["LocalesDirectory"]
 
         # Cache gettext translation objects in class.translations
         key = (lang, domain, localeDir)
         self.translation = self.translations.get(key, None)
         if self.translation is None:
             self.translation = gettext.translation(domain=domain,
-                localedir=localeDir, languages=[lang, 'en'])
+                localedir=localeDir, languages=[lang, 'en'], fallback=True)
             self.translations[key] = self.translation
 
     def __enter__(self):

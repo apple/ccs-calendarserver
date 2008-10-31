@@ -263,6 +263,8 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     log.debug("Injecting to %s: %s %s" % (url, str(headers), data))
     factory = client.HTTPClientFactory(url, method='POST', headers=headers,
         postdata=data, agent="iMIP gateway")
+    factory.noisy = False
+
     if useSSL:
         reactor.connectSSL(host, port, factory, ssl.ClientContextFactory())
     else:
@@ -483,8 +485,9 @@ class IScheduleService(service.Service, LoggingMixIn):
             # Compute token, add to db, generate email and send it
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
+            language = config.Localization["Language"]
             self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar, language='en')
+                calendar, language=language)
 
             # TODO: what to return?
             return """
@@ -579,7 +582,7 @@ class MailHandler(LoggingMixIn):
             # TODO: what to do in this case?
             pass
 
-        self.log_error("Mail gateway processing DSN %s" % (msgId,))
+        self.log_warn("Mail gateway processing DSN %s" % (msgId,))
         return fn(organizer, attendee, calendar, msgId)
 
     def processReply(self, msg, fn):
@@ -630,22 +633,28 @@ class MailHandler(LoggingMixIn):
 
 
     def inbound(self, message, fn=injectMessage):
-        msg = email.message_from_string(message)
+        try:
+            msg = email.message_from_string(message)
 
-        isDSN, action, calBody = self.checkDSN(msg)
-        if isDSN:
-            if action == 'failed' and calBody:
-                # This is a DSN we can handle
-                return self.processDSN(calBody, msg['Message-ID'], fn)
-            else:
-                # It's a DSN without enough to go on
-                self.log_error("Mail gateway can't process DSN %s" % (msg['Message-ID'],))
-                return
+            isDSN, action, calBody = self.checkDSN(msg)
+            if isDSN:
+                if action == 'failed' and calBody:
+                    # This is a DSN we can handle
+                    return self.processDSN(calBody, msg['Message-ID'], fn)
+                else:
+                    # It's a DSN without enough to go on
+                    self.log_error("Mail gateway can't process DSN %s" % (msg['Message-ID'],))
+                    return
 
-        self.log_info("Mail gateway received message %s from %s to %s" %
-            (msg['Message-ID'], msg['From'], msg['To']))
+            self.log_info("Mail gateway received message %s from %s to %s" %
+                (msg['Message-ID'], msg['From'], msg['To']))
 
-        return self.processReply(msg, fn)
+            return self.processReply(msg, fn)
+
+        except Exception, e:
+            # Don't let a failure of any kind stop us
+            self.log_error("Failed to process message: %s" % (e,))
+
 
 
 
@@ -654,9 +663,9 @@ class MailHandler(LoggingMixIn):
         token = self.db.getToken(organizer, attendee)
         if token is None:
             token = self.db.createToken(organizer, attendee)
-            self.log_info("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            self.log_debug("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
         else:
-            self.log_info("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            self.log_debug("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
 
         settings = config.Scheduling['iMIP']['Sending']
         fullServerAddress = settings['Address']
@@ -891,7 +900,6 @@ class MailHandler(LoggingMixIn):
 
             htmlText = htmlTemplate % details
 
-        self.log_info(htmlText)
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
@@ -1043,6 +1051,7 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
         self.nextPoll = None
+        self.noisy = False
 
     def retry(self, connector=None):
         # TODO: if connector is None:
@@ -1218,6 +1227,7 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
+        self.noisy = False
 
 
     def handleMessage(self, message):
