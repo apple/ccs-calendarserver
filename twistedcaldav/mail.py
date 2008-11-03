@@ -18,6 +18,7 @@
 Mail Gateway for Calendar Server
 
 """
+from __future__ import with_statement
 
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -41,7 +42,9 @@ from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.localization import translationTo
 
 from zope.interface import implements
 
@@ -260,6 +263,8 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     log.debug("Injecting to %s: %s %s" % (url, str(headers), data))
     factory = client.HTTPClientFactory(url, method='POST', headers=headers,
         postdata=data, agent="iMIP gateway")
+    factory.noisy = False
+
     if useSSL:
         reactor.connectSSL(host, port, factory, ssl.ClientContextFactory())
     else:
@@ -480,8 +485,9 @@ class IScheduleService(service.Service, LoggingMixIn):
             # Compute token, add to db, generate email and send it
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
+            language = config.Localization["Language"]
             self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar)
+                calendar, language=language)
 
             # TODO: what to return?
             return """
@@ -576,7 +582,7 @@ class MailHandler(LoggingMixIn):
             # TODO: what to do in this case?
             pass
 
-        self.log_error("Mail gateway processing DSN %s" % (msgId,))
+        self.log_warn("Mail gateway processing DSN %s" % (msgId,))
         return fn(organizer, attendee, calendar, msgId)
 
     def processReply(self, msg, fn):
@@ -627,39 +633,63 @@ class MailHandler(LoggingMixIn):
 
 
     def inbound(self, message, fn=injectMessage):
-        msg = email.message_from_string(message)
+        try:
+            msg = email.message_from_string(message)
 
-        isDSN, action, calBody = self.checkDSN(msg)
-        if isDSN:
-            if action == 'failed' and calBody:
-                # This is a DSN we can handle
-                return self.processDSN(calBody, msg['Message-ID'], fn)
-            else:
-                # It's a DSN without enough to go on
-                self.log_error("Mail gateway can't process DSN %s" % (msg['Message-ID'],))
-                return
+            isDSN, action, calBody = self.checkDSN(msg)
+            if isDSN:
+                if action == 'failed' and calBody:
+                    # This is a DSN we can handle
+                    return self.processDSN(calBody, msg['Message-ID'], fn)
+                else:
+                    # It's a DSN without enough to go on
+                    self.log_error("Mail gateway can't process DSN %s" % (msg['Message-ID'],))
+                    return
 
-        self.log_info("Mail gateway received message %s from %s to %s" %
-            (msg['Message-ID'], msg['From'], msg['To']))
+            self.log_info("Mail gateway received message %s from %s to %s" %
+                (msg['Message-ID'], msg['From'], msg['To']))
 
-        return self.processReply(msg, fn)
+            return self.processReply(msg, fn)
+
+        except Exception, e:
+            # Don't let a failure of any kind stop us
+            self.log_error("Failed to process message: %s" % (e,))
 
 
 
-    def outbound(self, organizer, attendee, calendar):
+
+    def outbound(self, organizer, attendee, calendar, language='en'):
         # create token, send email
         token = self.db.getToken(organizer, attendee)
         if token is None:
             token = self.db.createToken(organizer, attendee)
-            self.log_info("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            self.log_debug("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
         else:
-            self.log_info("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            self.log_debug("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
 
         settings = config.Scheduling['iMIP']['Sending']
         fullServerAddress = settings['Address']
         name, serverAddress = email.utils.parseaddr(fullServerAddress)
         pre, post = serverAddress.split('@')
         addressWithToken = "%s+%s@%s" % (pre, token, post)
+
+        attendees = []
+        for attendeeProp in calendar.getAllAttendeeProperties():
+            params = attendeeProp.params()
+            cutype = params.get('CUTYPE', (None,))[0]
+            if cutype == "INDIVIDUAL":
+                cn = params.get("CN", (None,))[0]
+                cuaddr = normalizeCUAddr(attendeeProp.value())
+                if cuaddr.startswith("mailto:"):
+                    mailto = cuaddr[7:]
+                    if not cn:
+                        cn = mailto
+                else:
+                    mailto = None
+
+                if cn or mailto:
+                    attendees.append( (cn, mailto) )
+
         calendar.getOrganizerProperty().setValue("mailto:%s" %
             (addressWithToken,))
 
@@ -667,28 +697,33 @@ class MailHandler(LoggingMixIn):
         if organizerAttendee is not None:
             organizerAttendee.setValue("mailto:%s" % (addressWithToken,))
 
-        msgId, message = self._generateTemplateMessage(calendar, organizer)
 
         # The email's From will include the organizer's real name email
         # address if available.  Otherwise it will be the server's email
         # address (without # + addressing)
         if organizer.startswith("mailto:"):
-            fromAddr = organizer[7:]
+            orgEmail = fromAddr = organizer[7:]
         else:
             fromAddr = serverAddress
-        cn = calendar.getOrganizerProperty().params().get('CN',
-            ['Calendar Server'])[0]
+            orgEmail = None
+        cn = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+        if cn is None:
+            cn = 'Calendar Server'
+            orgCN = orgEmail
+        else:
+            orgCN = cn
         formattedFrom = "%s <%s>" % (cn, fromAddr)
-        message = message.replace("${fromaddress}", formattedFrom)
 
         # Reply-to address will be the server+token address
-        message = message.replace("${replytoaddress}", addressWithToken)
 
         toAddr = attendee
         if not attendee.startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
-        message = message.replace("${toaddress}", attendee)
+
+        msgId, message = self.generateEmail(calendar, orgEmail, orgCN,
+            attendees, formattedFrom, addressWithToken, attendee,
+            language=language)
 
         self.log_debug("Sending: %s" % (message,))
         def _success(result, msgId, fromAddr, toAddr):
@@ -706,56 +741,180 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def _generateTemplateMessage(self, calendar, organizer):
+    def generateEmail(self, calendar, orgEmail, orgCN, attendees, fromAddress,
+        replyToAddress, toAddress, language='en'):
 
-        title, summary = self._generateCalendarSummary(calendar, organizer)
+        details = self.getEventDetails(calendar, language=language)
 
-        msg = MIMEMultipart()
-        msg["From"] = "${fromaddress}"
-        msg["Reply-To"] = "${replytoaddress}"
-        msg["To"] = "${toaddress}"
-        msg["Date"] = rfc822date()
-        msgId = messageid()
-        msg["Message-ID"] = msgId
+        iconDir = config.Scheduling["iMIP"]["MailIconsDirectory"].rstrip("/")
+        iconName = "cal-icon-%02d-%02d.tiff" % (details['month'],
+            details['day'])
+        iconPath = os.path.join(iconDir, iconName)
 
-        msgAlt = MIMEMultipart("alternative")
-        msg.attach(msgAlt)
+        with translationTo(language):
+            msg = MIMEMultipart()
+            msg["From"] = fromAddress
+            msg["Reply-To"] = replyToAddress
+            msg["To"] = toAddress
+            msg["Date"] = rfc822date()
+            msgId = messageid()
+            msg["Message-ID"] = msgId
 
-        # plain text version
-        if calendar.propertyValue("METHOD") == "CANCEL":
-            msg["Subject"] = "Event cancelled"
-            plainText = u"An event has been cancelled.  Click the link below.\n"
-        else:
-            msg["Subject"] = "Event invitation: %s" % (title,)
-            plainText = u"You've been invited to the following event:  %s To accept or decline this invitation, click the link below.\n" % (summary,)
+            cancelled = (calendar.propertyValue("METHOD") == "CANCEL")
+            formatString = (_("Event cancelled: %(summary)s") if cancelled else
+                _("Event invitation: %(summary)s"))
+            details['subject'] = msg['Subject'] = formatString % {
+                'summary' : details['summary']
+            }
 
-        msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
-        msgAlt.attach(msgPlain)
+            msgAlt = MIMEMultipart("alternative")
+            msg.attach(msgAlt)
 
-        # html version
-        msgHtmlRelated = MIMEMultipart("related", type="text/html")
-        msgAlt.attach(msgHtmlRelated)
-        htmlText = u"""
-<html><body><div>
-<img src="cid:ical.jpg">
-%s
-</div></body></html>
-""" % plainText
+            # Get localized labels
+            details['inviteLabel'] = _("Event Invitation")
+            details['dateLabel'] = _("Date")
+            details['timeLabel'] = _("Time")
+            details['durationLabel'] = _("Duration")
+            details['recurrenceLabel'] = _("Occurs")
+            details['descLabel'] = _("Description")
+            details['orgLabel'] = _("Organizer")
+            details['attLabel'] = _("Attendees")
+            details['locLabel'] = _("Location")
+
+
+            plainAttendeeList = []
+            for cn, mailto in attendees:
+                if cn:
+                    plainAttendeeList.append(cn if not mailto else
+                        "%s <%s>" % (cn, mailto))
+                elif mailto:
+                    plainAttendeeList.append("<%s>" % (mailto,))
+
+            details['plainAttendees'] = ", ".join(plainAttendeeList)
+
+            details['plainOrganizer'] = (orgCN if not orgEmail else
+                "%s <%s>" % (orgCN, orgEmail))
+
+            # plain text version
+            if cancelled:
+                plainTemplate = u"""%(subject)s
+
+%(orgLabel)s: %(plainOrganizer)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
+"""
+            else:
+                plainTemplate = u"""%(subject)s
+
+%(orgLabel)s: %(plainOrganizer)s
+%(locLabel)s: %(location)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
+%(descLabel)s: %(description)s
+%(attLabel)s: %(plainAttendees)s
+"""
+
+            plainText = plainTemplate % details
+
+            msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
+            msgAlt.attach(msgPlain)
+
+            # html version
+            msgHtmlRelated = MIMEMultipart("related", type="text/html")
+            msgAlt.attach(msgHtmlRelated)
+
+
+            htmlAttendees = []
+            for cn, mailto in attendees:
+                if mailto:
+                    htmlAttendees.append('<a href="mailto:%s">%s</a>' %
+                        (mailto, cn))
+                else:
+                    htmlAttendees.append(cn)
+
+            details['htmlAttendees'] = ", ".join(htmlAttendees)
+
+            if orgEmail:
+                details['htmlOrganizer'] = '<a href="mailto:%s">%s</a>' % (
+                    orgEmail, orgCN)
+            else:
+                details['htmlOrganizer'] = orgCN
+
+            details['iconName'] = iconName
+
+            templateDir = config.Scheduling["iMIP"]["MailTemplatesDirectory"].rstrip("/")
+            templateName = "cancel.html" if cancelled else "invite.html"
+            templatePath = os.path.join(templateDir, templateName)
+
+            if not os.path.exists(templatePath):
+                # Fall back to built-in simple templates:
+                if cancelled:
+
+                    htmlTemplate = u"""<html>
+    <body><div>
+
+    <h1>%(subject)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
+    </p>
+
+    """
+
+                else:
+
+                    htmlTemplate = u"""<html>
+    <body><div>
+    <p>%(inviteLabel)s</p>
+
+    <h1>%(summary)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
+    </p>
+    <p>
+    <h3>%(locLabel)s:</h3> %(location)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
+    </p>
+    <p>
+    <h3>%(descLabel)s:</h3> %(description)s
+    </p>
+    <p>
+    <h3>%(attLabel)s:</h3> %(htmlAttendees)s
+    </p>
+
+    """
+            else: # HTML template file exists
+
+                with open(templatePath) as templateFile:
+                    htmlTemplate = templateFile.read()
+
+            htmlText = htmlTemplate % details
+
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version
-        imageName = "ical.jpg"
-        imageFile = open(os.path.join(os.path.dirname(__file__),
-            "images", "mail", imageName))
-        msgImage = MIMEImage(imageFile.read(),
-            _subtype='jpeg;x-apple-mail-type=stationery;name="%s"' %
-            (imageName,))
-        imageFile.close()
-        msgImage.add_header("Content-ID", "<%s>" % (imageName,))
-        msgImage.add_header("Content-Disposition", "inline;filename=%s" %
-            (imageName,))
-        msgHtmlRelated.attach(msgImage)
+        if os.path.exists(iconPath) and htmlTemplate.find("cid:%(iconName)s") != -1:
+
+            with open(iconPath) as iconFile:
+                msgIcon = MIMEImage(iconFile.read(),
+                    _subtype='tiff;x-apple-mail-type=stationery;name="%s"' %
+                    (iconName,))
+
+            msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
+            msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
+                (iconName,))
+            msgHtmlRelated.attach(msgIcon)
 
         # the icalendar attachment
         self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
@@ -769,129 +928,49 @@ class MailHandler(LoggingMixIn):
         return msgId, msg.as_string()
 
 
-    def _generateCalendarSummary(self, calendar, organizer):
+    def getEventDetails(self, calendar, language='en'):
 
         # Get the most appropriate component
         component = calendar.masterComponent()
         if component is None:
             component = calendar.mainComponent(True)
 
-        organizerProp = component.getOrganizerProperty()
-        if "CN" in organizerProp.params():
-            organizer = "%s <%s>" % (organizerProp.params()["CN"][0],
-                organizer,)
+        results = { }
 
-        if calendar.propertyValue("METHOD") == "CANCEL":
-            dtinfo = ""
-        else:
-            dtinfo = self._getDateTimeInfo(component)
+        dtStart = component.propertyNativeValue("DTSTART")
+        results['month'] = dtStart.month
+        results['day'] = dtStart.day
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:
             summary = ""
+        results['summary'] = summary
 
         description = component.propertyValue("DESCRIPTION")
         if description is None:
             description = ""
+        results['description'] = description
 
-        return summary, """
+        location = component.propertyValue("LOCATION")
+        if location is None:
+            location = ""
+        results['location'] = location
 
-Summary: %s
-Organizer: %s
-%sDescription: %s
+        with translationTo(language) as trans:
+            results['dateInfo'] = trans.date(component)
+            results['timeInfo'], duration = trans.time(component)
+            results['durationInfo'] = "(%s)" % (duration,) if duration else ""
 
-""" % (summary, organizer, dtinfo, description,)
-
-    def _getDateTimeInfo(self, component):
-
-        dtstart = component.propertyNativeValue("DTSTART")
-        tzid_start = component.getProperty("DTSTART").params().get("TZID", "UTC")
-
-        dtend = component.propertyNativeValue("DTEND")
-        if dtend:
-            tzid_end = component.getProperty("DTEND").params().get("TZID", "UTC")
-            duration = dtend - dtstart
-        else:
-            duration = component.propertyNativeValue("DURATION")
-            if duration:
-                dtend = dtstart + duration
-                tzid_end = tzid_start
+            for propertyName in ("RRULE", "RDATE", "EXRULE", "EXDATE",
+                "RECURRENCE-ID"):
+                if component.hasProperty(propertyName):
+                    results['recurrenceInfo'] = _("(Repeating)")
+                    break
             else:
-                if isinstance(dtstart, datetime.date):
-                    dtend = None
-                    duration = datetime.timedelta(days=1)
-                else:
-                    dtend = dtstart + datetime.timedelta(days=1)
-                    dtend.hour = dtend.minute = dtend.second = 0
-                    duration = dtend - dtstart
-        result = "Starts:      %s\n" % (self._getDateTimeText(dtstart, tzid_start),)
-        if dtend is not None:
-            result += "Ends:        %s\n" % (self._getDateTimeText(dtend, tzid_end),)
-        result += "Duration:    %s\n" % (self._getDurationText(duration),)
+                results['recurrenceInfo'] = ""
 
-        if not isinstance(dtstart, datetime.datetime):
-            result += "All Day\n"
+        return results
 
-        for property_name in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
-            if component.hasProperty(property_name):
-                result += "Recurring\n"
-                break
-
-        return result
-
-    def _getDateTimeText(self, dtvalue, tzid):
-
-        if isinstance(dtvalue, datetime.datetime):
-            timeformat = "%A, %B %e, %Y %I:%M %p"
-        elif isinstance(dtvalue, datetime.date):
-            timeformat = "%A, %B %e, %Y"
-            tzid = ""
-        if tzid:
-            tzid = " (%s)" % (tzid,)
-
-        return "%s%s" % (dtvalue.strftime(timeformat), tzid,)
-
-    def _getDurationText(self, duration):
-
-        result = ""
-        if duration.days > 0:
-            result += "%d %s" % (
-                duration.days,
-                self._pluralize(duration.days, "day", "days")
-            )
-
-        hours = duration.seconds / 3600
-        minutes = divmod(duration.seconds / 60, 60)[1]
-        seconds = divmod(duration.seconds, 60)[1]
-
-        if hours > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                hours,
-                self._pluralize(hours, "hour", "hours")
-            )
-
-        if minutes > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                minutes,
-                self._pluralize(minutes, "minute", "minutes")
-            )
-
-        if seconds > 0:
-            if result:
-                result += ", "
-            result += "%d %s" % (
-                seconds,
-                self._pluralize(seconds, "second", "seconds")
-            )
-
-        return result
-
-    def _pluralize(self, number, unit1, unitS):
-        return unit1 if number == 1 else unitS
 
 
 
@@ -972,6 +1051,7 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
         self.nextPoll = None
+        self.noisy = False
 
     def retry(self, connector=None):
         # TODO: if connector is None:
@@ -1147,6 +1227,7 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
+        self.noisy = False
 
 
     def handleMessage(self, message):
