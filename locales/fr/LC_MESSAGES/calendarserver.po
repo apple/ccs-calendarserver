@@ -32,8 +32,8 @@ msgid "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
 msgstr "%(hour24Number)d:%(minuteNumber)02d"
 
 #: mail.py:726 mail.py:755 mail.py:792
-msgid "Event cancelled"
-msgstr "Événement annulé"
+msgid "Event cancelled: %(summary)s"
+msgstr "Événement annulé: %(summary)s"
 
 #: mail.py:727
 msgid "Event invitation: %(summary)s"

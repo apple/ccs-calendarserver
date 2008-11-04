@@ -188,8 +188,8 @@ msgid "Dec"
 msgstr ""
 
 #: mail.py:726 mail.py:755 mail.py:792
-msgid "Event cancelled"
-msgstr "Eventway ancelledcay"
+msgid "Event cancelled: %(summary)s"
+msgstr "Eventway ancelledcay: %(summary)s"
 
 #: mail.py:727
 msgid "Event invitation: %(summary)s"
