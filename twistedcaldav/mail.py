@@ -292,7 +292,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
 
     Token Database:
 
-    ROW: TOKEN, ORGANIZER, ATTENDEE
+    ROW: TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP
 
     """
 
@@ -306,14 +306,14 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             path = os.path.join(path, MailGatewayTokensDatabase.dbFilename)
         super(MailGatewayTokensDatabase, self).__init__(path, True)
 
-    def createToken(self, organizer, attendee, token=None):
+    def createToken(self, organizer, attendee, icaluid, token=None):
         if token is None:
             token = str(uuid.uuid4())
         self._db_execute(
             """
-            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE)
-            values (:1, :2, :3)
-            """, token, organizer, attendee
+            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
+            values (:1, :2, :3, :4, :5)
+            """, token, organizer, attendee, icaluid, datetime.date.today()
         )
         self._db_commit()
         return token
@@ -322,7 +322,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         results = list(
             self._db_execute(
                 """
-                select ORGANIZER, ATTENDEE from TOKENS
+                select ORGANIZER, ATTENDEE, ICALUID from TOKENS
                 where TOKEN = :1
                 """, token
             )
@@ -333,12 +333,12 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
 
         return results[0]
 
-    def getToken(self, organizer, attendee):
+    def getToken(self, organizer, attendee, icaluid):
         token = self._db_value_for_sql(
             """
             select TOKEN from TOKENS
-            where ORGANIZER = :1 and ATTENDEE = :2
-            """, organizer, attendee
+            where ORGANIZER = :1 and ATTENDEE = :2 and ICALUID = :3
+            """, organizer, attendee, icaluid
         )
         return token
 
@@ -348,6 +348,15 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             delete from TOKENS where TOKEN = :1
             """, token
         )
+        self._db_commit()
+
+    def purgeOldTokens(self, before):
+        self._db_execute(
+            """
+            delete from TOKENS where DATESTAMP < :1
+            """, before
+        )
+        self._db_commit()
 
     def _db_version(self):
         """
@@ -375,7 +384,9 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             create table TOKENS (
                 TOKEN       text,
                 ORGANIZER   text,
-                ATTENDEE    text
+                ATTENDEE    text,
+                ICALUID     text,
+                DATESTAMP   date
             )
             """
         )
@@ -503,6 +514,8 @@ class MailHandler(LoggingMixIn):
         if dataRoot is None:
             dataRoot = config.DataRoot
         self.db = MailGatewayTokensDatabase(dataRoot)
+        self.db.purgeOldTokens(datetime.date.today() -
+                               datetime.timedelta(days=365))
 
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)
@@ -567,9 +580,10 @@ class MailHandler(LoggingMixIn):
             self.log_error("Mail gateway found a token (%s) but didn't recognize it in DSN %s" % (token, msgId))
             return
 
-        organizer, attendee = result
+        organizer, attendee, icaluid = result
         organizer = str(organizer)
         attendee = str(attendee)
+        icaluid = str(icaluid)
         calendar.removeAllButOneAttendee(attendee)
         calendar.getOrganizerProperty().setValue(organizer)
         for comp in calendar.subcomponents():
@@ -617,9 +631,10 @@ class MailHandler(LoggingMixIn):
             self.log_error("Mail gateway found a token (%s) but didn't recognize it in message %s" % (token, msg['Message-ID']))
             return
 
-        organizer, attendee = result
+        organizer, attendee, icaluid = result
         organizer = str(organizer)
         attendee = str(attendee)
+        icaluid = str(icaluid)
         calendar.removeAllButOneAttendee(attendee)
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
@@ -660,12 +675,20 @@ class MailHandler(LoggingMixIn):
 
     def outbound(self, organizer, attendee, calendar, language='en'):
         # create token, send email
-        token = self.db.getToken(organizer, attendee)
+
+        component = calendar.masterComponent()
+        if component is None:
+            component = calendar.mainComponent(True)
+        icaluid = component.propertyValue("UID")
+
+        token = self.db.getToken(organizer, attendee, icaluid)
         if token is None:
-            token = self.db.createToken(organizer, attendee)
-            self.log_debug("Mail gateway created token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            token = self.db.createToken(organizer, attendee, icaluid)
+            self.log_debug("Mail gateway created token %s for %s (organizer), %s (attendee) and %s (icaluid)" % (token, organizer, attendee, icaluid))
+            newInvitation = True
         else:
-            self.log_debug("Mail gateway reusing token %s for %s (organizer) and %s (attendee)" % (token, organizer, attendee))
+            self.log_debug("Mail gateway reusing token %s for %s (organizer), %s (attendee) and %s (icaluid)" % (token, organizer, attendee, icaluid))
+            newInvitation = False
 
         settings = config.Scheduling['iMIP']['Sending']
         fullServerAddress = settings['Address']
@@ -721,8 +744,8 @@ class MailHandler(LoggingMixIn):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
         attendee = attendee[7:]
 
-        msgId, message = self.generateEmail(calendar, orgEmail, orgCN,
-            attendees, formattedFrom, addressWithToken, attendee,
+        msgId, message = self.generateEmail(newInvitation, calendar, orgEmail,
+            orgCN, attendees, formattedFrom, addressWithToken, attendee,
             language=language)
 
         self.log_debug("Sending: %s" % (message,))
@@ -741,8 +764,8 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def generateEmail(self, calendar, orgEmail, orgCN, attendees, fromAddress,
-        replyToAddress, toAddress, language='en'):
+    def generateEmail(self, newInvitation, calendar, orgEmail, orgCN,
+        attendees, fromAddress, replyToAddress, toAddress, language='en'):
 
         details = self.getEventDetails(calendar, language=language)
 
@@ -761,8 +784,13 @@ class MailHandler(LoggingMixIn):
             msg["Message-ID"] = msgId
 
             cancelled = (calendar.propertyValue("METHOD") == "CANCEL")
-            formatString = (_("Event cancelled: %(summary)s") if cancelled else
-                _("Event invitation: %(summary)s"))
+            if cancelled:
+                formatString = _("Event cancelled: %(summary)s")
+            elif newInvitation:
+                formatString = _("Event invitation: %(summary)s")
+            else:
+                formatString = _("Event update: %(summary)s")
+
             details['subject'] = msg['Subject'] = formatString % {
                 'summary' : details['summary']
             }
@@ -771,7 +799,11 @@ class MailHandler(LoggingMixIn):
             msg.attach(msgAlt)
 
             # Get localized labels
-            details['inviteLabel'] = _("Event Invitation")
+            if newInvitation:
+                details['inviteLabel'] = _("Event Invitation")
+            else:
+                details['inviteLabel'] = _("Event Update")
+
             details['dateLabel'] = _("Date")
             details['timeLabel'] = _("Time")
             details['durationLabel'] = _("Duration")

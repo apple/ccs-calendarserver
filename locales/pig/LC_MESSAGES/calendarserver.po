@@ -195,9 +195,15 @@ msgstr "Eventway ancelledcay"
 msgid "Event invitation: %(summary)s"
 msgstr "Eventway invitationway: %(summary)s"
 
+msgid "Event update: %(summary)s"
+msgstr "Eventway updateway: %(summary)s"
+
 #: mail.py:736
 msgid "Event Invitation"
-msgstr "Eventway invitationway"
+msgstr "Eventway Invitationway"
+
+msgid "Event Update"
+msgstr "Eventway Updateway"
 
 #: mail.py:737
 msgid "Date"

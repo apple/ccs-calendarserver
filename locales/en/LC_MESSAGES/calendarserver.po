@@ -195,8 +195,14 @@ msgstr ""
 msgid "Event invitation: %(summary)s"
 msgstr ""
 
+msgid "Event update: %(summary)s"
+msgstr ""
+
 #: mail.py:736
 msgid "Event Invitation"
+msgstr ""
+
+msgid "Event Update"
 msgstr ""
 
 #: mail.py:737

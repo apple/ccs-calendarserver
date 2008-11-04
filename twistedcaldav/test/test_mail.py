@@ -57,7 +57,7 @@ class MailHandlerTests(TestCase):
 
         # Make sure a known token *is* processed
         token = self.handler.db.createToken("mailto:user01@example.com",
-            "mailto:user02@example.com")
+            "mailto:user02@example.com", "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C")
         calBody = template % token
         organizer, attendee, calendar, msgId = self.handler.processDSN(calBody,
             "xyzzy", echo)
@@ -78,7 +78,7 @@ class MailHandlerTests(TestCase):
         self.assertEquals(result, None)
 
         # Make sure a known token *is* processed
-        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
         self.assertEquals(organizer, 'mailto:user01@example.com')
@@ -90,7 +90,7 @@ class MailHandlerTests(TestCase):
             file(os.path.join(self.dataDir, 'reply_missing_organizer')).read()
         )
         # stick the token in the database first
-        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
 
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
@@ -105,9 +105,9 @@ class MailGatewayTokensDatabaseTests(TestCase):
     def test_tokens(self):
         self.assertEquals(self.db.lookupByToken("xyzzy"), None)
 
-        token = self.db.createToken("organizer", "attendee")
-        self.assertEquals(self.db.getToken("organizer", "attendee"), token)
+        token = self.db.createToken("organizer", "attendee", "icaluid")
+        self.assertEquals(self.db.getToken("organizer", "attendee", "icaluid"), token)
         self.assertEquals(self.db.lookupByToken(token),
-            ("organizer", "attendee"))
+            ("organizer", "attendee", "icaluid"))
         self.db.deleteToken(token)
         self.assertEquals(self.db.lookupByToken(token), None)

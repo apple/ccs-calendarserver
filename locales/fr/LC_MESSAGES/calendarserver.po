@@ -39,9 +39,15 @@ msgstr "Événement annulé"
 msgid "Event invitation: %(summary)s"
 msgstr "Invitation: %(summary)s"
 
+msgid "Event update: %(summary)s"
+msgstr "Mise à jour de l'événement: %(summary)s"
+
 #: mail.py:736
 msgid "Event Invitation"
 msgstr "Invitation"
+
+msgid "Event Update"
+msgstr "Mise à jour de l'événement"
 
 #: mail.py:737
 msgid "Date"
