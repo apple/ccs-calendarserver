@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm caldavd
-.Nd Calendar Server Control Interface
+.Nd Darwin Calendar Server Control Interface
 .Sh SYNOPSIS
 .Nm
 .Op Fl hX 
@@ -53,13 +53,13 @@ Specifies the path to the twistd binary.
 .Sh FILES
 .Bl -tag -width flag
 .It /etc/caldavd/caldavd.plist
-The main configuration file for caldavd.  It is an XML property list
-in server options such as the port to bind to, whether to use SSL, and
-the names of other files can specified.
+The Calendar Server configuration file.  It is an XML property list
+specifying server options such as the port to bind to, whether to use
+SSL, and the names of other files can specified.
 .It /etc/caldavd/server.pem
 PEM-format server keys for use with SSL.
 .It /Library/CalendarServer/Documents
-The location of static files which are used as the backing store for
+The server's document root, which is the used as the backing store for
 the HTTP resources on the server.
 .It /var/log/caldavd/access.log
 The server's access log file, in a format similar to Apache HTTPd's
