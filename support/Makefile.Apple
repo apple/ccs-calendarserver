@@ -98,6 +98,7 @@ install:: build
 install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
 	$(_v) $(INSTALL_FILE) $(Sources)/doc/caldavd.8 $(DSTROOT)$(MANDIR)/man8
+	$(_v) $(INSTALL_FILE) $(Sources)/doc/caldav_export.8 $(DSTROOT)$(MANDIR)/man8
 	$(_v) $(INSTALL_FILE) $(Sources)/doc/caladmin.8 $(DSTROOT)$(MANDIR)/man8
 	$(_v) gzip -9 -f $(DSTROOT)$(MANDIR)/man8/*.8
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)
