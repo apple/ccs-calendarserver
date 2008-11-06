@@ -99,20 +99,26 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 else:
                     uid = uidn
 
-        self.logMessage(
-            '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]' %(
-                request.remoteAddr.host,
-                uid,
-                self.logDateString(
-                    response.headers.getHeader('date', 0)),
-                firstLine,
-                response.code,
-                loginfo.bytesSent,
-                request.headers.getHeader('referer', '-'),
-                request.headers.getHeader('user-agent', '-'),
-                (time.time() - request.initTime) * 1000,
-                )
+        format_str = '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]'
+        format_data = (
+            request.remoteAddr.host,
+            uid,
+            self.logDateString(
+                response.headers.getHeader('date', 0)),
+            firstLine,
+            response.code,
+            loginfo.bytesSent,
+            request.headers.getHeader('referer', '-'),
+            request.headers.getHeader('user-agent', '-'),
+            (time.time() - request.initTime) * 1000,
+        )
+        if config.MoreAccessLogData:
+            format_str += ' [%d %d]'
+            format_data += (
+                request.chanRequest.transport.server.port,
+                request.chanRequest.channel.factory.outstandingRequests,
             )
+        self.logMessage(format_str % format_data)
 
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
