@@ -58,68 +58,82 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
     """
 
     def emit(self, eventDict):
-        if eventDict.get('interface') is not iweb.IRequest:
-            return
 
-        request = eventDict['request']
-        response = eventDict['response']
-        loginfo = eventDict['loginfo']
-        firstLine = '%s %s HTTP/%s' %(
-            request.method,
-            request.uri,
-            '.'.join([str(x) for x in request.clientproto]))
+        if eventDict.get('interface') is iweb.IRequest:
 
-        # Try to determine authentication and authorization identifiers
-        uid = "-"
-        if hasattr(request, "authnUser"):
-            if isinstance(request.authnUser.children[0], davxml.HRef):
-                uidn = str(request.authnUser.children[0])
-                uidz = None
-                if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
-                    uidz = str(request.authzUser.children[0])
-                    
-                def convertUIDtoShortName(uid):
-                    uid = uid.rstrip("/")
-                    uid = uid[uid.rfind("/") + 1:]
-                    record = request.site.resource.getDirectory().recordWithUID(uid)
-                    if record:
-                        if record.recordType == DirectoryService.recordType_users:
-                            return record.shortName
+            request = eventDict['request']
+            response = eventDict['response']
+            loginfo = eventDict['loginfo']
+            firstLine = '%s %s HTTP/%s' %(
+                request.method,
+                request.uri,
+                '.'.join([str(x) for x in request.clientproto]))
+    
+            # Try to determine authentication and authorization identifiers
+            uid = "-"
+            if hasattr(request, "authnUser"):
+                if isinstance(request.authnUser.children[0], davxml.HRef):
+                    uidn = str(request.authnUser.children[0])
+                    uidz = None
+                    if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
+                        uidz = str(request.authzUser.children[0])
+                        
+                    def convertUIDtoShortName(uid):
+                        uid = uid.rstrip("/")
+                        uid = uid[uid.rfind("/") + 1:]
+                        record = request.site.resource.getDirectory().recordWithUID(uid)
+                        if record:
+                            if record.recordType == DirectoryService.recordType_users:
+                                return record.shortName
+                            else:
+                                return "(%s)%s" % (record.recordType, record.shortName,)
                         else:
-                            return "(%s)%s" % (record.recordType, record.shortName,)
+                            return uid
+                        
+                    uidn = convertUIDtoShortName(uidn)
+                    if uidz:
+                        uidz = convertUIDtoShortName(uidz)
+                        
+                    if uidn and uidz:
+                        uid = '"%s as %s"' % (uidn, uidz,)
                     else:
-                        return uid
-                    
-                uidn = convertUIDtoShortName(uidn)
-                if uidz:
-                    uidz = convertUIDtoShortName(uidz)
-                    
-                if uidn and uidz:
-                    uid = '"%s as %s"' % (uidn, uidz,)
-                else:
-                    uid = uidn
-
-        format_str = '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]'
-        format_data = (
-            request.remoteAddr.host,
-            uid,
-            self.logDateString(
-                response.headers.getHeader('date', 0)),
-            firstLine,
-            response.code,
-            loginfo.bytesSent,
-            request.headers.getHeader('referer', '-'),
-            request.headers.getHeader('user-agent', '-'),
-            (time.time() - request.initTime) * 1000,
-        )
-        if config.MoreAccessLogData:
-            format_str += ' [%d %d]'
-            format_data += (
-                request.chanRequest.transport.server.port,
-                request.chanRequest.channel.factory.outstandingRequests,
+                        uid = uidn
+    
+            format_str = '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]'
+            format_data = (
+                request.remoteAddr.host,
+                uid,
+                self.logDateString(
+                    response.headers.getHeader('date', 0)),
+                firstLine,
+                response.code,
+                loginfo.bytesSent,
+                request.headers.getHeader('referer', '-'),
+                request.headers.getHeader('user-agent', '-'),
+                (time.time() - request.initTime) * 1000,
             )
-        self.logMessage(format_str % format_data)
+            if config.MoreAccessLogData:
+                format_str += ' [%d %d]'
+                format_data += (
+                    request.chanRequest.transport.server.port,
+                    request.chanRequest.channel.factory.outstandingRequests,
+                )
+            self.logMessage(format_str % format_data)
 
+        elif "overloaded" in eventDict:
+            overloaded = eventDict.get("overloaded")
+            format_str = '%s - - [%s] "???" 503 0 "-" "-" [0.0 ms]'
+            format_data = (
+                overloaded.transport.hostname,
+                self.logDateString(time.time()),
+            )
+            if config.MoreAccessLogData:
+                format_str += ' [%d %d]'
+                format_data += (
+                    overloaded.transport.server.port,
+                    overloaded.outstandingRequests,
+                )
+            self.logMessage(format_str % format_data)
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """

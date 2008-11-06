@@ -35,6 +35,7 @@ __all__ = [
     "extensions",
     "fileops",
     "freebusyurl",
+    "httpfactory",
     "ical",
     "icaldav",
     "index",
