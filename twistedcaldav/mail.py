@@ -340,6 +340,13 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             where ORGANIZER = :1 and ATTENDEE = :2 and ICALUID = :3
             """, organizer, attendee, icaluid
         )
+        if token is not None:
+            # update the datestamp on the token to keep it from being purged
+            self._db_execute(
+                """
+                update TOKENS set DATESTAMP = :1 WHERE TOKEN = :2
+                """, datetime.date.today(), token
+            )
         return token
 
     def deleteToken(self, token):
@@ -514,8 +521,9 @@ class MailHandler(LoggingMixIn):
         if dataRoot is None:
             dataRoot = config.DataRoot
         self.db = MailGatewayTokensDatabase(dataRoot)
+        days = config.Scheduling['iMIP']['InvitationDaysToLive']
         self.db.purgeOldTokens(datetime.date.today() -
-                               datetime.timedelta(days=365))
+            datetime.timedelta(days=days))
 
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)
@@ -770,9 +778,12 @@ class MailHandler(LoggingMixIn):
         details = self.getEventDetails(calendar, language=language)
 
         iconDir = config.Scheduling["iMIP"]["MailIconsDirectory"].rstrip("/")
-        iconName = "cal-icon-%02d-%02d.tiff" % (details['month'],
+        iconName = "cal-icon-%02d-%02d.png" % (details['month'],
             details['day'])
-        iconPath = os.path.join(iconDir, iconName)
+        iconPath = os.path.join(iconDir, language, iconName)
+        if not os.path.exists(iconPath):
+            # Try the generic (numeric) version
+            iconPath = os.path.join(iconDir, 'generic', iconName)
 
         with translationTo(language):
             msg = MIMEMultipart()
@@ -783,9 +794,9 @@ class MailHandler(LoggingMixIn):
             msgId = messageid()
             msg["Message-ID"] = msgId
 
-            cancelled = (calendar.propertyValue("METHOD") == "CANCEL")
-            if cancelled:
-                formatString = _("Event cancelled: %(summary)s")
+            canceled = (calendar.propertyValue("METHOD") == "CANCEL")
+            if canceled:
+                formatString = _("Event canceled: %(summary)s")
             elif newInvitation:
                 formatString = _("Event invitation: %(summary)s")
             else:
@@ -799,10 +810,13 @@ class MailHandler(LoggingMixIn):
             msg.attach(msgAlt)
 
             # Get localized labels
-            if newInvitation:
-                details['inviteLabel'] = _("Event Invitation")
+            if canceled:
+                details['inviteLabel'] = _("Event Canceled")
             else:
-                details['inviteLabel'] = _("Event Update")
+                if newInvitation:
+                    details['inviteLabel'] = _("Event Invitation")
+                else:
+                    details['inviteLabel'] = _("Event Update")
 
             details['dateLabel'] = _("Date")
             details['timeLabel'] = _("Time")
@@ -828,7 +842,7 @@ class MailHandler(LoggingMixIn):
                 "%s <%s>" % (orgCN, orgEmail))
 
             # plain text version
-            if cancelled:
+            if canceled:
                 plainTemplate = u"""%(subject)s
 
 %(orgLabel)s: %(plainOrganizer)s
@@ -875,12 +889,12 @@ class MailHandler(LoggingMixIn):
             details['iconName'] = iconName
 
             templateDir = config.Scheduling["iMIP"]["MailTemplatesDirectory"].rstrip("/")
-            templateName = "cancel.html" if cancelled else "invite.html"
+            templateName = "cancel.html" if canceled else "invite.html"
             templatePath = os.path.join(templateDir, templateName)
 
             if not os.path.exists(templatePath):
                 # Fall back to built-in simple templates:
-                if cancelled:
+                if canceled:
 
                     htmlTemplate = u"""<html>
     <body><div>
@@ -940,7 +954,7 @@ class MailHandler(LoggingMixIn):
 
             with open(iconPath) as iconFile:
                 msgIcon = MIMEImage(iconFile.read(),
-                    _subtype='tiff;x-apple-mail-type=stationery;name="%s"' %
+                    _subtype='png;x-apple-mail-type=stationery;name="%s"' %
                     (iconName,))
 
             msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
@@ -953,6 +967,7 @@ class MailHandler(LoggingMixIn):
         msgIcal = MIMEText(str(calendar), "calendar", "UTF-8")
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)
+        msgIcal.add_header("Content-ID", "<invitation.ics>")
         msgIcal.add_header("Content-Disposition",
             "inline;filename=invitation.ics")
         msg.attach(msgIcal)

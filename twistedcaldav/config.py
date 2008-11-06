@@ -234,7 +234,8 @@ defaultConfig = {
             },
             "AddressPatterns"   : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
             "MailTemplatesDirectory": "/usr/share/caldavd/templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
-            "MailIconsDirectory": "/usr/share/caldavd/images", # Directory containing date-specific icons for email invitations (cal-icon-mm-dd.tiff)
+            "MailIconsDirectory": "/usr/share/caldavd/images/mail", # Directory containing language-specific subdirectories containing date-specific icons for email invitations (cal-icon-mm-dd.png)
+            "InvitationDaysToLive" : 90, # How many days invitations are valid
         },
 
     },
