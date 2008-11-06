@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 ##
 
 import os
-import stat
 
 from subprocess import Popen, PIPE
 from pwd import getpwnam
@@ -56,6 +55,7 @@ from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.static import IMIPInboxFile
 from twistedcaldav.timezones import TimezoneCache
+from twistedcaldav.upgrade import UpgradeTheServer
 from twistedcaldav import pdmonster
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
@@ -699,6 +699,10 @@ class CalDAVServiceMaker(object):
     makeService_Single   = makeService_Slave
 
     def makeService(self, options):
+
+        # Now do any on disk upgrades we might need.
+        UpgradeTheServer.doUpgrade()
+
         serverType = config.ProcessType
 
         serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
@@ -706,7 +710,7 @@ class CalDAVServiceMaker(object):
         if not serviceMethod:
             raise UsageError(
                 "Unknown server type %s. "
-                "Please choose: Master, Slave or Combined"
+                "Please choose: Master, Slave, Single or Combined"
                 % (serverType,)
             )
         else:

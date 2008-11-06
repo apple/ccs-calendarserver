@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 import itertools
 import os
@@ -345,6 +345,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
 
     dbType = "CALENDARUSERPROXY"
     dbFilename = "calendaruserproxy.sqlite"
+    dbOldFilename = db_prefix + "calendaruserproxy"
     dbFormatVersion = "4"
 
     class ProxyDBMemcacher(Memcacher):
