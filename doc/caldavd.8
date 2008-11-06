@@ -30,8 +30,8 @@
 .Sh DESCRIPTION
 .Nm
 is a front end to the Darwin Calendar Server.  The Darwin Calendar
-server is a web server which implements the HTTP, WebDAV, WebDAV ACL,
-and CalDAV protocols.
+Server is provides a calendaring service based on the CalDAV protocol,
+which is in turn based on HTTP and WebDAV.
 .Pp
 .Nm
 is a simple tool for starting the server.
@@ -59,15 +59,17 @@ the names of other files can specified.
 .It /etc/caldavd/server.pem
 PEM-format server keys for use with SSL.
 .It /Library/CalendarServer/Documents
-The location of static files which are exposed into the URL namespace
-of the server, as well as files which are used as a backing store for
-dynamic and managed resources on the server.
-.It /var/log/caldavd/server.log
+The location of static files which are used as the backing store for
+the HTTP resources on the server.
+.It /var/log/caldavd/access.log
+The server's access log file, in a format similar to Apache HTTPd's
+access log.
+.It /var/log/caldavd/error.log
 The server's main log file.
 .It /var/run/caldavd.pid
 The server's process ID file.
-.It /usr/share/caldavd
-Server implementation and support files.
+.It /var/run/caldavd/
+Directory containing server runtime files.
 .El
 .Sh SEE ALSO
 .Xr httpd 8
