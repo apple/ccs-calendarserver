@@ -295,7 +295,8 @@
       <integer>10</integer>
 
       <key>Services</key>
-      <array>
+      <dict>
+        <key>XMPPNotifier</key>
         <dict>
           <!-- XMPP notification service -->
           <key>Service</key>
@@ -335,7 +336,7 @@
           <key>HeartbeatMinutes</key>
           <integer>30</integer>
         </dict>
-      </array>
+      </dict>
     </dict>
 
 

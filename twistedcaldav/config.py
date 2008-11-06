@@ -255,13 +255,13 @@ defaultConfig = {
         "InternalNotificationHost" : "localhost",
         "InternalNotificationPort" : 62309,
 
-        "Services" : [
-            {
+        "Services" : {
+            "SimpleLineNotifier" : {
                 "Service" : "twistedcaldav.notify.SimpleLineNotifierService",
                 "Enabled" : False,
                 "Port" : 62308,
             },
-            {
+            "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,
                 "Host" : "", # "xmpp.host.name"
@@ -277,7 +277,7 @@ defaultConfig = {
                 "HeartbeatMinutes" : 30,
                 "AllowedJIDs": [],
             },
-        ]
+        }
     },
 
     #
@@ -572,14 +572,14 @@ class Config (object):
         #
         # Notifications
         #
-        for service in self.Notifications["Services"]:
+        for key, service in self.Notifications["Services"].iteritems():
             if service["Enabled"]:
                 self.Notifications["Enabled"] = True
                 break
         else:
             self.Notifications["Enabled"] = False
 
-        for service in self.Notifications["Services"]:
+        for key, service in self.Notifications["Services"].iteritems():
             if (
                 service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
                 service["Enabled"]

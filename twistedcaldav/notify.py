@@ -1151,7 +1151,7 @@ def getPubSubConfiguration(config):
     results = { 'enabled' : False }
 
     # return the first enabled xmpp service settings in the config file
-    for settings in config.Notifications["Services"]:
+    for key, settings in config.Notifications["Services"].iteritems():
         if (settings["Service"] == "twistedcaldav.notify.XMPPNotifierService"
             and settings["Enabled"]):
             results['enabled'] = True
@@ -1291,7 +1291,7 @@ class NotificationServiceMaker(object):
         multiService = service.MultiService()
 
         notifiers = []
-        for settings in config.Notifications["Services"]:
+        for key, settings in config.Notifications["Services"].iteritems():
             if settings["Enabled"]:
                 notifier = namedClass(settings["Service"])(settings)
                 notifier.setServiceParent(multiService)

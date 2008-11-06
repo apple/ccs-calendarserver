@@ -338,12 +338,12 @@ class StubFailure(object):
 class XMPPNotifierTests(TestCase):
 
     xmppEnabledConfig = Config(config_mod.defaultConfig)
-    xmppEnabledConfig.Notifications['Services'][1]['Enabled'] = True
+    xmppEnabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
     xmppEnabledConfig.ServerHostName = "server.example.com"
     xmppEnabledConfig.HTTPPort = 80
 
     xmppDisabledConfig = Config(config_mod.defaultConfig)
-    xmppDisabledConfig.Notifications['Services'][1]['Enabled'] = False
+    xmppDisabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = False
 
     def setUp(self):
         self.xmlStream = StubXmlStream()
@@ -473,7 +473,7 @@ class XMPPNotifierTests(TestCase):
     def test_sendHeartbeat(self):
 
         xmppConfig = Config(config_mod.defaultConfig)
-        xmppConfig.Notifications['Services'][1]['Enabled'] = True
+        xmppConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
         xmppConfig.ServerHostName = "server.example.com"
         xmppConfig.HTTPPort = 80
 

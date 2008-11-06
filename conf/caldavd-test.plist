@@ -403,7 +403,8 @@
       <integer>62309</integer>
 
       <key>Services</key>
-      <array>
+      <dict>
+        <key>SimpleLineNotifier</key>
         <dict>
           <!-- Simple line notification service (for testing) -->
           <key>Service</key>
@@ -414,6 +415,7 @@
           <integer>62308</integer>
         </dict>
 
+        <key>XMPPNotifier</key>
         <dict>
           <!-- XMPP notification service -->
           <key>Service</key>
@@ -461,7 +463,7 @@
              -->
           </array>
         </dict>
-      </array>
+      </dict>
     </dict>
 
 
