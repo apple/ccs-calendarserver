@@ -34,7 +34,6 @@ from twisted.cred.portal import Portal
 
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
-from twisted.web2.channel import http
 
 from twisted.web2.server import Site
 
@@ -50,6 +49,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
+from twistedcaldav.httpfactory import HTTP503LoggingFactory
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.timezones import TimezoneCache
@@ -649,7 +649,7 @@ class CalDAVServiceMaker(object):
 
         site = Site(realRoot)
 
-        channel = http.HTTPFactory(
+        channel = HTTP503LoggingFactory(
             site,
             maxRequests=config.MaxRequests,
             betweenRequestsTimeOut=config.IdleConnectionTimeOut)
