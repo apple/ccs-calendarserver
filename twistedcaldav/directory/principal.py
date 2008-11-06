@@ -152,7 +152,7 @@ class DirectoryProvisioningResource (
             ("lastName", None, "Last Name", customxml.LastNameProperty),
         (_cs_ns, "email-address-set") :
             ("emailAddresses", None, "Email Addresses",
-            customxml.EmailAddressProperty),
+            customxml.EmailAddressSet),
     }
 
     def propertyToField(self, property, match):
