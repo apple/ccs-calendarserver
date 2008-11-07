@@ -412,9 +412,11 @@ class OpenDirectoryService(DirectoryService):
         if shortName is None and guid is None:
             records = {}
             guids   = {}
+            emails  = {}
 
-            disabledNames = set()
-            disabledGUIDs = set()
+            disabledNames  = set()
+            disabledGUIDs  = set()
+            disabledEmails = set()
             
             if recordType == DirectoryService.recordType_groups:
                 groupsForGUID = {}
@@ -426,9 +428,11 @@ class OpenDirectoryService(DirectoryService):
 
             records = storage["records"]
             guids   = storage["guids"]
+            emails  = storage["emails"]
 
-            disabledNames = storage["disabled names"]
-            disabledGUIDs = storage["disabled guids"]
+            disabledNames  = storage["disabled names"]
+            disabledGUIDs  = storage["disabled guids"]
+            disabledEmails = storage["disabled emails"]
             
             if recordType == DirectoryService.recordType_groups:
                 groupsForGUID = storage["groupsForGUID"]
@@ -485,12 +489,12 @@ class OpenDirectoryService(DirectoryService):
                 calendarUserAddresses = ()
 
             # Get email address from directory record
-            emailAddresses = set()
+            recordEmailAddresses = set()
             if isinstance(recordEmailAddress, str):
-                emailAddresses.add(recordEmailAddress.lower())
+                recordEmailAddresses.add(recordEmailAddress.lower())
             elif isinstance(recordEmailAddress, list):
-                for addr in emailAddresses:
-                    emailAddresses.add(addr.lower())
+                for addr in recordEmailAddresses:
+                    recordEmailAddresses.add(addr.lower())
 
             # Special case for groups, which have members.
             if recordType == DirectoryService.recordType_groups:
@@ -529,7 +533,7 @@ class OpenDirectoryService(DirectoryService):
                 fullName              = recordFullName,
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
-                emailAddresses        = emailAddresses,
+                emailAddresses        = recordEmailAddresses,
                 calendarUserAddresses = calendarUserAddresses,
                 autoSchedule          = autoSchedule,
                 enabledForCalendaring = enabledForCalendaring,
@@ -585,16 +589,40 @@ class OpenDirectoryService(DirectoryService):
                         self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
                         self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
 
+            def disableEmail(emailAddress, record):
+                self.log_warn("Email address %s disabled due to conflict for record: %s"
+                              % (emailAddress, record))
+
+                record.emailAddresses.remove(emailAddress)
+                disabledEmails.add(emailAddress)
+
+                if emailAddress in emails:
+                    del emails[emailAddress]
+
+            for email in frozenset(recordEmailAddresses):
+                if email in disabledEmails:
+                    disableEmail(email, record)
+                else:
+                    # Check for duplicates
+                    existing_record = emails.get(email)
+                    if existing_record is not None:
+                        disableEmail(email, record)
+                        disableEmail(email, existing_record)
+                    else:
+                        emails[email] = record
+
         if shortName is None and guid is None:
             #
             # Replace the entire cache
             #
             storage = {
-                "status"        : "new",
-                "records"       : records,
-                "guids"         : guids,
-                "disabled names": disabledNames,
-                "disabled guids": disabledGUIDs,
+                "status"         : "new",
+                "records"        : records,
+                "guids"          : guids,
+                "emails"         : emails,
+                "disabled names" : disabledNames,
+                "disabled guids" : disabledGUIDs,
+                "disabled emails": disabledEmails,
             }
 
             # Add group indexing if needed
