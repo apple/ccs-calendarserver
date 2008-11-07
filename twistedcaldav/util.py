@@ -32,7 +32,7 @@ if sys.platform == "darwin" and hasCtypes:
 
     def getNCPU():
         ncpu = c_int(0)
-        size = c_int(sizeof(ncpu))
+        size = c_size_t(sizeof(ncpu))
 
         libc.sysctlbyname(
             "hw.ncpu",
