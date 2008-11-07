@@ -49,6 +49,10 @@ calendarserver_private_comments_compliance = (
     "calendarserver-private-comments",
 )
 
+calendarserver_principal_property_search = (
+    "calendarserver-principal-property-search",
+)
+
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.

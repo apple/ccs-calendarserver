@@ -80,6 +80,7 @@ class CalDAVComplianceMixIn(object):
             extra_compliance += customxml.calendarserver_private_events_compliance
         if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
             extra_compliance += customxml.calendarserver_private_comments_compliance
+        extra_compliance += customxml.calendarserver_principal_property_search
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
 
