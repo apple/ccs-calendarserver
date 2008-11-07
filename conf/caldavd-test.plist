@@ -271,7 +271,7 @@
       <key>Wiki</key>
       <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
         <key>Cookie</key>
         <string>sessionID</string>
         <key>URL</key>

@@ -218,7 +218,7 @@
       <key>Wiki</key>
       <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
       </dict>
 
     </dict>
