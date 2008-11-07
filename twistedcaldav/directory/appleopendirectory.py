@@ -171,19 +171,19 @@ class OpenDirectoryService(DirectoryService):
             ):
                 yield GUID
 
-    def _calendarUserAddresses(self, recordType, recordName, record):
+    def _calendarUserAddresses(self, recordType, recordName, recordData):
         """
         Extract specific attributes from the directory record for use as calendar user address.
         
         @param recordName: a C{str} containing the record name being operated on.
-        @param record: a C{dict} containing the attributes retrieved from the directory.
+        @param recordData: a C{dict} containing the attributes retrieved from the directory.
         @return: a C{set} of C{str} for each expanded calendar user address.
         """
         # Now get the addresses
         result = set()
         
         # Add each email address as a mailto URI
-        emails = record.get(dsattributes.kDSNAttrEMailAddress)
+        emails = recordData.get(dsattributes.kDSNAttrEMailAddress)
         if emails is not None:
             if isinstance(emails, str):
                 emails = [emails]
