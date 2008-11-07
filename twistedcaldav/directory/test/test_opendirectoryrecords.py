@@ -232,6 +232,24 @@ else:
             self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
+        def test_duplicateEmail(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", email="shared@example.com"),
+                    fakeODRecord("User 03", email="shared@example.com"),
+                ],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
+            self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+
+            self.assertTrue (self._service.recordWithShortName(DirectoryService.recordType_users, "user01").emailAddresses)
+            self.assertFalse(self._service.recordWithShortName(DirectoryService.recordType_users, "user02").emailAddresses)
+            self.assertFalse(self._service.recordWithShortName(DirectoryService.recordType_users, "user03").emailAddresses)
+
         def test_duplicateRecords(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
