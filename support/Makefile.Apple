@@ -102,6 +102,7 @@ install::
 	$(_v) $(INSTALL_FILE) $(Sources)/doc/caladmin.8 $(DSTROOT)$(MANDIR)/man8
 	$(_v) gzip -9 -f $(DSTROOT)$(MANDIR)/man8/*.8
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)
+	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) -m 0750 $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)/Data
 	$(_v) $(INSTALL_DIRECTORY) -o $(USER) -g $(GROUP) -m 0750 $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)/Documents
 	$(_v) $(INSTALL_DIRECTORY) -m 0755 $(DSTROOT)$(VARDIR)/log/caldavd
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
