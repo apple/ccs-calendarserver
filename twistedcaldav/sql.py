@@ -302,12 +302,11 @@ class AbstractSQLDatabase(object):
         """
         q = self._db().cursor()
         try:
-            try:
-                q.execute(sql, query_params)
-            except:
-                log.err("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))
-                raise
+            q.execute(sql, query_params)
             return q.fetchall()
+        except:
+            log.err("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))
+            raise
         finally:
             q.close()
 

@@ -687,16 +687,15 @@ class Index (CalendarIndex):
                 log.err("Unable to open resource %s: %s" % (name, e))
                 continue
 
+            # FIXME: This is blocking I/O
             try:
-                # FIXME: This is blocking I/O
-                try:
-                    calendar = Component.fromStream(stream)
-                    calendar.validateForCalDAV()
-                except ValueError:
-                    log.err("Non-calendar resource: %s" % (name,))
-                else:
-                    #log.msg("Indexing resource: %s" % (name,))
-                    self.addResource(name, calendar, True)
+                calendar = Component.fromStream(stream)
+                calendar.validateForCalDAV()
+            except ValueError:
+                log.err("Non-calendar resource: %s" % (name,))
+            else:
+                #log.msg("Indexing resource: %s" % (name,))
+                self.addResource(name, calendar, True)
             finally:
                 stream.close()
 
@@ -799,17 +798,16 @@ class IndexSchedule (CalendarIndex):
                 log.err("Unable to open resource %s: %s" % (name, e))
                 continue
 
+            # FIXME: This is blocking I/O
             try:
-                # FIXME: This is blocking I/O
-                try:
-                    calendar = Component.fromStream(stream)
-                    calendar.validCalendarForCalDAV()
-                    calendar.validateComponentsForCalDAV(True)
-                except ValueError:
-                    log.err("Non-calendar resource: %s" % (name,))
-                else:
-                    #log.msg("Indexing resource: %s" % (name,))
-                    self.addResource(name, calendar, True)
+                calendar = Component.fromStream(stream)
+                calendar.validCalendarForCalDAV()
+                calendar.validateComponentsForCalDAV(True)
+            except ValueError:
+                log.err("Non-calendar resource: %s" % (name,))
+            else:
+                #log.msg("Indexing resource: %s" % (name,))
+                self.addResource(name, calendar, True)
             finally:
                 stream.close()
 
