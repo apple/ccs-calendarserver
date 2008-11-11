@@ -772,18 +772,25 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
+    def getIconPath(self, details, language='en'):
+        month = int(details['month'])
+        day = int(details['day'])
+        iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
+        with translationTo(language) as trans:
+            monthName = trans.monthAbbreviation(month)
+        iconName = "%02d.png" % (day,)
+        iconPath = os.path.join(iconDir, monthName, iconName)
+        if not os.path.exists(iconPath):
+            # Try the generic (numeric) version
+            iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
+        return iconPath
+
+
     def generateEmail(self, newInvitation, calendar, orgEmail, orgCN,
         attendees, fromAddress, replyToAddress, toAddress, language='en'):
 
         details = self.getEventDetails(calendar, language=language)
-
-        iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
-        iconName = "cal-icon-%02d-%02d.png" % (details['month'],
-            details['day'])
-        iconPath = os.path.join(iconDir, language, iconName)
-        if not os.path.exists(iconPath):
-            # Try the generic (numeric) version
-            iconPath = os.path.join(iconDir, 'generic', iconName)
+        iconPath = self.getIconPath(details, language=language)
 
         with translationTo(language):
             msg = MIMEMultipart()
@@ -886,7 +893,7 @@ class MailHandler(LoggingMixIn):
             else:
                 details['htmlOrganizer'] = orgCN
 
-            details['iconName'] = iconName
+            details['iconName'] = iconName = "calicon.png"
 
             templateDir = config.Scheduling.iMIP.MailTemplatesDirectory.rstrip("/")
             templateName = "cancel.html" if canceled else "invite.html"

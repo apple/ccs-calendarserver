@@ -30,6 +30,14 @@ class MailHandlerTests(TestCase):
         self.handler = MailHandler(dataRoot=":memory:")
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
 
+    def test_iconPath(self):
+        iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, language='en')
+        iconDir = "/usr/share/caldavd/share/date_icons"
+        if os.path.exists("%s/JAN/01.png" % (iconDir,)):
+            self.assertEquals(iconPath, "%s/JAN/01.png" % (iconDir,))
+        else:
+            self.assertEquals(iconPath, "%s/01/01.png" % (iconDir,))
+
     def test_checkDSNFailure(self):
 
         data = {

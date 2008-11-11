@@ -144,8 +144,8 @@ msgid "December"
 msgstr "Ecemberday"
 
 #: localization.py:273
-msgid "Jan"
-msgstr ""
+msgid "JAN"
+msgstr "ANJAY"
 
 #: localization.py:274
 msgid "Feb"

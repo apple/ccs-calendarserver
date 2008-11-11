@@ -130,6 +130,9 @@ class translationTo(object):
         # Don't swallow exceptions
         return False
 
+    def monthAbbreviation(self, monthNumber):
+        return self.translation.ugettext(monthsAbbrev[monthNumber])
+
     def date(self, component):
         dtStart = component.propertyNativeValue("DTSTART")
         return self.dtDate(dtStart)
@@ -317,16 +320,16 @@ monthsFull = [
 
 monthsAbbrev = [
     "datetime.month is 1-based",
-    _("Jan"),
-    _("Feb"),
-    _("Mar"),
-    _("Apr"),
-    _("May"),
-    _("Jun"),
-    _("Jul"),
-    _("Aug"),
-    _("Sep"),
-    _("Oct"),
-    _("Nov"),
-    _("Dec"),
+    _("JAN"),
+    _("FEB"),
+    _("MAR"),
+    _("APR"),
+    _("MAY"),
+    _("JUN"),
+    _("JUL"),
+    _("AUG"),
+    _("SEP"),
+    _("OCT"),
+    _("NOV"),
+    _("DEC"),
 ]

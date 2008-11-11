@@ -109,6 +109,8 @@ class LocalizationTests(TestCase):
             self.assertEquals(t.time(comp),
                 (u'11:05 AM PDT to 6:15 PM EDT', u'4 hours 10 minutes'))
 
+            self.assertEquals(t.monthAbbreviation(1), "JAN")
+
         with translationTo('pig', localeDir=localeDir) as t:
 
             comp = data[0][1]
@@ -135,3 +137,5 @@ class LocalizationTests(TestCase):
             comp = data[5][1]
             self.assertEquals(t.time(comp),
                 (u'11:05 PDT otay 18:15 EDT', u'4 ourshay 10 inutesmay'))
+
+            self.assertEquals(t.monthAbbreviation(1), "ANJAY")
