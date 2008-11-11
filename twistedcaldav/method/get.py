@@ -28,6 +28,7 @@ from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.ical import Component
 
@@ -59,6 +60,14 @@ def http_GET(self, request):
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
                 returnValue(response)
 
+
     # Do normal GET behavior
     response = (yield super(CalDAVFile, self).http_GET(request))
+    
+    # Add Schedule-Tag header if property is present
+    if self.exists() and self.hasDeadProperty(ScheduleTag):
+        scheduletag = self.readDeadProperty(ScheduleTag)
+        if scheduletag:
+            response.headers.setHeader("Schedule-Tag", str(scheduletag))
+
     returnValue(response)

@@ -873,6 +873,10 @@ class Component (object):
             return None
 
         # TODO: Check that the recurrence-id is a valid instance
+        # For now we just check that there is no matching EXDATE
+        for exdate in self.properties("EXDATE"):
+            if exdate == rid:
+                return None
         
         # Create the derived instance
         newcomp = master.duplicate()

@@ -77,7 +77,7 @@ class ImplicitScheduler(object):
 
         # If action is remove we actually need to get state from the existing scheduling object resource
         if self.action == "remove":
-            # Also make sure that we return the new calendar being be written rather than the old one
+            # Also make sure that we return the new calendar being written rather than the old one
             # when the implicit action is executed
             self.return_calendar = calendar
             self.calendar = resource.iCalendar()
@@ -183,15 +183,18 @@ class ImplicitScheduler(object):
         returnValue(self.state is not None)
 
     @inlineCallbacks
-    def doImplicitScheduling(self):
+    def doImplicitScheduling(self, do_smart_merge=False):
         """
         Do implicit scheduling operation based on the data already set by call to checkImplicitScheduling.
 
+        @param do_smart_merge: if True, merge attendee data on disk with new data being stored,
+            else overwrite data on disk.
         @return: a new calendar object modified with scheduling information,
             or C{None} if nothing happened
         """
         
         # Setup some parameters
+        self.do_smart_merge = do_smart_merge
         self.except_attendees = ()
 
         # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
@@ -236,7 +239,11 @@ class ImplicitScheduler(object):
         self.originatorPrincipal = self.organizerPrincipal
         self.originator = self.organizer
         
-        result = (yield self.processRequests())
+        self.request.doing_attendee_refresh = True
+        try:
+            result = (yield self.processRequests())
+        finally:
+            delattr(self.request, "doing_attendee_refresh")
 
         returnValue(result)
 
@@ -429,7 +436,7 @@ class ImplicitScheduler(object):
             self.oldcalendar = self.resource.iCalendar()
             
             # Significant change
-            no_change, self.changed_rids = self.isChangeInsignificant()
+            no_change, self.changed_rids = self.isOrganizerChangeInsignificant()
             if no_change:
                 # Nothing to do
                 log.debug("Implicit - organizer '%s' is modifying UID: '%s' but change is not significant" % (self.organizer, self.uid))
@@ -448,10 +455,10 @@ class ImplicitScheduler(object):
             
         yield self.scheduleWithAttendees()
 
-    def isChangeInsignificant(self):
+    def isOrganizerChangeInsignificant(self):
         
         rids = None
-        differ = iCalDiff(self.oldcalendar, self.calendar)
+        differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
         if not no_change:
             _ignore_props, rids = differ.whatIsDifferent()
@@ -710,8 +717,8 @@ class ImplicitScheduler(object):
         if oldcalendar is None:
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,))
-        differ = iCalDiff(oldcalendar, self.calendar)
-        change_allowed, no_itip = differ.attendeeMerge(self.attendee)
+        differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
+        change_allowed, no_itip = differ.attendeeDiff(self.attendee)
         if not change_allowed:
             log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))

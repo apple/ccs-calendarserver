@@ -33,7 +33,7 @@ log = Logger()
 
 class iCalDiff(object):
     
-    def __init__(self, calendar1, calendar2):
+    def __init__(self, calendar1, calendar2, smart_merge):
         """
         
         @param calendar1:
@@ -44,6 +44,7 @@ class iCalDiff(object):
         
         self.calendar1 = calendar1
         self.calendar2 = calendar2
+        self.smart_merge = smart_merge
     
     def organizerDiff(self):
         """
@@ -51,6 +52,11 @@ class iCalDiff(object):
         changed by an organizer. Basically any change except for anything related to a VALARM.
         """
         
+        # If smart merge is needed we have to do this before trying the diff
+        if self.smart_merge:
+            log.debug("organizerDiff: doing smart Organizer diff/merge")
+            self._organizerMerge()
+
         def duplicateAndNormalize(calendar):
             calendar = calendar.duplicate()
             calendar.removeAlarms()
@@ -64,7 +70,7 @@ class iCalDiff(object):
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-AGENT", "SCHEDULE-STATUS",))
             calendar.removePropertyParametersByValue("ATTENDEE", (("PARTSTAT", "NEEDS-ACTION"),))
             return calendar
-            
+        
         # Normalize components for comparison
         self.calendar1 = duplicateAndNormalize(self.calendar1)
         self.calendar2 = duplicateAndNormalize(self.calendar2)
@@ -74,7 +80,136 @@ class iCalDiff(object):
             self._logDiffError("organizerDiff: Mismatched calendar objects")
         return result
 
-    def attendeeMerge(self, attendee):
+    def _organizerMerge(self):
+        """
+        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        """
+        organizer = self.calendar2.masterComponent().propertyValue("ORGANIZER")
+        self._doSmartMerge(organizer, True)
+
+    def _doSmartMerge(self, ignore_attendee, is_organizer):
+        """
+        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        """
+        
+        old_master = self.calendar1.masterComponent()
+        new_master = self.calendar2.masterComponent()
+        
+        # Do master merge first
+        self._tryComponentMerge(old_master, new_master, ignore_attendee, is_organizer)
+
+        # New check the matching components
+        for old_component in self.calendar1.subcomponents():
+            
+            # Make sure we have an appropriate component
+            if old_component.name() == "VTIMEZONE":
+                continue
+            rid = old_component.getRecurrenceIDUTC()
+            if rid is None:
+                continue
+
+            # Find matching component in new calendar
+            new_component = self.calendar2.overriddenComponent(rid)
+            if new_component is None:
+                # Determine whether the instance is still valid in the new calendar
+                if True:
+                    # Derive a new instance from the new calendar and transfer attendee status
+                    new_component = self.calendar2.deriveInstance(rid)
+                    self.calendar2.addComponent(new_component)
+                    self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
+                else:
+                    # Ignore the old instance as it no longer exists
+                    pass
+            else:
+                self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
+
+        # Check the new instances not in the old calendar
+        for new_component in self.calendar2.subcomponents():
+            
+            # Make sure we have an appropriate component
+            if new_component.name() == "VTIMEZONE":
+                continue
+            rid = new_component.getRecurrenceIDUTC()
+            if rid is None:
+                continue
+
+            # Find matching component in old calendar
+            old_component = self.calendar1.overriddenComponent(rid)
+            if old_component is None:
+                # Try to derive a new instance in the client and transfer attendee status
+                old_component = self.calendar1.deriveInstance(rid)
+                if old_component:
+                    self.calendar1.addComponent(old_component)
+                    self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
+                else:
+                    # Ignore as we have no state for the new instance
+                    pass
+    
+    def _tryComponentMerge(self, old_comp, new_comp, ignore_attendee_value, is_organizer):
+        if not is_organizer or not self._organizerChangePreventsMerge(old_comp, new_comp):
+            self._transferAttendees(old_comp, new_comp, ignore_attendee_value)
+
+    def _organizerChangePreventsMerge(self, old_comp, new_comp):
+        """
+        Check whether a change from an Organizer needs a re-schedule which means that any
+        Attendee state changes on the server are no longer relevant.
+
+        @param old_comp: existing server calendar component
+        @type old_comp: L{Component}
+        @param new_comp: new calendar component
+        @type new_comp: L{Component}
+        @return: C{True} if changes in new component are such that old attendee state is not
+            relevant, C{False} otherwise
+        """
+
+        props_to_test = ("DTSTART", "DTEND", "DURATION", "RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",)
+        
+        for prop in props_to_test:
+            # Change => no merge
+            if old_comp.getProperty(prop) != new_comp.getProperty(prop):
+                # Always overwrite as we have a big change going on
+                return True
+
+        return False
+    
+    def _transferAttendees(self, old_comp, new_comp, ignore_attendee_value):
+        """
+        Transfer Attendee PARTSTAT from old component to new component.
+
+        @param old_comp: existing server calendar component
+        @type old_comp: L{Component}
+        @param new_comp: new calendar component
+        @type new_comp: L{Component}
+        @param ignore_attendee_value: Attendee to ignore
+        @type ignore_attendee_value: C{str}
+        """
+
+        # Create map of ATTENDEEs in old component
+        old_attendees = {}
+        for attendee in old_comp.properties("ATTENDEE"):
+            value = attendee.value()
+            if value == ignore_attendee_value:
+                continue
+            old_attendees[value] = attendee
+
+        for new_attendee in new_comp.properties("ATTENDEE"):
+            value = new_attendee.value()
+            old_attendee = old_attendees.get(value)
+            if old_attendee:
+                self._transferParameter(old_attendee, new_attendee, "PARTSTAT")
+                self._transferParameter(old_attendee, new_attendee, "SCHEDULE-STATUS")
+    
+    def _transferParameter(self, old_property, new_property, parameter):
+        paramvalue = old_property.params().get(parameter)
+        if paramvalue is None:
+            try:
+                del new_property.params()[parameter]
+            except KeyError:
+                pass
+        else:
+            new_property.params()[parameter] = paramvalue
+
+    def attendeeDiff(self, attendee):
         """
         Merge the ATTENDEE specific changes with the organizer's view of the attendee's event.
         This will remove any attempt by the attendee to change things like the time or location.
@@ -84,6 +219,11 @@ class iCalDiff(object):
         """
         
         self.attendee = attendee
+
+        # If smart merge is needed we have to do this before trying the diff
+        if self.smart_merge:
+            log.debug("attendeeDiff: doing smart Attendee diff/merge")
+            self._attendeeMerge()
 
         def duplicateAndNormalize(calendar):
             calendar = calendar.duplicate()
@@ -103,21 +243,31 @@ class iCalDiff(object):
         
         # Make sure the same VCALENDAR properties match
         if not self._checkVCALENDARProperties():
-            self._logDiffError("attendeeMerge: VCALENDAR properties do not match")
+            self._logDiffError("attendeeDiff: VCALENDAR properties do not match")
             return False, False
         
         # Make sure the same VTIMEZONE components appear
         if not self._compareVTIMEZONEs():
-            self._logDiffError("attendeeMerge: VTIMEZONEs do not match")
+            self._logDiffError("attendeeDiff: VTIMEZONEs do not match")
             return False, False
         
         # Compare each component instance from the new calendar with each derived
         # component instance from the old one
         result = self._compareComponents()
         if not result[0]:
-            self._logDiffError("attendeeMerge: Mismatched calendar objects")
+            self._logDiffError("attendeeDiff: Mismatched calendar objects")
         return result
     
+    def _attendeeMerge(self):
+        """
+        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        
+        NB At this point we are going to assume that the changes in calendar1 are only
+        other ATTENDEE PARTSTAT changes as this method should only get called when
+        If-Schedule-Tag-Match is present and does not generate an error for an Attendee.
+        """
+        self._doSmartMerge(self.attendee, False)
+
     def whatIsDifferent(self):
         """
         Compare the two calendar objects in their entirety and return a list of properties

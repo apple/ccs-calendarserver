@@ -22,6 +22,7 @@ __all__ = ["StoreCalendarObjectResource"]
 
 import os
 import types
+import uuid
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
@@ -44,11 +45,12 @@ from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
 from twistedcaldav.config import config
-from twistedcaldav.caldavxml import NoUIDConflict
+from twistedcaldav.caldavxml import NoUIDConflict, ScheduleTag
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace ,\
-    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource
+    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
+    TwistedScheduleMatchETags
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.fileops import copyToWithXAttrs, copyXAttrs
 from twistedcaldav.fileops import putWithXAttrs
@@ -203,6 +205,7 @@ class StoreCalendarObjectResource(object):
         isiTIP=False,
         allowImplicitSchedule=True,
         internal_request=False,
+        processing_organizer=None,
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -222,6 +225,7 @@ class StoreCalendarObjectResource(object):
         @param isiTIP:                True if relaxed calendar data validation is to be done, False otherwise.
         @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
         @param internal_request:   True if this request originates internally and needs to bypass scheduling authorization checks.
+        @param processing_organizer: True if implicit processing for an organizer, False if for an attendee, None if not implicit processing.
         """
         
         # Check that all arguments are valid
@@ -261,6 +265,7 @@ class StoreCalendarObjectResource(object):
         self.isiTIP = isiTIP
         self.allowImplicitSchedule = allowImplicitSchedule
         self.internal_request = internal_request
+        self.processing_organizer = processing_organizer
         
         self.rollback = None
         self.access = None
@@ -273,6 +278,7 @@ class StoreCalendarObjectResource(object):
 
         # Basic validation
         yield self.validCopyMoveOperation()
+        self.validIfScheduleMatch()
 
         if self.destinationcal:
             # Valid resource name check
@@ -365,6 +371,38 @@ class StoreCalendarObjectResource(object):
                     msg = "Calendar-to-calendar %s with different owners are not supported" % ("moves" if self.deletesource else "copies",)
                     log.debug(msg)
                     raise HTTPError(StatusResponse(responsecode.FORBIDDEN, msg))
+
+    def validIfScheduleMatch(self):
+        """
+        Check for If-ScheduleTag-Match header behavior.
+        """
+        
+        # Only when a direct request
+        self.schedule_tag_match = False
+        if not self.isiTIP and not self.internal_request:
+            header = self.request.headers.getHeader("If-Schedule-Tag-Match")
+            if header:
+                # Do "precondition" test
+                matched = False
+                if self.destination.exists() and self.destination.hasDeadProperty(ScheduleTag):
+                    scheduletag = self.destination.readDeadProperty(ScheduleTag)
+                    matched = (scheduletag == header)
+                if not matched:
+                    log.debug("If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" % (header, scheduletag,))
+                    raise HTTPError(responsecode.PRECONDITION_FAILED)
+                self.schedule_tag_match = True
+            
+            elif config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+                # Compatibility with old clients. Policy:
+                #
+                # 1. If If-Match header is not present, never do smart merge.
+                # 2. If If-Match is present and the specified ETag is considered a "weak" match to the
+                #    current Schedule-Tag, then do smart merge, else reject with a 412.
+                #
+                # Actually by the time we get here the pre-condition will already have been tested and found to be OK,
+                # so we can just always do smart merge now if If-Match is present.
+
+                self.schedule_tag_match = self.request.headers.getHeader("If-Match") is not None
 
     def validResourceName(self):
         """
@@ -606,7 +644,17 @@ class StoreCalendarObjectResource(object):
 
     @inlineCallbacks
     def doImplicitScheduling(self):
+
+        # Get any existing schedule-tag property on the resource
+        if self.destination.exists() and self.destination.hasDeadProperty(ScheduleTag):
+            self.scheduletag = self.destination.readDeadProperty(ScheduleTag)
+            if self.scheduletag:
+                self.scheduletag = str(self.scheduletag)
+        else:
+            self.scheduletag = None
+
         data_changed = False
+        did_implicit_action = False
 
         # Do scheduling
         if not self.isiTIP:
@@ -650,15 +698,16 @@ class StoreCalendarObjectResource(object):
                 ))
             
             if do_implicit_action and self.allowImplicitSchedule:
-                new_calendar = (yield scheduler.doImplicitScheduling())
+                new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
                 if new_calendar:
                     self.calendar = new_calendar
                     self.calendardata = str(self.calendar)
                     data_changed = True
+                did_implicit_action = True
         else:
             is_scheduling_resource = False
             
-        returnValue((is_scheduling_resource, data_changed,))
+        returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
 
     @inlineCallbacks
     def doStore(self, implicit):
@@ -836,7 +885,7 @@ class StoreCalendarObjectResource(object):
             new_has_private_comments = self.preservePrivateComments()
     
             # Do scheduling
-            is_scheduling_resource, data_changed = (yield self.doImplicitScheduling())
+            is_scheduling_resource, data_changed, did_implicit_action = (yield self.doImplicitScheduling())
 
             # Initialize the rollback system
             self.setupRollback()
@@ -858,12 +907,64 @@ class StoreCalendarObjectResource(object):
             # Do the actual put or copy
             response = (yield self.doStore(data_changed))
             
+            # Must not set ETag in response if data changed
+            if did_implicit_action:
+                def _removeEtag(request, response):
+                    response.headers.removeHeader('etag')
+                    return response
+                _removeEtag.handleErrors = True
+
+                self.request.addResponseFilter(_removeEtag, atEnd=True)
 
             # Check for scheduling object resource and write property
             if is_scheduling_resource:
                 self.destination.writeDeadProperty(TwistedSchedulingObjectResource())
-            elif not self.destinationcal:
+
+                # Need to figure out when to change the schedule tag:
+                #
+                # 1. If this is not an internal request then the resource is being explicitly changed
+                # 2. If it is an internal request for the Organizer, schedule tag never changes
+                # 3. If it is an internal request for an Attendee and the message being processed came
+                #    from the Organizer then the schedule tag changes.
+
+                change_scheduletag = True
+                if self.internal_request:
+                    # Check what kind of processing is going on
+                    if self.processing_organizer == True:
+                        # All auto-processed updates for an Organizer leave the tag unchanged
+                        change_scheduletag = False
+                    elif self.processing_organizer == False:
+                        # Auto-processed updates that are the result of an organizer "refresh' due
+                        # to another Attendee's REPLY should leave the tag unchanged
+                        change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
+
+                if change_scheduletag or self.scheduletag is None:
+                    self.scheduletag = str(uuid.uuid4())
+                self.destination.writeDeadProperty(ScheduleTag.fromString(self.scheduletag))
+
+                # Add a response header
+                response.headers.setHeader("Schedule-Tag", self.scheduletag)                
+
+                # Handle weak etag compatibility
+                if config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+                    if change_scheduletag:
+                        # Schedule-Tag change => weak ETag behavior must not happen
+                        etags = ()
+                    else:
+                        # Schedule-Tag did not change => add current ETag to list of those that can
+                        # be used in a weak pre-condition test
+                        if self.destination.hasDeadProperty(TwistedScheduleMatchETags):
+                            etags = self.destination.readDeadProperty(TwistedScheduleMatchETags).children
+                        else:
+                            etags = ()
+                    etags += (davxml.GETETag.fromString(self.destination.etag().tag),)
+                    self.destination.writeDeadProperty(TwistedScheduleMatchETags(*etags))
+                else:
+                    self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
+            else:
                 self.destination.removeDeadProperty(TwistedSchedulingObjectResource)                
+                self.destination.removeDeadProperty(ScheduleTag)                
+                self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
 
             # Check for existence of private comments and write property
             if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):

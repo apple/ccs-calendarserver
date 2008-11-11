@@ -50,7 +50,7 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
 
         # Need to not do implicit behavior during these tests
         def _fakeDoImplicitScheduling(self):
-            return False, False
+            return False, False, False
         
         StoreCalendarObjectResource.doImplicitScheduling = _fakeDoImplicitScheduling
 

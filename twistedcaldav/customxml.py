@@ -72,6 +72,16 @@ class TwistedSchedulingObjectResource (davxml.WebDAVEmptyElement):
     name = "scheduling-object-resource"
     hidden = True
 
+class TwistedScheduleMatchETags(davxml.WebDAVElement):
+    """
+    List of ETags that can be used for a "weak" If-Match comparison.    
+    """
+    namespace = twisted_private_namespace
+    name = "scheduling-match-etags"
+    hidden = True
+
+    allowed_children = { (dav_namespace, "getetag"): (0, None) }
+
 class TwistedCalendarHasPrivateCommentsProperty (davxml.WebDAVEmptyElement):
     """
     Indicates that a calendar resource has private comments.

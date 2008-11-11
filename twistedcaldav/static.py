@@ -40,9 +40,10 @@ import os
 import errno
 from urlparse import urlsplit
 
-from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue,\
+    maybeDeferred
 from twisted.python.failure import Failure
-from twisted.web2 import responsecode
+from twisted.web2 import responsecode, http, http_headers
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import mkcollection, rmdir
@@ -56,7 +57,8 @@ from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
+    TwistedScheduleMatchETags
 from twistedcaldav.extensions import DAVFile, DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import CachingXattrPropertyStore
 from twistedcaldav.freebusyurl import FreeBusyURLResource
@@ -91,6 +93,51 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
         else:
             return super(CalDAVFile, self).__repr__()
+
+    def checkPreconditions(self, request):
+        """
+        We override the base class to handle the special implicit scheduling weak ETag behavior
+        for compatibility with old clients using If-Match.
+        """
+        
+        if config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+            
+            if self.exists() and self.hasDeadProperty(TwistedScheduleMatchETags):
+                etags = self.readDeadProperty(TwistedScheduleMatchETags).children
+                if len(etags) > 1:
+                    # This is almost verbatim from twisted.web2.static.checkPreconditions
+                    if request.method not in ("GET", "HEAD"):
+                        
+                        # Loop over each tag and succeed if any one matches, else re-raise last exception
+                        exists = self.exists()
+                        last_modified = self.lastModified()
+                        last_exception = None
+                        for etag in etags:
+                            try:
+                                http.checkPreconditions(
+                                    request,
+                                    entityExists = exists,
+                                    etag = http_headers.ETag(etag),
+                                    lastModified = last_modified,
+                                )
+                            except HTTPError, e:
+                                last_exception = e
+                            else:
+                                break
+                        else:
+                            if last_exception:
+                                raise last_exception
+            
+                    # Check per-method preconditions
+                    method = getattr(self, "preconditions_" + request.method, None)
+                    if method:
+                        response = maybeDeferred(method, request)
+                        response.addCallback(lambda _: request)
+                        return response
+                    else:
+                        return None
+
+        return super(CalDAVFile, self).checkPreconditions(request)
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):

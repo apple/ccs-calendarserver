@@ -90,7 +90,7 @@ class iTipProcessing(object):
         
         # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from twistedcaldav.scheduling.icaldiff import iCalDiff
-        props_changed, rids = iCalDiff(calendar, itip_message).whatIsDifferent()
+        props_changed, rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
 
         # Different behavior depending on whether a master component is present or not
         current_master = calendar.masterComponent()

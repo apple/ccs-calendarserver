@@ -1664,6 +1664,15 @@ class Recipient (CalDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, None) } # NB Minimum is zero because this is a property name
 
+class ScheduleTag (CalDAVTextElement):
+    """
+    Property on scheduling resources.
+    (CalDAV-schedule, section x.x.x)
+    """
+    name = "schedule-tag"
+    hidden = True
+    protected = True
+
 class ScheduleInbox (CalDAVEmptyElement):
     """
     Denotes the resource type of a calendar schedule Inbox.

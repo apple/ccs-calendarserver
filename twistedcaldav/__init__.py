@@ -66,8 +66,17 @@ except ImportError:
 File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.types",))
 
 import twisted.web2.dav.davxml
+from twisted.web2.http_headers import DefaultHTTPHandler, last, singleHeader, tokenize
 import twistedcaldav.caldavxml
 import twistedcaldav.customxml
 
 twisted.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
 twisted.web2.dav.davxml.registerElements(twistedcaldav.customxml)
+
+DefaultHTTPHandler.updateParsers({
+    'If-Schedule-Tag-Match':(last, str),
+})
+DefaultHTTPHandler.updateGenerators({
+    'Schedule-Tag':(str, singleHeader),
+})
+
