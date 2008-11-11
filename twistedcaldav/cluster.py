@@ -393,9 +393,10 @@ def makeService_Combined(self, options):
         ]
 
         if config.Memcached["MaxMemory"] is not 0:
-            memcachedArgv.extend([
-                "-m", str(config.Memcached["MaxMemory"]),
-            ])
+            memcachedArgv.extend(["-m", str(config.Memcached["MaxMemory"])])
+
+        if config.UserName:
+            memcachedArgv.extend(["-u", config.UserName])
 
         memcachedArgv.extend(config.Memcached["Options"])
 
