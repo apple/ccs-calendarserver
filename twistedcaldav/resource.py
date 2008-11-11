@@ -70,7 +70,7 @@ else:
 class CalDAVComplianceMixIn(object):
 
     def davComplianceClasses(self):
-        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
             extra_compliance = caldavxml.caldav_full_compliance
         else:
             extra_compliance = caldavxml.caldav_implicit_compliance
@@ -78,7 +78,7 @@ class CalDAVComplianceMixIn(object):
             extra_compliance += customxml.calendarserver_proxy_compliance
         if config.EnablePrivateEvents:
             extra_compliance += customxml.calendarserver_private_events_compliance
-        if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
+        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             extra_compliance += customxml.calendarserver_private_comments_compliance
         extra_compliance += customxml.calendarserver_principal_property_search
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance

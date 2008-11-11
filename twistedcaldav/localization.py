@@ -98,7 +98,7 @@ class translationTo(object):
     def __init__(self, lang, domain='calendarserver', localeDir=None):
 
         if localeDir is None:
-            localeDir = config.Localization["LocalesDirectory"]
+            localeDir = config.Localization.LocalesDirectory
 
         # Cache gettext translation objects in class.translations
         key = (lang, domain, localeDir)

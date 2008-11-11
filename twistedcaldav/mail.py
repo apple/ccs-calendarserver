@@ -176,7 +176,7 @@ class IMIPInboxResource(CalDAVResource):
             davxml.Privilege(davxml.Read()),
             davxml.Privilege(caldavxml.ScheduleDeliver()),
         )
-        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
         return davxml.ACL(
             # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
@@ -503,7 +503,7 @@ class IScheduleService(service.Service, LoggingMixIn):
             # Compute token, add to db, generate email and send it
             calendar = ical.Component.fromString(request.content.read())
             headers = request.getAllHeaders()
-            language = config.Localization["Language"]
+            language = config.Localization.Language
             self.mailer.outbound(headers['originator'], headers['recipient'],
                 calendar, language=language)
 
@@ -777,7 +777,7 @@ class MailHandler(LoggingMixIn):
 
         details = self.getEventDetails(calendar, language=language)
 
-        iconDir = config.Scheduling["iMIP"]["MailIconsDirectory"].rstrip("/")
+        iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
         iconName = "cal-icon-%02d-%02d.png" % (details['month'],
             details['day'])
         iconPath = os.path.join(iconDir, language, iconName)
@@ -888,7 +888,7 @@ class MailHandler(LoggingMixIn):
 
             details['iconName'] = iconName
 
-            templateDir = config.Scheduling["iMIP"]["MailTemplatesDirectory"].rstrip("/")
+            templateDir = config.Scheduling.iMIP.MailTemplatesDirectory.rstrip("/")
             templateName = "cancel.html" if canceled else "invite.html"
             templatePath = os.path.join(templateDir, templateName)
 

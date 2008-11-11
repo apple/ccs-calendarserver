@@ -273,7 +273,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             childlist += (
                 ("dropbox", DropBoxHomeResource),
             )
-        if config.FreeBusyURL["Enabled"]:
+        if config.FreeBusyURL.Enabled:
             childlist += (
                 ("freebusy", FreeBusyURLResource),
             )
@@ -303,7 +303,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             inbox.processFreeBusyCalendar(childURL, True)
 
             # Default calendar may need to be marked as the default for scheduling
-            if config.Scheduling["CalDAV"]["DefaultCalendarProvisioned"]:
+            if config.Scheduling.CalDAV.DefaultCalendarProvisioned:
                 inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(childURL)))
 
             return self

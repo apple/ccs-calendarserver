@@ -392,7 +392,7 @@ class StoreCalendarObjectResource(object):
                     raise HTTPError(responsecode.PRECONDITION_FAILED)
                 self.schedule_tag_match = True
             
-            elif config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+            elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
                 # Compatibility with old clients. Policy:
                 #
                 # 1. If If-Match header is not present, never do smart merge.
@@ -623,7 +623,7 @@ class StoreCalendarObjectResource(object):
         # NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
         # the X- property is missing.
         new_has_private_comments = False
-        if config.Scheduling["CalDAV"].get("EnablePrivateComments", True) and self.calendar is not None:
+        if config.Scheduling.CalDAV.get("EnablePrivateComments", True) and self.calendar is not None:
             old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasDeadProperty(TwistedCalendarHasPrivateCommentsProperty)
             new_has_private_comments = self.calendar.hasPropertyInAnyComponent((
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
@@ -946,7 +946,7 @@ class StoreCalendarObjectResource(object):
                 response.headers.setHeader("Schedule-Tag", self.scheduletag)                
 
                 # Handle weak etag compatibility
-                if config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+                if config.Scheduling.CalDAV.ScheduleTagCompatibility:
                     if change_scheduletag:
                         # Schedule-Tag change => weak ETag behavior must not happen
                         etags = ()
@@ -967,7 +967,7 @@ class StoreCalendarObjectResource(object):
                 self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
 
             # Check for existence of private comments and write property
-            if config.Scheduling["CalDAV"].get("EnablePrivateComments", True):
+            if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
                 if new_has_private_comments:
                     self.destination.writeDeadProperty(TwistedCalendarHasPrivateCommentsProperty())
                 elif not self.destinationcal:

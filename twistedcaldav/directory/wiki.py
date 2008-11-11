@@ -148,7 +148,7 @@ def getWikiACL(resource, request):
     if hasattr(request, 'wikiACL'):
         returnValue(request.wikiACL)
 
-    wikiConfig = config.Authentication["Wiki"]
+    wikiConfig = config.Authentication.Wiki
     userID = "unauthenticated"
     wikiID = resource.record.shortName
 

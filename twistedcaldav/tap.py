@@ -389,12 +389,12 @@ class CalDAVServiceMaker(object):
         #
         directories = []
 
-        directoryClass = namedClass(config.DirectoryService["type"])
+        directoryClass = namedClass(config.DirectoryService.type)
 
         log.info("Configuring directory service of type: %s"
-                 % (config.DirectoryService["type"],))
+                 % (config.DirectoryService.type,))
 
-        baseDirectory = directoryClass(**config.DirectoryService["params"])
+        baseDirectory = directoryClass(**config.DirectoryService.params)
 
         directories.append(baseDirectory)
 
@@ -416,7 +416,7 @@ class CalDAVServiceMaker(object):
         #
         # Add wiki directory service
         #
-        if config.Authentication["Wiki"]["Enabled"]:
+        if config.Authentication.Wiki.Enabled:
             wikiDirectory = WikiDirectoryService()
             wikiDirectory.realmName = baseDirectory.realmName
             directories.append(wikiDirectory)
@@ -430,23 +430,23 @@ class CalDAVServiceMaker(object):
         #
         # Configure Memcached Client Pool
         #
-        if config.Memcached["ClientEnabled"]:
+        if config.Memcached.ClientEnabled:
             memcachepool.installPool(
                 IPv4Address(
                     "TCP",
-                    config.Memcached["BindAddress"],
-                    config.Memcached["Port"],
+                    config.Memcached.BindAddress,
+                    config.Memcached.Port,
                 ),
-                config.Memcached["MaxClients"],
+                config.Memcached.MaxClients,
             )
 
         #
         # Configure NotificationClient
         #
-        if config.Notifications["Enabled"]:
+        if config.Notifications.Enabled:
             installNotificationClient(
-                config.Notifications["InternalNotificationHost"],
-                config.Notifications["InternalNotificationPort"],
+                config.Notifications.InternalNotificationHost,
+                config.Notifications.InternalNotificationPort,
             )
 
         #
@@ -492,7 +492,7 @@ class CalDAVServiceMaker(object):
             root.putChild("timezones", timezoneService)
 
         # iSchedule service is optional
-        if config.Scheduling["iSchedule"]["Enabled"]:
+        if config.Scheduling.iSchedule.Enabled:
             log.info("Setting up iSchedule inbox resource: %r"
                      % (self.iScheduleResourceClass,))
     
@@ -599,12 +599,12 @@ class CalDAVServiceMaker(object):
 
         if config.ProcessType == "Slave":
             if (
-                config.MultiProcess["ProcessCount"] > 1 and
-                config.MultiProcess["LoadBalancer"]["Enabled"]
+                config.MultiProcess.ProcessCount > 1 and
+                config.MultiProcess.LoadBalancer.Enabled
             ):
                 realRoot = pdmonster.PDClientAddressWrapper(
                     logWrapper,
-                    config.PythonDirector["ControlSocket"],
+                    config.PythonDirector.ControlSocket,
                     directory,
                 )
             else:
@@ -747,7 +747,7 @@ class CalDAVServiceMaker(object):
                 #   the config object instead of doing things here.
                 #log.info("Suggesting new max clients for memcache.")
                 #memcachepool.getCachePool().suggestMaxClients(
-                #    config.Memcached["MaxClients"]
+                #    config.Memcached.MaxClients
                 #)
 
             signal.signal(signal.SIGHUP, sighup_handler)

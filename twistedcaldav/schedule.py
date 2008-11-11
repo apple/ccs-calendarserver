@@ -96,7 +96,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         privs = (
             davxml.Privilege(caldavxml.ScheduleDeliver()),
         )
-        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
 
         return davxml.ACL(
@@ -203,7 +203,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             privs = (
                 davxml.Privilege(caldavxml.ScheduleSend()),
             )
-            if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            if config.Scheduling.CalDAV.OldDraftCompatibility:
                 privs += (davxml.Privilege(caldavxml.Schedule()),)
     
             return davxml.ACL(
@@ -262,7 +262,7 @@ class IScheduleInboxResource (CalDAVResource):
             davxml.Privilege(davxml.Read()),
             davxml.Privilege(caldavxml.ScheduleDeliver()),
         )
-        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
 
         return davxml.ACL(

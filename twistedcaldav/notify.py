@@ -107,7 +107,7 @@ class ClientNotifier(LoggingMixIn):
     def notify(self, op="update"):
         url = self._resource.url()
 
-        if self.config.Notifications["Enabled"]:
+        if self.config.Notifications.Enabled:
             if self._notify:
                 self.log_debug("Notifications are enabled: %s %s" % (op, url))
                 return getNotificationClient().send(op, url)
@@ -1151,7 +1151,7 @@ def getPubSubConfiguration(config):
     results = { 'enabled' : False }
 
     # return the first enabled xmpp service settings in the config file
-    for key, settings in config.Notifications["Services"].iteritems():
+    for key, settings in config.Notifications.Services.iteritems():
         if (settings["Service"] == "twistedcaldav.notify.XMPPNotifierService"
             and settings["Enabled"]):
             results['enabled'] = True
@@ -1280,27 +1280,27 @@ class NotificationServiceMaker(object):
         #
         # Configure Memcached Client Pool
         #
-        if config.Memcached["ClientEnabled"]:
+        if config.Memcached.ClientEnabled:
             memcachepool.installPool(
                 IPv4Address(
                     'TCP',
-                    config.Memcached["BindAddress"],
-                    config.Memcached["Port"]),
-                config.Memcached["MaxClients"])
+                    config.Memcached.BindAddress,
+                    config.Memcached.Port),
+                config.Memcached.MaxClients)
 
         multiService = service.MultiService()
 
         notifiers = []
-        for key, settings in config.Notifications["Services"].iteritems():
+        for key, settings in config.Notifications.Services.iteritems():
             if settings["Enabled"]:
                 notifier = namedClass(settings["Service"])(settings)
                 notifier.setServiceParent(multiService)
                 notifiers.append(notifier)
 
         internet.TCPServer(
-            config.Notifications["InternalNotificationPort"],
+            config.Notifications.InternalNotificationPort,
             InternalNotificationFactory(notifiers,
-                delaySeconds=config.Notifications["CoalesceSeconds"])
+                delaySeconds=config.Notifications.CoalesceSeconds)
         ).setServiceParent(multiService)
 
         return multiService

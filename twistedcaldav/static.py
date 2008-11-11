@@ -100,7 +100,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         for compatibility with old clients using If-Match.
         """
         
-        if config.Scheduling["CalDAV"]["ScheduleTagCompatibility"]:
+        if config.Scheduling.CalDAV.ScheduleTagCompatibility:
             
             if self.exists() and self.hasDeadProperty(TwistedScheduleMatchETags):
                 etags = self.readDeadProperty(TwistedScheduleMatchETags).children
@@ -675,7 +675,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             DropBoxHomeFileClass = None
 
-        if config.FreeBusyURL["Enabled"]:
+        if config.FreeBusyURL.Enabled:
             FreeBusyURLFileClass = FreeBusyURLFile
         else:
             FreeBusyURLFileClass = None
@@ -1079,7 +1079,7 @@ def _schedulePrivilegeSet(deliver):
                     davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
                 ),
             )
-            if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+            if config.Scheduling.CalDAV.OldDraftCompatibility:
                 all_supported_privileges.append(
                     davxml.SupportedPrivilege(
                         davxml.Privilege(caldavxml.Schedule()),

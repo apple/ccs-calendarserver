@@ -191,7 +191,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 "Your sessionID was rejected by the authenticating wiki server."
             ))
 
-        wikiConfig = config.Authentication["Wiki"]
+        wikiConfig = config.Authentication.Wiki
         cookies = request.headers.getHeader('cookie')
         if wikiConfig["Enabled"] and cookies is not None:
             for cookie in cookies:

@@ -71,7 +71,7 @@ class FreeBusyURLResource (CalDAVResource):
             davxml.Privilege(davxml.Read()),
             davxml.Privilege(caldavxml.ScheduleDeliver()),
         )
-        if config.Scheduling["CalDAV"]["OldDraftCompatibility"]:
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
 
         aces = (
@@ -82,7 +82,7 @@ class FreeBusyURLResource (CalDAVResource):
                 davxml.Protected(),
             ),
         )
-        if config.FreeBusyURL["AnonymousAccess"]:
+        if config.FreeBusyURL.AnonymousAccess:
             aces += (
                 # DAV:Read, for unauthenticated principals
                 davxml.ACE(
@@ -190,7 +190,7 @@ class FreeBusyURLResource (CalDAVResource):
         if self.duration:
             self.end = self.start + self.duration
         if self.end is None:
-            self.end = self.start + datetime.timedelta(days=config.FreeBusyURL["TimePeriod"])
+            self.end = self.start + datetime.timedelta(days=config.FreeBusyURL.TimePeriod)
             
         # End > start
         if self.end <= self.start:

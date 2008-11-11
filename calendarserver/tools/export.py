@@ -247,7 +247,7 @@ _directory = None
 def getDirectory(config):
     global _directory
     if _directory is None:
-        BaseDirectoryService = namedClass(config.DirectoryService["type"])
+        BaseDirectoryService = namedClass(config.DirectoryService.type)
 
         class MyDirectoryService (BaseDirectoryService):
             def principalCollection(self):
@@ -272,7 +272,7 @@ def getDirectory(config):
                     return principal.calendarHome()
                 return None
 
-        _directory = MyDirectoryService(**config.DirectoryService["params"])
+        _directory = MyDirectoryService(**config.DirectoryService.params)
 
     return _directory
 
