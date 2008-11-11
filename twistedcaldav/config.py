@@ -17,6 +17,7 @@
 __all__ = [
     "defaultConfigFile",
     "defaultConfig",
+    "ConfigDict",
     "Config",
     "ConfigurationError",
     "config",
@@ -38,6 +39,33 @@ from twistedcaldav.log import Logger
 from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError
 
 log = Logger()
+
+class ConfigDict (dict):
+    def __init__(self, mapping=None):
+        if mapping is not None:
+            for key, value in mapping.iteritems():
+                self[key] = value
+
+    def __repr__(self):
+        return "*" + dict.__repr__(self)
+
+    def __setitem__(self, key, value):
+        if isinstance(value, dict) and not isinstance(value, self.__class__):
+            dict.__setitem__(self, key, self.__class__(value))
+        else:
+            dict.__setitem__(self, key, value)
+
+    def __setattr__(self, attr, value):
+        if attr[0] == "_":
+            dict.__setattr__(self, attr, value)
+        else:
+            self[attr] = value
+
+    def __getattr__(self, attr):
+        if attr in self:
+            return self[attr]
+        else:
+            return dict.__getattr__(self, attr)
 
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
@@ -361,33 +389,6 @@ defaultConfig = {
     "EnableKeepAlive": True,
 }
 
-class ConfigDict (dict):
-    def __init__(self, mapping=None):
-        if mapping is not None:
-            for key, value in mapping.iteritems():
-                self[key] = value
-
-    def __repr__(self):
-        return "*" + dict.__repr__(self)
-
-    def __setitem__(self, key, value):
-        if type(value) is dict:
-            dict.__setitem__(self, key, ConfigDict(value))
-        else:
-            dict.__setitem__(self, key, value)
-
-    def __setattr__(self, attr, value):
-        if attr[0] == "_":
-            dict.__setattr__(self, attr, value)
-        else:
-            self[attr] = value
-
-    def __getattr__(self, attr):
-        if attr in self:
-            return self[attr]
-        else:
-            return dict.__getattr__(self, attr)
-
 class Config (object):
     """
     @DynamicAttrs
@@ -397,7 +398,7 @@ class Config (object):
             defaults = ConfigDict(defaults)
 
         self.setDefaults(defaults)
-        self._data = copy.deepcopy(self._defaults)
+        self._data = copy.deepcopy(defaults)
         self._configFile = None
         self._hooks = [
             self.updateHostName,
@@ -416,6 +417,9 @@ class Config (object):
         self._hooks.append(hook)
 
     def update(self, items):
+        if not isinstance(items, ConfigDict):
+            items = ConfigDict(items)
+
         #
         # Call hooks
         #
@@ -438,17 +442,17 @@ class Config (object):
         #
         dsType = items.get("DirectoryService", {}).get("type", None)
         if dsType is None:
-            dsType = self._data["DirectoryService"]["type"]
+            dsType = self._data.DirectoryService.type
         else:
-            if dsType == self._data["DirectoryService"]["type"]:
-                oldParams = self._data["DirectoryService"]["params"]
-                newParams = items["DirectoryService"].get("params", {})
+            if dsType == self._data.DirectoryService.type:
+                oldParams = self._data.DirectoryService.params
+                newParams = items.DirectoryService.get("params", {})
                 _mergeData(oldParams, newParams)
             else:
                 if dsType in serviceDefaultParams:
-                    self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+                    self._data.DirectoryService.params = copy.deepcopy(serviceDefaultParams[dsType])
                 else:
-                    self._data["DirectoryService"]["params"] = {}
+                    self._data.DirectoryService.params = {}
 
         for param in items.get("DirectoryService", {}).get("params", {}):
             if dsType in serviceDefaultParams and param not in serviceDefaultParams[dsType]:
@@ -456,10 +460,10 @@ class Config (object):
 
         _mergeData(self._data, items)
 
-        if self._data["DirectoryService"]["type"] in serviceDefaultParams:
-            for param in tuple(self._data["DirectoryService"]["params"]):
-                if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
-                    del self._data["DirectoryService"]["params"][param]
+        if self._data.DirectoryService.type in serviceDefaultParams:
+            for param in tuple(self._data.DirectoryService.params):
+                if param not in serviceDefaultParams[self._data.DirectoryService.type]:
+                    del self._data.DirectoryService.params[param]
 
     @staticmethod
     def updateACLs(self, items):
@@ -576,6 +580,8 @@ class Config (object):
         self.update(items)
 
     def setDefaults(self, defaults):
+        if not isinstance(defaults, ConfigDict):
+            defaults = ConfigDict(defaults)
         self._defaults = copy.deepcopy(defaults)
 
     def __setattr__(self, attr, value):
@@ -601,7 +607,7 @@ class Config (object):
         if configFile and os.path.exists(configFile):
             configDict = readPlist(configFile)
             configDict = _cleanup(configDict)
-            self.update(configDict)
+            self.update(ConfigDict(configDict))
         elif configFile:
             log.error("Configuration file does not exist or is inaccessible: %s" % (configFile,))
 
@@ -627,12 +633,11 @@ class Config (object):
                         raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                                  % (key, value))
 
-
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
         if isinstance(value, (dict,)):
             if key in oldData:
-                assert isinstance(oldData[key], (dict,))
+                assert isinstance(oldData[key], ConfigDict), "%r in %r is not a ConfigDict" % (oldData[key], oldData)
             else:
                 oldData[key] = {}
             _mergeData(oldData[key], value)
