@@ -201,7 +201,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
             else:
                 token = None
 
-            if token is not None:
+            if token is not None and token != "unauthenticated":
                 log.info("Wiki sessionID cookie value: %s" % (token,))
                 proxy = Proxy(wikiConfig["URL"])
                 d = proxy.callRemote(wikiConfig["UserMethod"],
