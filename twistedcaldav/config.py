@@ -14,6 +14,14 @@
 # limitations under the License.
 ##
 
+__all__ = [
+    "defaultConfigFile",
+    "defaultConfig",
+    "Config",
+    "ConfigurationError",
+    "config",
+]
+
 import os
 import copy
 import re
@@ -353,12 +361,41 @@ defaultConfig = {
     "EnableKeepAlive": True,
 }
 
+class ConfigDict (dict):
+    def __init__(self, mapping=None):
+        if mapping is not None:
+            for key, value in mapping.iteritems():
+                self[key] = value
+
+    def __repr__(self):
+        return "*" + dict.__repr__(self)
+
+    def __setitem__(self, key, value):
+        if type(value) is dict:
+            dict.__setitem__(self, key, ConfigDict(value))
+        else:
+            dict.__setitem__(self, key, value)
+
+    def __setattr__(self, attr, value):
+        if attr[0] == "_":
+            dict.__setattr__(self, attr, value)
+        else:
+            self[attr] = value
+
+    def __getattr__(self, attr):
+        if attr in self:
+            return self[attr]
+        else:
+            return dict.__getattr__(self, attr)
 
 class Config (object):
     """
     @DynamicAttrs
     """
     def __init__(self, defaults):
+        if not isinstance(defaults, ConfigDict):
+            defaults = ConfigDict(defaults)
+
         self.setDefaults(defaults)
         self._data = copy.deepcopy(self._defaults)
         self._configFile = None
