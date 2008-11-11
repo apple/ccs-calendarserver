@@ -149,14 +149,15 @@ echo "Preparing sources for ${project_version}...";
 make -C "${wc}" prep;
 
 if "${build}"; then
-    echo "";
-    echo "Building ${project_version}...";
-    sudo ~rc/bin/buildit "${wc}" $(file /usr/lib/libSystem.dylib | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|');
+  echo "";
+  echo "Building ${project_version}...";
+  sudo ~rc/bin/buildit "${wc}" \
+    $(file /usr/lib/libSystem.dylib | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
+    -release SnowLeopard;
 else
-    echo "";
-    echo "Submitting sources for ${project_version}...";
-    ~rc/bin/submitproject "${wc}" "${release}";
+  echo "";
+  echo "Submitting sources for ${project_version}...";
+  ~rc/bin/submitproject "${wc}" "${release}";
 fi;
-
 
 rm -rf "${tmp}";
