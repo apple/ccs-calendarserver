@@ -40,6 +40,7 @@ GROUP = calendar
 
 .phony: $(Project) vobject Twisted build setup prep install install-ossfiles buildit
 
+CalDAVTester::          $(BuildDirectory)/CalDAVTester
 PyKerberos::            $(BuildDirectory)/PyKerberos
 PyOpenDirectory::       $(BuildDirectory)/PyOpenDirectory
 PyXML-0.8.4::           $(BuildDirectory)/PyXML-0.8.4
@@ -53,7 +54,7 @@ build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted 
 setup:
 	$(_v) ./run -g
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
+prep:: setup CalDAVTester.tgz PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
 
 PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject $(Project)::
 	@echo "Building $@..."
@@ -107,10 +108,12 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -m 0755 $(DSTROOT)$(VARDIR)/log/caldavd
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/launchd/calendarserver.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist
-	$(_v) $(MKDIR) $(DSTROOT)$(ETCDIR)/sbs_backup/
-	$(_v) $(MKDIR) $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/sbs_backup/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/sbs_backup/
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/bin/calendarServer_restore $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/AppleInternal/ServerTools
+	$(_v) $(TAR) -C $(DSTROOT)/AppleInternal/ServerTools -xzf $(Sources)/CalDAVTester.tgz
 
 #
 # Automatic Extract
