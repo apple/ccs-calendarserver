@@ -147,9 +147,9 @@ class StoreCalendarObjectResource(object):
         
         def __init__(self, index, uid, uri, internal_request):
             if internal_request:
-                self._lock = None
+                self.lock = None
             else:
-                self._lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
+                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
             self.reserved = False
             self.index = index
             self.uid = uid
@@ -159,9 +159,9 @@ class StoreCalendarObjectResource(object):
         def reserve(self):
             
             # Implicit lock
-            if self._lock:
+            if self.lock:
                 try:
-                    yield self._lock.acquire()
+                    yield self.lock.acquire()
                 except MemcacheLockTimeoutError:
                     raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
 
@@ -184,8 +184,8 @@ class StoreCalendarObjectResource(object):
                 yield pause
             
             if self.uri and not self.reserved:
-                if self._lock:
-                    yield self._lock.release()
+                if self.lock:
+                    yield self.lock.release()
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
         
         @inlineCallbacks
@@ -193,8 +193,8 @@ class StoreCalendarObjectResource(object):
             if self.reserved:
                 yield self.index.unreserveUID(self.uid)
                 self.reserved = False
-            if self._lock:
-                yield self._lock.clean()
+            if self.lock:
+                yield self.lock.clean()
 
     def __init__(
         self,

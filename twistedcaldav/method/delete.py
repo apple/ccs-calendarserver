@@ -113,16 +113,12 @@ def http_DELETE(self, request):
                 
                 # Do some clean up
                 yield self.deletedCalendar(request)
-                
-        if lock:
-            yield lock.release()
 
     except MemcacheLockTimeoutError:
         raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
 
-    except Exception, e:
+    finally:
         if lock:
             yield lock.clean()
-        raise e
 
     returnValue(response)
