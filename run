@@ -468,14 +468,6 @@ py_have_module () {
     PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
 }
 
-put_setuptools () {
-    local where="$1"; shift;
-
-    if "${do_get}"; then
-      cp "${caldav}/support/setuptools-0.6c8-py2.5.egg" "${where}/";
-    fi;
-}
-
 #
 # Zope Interface
 #
@@ -558,7 +550,6 @@ if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
   svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.5 1013;
-  put_setuptools "${xattr}";
   py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
 
@@ -681,7 +672,6 @@ case "${USER}" in
 esac;
 svn_uri="${base}/vobject/trunk";
 svn_get "vObject" "${vobject}" "${svn_uri}" 210;
-put_setuptools "${vobject}";
 
 py_install "vObject" "${vobject}";
 
@@ -694,7 +684,6 @@ export PYTHONPATH="${PYTHONPATH}:${vobject}";
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
   www_get "PyDirector" "${pydirector}" http://voxel.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
-  put_setuptools "${pydirector}";
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
 
