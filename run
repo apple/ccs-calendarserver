@@ -702,6 +702,14 @@ if ! py_have_module pydirector; then
 fi;
 
 #
+# CalDAVTester
+#
+
+caldavtester="${top}/CalDAVTester";
+
+svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 3352;
+
+#
 # Calendar Server
 #
 

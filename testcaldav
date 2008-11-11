@@ -63,12 +63,6 @@ fi;
 
 export PYTHONPATH=$("${wd}/run" -p);
 
-if [ -d "${cdt}" ]; then
-  svn update "${cdt}";
-else
-  svn checkout http://svn.macosforge.org/repository/calendarserver/CalDAVTester/trunk "${cdt}"
-fi;
-
 if [ ! -e "${documentroot}/calendars/__uids__/user01" ]; then
   curl "http://localhost:8008/calendars/__uids__/user01/";
 fi;
