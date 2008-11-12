@@ -772,25 +772,38 @@ class MailHandler(LoggingMixIn):
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
 
-    def getIconPath(self, details, language='en'):
-        month = int(details['month'])
-        day = int(details['day'])
+    def getIconPath(self, details, canceled, language='en'):
         iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
-        with translationTo(language) as trans:
-            monthName = trans.monthAbbreviation(month)
-        iconName = "%02d.png" % (day,)
-        iconPath = os.path.join(iconDir, monthName, iconName)
-        if not os.path.exists(iconPath):
-            # Try the generic (numeric) version
-            iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
-        return iconPath
+
+        if canceled:
+            iconName = "canceled.png"
+            iconPath = os.path.join(iconDir, iconName)
+            if os.path.exists(iconPath):
+                return iconPath
+            else:
+                return None
+
+        else:
+            month = int(details['month'])
+            day = int(details['day'])
+            with translationTo(language) as trans:
+                monthName = trans.monthAbbreviation(month)
+            iconName = "%02d.png" % (day,)
+            iconPath = os.path.join(iconDir, monthName, iconName)
+            if not os.path.exists(iconPath):
+                # Try the generic (numeric) version
+                iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
+                if not os.path.exists(iconPath):
+                    return None
+            return iconPath
 
 
     def generateEmail(self, newInvitation, calendar, orgEmail, orgCN,
         attendees, fromAddress, replyToAddress, toAddress, language='en'):
 
         details = self.getEventDetails(calendar, language=language)
-        iconPath = self.getIconPath(details, language=language)
+        canceled = (calendar.propertyValue("METHOD") == "CANCEL")
+        iconPath = self.getIconPath(details, canceled, language=language)
 
         with translationTo(language):
             msg = MIMEMultipart()
@@ -801,7 +814,6 @@ class MailHandler(LoggingMixIn):
             msgId = messageid()
             msg["Message-ID"] = msgId
 
-            canceled = (calendar.propertyValue("METHOD") == "CANCEL")
             if canceled:
                 formatString = _("Event canceled: %(summary)s")
             elif newInvitation:

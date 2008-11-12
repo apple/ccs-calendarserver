@@ -31,7 +31,7 @@ class MailHandlerTests(TestCase):
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
 
     def test_iconPath(self):
-        iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, language='en')
+        iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, False, language='en')
         iconDir = "/usr/share/caldavd/share/date_icons"
         if os.path.exists("%s/JAN/01.png" % (iconDir,)):
             self.assertEquals(iconPath, "%s/JAN/01.png" % (iconDir,))
