@@ -74,7 +74,7 @@ class IDirectoryService(Interface):
 
     def recordsMatchingFields(fields):
         """
-        @return: a sequence of L{IDirectoryRecord}s which match the given
+        @return: a deferred sequence of L{IDirectoryRecord}s which match the given
             fields.
         """
 

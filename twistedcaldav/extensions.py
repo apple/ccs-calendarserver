@@ -318,9 +318,12 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
             if fields:
 
-                for record in dir.recordsMatchingFieldsWithCUType(fields,
-                    operand=operand, cuType=cuType):
+                d = waitForDeferred(dir.recordsMatchingFieldsWithCUType(fields,
+                    operand=operand, cuType=cuType))
+                yield d
+                records = d.getResult()
 
+                for record in records:
                     resource = principalCollection.principalForRecord(record)
 
                     # We've determined this is a matching resource

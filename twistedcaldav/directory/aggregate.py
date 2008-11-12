@@ -24,11 +24,13 @@ __all__ = [
     "DuplicateRecordTypeError",
 ]
 
+import itertools
 from twisted.cred.error import UnauthorizedLogin
 
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 class AggregateDirectoryService(DirectoryService):
     """
@@ -103,16 +105,23 @@ class AggregateDirectoryService(DirectoryService):
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
 
+    @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
+
         if recordType:
             services = (self.serviceForRecordType(recordType),)
         else:
             services = set(self._recordTypes.values())
 
+        generators = []
         for service in services:
-            for record in service.recordsMatchingFields(fields,
-                operand=operand, recordType=recordType):
-                    yield record
+            generator = (yield service.recordsMatchingFields(fields,
+                operand=operand, recordType=recordType))
+            generators.append(generator)
+
+        returnValue(itertools.chain(*generators))
+
+
 
     def serviceForRecordType(self, recordType):
         try:

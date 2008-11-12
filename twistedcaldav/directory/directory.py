@@ -34,6 +34,7 @@ from zope.interface import implements
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
+from twisted.internet.defer import succeed
 
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
@@ -196,19 +197,23 @@ class DirectoryService(LoggingMixIn):
                 # we didn't hit any
                 return False
 
-        try:
-            if recordType is None:
-                recordTypes = list(self.recordTypes())
-            else:
-                recordTypes = (recordType,)
+        def yieldMatches(recordType):
+            try:
+                if recordType is None:
+                    recordTypes = list(self.recordTypes())
+                else:
+                    recordTypes = (recordType,)
 
-            for recordType in recordTypes:
-                for record in self.listRecords(recordType):
-                    if recordMatches(record):
-                        yield record
-        except UnknownRecordTypeError:
-            # Skip this service since it doesn't understand this record type
-            pass
+                for recordType in recordTypes:
+                    for record in self.listRecords(recordType):
+                        if recordMatches(record):
+                            yield record
+
+            except UnknownRecordTypeError:
+                # Skip this service since it doesn't understand this record type
+                pass
+
+        return succeed(yieldMatches(recordType))
 
 
 class DirectoryRecord(LoggingMixIn):

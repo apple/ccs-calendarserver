@@ -356,6 +356,19 @@ class OpenDirectoryService(DirectoryService):
         # query, not per expression, so the current code uses whatever is
         # specified in the last field in the fields list
 
+        def collectResults(results):
+            self.log_info("Got back %d records from OD" % (len(results),))
+            for key, val in results.iteritems():
+                self.log_debug("OD result: %s %s" % (key, val))
+                try:
+                    guid = val[dsattributes.kDS1AttrGeneratedUID]
+                    record = self.recordWithGUID(guid)
+                    if record:
+                        yield record
+                except KeyError:
+                    pass
+
+
         operand = (dsquery.expression.OR if operand == "or"
             else dsquery.expression.AND)
 
@@ -375,31 +388,18 @@ class OpenDirectoryService(DirectoryService):
         else:
             recordTypes = (self._toODRecordTypes[recordType],)
 
-        for recordType in recordTypes:
+        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" % (recordTypes, operand, caseless, fields))
+        deferred = deferToThread(
+            opendirectory.queryRecordsWithAttributes,
+            self.directory,
+            dsquery.expression(operand, expressions).generate(),
+            caseless,
+            recordTypes,
+            [ dsattributes.kDS1AttrGeneratedUID ]
+        )
+        deferred.addCallback(collectResults)
+        return deferred
 
-            try:
-                self.log_info("Calling OD: Type %s, Operand %s, Caseless %s, %s" % (recordType, operand, caseless, fields))
-                results = opendirectory.queryRecordsWithAttributes(
-                    self.directory,
-                    dsquery.expression(operand, expressions).generate(),
-                    caseless,
-                    recordType,
-                    [ dsattributes.kDS1AttrGeneratedUID ]
-                )
-                self.log_info("Got back %d records from OD" % (len(results),))
-                for key, val in results.iteritems():
-                    self.log_debug("OD result: %s %s" % (key, val))
-                    try:
-                        guid = val[dsattributes.kDS1AttrGeneratedUID]
-                        rec = self.recordWithGUID(guid)
-                        if rec:
-                            yield rec
-                    except KeyError:
-                        pass
-
-            except Exception, e:
-                self.log_error("OD search failed: %s" % (e,))
-                raise
 
     def reloadCache(self, recordType, shortName=None, guid=None):
         if shortName:
