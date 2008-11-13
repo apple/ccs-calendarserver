@@ -271,7 +271,8 @@ class CalDAVOptions(Options):
                 % (description, dirpath,)
             )
 
-def getSSLPassphrase(*args):
+def getSSLPassphrase(*ignored):
+
     if not config.SSLPrivateKey:
         return None
 
@@ -289,23 +290,23 @@ def getSSLPassphrase(*args):
             log.error("Could not get passphrase for %s: %s"
                       % (config.SSLPrivateKey, error))
         else:
-            return output
+            return output.strip()
 
     if config.SSLPassPhraseDialog and os.path.isfile(config.SSLPassPhraseDialog):
         sslPrivKey = open(config.SSLPrivateKey)
         try:
-            type = None
+            keyType = None
             for line in sslPrivKey.readlines():
                 if "-----BEGIN RSA PRIVATE KEY-----" in line:
-                    type = "RSA"
+                    keyType = "RSA"
                     break
                 elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-                    type = "DSA"
+                    keyType = "DSA"
                     break
         finally:
             sslPrivKey.close()
 
-        if type is None:
+        if keyType is None:
             log.error("Could not get private key type for %s"
                       % (config.SSLPrivateKey,))
         else:
@@ -313,7 +314,7 @@ def getSSLPassphrase(*args):
                 args=[
                     config.SSLPassPhraseDialog,
                     "%s:%s" % (config.ServerHostName, config.SSLPort),
-                    type,
+                    keyType,
                 ],
                 stdout=PIPE, stderr=PIPE,
             )
@@ -323,7 +324,7 @@ def getSSLPassphrase(*args):
                 log.error("Could not get passphrase for %s: %s"
                           % (config.SSLPrivateKey, error))
             else:
-                return output
+                return output.strip()
 
     return None
 
