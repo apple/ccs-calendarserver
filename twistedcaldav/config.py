@@ -377,8 +377,8 @@ defaultConfig = {
 
     "Memcached": {
         "MaxClients": 5,
-        "ClientEnabled": False,
-        "ServerEnabled": False,
+        "ClientEnabled": True,
+        "ServerEnabled": True,
         "BindAddress": "127.0.0.1",
         "Port": 11211,
         "memcached": "memcached", # Find in PATH
