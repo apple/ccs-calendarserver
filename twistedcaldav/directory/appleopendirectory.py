@@ -271,10 +271,18 @@ class OpenDirectoryService(DirectoryService):
         try:
             return self.recordsForType(recordType)[shortName]
         except KeyError:
+            # Check negative cache
+            if shortName in self._storage(recordType)["disabled names"]:
+                return None
+
             # Cache miss; try looking the record up, in case it is new
             # FIXME: This is a blocking call (hopefully it's a fast one)
             self.reloadCache(recordType, shortName=shortName)
-            return self.recordsForType(recordType).get(shortName, None)
+            record = self.recordsForType(recordType).get(shortName, None)
+            if record is None:
+                # Add to negative cache
+                self._storage(recordType)["disabled names"].add(shortName)
+            return record
 
     def recordWithGUID(self, guid):
         def lookup():
@@ -288,6 +296,10 @@ class OpenDirectoryService(DirectoryService):
         record = lookup()
 
         if record is None:
+            # Check negative cache
+            if guid in self._storage(recordType)["disabled guids"]:
+                return None
+
             # Cache miss; try looking the record up, in case it is new
             for recordType in self.recordTypes():
                 self.reloadCache(recordType, guid=guid)
@@ -297,6 +309,8 @@ class OpenDirectoryService(DirectoryService):
                                   % (guid, recordType))
                     break
             else:
+                # Add to negative cache
+                self._storage(recordType)["disabled guids"].add(guid)
                 self.log_info("Unable to find any record with GUID %s" % (guid,))
 
         return record
