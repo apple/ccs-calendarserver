@@ -68,7 +68,7 @@ class iCalDiff(object):
             ))
             calendar.removeXProperties()
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-AGENT", "SCHEDULE-STATUS",))
-            calendar.removePropertyParametersByValue("ATTENDEE", (("PARTSTAT", "NEEDS-ACTION"),))
+            calendar.normalizeAll()
             return calendar
         
         # Normalize components for comparison
@@ -229,6 +229,7 @@ class iCalDiff(object):
             calendar = calendar.duplicate()
             calendar.normalizePropertyValueLists("EXDATE")
             calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+            calendar.normalizeAll()
             iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
             return calendar
 

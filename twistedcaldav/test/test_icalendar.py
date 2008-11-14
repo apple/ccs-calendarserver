@@ -17,6 +17,7 @@
 import os
 import datetime
 from dateutil.tz import tzutc
+from difflib import unified_diff
 
 from twisted.trial.unittest import SkipTest
 
@@ -1956,4 +1957,71 @@ END:VCALENDAR
             component_result = Component.fromString(result)
             component_to.transferProperties(component_from, propnames)
             self.assertEqual(str(component_to), str(component_result), "%s: mismatch" % (description,))
-       
+
+    def test_normalize_all(self):
+        
+        data = (
+            (
+                "1.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114T000000Z
+SEQUENCE:0
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114T000000Z
+TRANSP:OPAQUE
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user03@example.com
+ATTENDEE;RSVP=FALSE:mailto:user04@example.com
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+ATTENDEE:mailto:user04@example.com
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+        
+        for title, original, result in data:
+            ical1 = Component.fromString(original)
+            ical1.normalizeAll()
+            ical1 = str(ical1)
+            ical2 = Component.fromString(result)
+            ical2 = str(ical2)
+            diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
+            self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))

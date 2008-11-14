@@ -58,6 +58,66 @@ allowedComponents = (
     #"VAVAILABILITY",
 )
 
+# 2445 default values and parameters
+# Structure: propname: (<default value>, <parameter defaults dict>)
+
+normalizeProps = {
+    "CALSCALE":     ("GREGORIAN", {"VALUE": "TEXT"}),
+    "METHOD":       (None, {"VALUE": "TEXT"}),
+    "PRODID":       (None, {"VALUE": "TEXT"}),
+    "VERSION":      (None, {"VALUE": "TEXT"}),
+    "ATTACH":       (None, {"VALUE": "URI"}),
+    "CATEGORIES":   (None, {"VALUE": "TEXT"}),
+    "CLASS":        (None, {"VALUE": "TEXT"}),
+    "COMMENT":      (None, {"VALUE": "TEXT"}),
+    "DESCRIPTION":  (None, {"VALUE": "TEXT"}),
+    "GEO":          (None, {"VALUE": "FLOAT"}),
+    "LOCATION":     (None, {"VALUE": "TEXT"}),
+    "PERCENT-COMPLETE": (None, {"VALUE": "INTEGER"}),
+    "PRIORITY":     ("0", {"VALUE": "INTEGER"}),
+    "RESOURCES":    (None, {"VALUE": "TEXT"}),
+    "STATUS":       (None, {"VALUE": "TEXT"}),
+    "SUMMARY":      (None, {"VALUE": "TEXT"}),
+    "COMPLETED":    (None, {"VALUE": "DATE-TIME"}),
+    "DTEND":        (None, {"VALUE": "DATE-TIME"}),
+    "DUE":          (None, {"VALUE": "DATE-TIME"}),
+    "DTSTART":      (None, {"VALUE": "DATE-TIME"}),
+    "DURATION":     (None, {"VALUE": "DURATION"}),
+    "FREEBUSY":     (None, {"VALUE": "PERIOD"}),
+    "TRANSP":       ("OPAQUE", {"VALUE": "TEXT"}),
+    "TZID":         (None, {"VALUE": "TEXT"}),
+    "TZNAME":       (None, {"VALUE": "TEXT"}),
+    "TZOFFSETFROM": (None, {"VALUE": "UTC-OFFSET"}),
+    "TZOFFSETTO":   (None, {"VALUE": "UTC-OFFSET"}),
+    "TZURL":        (None, {"VALUE": "URI"}),
+    "ATTENDEE":     (None, {
+        "VALUE": "CAL-ADDRESS",
+        "CUTYPE": "INDIVIDUAL",
+        "ROLE": "REQ-PARTICIPANT",
+        "PARTSTAT": "NEEDS-ACTION",
+        "RSVP": "FALSE",
+        
+    }),
+    "CONTACT":      (None, {"VALUE": "TEXT"}),
+    "ORGANIZER":    (None, {"VALUE": "CAL-ADDRESS"}),
+    "RECURRENCE-ID": (None, {"VALUE": "DATE-TIME"}),
+    "RELATED-TO":   (None, {"VALUE": "TEXT"}),
+    "URL":          (None, {"VALUE": "URI"}),
+    "UID":          (None, {"VALUE": "TEXT"}),
+    "EXDATE":       (None, {"VALUE": "DATE-TIME"}),
+    "EXRULE":       (None, {"VALUE": "RECUR"}),
+    "RDATE":        (None, {"VALUE": "DATE-TIME"}),
+    "RRULE":        (None, {"VALUE": "RECUR"}),
+    "ACTION":       (None, {"VALUE": "TEXT"}),
+    "REPEAT":       ("0", {"VALUE": "INTEGER"}),
+    "TRIGGER":      (None, {"VALUE": "DURATION"}),
+    "CREATED":      (None, {"VALUE": "DATE-TIME"}),
+    "DTSTAMP":      (None, {"VALUE": "DATE-TIME"}),
+    "LAST-MODIFIED": (None, {"VALUE": "DATE-TIME"}),
+    "SEQUENCE":     ("0", {"VALUE": "INTEGER"}),
+    "REQUEST-STATUS": (None, {"VALUE": "TEXT"}),
+}
+
 class Property (object):
     """
     iCalendar Property
@@ -1552,6 +1612,32 @@ class Component (object):
                         pass
                     except ValueError:
                         pass
+
+    def normalizeAll(self):
+        
+        # Normalize all properties
+        for prop in tuple(self.properties()):
+            result = normalizeProps.get(prop.name())
+            if result:
+                default_value, default_params = result
+            else:
+                # Assume default VALUE is TEXT
+                default_value = None
+                default_params = {"VALUE": "TEXT"}
+            
+            # Remove any default parameters
+            for name, value in prop.params().items():
+                if value == [default_params.get(name),]:
+                    del prop.params()[name]
+            
+            # If there are no parameters, remove the property if it has the default value
+            if len(prop.params()) == 0:
+                if prop.value() == default_value:
+                    self.removeProperty(prop)
+
+        # Do to all sub-components too
+        for component in self.subcomponents():
+            component.normalizeAll()
 
     def normalizePropertyValueLists(self, propname):
         """
