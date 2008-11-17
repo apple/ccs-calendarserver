@@ -565,7 +565,7 @@ class Config (object):
             if "DefaultLogLevel" in self._data:
                 level = self._data["DefaultLogLevel"]
                 if not level:
-                    level = "info"
+                    level = "warn"
                 setLogLevelForNamespace(None, level)
 
             if "LogLevels" in self._data:
