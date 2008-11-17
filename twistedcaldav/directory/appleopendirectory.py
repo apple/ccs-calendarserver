@@ -296,12 +296,12 @@ class OpenDirectoryService(DirectoryService):
         record = lookup()
 
         if record is None:
-            # Check negative cache
-            if guid in self._storage(recordType)["disabled guids"]:
-                return None
-
             # Cache miss; try looking the record up, in case it is new
             for recordType in self.recordTypes():
+                # Check negative cache
+                if guid in self._storage(recordType)["disabled guids"]:
+                    break
+
                 self.reloadCache(recordType, guid=guid)
                 record = lookup()
                 if record is not None:
@@ -309,12 +309,11 @@ class OpenDirectoryService(DirectoryService):
                                   % (guid, recordType))
                     break
             else:
-                # Add to negative cache
+                # Nothing found; add to negative cache
                 self._storage(recordType)["disabled guids"].add(guid)
                 self.log_info("Unable to find any record with GUID %s" % (guid,))
 
         return record
-
 
     def groupsForGUID(self, guid):
         
