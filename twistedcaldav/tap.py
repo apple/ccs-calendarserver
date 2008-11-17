@@ -205,7 +205,13 @@ class CalDAVOptions(Options):
         #
         # Verify that document root, data root actually exist
         #
-        self.checkDirectory(config.DocumentRoot, "Document root")
+        self.checkDirectory(
+            config.DocumentRoot,
+            "Document root",
+            # Don't require write access because one might not allow editing on /
+            access=os.R_OK,
+            create=(0750, config.UserName, config.GroupName),
+        )
         self.checkDirectory(
             config.DataRoot,
             "Data root",
