@@ -37,7 +37,7 @@ if sys.platform == "darwin" and hasCtypes:
         libc.sysctlbyname(
             "hw.ncpu",
             c_voidp(addressof(ncpu)),
-            addressof(size),
+            c_voidp(addressof(size)),
             None, 0
         )
 
