@@ -53,7 +53,7 @@ from twistedcaldav.httpfactory import HTTP503LoggingFactory
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
-from twistedcaldav.static import IMIPInboxFile
+from twistedcaldav.mail import IMIPInboxResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import UpgradeTheServer
 from twistedcaldav import pdmonster
@@ -380,7 +380,7 @@ class CalDAVServiceMaker(object):
     principalResourceClass       = DirectoryPrincipalProvisioningResource
     calendarResourceClass        = CalendarHomeProvisioningFile
     iScheduleResourceClass       = IScheduleInboxFile
-    imipResourceClass            = IMIPInboxFile
+    imipResourceClass            = IMIPInboxResource
     timezoneServiceResourceClass = TimezoneServiceFile
 
     def makeService_Slave(self, options):
@@ -515,10 +515,7 @@ class CalDAVServiceMaker(object):
         log.info("Setting up iMIP inbox resource: %r"
                  % (self.imipResourceClass,))
 
-        imipInbox = self.imipResourceClass(
-            os.path.join(config.DocumentRoot, "inbox"),
-            root,
-        )
+        imipInbox = self.imipResourceClass(root)
         root.putChild("inbox", imipInbox)
 
         #

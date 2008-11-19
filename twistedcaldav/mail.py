@@ -26,23 +26,25 @@ from email.mime.text import MIMEText
 
 from twisted.application import internet, service
 from twisted.internet import protocol, defer, ssl
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, sendmail
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 from twisted.web import resource, server, client
+from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.http import Response
+from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.localization import translationTo
 
@@ -154,7 +156,7 @@ class MailGatewayOptions(Options):
 
 
 
-class IMIPInboxResource(CalDAVResource):
+class IMIPInboxResource(CalDAVFile):
     """
     IMIP-delivery Inbox resource.
 
@@ -167,25 +169,9 @@ class IMIPInboxResource(CalDAVResource):
         """
         assert parent is not None
 
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+        CalDAVFile.__init__(self, NotFilePath(isfile=True), principalCollections=parent.principalCollections())
 
         self.parent = parent
-
-    def defaultAccessControlList(self):
-        privs = (
-            davxml.Privilege(davxml.Read()),
-            davxml.Privilege(caldavxml.ScheduleDeliver()),
-        )
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            privs += (davxml.Privilege(caldavxml.Schedule()),)
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
-        )
 
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
@@ -229,6 +215,36 @@ class IMIPInboxResource(CalDAVResource):
         result = (yield scheduler.doSchedulingViaPOST())
         returnValue(result.response())
 
+    ##
+    # File
+    ##
+
+    def createSimilarFile(self, path):
+        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        raise HTTPError(responsecode.NOT_FOUND)
+
+    ##
+    # ACL
+    ##
+
+    def defaultAccessControlList(self):
+        privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+        return davxml.ACL(
+            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
+            davxml.ACE(
+                davxml.Principal(davxml.All()),
+                davxml.Grant(*privs),
+                davxml.Protected(),
+            ),
+        )
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
 
 
 def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
