@@ -34,11 +34,15 @@ if sys.platform == "darwin" and hasCtypes:
         ncpu = c_int(0)
         size = c_size_t(sizeof(ncpu))
 
+        libc.sysctlbyname.argtypes = [
+            c_char_p, c_void_p, c_void_p, c_void_p, c_ulong
+        ]
         libc.sysctlbyname(
             "hw.ncpu",
             c_voidp(addressof(ncpu)),
             c_voidp(addressof(size)),
-            None, 0
+            None,
+            0
         )
 
         return int(ncpu.value)
