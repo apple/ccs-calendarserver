@@ -118,6 +118,12 @@ normalizeProps = {
     "REQUEST-STATUS": (None, {"VALUE": "TEXT"}),
 }
 
+# transformations to apply to property values
+normalizePropsValue = {
+    "ATTENDEE":     normalizeCUAddr,
+    "ORGANIZER":    normalizeCUAddr,
+}
+
 class Property (object):
     """
     iCalendar Property
@@ -953,7 +959,11 @@ class Component (object):
         if newcomp.hasProperty("DTEND"):
             dtend = newcomp.getProperty("DTEND")
             dtend.setValue(dtend.value() + offset)
-        newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value()))
+        try:
+            rid_params = {"X-VOBJ-ORIGINAL-TZID":dtstart.params()["X-VOBJ-ORIGINAL-TZID"]}
+        except KeyError:
+            rid_params = {}
+        newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value(), params=rid_params))
             
         return newcomp
         
@@ -1634,6 +1644,12 @@ class Component (object):
             if len(prop.params()) == 0:
                 if prop.value() == default_value:
                     self.removeProperty(prop)
+                    continue
+
+            # Otherwise look for value normalization
+            normalize_function = normalizePropsValue.get(prop.name())
+            if normalize_function:
+                prop.setValue(normalize_function(prop.value()))
 
         # Do to all sub-components too
         for component in self.subcomponents():

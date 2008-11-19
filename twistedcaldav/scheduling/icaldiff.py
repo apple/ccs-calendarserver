@@ -16,6 +16,7 @@
 
 from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
 
 from vobject.icalendar import dateTimeToString
@@ -84,7 +85,7 @@ class iCalDiff(object):
         """
         Merge changes to ATTENDEE properties in calendar1 into calendar2.
         """
-        organizer = self.calendar2.masterComponent().propertyValue("ORGANIZER")
+        organizer = normalizeCUAddr(self.calendar2.masterComponent().propertyValue("ORGANIZER"))
         self._doSmartMerge(organizer, True)
 
     def _doSmartMerge(self, ignore_attendee, is_organizer):
@@ -187,13 +188,13 @@ class iCalDiff(object):
         # Create map of ATTENDEEs in old component
         old_attendees = {}
         for attendee in old_comp.properties("ATTENDEE"):
-            value = attendee.value()
+            value = normalizeCUAddr(attendee.value())
             if value == ignore_attendee_value:
                 continue
             old_attendees[value] = attendee
 
         for new_attendee in new_comp.properties("ATTENDEE"):
-            value = new_attendee.value()
+            value = normalizeCUAddr(new_attendee.value())
             old_attendee = old_attendees.get(value)
             if old_attendee:
                 self._transferParameter(old_attendee, new_attendee, "PARTSTAT")
@@ -218,7 +219,7 @@ class iCalDiff(object):
         @type attendee: C{str}
         """
         
-        self.attendee = attendee
+        self.attendee = normalizeCUAddr(attendee)
 
         # If smart merge is needed we have to do this before trying the diff
         if self.smart_merge:
