@@ -185,6 +185,15 @@ class IMIPInboxResource(CalDAVFile):
     def isPseudoCalendarCollection(self):
         return False
 
+    def hasDeadProperty(self, name):
+        return False
+
+    def etag(self):
+        return None
+
+    def checkPreconditions(self, request):
+        return None
+
     def render(self, request):
         output = """<html>
 <head>
