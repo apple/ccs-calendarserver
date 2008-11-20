@@ -37,7 +37,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
   <integer>8008</integer>
 
   <key>DefaultLogLevel</key>
-  <string>warn</string>
+  <string>info</string>
   <key>LogLevels</key>
   <dict>
     <key>some.namespace</key>
@@ -245,16 +245,16 @@ class ConfigTests(unittest.TestCase):
         """
         Logging module configures properly.
         """
-        self.assertEquals(logLevelForNamespace(None), "info")
-        self.assertEquals(logLevelForNamespace("some.namespace"), "info")
+        self.assertEquals(logLevelForNamespace(None), "warn")
+        self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
 
         config.loadConfig(self.testConfig)
 
-        self.assertEquals(logLevelForNamespace(None), "warn")
+        self.assertEquals(logLevelForNamespace(None), "info")
         self.assertEquals(logLevelForNamespace("some.namespace"), "debug")
 
         writePlist({}, self.testConfig)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), "info")
-        self.assertEquals(logLevelForNamespace("some.namespace"), "info")
+        self.assertEquals(logLevelForNamespace(None), "warn")
+        self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
