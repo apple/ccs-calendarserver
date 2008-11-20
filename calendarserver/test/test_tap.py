@@ -15,7 +15,6 @@
 ##
 
 import os
-from copy import deepcopy
 
 try:
     from plistlib import writePlist
@@ -33,23 +32,19 @@ from twisted.application import internet
 from twisted.web2.dav import auth
 from twisted.web2.log import LogWrapperResource
 
-from twistedcaldav.tap import CalDAVOptions, CalDAVServiceMaker
-from twistedcaldav import tap
-
-from twistedcaldav.config import config
-from twistedcaldav import config as config_mod
+from twistedcaldav.config import config, ConfigDict, defaultConfig, _mergeData
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 
+from calendarserver.tap.caldav import CalDAVOptions, CalDAVServiceMaker, CalDAVService
 
-class TestCalDAVOptions(CalDAVOptions):
+class TestCalDAVOptions (CalDAVOptions):
     """
     A fake implementation of CalDAVOptions that provides
     empty implementations of checkDirectory and checkFile.
     """
-
     def checkDirectory(*args, **kwargs):
         pass
 
@@ -57,11 +52,10 @@ class TestCalDAVOptions(CalDAVOptions):
         pass
 
 
-class CalDAVOptionsTest(unittest.TestCase):
+class CalDAVOptionsTest (unittest.TestCase):
     """
     Test various parameters of our usage.Options subclass
     """
-
     def setUp(self):
         """
         Set up our options object, giving it a parent, and forcing the
@@ -69,13 +63,13 @@ class CalDAVOptionsTest(unittest.TestCase):
         """
         self.config = TestCalDAVOptions()
         self.config.parent = Options()
-        self.config.parent['uid'] = 0
-        self.config.parent['gid'] = 0
-        self.config.parent['nodaemon'] = False
+        self.config.parent["uid"] = 0
+        self.config.parent["gid"] = 0
+        self.config.parent["nodaemon"] = False
 
     def tearDown(self):
         config.loadConfig(None)
-        config.setDefaults(config_mod.defaultConfig)
+        config.setDefaults(defaultConfig)
         config.reload()
 
     def test_overridesConfig(self):
@@ -83,27 +77,27 @@ class CalDAVOptionsTest(unittest.TestCase):
         Test that values on the command line's -o and --option options
         overide the config file
         """
-
-        argv = ['-f', 'No-Such-File',
-                '-o', 'EnableSACLs',
-                '-o', 'HTTPPort=80',
-                '-o', 'BindAddresses=127.0.0.1,127.0.0.2,127.0.0.3',
-                '-o', 'DocumentRoot=/dev/null',
-                '-o', 'UserName=None',
-                '-o', 'EnableProxyPrincipals=False']
+        argv = [
+            "-f", "No-Such-File",
+            "-o", "EnableSACLs",
+            "-o", "HTTPPort=80",
+            "-o", "BindAddresses=127.0.0.1,127.0.0.2,127.0.0.3",
+            "-o", "DocumentRoot=/dev/null",
+            "-o", "UserName=None",
+            "-o", "EnableProxyPrincipals=False",
+        ]
 
         self.config.parseOptions(argv)
 
         self.assertEquals(config.EnableSACLs, True)
         self.assertEquals(config.HTTPPort, 80)
-        self.assertEquals(config.BindAddresses, ['127.0.0.1',
-                                               '127.0.0.2',
-                                               '127.0.0.3'])
-        self.assertEquals(config.DocumentRoot, '/dev/null')
+        self.assertEquals(config.BindAddresses,
+                          ["127.0.0.1", "127.0.0.2", "127.0.0.3"])
+        self.assertEquals(config.DocumentRoot, "/dev/null")
         self.assertEquals(config.UserName, None)
         self.assertEquals(config.EnableProxyPrincipals, False)
 
-        argv = ['-o', 'Authentication=This Doesn\'t Matter']
+        argv = ["-o", "Authentication=This Doesn't Matter"]
 
         self.assertRaises(UsageError, self.config.parseOptions, argv)
 
@@ -112,98 +106,98 @@ class CalDAVOptionsTest(unittest.TestCase):
         Test that certain values are set on the parent (i.e. twistd's
         Option's object)
         """
-
-        argv = ['-f', 'No-Such-File',
-                '-o', 'ErrorLogFile=/dev/null',
-                '-o', 'PIDFile=/dev/null']
+        argv = [
+            "-f", "No-Such-File",
+            "-o", "ErrorLogFile=/dev/null",
+            "-o", "PIDFile=/dev/null",
+        ]
 
         self.config.parseOptions(argv)
 
-        self.assertEquals(self.config.parent['logfile'], '/dev/null')
-
-        self.assertEquals(self.config.parent['pidfile'], '/dev/null')
+        self.assertEquals(self.config.parent["logfile"], "/dev/null")
+        self.assertEquals(self.config.parent["pidfile"], "/dev/null")
 
     def test_specifyConfigFile(self):
         """
         Test that specifying a config file from the command line
         loads the global config with those values properly.
         """
+        myConfig = ConfigDict(defaultConfig)
 
-        myConfig = deepcopy(config_mod.defaultConfig)
-
-        myConfig['Authentication']['Basic']['Enabled'] = False
-
-        myConfig['MultiProcess']['LoadBalancer']['Enabled'] = False
-
-        myConfig['HTTPPort'] = 80
-
-        myConfig['ServerHostName'] = 'calendar.calenderserver.org'
+        myConfig.Authentication.Basic.Enabled = False
+        myConfig.MultiProcess.LoadBalancer.Enabled = False
+        myConfig.HTTPPort = 80
+        myConfig.ServerHostName = "calendar.calenderserver.org"
 
         myConfigFile = self.mktemp()
         writePlist(myConfig, myConfigFile)
 
-        args = ['-f', myConfigFile]
+        args = ["-f", myConfigFile]
 
         self.config.parseOptions(args)
 
-        self.assertEquals(config.ServerHostName, myConfig['ServerHostName'])
-
-        self.assertEquals(config.MultiProcess['LoadBalancer']['Enabled'],
-                          myConfig['MultiProcess']['LoadBalancer']['Enabled'])
-
-        self.assertEquals(config.HTTPPort, myConfig['HTTPPort'])
-
-        self.assertEquals(config.Authentication['Basic']['Enabled'],
-                          myConfig['Authentication']['Basic']['Enabled'])
+        self.assertEquals(config.ServerHostName, myConfig["ServerHostName"])
+        self.assertEquals(
+            config.MultiProcess.LoadBalancer.Enabled,
+            myConfig.MultiProcess.LoadBalancer.Enabled
+        )
+        self.assertEquals(config.HTTPPort, myConfig.HTTPPort)
+        self.assertEquals(
+            config.Authentication.Basic.Enabled,
+            myConfig.Authentication.Basic.Enabled
+        )
 
     def test_specifyDictPath(self):
         """
         Test that we can specify command line overrides to leafs using
-        a '/' seperated path.  Such as '-o MultiProcess/ProcessCount=1'
+        a "/" seperated path.  Such as "-o MultiProcess/ProcessCount=1"
         """
+        argv = [
+            "-o", "MultiProcess/ProcessCount=102",
+            "-f", "conf/caldavd.plist",
+        ]
 
-        argv = ['-o', 'MultiProcess/ProcessCount=102', '-f', 'conf/caldavd.plist',]
         self.config.parseOptions(argv)
 
-        self.assertEquals(config.MultiProcess['ProcessCount'], 102)
+        self.assertEquals(config.MultiProcess["ProcessCount"], 102)
 
 class BaseServiceMakerTests(unittest.TestCase):
     """
     Utility class for ServiceMaker tests.
     """
-
     configOptions = None
 
     def setUp(self):
         self.options = TestCalDAVOptions()
         self.options.parent = Options()
-        self.options.parent['gid'] = None
-        self.options.parent['uid'] = None
-        self.options.parent['nodaemon'] = None
+        self.options.parent["gid"] = None
+        self.options.parent["uid"] = None
+        self.options.parent["nodaemon"] = None
 
-        self.config = deepcopy(config_mod.defaultConfig)
+        self.config = ConfigDict(defaultConfig)
 
-        accountsFile = sibpath(os.path.dirname(__file__),
-                               'directory/test/accounts.xml')
+        sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
+        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
 
-        self.config['DirectoryService'] = {
-            'params': {'xmlFile': accountsFile},
-            'type': 'twistedcaldav.directory.xmlfile.XMLDirectoryService'
-            }
+        self.config["DirectoryService"] = {
+            "params": {"xmlFile": accountsFile},
+            "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"
+        }
 
-        self.config['DocumentRoot'] = self.mktemp()
-        self.config['DataRoot'] = self.mktemp()
-        self.config['ProcessType'] = 'Slave'
-        self.config['SSLPrivateKey'] = sibpath(__file__, 'data/server.pem')
-        self.config['SSLCertificate'] = sibpath(__file__, 'data/server.pem')
+        self.config.DocumentRoot   = self.mktemp()
+        self.config.DataRoot       = self.mktemp()
+        self.config.ProcessType    = "Slave"
+        self.config.SSLPrivateKey  = pemFile
+        self.config.SSLCertificate = pemFile
 
-        self.config['SudoersFile'] = ''
+        self.config.SudoersFile = ""
 
         if self.configOptions:
-            config_mod._mergeData(self.config, self.configOptions)
+            _mergeData(self.config, self.configOptions)
 
-        os.mkdir(self.config['DocumentRoot'])
-        os.mkdir(self.config['DataRoot'])
+        os.mkdir(self.config.DocumentRoot)
+        os.mkdir(self.config.DataRoot)
 
         self.configFile = self.mktemp()
 
@@ -211,14 +205,13 @@ class BaseServiceMakerTests(unittest.TestCase):
 
     def tearDown(self):
         config.loadConfig(None)
-        config.setDefaults(config_mod.defaultConfig)
+        config.setDefaults(defaultConfig)
         config.reload()
 
     def writeConfig(self):
         """
         Flush self.config out to self.configFile
         """
-
         writePlist(self.config, self.configFile)
 
     def makeService(self):
@@ -226,8 +219,7 @@ class BaseServiceMakerTests(unittest.TestCase):
         Create a service by calling into CalDAVServiceMaker with
         self.configFile
         """
-
-        self.options.parseOptions(['-f', self.configFile])
+        self.options.parseOptions(["-f", self.configFile])
 
         return CalDAVServiceMaker().makeService(self.options)
 
@@ -235,10 +227,9 @@ class BaseServiceMakerTests(unittest.TestCase):
         """
         Get the server.Site from the service by finding the HTTPFactory
         """
-
         service = self.makeService()
 
-        return service.services[0].args[1].protocolArgs['requestFactory']
+        return service.services[0].args[1].protocolArgs["requestFactory"]
 
 
 class CalDAVServiceMakerTests(BaseServiceMakerTests):
@@ -250,16 +241,16 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         Test the default options of the dispatching makeService
         """
-        validServices = ['Slave', 'Master', 'Combined']
+        validServices = ["Slave", "Master", "Combined"]
 
-        self.config['HTTPPort'] = 80
+        self.config["HTTPPort"] = 80
 
         for service in validServices:
-            self.config['ProcessType'] = service
+            self.config["ProcessType"] = service
             self.writeConfig()
             self.makeService()
 
-        self.config['ProcessType'] = 'Unknown Service'
+        self.config["ProcessType"] = "Unknown Service"
         self.writeConfig()
         self.assertRaises(UsageError, self.makeService)
 
@@ -269,8 +260,10 @@ class SlaveServiceTest(BaseServiceMakerTests):
     Test various configurations of the Slave service
     """
 
-    configOptions = {'HTTPPort': 8008,
-                     'SSLPort': 8443}
+    configOptions = {
+        "HTTPPort": 8008,
+        "SSLPort": 8443,
+    }
 
     def test_defaultService(self):
         """
@@ -279,14 +272,18 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         service = self.makeService()
 
-        self.failUnless(IService(service),
-                        "%s does not provide IService" % (service,))
-
-        self.failUnless(service.services,
-                        "No services configured")
-
-        self.failUnless(isinstance(service, tap.CalDAVService),
-                        "%s is not a tap.CalDAVService" % (service,))
+        self.failUnless(
+            IService(service),
+            "%s does not provide IService" % (service,)
+        )
+        self.failUnless(
+            service.services,
+            "No services configured"
+        )
+        self.failUnless(
+            isinstance(service, CalDAVService),
+            "%s is not a CalDAVService" % (service,)
+        )
 
     def test_defaultListeners(self):
         """
@@ -295,18 +292,20 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         service = self.makeService()
 
-        expectedSubServices = ((internet.TCPServer, self.config['HTTPPort']),
-                               (internet.SSLServer, self.config['SSLPort']))
+        expectedSubServices = (
+            (internet.TCPServer, self.config["HTTPPort"]),
+            (internet.SSLServer, self.config["SSLPort"]),
+        )
 
-        configuredSubServices = [(s.__class__, s.args)
-                                 for s in service.services]
+        configuredSubServices = [(s.__class__, s.args) for s in service.services]
 
         for serviceClass, serviceArgs in configuredSubServices:
-            self.failUnless(
-                serviceClass in (s[0] for s in expectedSubServices))
+            self.failUnless(serviceClass in (s[0] for s in expectedSubServices))
 
-            self.assertEquals(serviceArgs[0],
-                              dict(expectedSubServices)[serviceClass])
+            self.assertEquals(
+                serviceArgs[0],
+                dict(expectedSubServices)[serviceClass]
+            )
 
     def test_SSLKeyConfiguration(self):
         """
@@ -325,57 +324,68 @@ class SlaveServiceTest(BaseServiceMakerTests):
 
         context = sslService.args[2]
 
-        self.assertEquals(self.config['SSLPrivateKey'],
-                          context.privateKeyFileName)
-
-        self.assertEquals(self.config['SSLCertificate'],
-                          context.certificateFileName)
+        self.assertEquals(
+            self.config["SSLPrivateKey"],
+            context.privateKeyFileName
+        )
+        self.assertEquals(
+            self.config["SSLCertificate"],
+            context.certificateFileName,
+        )
 
     def test_noSSL(self):
         """
         Test the single service to make sure there is no SSL Service when SSL
         is disabled
         """
-        del self.config['SSLPort']
+        del self.config["SSLPort"]
         self.writeConfig()
 
         service = self.makeService()
 
         self.assertNotIn(
-            internet.SSLServer, [s.__class__ for s in service.services])
+            internet.SSLServer,
+            [s.__class__ for s in service.services]
+        )
 
     def test_noHTTP(self):
         """
         Test the single service to make sure there is no TCPServer when
         HTTPPort is not configured
         """
-        del self.config['HTTPPort']
+        del self.config["HTTPPort"]
         self.writeConfig()
 
         service = self.makeService()
 
         self.assertNotIn(
-            internet.TCPServer, [s.__class__ for s in service.services])
+            internet.TCPServer,
+            [s.__class__ for s in service.services]
+        )
 
     def test_singleBindAddresses(self):
         """
         Test that the TCPServer and SSLServers are bound to the proper address
         """
-        self.config['BindAddresses'] = ['127.0.0.1']
+        self.config.BindAddresses = ["127.0.0.1"]
         self.writeConfig()
+
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs['interface'], '127.0.0.1')
+            self.assertEquals(s.kwargs["interface"], "127.0.0.1")
 
     def test_multipleBindAddresses(self):
         """
         Test that the TCPServer and SSLServers are bound to the proper
         addresses.
         """
-        self.config['BindAddresses'] = ['127.0.0.1',
-                                        '10.0.0.2',
-                                        '172.53.13.123']
+        self.config.BindAddresses = [
+            "127.0.0.1",
+            "10.0.0.2",
+            "172.53.13.123",
+        ]
+
         self.writeConfig()
         service = self.makeService()
 
@@ -388,16 +398,16 @@ class SlaveServiceTest(BaseServiceMakerTests):
             elif isinstance(s, internet.SSLServer):
                 sslServers.append(s)
 
-        self.assertEquals(len(tcpServers), len(self.config['BindAddresses']))
-        self.assertEquals(len(sslServers), len(self.config['BindAddresses']))
+        self.assertEquals(len(tcpServers), len(self.config.BindAddresses))
+        self.assertEquals(len(sslServers), len(self.config.BindAddresses))
 
-        for addr in self.config['BindAddresses']:
+        for addr in self.config.BindAddresses:
             for s in tcpServers:
-                if s.kwargs['interface'] == addr:
+                if s.kwargs["interface"] == addr:
                     tcpServers.remove(s)
 
             for s in sslServers:
-                if s.kwargs['interface'] == addr:
+                if s.kwargs["interface"] == addr:
                     sslServers.remove(s)
 
         self.assertEquals(len(tcpServers), 0)
@@ -407,12 +417,12 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         Test that the backlog arguments is set in TCPServer and SSLServers
         """
-        self.config['ListenBacklog'] = 1024
+        self.config.ListenBacklog = 1024
         self.writeConfig()
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs['backlog'], 1024)
+            self.assertEquals(s.kwargs["backlog"], 1024)
 
 
 class ServiceHTTPFactoryTests(BaseServiceMakerTests):
@@ -420,18 +430,17 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
     Test the configuration of the initial resource hierarchy of the
     single service
     """
-
-    configOptions = {'HTTPPort': 8008}
+    configOptions = {"HTTPPort": 8008}
 
     def test_AuthWrapperAllEnabled(self):
         """
         Test the configuration of the authentication wrapper
         when all schemes are enabled.
         """
-        self.config['Authentication']['Digest']['Enabled'] = True
-        self.config['Authentication']['Kerberos']['Enabled'] = True
-        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello@bob'
-        self.config['Authentication']['Basic']['Enabled'] = True
+        self.config.Authentication.Digest.Enabled = True
+        self.config.Authentication.Kerberos.Enabled = True
+        self.config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
+        self.config.Authentication.Basic.Enabled = True
 
         self.writeConfig()
         site = self.getSite()
@@ -442,7 +451,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
 
         authWrapper = site.resource.resource
 
-        expectedSchemes = ['negotiate', 'digest', 'basic']
+        expectedSchemes = ["negotiate", "digest", "basic"]
 
         for scheme in authWrapper.credentialFactories:
             self.failUnless(scheme in expectedSchemes)
@@ -454,30 +463,30 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         """
         Test that the Kerberos principal look is attempted if the principal is empty.
         """
-        self.config['Authentication']['Kerberos']['ServicePrincipal'] = ''
-        self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.config.Authentication.Kerberos.ServicePrincipal = ""
+        self.config.Authentication.Kerberos.Enabled = True
         self.writeConfig()
         site = self.getSite()
 
         authWrapper = site.resource.resource
 
-        self.assertFalse(authWrapper.credentialFactories.has_key('negotiate'))
+        self.assertFalse(authWrapper.credentialFactories.has_key("negotiate"))
 
     def test_servicePrincipal(self):
         """
         Test that the kerberos realm is the realm portion of a principal
         in the form proto/host@realm
         """
-        self.config['Authentication']['Kerberos']['ServicePrincipal'] = 'http/hello@bob'
-        self.config['Authentication']['Kerberos']['Enabled'] = True
+        self.config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
+        self.config.Authentication.Kerberos.Enabled = True
         self.writeConfig()
         site = self.getSite()
 
         authWrapper = site.resource.resource
+        ncf = authWrapper.credentialFactories["negotiate"]
 
-        ncf = authWrapper.credentialFactories['negotiate']
-        self.assertEquals(ncf.service, 'http@HELLO')
-        self.assertEquals(ncf.realm, 'bob')
+        self.assertEquals(ncf.service, "http@HELLO")
+        self.assertEquals(ncf.realm, "bob")
 
     def test_AuthWrapperPartialEnabled(self):
         """
@@ -486,27 +495,28 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         enabled.
         """
 
-        self.config['Authentication']['Basic']['Enabled'] = False
-        self.config['Authentication']['Kerberos']['Enabled'] = False
+        self.config.Authentication.Basic.Enabled    = False
+        self.config.Authentication.Kerberos.Enabled = False
 
         self.writeConfig()
         site = self.getSite()
 
         authWrapper = site.resource.resource
 
-        expectedSchemes = ['digest']
+        expectedSchemes = ["digest"]
 
         for scheme in authWrapper.credentialFactories:
             self.failUnless(scheme in expectedSchemes)
 
-        self.assertEquals(len(expectedSchemes),
-                          len(authWrapper.credentialFactories))
+        self.assertEquals(
+            len(expectedSchemes),
+            len(authWrapper.credentialFactories)
+        )
 
     def test_LogWrapper(self):
         """
         Test the configuration of the log wrapper
         """
-
         site = self.getSite()
 
         self.failUnless(isinstance(
@@ -530,8 +540,9 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         root = site.resource.resource.resource
 
         self.failUnless(isinstance(
-                root.getChild('principals'),
-                CalDAVServiceMaker.principalResourceClass))
+            root.getChild("principals"),
+            CalDAVServiceMaker.principalResourceClass
+        ))
 
     def test_calendarResource(self):
         """
@@ -541,8 +552,9 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         root = site.resource.resource.resource
 
         self.failUnless(isinstance(
-                root.getChild('calendars'),
-                CalDAVServiceMaker.calendarResourceClass))
+            root.getChild("calendars"),
+            CalDAVServiceMaker.calendarResourceClass
+        ))
 
 
 sudoersFile = """<?xml version="1.0" encoding="UTF-8"?>
@@ -567,7 +579,7 @@ class DirectoryServiceTest(BaseServiceMakerTests):
     Tests of the directory service
     """
 
-    configOptions = {'HTTPPort': 8008}
+    configOptions = {"HTTPPort": 8008}
 
     def test_sameDirectory(self):
         """
@@ -575,11 +587,10 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         to the same DirectoryService as the calendar hierarchy
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
-        calendars = site.resource.resource.resource.getChild('calendars')
+        principals = site.resource.resource.resource.getChild("principals")
+        calendars = site.resource.resource.resource.getChild("calendars")
 
-        self.assertEquals(principals.directory,
-                          calendars.directory)
+        self.assertEquals(principals.directory, calendars.directory)
 
     def test_aggregateDirectory(self):
         """
@@ -587,57 +598,58 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         an AggregateDirectoryService
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        self.failUnless(isinstance(
-                directory,
-                AggregateDirectoryService))
+        self.failUnless(isinstance(directory, AggregateDirectoryService))
 
     def test_sudoDirectoryService(self):
         """
         Test that a sudo directory service is available if the
         SudoersFile is set and exists
         """
-        self.config['SudoersFile'] = self.mktemp()
+        self.config.SudoersFile = self.mktemp()
 
         self.writeConfig()
 
-        open(self.config['SudoersFile'], 'w').write(sudoersFile)
+        open(self.config.SudoersFile, "w").write(sudoersFile)
 
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        self.failUnless(self.config['SudoersFile'])
+        self.failUnless(self.config.SudoersFile)
 
-        sudoService = directory.serviceForRecordType(
-            SudoDirectoryService.recordType_sudoers)
+        sudoService = directory.serviceForRecordType(SudoDirectoryService.recordType_sudoers)
 
-        self.assertEquals(sudoService.plistFile.path,
-                          os.path.abspath(self.config['SudoersFile']))
-
-        self.failUnless(SudoDirectoryService.recordType_sudoers in
-                        directory.userRecordTypes)
+        self.assertEquals(
+            sudoService.plistFile.path,
+            os.path.abspath(self.config.SudoersFile)
+        )
+        self.failUnless(
+            SudoDirectoryService.recordType_sudoers
+            in directory.userRecordTypes
+        )
 
     def test_sudoDirectoryServiceNoFile(self):
         """
         Test that there is no SudoDirectoryService if
         the SudoersFile does not exist.
         """
-        self.config['SudoersFile'] = self.mktemp()
+        self.config.SudoersFile = self.mktemp()
 
         self.writeConfig()
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        self.failUnless(self.config['SudoersFile'])
+        self.failUnless(self.config.SudoersFile)
 
         self.assertRaises(
             UnknownRecordTypeError,
             directory.serviceForRecordType,
-            SudoDirectoryService.recordType_sudoers)
+            SudoDirectoryService.recordType_sudoers
+        )
 
     def test_sudoDirectoryServiceNotConfigured(self):
         """
@@ -645,15 +657,16 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         the SudoersFile is not configured
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        self.failIf(self.config['SudoersFile'])
+        self.failIf(self.config.SudoersFile)
 
         self.assertRaises(
             UnknownRecordTypeError,
             directory.serviceForRecordType,
-            SudoDirectoryService.recordType_sudoers)
+            SudoDirectoryService.recordType_sudoers
+        )
 
     def test_configuredDirectoryService(self):
         """
@@ -661,14 +674,11 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         set in the configuration file.
         """
         site = self.getSite()
-        principals = site.resource.resource.resource.getChild('principals')
+        principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        realDirectory = directory.serviceForRecordType('users')
+        realDirectory = directory.serviceForRecordType("users")
 
-        configuredDirectory = namedAny(
-            self.config['DirectoryService']['type'])
+        configuredDirectory = namedAny(self.config.DirectoryService.type)
 
-        self.failUnless(isinstance(
-                realDirectory,
-                configuredDirectory))
+        self.failUnless(isinstance(realDirectory, configuredDirectory))

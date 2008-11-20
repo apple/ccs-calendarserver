@@ -68,7 +68,7 @@ except ImportError:
     NegotiateCredentialFactory = None
 
 
-class CalDAVService(service.MultiService):
+class CalDAVService (service.MultiService):
     def __init__(self, logObserver):
         self.logObserver = logObserver
         service.MultiService.__init__(self)
@@ -82,7 +82,7 @@ class CalDAVService(service.MultiService):
         self.logObserver.stop()
 
 
-class CalDAVOptions(Options):
+class CalDAVOptions (Options):
     optParameters = [[
         "config", "f", defaultConfigFile, "Path to configuration file."
     ]]
@@ -334,7 +334,7 @@ def getSSLPassphrase(*ignored):
 
     return None
 
-class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
+class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
     def __init__(
         self, privateKeyFileName, certificateFileName,
         sslmethod=SSL.SSLv23_METHOD, certificateChainFile=None,
@@ -366,7 +366,7 @@ class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
         self._context = ctx
 
 
-class CalDAVServiceMaker(object):
+class CalDAVServiceMaker (object):
     implements(IPlugin, service.IServiceMaker)
 
     tapname = "caldav"

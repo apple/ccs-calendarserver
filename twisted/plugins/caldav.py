@@ -17,9 +17,9 @@ class TAP(object):
         self.serviceMakerClass = serviceMakerClass
         self._serviceMaker = None
 
-    options = serviceMakerProperty('options')
-    tapname = serviceMakerProperty('tapname')
-    description = serviceMakerProperty('description')
+    options = serviceMakerProperty("options")
+    tapname = serviceMakerProperty("tapname")
+    description = serviceMakerProperty("description")
 
     def makeService(self, options):
         if self._serviceMaker is None:
@@ -28,7 +28,6 @@ class TAP(object):
         return self._serviceMaker.makeService(options)
 
 
-TwistedCalDAV = TAP('twistedcaldav.tap.CalDAVServiceMaker')
-
-CalDAVNotifier = TAP('twistedcaldav.notify.NotificationServiceMaker')
-CalDAVMailGateway = TAP('twistedcaldav.mail.MailGatewayServiceMaker')
+TwistedCalDAV     = TAP("calendarserver.tap.caldav.CalDAVServiceMaker")
+CalDAVNotifier    = TAP("twistedcaldav.notify.NotificationServiceMaker")
+CalDAVMailGateway = TAP("twistedcaldav.mail.MailGatewayServiceMaker")

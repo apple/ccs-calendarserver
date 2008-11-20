@@ -123,7 +123,7 @@ class IScheduleRequest(object):
         try:
             from twisted.internet import reactor
             if self.server.ssl:
-                from twistedcaldav.tap import ChainingOpenSSLContextFactory
+                from calendarserver.tap.caldav import ChainingOpenSSLContextFactory
                 context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context))
             else:
