@@ -103,21 +103,19 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return self._memcacheProtocol
 
         if config.Memcached['ClientEnabled']:
-            return self.getCachePool()
+            self._memcacheProtocol = self.getCachePool()
 
         elif config.ProcessType == "Single" or self._noInvalidation:
-
             # NB no need to pickle the memory cacher as it handles python types natively
             self._memcacheProtocol = Memcacher.memoryCacher()
             self._pickle = False
-            return self._memcacheProtocol
 
         else:
-
             # NB no need to pickle the null cacher as it handles python types natively
             self._memcacheProtocol = Memcacher.nullCacher()
             self._pickle = False
-            return self._memcacheProtocol
+
+        return self._memcacheProtocol
 
 
     def add(self, key, value, expire_time=0):
