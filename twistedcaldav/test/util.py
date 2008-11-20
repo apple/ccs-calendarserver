@@ -35,7 +35,8 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
         dataroot = self.mktemp()
         os.mkdir(dataroot)
         config.DataRoot = dataroot
-
+        config.Memcached.ClientEnabled = False
+        config.Memcached.ServerEnabled = False
 
 class InMemoryPropertyStore(object):
     def __init__(self):
@@ -113,7 +114,7 @@ class InMemoryMemcacheProtocol(object):
 
             return succeed(True)
 
-        except Exception, err:
+        except Exception:
             return fail(Failure())
 
 

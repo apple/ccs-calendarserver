@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-import twisted.trial.unittest
 from uuid import uuid4
+from twistedcaldav.test.util import TestCase
 
 try:
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryService as RealOpenDirectoryService
@@ -27,9 +27,9 @@ else:
     from twistedcaldav.directory.util import uuidFromName
 
     class OpenDirectoryService (RealOpenDirectoryService):
-        def _queryDirectory(directory, recordType, shortName=None, guid=None):
+        def _queryDirectory(self, recordType, shortName=None, guid=None):
             if shortName is None and guid is None:
-                return directory.fakerecords[recordType]
+                return self.fakerecords[recordType]
 
             assert shortName is None or guid is None
             if guid is not None:
@@ -37,13 +37,13 @@ else:
 
             records = []
 
-            for name, record in directory.fakerecords[recordType]:
+            for name, record in self.fakerecords[recordType]:
                 if name == shortName or record[dsattributes.kDS1AttrGeneratedUID] == guid:
                     records.append((name, record))
 
             return tuple(records)
     
-    class ReloadCache(twisted.trial.unittest.TestCase):
+    class ReloadCache(TestCase):
         def setUp(self):
             super(ReloadCache, self).setUp()
             self._service = OpenDirectoryService(node="/Search", dosetup=False)

@@ -14,11 +14,10 @@
 # limitations under the License.
 ##
 
-from twisted.trial.unittest import TestCase
-
 from twistedcaldav.resource import CalDAVResource
 
 from twistedcaldav.test.util import InMemoryPropertyStore
+from twistedcaldav.test.util import TestCase
 
 
 class StubProperty(object):
@@ -28,6 +27,7 @@ class StubProperty(object):
 
 class CalDAVResourceTests(TestCase):
     def setUp(self):
+        TestCase.setUp(self)
         self.resource = CalDAVResource()
         self.resource._dead_properties = InMemoryPropertyStore()
 

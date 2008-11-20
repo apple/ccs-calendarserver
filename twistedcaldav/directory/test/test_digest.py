@@ -2,12 +2,12 @@
 
 from twisted.cred import error
 from twisted.internet import address
-from twisted.trial import unittest
 from twisted.web2.auth import digest
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.test.test_server import SimpleRequest
 from twisted.web2.dav.fileop import rmdir
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
+from twistedcaldav.test.util import TestCase
 import os
 import md5
 
@@ -71,7 +71,7 @@ namelessAuthRequest = 'realm="test realm",nonce="doesn\'t matter"'
 emtpyAttributeAuthRequest = 'realm="",nonce="doesn\'t matter"'
 
 
-class DigestAuthTestCase(unittest.TestCase):
+class DigestAuthTestCase(TestCase):
     """
     Test the behavior of DigestCredentialFactory
     """
@@ -80,6 +80,7 @@ class DigestAuthTestCase(unittest.TestCase):
         """
         Create a DigestCredentialFactory for testing
         """
+        TestCase.setUp(self)
         self.path1 = self.mktemp()
         self.path2 = self.mktemp()
         os.mkdir(self.path1)
@@ -392,7 +393,7 @@ class DigestAuthTestCase(unittest.TestCase):
 
             factory.invalidate(factory.generateNonce())
             response = UnauthorizedResponse({"Digest":factory}, request.remoteAddr)
-            wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
+            response.headers.getHeader("www-authenticate")[0][1]
 
     def test_incompatibleClientIp(self):
         """

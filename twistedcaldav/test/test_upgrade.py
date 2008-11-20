@@ -14,12 +14,11 @@
 # limitations under the License.
 ##
 
-from twisted.trial.unittest import TestCase
-
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.upgrade import UpgradeError
 from twistedcaldav.upgrade import UpgradeTheServer
+from twistedcaldav.test.util import TestCase
 
 import os
 

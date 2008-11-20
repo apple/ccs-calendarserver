@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from twisted.trial.unittest import TestCase
 from twistedcaldav.mail import *
+from twistedcaldav.test.util import TestCase
 import email
 import os
 
@@ -27,6 +27,7 @@ def echo(*args):
 class MailHandlerTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.handler = MailHandler(dataRoot=":memory:")
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
 
@@ -109,6 +110,7 @@ class MailHandlerTests(TestCase):
 class MailGatewayTokensDatabaseTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.db = MailGatewayTokensDatabase(":memory:")
 
     def test_tokens(self):

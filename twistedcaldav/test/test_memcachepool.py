@@ -16,8 +16,6 @@
 
 from zope.interface import implements
 
-from twisted.trial.unittest import TestCase
-
 from twisted.internet.interfaces import IConnector, IReactorTCP
 from twisted.internet.address import IPv4Address
 
@@ -26,6 +24,7 @@ from twistedcaldav.memcachepool import PooledMemCacheProtocol
 from twistedcaldav.memcachepool import MemCacheClientFactory
 from twistedcaldav.memcachepool import MemCachePool
 
+from twistedcaldav.test.util import TestCase
 
 MC_ADDRESS = IPv4Address('TCP', '127.0.0.1', 11211)
 
@@ -137,11 +136,11 @@ class MemCacheClientFactoryTests(TestCase):
         Create a L{MemCacheClientFactory} instance and and give it a
         L{StubConnectionPool} instance.
         """
+        super(MemCacheClientFactoryTests, self).setUp()
         self.pool = StubConnectionPool()
         self.factory = MemCacheClientFactory()
         self.factory.connectionPool = self.pool
         self.protocol = self.factory.buildProtocol(None)
-
 
     def test_clientConnectionFailedNotifiesPool(self):
         """
@@ -171,7 +170,7 @@ class MemCacheClientFactoryTests(TestCase):
         This will happen when we get reconnected.  We'll remove the old protocol
         and add a new one.
         """
-        protocol = self.factory.buildProtocol(None)
+        self.factory.buildProtocol(None)
         self.assertEquals(self.factory.connectionPool.calls,
                           [('gone', self.protocol)])
 
@@ -196,11 +195,11 @@ class MemCachePoolTests(TestCase):
         """
         Create a L{MemCachePool}.
         """
+        TestCase.setUp(self)
         self.reactor = StubReactor()
         self.pool = MemCachePool(MC_ADDRESS,
                                  maxClients=5,
                                  reactor=self.reactor)
-
 
     def test_clientFreeAddsNewClient(self):
         """
@@ -398,7 +397,7 @@ class MemCachePoolTests(TestCase):
         self.failUnless(isinstance(args[2], MemCacheClientFactory))
         self.assertEquals(kwargs, {})
 
-        d1 = self.pool.performRequest('get', 'bar')
+        self.pool.performRequest('get', 'bar')
         self.assertEquals(self.reactor.calls, [])
 
         args[2].deferred.callback(InMemoryMemcacheProtocol())

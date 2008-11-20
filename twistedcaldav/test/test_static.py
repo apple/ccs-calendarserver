@@ -14,11 +14,10 @@
 # limitations under the License.
 ##
 
-from twisted.trial.unittest import TestCase
-
 from twistedcaldav.static import CalendarHomeFile, CalDAVFile
 from twistedcaldav.cache import DisabledCacheNotifier
 from twistedcaldav.test.util import StubCacheChangeNotifier
+from twistedcaldav.test.util import TestCase
 
 class StubParentResource(object):
     def principalCollections(self):
@@ -27,6 +26,7 @@ class StubParentResource(object):
 
 class CalendarHomeFileTests(TestCase):
     def setUp(self):
+        TestCase.setUp(self)
         self.calendarHome = CalendarHomeFile(self.mktemp(),
                                              StubParentResource(),
                                              object())
@@ -44,6 +44,7 @@ class CalendarHomeFileTests(TestCase):
 
 class CalDAVFileTests(TestCase):
     def setUp(self):
+        TestCase.setUp(self)
         self.caldavFile = CalDAVFile(self.mktemp())
         self.caldavFile.fp.createDirectory()
         self.caldavFile.cacheNotifier = StubCacheChangeNotifier()

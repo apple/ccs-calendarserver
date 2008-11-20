@@ -16,10 +16,10 @@
 
 from __future__ import with_statement
 
-from twisted.trial.unittest import TestCase
 from twistedcaldav.localization import translationTo
 from twistedcaldav.ical import Component
-from datetime import datetime, time
+from twistedcaldav.test.util import TestCase
+from datetime import time
 import os
 
 def getComp(str):

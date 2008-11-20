@@ -14,13 +14,13 @@
 # limitations under the License.
 ##
 
-from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
 from twisted.words.protocols.jabber.client import IQ
 from twisted.words.protocols.jabber.error import StanzaError
 from twistedcaldav.notify import *
 from twistedcaldav import config as config_mod
 from twistedcaldav.config import Config
+from twistedcaldav.test.util import TestCase
 
 
 class StubResource(object):
@@ -53,6 +53,7 @@ class NotificationClientUserTests(TestCase):
 class NotificationClientFactoryTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.client = StubNotificationClient(None, None)
         self.factory = NotificationClientFactory(self.client)
         self.factory.protocol = StubNotificationClientProtocol
@@ -107,6 +108,7 @@ class StubNotificationClientProtocol(object):
 class NotificationClientTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.client = NotificationClient(None, None, reactor=Clock())
         self.client.factory = StubNotificationClientFactory()
 
@@ -145,6 +147,7 @@ class StubNotificationClientFactory(object):
 class CoalescerTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.clock = Clock()
         self.notifier = StubNotifier()
         self.coalescer = Coalescer([self.notifier], reactor=self.clock)
@@ -185,6 +188,7 @@ class StubNotifier(object):
 class SimpleLineNotifierTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.clock = Clock()
         self.notifier = SimpleLineNotifier(None)
         self.coalescer = Coalescer([self.notifier], reactor=self.clock)
@@ -276,6 +280,7 @@ class SimpleLineNotificationFactoryTests(TestCase):
 class SimpleLineNotificationProtocolTests(TestCase):
 
     def setUp(self):
+        TestCase.setUp(self)
         self.notifier = StubNotifier()
         self.protocol = SimpleLineNotificationProtocol()
         self.protocol.notifier = self.notifier
@@ -323,10 +328,10 @@ class StubXmlStream(object):
     def send(self, element):
         self.elements.append(element)
 
-    def addOnetimeObserver(*args, **kwds):
+    def addOnetimeObserver(self, *args, **kwds):
         pass
 
-    def addObserver(*args, **kwds):
+    def addObserver(self, *args, **kwds):
         pass
 
 
@@ -346,6 +351,7 @@ class XMPPNotifierTests(TestCase):
     xmppDisabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = False
 
     def setUp(self):
+        TestCase.setUp(self)
         self.xmlStream = StubXmlStream()
         self.settings = { 'ServiceAddress' : 'pubsub.example.com',
             'NodeConfiguration' : { 'pubsub#deliver_payloads' : '1' },

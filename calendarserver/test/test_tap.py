@@ -21,10 +21,7 @@ try:
 except ImportError:
     from twistedcaldav.py.plistlib import writePlist
 
-from twisted.trial import unittest
-
 from twisted.python.usage import Options, UsageError
-from twisted.python.util import sibpath
 from twisted.python.reflect import namedAny
 from twisted.application.service import IService
 from twisted.application import internet
@@ -37,6 +34,7 @@ from twistedcaldav.config import config, ConfigDict, defaultConfig, _mergeData
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.test.util import TestCase
 
 from calendarserver.tap.caldav import CalDAVOptions, CalDAVServiceMaker, CalDAVService
 
@@ -45,14 +43,14 @@ class TestCalDAVOptions (CalDAVOptions):
     A fake implementation of CalDAVOptions that provides
     empty implementations of checkDirectory and checkFile.
     """
-    def checkDirectory(*args, **kwargs):
+    def checkDirectory(self, *args, **kwargs):
         pass
 
-    def checkFile(*args, **kwargs):
+    def checkFile(self, *args, **kwargs):
         pass
 
 
-class CalDAVOptionsTest (unittest.TestCase):
+class CalDAVOptionsTest (TestCase):
     """
     Test various parameters of our usage.Options subclass
     """
@@ -61,6 +59,7 @@ class CalDAVOptionsTest (unittest.TestCase):
         Set up our options object, giving it a parent, and forcing the
         global config to be loaded from defaults.
         """
+        TestCase.setUp(self)
         self.config = TestCalDAVOptions()
         self.config.parent = Options()
         self.config.parent["uid"] = 0
@@ -161,13 +160,14 @@ class CalDAVOptionsTest (unittest.TestCase):
 
         self.assertEquals(config.MultiProcess["ProcessCount"], 102)
 
-class BaseServiceMakerTests(unittest.TestCase):
+class BaseServiceMakerTests(TestCase):
     """
     Utility class for ServiceMaker tests.
     """
     configOptions = None
 
     def setUp(self):
+        TestCase.setUp(self)
         self.options = TestCalDAVOptions()
         self.options.parent = Options()
         self.options.parent["gid"] = None

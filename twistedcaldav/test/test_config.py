@@ -19,11 +19,10 @@ try:
 except ImportError:
     from twistedcaldav.py.plistlib import writePlist
 
-from twisted.trial import unittest
-
 from twistedcaldav.log import logLevelForNamespace
 from twistedcaldav.config import config, defaultConfig, ConfigurationError
 from twistedcaldav.static import CalDAVFile
+from twistedcaldav.test.util import TestCase
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -49,12 +48,12 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 def _testResponseCompression(testCase):
-    from twistedcaldav.config import config
     testCase.assertEquals(config.ResponseCompression, False)
 
 
-class ConfigTests(unittest.TestCase):
+class ConfigTests(TestCase):
     def setUp(self):
+        TestCase.setUp(self)
         config.update(defaultConfig)
         self.testConfig = self.mktemp()
         open(self.testConfig, "w").write(testConfig)

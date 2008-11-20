@@ -15,9 +15,7 @@
 ##
 
 from twistedcaldav.log import *
-from twistedcaldav.log import logLevelsByNamespace
-
-import twisted.trial.unittest
+from twistedcaldav.test.util import TestCase
 
 defaultLogLevel = logLevelsByNamespace[None]
 
@@ -37,7 +35,7 @@ class TestLogger (Logger):
 class LoggingEnabledObject (LoggingMixIn):
     pass
 
-class Logging (twisted.trial.unittest.TestCase):
+class Logging (TestCase):
     def test_cmpLogLevels(self):
         self.assertEquals(cmpLogLevels("info" , "error"), -1)
         self.assertEquals(cmpLogLevels("debug", "debug"),  0)

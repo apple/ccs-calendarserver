@@ -14,17 +14,17 @@
 # limitations under the License.
 ##
 
-import twisted.trial.unittest
 from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.test.util import TestCase
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
-class DirectoryTestCase (twisted.trial.unittest.TestCase):
+class DirectoryTestCase (TestCase):
     """
     Tests a directory implementation.
     """
@@ -209,7 +209,7 @@ class DirectoryTestCase (twisted.trial.unittest.TestCase):
         return names
 
     def allEntries(self):
-        for data, recordType in (
+        for data, _ignore_recordType in (
             (self.users,     DirectoryService.recordType_users    ),
             (self.groups,    DirectoryService.recordType_groups   ),
             (self.locations, DirectoryService.recordType_locations),
