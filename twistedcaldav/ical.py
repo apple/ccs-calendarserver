@@ -1041,11 +1041,12 @@ class Component (object):
         # Must not contain more than one type of iCalendar component, except for
         # the required timezone components, and component UIDs must match
         #
-        ctype         = None
-        component_id  = None
-        timezone_refs = set()
-        timezones     = set()
-        got_master    = False
+        ctype          = None
+        component_id   = None
+        component_rids = set()
+        timezone_refs  = set()
+        timezones      = set()
+        got_master     = False
         
         for subcomponent in self.subcomponents():
             # Disallowed in CalDAV-Access-08, section 4.1
@@ -1077,11 +1078,18 @@ class Component (object):
                                          "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
                     elif subcomponent.propertyValue("Recurrence-ID") is None:
                         if got_master:
-                            raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs" +
+                            raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs " +
                                              "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
                         else:
                             got_master = True
         
+                rid = subcomponent.getRecurrenceIDUTC()
+                if rid in component_rids:
+                    raise ValueError("Calendar resources may not contain components with the same Recurrence-IDs " +
+                                     "(%s)" % (rid,))
+                else:
+                    component_rids.add(rid)
+
                 timezone_refs.update(subcomponent.timezoneIDs())
         
         #
