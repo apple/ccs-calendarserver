@@ -447,6 +447,10 @@ class CalDAVScheduler(Scheduler):
             if organizerPrincipal:
                 outboxURL = organizerPrincipal.scheduleOutboxURL()
                 if outboxURL:
+                    if not organizerPrincipal.enabledAsOrganizer():
+                        log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+
                     self.organizer = LocalCalendarUser(organizer, organizerPrincipal)
                 else:
                     log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))

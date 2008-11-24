@@ -737,6 +737,18 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     def autoSchedule(self):
         return self.record.autoSchedule
 
+    def enabledAsOrganizer(self):
+        if self.record.recordType == DirectoryService.recordType_users:
+            return True
+        elif self.record.recordType == DirectoryService.recordType_groups:
+            return config.Scheduling.Options.AllowGroupAsOrganizer
+        elif self.record.recordType == DirectoryService.recordType_locations:
+            return config.Scheduling.Options.AllowLocationAsOrganizer
+        elif self.record.recordType == DirectoryService.recordType_resources:
+            return config.Scheduling.Options.AllowResourceAsOrganizer
+        else:
+            return False
+
     def proxies(self):
         return self._getRelatives("proxies")
 

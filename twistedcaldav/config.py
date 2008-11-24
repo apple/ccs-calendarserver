@@ -275,6 +275,11 @@ defaultConfig = {
             "InvitationDaysToLive" : 90, # How many days invitations are valid
         },
 
+        "Options" : {
+            "AllowGroupAsOrganizer"      : True,  # Allow groups to be Organizers
+            "AllowLocationAsOrganizer"   : False, # Allow locations to be Organizers
+            "AllowResourceAsOrganizer"   : False, # Allow resources to be Organizers
+        }
     },
 
     "FreeBusyURL": {
