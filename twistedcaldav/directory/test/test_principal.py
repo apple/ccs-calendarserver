@@ -23,6 +23,7 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.config import config
 from twistedcaldav.directory.apache import BasicDirectoryService, DigestDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.test.test_apache import basicUserFile, digestUserFile, groupFile, digestRealm
@@ -209,6 +210,38 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             else:
                 self.assertTrue(isinstance(principal, DirectoryPrincipalResource))
                 self.assertFalse(isinstance(principal, DirectoryCalendarPrincipalResource))
+
+    def test_enabledAsOrganizer(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        """
+        
+        ok_types = (
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+        )
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            
+            if record.enabledForCalendaring:
+                principal = provisioningResource.principalForRecord(record)
+                self.failIf(principal is None)
+                self.assertEqual(principal.enabledAsOrganizer(), recordType in ok_types)
+
+        config.Scheduling.Options.AllowGroupAsOrganizer = True
+        config.Scheduling.Options.AllowLocationAsOrganizer = True
+        config.Scheduling.Options.AllowResourceAsOrganizer = True
+        ok_types = (
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+            DirectoryService.recordType_locations,
+            DirectoryService.recordType_resources,
+        )
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            
+            if record.enabledForCalendaring:
+                principal = provisioningResource.principalForRecord(record)
+                self.failIf(principal is None)
+                self.assertEqual(principal.enabledAsOrganizer(), recordType in ok_types)
 
     # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeProvisioningResource also
 
