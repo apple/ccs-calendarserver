@@ -74,7 +74,7 @@ class Scheduler(object):
         self.internal_request = False
     
     @inlineCallbacks
-    def doSchedulingViaPOST(self):
+    def doSchedulingViaPOST(self, use_request_headers=False):
         """
         The Scheduling POST operation on an Outbox.
         """
@@ -82,9 +82,12 @@ class Scheduler(object):
         self.method = "POST"
 
         # Load various useful bits doing some basic checks on those
-        self.loadOriginatorFromRequestHeaders()
-        self.loadRecipientsFromRequestHeaders()
         yield self.loadCalendarFromRequest()
+        
+        if use_request_headers:
+            self.loadFromRequestHeaders()
+        else:
+            yield self.loadFromRequestData()
 
         # Do some extra authorization checks
         self.checkAuthorization()
@@ -137,6 +140,56 @@ class Scheduler(object):
         result = (yield self.generateSchedulingResponse())
 
         returnValue(result)
+
+    @inlineCallbacks
+    def loadFromRequestData(self):
+        yield self.loadOriginatorFromRequestDetails()
+        self.loadRecipientsFromCalendarData()
+        
+    @inlineCallbacks
+    def loadOriginatorFromRequestDetails(self):
+        # Get the originator who is the authenticated user
+        originatorPrincipal = None
+        originator = ""
+        authz_principal = self.resource.currentPrincipal(self.request).children[0]
+        if isinstance(authz_principal, davxml.HRef):
+            originatorPrincipalURL = str(authz_principal)
+            if originatorPrincipalURL:
+                originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
+                if originatorPrincipal:
+                    # Pick the first mailto cu address or the first other type
+                    for item in originatorPrincipal.calendarUserAddresses():
+                        if not originator:
+                            originator = item
+                        if item.startswith("mailto:"):
+                            originator = item
+                            break
+
+        if not originator:
+            log.err("%s request must have Originator" % (self.method,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
+        else:
+            self.originator = originator
+
+    def loadRecipientsFromCalendarData(self):
+
+        # Get the ATTENDEEs
+        attendees = set()
+        for attendee, _ignore in self.calendar.getAttendeesByInstance():
+            attendees.add(attendee)
+        
+        if not attendees:
+            log.err("%s request must have at least one Recipient" % (self.method,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
+        else:
+            self.recipients = list(attendees)
+
+    def loadFromRequestHeaders(self):
+        """
+        Load Originator and Recipient from request headers.
+        """
+        self.loadOriginatorFromRequestHeaders()
+        self.loadRecipientsFromRequestHeaders()
 
     def loadOriginatorFromRequestHeaders(self):
         # Must have Originator header

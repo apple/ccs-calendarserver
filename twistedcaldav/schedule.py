@@ -313,5 +313,5 @@ class IScheduleInboxResource (CalDAVResource):
         scheduler = IScheduleScheduler(request, self)
 
         # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST())
+        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
         returnValue(result.response())
