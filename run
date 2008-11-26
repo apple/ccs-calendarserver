@@ -326,14 +326,14 @@ www_get () {
 
       if [ ! -f "${cache_file}" ]; then
 	echo "Downloading ${name}...";
-	curl "${url}" -o "${cache_file}";
+	curl -L "${url}" -o "${cache_file}";
       fi;
 
       echo "Unpacking ${name} from cache...";
       get () { cat "${cache_file}"; }
     else
       echo "Downloading ${name}..."; 
-      get () { curl "${url}"; }
+      get () { curl -L "${url}"; }
     fi;
 
     rm -rf "${path}";
@@ -489,7 +489,7 @@ fi;
 if ! py_have_module xml.dom.ext; then
   xml="${top}/PyXML-0.8.4";
 
-  www_get "PyXML" "${xml}" http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+  www_get "PyXML" "${xml}" http://prdownloads.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
   py_build "PyXML" "${xml}" false;
   py_install "PyXML" "${xml}";
 
@@ -683,7 +683,7 @@ export PYTHONPATH="${PYTHONPATH}:${vobject}";
 
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
-  www_get "PyDirector" "${pydirector}" http://voxel.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+  www_get "PyDirector" "${pydirector}" http://prdownloads.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
 
