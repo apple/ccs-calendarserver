@@ -23,10 +23,10 @@ __all__ = [
     "OpenDirectoryInitError",
 ]
 
-import itertools
 import sys
 import os
 from random import random
+from uuid import UUID
 
 import opendirectory
 import dsattributes
@@ -474,6 +474,105 @@ class OpenDirectoryService(DirectoryService):
 
         return record
 
+    def groupsForGUID(self, guid):
+        
+        # Lookup in index
+        try:
+            return self._storage(DirectoryService.recordType_groups)["groupsForGUID"][guid]
+        except KeyError:
+            return ()
+
+    def proxiesForGUID(self, recordType, guid):
+        
+        # Lookup in index
+        try:
+            return self._storage(recordType)["proxiesForGUID"][guid]
+        except KeyError:
+            return ()
+
+    def readOnlyProxiesForGUID(self, recordType, guid):
+        
+        # Lookup in index
+        try:
+            return self._storage(recordType)["readOnlyProxiesForGUID"][guid]
+        except KeyError:
+            return ()
+
+    def _indexGroup(self, group, guids, index):
+        for guid in guids:
+            index.setdefault(guid, set()).add(group)
+
+    _ODFields = {
+        'fullName' : dsattributes.kDS1AttrDistinguishedName,
+        'firstName' : dsattributes.kDS1AttrFirstName,
+        'lastName' : dsattributes.kDS1AttrLastName,
+        'emailAddresses' : dsattributes.kDSNAttrEMailAddress,
+    }
+
+    _toODRecordTypes = {
+        DirectoryService.recordType_users :
+            dsattributes.kDSStdRecordTypeUsers,
+        DirectoryService.recordType_locations :
+            dsattributes.kDSStdRecordTypePlaces,
+        DirectoryService.recordType_groups :
+            dsattributes.kDSStdRecordTypeGroups,
+        DirectoryService.recordType_resources :
+            dsattributes.kDSStdRecordTypeResources,
+    }
+
+    _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
+
+    def recordsMatchingFields(self, fields, operand="or", recordType=None):
+
+        # Note that OD applies case-sensitivity globally across the entire
+        # query, not per expression, so the current code uses whatever is
+        # specified in the last field in the fields list
+
+        operand = (dsquery.expression.OR if operand == "or"
+            else dsquery.expression.AND)
+
+        expressions = []
+        for field, value, caseless, matchType in fields:
+            if field in self._ODFields:
+                ODField = self._ODFields[field]
+                if matchType == "starts-with":
+                    comparison = dsattributes.eDSStartsWith
+                else:
+                    comparison = dsattributes.eDSContains
+                expressions.append(dsquery.match(ODField, value, comparison))
+
+
+        if recordType is None:
+            recordTypes = self._toODRecordTypes.values()
+        else:
+            recordTypes = (self._toODRecordTypes[recordType],)
+
+        for recordType in recordTypes:
+
+            try:
+                self.log_info("Calling OD: Type %s, Operand %s, Caseless %s, %s" % (recordType, operand, caseless, fields))
+                results = opendirectory.queryRecordsWithAttributes(
+                    self.directory,
+                    dsquery.expression(operand, expressions).generate(),
+                    caseless,
+                    recordType,
+                    [ dsattributes.kDS1AttrGeneratedUID ]
+                )
+                self.log_info("Got back %d records from OD" % (len(results),))
+                for key, val in results.iteritems():
+                    self.log_debug("OD result: %s %s" % (key, val))
+                    try:
+                        guid = val[dsattributes.kDS1AttrGeneratedUID]
+                        rec = self.recordWithGUID(guid)
+                        if rec:
+                            yield rec
+                    except KeyError:
+                        pass
+
+            except Exception, e:
+                self.log_error("OD search failed: %s" % (e,))
+                raise
+
     def reloadCache(self, recordType, shortName=None, guid=None):
         if shortName:
             self.log_info("Faulting record %s into %s record cache" % (shortName, recordType))
@@ -488,6 +587,12 @@ class OpenDirectoryService(DirectoryService):
 
             disabledNames = set()
             disabledGUIDs = set()
+            
+            if recordType == DirectoryService.recordType_groups:
+                groupsForGUID = {}
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                proxiesForGUID = {}
+                readOnlyProxiesForGUID = {}
         else:
             storage = self._records[recordType]
 
@@ -496,6 +601,12 @@ class OpenDirectoryService(DirectoryService):
 
             disabledNames = storage["disabled names"]
             disabledGUIDs = storage["disabled guids"]
+            
+            if recordType == DirectoryService.recordType_groups:
+                groupsForGUID = storage["groupsForGUID"]
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                proxiesForGUID = storage["proxiesForGUID"]
+                readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
 
         for (recordShortName, value) in results:
             enabledForCalendaring = True
@@ -638,6 +749,15 @@ class OpenDirectoryService(DirectoryService):
                     records[record.shortName] = guids[record.guid] = record
                     self.log_debug("Added record %s to OD record cache" % (record,))
 
+                    # Do group indexing if needed
+                    if recordType == DirectoryService.recordType_groups:
+                        self._indexGroup(record, record._memberGUIDs, groupsForGUID)
+
+                    # Do proxy indexing if needed
+                    elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                        self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
+                        self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
+
         if shortName is None and guid is None:
             #
             # Replace the entire cache
@@ -649,6 +769,15 @@ class OpenDirectoryService(DirectoryService):
                 "disabled names": disabledNames,
                 "disabled guids": disabledGUIDs,
             }
+
+            # Add group indexing if needed
+            if recordType == DirectoryService.recordType_groups:
+                storage["groupsForGUID"] = groupsForGUID
+
+            # Add proxy indexing if needed
+            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                storage["proxiesForGUID"] = proxiesForGUID
+                storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
 
             def rot():
                 storage["status"] = "stale"
@@ -885,9 +1014,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield userRecord
 
     def groups(self):
-        for groupRecord in self.service.recordsForType(DirectoryService.recordType_groups).itervalues():
-            if self.guid in groupRecord._memberGUIDs:
-                yield groupRecord
+        return self.service.groupsForGUID(self.guid)
 
     def proxies(self):
         if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
@@ -901,12 +1028,10 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield proxyRecord
 
     def proxyFor(self):
-        for proxyRecord in itertools.chain(
-            self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
-            self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
-        ):
-            if self.guid in proxyRecord._proxyGUIDs:
-                yield proxyRecord
+        result = set()
+        result.update(self.service.proxiesForGUID(DirectoryService.recordType_resources, self.guid))
+        result.update(self.service.proxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        return result
 
     def readOnlyProxies(self):
         if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
@@ -920,12 +1045,10 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield proxyRecord
 
     def readOnlyProxyFor(self):
-        for proxyRecord in itertools.chain(
-            self.service.recordsForType(DirectoryService.recordType_resources).itervalues(),
-            self.service.recordsForType(DirectoryService.recordType_locations).itervalues(),
-        ):
-            if self.guid in proxyRecord._readOnlyProxyGUIDs:
-                yield proxyRecord
+        result = set()
+        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_resources, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        return result
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

@@ -603,6 +603,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (caldav_namespace, "calendar-user-address-set"),
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
+        (calendarserver_namespace, "calendar-proxy-read-for"  ),
+        (calendarserver_namespace, "calendar-proxy-write-for" ),
     )
 
     @classmethod
@@ -616,51 +618,77 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     def isCollection(self):
         return True
 
+    @deferredGenerator
     def readProperty(self, property, request):
-        def defer():
-            if type(property) is tuple:
-                qname = property
-            else:
-                qname = property.qname()
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
 
-            namespace, name = qname
+        namespace, name = qname
 
-            if namespace == caldav_namespace:
-                if name == "calendar-home-set":
-                    return caldavxml.CalendarHomeSet(
-                        *[davxml.HRef(url) for url in self.calendarHomeURLs()]
-                    )
+        if namespace == caldav_namespace:
+            if name == "calendar-home-set":
+                yield caldavxml.CalendarHomeSet(
+                    *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                )
+                return
 
-                if name == "calendar-user-address-set":
-                    return succeed(caldavxml.CalendarUserAddressSet(
-                        *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
-                    ))
+            elif name == "calendar-user-address-set":
+                yield caldavxml.CalendarUserAddressSet(
+                    *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                )
+                return
 
-                if name == "schedule-inbox-URL":
-                    url = self.scheduleInboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return caldavxml.ScheduleInboxURL(davxml.HRef(url))
+            elif name == "schedule-inbox-URL":
+                url = self.scheduleInboxURL()
+                if url is None:
+                    yield None
+                    return
+                else:
+                    yield caldavxml.ScheduleInboxURL(davxml.HRef(url))
+                    return
 
-                if name == "schedule-outbox-URL":
-                    url = self.scheduleOutboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+            elif name == "schedule-outbox-URL":
+                url = self.scheduleOutboxURL()
+                if url is None:
+                    yield None
+                    return
+                else:
+                    yield caldavxml.ScheduleOutboxURL(davxml.HRef(url))
+                    return
 
-            elif namespace == calendarserver_namespace:
-                if name == "dropbox-home-URL" and config.EnableDropBox:
-                    url = self.dropboxURL()
-                    if url is None:
-                        return None
-                    else:
-                        return customxml.DropBoxHomeURL(davxml.HRef(url))
+        elif namespace == calendarserver_namespace:
+            if name == "dropbox-home-URL" and config.EnableDropBox:
+                url = self.dropboxURL()
+                if url is None:
+                    yield None
+                    return
+                else:
+                    yield customxml.DropBoxHomeURL(davxml.HRef(url))
+                    return
 
-            return super(CalendarPrincipalResource, self).readProperty(property, request)
+            elif name == "calendar-proxy-read-for":
+                d = waitForDeferred(self.proxyFor(False))
+                yield d
+                results = d.getResult()
+                yield customxml.CalendarProxyReadFor(
+                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                )
+                return
 
-        return maybeDeferred(defer)
+            elif name == "calendar-proxy-write-for":
+                d = waitForDeferred(self.proxyFor(True))
+                yield d
+                results = d.getResult()
+                yield customxml.CalendarProxyWriteFor(
+                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                )
+                return
+
+        d = waitForDeferred(super(CalendarPrincipalResource, self).readProperty(property, request))
+        yield d
+        yield d.getResult()
 
     def groupMembers(self):
         return succeed(())
