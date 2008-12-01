@@ -309,6 +309,7 @@ www_get () {
     rm -rf "${path}";
     cd "$(dirname "${path}")";
     curl "${url}" | ${decompress} | tar xvf -;
+    chmod -R ugo+r "${path}";
     apply_patches "${name}" "${path}";
     cd /;
   fi;
