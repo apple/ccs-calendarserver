@@ -15,6 +15,7 @@
 ##
 
 import os
+from os.path import dirname, abspath
 
 try:
     from plistlib import writePlist
@@ -37,6 +38,11 @@ from twistedcaldav.directory.directory import UnknownRecordTypeError
 from twistedcaldav.test.util import TestCase
 
 from calendarserver.tap.caldav import CalDAVOptions, CalDAVServiceMaker, CalDAVService
+
+
+# Points to top of source tree.
+sourceRoot = dirname(dirname(dirname(dirname(abspath(__file__)))))
+
 
 class TestCalDAVOptions (CalDAVOptions):
     """
@@ -176,7 +182,6 @@ class BaseServiceMakerTests(TestCase):
 
         self.config = ConfigDict(defaultConfig)
 
-        sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
 
