@@ -110,8 +110,10 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/sbs_backup/
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/bin/calendarServer_restore $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
+
+install:: prep
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/AppleInternal/ServerTools
-	$(_v) $(TAR) -C $(DSTROOT)/AppleInternal/ServerTools -xzf $(Sources)/CalDAVTester.tgz
+	$(_v) $(INSTALL_FILE) $(Sources)/CalDAVTester.tgz $(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz
 
 #
 # Automatic Extract
