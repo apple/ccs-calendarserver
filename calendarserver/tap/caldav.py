@@ -28,7 +28,8 @@ from twisted.internet.address import IPv4Address
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
-from twisted.application import internet, service
+from twisted.application.internet import TCPServer, SSLServer
+from twisted.application.service import MultiService, IServiceMaker
 from twisted.plugin import IPlugin
 from twisted.scripts.mktap import getid
 from twisted.cred.portal import Portal
@@ -56,7 +57,7 @@ from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.mail import IMIPInboxResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import UpgradeTheServer
-from twistedcaldav import pdmonster
+from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
 
@@ -68,17 +69,17 @@ except ImportError:
     NegotiateCredentialFactory = None
 
 
-class CalDAVService (service.MultiService):
+class CalDAVService (MultiService):
     def __init__(self, logObserver):
         self.logObserver = logObserver
-        service.MultiService.__init__(self)
+        MultiService.__init__(self)
 
     def privilegedStartService(self):
-        service.MultiService.privilegedStartService(self)
+        MultiService.privilegedStartService(self)
         self.logObserver.start()
 
     def stopService(self):
-        service.MultiService.stopService(self)
+        MultiService.stopService(self)
         self.logObserver.stop()
 
 
@@ -367,7 +368,7 @@ class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
 
 
 class CalDAVServiceMaker (object):
-    implements(IPlugin, service.IServiceMaker)
+    implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
     description = "The Darwin Calendar Server"
@@ -606,7 +607,7 @@ class CalDAVServiceMaker (object):
                 config.MultiProcess.ProcessCount > 1 and
                 config.MultiProcess.LoadBalancer.Enabled
             ):
-                realRoot = pdmonster.PDClientAddressWrapper(
+                realRoot = PDClientAddressWrapper(
                     logWrapper,
                     config.PythonDirector.ControlSocket,
                     directory,
@@ -665,7 +666,7 @@ class CalDAVServiceMaker (object):
             for port in config.BindHTTPPorts:
                 log.info("Adding server at %s:%s" % (bindAddress, port))
 
-                httpService = internet.TCPServer(
+                httpService = TCPServer(
                     int(port), channel,
                     interface=bindAddress,
                     backlog=config.ListenBacklog,
@@ -686,7 +687,7 @@ class CalDAVServiceMaker (object):
                     log.error("Unable to set up SSL context factory: %s" % (e,))
                     log.error("Disabling SSL port: %s" % (port,))
                 else:
-                    httpsService = internet.SSLServer(
+                    httpsService = SSLServer(
                         int(port), channel,
                         contextFactory, interface=bindAddress,
                         backlog=config.ListenBacklog,
