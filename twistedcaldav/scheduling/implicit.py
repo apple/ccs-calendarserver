@@ -73,7 +73,7 @@ class ImplicitScheduler(object):
                 
         # Cannot create new resource with existing UID
         if not existing_resource or self.action == "create":
-            yield self.hasCalendarResourceUIDSomewhereElse(None, resource_uri, new_type)
+            yield self.hasCalendarResourceUIDSomewhereElse(resource, resource_uri, new_type)
 
         # If action is remove we actually need to get state from the existing scheduling object resource
         if self.action == "remove":
@@ -312,7 +312,7 @@ class ImplicitScheduler(object):
         self.uid = self.calendar.resourceUID()
     
     @inlineCallbacks
-    def hasCalendarResourceUIDSomewhereElse(self, src_uri, dest_uri, type):
+    def hasCalendarResourceUIDSomewhereElse(self, check_resource, check_uri, type):
         """
         See if a calendar component with a matching UID exists anywhere in the calendar home of the
         current recipient owner and is not the resource being targeted.
@@ -326,8 +326,7 @@ class ImplicitScheduler(object):
         calendar_owner_principal = (yield self.resource.ownerPrincipal(self.request))
         calendar_home = calendar_owner_principal.calendarHome()
         
-        source_parent_uri = parentForURL(src_uri)[:-1] if src_uri else None
-        destination_parent_uri = parentForURL(dest_uri)[:-1] if dest_uri else None
+        check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
 
         # FIXME: because of the URL->resource request mapping thing, we have to force the request
         # to recognize this resource
@@ -336,17 +335,18 @@ class ImplicitScheduler(object):
         # Run a UID query against the UID
 
         @inlineCallbacks
-        def queryCalendarCollection(collection, uri):
+        def queryCalendarCollection(collection, collection_uri):
             rname = collection.index().resourceNameForUID(self.uid)
             if rname:
-                child = (yield self.request.locateResource(joinURL(uri, rname)))
+                child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
+                if child.sameResource(check_resource):
+                    returnValue(True)
                 matched_type = "schedule" if child and child.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
                 if (
-                    uri != destination_parent_uri and
-                    (source_parent_uri is None or uri != source_parent_uri) and
+                    collection_uri != check_parent_uri and
                     (type == "schedule" or matched_type == "schedule")
                 ):
-                    log.debug("Implicit - found component with same UID in a different collection: %s" % (uri,))
+                    log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
 
                 # Here we can always return true as the unique UID in a calendar collection

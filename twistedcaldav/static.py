@@ -92,6 +92,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
         else:
             return super(CalDAVFile, self).__repr__()
 
+    def sameResource(self, other):
+        return self.fp.path == other.fp.path
+
     def checkPreconditions(self, request):
         """
         We override the base class to handle the special implicit scheduling weak ETag behavior
