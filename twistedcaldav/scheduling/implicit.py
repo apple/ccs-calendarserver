@@ -339,7 +339,7 @@ class ImplicitScheduler(object):
             rname = collection.index().resourceNameForUID(self.uid)
             if rname:
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
-                if child.sameResource(check_resource):
+                if child == check_resource:
                     returnValue(True)
                 matched_type = "schedule" if child and child.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
                 if (

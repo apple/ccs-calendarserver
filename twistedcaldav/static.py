@@ -92,7 +92,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
         else:
             return super(CalDAVFile, self).__repr__()
 
-    def sameResource(self, other):
+    def __eq__(self, other):
+        if not isinstance(other, CalDAVFile):
+            return False
         return self.fp.path == other.fp.path
 
     def checkPreconditions(self, request):
