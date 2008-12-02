@@ -276,7 +276,7 @@ defaultConfig = {
         },
 
         "Options" : {
-            "AllowGroupAsOrganizer"      : True,  # Allow groups to be Organizers
+            "AllowGroupAsOrganizer"      : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"   : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"   : False, # Allow resources to be Organizers
         }

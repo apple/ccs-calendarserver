@@ -550,7 +550,7 @@
 	  <key>Options</key>
 	  <dict>
         <key>AllowGroupAsOrganizer</key>
-        <true/>
+        <false/>
         <key>AllowLocationAsOrganizer</key>
         <false/>
         <key>AllowResourceAsOrganizer</key>

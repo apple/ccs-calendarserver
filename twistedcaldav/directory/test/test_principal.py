@@ -218,7 +218,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         
         ok_types = (
             DirectoryService.recordType_users,
-            DirectoryService.recordType_groups,
         )
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             
