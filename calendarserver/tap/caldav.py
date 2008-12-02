@@ -19,11 +19,10 @@ import os
 from subprocess import Popen, PIPE
 from pwd import getpwnam
 from grp import getgrnam
-from OpenSSL import SSL
+from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
-from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.internet.address import IPv4Address
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
@@ -36,6 +35,8 @@ from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
+
+from twext.internet.ssl import ChainingOpenSSLContextFactory
 
 from twistedcaldav.log import Logger, logLevelForNamespace, setLogLevelForNamespace
 from twistedcaldav.accesslog import DirectoryLogWrapperResource
@@ -334,37 +335,6 @@ def getSSLPassphrase(*ignored):
                 return output.strip()
 
     return None
-
-class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
-    def __init__(
-        self, privateKeyFileName, certificateFileName,
-        sslmethod=SSL.SSLv23_METHOD, certificateChainFile=None,
-        passwdCallback=None
-    ):
-        self.certificateChainFile = certificateChainFile
-        self.passwdCallback = passwdCallback
-
-        DefaultOpenSSLContextFactory.__init__(
-            self,
-            privateKeyFileName,
-            certificateFileName,
-            sslmethod=sslmethod
-        )
-
-    def cacheContext(self):
-        # Unfortunate code duplication.
-        ctx = SSL.Context(self.sslmethod)
-
-        if self.passwdCallback is not None:
-            ctx.set_passwd_cb(self.passwdCallback)
-
-        ctx.use_certificate_file(self.certificateFileName)
-        ctx.use_privatekey_file(self.privateKeyFileName)
-
-        if self.certificateChainFile != "":
-            ctx.use_certificate_chain_file(self.certificateChainFile)
-
-        self._context = ctx
 
 
 class CalDAVServiceMaker (object):
@@ -683,7 +653,7 @@ class CalDAVServiceMaker (object):
                         certificateChainFile=config.SSLAuthorityChain,
                         passwdCallback=getSSLPassphrase,
                     )
-                except SSL.Error, e:
+                except SSLError, e:
                     log.error("Unable to set up SSL context factory: %s" % (e,))
                     log.error("Disabling SSL port: %s" % (port,))
                 else:

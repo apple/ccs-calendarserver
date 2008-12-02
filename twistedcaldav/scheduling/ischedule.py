@@ -28,6 +28,8 @@ from twisted.web2.http import HTTPError
 from twisted.web2.http_headers import Headers
 from twisted.web2.http_headers import MimeType
 
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
@@ -123,7 +125,6 @@ class IScheduleRequest(object):
         try:
             from twisted.internet import reactor
             if self.server.ssl:
-                from calendarserver.tap.caldav import ChainingOpenSSLContextFactory
                 context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain)
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context))
             else:
