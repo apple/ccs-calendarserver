@@ -570,7 +570,7 @@ def writeReply(request, principal, replycal, ainbox):
         emitAccounting(
             "iTIP", principal,
             "Originator: %s\nRecipients: %s\n\n%s"
-            % (principal.principalURL(), organizer, str(replycal))
+            % (principal.principalURL(), str(organizer), str(replycal))
         )
 
     returnValue(result)
