@@ -693,6 +693,3 @@ class ConfigurationError (RuntimeError):
     """
 
 config = Config(defaultConfig)
-
-def parseConfig(configFile):
-    config.loadConfig(configFile)

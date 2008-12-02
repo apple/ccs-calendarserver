@@ -49,7 +49,7 @@ from twisted.words.protocols.jabber.client import BasicAuthenticator
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile
+from twistedcaldav.config import config, defaultConfig, defaultConfigFile
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav import memcachepool
 from zope.interface import Interface, implements
@@ -1263,7 +1263,7 @@ class NotificationOptions(Options):
     opt_o = opt_option
 
     def postOptions(self):
-        parseConfig(self['config'])
+        config.loadConfig(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 

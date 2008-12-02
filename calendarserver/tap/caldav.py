@@ -49,7 +49,7 @@ from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.cluster import makeService_Combined, makeService_Master
-from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile, ConfigurationError
+from twistedcaldav.config import config, defaultConfig, defaultConfigFile, ConfigurationError
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -178,7 +178,7 @@ class CalDAVOptions (Options):
                     % (self["config"],))
 
         log.info("Reading configuration from file: %s" % (self["config"],))
-        parseConfig(self["config"])
+        config.loadConfig(self["config"])
 
         config.updateDefaults(self.overrides)
 

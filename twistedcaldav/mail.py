@@ -38,7 +38,7 @@ from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import ical, caldavxml
-from twistedcaldav.config import config, parseConfig, defaultConfig, defaultConfigFile
+from twistedcaldav.config import config, defaultConfig, defaultConfigFile
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.directory.util import NotFilePath
@@ -150,7 +150,7 @@ class MailGatewayOptions(Options):
     opt_o = opt_option
 
     def postOptions(self):
-        parseConfig(self['config'])
+        config.loadConfig(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 
