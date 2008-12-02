@@ -21,7 +21,9 @@ __all__ = [
 ]
 
 import os
+import sys
 
+from tempfile import mkstemp
 from subprocess import Popen, PIPE
 from pwd import getpwnam
 from grp import getgrnam
@@ -29,14 +31,17 @@ from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
-from twisted.internet.address import IPv4Address
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
-from twisted.application.internet import TCPServer, SSLServer
-from twisted.application.service import MultiService, IServiceMaker
 from twisted.plugin import IPlugin
+from twisted.internet.reactor import callLater
+from twisted.internet.process import ProcessExitedAlready
+from twisted.internet.address import IPv4Address
+from twisted.application.internet import TCPServer, SSLServer, UNIXServer
+from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
+from twisted.runner import procmon
 from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
@@ -45,10 +50,8 @@ from twisted.web2.server import Site
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
 from twistedcaldav.log import Logger, logLevelForNamespace, setLogLevelForNamespace
-from twistedcaldav.accesslog import DirectoryLogWrapperResource
-from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
-from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.cluster import makeService_Combined, makeService_Master
+from twistedcaldav.accesslog import DirectoryLogWrapperResource, RotatingFileAccessLoggingObserver
+from twistedcaldav.accesslog import AMPLoggingFactory, AMPCommonAccessLoggingObserver
 from twistedcaldav.config import config, defaultConfig, defaultConfigFile, ConfigurationError
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
@@ -67,6 +70,7 @@ from twistedcaldav.upgrade import UpgradeTheServer
 from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.util import getNCPU
 
 log = Logger()
 
@@ -302,6 +306,63 @@ class CalDAVServiceMaker (object):
     iScheduleResourceClass       = IScheduleInboxFile
     imipResourceClass            = IMIPInboxResource
     timezoneServiceResourceClass = TimezoneServiceFile
+
+    def makeService(self, options):
+
+        # Now do any on disk upgrades we might need.
+        UpgradeTheServer.doUpgrade()
+
+        serverType = config.ProcessType
+
+        serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
+
+        if not serviceMethod:
+            raise UsageError(
+                "Unknown server type %s. "
+                "Please choose: Master, Slave, Single or Combined"
+                % (serverType,)
+            )
+        else:
+            service = serviceMethod(options)
+
+            #
+            # Note: if there is a stopped process in the same session
+            # as the calendar server and the calendar server is the
+            # group leader then when twistd forks to drop privileges a
+            # SIGHUP may be sent by the kernel, which can cause the
+            # process to exit. This SIGHUP should be, at a minimum,
+            # ignored.
+            #
+
+            def location(frame):
+                if frame is None:
+                    return "Unknown"
+                else:
+                    return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
+
+            import signal
+            def sighup_handler(num, frame):
+                log.info("SIGHUP recieved at %s" % (location(frame),))
+
+                # Reload the config file
+                config.reload()
+
+                # If combined service send signal to all caldavd children
+                if serverType == "Combined":
+                    service.processMonitor.signalAll(signal.SIGHUP, "caldav")
+
+                # FIXME: There is no memcachepool.getCachePool
+                #   Also, better option is probably to add a hook to
+                #   the config object instead of doing things here.
+                #log.info("Suggesting new max clients for memcache.")
+                #memcachepool.getCachePool().suggestMaxClients(
+                #    config.Memcached.MaxClients
+                #)
+
+            signal.signal(signal.SIGHUP, sighup_handler)
+
+            return service
+
 
     def makeService_Slave(self, options):
         #
@@ -618,65 +679,415 @@ class CalDAVServiceMaker (object):
 
         return service
 
-    makeService_Combined = makeService_Combined
-    makeService_Master   = makeService_Master
     makeService_Single   = makeService_Slave
 
-    def makeService(self, options):
+    def makeService_Combined(self, options):
+        s = MultiService()
+        monitor = DelayedStartupProcessMonitor()
+        monitor.setServiceParent(s)
+        s.processMonitor = monitor
 
-        # Now do any on disk upgrades we might need.
-        UpgradeTheServer.doUpgrade()
+        parentEnv = {
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+        }
 
-        serverType = config.ProcessType
+        hosts = []
+        sslHosts = []
 
-        serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
+        port = [config.HTTPPort,]
+        sslPort = [config.SSLPort,]
 
-        if not serviceMethod:
-            raise UsageError(
-                "Unknown server type %s. "
-                "Please choose: Master, Slave, Single or Combined"
-                % (serverType,)
-            )
-        else:
-            service = serviceMethod(options)
+        bindAddress = ["127.0.0.1"]
 
-            #
-            # Note: if there is a stopped process in the same session
-            # as the calendar server and the calendar server is the
-            # group leader then when twistd forks to drop privileges a
-            # SIGHUP may be sent by the kernel, which can cause the
-            # process to exit. This SIGHUP should be, at a minimum,
-            # ignored.
-            #
-
-            def location(frame):
-                if frame is None:
-                    return "Unknown"
+        #
+        # Attempt to calculate the number of processes to use 1 per processor
+        #
+        if config.MultiProcess.ProcessCount == 0:
+            try:
+                cpuCount = getNCPU()
+            except NotImplementedError, e:
+                error = str(e)
+            else:
+                if cpuCount > 0:
+                    error = None
                 else:
-                    return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
+                    error = "No processors detected, which is difficult to believe."
 
-            import signal
-            def sighup_handler(num, frame):
-                log.info("SIGHUP recieved at %s" % (location(frame),))
+            if error is None:
+                log.msg(
+                    "%d processors found, configuring %d processes."
+                    % (cpuCount, cpuCount)
+                )
+            else:
+                log.err("Could not autodetect number of CPUs: %s" % (error,))
+                log.err("Assuming one CPU, configuring one process.")
+                cpuCount = 1
 
-                # Reload the config file
-                config.reload()
+            config.MultiProcess.ProcessCount = cpuCount
 
-                # If combined service send signal to all caldavd children
-                if serverType == "Combined":
-                    service.processMonitor.signalAll(signal.SIGHUP, "caldav")
+        if config.MultiProcess.ProcessCount > 1:
+            if config.BindHTTPPorts:
+                port = [list(reversed(config.BindHTTPPorts))[0]]
 
-                # FIXME: There is no memcachepool.getCachePool
-                #   Also, better option is probably to add a hook to
-                #   the config object instead of doing things here.
-                #log.info("Suggesting new max clients for memcache.")
-                #memcachepool.getCachePool().suggestMaxClients(
-                #    config.Memcached.MaxClients
-                #)
+            if config.BindSSLPorts:
+                sslPort = [list(reversed(config.BindSSLPorts))[0]]
 
-            signal.signal(signal.SIGHUP, sighup_handler)
+        elif config.MultiProcess.ProcessCount == 1:
+            if config.BindHTTPPorts:
+                port = config.BindHTTPPorts
 
-            return service
+            if config.BindSSLPorts:
+                sslPort = config.BindSSLPorts
+
+        if port[0] == 0:
+            port = None
+
+        if sslPort[0] == 0:
+            sslPort = None
+
+        # If the load balancer isn"t enabled, or if we only have one process
+        # We listen directly on the interfaces.
+
+        if (
+            not config.MultiProcess.LoadBalancer.Enabled or
+            config.MultiProcess.ProcessCount == 1
+        ):
+            bindAddress = config.BindAddresses
+
+        for p in xrange(0, config.MultiProcess.ProcessCount):
+            if config.MultiProcess.ProcessCount > 1:
+                if port is not None:
+                    port = [port[0] + 1]
+
+                if sslPort is not None:
+                    sslPort = [sslPort[0] + 1]
+
+            process = TwistdSlaveProcess(
+                config.Twisted.twistd,
+                self.tapname,
+                options["config"],
+                bindAddress,
+                port,
+                sslPort
+            )
+
+            monitor.addProcess(
+                process.getName(),
+                process.getCommandLine(),
+                env=parentEnv
+            )
+
+            if config.HTTPPort:
+                hosts.append(process.getHostLine())
+
+            if config.SSLPort:
+                sslHosts.append(process.getHostLine(ssl=True))
+
+        #
+        # Set up pydirector config file.
+        #
+        if (config.MultiProcess.LoadBalancer.Enabled and
+            config.MultiProcess.ProcessCount > 1):
+            services = []
+
+            if not config.BindAddresses:
+                config.BindAddresses = [""]
+
+            scheduler_map = {
+                "LeastConnections": "leastconns",
+                "RoundRobin": "roundrobin",
+                "LeastConnectionsAndRoundRobin": "leastconnsrr",
+            }
+
+            for bindAddress in config.BindAddresses:
+                httpListeners = []
+                sslListeners = []
+
+                httpPorts = config.BindHTTPPorts
+                if not httpPorts:
+                    if config.HTTPPort != 0:
+                        httpPorts = (config.HTTPPort,)
+
+                sslPorts = config.BindSSLPorts
+                if not sslPorts:
+                    if config.SSLPort != 0:
+                        sslPorts = (config.SSLPort,)
+
+                for ports, listeners in (
+                    (httpPorts, httpListeners),
+                    (sslPorts, sslListeners)
+                ):
+                    for port in ports:
+                        listeners.append(
+                            """<listen ip="%s:%s" />""" % (bindAddress, port)
+                        )
+
+                scheduler = config.MultiProcess.LoadBalancer.Scheduler
+
+                pydirServiceTemplate = (
+                    """<service name="%(name)s">"""
+                    """%(listeningInterfaces)s"""
+                    """<group name="main" scheduler="%(scheduler)s">%(hosts)s</group>"""
+                    """<enable group="main" />"""
+                    """</service>"""
+                )
+
+                if httpPorts:
+                    services.append(
+                        pydirServiceTemplate % {
+                            "name": "http",
+                            "listeningInterfaces": "\n".join(httpListeners),
+                            "scheduler": scheduler_map[scheduler],
+                            "hosts": "\n".join(hosts)
+                        }
+                    )
+
+                if sslPorts:
+                    services.append(
+                        pydirServiceTemplate % {
+                            "name": "https",
+                            "listeningInterfaces": "\n".join(sslListeners),
+                            "scheduler": scheduler_map[scheduler],
+                            "hosts": "\n".join(sslHosts),
+                        }
+                    )
+
+            pdconfig = """<pdconfig>%s<control socket="%s" /></pdconfig>""" % (
+                "\n".join(services), config.PythonDirector.ControlSocket,
+            )
+
+            fd, fname = mkstemp(prefix="pydir")
+            os.write(fd, pdconfig)
+            os.close(fd)
+
+            log.msg("Adding pydirector service with configuration: %s" % (fname,))
+
+            monitor.addProcess(
+                "pydir",
+                [sys.executable, config.PythonDirector.pydir, fname],
+                env=parentEnv,
+            )
+
+        if config.Memcached.ServerEnabled:
+            log.msg("Adding memcached service")
+
+            memcachedArgv = [
+                config.Memcached.memcached,
+                "-p", str(config.Memcached.Port),
+                "-l", config.Memcached.BindAddress,
+            ]
+
+            if config.Memcached.MaxMemory is not 0:
+                memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
+
+            if config.UserName:
+                memcachedArgv.extend(["-u", config.UserName])
+
+            memcachedArgv.extend(config.Memcached.Options)
+
+            monitor.addProcess("memcached", memcachedArgv, env=parentEnv)
+
+        if (
+            config.Notifications.Enabled and
+            config.Notifications.InternalNotificationHost == "localhost"
+        ):
+            log.msg("Adding notification service")
+
+            notificationsArgv = [
+                sys.executable,
+                config.Twisted.twistd,
+                "-n", "caldav_notifier",
+                "-f", options["config"],
+            ]
+            monitor.addProcess("notifications", notificationsArgv, env=parentEnv)
+
+        if (
+            config.Scheduling.iMIP.Enabled and
+            config.Scheduling.iMIP.MailGatewayServer == "localhost"
+        ):
+            log.msg("Adding mail gateway service")
+
+            mailGatewayArgv = [
+                sys.executable,
+                config.Twisted.twistd,
+                "-n", "caldav_mailgateway",
+                "-f", options["config"],
+            ]
+            monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
+
+
+        logger = AMPLoggingFactory(
+            RotatingFileAccessLoggingObserver(config.AccessLogFile)
+        )
+
+        loggingService = UNIXServer(config.ControlSocket, logger)
+
+        loggingService.setServiceParent(s)
+
+        return s
+
+    def makeService_Master(self, options):
+        service = procmon.ProcessMonitor()
+
+        parentEnv = {"PYTHONPATH": os.environ.get("PYTHONPATH", "")}
+
+        log.msg("Adding pydirector service with configuration: %s"
+                % (config.PythonDirector.ConfigFile,))
+
+        service.addProcess(
+            "pydir",
+            [
+                sys.executable,
+                config.PythonDirector.pydir,
+                config.PythonDirector.ConfigFile
+            ],
+            env=parentEnv
+        )
+
+        return service
+
+
+class TwistdSlaveProcess(object):
+    prefix = "caldav"
+
+    def __init__(self, twistd, tapname, configFile, interfaces, port, sslPort):
+        self.twistd = twistd
+
+        self.tapname = tapname
+
+        self.configFile = configFile
+
+        self.ports = port
+        self.sslPorts = sslPort
+
+        self.interfaces = interfaces
+
+    def getName(self):
+        if self.ports is not None:
+            return "%s-%s" % (self.prefix, self.ports[0])
+        elif self.sslPorts is not None:
+            return "%s-%s" % (self.prefix, self.sslPorts[0])
+
+        raise ConfigurationError(
+            "Can't create TwistdSlaveProcess without a TCP Port"
+        )
+
+    def getCommandLine(self):
+        args = [sys.executable, self.twistd]
+
+        if config.UserName:
+            args.extend(("-u", config.UserName))
+
+        if config.GroupName:
+            args.extend(("-g", config.GroupName))
+
+        if config.Profiling.Enabled:
+            args.append(
+                "--profile=%s/%s.pstats"
+                % (config.Profiling.BaseDirectory, self.getName())
+            )
+            args.extend(("--savestats", "--nothotshot"))
+
+        args.extend([
+            "--reactor=%s" % (config.Twisted.reactor,),
+            "-n", self.tapname,
+            "-f", self.configFile,
+            "-o", "ProcessType=Slave",
+            "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
+            "-o", "PIDFile=None",
+            "-o", "ErrorLogFile=None",
+            "-o", "MultiProcess/ProcessCount=%d"
+                  % (config.MultiProcess.ProcessCount,)
+        ])
+
+        if config.Memcached.ServerEnabled:
+            args.extend(["-o", "Memcached/ClientEnabled=True"])
+
+        if self.ports:
+            args.extend([
+                "-o", "BindHTTPPorts=%s" % (",".join(map(str, self.ports)),)
+            ])
+
+        if self.sslPorts:
+            args.extend([
+                "-o", "BindSSLPorts=%s" % (",".join(map(str, self.sslPorts)),)
+            ])
+
+        return args
+
+    def getHostLine(self, ssl=False):
+        name = self.getName()
+        port = None
+
+        if self.ports is not None:
+            port = self.ports
+
+        if ssl and self.sslPorts is not None:
+            port = self.sslPorts
+
+        if port is None:
+            raise ConfigurationError("Can not add a host without a port")
+
+        return """<host name="%s" ip="127.0.0.1:%s" />""" % (name, port[0])
+
+
+class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+    def startService(self):
+        Service.startService(self)
+        self.active = 1
+
+        delay = 0
+
+        if config.MultiProcess.StaggeredStartup.Enabled:
+            delay_interval = config.MultiProcess.StaggeredStartup.Interval
+        else:
+            delay_interval = 0
+
+        for name in self.processes.keys():
+            if name.startswith("caldav"):
+                when = delay
+                delay += delay_interval
+            else:
+                when = 0
+            callLater(when, self.startProcess, name)
+
+        self.consistency = callLater(
+            self.consistencyDelay,
+            self._checkConsistency
+        )
+
+    def signalAll(self, signal, startswithname=None):
+        """
+        Send a signal to all child processes.
+
+        @param signal: the signal to send
+        @type signal: C{int}
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
+        @type signal: C{str}
+        """
+        for name in self.processes.keys():
+            if startswithname is None or name.startswith(startswithname):
+                self.signalProcess(signal, name)
+
+    def signalProcess(self, signal, name):
+        """
+        Send a signal to each monitored process
+        
+        @param signal: the signal to send
+        @type signal: C{int}
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
+        @type signal: C{str}
+        """
+        if not self.protocols.has_key(name):
+            return
+        proc = self.protocols[name].transport
+        try:
+            proc.signalProcess(signal)
+        except ProcessExitedAlready:
+            pass
 
 
 def getSSLPassphrase(*ignored):
