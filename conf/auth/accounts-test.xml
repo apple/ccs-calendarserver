@@ -92,4 +92,35 @@ limitations under the License.
     </members>
     <disable-calendar/>
   </group>
+  <group>
+    <uid>subgroup1</uid>
+    <guid>subgroup1</guid>
+    <password>subgroup1</password>
+    <name>Sub Group 1</name>
+    <members>
+      <member type="users">user10</member>
+      <member type="users">user11</member>
+    </members>
+  </group>
+  <group>
+    <uid>subgroup2</uid>
+    <guid>subgroup2</guid>
+    <password>subgroup2</password>
+    <name>Sub Group 2</name>
+    <members>
+      <member type="users">user12</member>
+      <member type="users">user13</member>
+    </members>
+  </group>
+  <group>
+    <uid>toplevelgroup</uid>
+    <guid>toplevelgroup</guid>
+    <password>toplevelgroup</password>
+    <name>Top Level Group</name>
+    <members>
+      <member type="groups">subgroup1</member>
+      <member type="groups">subgroup2</member>
+      <member type="users">user14</member>
+    </members>
+  </group>
 </accounts>
