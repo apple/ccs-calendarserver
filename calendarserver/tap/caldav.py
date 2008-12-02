@@ -14,6 +14,12 @@
 # limitations under the License.
 ##
 
+__all__ = [
+    "CalDAVService",
+    "CalDAVOptions",
+    "CalDAVServiceMaker",
+]
+
 import os
 
 from subprocess import Popen, PIPE
@@ -278,63 +284,6 @@ class CalDAVOptions (Options):
                 "Insufficient permissions for server on %s directory: %s"
                 % (description, dirpath,)
             )
-
-def getSSLPassphrase(*ignored):
-
-    if not config.SSLPrivateKey:
-        return None
-
-    if config.SSLCertAdmin and os.path.isfile(config.SSLCertAdmin):
-        child = Popen(
-            args=[
-                "sudo", config.SSLCertAdmin,
-                "--get-private-key-passphrase", config.SSLPrivateKey,
-            ],
-            stdout=PIPE, stderr=PIPE,
-        )
-        output, error = child.communicate()
-
-        if child.returncode:
-            log.error("Could not get passphrase for %s: %s"
-                      % (config.SSLPrivateKey, error))
-        else:
-            return output.strip()
-
-    if config.SSLPassPhraseDialog and os.path.isfile(config.SSLPassPhraseDialog):
-        sslPrivKey = open(config.SSLPrivateKey)
-        try:
-            keyType = None
-            for line in sslPrivKey.readlines():
-                if "-----BEGIN RSA PRIVATE KEY-----" in line:
-                    keyType = "RSA"
-                    break
-                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-                    keyType = "DSA"
-                    break
-        finally:
-            sslPrivKey.close()
-
-        if keyType is None:
-            log.error("Could not get private key type for %s"
-                      % (config.SSLPrivateKey,))
-        else:
-            child = Popen(
-                args=[
-                    config.SSLPassPhraseDialog,
-                    "%s:%s" % (config.ServerHostName, config.SSLPort),
-                    keyType,
-                ],
-                stdout=PIPE, stderr=PIPE,
-            )
-            output, error = child.communicate()
-
-            if child.returncode:
-                log.error("Could not get passphrase for %s: %s"
-                          % (config.SSLPrivateKey, error))
-            else:
-                return output.strip()
-
-    return None
 
 
 class CalDAVServiceMaker (object):
@@ -728,3 +677,61 @@ class CalDAVServiceMaker (object):
             signal.signal(signal.SIGHUP, sighup_handler)
 
             return service
+
+
+def getSSLPassphrase(*ignored):
+
+    if not config.SSLPrivateKey:
+        return None
+
+    if config.SSLCertAdmin and os.path.isfile(config.SSLCertAdmin):
+        child = Popen(
+            args=[
+                "sudo", config.SSLCertAdmin,
+                "--get-private-key-passphrase", config.SSLPrivateKey,
+            ],
+            stdout=PIPE, stderr=PIPE,
+        )
+        output, error = child.communicate()
+
+        if child.returncode:
+            log.error("Could not get passphrase for %s: %s"
+                      % (config.SSLPrivateKey, error))
+        else:
+            return output.strip()
+
+    if config.SSLPassPhraseDialog and os.path.isfile(config.SSLPassPhraseDialog):
+        sslPrivKey = open(config.SSLPrivateKey)
+        try:
+            keyType = None
+            for line in sslPrivKey.readlines():
+                if "-----BEGIN RSA PRIVATE KEY-----" in line:
+                    keyType = "RSA"
+                    break
+                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
+                    keyType = "DSA"
+                    break
+        finally:
+            sslPrivKey.close()
+
+        if keyType is None:
+            log.error("Could not get private key type for %s"
+                      % (config.SSLPrivateKey,))
+        else:
+            child = Popen(
+                args=[
+                    config.SSLPassPhraseDialog,
+                    "%s:%s" % (config.ServerHostName, config.SSLPort),
+                    keyType,
+                ],
+                stdout=PIPE, stderr=PIPE,
+            )
+            output, error = child.communicate()
+
+            if child.returncode:
+                log.error("Could not get passphrase for %s: %s"
+                          % (config.SSLPrivateKey, error))
+            else:
+                return output.strip()
+
+    return None
