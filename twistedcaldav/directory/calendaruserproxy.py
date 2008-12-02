@@ -282,7 +282,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         return self.parent.principalCollections()
 
     @inlineCallbacks
-    def _expandMemberUIDs(self, uid=None, relatives=None, uids=None):
+    def _expandMemberUIDs(self, uid=None, relatives=None, uids=None, infinity=False):
         if uid is None:
             uid = self.principalUID()
         if relatives is None:
@@ -299,9 +299,12 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
                 for member in members:
                     if member.principalUID() not in uids:
                         relatives.add(member)
-                        yield self._expandMemberUIDs(member.principalUID(), relatives, uids)
+                        yield self._expandMemberUIDs(member.principalUID(), relatives, uids, infinity=infinity)
             elif isinstance(principal, DirectoryPrincipalResource):
-                members = yield principal.groupMembers()
+                if infinity:
+                    members = yield principal.expandedGroupMembers()
+                else:
+                    members = yield principal.groupMembers()
                 relatives.update(members)
 
         returnValue(relatives)
@@ -321,6 +324,9 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
     def groupMembers(self):
         return self._expandMemberUIDs()
+
+    def expandedGroupMembers(self):
+        return self._expandMemberUIDs(infinity=True)
 
     @inlineCallbacks
     def groupMemberships(self):

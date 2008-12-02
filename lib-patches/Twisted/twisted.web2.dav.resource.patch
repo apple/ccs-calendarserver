@@ -684,7 +684,7 @@ Index: twisted/web2/dav/resource.py
 -        return d
 +        # Get principal resource for principal2
 +        if group and isinstance(group, DAVPrincipalResource):
-+            d = waitForDeferred(group.groupMembers())
++            d = waitForDeferred(group.expandedGroupMembers())
 +            yield d
 +            members = d.getResult()
 +            for member in members:
@@ -1076,7 +1076,7 @@ Index: twisted/web2/dav/resource.py
 +                    def callback(members):
 +                        return davxml.GroupMemberSet(*[davxml.HRef(p.principalURL()) for p in members])
 +                    
-+                    d = self.groupMembers()
++                    d = self.expandedGroupMembers()
 +                    d.addCallback(callback)
 +                    return d
  
@@ -1117,7 +1117,7 @@ Index: twisted/web2/dav/resource.py
 +            return
          else:
 -            return uri in self.groupMembers()
-+            d = waitForDeferred(self.groupMembers())
++            d = waitForDeferred(self.expandedGroupMembers())
 +            yield d
 +            members = d.getResult()
 +            member_uris = [member.principalURL() for member in members]

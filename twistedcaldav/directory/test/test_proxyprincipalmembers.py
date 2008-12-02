@@ -58,7 +58,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         if subPrincipalName is not None:
             principal = principal.getChild(subPrincipalName)
 
-        d = principal.groupMembers()
+        d = principal.expandedGroupMembers()
         d.addCallback(gotMembers)
         return d
 
@@ -84,7 +84,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersRegular(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_groups, "both_coasts", None,
@@ -93,7 +93,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersRecursive(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_groups, "recursive1_coasts", None,
@@ -102,7 +102,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxySingleUser(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_locations, "gemini", "calendar-proxy-write",
@@ -111,7 +111,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxySingleGroup(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_locations, "mercury", "calendar-proxy-write",
@@ -120,7 +120,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxySingleGroupWithNestedGroups(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_locations, "apollo", "calendar-proxy-write",
@@ -129,7 +129,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxySingleGroupWithNestedRecursiveGroups(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         return self._groupMembersTest(
             DirectoryService.recordType_locations, "orion", "calendar-proxy-write",
@@ -138,7 +138,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxySingleGroupWithNonCalendarGroup(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         ds = []
 
@@ -156,7 +156,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembersProxyMissingUser(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         proxy = self._getPrincipalByShortName(DirectoryService.recordType_users, "cdaboo")
         proxyGroup = proxy.getChild("calendar-proxy-write")
@@ -179,7 +179,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
     def test_groupMembershipsMissingUser(self):
         """
-        DirectoryPrincipalResource.groupMembers()
+        DirectoryPrincipalResource.expandedGroupMembers()
         """
         # Setup the fake entry in the DB
         fake_uid = "12345"
