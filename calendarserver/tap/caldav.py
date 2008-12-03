@@ -49,10 +49,14 @@ from twisted.web2.server import Site
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
-from twistedcaldav.log import Logger, logLevelForNamespace, setLogLevelForNamespace
-from twistedcaldav.accesslog import DirectoryLogWrapperResource, RotatingFileAccessLoggingObserver
-from twistedcaldav.accesslog import AMPLoggingFactory, AMPCommonAccessLoggingObserver
-from twistedcaldav.config import config, defaultConfig, defaultConfigFile, ConfigurationError
+from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav.accesslog import DirectoryLogWrapperResource
+from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
+from twistedcaldav.accesslog import AMPLoggingFactory
+from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
+from twistedcaldav.config import config, defaultConfig, defaultConfigFile
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -71,8 +75,6 @@ from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.util import getNCPU
-
-log = Logger()
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -94,7 +96,7 @@ class CalDAVService (MultiService):
         self.logObserver.stop()
 
 
-class CalDAVOptions (Options):
+class CalDAVOptions (Options, LoggingMixIn):
     optParameters = [[
         "config", "f", defaultConfigFile, "Path to configuration file."
     ]]
@@ -178,10 +180,11 @@ class CalDAVOptions (Options):
 
     def postOptions(self):
         if not os.path.exists(self["config"]):
-            log.info("Config file %s not found, using defaults"
-                    % (self["config"],))
+            self.log_info("Config file %s not found, using defaults"
+                          % (self["config"],))
 
-        log.info("Reading configuration from file: %s" % (self["config"],))
+        self.log_info("Reading configuration from file: %s"
+                      % (self["config"],))
         config.loadConfig(self["config"])
 
         config.updateDefaults(self.overrides)
@@ -241,8 +244,8 @@ class CalDAVOptions (Options):
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)
         if oldmask != config.umask:
-            log.info("WARNING: changing umask from: 0%03o to 0%03o"
-                     % (oldmask, config.umask,))
+            self.log_info("WARNING: changing umask from: 0%03o to 0%03o"
+                          % (oldmask, config.umask))
 
     def checkDirectory(self, dirpath, description, access=None, create=None):
         if not os.path.exists(dirpath):
@@ -250,14 +253,14 @@ class CalDAVOptions (Options):
                 mode, username, groupname = create
             except TypeError:
                 raise ConfigurationError("%s does not exist: %s"
-                                         % (description, dirpath,))
+                                         % (description, dirpath))
             try:
                 os.mkdir(dirpath)
             except (OSError, IOError), e:
-                log.error("Could not create %s: %s" % (dirpath, e))
+                self.log_error("Could not create %s: %s" % (dirpath, e))
                 raise ConfigurationError(
                     "%s does not exist and cannot be created: %s"
-                    % (description, dirpath,)
+                    % (description, dirpath)
                 )
 
             if username:
@@ -274,23 +277,23 @@ class CalDAVOptions (Options):
                 os.chmod(dirpath, mode)
                 os.chown(dirpath, uid, gid)
             except (OSError, IOError), e:
-                log.error("Unable to change mode/owner of %s: %s"
-                          % (dirpath, e))
+                self.log_error("Unable to change mode/owner of %s: %s"
+                               % (dirpath, e))
 
-            log.info("Created directory: %s" % (dirpath,))
+            self.log_info("Created directory: %s" % (dirpath,))
 
         if not os.path.isdir(dirpath):
             raise ConfigurationError("%s is not a directory: %s"
-                                     % (description, dirpath,))
+                                     % (description, dirpath))
 
         if access and not os.access(dirpath, access):
             raise ConfigurationError(
                 "Insufficient permissions for server on %s directory: %s"
-                % (description, dirpath,)
+                % (description, dirpath)
             )
 
 
-class CalDAVServiceMaker (object):
+class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
@@ -342,7 +345,7 @@ class CalDAVServiceMaker (object):
 
             import signal
             def sighup_handler(num, frame):
-                log.info("SIGHUP recieved at %s" % (location(frame),))
+                self.log_info("SIGHUP recieved at %s" % (location(frame),))
 
                 # Reload the config file
                 config.reload()
@@ -354,7 +357,7 @@ class CalDAVServiceMaker (object):
                 # FIXME: There is no memcachepool.getCachePool
                 #   Also, better option is probably to add a hook to
                 #   the config object instead of doing things here.
-                #log.info("Suggesting new max clients for memcache.")
+                #self.log_info("Suggesting new max clients for memcache.")
                 #memcachepool.getCachePool().suggestMaxClients(
                 #    config.Memcached.MaxClients
                 #)
@@ -379,8 +382,8 @@ class CalDAVServiceMaker (object):
 
         directoryClass = namedClass(config.DirectoryService.type)
 
-        log.info("Configuring directory service of type: %s"
-                 % (config.DirectoryService.type,))
+        self.log_info("Configuring directory service of type: %s"
+                      % (config.DirectoryService.type,))
 
         baseDirectory = directoryClass(**config.DirectoryService.params)
 
@@ -389,8 +392,8 @@ class CalDAVServiceMaker (object):
         sudoDirectory = None
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
-            log.info("Configuring SudoDirectoryService with file: %s"
-                     % (config.SudoersFile,))
+            self.log_info("Configuring SudoDirectoryService with file: %s"
+                          % (config.SudoersFile,))
 
             sudoDirectory = SudoDirectoryService(config.SudoersFile)
             sudoDirectory.realmName = baseDirectory.realmName
@@ -398,8 +401,10 @@ class CalDAVServiceMaker (object):
             CalDAVResource.sudoDirectory = sudoDirectory
             directories.insert(0, sudoDirectory)
         else:
-            log.info("Not using SudoDirectoryService; file doesn't exist: %s"
-                     % (config.SudoersFile,))
+            self.log_info(
+                "Not using SudoDirectoryService; file doesn't exist: %s"
+                % (config.SudoersFile,)
+            )
 
         #
         # Add wiki directory service
@@ -440,25 +445,26 @@ class CalDAVServiceMaker (object):
         #
         # Setup Resource hierarchy
         #
-        log.info("Setting up document root at: %s"
-                 % (config.DocumentRoot,))
-        log.info("Setting up principal collection: %r"
-                 % (self.principalResourceClass,))
+        self.log_info("Setting up document root at: %s"
+                      % (config.DocumentRoot,))
+        self.log_info("Setting up principal collection: %r"
+                      % (self.principalResourceClass,))
 
         principalCollection = self.principalResourceClass(
             "/principals/",
             directory,
         )
 
-        log.info("Setting up calendar collection: %r"
-                 % (self.calendarResourceClass,))
+        self.log_info("Setting up calendar collection: %r"
+                      % (self.calendarResourceClass,))
 
         calendarCollection = self.calendarResourceClass(
             os.path.join(config.DocumentRoot, "calendars"),
             directory, "/calendars/",
         )
 
-        log.info("Setting up root resource: %r" % (self.rootResourceClass,))
+        self.log_info("Setting up root resource: %r"
+                      % (self.rootResourceClass,))
 
         root = self.rootResourceClass(
             config.DocumentRoot,
@@ -470,8 +476,8 @@ class CalDAVServiceMaker (object):
 
         # Timezone service is optional
         if config.EnableTimezoneService:
-            log.info("Setting up time zone service resource: %r"
-                     % (self.timezoneServiceResourceClass,))
+            self.log_info("Setting up time zone service resource: %r"
+                          % (self.timezoneServiceResourceClass,))
 
             timezoneService = self.timezoneServiceResourceClass(
                 os.path.join(config.DocumentRoot, "timezones"),
@@ -481,8 +487,8 @@ class CalDAVServiceMaker (object):
 
         # iSchedule service is optional
         if config.Scheduling.iSchedule.Enabled:
-            log.info("Setting up iSchedule inbox resource: %r"
-                     % (self.iScheduleResourceClass,))
+            self.log_info("Setting up iSchedule inbox resource: %r"
+                          % (self.iScheduleResourceClass,))
     
             ischedule = self.iScheduleResourceClass(
                 os.path.join(config.DocumentRoot, "ischedule"),
@@ -493,8 +499,8 @@ class CalDAVServiceMaker (object):
         #
         # IMIP delivery resource
         #
-        log.info("Setting up iMIP inbox resource: %r"
-                 % (self.imipResourceClass,))
+        self.log_info("Setting up iMIP inbox resource: %r"
+                      % (self.imipResourceClass,))
 
         imipInbox = self.imipResourceClass(root)
         root.putChild("inbox", imipInbox)
@@ -502,7 +508,7 @@ class CalDAVServiceMaker (object):
         #
         # Configure ancillary data
         #
-        log.info("Setting up Timezone Cache")
+        self.log_info("Setting up Timezone Cache")
         TimezoneCache.create()
 
         #
@@ -516,7 +522,7 @@ class CalDAVServiceMaker (object):
 
         realm = directory.realmName or ""
 
-        log.info("Configuring authentication for realm: %s" % (realm,))
+        self.log_info("Configuring authentication for realm: %s" % (realm,))
 
         for scheme, schemeConfig in config.Authentication.iteritems():
             scheme = scheme.lower()
@@ -524,11 +530,11 @@ class CalDAVServiceMaker (object):
             credFactory = None
 
             if schemeConfig["Enabled"]:
-                log.info("Setting up scheme: %s" % (scheme,))
+                self.log_info("Setting up scheme: %s" % (scheme,))
 
                 if scheme == "kerberos":
                     if not NegotiateCredentialFactory:
-                        log.info("Kerberos support not available")
+                        self.log_info("Kerberos support not available")
                         continue
 
                     try:
@@ -543,7 +549,7 @@ class CalDAVServiceMaker (object):
                                 principal=principal,
                             )
                     except ValueError:
-                        log.info("Could not start Kerberos")
+                        self.log_info("Could not start Kerberos")
                         continue
 
                 elif scheme == "digest":
@@ -558,12 +564,12 @@ class CalDAVServiceMaker (object):
                     credFactory = BasicCredentialFactory(realm)
 
                 else:
-                    log.error("Unknown scheme: %s" % (scheme,))
+                    self.log_error("Unknown scheme: %s" % (scheme,))
 
             if credFactory:
                 credentialFactories.append(credFactory)
 
-        log.info("Configuring authentication wrapper")
+        self.log_info("Configuring authentication wrapper")
 
         authWrapper = auth.AuthenticationWrapper(
             root,
@@ -580,7 +586,7 @@ class CalDAVServiceMaker (object):
         #
         # Configure the service
         #
-        log.info("Setting up service")
+        self.log_info("Setting up service")
 
         if config.ProcessType == "Slave":
             if (
@@ -606,7 +612,7 @@ class CalDAVServiceMaker (object):
                 config.AccessLogFile,
             )
 
-        log.info("Configuring log observer: %s" % (logObserver,))
+        self.log_info("Configuring log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
 
@@ -644,7 +650,7 @@ class CalDAVServiceMaker (object):
                 config.BindSSLPorts = [config.SSLPort]
 
             for port in config.BindHTTPPorts:
-                log.info("Adding server at %s:%s" % (bindAddress, port))
+                self.log_info("Adding server at %s:%s" % (bindAddress, port))
 
                 httpService = TCPServer(
                     int(port), channel,
@@ -654,7 +660,8 @@ class CalDAVServiceMaker (object):
                 httpService.setServiceParent(service)
 
             for port in config.BindSSLPorts:
-                log.info("Adding SSL server at %s:%s" % (bindAddress, port))
+                self.log_info("Adding SSL server at %s:%s"
+                              % (bindAddress, port))
 
                 try:
                     contextFactory = ChainingOpenSSLContextFactory(
@@ -664,8 +671,9 @@ class CalDAVServiceMaker (object):
                         passwdCallback=getSSLPassphrase,
                     )
                 except SSLError, e:
-                    log.error("Unable to set up SSL context factory: %s" % (e,))
-                    log.error("Disabling SSL port: %s" % (port,))
+                    self.log_error("Unable to set up SSL context factory: %s"
+                                   % (e,))
+                    self.log_error("Disabling SSL port: %s" % (port,))
                 else:
                     httpsService = SSLServer(
                         int(port), channel,
@@ -712,16 +720,18 @@ class CalDAVServiceMaker (object):
                 if cpuCount > 0:
                     error = None
                 else:
-                    error = "No processors detected, which is difficult to believe."
+                    error = (
+                        "No processors detected, "
+                        "which is difficult to believe."
+                    )
 
             if error is None:
-                log.msg(
-                    "%d processors found, configuring %d processes."
-                    % (cpuCount, cpuCount)
-                )
+                self.log_info("%d processors found, configuring %d processes."
+                              % (cpuCount, cpuCount))
             else:
-                log.err("Could not autodetect number of CPUs: %s" % (error,))
-                log.err("Assuming one CPU, configuring one process.")
+                self.log_error("Could not autodetect number of CPUs: %s"
+                               % (error,))
+                self.log_error("Assuming one CPU, configuring one process.")
                 cpuCount = 1
 
             config.MultiProcess.ProcessCount = cpuCount
@@ -828,7 +838,9 @@ class CalDAVServiceMaker (object):
                 pydirServiceTemplate = (
                     """<service name="%(name)s">"""
                     """%(listeningInterfaces)s"""
-                    """<group name="main" scheduler="%(scheduler)s">%(hosts)s</group>"""
+                    """<group name="main" scheduler="%(scheduler)s">"""
+                    """%(hosts)s"""
+                    """</group>"""
                     """<enable group="main" />"""
                     """</service>"""
                 )
@@ -861,7 +873,8 @@ class CalDAVServiceMaker (object):
             os.write(fd, pdconfig)
             os.close(fd)
 
-            log.msg("Adding pydirector service with configuration: %s" % (fname,))
+            self.log_info("Adding pydirector service with configuration: %s"
+                          % (fname,))
 
             monitor.addProcess(
                 "pydir",
@@ -870,7 +883,7 @@ class CalDAVServiceMaker (object):
             )
 
         if config.Memcached.ServerEnabled:
-            log.msg("Adding memcached service")
+            self.log_info("Adding memcached service")
 
             memcachedArgv = [
                 config.Memcached.memcached,
@@ -892,7 +905,7 @@ class CalDAVServiceMaker (object):
             config.Notifications.Enabled and
             config.Notifications.InternalNotificationHost == "localhost"
         ):
-            log.msg("Adding notification service")
+            self.log_info("Adding notification service")
 
             notificationsArgv = [
                 sys.executable,
@@ -900,13 +913,17 @@ class CalDAVServiceMaker (object):
                 "-n", "caldav_notifier",
                 "-f", options["config"],
             ]
-            monitor.addProcess("notifications", notificationsArgv, env=parentEnv)
+            monitor.addProcess(
+                "notifications",
+                notificationsArgv,
+                env=parentEnv,
+            )
 
         if (
             config.Scheduling.iMIP.Enabled and
             config.Scheduling.iMIP.MailGatewayServer == "localhost"
         ):
-            log.msg("Adding mail gateway service")
+            self.log_info("Adding mail gateway service")
 
             mailGatewayArgv = [
                 sys.executable,
@@ -932,8 +949,8 @@ class CalDAVServiceMaker (object):
 
         parentEnv = {"PYTHONPATH": os.environ.get("PYTHONPATH", "")}
 
-        log.msg("Adding pydirector service with configuration: %s"
-                % (config.PythonDirector.ConfigFile,))
+        self.log_info("Adding pydirector service with configuration: %s"
+                      % (config.PythonDirector.ConfigFile,))
 
         service.addProcess(
             "pydir",
@@ -1106,12 +1123,15 @@ def getSSLPassphrase(*ignored):
         output, error = child.communicate()
 
         if child.returncode:
-            log.error("Could not get passphrase for %s: %s"
-                      % (config.SSLPrivateKey, error))
+            self.log_error("Could not get passphrase for %s: %s"
+                           % (config.SSLPrivateKey, error))
         else:
             return output.strip()
 
-    if config.SSLPassPhraseDialog and os.path.isfile(config.SSLPassPhraseDialog):
+    if (
+        config.SSLPassPhraseDialog and
+        os.path.isfile(config.SSLPassPhraseDialog)
+    ):
         sslPrivKey = open(config.SSLPrivateKey)
         try:
             keyType = None
@@ -1126,8 +1146,8 @@ def getSSLPassphrase(*ignored):
             sslPrivKey.close()
 
         if keyType is None:
-            log.error("Could not get private key type for %s"
-                      % (config.SSLPrivateKey,))
+            self.log_error("Could not get private key type for %s"
+                           % (config.SSLPrivateKey,))
         else:
             child = Popen(
                 args=[
@@ -1140,8 +1160,8 @@ def getSSLPassphrase(*ignored):
             output, error = child.communicate()
 
             if child.returncode:
-                log.error("Could not get passphrase for %s: %s"
-                          % (config.SSLPrivateKey, error))
+                self.log_error("Could not get passphrase for %s: %s"
+                               % (config.SSLPrivateKey, error))
             else:
                 return output.strip()
 
