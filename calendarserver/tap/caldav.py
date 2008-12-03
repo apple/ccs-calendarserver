@@ -49,7 +49,7 @@ from twisted.web2.server import Site
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
-from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
 from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
@@ -80,6 +80,8 @@ try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
 except ImportError:
     NegotiateCredentialFactory = None
+
+log = Logger()
 
 
 class CalDAVService (MultiService):
@@ -315,15 +317,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Now do any on disk upgrades we might need.
         UpgradeTheServer.doUpgrade()
 
-        serverType = config.ProcessType
-
-        serviceMethod = getattr(self, "makeService_%s" % (serverType,), None)
+        serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
         if not serviceMethod:
             raise UsageError(
                 "Unknown server type %s. "
                 "Please choose: Master, Slave, Single or Combined"
-                % (serverType,)
+                % (config.ProcessType,)
             )
         else:
             service = serviceMethod(options)
@@ -351,7 +351,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.reload()
 
                 # If combined service send signal to all caldavd children
-                if serverType == "Combined":
+                if config.ProcessType == "Combined":
                     service.processMonitor.signalAll(signal.SIGHUP, "caldav")
 
                 # FIXME: There is no memcachepool.getCachePool
@@ -1123,8 +1123,8 @@ def getSSLPassphrase(*ignored):
         output, error = child.communicate()
 
         if child.returncode:
-            self.log_error("Could not get passphrase for %s: %s"
-                           % (config.SSLPrivateKey, error))
+            log.error("Could not get passphrase for %s: %s"
+                      % (config.SSLPrivateKey, error))
         else:
             return output.strip()
 
@@ -1146,8 +1146,8 @@ def getSSLPassphrase(*ignored):
             sslPrivKey.close()
 
         if keyType is None:
-            self.log_error("Could not get private key type for %s"
-                           % (config.SSLPrivateKey,))
+            log.error("Could not get private key type for %s"
+                      % (config.SSLPrivateKey,))
         else:
             child = Popen(
                 args=[
@@ -1160,8 +1160,8 @@ def getSSLPassphrase(*ignored):
             output, error = child.communicate()
 
             if child.returncode:
-                self.log_error("Could not get passphrase for %s: %s"
-                               % (config.SSLPrivateKey, error))
+                log.error("Could not get passphrase for %s: %s"
+                          % (config.SSLPrivateKey, error))
             else:
                 return output.strip()
 
