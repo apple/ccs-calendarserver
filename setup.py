@@ -138,7 +138,6 @@ dist = setup(
                          "twistedcaldav.directory",
                          "twistedcaldav.directory.test",
                          "twistedcaldav.method",
-                         "twistedcaldav.py",
                          "twistedcaldav.query",
                          "twistedcaldav.scheduling",
                          "twistedcaldav.scheduling.test",
