@@ -26,10 +26,7 @@ import datetime
 import sys
 import time
 
-try:
-    from plistlib import readPlist, writePlist
-except ImportError:
-    from twistedcaldav.py.plistlib import readPlist, writePlist
+from twext.python.plistlib import readPlist, writePlist
 
 from twistedcaldav.admin import util
 

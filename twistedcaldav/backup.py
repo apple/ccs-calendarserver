@@ -23,10 +23,7 @@ import shutil
 import fnmatch
 import commands
 
-try:
-    from plistlib import readPlist
-except ImportError:
-    from twistedcaldav.py.plistlib import readPlist
+from twext.python.plistlib import readPlist
 
 VERBOSE = os.environ.get('VERBOSE', False)
 FUNCLOG = os.environ.get('FUNCLOG', False)

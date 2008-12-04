@@ -14,10 +14,7 @@
 # limitations under the License.
 ##
 
-try:
-    from plistlib import writePlist
-except ImportError:
-    from twistedcaldav.py.plistlib import writePlist
+from twext.python.plistlib import writePlist
 
 from twistedcaldav.log import logLevelForNamespace
 from twistedcaldav.config import config, defaultConfig, ConfigurationError

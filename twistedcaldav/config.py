@@ -27,13 +27,10 @@ import os
 import copy
 import re
 
-try:
-    from plistlib import readPlist
-except ImportError:
-    from twistedcaldav.py.plistlib import readPlist
-
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
+
+from twext.python.plistlib import readPlist
 
 from twistedcaldav.log import Logger
 from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError

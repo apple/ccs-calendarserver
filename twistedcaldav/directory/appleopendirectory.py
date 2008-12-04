@@ -27,10 +27,7 @@ import sys
 from random import random
 from uuid import UUID
 
-try:
-    from plistlib import readPlistFromString
-except ImportError:
-    from twistedcaldav.py.plistlib import readPlistFromString
+from twext.python.plistlib import readPlistFromString
 
 import opendirectory
 import dsattributes

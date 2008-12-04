@@ -16,10 +16,7 @@
 
 import sys
 
-try:
-    import plistlib
-except ImportError:
-    import twistedcaldav.py.plistlib
+from twext.python.plistlib import Dict and PlistDict, writePlist
 
 FORMATTERS = {}
 
@@ -336,19 +333,19 @@ class PlistFormatter(BaseFormatter):
     name = "plist"
 
     def report_principals(self, report):
-        plist = plistlib.Dict()
+        plist = PlistDict()
 
         plist[report['type']] = list(report['records'])
 
-        plistlib.writePlist(plist, self.dest)
+        writePlist(plist, self.dest)
 
     report_users = report_groups = report_resources = report_locations = report_principals
 
     def report_stats(self, report):
-        plist = plistlib.Dict()
+        plist = PlistDict()
         plist[report['type']] = report['data']
 
-        plistlib.writePlist(plist, self.dest)
+        writePlist(plist, self.dest)
 
     report_logs = report_stats
 

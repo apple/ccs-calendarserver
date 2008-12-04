@@ -17,11 +17,6 @@
 import os
 from os.path import dirname, abspath
 
-try:
-    from plistlib import writePlist
-except ImportError:
-    from twistedcaldav.py.plistlib import writePlist
-
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
 from twisted.application.service import IService
@@ -29,6 +24,8 @@ from twisted.application import internet
 
 from twisted.web2.dav import auth
 from twisted.web2.log import LogWrapperResource
+
+from twext.python.plistlib import writePlist
 
 from twistedcaldav.config import config, ConfigDict, defaultConfig, _mergeData
 

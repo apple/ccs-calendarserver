@@ -21,10 +21,7 @@ import getopt
 import os
 import sys
 
-try:
-    from plistlib import readPlist
-except ImportError:
-    from twistedcaldav.py.plistlib import readPlist
+from twext.python.plistlib import readPlist
 
 try:
     import opendirectory
