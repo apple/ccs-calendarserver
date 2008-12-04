@@ -1,8 +1,8 @@
-Index: vobject/icalendar.py
+Index: src/vobject/icalendar.py
 ===================================================================
---- vobject/icalendar.py	(revision 210)
-+++ vobject/icalendar.py	(working copy)
-@@ -1660,9 +1660,10 @@
+--- src/vobject/icalendar.py	(revision 193)
++++ src/vobject/icalendar.py	(working copy)
+@@ -1631,9 +1631,10 @@
                  else:
                      current = current + char
              else:
@@ -10,7 +10,7 @@ Index: vobject/icalendar.py
 +                #state = "read normal"
                  # leave unrecognized escaped characters for later passes
 -                current = current + '\\' + char 
-+                #current = current + '\\' + char 
++                #current = current + '\\' + char
 +                raise ParseError("error: illegal escape sequence: '\\%s'" % (char,))
  
          elif state == "end":    #an end state
