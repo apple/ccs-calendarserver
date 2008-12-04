@@ -19,8 +19,8 @@ __all__ = [
     "RootResource",
 ]
 
-from twisted.internet.defer import maybeDeferred, succeed
-from twisted.python.failure import Failure
+from twisted.internet.defer import succeed, inlineCallbacks,\
+    returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 from twisted.web2 import responsecode
@@ -46,7 +46,7 @@ class RootACLMixIn (object):
         return config.RootResourceACL
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
+        # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
 
@@ -99,98 +99,59 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
         return self._dead_properties
 
 
+    @inlineCallbacks
     def checkSacl(self, request):
         """
         Check SACLs against the current request
         """
 
-        def _authCb((authnUser, authzUser)):
-            # Ensure that the user is not unauthenticated.
-            # SACLs are authorization for the use of the service,
-            # so unauthenticated access doesn't make any sense.
-            if authzUser == davxml.Principal(davxml.Unauthenticated()):
-                log.msg("Unauthenticated users not enabled with the '%s' SACL" % (self.saclService,))
-                return Failure(HTTPError(UnauthorizedResponse(
-                            request.credentialFactories,
-                            request.remoteAddr)))
+        try:
+            authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            raise HTTPError(response)
 
-            return (authnUser, authzUser)
+        # Ensure that the user is not unauthenticated.
+        # SACLs are authorization for the use of the service,
+        # so unauthenticated access doesn't make any sense.
+        if authzUser == davxml.Principal(davxml.Unauthenticated()):
+            log.msg("Unauthenticated users not enabled with the '%s' SACL" % (self.saclService,))
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            raise HTTPError(response)
 
-        def _authEb(failure):
-            # Make sure we propogate UnauthorizedLogin errors.
-            failure.trap(UnauthorizedLogin, LoginFailed)
+        # Cache the authentication details
+        request.authnUser = authnUser
+        request.authzUser = authzUser
 
-            return Failure(HTTPError(UnauthorizedResponse(
-                        request.credentialFactories,
-                        request.remoteAddr)))
+        # Figure out the "username" from the davxml.Principal object
+        request.checkingSACL = True
+        principal = (yield request.locateResource(authzUser.children[0].children[0].data))
+        delattr(request, "checkingSACL")
+        username = principal.record.shortName
 
-        def _checkSACLCb((authnUser, authzUser)):
-            # Cache the authentication details
-            request.authnUser = authnUser
-            request.authzUser = authzUser
+        if RootResource.CheckSACL(username, self.saclService) != 0:
+            log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
+            raise HTTPError(responsecode.FORBIDDEN)
 
-            # Figure out the "username" from the davxml.Principal object
-            request.checkingSACL = True
-            d = request.locateResource(authzUser.children[0].children[0].data)
-
-            def _checkedSACLCb(principal):
-                delattr(request, "checkingSACL")
-                username = principal.record.shortName
-
-                if RootResource.CheckSACL(username, self.saclService) != 0:
-                    log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
-                    return Failure(HTTPError(403))
-
-                # Mark SACL's as having been checked so we can avoid doing it multiple times
-                request.checkedSACL = True
-                return True
-
-            d.addCallback(_checkedSACLCb)
-            return d
-
-        d = maybeDeferred(self.authenticate, request)
-        d.addCallbacks(_authCb, _authEb)
-        d.addCallback(_checkSACLCb)
-        return d
+        # Mark SACL's as having been checked so we can avoid doing it multiple times
+        request.checkedSACL = True
 
 
+        returnValue(True)
+
+    @inlineCallbacks
     def locateChild(self, request, segments):
-        def _authCb((authnUser, authzUser)):
-            request.authnUser = authnUser
-            request.authzUser = authzUser
-
-        def _authEb(failure):
-            # Make sure we propogate UnauthorizedLogin errors.
-            failure.trap(UnauthorizedLogin, LoginFailed)
-
-            return Failure(HTTPError(UnauthorizedResponse(
-                        request.credentialFactories,
-                        request.remoteAddr)))
 
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-
         # Examine cookies for wiki auth token
-
-        def validSessionID(username):
-            log.info("Wiki lookup returned user: %s" % (username,))
-            directory = request.site.resource.getDirectory()
-            record = directory.recordWithShortName("users", username)
-            if record is None:
-                raise HTTPError(StatusResponse(
-                    responsecode.FORBIDDEN,
-                    "The username (%s) corresponding to your sessionID was not found by calendar server." % (username,)
-                ))
-            request.authnUser = request.authzUser = davxml.Principal(
-                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
-        def invalidSessionID(error):
-            log.info("Wiki lookup returned ERROR: %s" % (error,))
-            raise HTTPError(StatusResponse(
-                responsecode.FORBIDDEN,
-                "Your sessionID was rejected by the authenticating wiki server."
-            ))
-
         wikiConfig = config.Authentication.Wiki
         cookies = request.headers.getHeader('cookie')
         if wikiConfig["Enabled"] and cookies is not None:
@@ -204,19 +165,33 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
             if token is not None and token != "unauthenticated":
                 log.info("Wiki sessionID cookie value: %s" % (token,))
                 proxy = Proxy(wikiConfig["URL"])
-                d = proxy.callRemote(wikiConfig["UserMethod"],
-                    token).addCallbacks(validSessionID, invalidSessionID)
-                d.addCallback(lambda _: super(RootResource, self
-                                              ).locateChild(request, segments))
-                return d
+                try:
+                    username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                    log.info("Wiki lookup returned user: %s" % (username,))
+                    directory = request.site.resource.getDirectory()
+                    record = directory.recordWithShortName("users", username)
+                    if record is None:
+                        raise HTTPError(StatusResponse(
+                            responsecode.FORBIDDEN,
+                            "The username (%s) corresponding to your sessionID was not found by calendar server." % (username,)
+                        ))
+                    request.authnUser = request.authzUser = davxml.Principal(
+                        davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
+                    child = (yield super(RootResource, self).locateChild(request, segments))
+                    returnValue(child)
+
+                except Exception, e:
+                    log.info("Wiki lookup returned ERROR: %s" % (e,))
+                    raise HTTPError(StatusResponse(
+                        responsecode.FORBIDDEN,
+                        "Your sessionID was rejected by the authenticating wiki server."
+                    ))
 
 
         if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
-            d = self.checkSacl(request)
-            d.addCallback(lambda _: super(RootResource, self
-                                          ).locateChild(request, segments))
-
-            return d
+            yield self.checkSacl(request)
+            child = (yield super(RootResource, self).locateChild(request, segments))
+            returnValue(child)
 
         if config.RejectClients:
             #
@@ -232,35 +207,32 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
 
-        def _getCachedResource(_ign, request):
-            if not getattr(request, 'checkingCache', False):
-                request.checkingCache = True
-                d = self.responseCache.getResponseForRequest(request)
-                d.addCallback(_serveResponse)
-                return d
+        if request.method == 'PROPFIND' and not getattr(request, 'notInCache', False):
+            try:
+                authnUser, authzUser = (yield self.authenticate(request))
+                request.authnUser = authnUser
+                request.authzUser = authzUser
+            except (UnauthorizedLogin, LoginFailed):
+                response = (yield UnauthorizedResponse.makeResponse(
+                    request.credentialFactories,
+                    request.remoteAddr
+                ))
+                raise HTTPError(response)
 
-            return super(RootResource, self).locateChild(request, segments)
+            try:
+                if not getattr(request, 'checkingCache', False):
+                    request.checkingCache = True
+                    response = (yield self.responseCache.getResponseForRequest(request))
+                    if response is None:
+                        request.notInCache = True
+                        raise KeyError("Not found in cache.")
+        
+                    returnValue((_CachedResponseResource(response), []))
+            except KeyError:
+                pass
 
-        def _serveResponse(response):
-            if response is None:
-                request.notInCache = True
-                raise KeyError("Not found in cache.")
-
-            return _CachedResponseResource(response), []
-
-        def _resourceNotInCacheEb(failure):
-            failure.trap(KeyError)
-            return super(RootResource, self).locateChild(request,segments)
-
-        if request.method == 'PROPFIND' and not getattr(
-            request, 'notInCache', False):
-            d = maybeDeferred(self.authenticate, request)
-            d.addCallbacks(_authCb, _authEb)
-            d.addCallback(_getCachedResource, request)
-            d.addErrback(_resourceNotInCacheEb)
-            return d
-
-        return super(RootResource, self).locateChild(request, segments)
+        child = (yield super(RootResource, self).locateChild(request, segments))
+        returnValue(child)
 
     def http_COPY       (self, request): return responsecode.FORBIDDEN
     def http_MOVE       (self, request): return responsecode.FORBIDDEN

@@ -24,7 +24,7 @@ from twistedcaldav.directory.test.test_xmlfile import xmlFile
 
 from twisted.cred.portal import Portal
 
-from twisted.internet import defer
+from twisted.internet.defer import inlineCallbacks, maybeDeferred
 
 from twisted.web2 import http_headers
 from twisted.web2 import responsecode
@@ -78,6 +78,7 @@ class RootTests(TestCase):
 
         self.site = server.Site(self.root)
 
+    @inlineCallbacks
     def test_noSacls(self):
         """
         Test the behaviour of locateChild when SACLs are not enabled.
@@ -90,10 +91,9 @@ class RootTests(TestCase):
                                 "GET",
                                 "/principals/")
 
-        resrc, segments = self.root.locateChild(request,
-                                         ['principals'])
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
 
-        resrc, segments = resrc.locateChild(request, ['principals'])
+        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
 
         self.failUnless(
             isinstance(resrc, DirectoryPrincipalProvisioningResource),
@@ -102,6 +102,7 @@ class RootTests(TestCase):
 
         self.assertEquals(segments, [])
 
+    @inlineCallbacks
     def test_inSacls(self):
         """
         Test the behavior of locateChild when SACLs are enabled and the
@@ -119,26 +120,22 @@ class RootTests(TestCase):
                     'Authorization': ['basic', '%s' % (
                             'dreid:dierd'.encode('base64'),)]}))
 
-        resrc, segments = self.root.locateChild(request,
-                                         ['principals'])
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
 
-        def _Cb((resrc, segments)):
-            self.failUnless(
-                isinstance(resrc, DirectoryPrincipalProvisioningResource),
-                "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
-            )
+        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
 
-            self.assertEquals(segments, [])
+        self.failUnless(
+            isinstance(resrc, DirectoryPrincipalProvisioningResource),
+            "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
+        )
 
-            self.assertEquals(request.authzUser,
-                              davxml.Principal(
-                    davxml.HRef('/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/')))
+        self.assertEquals(segments, [])
 
-        d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
-        d.addCallback(_Cb)
+        self.assertEquals(request.authzUser,
+                          davxml.Principal(
+                davxml.HRef('/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/')))
 
-        return d
-
+    @inlineCallbacks
     def test_notInSacls(self):
         """
         Test the behavior of locateChild when SACLs are enabled and the
@@ -156,17 +153,14 @@ class RootTests(TestCase):
                     'Authorization': ['basic', '%s' % (
                             'wsanchez:zehcnasw'.encode('base64'),)]}))
 
-        resrc, segments = self.root.locateChild(request, ['principals'])
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
 
-        def _Eb(failure):
-            failure.trap(HTTPError)
-            self.assertEquals(failure.value.response.code, 403)
+        try:
+            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        except HTTPError, e:
+            self.assertEquals(e.response.code, 403)
 
-        d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
-        d.addErrback(_Eb)
-
-        return d
-
+    @inlineCallbacks
     def test_unauthenticated(self):
         """
         Test the behavior of locateChild when SACLs are enabled and the request
@@ -180,24 +174,15 @@ class RootTests(TestCase):
                                 "GET",
                                 "/principals/")
 
-        resrc, segments = self.root.locateChild(request,
-                                                ['principals'])
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
 
-        def _Cb(result):
-            raise AssertionError(("RootResource.locateChild did not return "
-                                  "an error"))
+        try:
+            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+            raise AssertionError(("RootResource.locateChild did not return an error"))
+        except HTTPError, e:
+            self.assertEquals(e.response.code, 401)
 
-        def _Eb(failure):
-            failure.trap(HTTPError)
-            self.assertEquals(failure.value.response.code, 401)
-
-        d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
-
-        d.addCallback(_Cb)
-        d.addErrback(_Eb)
-
-        return d
-
+    @inlineCallbacks
     def test_badCredentials(self):
         """
         Test the behavior of locateChild when SACLS are enabled, and
@@ -215,17 +200,12 @@ class RootTests(TestCase):
                     'Authorization': ['basic', '%s' % (
                             'dreid:dreid'.encode('base64'),)]}))
 
-        resrc, segments = self.root.locateChild(request,
-                                         ['principals'])
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
 
-        def _Eb(failure):
-            failure.trap(HTTPError)
-            self.assertEquals(failure.value.response.code, 401)
-
-        d = defer.maybeDeferred(resrc.locateChild, request, ['principals'])
-        d.addErrback(_Eb)
-
-        return d
+        try:
+            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        except HTTPError, e:
+            self.assertEquals(e.response.code, 401)
 
     def test_DELETE(self):
         def do_test(response):

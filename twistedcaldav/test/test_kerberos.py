@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.cred.error import LoginFailed
 
+from twisted.cred.error import LoginFailed
 from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import inlineCallbacks
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import authkerb
@@ -31,10 +32,11 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
     def test_BasicKerberosCredentials(self):
         authkerb.BasicKerberosCredentials("test", "test", "http/example.com@EXAMPLE.COM", "EXAMPLE.COM")
 
+    @inlineCallbacks
     def test_BasicKerberosCredentialFactory(self):
         factory = authkerb.BasicKerberosCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
 
-        challenge = factory.getChallenge("peer")
+        challenge = (yield factory.getChallenge("peer"))
         expected_challenge = {'realm': "EXAMPLE.COM"}
         self.assertTrue(challenge == expected_challenge,
                         msg="BasicKerberosCredentialFactory challenge %s != %s" % (challenge, expected_challenge))
@@ -49,17 +51,18 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
     def test_NegotiateCredentials(self):
         authkerb.NegotiateCredentials("test")
 
+    @inlineCallbacks
     def test_NegotiateCredentialFactory(self):
         factory = authkerb.NegotiateCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
 
-        challenge = factory.getChallenge("peer")
+        challenge = (yield factory.getChallenge("peer"))
         expected_challenge = {}
         self.assertTrue(challenge == expected_challenge,
                         msg="NegotiateCredentialFactory challenge %s != %s" % (challenge, expected_challenge))
 
         request = SimpleRequest(self.site, "GET", "/")
         try:
-            factory.decode("Bogus Data".encode("base64"), request)
+            yield factory.decode("Bogus Data".encode("base64"), request)
         except (UnauthorizedLogin, LoginFailed):
             pass
         except Exception, ex:

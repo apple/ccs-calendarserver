@@ -557,7 +557,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                         schemeConfig["Algorithm"],
                         schemeConfig["Qop"],
                         realm,
-                        config.DataRoot,
                     )
 
                 elif scheme == "basic":
