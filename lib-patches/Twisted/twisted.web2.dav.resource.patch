@@ -1076,7 +1076,7 @@ Index: twisted/web2/dav/resource.py
 +                    def callback(members):
 +                        return davxml.GroupMemberSet(*[davxml.HRef(p.principalURL()) for p in members])
 +                    
-+                    d = self.expandedGroupMembers()
++                    d = self.groupMembers()
 +                    d.addCallback(callback)
 +                    return d
  
