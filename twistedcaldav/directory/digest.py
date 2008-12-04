@@ -256,10 +256,10 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         nonce_count = auth.get('nc')
 
         # First check we have this nonce
-        result = (yield self.db.has_key(nonce))
-        if not result:
+        result = (yield self.db.get(nonce))
+        if result is None:
             raise error.LoginFailed('Invalid nonce value: %s' % (nonce,))
-        db_clientip, db_nonce_count, db_timestamp = (yield self.db.get(nonce))
+        db_clientip, db_nonce_count, db_timestamp = result
 
         # Next check client ip
         if db_clientip != clientip:
