@@ -14,14 +14,6 @@
 # limitations under the License.
 ##
 
-__all__ = [
-    "addressmapping",
-    "caldav",
-    "cuaddress",
-    "delivery",
-    "imip",
-    "implicit",
-    "ischedule",
-    "processing",
-    "scheduler",
-]
+"""
+CalDAV scheduling.
+"""

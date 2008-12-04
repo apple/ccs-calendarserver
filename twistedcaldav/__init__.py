@@ -20,63 +20,44 @@ WebDAV support for Twisted Web2.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from twisted.web2.static import File, loadMimeTypes
-
-__all__ = [
-    "accesslog",
-    "accounting",
-    "authkerb",
-    "caldavxml",
-    "customxml",
-    "dateops",
-    "db",
-    "directory",
-    "dropbox",
-    "extensions",
-    "fileops",
-    "freebusyurl",
-    "httpfactory",
-    "ical",
-    "icaldav",
-    "index",
-    "instance",
-    "itip",
-    "log",
-    "memcache",
-    "memcacher",
-    "principalindex",
-    "resource",
-    "root",
-    "schedule",
-    "schedule_common",
-    "schedule_imip",
-    "servertoserver",
-    "servertoserverparser",
-    "sql",
-    "static",
-    "timezones",
-]
+#
+# Set __version__
+#
 
 try:
     from twistedcaldav.version import version as __version__
 except ImportError:
     __version__ = None
 
+#
 # Load in suitable file extension/content-type map from OS X
+#
+
+from twisted.web2.static import File, loadMimeTypes
+
 File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.types",))
 
+#
+# Register additional WebDAV XML elements
+#
+
 import twisted.web2.dav.davxml
-from twisted.web2.http_headers import DefaultHTTPHandler, last, singleHeader, tokenize
 import twistedcaldav.caldavxml
 import twistedcaldav.customxml
 
 twisted.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
 twisted.web2.dav.davxml.registerElements(twistedcaldav.customxml)
 
+#
+# DefaultHTTPHandler
+#
+
+from twisted.web2.http_headers import DefaultHTTPHandler, last, singleHeader
+
 DefaultHTTPHandler.updateParsers({
-    'If-Schedule-Tag-Match':(last, str),
+    "If-Schedule-Tag-Match": (last, str),
 })
 DefaultHTTPHandler.updateGenerators({
-    'Schedule-Tag':(str, singleHeader),
+    "Schedule-Tag": (str, singleHeader),
 })
 

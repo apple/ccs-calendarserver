@@ -17,13 +17,3 @@
 """
 Calendar server directory service module.
 """
-
-__all__ = [
-    "apache",
-    "appleopendirectory",
-    "directory",
-    "idirectory",
-    "principal",
-    "sqldb",
-    "xmlfile",
-]

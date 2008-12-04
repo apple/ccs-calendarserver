@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-__all__ = [
-    "expression",
-    "sqlgenerator",
-    "caldavquery",
-]
+"""
+CalDAV queries.
+"""
