@@ -287,6 +287,20 @@ class StoreCalendarObjectResource(object):
                 log.err(message)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
 
+            # Valid data sizes - do before parsing the data
+            if self.source is not None:
+                # Valid content length check on the source resource
+                result, message = self.validContentLength()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+            else:
+                # Valid calendar data size check
+                result, message = self.validSizeCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+
             if not self.sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
                 if self.source is not None:
@@ -331,12 +345,6 @@ class StoreCalendarObjectResource(object):
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
                 self.calendar = self.source.iCalendar()
-
-            # Valid calendar data size check
-            result, message = self.validSizeCheck()
-            if not result:
-                log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
@@ -428,6 +436,20 @@ class StoreCalendarObjectResource(object):
         if not ((content_type.mediaType == "text") and (content_type.mediaSubtype == "calendar")):
             result = False
             message = "MIME type %s not allowed in calendar collection" % (content_type,)
+
+        return result, message
+        
+    def validContentLength(self):
+        """
+        Make sure that the length of the source data is within bounds.
+        """
+        result = True
+        message = ""
+        if config.MaximumAttachmentSize:
+            calsize = self.source.contentLength()
+            if calsize is not None and calsize > config.MaximumAttachmentSize:
+                result = False
+                message = "File size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
 
         return result, message
         
