@@ -87,7 +87,8 @@ install:: build
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
-	$(_v) for f in $$(find "$(DSTROOT)$(PY_HOME)/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*'); do rm "$${f}"; done
+	$(_v) echo "Removing plugins:"
+	$(_v) find "$(DSTROOT)$(PY_HOME)/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*' -print -exec rm '{}' ';'
 	$(_v) rm -fr "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zsh"
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"

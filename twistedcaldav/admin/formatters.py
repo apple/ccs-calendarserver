@@ -16,7 +16,7 @@
 
 import sys
 
-from twext.python.plistlib import Dict and PlistDict, writePlist
+from twext.python.plistlib import Dict as PlistDict, writePlist
 
 FORMATTERS = {}
 
