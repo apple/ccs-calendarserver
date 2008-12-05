@@ -130,6 +130,7 @@ dist = setup(
                          "calendarserver.tap.test",
                          "calendarserver.test",
                          "calendarserver.tools",
+                         "twisted.plugins",
                          "twext",
                          "twext.internet",
                          "twext.python",
@@ -144,10 +145,6 @@ dist = setup(
                          "twistedcaldav.test",
                        ],
     package_data     = {
-                         "twisted": [
-                           "plugins/caldav.py",
-                           "plugins/kqueuereactor.py",
-                         ],
                          "twistedcaldav": [
                            "zoneinfo/*.ics",
                            "zoneinfo/*/*.ics",
