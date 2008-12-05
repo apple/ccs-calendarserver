@@ -165,8 +165,8 @@ class IScheduleServerRecord (object):
 
     def _parseAuthentication(self, node):
         if node.hasAttribute(ATTRIBUTE_TYPE):
-            type = node.getAttribute(ATTRIBUTE_TYPE).encode("utf-8")
-            if type != ATTRIBUTE_BASICAUTH:
+            atype = node.getAttribute(ATTRIBUTE_TYPE).encode("utf-8")
+            if atype != ATTRIBUTE_BASICAUTH:
                 return
         else:
             return

@@ -111,7 +111,7 @@ def getResourceType(fp):
 
     collection = False
 
-    type = None
+    rtype = None
 
     dom = microdom.parseString(_getxattr_value(x, rt))
     rt = microdom.getElementsByTagName(dom, 'resourcetype')
@@ -120,9 +120,9 @@ def getResourceType(fp):
         if child.tagName == 'collection':
             collection = True
         else:
-            type = child.tagName
+            rtype = child.tagName
 
-    return (collection, type)
+    return (collection, rtype)
 
 
 class EventCountingDatabase(AbstractSQLDatabase):

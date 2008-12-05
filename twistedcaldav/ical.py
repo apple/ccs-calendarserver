@@ -411,16 +411,16 @@ class Component (object):
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
-        type = None
+        mtype = None
         for component in self.subcomponents():
             if component.name() == "VTIMEZONE":
                 continue
-            elif type and (type != component.name()):
+            elif mtype and (mtype != component.name()):
                 raise ValueError("Component contains more than one type of primary type: %r" % (self,))
             else:
-                type = component.name()
+                mtype = component.name()
         
-        return type
+        return mtype
     
     def mainComponent(self, allow_multiple=False):
         """
