@@ -337,12 +337,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
-        ##
-        ## While the underlying primary location is GUID-based, we want
-        ## the canonical user-facing location to be recordType &
-        ## shortName-based, because that's friendlier.
-        ##
-        #return joinURL(self.parent.parent.getChild(self.record.recordType).url(), self.record.shortName)
+
+    def canonicalURL(self, request):
+        return succeed(self.url())
 
     ##
     # DAV

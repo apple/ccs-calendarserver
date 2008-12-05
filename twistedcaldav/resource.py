@@ -194,6 +194,23 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
     )
 
+    def hasProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+        
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname == (caldav_namespace, "schedule-calendar-transp") and self.isCalendarCollection():
+            return succeed(True)
+        else:
+            return super(CalDAVResource, self).hasProperty(property, request)
+
+    @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property
@@ -204,19 +221,18 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
         if namespace == dav_namespace:
             if name == "owner":
-                d = self.owner(request)
-                d.addCallback(lambda x: davxml.Owner(x))
-                return d
+                owner = (yield self.owner(request))
+                returnValue(davxml.Owner(owner))
 
         elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
                 if self.hasDeadProperty(qname):
-                    return succeed(self.readDeadProperty(qname))
-                return succeed(self.supportedCalendarComponentSet)
+                    returnValue(self.readDeadProperty(qname))
+                returnValue(self.supportedCalendarComponentSet)
             elif name == "supported-calendar-data":
                 # CalDAV-access-09, section 5.2.4
-                return succeed(caldavxml.SupportedCalendarData(
+                returnValue(caldavxml.SupportedCalendarData(
                     caldavxml.CalendarData(**{
                         "content-type": "text/calendar",
                         "version"     : "2.0",
@@ -225,11 +241,23 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             elif name == "max-resource-size":
                 # CalDAV-access-15, section 5.2.5
                 if config.MaximumAttachmentSize:
-                    return succeed(caldavxml.MaxResourceSize.fromString(
+                    returnValue(caldavxml.MaxResourceSize.fromString(
                         str(config.MaximumAttachmentSize)
                     ))
 
-        return super(CalDAVResource, self).readProperty(property, request)
+            elif name == "schedule-calendar-transp":
+                # For backwards compatibility, if the property does not exist we need to create
+                # it and default to the old free-busy-set value.
+                if self.isCalendarCollection() and not self.hasDeadProperty(property):
+                    # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+                    principal = (yield self.ownerPrincipal(request))
+                    fbset = (yield principal.calendarFreeBusyURIs(request))
+                    url = (yield self.canonicalURL(request))
+                    opaque = url in fbset
+                    self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+
+        result = (yield super(CalDAVResource, self).readProperty(property, request))
+        returnValue(result)
 
     @inlineCallbacks
     def writeProperty(self, property, request):
@@ -280,7 +308,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             inboxURL = principal.scheduleInboxURL()
             if inboxURL:
                 inbox = (yield request.locateResource(inboxURL))
-                inbox.processFreeBusyCalendar(request.path, property.children[0] == caldavxml.Opaque())
+                myurl = (yield self.canonicalURL(request))
+                inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
 
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
@@ -631,6 +660,21 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         @param uri: the URI whose parent resource is desired.
         """
         return request.locateResource(parentForURL(uri))
+
+    @inlineCallbacks
+    def canonicalURL(self, request):
+        
+        if not hasattr(self, "_canonical_url"):
+    
+            myurl = request.urlForResource(self)
+            _ignore_scheme, _ignore_host, path, _ignore_query, _ignore_fragment = urlsplit(normalizeURL(myurl))
+            lastpath = path.split("/")[-1]
+            
+            parent = (yield request.locateResource(parentForURL(myurl)))
+            canonical_parent = (yield parent.canonicalURL(request))
+            self._canonical_url = joinURL(canonical_parent, lastpath)
+
+        returnValue(self._canonical_url)
 
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
