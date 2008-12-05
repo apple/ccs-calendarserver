@@ -468,10 +468,8 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
         principal = self.currentPrincipal(request)
 
         # Other principal types don't make sense as actors.
-        assert (
-            principal.children[0].name in ("unauthenticated", "href"),
+        assert principal.children[0].name in ("unauthenticated", "href"), \
             "Principal is not an actor: %r" % (principal,)
-        )
 
         acl = self.fullAccessControlList(acl, inherited_aces)
 
