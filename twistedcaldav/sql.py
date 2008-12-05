@@ -109,11 +109,11 @@ class AbstractSQLDatabase(object):
                         select VALUE from CALDAV
                          where KEY = 'TYPE'
                         """)
-                    type = q.fetchone()
+                    dbtype = q.fetchone()
 
-                    if type is not None: type = type[0]
+                    if dbtype is not None: dbtype = dbtype[0]
 
-                    if (version != self._db_version()) or (type != self._db_type()):
+                    if (version != self._db_version()) or (dbtype != self._db_type()):
 
                         # Clean-up first
                         q.close()
@@ -128,9 +128,9 @@ class AbstractSQLDatabase(object):
                             # Upgrade the DB
                             return self._db_upgrade(version)
 
-                        if type != self._db_type():
+                        if dbtype != self._db_type():
                             log.err("Database %s has different type (%s vs. %s)"
-                                    % (db_filename, type, self._db_type()))
+                                    % (db_filename, dbtype, self._db_type()))
 
                             # Delete this index and start over
                             os.remove(db_filename)
