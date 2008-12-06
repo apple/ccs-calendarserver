@@ -2,7 +2,11 @@ Index: twisted/web2/auth/digest.py
 ===================================================================
 --- twisted/web2/auth/digest.py	(revision 19773)
 +++ twisted/web2/auth/digest.py	(working copy)
-@@ -11,16 +11,24 @@
+@@ -8,19 +8,28 @@
+ import time
+ 
+ from twisted.cred import credentials, error
++from twisted.internet.defer import succeed
  from zope.interface import implements, Interface
  
  from twisted.web2.auth.interfaces import ICredentialFactory
@@ -31,7 +35,7 @@ Index: twisted/web2/auth/digest.py
  }
  
  # DigestCalcHA1
-@@ -228,7 +236,7 @@
+@@ -228,7 +237,7 @@
          # Now, what we do is encode the nonce, client ip and a timestamp
          # in the opaque value with a suitable digest
          key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
@@ -40,7 +44,7 @@ Index: twisted/web2/auth/digest.py
          ekey = key.encode('base64')
          return "%s-%s" % (digest, ekey.strip('\n'))
  
-@@ -274,7 +282,7 @@
+@@ -274,7 +283,7 @@
                  'Invalid response, incompatible opaque/nonce too old')
  
          # Verify the digest
@@ -49,7 +53,25 @@ Index: twisted/web2/auth/digest.py
          if digest != opaqueParts[0]:
              raise error.LoginFailed('Invalid response, invalid opaque value')
  
-@@ -315,18 +323,18 @@
+@@ -293,11 +302,12 @@
+         c = self.generateNonce()
+         o = self.generateOpaque(c, peer.host)
+ 
+-        return {'nonce': c,
+-                'opaque': o,
+-                'qop': 'auth',
+-                'algorithm': self.algorithm,
+-                'realm': self.realm}
++        return succeed({'nonce': c,
++            'opaque': o,
++            'qop': 'auth',
++            'algorithm': self.algorithm,
++            'realm': self.realm,
++        })
+ 
+     def decode(self, response, request):
+         """
+@@ -315,18 +325,18 @@
          @raise: L{error.LoginFailed} if the response does not contain a
              username, a nonce, an opaque, or if the opaque is invalid.
          """
@@ -79,3 +101,13 @@ Index: twisted/web2/auth/digest.py
          username = auth.get('username')
          if not username:
              raise error.LoginFailed('Invalid response, no username given.')
+@@ -342,7 +352,7 @@
+                              auth.get('nonce'),
+                              request.remoteAddr.host):
+ 
+-            return DigestedCredentials(username,
++            return succeed(DigestedCredentials(username,
+                                        request.method,
+                                        self.realm,
+-                                       auth)
++                                       auth))

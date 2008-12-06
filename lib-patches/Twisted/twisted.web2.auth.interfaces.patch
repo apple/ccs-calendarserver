@@ -1,0 +1,22 @@
+Index: twisted/web2/auth/interfaces.py
+===================================================================
+--- twisted/web2/auth/interfaces.py	(revision 19773)
++++ twisted/web2/auth/interfaces.py	(working copy)
+@@ -18,7 +18,7 @@
+         @param peer: The client's address
+ 
+         @rtype: C{dict}
+-        @return: dictionary of challenge arguments
++        @return: deferred returning dictionary of challenge arguments
+         """
+ 
+     def decode(response, request):
+@@ -32,7 +32,7 @@
+         @type request: L{twisted.web2.server.Request}
+         @param request: the request being processed
+ 
+-        @return: ICredentials
++        @return: deferred returning ICredentials
+         """
+ 
+ 

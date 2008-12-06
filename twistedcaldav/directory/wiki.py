@@ -207,12 +207,11 @@ def getWikiACL(resource, request):
 
             if userID == "unauthenticated":
                 # Return a 401 so they have an opportunity to log in
-                raise HTTPError(
-                    UnauthorizedResponse(
-                        request.credentialFactories,
-                        request.remoteAddr
-                    )
-                )
+                response = (yield UnauthorizedResponse.makeResponse(
+                    request.credentialFactories,
+                    request.remoteAddr,
+                ))
+                raise HTTPError(response)
 
             raise HTTPError(
                 StatusResponse(

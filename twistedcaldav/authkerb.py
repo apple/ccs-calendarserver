@@ -139,7 +139,7 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
         super(BasicKerberosCredentialFactory, self).__init__(principal, type, hostname)
 
     def getChallenge(self, _ignore_peer):
-        return {'realm': self.realm}
+        return succeed({'realm': self.realm})
 
     def decode(self, response, request): #@UnusedVariable
         try:
@@ -150,7 +150,7 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
         creds = creds.split(':', 1)
         if len(creds) == 2:
             c = BasicKerberosCredentials(creds[0], creds[1], self.service, self.realm)
-            return c
+            return succeed(c)
         raise error.LoginFailed('Invalid credentials')
 
 class BasicKerberosCredentialsChecker(LoggingMixIn):
@@ -209,7 +209,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         super(NegotiateCredentialFactory, self).__init__(principal, type, hostname)
 
     def getChallenge(self, _ignore_peer):
-        return {}
+        return succeed({})
 
     def decode(self, base64data, request):
         
@@ -270,7 +270,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         request.addResponseFilter(responseFilterAddWWWAuthenticate)
 
-        return NegotiateCredentials(username)
+        return succeed(NegotiateCredentials(username))
 
 class NegotiateCredentialsChecker(object):
 

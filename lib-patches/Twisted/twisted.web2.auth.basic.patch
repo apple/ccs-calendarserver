@@ -1,0 +1,29 @@
+Index: twisted/web2/auth/basic.py
+===================================================================
+--- twisted/web2/auth/basic.py	(revision 19773)
++++ twisted/web2/auth/basic.py	(working copy)
+@@ -1,6 +1,7 @@
+ # -*- test-case-name: twisted.web2.test.test_httpauth -*-
+ 
+ from twisted.cred import credentials, error
++from twisted.internet.defer import succeed
+ from twisted.web2.auth.interfaces import ICredentialFactory
+ 
+ from zope.interface import implements
+@@ -18,7 +19,7 @@
+         self.realm = realm
+ 
+     def getChallenge(self, peer):
+-        return {'realm': self.realm}
++        return succeed({'realm': self.realm})
+ 
+     def decode(self, response, request):
+         try:
+@@ -28,6 +29,6 @@
+ 
+         creds = creds.split(':', 1)
+         if len(creds) == 2:
+-            return credentials.UsernamePassword(*creds)
++            return succeed(credentials.UsernamePassword(*creds))
+         else:
+             raise error.LoginFailed('Invalid credentials')

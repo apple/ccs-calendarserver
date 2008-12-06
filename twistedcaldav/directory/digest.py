@@ -14,28 +14,21 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.sql import AbstractSQLDatabase
-
 from twisted.cred import error
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.auth.digest import DigestCredentialFactory
 from twisted.web2.auth.digest import DigestedCredentials
+from twisted.web2.http_headers import Token
+from twisted.web2.http_headers import parseKeyValue
+from twisted.web2.http_headers import split
+from twisted.web2.http_headers import tokenize
+
+from twistedcaldav.log import Logger
+from twistedcaldav.memcacher import Memcacher
 
 from zope.interface import implements, Interface
 
-import cPickle as pickle
-from twisted.web2.http_headers import tokenize
-from twisted.web2.http_headers import Token
-from twisted.web2.http_headers import split
-from twisted.web2.http_headers import parseKeyValue
-import os
 import time
-
-try:
-    from sqlite3 import OperationalError
-except ImportError:
-    from pysqlite2.dbapi2 import OperationalError
-
-from twistedcaldav.log import Logger
 
 log = Logger()
 
@@ -94,289 +87,32 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
-    def deleteMany(self, keys):
-        """
-        Remove the records associated with the supplied keys.
-
-        @param key:        the key to remove.
-        @type key:         C{str}
-        """
-        pass
-
-    def keys(self):
-        """
-        Return all the keys currently available.
-        
-        @return:    a C{list} of C{str} for each key currently in the database.
-        """
-        pass
-    
-    def items(self):
-        """
-        Return all the key/value pairs currently available.
-        
-        @return:    a C{list} of C{tuple} for each key/value currently in the database.
-        """
-        pass
-    
-class DigestCredentialsMap(object):
+class DigestCredentialsMemcache(Memcacher):
 
     implements(IDigestCredentialsDatabase)
 
-    def __init__(self, *args):
-        self.db = {}
-    
-    def has_key(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        return self.db.has_key(key)
-
-    def set(self, key, value):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        self.db[key] = value
-
-    def get(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        if self.db.has_key(key):
-            return self.db[key]
-        else:
-            return None
-
-    def delete(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        if self.db.has_key(key):
-            del self.db[key]
-
-    def deleteMany(self, keys):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        for key in keys:
-            if self.db.has_key(key):
-                del self.db[key]
-
-    def keys(self):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        return self.db.keys()
-
-    def items(self):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        return self.db.items()
-
-class DigestCredentialsDB(AbstractSQLDatabase):
-
-    implements(IDigestCredentialsDatabase)
-
-    """
-    A database to maintain cached digest credentials.
-
-    SCHEMA:
-    
-    Database: DIGESTCREDENTIALS
-    
-    ROW: KEY, VALUE
-    
-    """
-    
-    dbType = "DIGESTCREDENTIALSCACHE"
-    dbFilename = "digest.sqlite"
-    dbFormatVersion = "2"
-
-    exceptionLimit = 10
-
-    def __init__(self, path):
-        db_path = os.path.join(path, DigestCredentialsDB.dbFilename)
-        super(DigestCredentialsDB, self).__init__(db_path, False, autocommit=False)
-        self.exceptions = 0
-    
-    def has_key(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            for ignore_key in self._db_execute(
-                "select KEY from DIGESTCREDENTIALS where KEY = :1",
-                key
-            ):
-                return True
-            else:
-                return False
-            self.exceptions = 0
-        except OperationalError, e:
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def set(self, key, value):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            pvalue = pickle.dumps(value)
-            self._set_in_db(key, pvalue)
-            self._db_commit()
-            self.exceptions = 0
-        except OperationalError, e:
-            self._db_rollback()
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def get(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            for pvalue in self._db_execute(
-                "select VALUE from DIGESTCREDENTIALS where KEY = :1",
-                key
-            ):
-                self.exceptions = 0
-                return pickle.loads(str(pvalue[0]))
-            else:
-                self.exceptions = 0
-                return None
-        except OperationalError, e:
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def delete(self, key):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            self._delete_from_db(key)
-            self._db_commit()
-            self.exceptions = 0
-        except OperationalError, e:
-            self._db_rollback()
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def deleteMany(self, keys):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            for key in keys:
-                self._delete_from_db(key)
-            self._db_commit()
-            self.exceptions = 0
-        except OperationalError, e:
-            self._db_rollback()
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def keys(self):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            result = []
-            for key in self._db_execute("select KEY from DIGESTCREDENTIALS"):
-                result.append(str(key[0]))
-            
-            self.exceptions = 0
-            return result
-        except OperationalError, e:
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def items(self):
-        """
-        See IDigestCredentialsDatabase.
-        """
-        try:
-            result = []
-            for key in self._db_execute("select KEY, VALUE from DIGESTCREDENTIALS"):
-                result.append((str(key[0]), pickle.loads(str(key[1])),))
-            
-            self.exceptions = 0
-            return result
-        except OperationalError, e:
-            self.exceptions += 1
-            if self.exceptions >= self.exceptionLimit:
-                self._db_close()
-                log.err("Reset digest credentials database connection: %s" % (e,))
-            raise
-
-    def _set_in_db(self, key, value):
-        """
-        Insert the specified entry into the database, replacing any that might already exist.
-
-        @param key:   the key to add.
-        @param value: the value to add.
-        """
-        self._db().execute(
-            """
-            insert or replace into DIGESTCREDENTIALS (KEY, VALUE)
-            values (:1, :2)
-            """, (key, value,)
+    def __init__(self, namespace):
+        super(DigestCredentialsMemcache, self).__init__(
+            namespace=namespace,
+            pickle=True,
         )
-       
-    def _delete_from_db(self, key):
-        """
-        Deletes the specified entry from the database.
-
-        @param key: the key to remove.
-        """
-        self._db().execute("delete from DIGESTCREDENTIALS where KEY = :1", (key,))
     
-    def _db_version(self):
+    def has_key(self, key):
         """
-        @return: the schema version assigned to this index.
+        See IDigestCredentialsDatabase.
         """
-        return DigestCredentialsDB.dbFormatVersion
-        
-    def _db_type(self):
-        """
-        @return: the collection type assigned to this index.
-        """
-        return DigestCredentialsDB.dbType
-        
-    def _db_init_data_tables(self, q):
-        """
-        Initialise the underlying database tables.
-        @param q:           a database cursor to use.
-        """
+        d = self.get(key)
+        d.addCallback(lambda value:value is not None)
+        return d
 
-        #
-        # DIGESTCREDENTIALS table
-        #
-        q.execute(
-            """
-            create table DIGESTCREDENTIALS (
-                KEY         text unique,
-                VALUE       text
-            )
-            """
+    def set(self, key, value):
+        """
+        See IDigestCredentialsDatabase.
+        """
+        super(DigestCredentialsMemcache, self).set(
+            key,
+            value,
+            expire_time=DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
         )
 
 class QopDigestCredentialFactory(DigestCredentialFactory):
@@ -384,7 +120,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
     See twisted.web2.auth.digest.DigestCredentialFactory
     """
 
-    def __init__(self, algorithm, qop, realm, db_path):
+    def __init__(self, algorithm, qop, realm, namespace="DIGESTCREDENTIALS"):
         """
         @type algorithm: C{str}
         @param algorithm: case insensitive string that specifies
@@ -399,17 +135,12 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @type realm: C{str}
         @param realm: case sensitive string that specifies the realm
             portion of the challenge
-
-        @type db_path: C{str}
-        @param db_path: path where the credentials cache is to be stored
         """
         super(QopDigestCredentialFactory, self).__init__(algorithm, realm)
         self.qop = qop
-        self.db = DigestCredentialsDB(db_path)
-        
-        # Always clean-up when we start-up
-        self.cleanup()
+        self.db = DigestCredentialsMemcache(namespace)
 
+    @inlineCallbacks
     def getChallenge(self, peer):
         """
         Generate the challenge for use in the WWW-Authenticate header
@@ -425,16 +156,19 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         c = self.generateNonce()
         
         # Make sure it is not a duplicate
-        if self.db.has_key(c):
+        result = (yield self.db.has_key(c))
+        if result:
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
         # The database record is a tuple of (client ip, nonce-count, timestamp)
-        self.db.set(c, (peer.host, 0, time.time()))
+        yield self.db.set(c, (peer.host, 0, time.time()))
 
-        challenge = {'nonce': c,
-                     'qop': 'auth',
-                     'algorithm': self.algorithm,
-                     'realm': self.realm}
+        challenge = {
+            'nonce': c,
+            'qop': 'auth',
+            'algorithm': self.algorithm,
+            'realm': self.realm,
+        }
 
         if self.qop:
             challenge['qop'] = self.qop
@@ -445,9 +179,9 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         if hasattr(peer, 'stale') and peer.stale:
             challenge['stale'] = 'true'
 
-        return challenge
-            
+        returnValue(challenge)
 
+    @inlineCallbacks
     def decode(self, response, request):
         """
         Do the default behavior but then strip out any 'qop' from the credential fields
@@ -490,19 +224,20 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise error.LoginFailed('Invalid response, no nonce given.')
 
         # Now verify the nonce/cnonce values for this client
-        if self.validate(auth, request):
-
+        result = (yield self._validate(auth, request))
+        if result:
             credentials = DigestedCredentials(username,
                                        request.method,
                                        self.realm,
                                        auth)
             if not self.qop and credentials.fields.has_key('qop'):
                 del credentials.fields['qop']
-            return credentials
+            returnValue(credentials)
         else:
             raise error.LoginFailed('Invalid nonce/cnonce values')
 
-    def validate(self, auth, request):
+    @inlineCallbacks
+    def _validate(self, auth, request):
         """
         Check that the parameters in the response represent a valid set of credentials that
         may be being re-used.
@@ -521,73 +256,56 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         nonce_count = auth.get('nc')
 
         # First check we have this nonce
-        if not self.db.has_key(nonce):
+        result = (yield self.db.get(nonce))
+        if result is None:
             raise error.LoginFailed('Invalid nonce value: %s' % (nonce,))
-        db_clientip, db_nonce_count, db_timestamp = self.db.get(nonce)
+        db_clientip, db_nonce_count, db_timestamp = result
 
         # Next check client ip
         if db_clientip != clientip:
-            self.invalidate(nonce)
+            yield self._invalidate(nonce)
             raise error.LoginFailed('Client IPs do not match: %s and %s' % (clientip, db_clientip,))
         
         # cnonce and nonce-count MUST be present if qop is present
         if auth.get('qop') is not None:
             if auth.get('cnonce') is None:
-                self.invalidate(nonce)
+                yield self._invalidate(nonce)
                 raise error.LoginFailed('cnonce is required when qop is specified')
             if nonce_count is None:
-                self.invalidate(nonce)
+                yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count is required when qop is specified')
                 
             # Next check the nonce-count is one greater than the previous one and update it in the DB
             try:
                 nonce_count = int(nonce_count, 16)
             except ValueError:
-                self.invalidate(nonce)
+                yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count is not a valid hex string: %s' % (auth.get('nonce-count'),))            
             if nonce_count != db_nonce_count + 1:
-                self.invalidate(nonce)
+                yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count value out of sequence: %s should be one more than %s' % (nonce_count, db_nonce_count,))
-            self.db.set(nonce, (db_clientip, nonce_count, db_timestamp))
+            yield self.db.set(nonce, (db_clientip, nonce_count, db_timestamp))
         else:
             # When not using qop the stored nonce-count must always be zero.
             # i.e. we can't allow a qop auth then a non-qop auth with the same nonce
             if db_nonce_count != 0:
-                self.invalidate(nonce)
+                yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count was sent with this nonce: %s' % (nonce,))                
         
         # Now check timestamp
         if db_timestamp + DigestCredentialFactory.CHALLENGE_LIFETIME_SECS <= time.time():
-            self.invalidate(nonce)
+            yield self._invalidate(nonce)
             if request.remoteAddr:
                 request.remoteAddr.stale = True
             raise error.LoginFailed('Digest credentials expired')
 
-        return True
+        returnValue(True)
     
-    def invalidate(self, nonce):
+    def _invalidate(self, nonce):
         """
         Invalidate cached credentials for the specified nonce value.
 
-        @param nonce:    the nonce for the record to invalidate.
+        @param nonce:    the nonce for the record to _invalidate.
         @type nonce:     C{str}
         """
-        self.db.delete(nonce)
-
-    def cleanup(self):
-        """
-        This should be called at regular intervals to remove expired credentials from the cache.
-        """
-        items = self.db.items()
-        oldest_allowed = time.time() - DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
-        delete_keys = []
-        for key, value in items:
-            ignore_clientip, ignore_cnonce, db_timestamp = value
-            if db_timestamp <= oldest_allowed:
-                delete_keys.append(key)
-
-        try:
-            self.db.deleteMany(delete_keys)
-        except Exception, e:
-            # Clean-up errors can be logged but we should ignore them
-            log.err("Failed to clean digest credentials: %s" % (e,))
+        return self.db.delete(nonce)
