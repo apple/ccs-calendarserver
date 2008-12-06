@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -549,7 +549,7 @@ class CalendarData (CalDAVElement):
             filter = CalendarData(
                 CalendarComponent(
                     
-                    # VCALENDAR proeprties
+                    # VCALENDAR properties
                     Property(name="PRODID"),
                     Property(name="VERSION"),
                     Property(name="CALSCALE"),
@@ -650,15 +650,13 @@ class CalendarData (CalDAVElement):
         # Empty element: get all data
         if not self.children: return calendar
 
-        # CalDAV:comp is required 
-        if self.component is None:
-            raise ValueError("CalDAV:calendar-data %s has no CalDAV:comp child" % (self,))
-
         # Pre-process the calendar data based on expand and limit options
         if self.freebusy_set:
             calendar = self.limitFreeBusy(calendar)
 
-        calendar = self.component.getFromICalendar(calendar)
+        # Filter data based on any provided CALDAV:comp element, or use all current data
+        if self.component is not None:
+            calendar = self.component.getFromICalendar(calendar)
         
         # Post-process the calendar data based on the expand and limit options
         if self.recurrence_set:
@@ -995,7 +993,7 @@ class ComponentFilter (CalDAVFilterElement):
         """
         Returns True if the given calendar item (which is a component)
         matches this filter, False otherwise.
-        This specialzation uses the instance matching option of the time-range filter
+        This specialization uses the instance matching option of the time-range filter
         to minimize instance expansion.
         """
 
@@ -1035,7 +1033,7 @@ class ComponentFilter (CalDAVFilterElement):
         """
         Get the latest time-range end value from any time-range element in this
         or child comp-filter elements.
-        @return: the L{datetime.datetime} corrsponding to the max. time to expand to,
+        @return: the L{datetime.datetime} corresponding to the max. time to expand to,
                     or None if there is no time-range
         """
         
@@ -1080,7 +1078,7 @@ class ComponentFilter (CalDAVFilterElement):
                 log.msg("Top-level comp-filter must be VCALENDAR, instead: %s" % (self.filter_name,))
                 return False
         elif level == 1:
-            # Dissallow VCALENDAR, VALARM, STANDARD, DAYLIGHT, AVAILABLE at the top, everything else is OK
+            # Disallow VCALENDAR, VALARM, STANDARD, DAYLIGHT, AVAILABLE at the top, everything else is OK
             if self.filter_name in ("VCALENDAR", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE"):
                 log.msg("comp-filter wrong component type: %s" % (self.filter_name,))
                 return False
@@ -1090,7 +1088,7 @@ class ComponentFilter (CalDAVFilterElement):
                 log.msg("time-range cannot be used with component %s" % (self.filter_name,))
                 return False
         elif level == 2:
-            # Dissallow VCALENDAR, VTIMEZONE, VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY at the top, everything else is OK
+            # Disallow VCALENDAR, VTIMEZONE, VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY at the top, everything else is OK
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY")):
                 log.msg("comp-filter wrong sub-component type: %s" % (self.filter_name,))
                 return False
@@ -1100,7 +1098,7 @@ class ComponentFilter (CalDAVFilterElement):
                 log.msg("time-range cannot be used with sub-component %s" % (self.filter_name,))
                 return False
         else:
-            # Dissallow all std iCal components anywhere else
+            # Disallow all standard iCal components anywhere else
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE")) or timerange:
                 log.msg("comp-filter wrong standard component type: %s" % (self.filter_name,))
                 return False
@@ -1339,8 +1337,8 @@ class TextMatch (CalDAVTextElement):
             return False, False
 
         for value in values:
-            # NB Its possible that we have a text list value which appears as a Pythin list,
-            # so we need to check for that an iterate over thr list.
+            # NB Its possible that we have a text list value which appears as a Python list,
+            # so we need to check for that an iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
                     matched, result = _textCompare(subvalue)
@@ -1651,11 +1649,11 @@ class Originator (CalDAVElement):
 
 class Recipient (CalDAVElement):
     """
-    A property on resources in schedule Inbox indicating the Recipients targetted
+    A property on resources in schedule Inbox indicating the Recipients targeted
     by the SCHEDULE operation.
     (CalDAV-schedule, section x.x.x)
     
-    The recipient for whom this reponse is for.
+    The recipient for whom this response is for.
     (CalDAV-schedule, section x.x.x)
     """
     name = "recipient"
@@ -1682,7 +1680,7 @@ class ScheduleInbox (CalDAVEmptyElement):
 
 class ScheduleOutbox (CalDAVEmptyElement):
     """
-    Denotes the resourcetype of a calendar schedule Outbox.
+    Denotes the resource type of a calendar schedule Outbox.
     (CalDAV-schedule-xx, section x.x.x)
     """
     name = "schedule-outbox"
