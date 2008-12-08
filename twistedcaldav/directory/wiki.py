@@ -109,10 +109,6 @@ class WikiDirectoryService(DirectoryService):
         self.byShortName[shortName] = record
         return record
 
-    def recordWithGUID(self, guid):
-        raise NotImplementedError("recordWithGUID() not valid for wiki records")
-
-
 
 class WikiDirectoryRecord(DirectoryRecord):
     """

@@ -34,8 +34,9 @@ class IDirectoryService(Interface):
 
     def recordTypes():
         """
-        @return: a sequence of strings denoting the record types that are kept
-            in the directory.  For example: C{["users", "groups", "resources"]}.
+        @return: a sequence of strings denoting the record types that
+            are kept in the directory.  For example: C{["users",
+            "groups", "resources"]}.
         """
 
     def listRecords(recordType):
@@ -48,34 +49,40 @@ class IDirectoryService(Interface):
         """
         @param recordType: the type of the record to look up.
         @param shortName: the short name of the record to look up.
-        @return: an L{IDirectoryRecord} provider with the given short name, or
+        @return: an L{IDirectoryRecord} with the given short name, or
             C{None} if no such record exists.
         """
 
     def recordWithUID(uid):
         """
-        @param shortName: the UID of the record to look up.
-        @return: an L{IDirectoryRecord} provider with the given UID, or C{None}
+        @param uid: the UID of the record to look up.
+        @return: an L{IDirectoryRecord} with the given UID, or C{None}
             if no such record exists.
+        """
+
+    def recordWithGUID(guid):
+        """
+        @param guid: the GUID of the record to look up.
+        @return: an L{IDirectoryRecord} with the given GUID, or
+            C{None} if no such record exists.
         """
 
     def recordWithCalendarUserAddress(address):
         """
         @param address: the calendar user address of the record to look up.
-        @return: an L{IDirectoryRecord} provider with the given
-            calendar user address, or C{None} if no such record is
-            found.  Note that some directory services may not be able
-            to locate records by calendar user address, or may return
-            partial results.  Note also that the calendar server may
-            add to the list of valid calendar user addresses for a
-            user, and the directory service may not be aware of these
-            addresses.
+        @return: an L{IDirectoryRecord} with the given calendar user
+            address, or C{None} if no such record is found.  Note that
+            some directory services may not be able to locate records
+            by calendar user address, or may return partial results.
+            Note also that the calendar server may add to the list of
+            valid calendar user addresses for a user, and the
+            directory service may not be aware of these addresses.
         """
 
     def recordsMatchingFields(fields):
         """
-        @return: a deferred sequence of L{IDirectoryRecord}s which match the given
-            fields.
+        @return: a deferred sequence of L{IDirectoryRecord}s which
+            match the given fields.
         """
 
 

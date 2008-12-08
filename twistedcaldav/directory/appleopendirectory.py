@@ -312,6 +312,8 @@ class OpenDirectoryService(DirectoryService):
 
         return record
 
+    recordWithUID = recordWithGUID
+
     def groupsForGUID(self, guid):
         
         # Lookup in index

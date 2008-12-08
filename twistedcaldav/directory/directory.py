@@ -130,6 +130,12 @@ class DirectoryService(LoggingMixIn):
                 return record
         return None
 
+    def recordWithGUID(self, uid):
+        for record in self.allRecords():
+            if record.guid == guid:
+                return record
+        return None
+
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         for record in self.allRecords():
