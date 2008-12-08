@@ -204,6 +204,7 @@ defaultConfig = {
     "ProcessType": "Combined",
     "MultiProcess": {
         "ProcessCount": 0,
+        "MinProcessCount": 4,
         "LoadBalancer": {
             "Enabled": True,
             "Scheduler": "LeastConnections",

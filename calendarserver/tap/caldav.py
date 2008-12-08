@@ -714,24 +714,22 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 cpuCount = getNCPU()
             except NotImplementedError, e:
-                error = str(e)
+                self.log_error("Unable to detect number of CPUs: %s"
+                               % (str(e),))
+                cpuCount = 0
             else:
-                if cpuCount > 0:
-                    error = None
-                else:
-                    error = (
-                        "No processors detected, "
-                        "which is difficult to believe."
+                if cpuCount < 1:
+                    self.log_error(
+                        "%d processors detected, which is hard to believe."
+                        % (cpuCount,)
                     )
 
-            if error is None:
-                self.log_info("%d processors found, configuring %d processes."
-                              % (cpuCount, cpuCount))
-            else:
-                self.log_error("Could not autodetect number of CPUs: %s"
-                               % (error,))
-                self.log_error("Assuming one CPU, configuring one process.")
-                cpuCount = 1
+            processCount = config.MultiProcess.MinProcessCount
+            if 2 * cpuCount > processCount:
+                processCount = 2 * cpuCount
+
+            self.log_info("%d processors found. Configuring %d processes."
+                          % (cpuCount, processCount))
 
             config.MultiProcess.ProcessCount = cpuCount
 
