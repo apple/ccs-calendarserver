@@ -89,3 +89,14 @@ Index: twisted/web2/dav/element/rfc3744.py
  
  class PropertySearch (WebDAVElement):
      """
+@@ -745,4 +755,10 @@
+         (dav_namespace, "description"): (1, 1),
+     }
+ 
++class NumberOfMatchesWithinLimits (WebDAVEmptyElement):
++    """
++    Error which indicates too many results
++    """
++    name = "number-of-matches-within-limits"
++
+ # For DAV:description element (RFC 3744, section 9.5) see Description class above.

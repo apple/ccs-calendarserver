@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 # Check size of results is within limit
                 matchcount[0] += 1
                 if matchcount[0] > max_number_of_results:
-                    raise NumberOfMatchesWithinLimits
+                    raise NumberOfMatchesWithinLimits(max_number_of_results)
 
                 if name:
                     href = davxml.HRef.fromString(joinURL(uri, name))
@@ -223,6 +223,6 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
     
     returnValue(MultiStatusResponse(responses))

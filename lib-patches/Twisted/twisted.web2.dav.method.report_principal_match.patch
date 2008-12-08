@@ -57,7 +57,7 @@ Index: twisted/web2/dav/method/report_principal_match.py
 +                        # Check size of results is within limit
 +                        matchcount += 1
 +                        if matchcount > max_number_of_matches:
-+                            raise NumberOfMatchesWithinLimits
++                            raise NumberOfMatchesWithinLimits(max_number_of_matches)
 +        
 +                        d = waitForDeferred(prop_common.responseForHref(
 +                            request,
@@ -124,7 +124,7 @@ Index: twisted/web2/dav/method/report_principal_match.py
 +                                # Check size of results is within limit
 +                                matchcount += 1
 +                                if matchcount > max_number_of_matches:
-+                                    raise NumberOfMatchesWithinLimits
++                                    raise NumberOfMatchesWithinLimits(max_number_of_matches)
 +    
 +                                d = waitForDeferred(prop_common.responseForHref(
 +                                    request,
@@ -139,3 +139,12 @@ Index: twisted/web2/dav/method/report_principal_match.py
                  except HTTPError:
                      # Just ignore a failure to access the property. We treat this like a property that does not exist
                      # or does not match the principal.
+@@ -162,7 +190,7 @@
+         log.err("Too many matching components in principal-match report")
+         raise HTTPError(ErrorResponse(
+             responsecode.FORBIDDEN,
+-            (dav_namespace, "number-of-matches-within-limits")
++            davxml.NumberOfMatchesWithinLimits()
+         ))
+ 
+     yield MultiStatusResponse(responses)

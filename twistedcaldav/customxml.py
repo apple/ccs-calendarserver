@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -315,6 +315,30 @@ class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     name = "xmpp-server"
     protected = True
     hidden = True
+
+davxml.PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)
+davxml.PrincipalPropertySearch.allowed_attributes["type"] = False
+davxml.Match.allowed_attributes = {
+    "caseless": False,
+    "match-type": False,
+}
+
+class Limit (davxml.WebDAVElement):
+    """
+    Client supplied limit for reports.
+    """
+    namespace = calendarserver_namespace
+    name = "limit"
+    allowed_children = {
+        (calendarserver_namespace, "nresults" )  : (1, 1),
+    }
+
+class NResults (davxml.WebDAVTextElement):
+    """
+    Number of results limit.
+    """
+    namespace = calendarserver_namespace
+    name = "nresults"
 
 class FirstNameProperty (davxml.WebDAVTextElement):
     """

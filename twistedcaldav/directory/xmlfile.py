@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ class XMLDirectoryService(DirectoryService):
 
     def _entriesForRecordType(self, recordType):
         try:
-            for entry in self._accounts()[recordType].itervalues():
+            for entry in sorted(self._accounts()[recordType].itervalues(), key=lambda x: x.shortName):
                 yield entry.shortName, entry
         except KeyError:
             return
