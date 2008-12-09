@@ -84,7 +84,13 @@ def emitAccounting(category, principal, data):
     # Obtain the accounting log file name
     #
     logRoot = config.AccountingLogRoot
-    logDirectory = os.path.join(logRoot, principal.record.recordType, principal.record.shortName, category)
+    logDirectory = os.path.join(
+        logRoot,
+        principal.record.guid[0:2],
+        principal.record.guid[2:4],
+        principal.record.guid,
+        category
+    )
     logFilename = os.path.join(logDirectory, datetime.datetime.now().isoformat())
 
     if not os.path.isdir(logDirectory):
