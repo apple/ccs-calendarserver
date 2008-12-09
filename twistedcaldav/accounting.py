@@ -80,38 +80,42 @@ def emitAccounting(category, principal, data):
     if not accountingEnabled(category, principal):
         return
 
-    #
-    # Obtain the accounting log file name
-    #
-    logRoot = config.AccountingLogRoot
-    logDirectory = os.path.join(
-        logRoot,
-        principal.record.guid[0:2],
-        principal.record.guid[2:4],
-        principal.record.guid,
-        category
-    )
-    logFilename = os.path.join(logDirectory, datetime.datetime.now().isoformat())
-
-    if not os.path.isdir(logDirectory):
-        os.makedirs(logDirectory)
-        logFilename = "%s-01" % (logFilename,)
-    else:
-        index = 1
-        while True:
-            path = "%s-%02d" % (logFilename, index)
-            if not os.path.isfile(path):
-                logFilename = path
-                break
-            if index == 1000:
-                log.error("Too many %s accounting files for %s" % (category, principal))
-                return
-
-    #
-    # Now write out the data to the log file
-    #
-    logFile = open(logFilename, "a")
     try:
-        logFile.write(data)
-    finally:
-        logFile.close()
+        #
+        # Obtain the accounting log file name
+        #
+        logRoot = config.AccountingLogRoot
+        logDirectory = os.path.join(
+            logRoot,
+            principal.record.guid[0:2],
+            principal.record.guid[2:4],
+            principal.record.guid,
+            category
+        )
+        logFilename = os.path.join(logDirectory, datetime.datetime.now().isoformat())
+    
+        if not os.path.isdir(logDirectory):
+            os.makedirs(logDirectory)
+            logFilename = "%s-01" % (logFilename,)
+        else:
+            index = 1
+            while True:
+                path = "%s-%02d" % (logFilename, index)
+                if not os.path.isfile(path):
+                    logFilename = path
+                    break
+                if index == 1000:
+                    log.error("Too many %s accounting files for %s" % (category, principal))
+                    return
+    
+        #
+        # Now write out the data to the log file
+        #
+        logFile = open(logFilename, "a")
+        try:
+            logFile.write(data)
+        finally:
+            logFile.close()
+    except OSError, e:
+        # No failures in accounting should propagate out
+        log.error("Failed to write accounting data due to: %s" % (str(e),))
