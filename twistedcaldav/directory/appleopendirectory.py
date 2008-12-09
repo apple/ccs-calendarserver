@@ -297,17 +297,19 @@ class OpenDirectoryService(DirectoryService):
             for recordType in self.recordTypes():
                 # Check negative cache
                 if guid in self._storage(recordType)["disabled guids"]:
-                    break
+                    continue
 
                 self.reloadCache(recordType, guid=guid)
                 record = lookup()
-                if record is not None:
+
+                if record is None:
+                    self._storage(recordType)["disabled guids"].add(guid)
+                else:
                     self.log_info("Faulted record with GUID %s into %s record cache"
                                   % (guid, recordType))
                     break
             else:
                 # Nothing found; add to negative cache
-                self._storage(recordType)["disabled guids"].add(guid)
                 self.log_info("Unable to find any record with GUID %s" % (guid,))
 
         return record
@@ -414,10 +416,14 @@ class OpenDirectoryService(DirectoryService):
 
 
     def reloadCache(self, recordType, shortName=None, guid=None):
-        if shortName:
-            self.log_info("Faulting record %s into %s record cache" % (shortName, recordType))
-        elif guid is None:
+        if shortName is not None:
+            self.log_info("Faulting record with shortName %s into %s record cache" % (shortName, recordType))
+        elif guid is not None:
+            self.log_info("Faulting record with guid %s into %s record cache" % (guid, recordType))
+        elif shortName is None and guid is None:
             self.log_info("Reloading %s record cache" % (recordType,))
+        else:
+            raise AssertionError("%r.reloadCache(%s, %s, %s)" % (self, recordType, shortName, guid))
 
         results = self._queryDirectory(recordType, shortName=shortName, guid=guid)
 
