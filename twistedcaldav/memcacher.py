@@ -119,20 +119,24 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
 
     def add(self, key, value, expire_time=0):
+        
+        proto = self._getMemcacheProtocol()
+
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Adding Cache Token for %r" % (key,))
-        return self._getMemcacheProtocol().add(
-            '%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
+        return proto.add('%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
 
     def set(self, key, value, expire_time=0):
+        
+        proto = self._getMemcacheProtocol()
+
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Setting Cache Token for %r" % (key,))
-        return self._getMemcacheProtocol().set(
-            '%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
+        return proto.set('%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
 
     def get(self, key):
         def _gotit(result):
@@ -149,5 +153,4 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
     def delete(self, key):
         self.log_debug("Deleting Cache Token for %r" % (key,))
-        return self._getMemcacheProtocol().delete(
-            '%s:%s' % (self._namespace, key))
+        return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, key))

@@ -190,7 +190,7 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
     def test_cachingDBInsert(self):
     
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             # Get the DB
             db_path = self.mktemp()
@@ -231,7 +231,7 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
     def test_cachingDBRemove(self):
     
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             # Get the DB
             db_path = self.mktemp()
@@ -273,7 +273,7 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
     def test_cachingDBInsertUncached(self):
     
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             # Get the DB
             db_path = self.mktemp()

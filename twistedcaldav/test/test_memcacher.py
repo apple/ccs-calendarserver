@@ -20,7 +20,7 @@ class MemcacherTestCase(TestCase):
     def test_setget(self):
 
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             cacher = Memcacher("testing")
     
@@ -37,7 +37,7 @@ class MemcacherTestCase(TestCase):
     def test_missingget(self):
 
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             cacher = Memcacher("testing")
     
@@ -48,7 +48,7 @@ class MemcacherTestCase(TestCase):
     def test_delete(self):
 
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             cacher = Memcacher("testing")
     
@@ -71,7 +71,7 @@ class MemcacherTestCase(TestCase):
     def test_all_pickled(self):
 
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             cacher = Memcacher("testing", pickle=True)
     
@@ -94,7 +94,7 @@ class MemcacherTestCase(TestCase):
     def test_all_noinvalidation(self):
 
         for processType in ("Single", "Combined",):
-            config.processType = processType
+            config.ProcessType = processType
 
             cacher = Memcacher("testing", no_invalidation=True)
     
