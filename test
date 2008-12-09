@@ -35,6 +35,7 @@ usage ()
   echo "        -h  Print this help and exit";
   echo "        -n  Do not use color";
   echo "        -o  Do not run tests in random order.";
+  echo "        -r<num>  Use specified seed to determine order.";
   echo "        -u  Run until the tests fail.";
   echo "        -c  Generate coverage reports.";
 
@@ -42,11 +43,12 @@ usage ()
   exit 64;
 }
 
-while getopts "nhouc" option; do
+while getopts "nhoucr:" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'o')     random=""; ;;
+    'r')     random="--random=$OPTARG"; ;;
     'n')  no_colour="--reporter=bwverbose"; ;;
     'u') until_fail="--until-failure"; ;;
     'c')   coverage="--coverage"; ;;
