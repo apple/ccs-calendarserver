@@ -644,7 +644,7 @@ class CalendarData (CalDAVElement):
         Returns a calendar object containing the data in the given calendar
         which is specified by this CalendarData.
         """
-        if calendar.name() != "VCALENDAR":
+        if calendar is None or calendar.name() != "VCALENDAR":
             raise ValueError("Not a calendar: %r" % (calendar,))
 
         # Empty element: get all data

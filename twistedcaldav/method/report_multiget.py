@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,8 +167,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
 
             # Get properties for all valid readable resources
             for resource, href in ok_resources:
-                yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, None, propertiesForResource, propertyreq, isowner=isowner)
-    
+                try:
+                    yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, None, propertiesForResource, propertyreq, isowner=isowner)
+                except ValueError:
+                    log.err("Invalid calendar resource during multiget: %s" % (href,))
+                    responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))

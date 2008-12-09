@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import os
 import shutil
 
+from twisted.internet.defer import inlineCallbacks
 from twisted.web2 import responsecode
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
@@ -60,7 +61,63 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
 
-    def simple_event_multiget(self, cal_uri, okuids, baduids):
+    @inlineCallbacks
+    def test_multiget_one_broken_event(self):
+        """
+        All events.
+        (CalDAV-access-09, section 7.6.8)
+        """
+        okuids = ["good", "bad",]
+        baduids = []
+        data = {
+            "good":"""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:good
+DTSTART;VALUE=DATE:20020101
+DTEND;VALUE=DATE:20020102
+RRULE:FREQ=YEARLY;INTERVAL=1;UNTIL=20031231;BYMONTH=1
+SUMMARY:New Year's Day
+END:VEVENT
+END:VCALENDAR
+""",
+            "bad":"""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:bad
+DTSTART;VALUE=DATE:20020214
+DTEND;VALUE=DATE:20020215
+RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=2
+SUMMARY:Valentine's Day
+END:VEVENT
+END:VCALENDAR
+"""
+        }
+
+        yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data)
+        
+        # Now forcibly corrupt one piece of calendar data
+        calendar_path = os.path.join(self.docroot, "calendar_multiget_events/", "bad.ics")
+        f = open(calendar_path, "w")
+        f.write("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:bad
+DTSTART;VALUE=DATE:20020214
+DTEND;VALUE=DATE:20020""")
+        f.close
+
+        okuids = ["good", ]
+        baduids = ["bad", ]
+        yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data, no_init=True)
+
+    def simple_event_multiget(self, cal_uri, okuids, baduids, data=None, no_init=False):
         children = []
         children.append(davxml.PropertyContainer(
                         davxml.GETETag(),
@@ -106,8 +163,11 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
                         else:
                             self.fail("Got calendar for unexpected UID %r" % (uid,))
 
-                        original_filename = file(os.path.join(self.holidays_dir, uid + ".ics"))
-                        original_calendar = ical.Component.fromStream(original_filename)
+                        if data:
+                            original_calendar = ical.Component.fromStream(data[uid])
+                        else:
+                            original_filename = file(os.path.join(self.holidays_dir, uid + ".ics"))
+                            original_calendar = ical.Component.fromStream(original_filename)
 
                         self.assertEqual(result_calendar, original_calendar)
             
@@ -132,29 +192,37 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
             if len(okuids) + len(badhrefs):
                 self.fail("Some components were not returned: %r, %r" % (okuids, badhrefs))
 
-        return self.calendar_query(cal_uri, query, got_xml)
+        return self.calendar_query(cal_uri, query, got_xml, data, no_init)
 
-    def calendar_query(self, calendar_uri, query, got_xml):
+    def calendar_query(self, calendar_uri, query, got_xml, data, no_init):
         calendar_path = os.path.join(self.docroot, calendar_uri[1:])
 
-        if os.path.exists(calendar_path): rmdir(calendar_path)
+        if not no_init and os.path.exists(calendar_path): rmdir(calendar_path)
 
         def do_report(response):
-            response = IResponse(response)
-
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
-
-            # Add holiday events to calendar
-            # We're cheating by simply copying the files in
-            for filename in os.listdir(self.holidays_dir):
-                if os.path.splitext(filename)[1] != ".ics": continue
-                path = os.path.join(self.holidays_dir, filename)
-                shutil.copy(path, calendar_path)
-
-            # Delete the index because we cheated
-            index_path = os.path.join(calendar_path, db_basename)
-            if os.path.isfile(index_path): os.remove(index_path)
+            if not no_init:
+                response = IResponse(response)
+    
+                if response.code != responsecode.CREATED:
+                    self.fail("MKCALENDAR failed: %s" % (response.code,))
+    
+                if data:
+                    for filename, icaldata in data.iteritems():
+                        path = os.path.join(calendar_path, filename + ".ics")
+                        f = open(path, "w")
+                        f.write(icaldata)
+                        f.close()
+                else:
+                    # Add holiday events to calendar
+                    # We're cheating by simply copying the files in
+                    for filename in os.listdir(self.holidays_dir):
+                        if os.path.splitext(filename)[1] != ".ics": continue
+                        path = os.path.join(self.holidays_dir, filename)
+                        shutil.copy(path, calendar_path)
+    
+                # Delete the index because we cheated
+                index_path = os.path.join(calendar_path, db_basename)
+                if os.path.isfile(index_path): os.remove(index_path)
 
             request = SimpleRequest(self.site, "REPORT", calendar_uri)
             request.stream = MemoryStream(query.toxml())
@@ -169,6 +237,9 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
 
             return self.send(request, do_test)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-
-        return self.send(request, do_report)
+        if no_init:
+            return do_report(None)
+        else:
+            request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+    
+            return self.send(request, do_report)
