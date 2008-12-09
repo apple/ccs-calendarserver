@@ -169,7 +169,7 @@ class iCalendar (twistedcaldav.test.util.TestCase):
             self.assertEqual(end, datetime.datetime(2004, 11, 27))
             break;
 
-    #test_component_timerange.todo = "recurrance expansion should give us no end date here"
+    #test_component_timerange.todo = "recurrence expansion should give us no end date here"
 
     def test_parse_date(self):
         """

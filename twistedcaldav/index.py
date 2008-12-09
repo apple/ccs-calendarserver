@@ -27,12 +27,14 @@ __all__ = [
     "MemcachedUIDReserver",
     "Index",
     "IndexSchedule",
+    "IndexedSearchException",
 ]
 
 import datetime
 import os
 import time
 import hashlib
+from dateutil.parser import parse as dateparse
 
 try:
     import sqlite3 as sqlite
@@ -59,15 +61,15 @@ schema_version = "6"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 #
-# Duration into the future through which recurrances are expanded in the index
+# Duration into the future through which recurrences are expanded in the index
 # by default.  This is a caching parameter which affects the size of the index;
 # it does not affect search results beyond this period, but it may affect
 # performance of such a search.
 #
-default_future_expansion_duration = datetime.timedelta(days=356*1)
+default_future_expansion_duration = datetime.timedelta(days=365*1)
 
 #
-# Maximum duration into the future through which recurrances are expanded in the
+# Maximum duration into the future through which recurrences are expanded in the
 # index.  This is a caching parameter which affects the size of the index; it
 # does not affect search results beyond this period, but it may affect
 # performance of such a search.
@@ -80,7 +82,7 @@ default_future_expansion_duration = datetime.timedelta(days=356*1)
 # period.  Searches beyond this period will always be relatively expensive for
 # resources with occurances beyond this period.
 #
-maximum_future_expansion_duration = datetime.timedelta(days=356*5)
+maximum_future_expansion_duration = datetime.timedelta(days=365*5)
 
 class ReservationError(LookupError):
     """
@@ -88,7 +90,10 @@ class ReservationError(LookupError):
     which is not reserved.
     """
 
-class AbstractCalendarIndex(AbstractSQLDatabase):
+class IndexedSearchException(ValueError):
+    pass
+
+class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
     """
     Calendar collection index abstract base class that defines the apis for the index.
     This will be subclassed for the two types of index behaviour we need: one for
@@ -252,15 +257,16 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         results = self._db_values_for_sql(statement, *names)
         return results
 
-    def searchValid(self, filter):
-        if isinstance(filter, caldavxml.Filter):
-            qualifiers = calendarquery.sqlcalendarquery(filter)
-        else:
-            qualifiers = None
 
-        return qualifiers is not None
+    def testAndUpdateIndex(self, minDate):
+        # Find out if the index is expanded far enough
+        names = self.notExpandedBeyond(minDate)
+        # Actually expand recurrence max
+        for name in names:
+            self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
+            self.reExpandResource(name, minDate)
 
-    def search(self, filter):
+    def indexedSearch(self, filter):
         """
         Finds resources matching the given qualifiers.
         @param filter: the L{Filter} for the calendar-query to execute.
@@ -269,18 +275,37 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             C{name} is the resource name, C{uid} is the resource UID, and
             C{type} is the resource iCalendar component type.x
         """
-        # FIXME: Don't forget to use maximum_future_expansion_duration when we
-        # start caching...
 
-        # Make sure we have a proper Filter element and get the partial SQL statement to use.
+        # Make sure we have a proper Filter element and get the partial SQL
+        # statement to use.
         if isinstance(filter, caldavxml.Filter):
             qualifiers = calendarquery.sqlcalendarquery(filter)
+            if qualifiers is not None:
+                if len(qualifiers[1]) > 1:
+                    # Bring index up to a given date if it's not already
+                    try:
+                        # TODO: is there a more reliable way to get the date?
+                        minDate = dateparse(qualifiers[1][1]).date()
+                    except ValueError:
+                        # this isn't a date after all
+                        minDate = None
+                    if minDate:
+                        self.testAndUpdateIndex(minDate)
+            else:
+                # We cannot handler this filter in an indexed search
+                raise IndexedSearchException()
+
         else:
             qualifiers = None
+
+        # Perform the search
         if qualifiers is not None:
             rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
+
         else:
-            rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
+            raise IndexedSearchException()
+
+        # Check result for missing resources
 
         for row in rowiter:
             name = row[0]
@@ -291,13 +316,35 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
                         % (name, self.resource))
                 self.deleteResource(name)
 
+
+
+    def bruteForceSearch(self):
+        """
+        List the whole index and tests for existence, updating the index
+        @return: all resources in the index
+        """
+        # List all resources
+        rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
+
+        # Check result for missing resources:
+
+        for row in rowiter:
+            name = row[0]
+            if self.resource.getChild(name.encode("utf-8")):
+                yield row
+            else:
+                log.err("Calendar resource %s is missing from %s. Removing from index."
+                        % (name, self.resource))
+                self.deleteResource(name)
+
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return schema_version
 
-    def _add_to_db(self, name, calendar, cursor = None):
+    def _add_to_db(self, name, calendar, cursor = None, expand_until=None):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -340,7 +387,7 @@ class CalendarIndex (AbstractCalendarIndex):
         #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
         #   UID: iCalendar UID (may or may not be unique)
         #   TYPE: iCalendar component type
-        #   RECURRANCE_MAX: Highest date of recurrance expansion
+        #   RECURRANCE_MAX: Highest date of recurrence expansion
         #
         if uidunique:
             q.execute(
@@ -398,7 +445,23 @@ class CalendarIndex (AbstractCalendarIndex):
                 """
             )
 
-    def _add_to_db(self, name, calendar, cursor = None):
+    def notExpandedBeyond(self, minDate):
+        """
+        Gives all resources which have not been expanded beyond a given date
+        in the index
+        """
+        return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", minDate)
+
+    def reExpandResource(self, name, expand_until):
+        """
+        Given a resource name, remove it from the database and re-add it
+        with a longer expansion.
+        """
+        calendar = self.resource.getChild(name).iCalendar()
+        self._add_to_db(name, calendar, expand_until=expand_until)
+        self._db_commit()
+
+    def _add_to_db(self, name, calendar, cursor = None, expand_until=None):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -411,9 +474,18 @@ class CalendarIndex (AbstractCalendarIndex):
         """
         uid = calendar.resourceUID()
 
-        expand_max = datetime.date.today() + default_future_expansion_duration
+        if expand_until:
+            expand = expand_until
+        else:
+            expand = datetime.date.today() + default_future_expansion_duration
 
-        instances = calendar.expandTimeRanges(expand_max)
+        if expand > (datetime.date.today() + maximum_future_expansion_duration):
+            raise IndexedSearchException
+
+        instances = calendar.expandTimeRanges(expand)
+
+        self._delete_from_db(name, uid)
+
         for key in instances:
             instance = instances[key]
             start = instance.start.replace(tzinfo=utc)

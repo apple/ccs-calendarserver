@@ -252,7 +252,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             tzids = set()
             isowner = (yield self.isOwner(request))
 
-            for name, uid, type in self.index().search(None): #@UnusedVariable
+            for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
                 try:
                     child = yield request.locateChildResource(self, name)
                     child = IDAVResource(child)

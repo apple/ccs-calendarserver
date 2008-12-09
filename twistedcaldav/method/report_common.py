@@ -56,6 +56,7 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
+from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.log import Logger
 
 log = Logger()
@@ -342,8 +343,13 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
-    for name, uid, type in calresource.index().search(filter): #@UnusedVariable
-        
+    try:
+        resources = calresource.index().indexedSearch(filter)
+    except IndexedSearchException:
+        resources = calresource.index().bruteForceSearch()
+
+    for name, uid, type in resources: #@UnusedVariable
+
         # Check privileges - must have at least CalDAV:read-free-busy
         child = (yield request.locateChildResource(calresource, name))
 

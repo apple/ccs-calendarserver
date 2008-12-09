@@ -115,7 +115,7 @@ class XML (twistedcaldav.test.util.TestCase):
             ("20020102", "20020103", False),
             ("20011201", "20020101", False), # End is non-inclusive
 
-            # Expanded recurrance
+            # Expanded recurrence
             ("20030101T000000Z", "20030101T000001Z", True),
             ("20030101T000000Z", "20030101T000000Z", True), # Timespan of zero duration
             ("20030101", "20030101", True), # Timespan of zero duration
@@ -136,4 +136,4 @@ class XML (twistedcaldav.test.util.TestCase):
             )).match(self.calendar):
                 self.fail("Calendar has %sVEVENT with timerange %s?" % (no, (start, end)))
 
-    test_TimeRange.todo = "recurrance expansion"
+    test_TimeRange.todo = "recurrence expansion"

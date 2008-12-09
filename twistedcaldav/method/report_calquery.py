@@ -34,6 +34,7 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.method import report_common
+from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.log import Logger
 
 log = Logger()
@@ -163,11 +164,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
             # Check for disabled access
             if filteredaces is not None:
-                # See whether the filter is valid for an index only query
-                index_query_ok = calresource.index().searchValid(filter)
-            
-                # Get list of children that match the search and have read access
-                names = [name for name, ignore_uid, ignore_type in calresource.index().search(filter)]
+                index_query_ok = True
+                try:
+                    # Get list of children that match the search and have read
+                    # access
+                    names = [name for name, ignore_uid, ignore_type
+                        in calresource.index().indexedSearch(filter)]
+                except IndexedSearchException:
+                    names = [name for name, ignore_uid, ignore_type
+                        in calresource.index().bruteForceSearch()]
+                    index_query_ok = False
+
                 if not names:
                     return
                   
