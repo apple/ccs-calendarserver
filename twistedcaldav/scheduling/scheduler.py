@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -316,10 +316,11 @@ class Scheduler(object):
             if accountingEnabled("iTIP", self.organizer.principal):
                 emitAccounting(
                     "iTIP", self.organizer.principal,
-                    "Originator: %s\nRecipients:\n%s\n%s"
+                    "Originator: %s\nRecipients:\n%sServer Instance:%s\n\n%s"
                     % (
                         str(self.originator),
                         "".join(["    %s\n" % (recipient,) for recipient in self.recipients]),
+                        self.request.serverInstance,
                         str(self.calendar)
                     )
                 )

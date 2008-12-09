@@ -20,7 +20,7 @@ Index: twisted/web2/server.py
          if kw.has_key('site'):
              self.site = kw['site']
              del kw['site']
-@@ -150,17 +154,32 @@
+@@ -150,17 +154,33 @@
              self._initialprepath = kw['prepathuri']
              del kw['prepathuri']
  
@@ -32,6 +32,7 @@ Index: twisted/web2/server.py
          self.files = {}
          self.resources = []
          http.Request.__init__(self, *args, **kw)
++        self.serverInstance = self.chanRequest.transport.server.port
  
 -    def addResponseFilter(self, f, atEnd=False):
 +    def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
@@ -56,7 +57,7 @@ Index: twisted/web2/server.py
  
      def unparseURL(self, scheme=None, host=None, port=None,
                     path=None, params=None, querystring=None, fragment=None):
-@@ -265,6 +284,7 @@
+@@ -265,6 +285,7 @@
          
          d = defer.Deferred()
          d.addCallback(self._getChild, self.site.resource, self.postpath)
@@ -64,7 +65,7 @@ Index: twisted/web2/server.py
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -321,7 +341,6 @@
+@@ -321,7 +342,6 @@
          if newpath is StopTraversal:
              # We need to rethink how to do this.
              #if newres is res:
@@ -72,7 +73,7 @@ Index: twisted/web2/server.py
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -337,7 +356,6 @@
+@@ -337,7 +357,6 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
@@ -80,7 +81,7 @@ Index: twisted/web2/server.py
  
          return child
  
-@@ -347,6 +365,7 @@
+@@ -347,6 +366,7 @@
          """
          Remember the URL of a visited resource.
          """
@@ -88,7 +89,7 @@ Index: twisted/web2/server.py
          self._urlsByResource[resource] = url
          return resource
  
-@@ -386,7 +405,8 @@
+@@ -386,7 +406,8 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -98,7 +99,7 @@ Index: twisted/web2/server.py
  
          #
          # Parse the URL
-@@ -407,9 +427,13 @@
+@@ -407,9 +428,13 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
@@ -114,7 +115,7 @@ Index: twisted/web2/server.py
  
          def notFound(f):
              f.trap(http.HTTPError)
-@@ -417,7 +441,7 @@
+@@ -417,7 +442,7 @@
                  return f
              return None
  
