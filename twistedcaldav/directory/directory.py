@@ -130,7 +130,7 @@ class DirectoryService(LoggingMixIn):
                 return record
         return None
 
-    def recordWithGUID(self, uid):
+    def recordWithGUID(self, guid):
         for record in self.allRecords():
             if record.guid == guid:
                 return record
