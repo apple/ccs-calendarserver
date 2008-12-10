@@ -17,7 +17,59 @@ Index: twisted/words/protocols/jabber/sasl_mechanisms.py
  from zope.interface import Interface, Attribute, implements
  
  class ISASLMechanism(Interface):
-@@ -153,7 +158,7 @@
+@@ -108,16 +113,43 @@
+         @return: challenge directives and their values.
+         @rtype: L{dict} of L{str} to L{str}.
+         """
+-        directive_list = challenge.split(',')
+-        directives = {}
+-        for directive in directive_list:
+-            name, value = directive.split('=')
+-            value = value.replace("'","")
+-            value = value.replace('"','')
+-            directives[name] = value
+-        return directives
++        s = challenge
++        paramDict = {}
++        cur = 0
++        remainingParams = True
++        while remainingParams:
++            # Parse a param. We can't just split on commas, because there can
++            # be some commas inside (quoted) param values, e.g.:
++            # qop="auth,auth-int"
+ 
++            middle = s.index("=", cur)
++            name = s[cur:middle].lstrip()
++            middle += 1
++            if s[middle] == '"':
++                middle += 1
++                end = s.index('"', middle)
++                value = s[middle:end]
++                cur = s.find(',', end) + 1
++                if cur == 0:
++                    remainingParams = False
++            else:
++                end = s.find(',', middle)
++                if end == -1:
++                    value = s[middle:].rstrip()
++                    remainingParams = False
++                else:
++                    value = s[middle:end].rstrip()
++                cur = end + 1
++            paramDict[name] = value
+ 
++        for param in ('qop', 'cipher'):
++            if param in paramDict:
++                paramDict[param] = paramDict[param].split(',')
++
++        return paramDict
++
++
++
+     def _unparse(self, directives):
+         """
+         Create message string from directives.
+@@ -153,7 +185,7 @@
          """
  
          def H(s):
@@ -26,7 +78,7 @@ Index: twisted/words/protocols/jabber/sasl_mechanisms.py
  
          def HEX(n):
              return binascii.b2a_hex(n)
-@@ -196,4 +201,4 @@
+@@ -196,4 +228,4 @@
  
  
      def _gen_nonce(self):

@@ -37,6 +37,7 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.address import IPv4Address
+from twisted.internet.ssl import ClientContextFactory
 from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.protocols.basic import LineReceiver
 from twisted.plugin import IPlugin
@@ -45,7 +46,7 @@ from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.words.protocols.jabber import xmlstream
 from twisted.words.protocols.jabber.jid import JID
-from twisted.words.protocols.jabber.client import BasicAuthenticator
+from twisted.words.protocols.jabber.client import XMPPAuthenticator, IQAuthInitializer
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
 from twistedcaldav.log import LoggingMixIn
@@ -1089,16 +1090,16 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
         self.reactor = reactor
 
         xmlstream.XmlStreamFactory.__init__(self,
-            BasicAuthenticator(JID(self.jid), settings['Password']))
+            XMPPAuthenticator(JID(self.jid), settings['Password']))
 
         self.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self.connected)
         self.addBootstrap(xmlstream.STREAM_END_EVENT, self.disconnected)
         self.addBootstrap(xmlstream.INIT_FAILED_EVENT, self.initFailed)
 
         self.addBootstrap(xmlstream.STREAM_AUTHD_EVENT, self.authenticated)
-        self.addBootstrap(BasicAuthenticator.INVALID_USER_EVENT,
+        self.addBootstrap(IQAuthInitializer.INVALID_USER_EVENT,
             self.authFailed)
-        self.addBootstrap(BasicAuthenticator.AUTH_FAILED_EVENT,
+        self.addBootstrap(IQAuthInitializer.AUTH_FAILED_EVENT,
             self.authFailed)
 
     def connected(self, xmlStream):
@@ -1327,8 +1328,15 @@ class XMPPNotifierService(service.Service):
 
     def __init__(self, settings):
         self.notifier = XMPPNotifier(settings)
-        self.client = internet.TCPClient(settings["Host"], settings["Port"],
-            XMPPNotificationFactory(self.notifier, settings))
+
+        if settings["Port"] == 5223: # use old SSL method
+            self.client = internet.SSLClient(settings["Host"], settings["Port"],
+                XMPPNotificationFactory(self.notifier, settings),
+                ClientContextFactory())
+        else:
+            # TLS and SASL
+            self.client = internet.TCPClient(settings["Host"], settings["Port"],
+                XMPPNotificationFactory(self.notifier, settings))
 
     def enqueue(self, op, uri):
         self.notifier.enqueue(op, uri)
