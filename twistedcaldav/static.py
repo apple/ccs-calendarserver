@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -250,7 +250,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             filteredaces = yield self.inheritedACEsforChildren(request)
 
             tzids = set()
-            isowner = (yield self.isOwner(request))
+            isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
 
             for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
                 try:

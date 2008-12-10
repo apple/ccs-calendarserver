@@ -48,7 +48,7 @@ def http_GET(self, request):
             yield self.authorize(request, (davxml.Read(),))
 
             # Non DAV:owner's have limited access to the data
-            isowner = (yield self.isOwner(request))
+            isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
             
             if not isowner:
                 # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply

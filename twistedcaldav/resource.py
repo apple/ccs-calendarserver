@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -335,8 +335,11 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
                 # Need to insert ACE to prevent non-owner principals from seeing this resource
                 owner = (yield self.owner(request))
+                newacls = []
                 if access.getValue() == Component.ACCESS_PRIVATE:
-                    ace = davxml.ACE(
+                    newacls.extend(config.AdminACEs)
+                    newacls.extend(config.ReadACEs)
+                    newacls.append(davxml.ACE(
                         davxml.Invert(
                             davxml.Principal(owner),
                         ),
@@ -349,9 +352,11 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                             ),
                         ),
                         davxml.Protected(),
-                    )
+                    ))
                 else:
-                    ace = davxml.ACE(
+                    newacls.extend(config.AdminACEs)
+                    newacls.extend(config.ReadACEs)
+                    newacls.append(davxml.ACE(
                         davxml.Invert(
                             davxml.Principal(owner),
                         ),
@@ -361,9 +366,11 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                             ),
                         ),
                         davxml.Protected(),
-                    )
+                    ))
+                newacls.extend(acls.children)
 
-                acls = davxml.ACL(ace, *acls.children)
+                acls = davxml.ACL(*newacls)
+ 
         returnValue(acls)
 
     def owner(self, request):
@@ -391,14 +398,28 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         d.addCallback(_gotParent)
         return d
 
-    def isOwner(self, request):
+    def isOwner(self, request, adminprincipals=False, readprincipals=False):
         """
         Determine whether the DAV:owner of this resource matches the currently authorized principal
-        in the request.
+        in the request. Optionally test for admin or read principals and allow those.
         """
 
         def _gotOwner(owner):
-            return davxml.Principal(owner) == self.currentPrincipal(request)
+            current = self.currentPrincipal(request)
+            if davxml.Principal(owner) == current:
+                return True
+            
+            if adminprincipals:
+                for principal in config.AdminPrincipals:
+                    if davxml.Principal(davxml.HRef(principal)) == current:
+                        return True
+
+            if readprincipals:
+                for principal in config.AdminPrincipals:
+                    if davxml.Principal(davxml.HRef(principal)) == current:
+                        return True
+                
+            return False
 
         d = self.owner(request)
         d.addCallback(_gotOwner)

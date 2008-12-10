@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
             # Check private events access status
-            isowner = (yield calresource.isOwner(request))
+            isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
 
             # Check for disabled access
             if filteredaces is not None:
@@ -217,7 +217,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     timezone = tuple(tz.calendar().subcomponents())[0]
 
             # Check private events access status
-            isowner = (yield calresource.isOwner(request))
+            isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
 
             calendar = calresource.iCalendar()
             yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)
