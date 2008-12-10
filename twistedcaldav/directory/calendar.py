@@ -32,7 +32,7 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.dav.util import joinURL
-from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
+from twisted.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
@@ -436,16 +436,17 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
     def hasQuotaRoot(self, request):
         """
+        Always get quota root value from config.
+
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-        return self.hasDeadProperty(TwistedQuotaRootProperty) or config.UserQuota
+        return config.UserQuota != 0
     
     def quotaRoot(self, request):
         """
+        Always get quota root value from config.
+
         @return: a C{int} containing the maximum allowed bytes if this collection
             is quota-controlled, or C{None} if not quota controlled.
         """
-        if self.hasDeadProperty(TwistedQuotaRootProperty):
-            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
-        else:
-            return config.UserQuota
+        return config.UserQuota if config.UserQuota != 0 else None
