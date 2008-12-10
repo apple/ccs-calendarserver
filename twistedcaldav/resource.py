@@ -697,6 +697,22 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
         returnValue(self._canonical_url)
 
+    ##
+    # Quota
+    ##
+
+    def hasQuotaRoot(self, request):
+        """
+        Quota root only ever set on calendar homes.
+        """
+        return False
+    
+    def quotaRoot(self, request):
+        """
+        Quota root only ever set on calendar homes.
+        """
+        return None
+
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
     CalDAV principal collection.
@@ -945,6 +961,22 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             return str(inbox.children[0])
         else:
             return None
+
+    ##
+    # Quota
+    ##
+
+    def hasQuotaRoot(self, request):
+        """
+        Quota root only ever set on calendar homes.
+        """
+        return False
+    
+    def quotaRoot(self, request):
+        """
+        Quota root only ever set on calendar homes.
+        """
+        return None
 
 ##
 # Utilities
