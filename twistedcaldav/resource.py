@@ -538,7 +538,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             if default and len(default.children) == 1:
                 defaultURL = normalizeURL(str(default.children[0]))
                 if normalizeURL(request.path) == defaultURL:
-                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL())               
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(), request)               
 
     @inlineCallbacks
     def movedCalendar(self, request, destination, destination_uri):
@@ -564,7 +564,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             if default and len(default.children) == 1:
                 defaultURL = normalizeURL(str(default.children[0]))
                 if normalizeURL(request.path) == defaultURL:
-                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)))               
+                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)), request)               
 
     def isCalendarOpaque(self):
         
