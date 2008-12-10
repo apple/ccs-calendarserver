@@ -2,38 +2,32 @@
 
 
 Network Working Group                                         W. Sanchez
-Internet-Draft                                                  C. Daboo
-Expires: May 4, 2009                                          Apple Inc.
-                                                        October 31, 2008
+Request for Comments: 5397                                      C. Daboo
+Category: Standards Track                                     Apple Inc.
+                                                           December 2008
 
 
                    WebDAV Current Principal Extension
-               draft-sanchez-webdav-current-principal-02
 
 Status of This Memo
 
-   By submitting this Internet-Draft, each author represents that any
-   applicable patent or other IPR claims of which he or she is aware
-   have been or will be disclosed, and any of which he or she becomes
-   aware will be disclosed, in accordance with Section 6 of BCP 79.
+   This document specifies an Internet standards track protocol for the
+   Internet community, and requests discussion and suggestions for
+   improvements.  Please refer to the current edition of the "Internet
+   Official Protocol Standards" (STD 1) for the standardization state
+   and status of this protocol.  Distribution of this memo is unlimited.
 
-   Internet-Drafts are working documents of the Internet Engineering
-   Task Force (IETF), its areas, and its working groups.  Note that
-   other groups may also distribute working documents as Internet-
-   Drafts.
+Copyright Notice
 
-   Internet-Drafts are draft documents valid for a maximum of six months
-   and may be updated, replaced, or obsoleted by other documents at any
-   time.  It is inappropriate to use Internet-Drafts as reference
-   material or to cite them other than as "work in progress."
+   Copyright (c) 2008 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
 
-   The list of current Internet-Drafts can be accessed at
-   http://www.ietf.org/ietf/1id-abstracts.txt.
-
-   The list of Internet-Draft Shadow Directories can be accessed at
-   http://www.ietf.org/shadow.html.
-
-   This Internet-Draft will expire on May 4, 2009.
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.
 
 Abstract
 
@@ -41,33 +35,14 @@ Abstract
    to quickly determine the principal corresponding to the current
    authenticated user.
 
-
-
-
-
-
-
-
-
-
-
-
-Sanchez & Daboo            Expires May 4, 2009                  [Page 1]
-
-Internet-Draft          WebDAV Current Principal            October 2008
-
-
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 3
-   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 3
-   3.  DAV:current-user-principal  . . . . . . . . . . . . . . . . . . 4
-   4.  Security Considerations . . . . . . . . . . . . . . . . . . . . 5
-   5.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 5
-   6.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . 5
-   7.  Normative References  . . . . . . . . . . . . . . . . . . . . . 5
-   Appendix A.  Change History (to be removed prior to
-                publication as an RFC) . . . . . . . . . . . . . . . . 5
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2
+   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 2
+   3.  DAV:current-user-principal  . . . . . . . . . . . . . . . . . . 3
+   4.  Security Considerations . . . . . . . . . . . . . . . . . . . . 4
+   5.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . 4
+   6.  Normative References  . . . . . . . . . . . . . . . . . . . . . 4
 
 
 
@@ -77,40 +52,9 @@ Table of Contents
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Sanchez & Daboo            Expires May 4, 2009                  [Page 2]
+Sanchez & Daboo              Standards Track                    [Page 1]
 
-Internet-Draft          WebDAV Current Principal            October 2008
+RFC 5397                WebDAV Current Principal           December 2008
 
 
 1.  Introduction
@@ -122,7 +66,7 @@ Internet-Draft          WebDAV Current Principal            October 2008
    resource, which is used to represent information about authenticated
    entities on the system.
 
-   Some clients have a need to determine the [RFC3744] principal that a
+   Some clients have a need to determine which [RFC3744] principal a
    server is associating with the currently authenticated HTTP user.
    While [RFC3744] defines a DAV:current-user-privilege-set property for
    retrieving the privileges granted to that principal, there is no
@@ -164,9 +108,9 @@ Internet-Draft          WebDAV Current Principal            October 2008
 
 
 
-Sanchez & Daboo            Expires May 4, 2009                  [Page 3]
+Sanchez & Daboo              Standards Track                    [Page 2]
 
-Internet-Draft          WebDAV Current Principal            October 2008
+RFC 5397                WebDAV Current Principal           December 2008
 
 
    When XML element types in the namespace "DAV:" are referenced in this
@@ -202,8 +146,8 @@ Internet-Draft          WebDAV Current Principal            October 2008
       URL.  When authentication has not been done or has failed, this
       property MUST contain the DAV:unauthenticated pseudo-principal.
 
-      In some cases there may be multiple principal resources
-      corresponding to the same authenticated principal.  In that case
+      In some cases, there may be multiple principal resources
+      corresponding to the same authenticated principal.  In that case,
       the server is free to choose any one of the principal resource
       URIs for the value of the DAV:current-user-principal property.
       However, servers SHOULD be consistent and use the same principal
@@ -220,9 +164,9 @@ Internet-Draft          WebDAV Current Principal            October 2008
 
 
 
-Sanchez & Daboo            Expires May 4, 2009                  [Page 4]
+Sanchez & Daboo              Standards Track                    [Page 3]
 
-Internet-Draft          WebDAV Current Principal            October 2008
+RFC 5397                WebDAV Current Principal           December 2008
 
 
    Example:
@@ -234,14 +178,10 @@ Internet-Draft          WebDAV Current Principal            October 2008
 4.  Security Considerations
 
    This specification does not introduce any additional security issues
-   beyond those defined for HTTP [RFC2616], WebDAV [RFC4918] and WebDAV
+   beyond those defined for HTTP [RFC2616], WebDAV [RFC4918], and WebDAV
    ACL [RFC3744].
 
-5.  IANA Considerations
-
-   This document does not require any actions on the part of IANA.
-
-6.  Acknowledgments
+5.  Acknowledgments
 
    This specification is based on discussions that took place within the
    Calendaring and Scheduling Consortium's CalDAV Technical Committee.
@@ -250,7 +190,7 @@ Internet-Draft          WebDAV Current Principal            October 2008
    The authors thank Julian Reschke for his valuable input via the
    WebDAV working group mailing list.
 
-7.  Normative References
+6.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
@@ -266,26 +206,6 @@ Internet-Draft          WebDAV Current Principal            October 2008
    [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
               Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
 
-Appendix A.  Change History (to be removed prior to publication as an
-             RFC)
-
-   Changes from -00:
-
-   1.  Changed DAV:current-user-principal-resource to DAV:current-user-
-       principal.
-
-
-
-Sanchez & Daboo            Expires May 4, 2009                  [Page 5]
-
-Internet-Draft          WebDAV Current Principal            October 2008
-
-
-   2.  Correct DAV:current-user-principal element definition to use
-       valid XML and not use the "DAV:" prefix for children.
-
-   3.  Typo "DAV:unauthenticed" should be spelled "DAV:unauthenticated".
-
 Authors' Addresses
 
    Wilfredo Sanchez
@@ -296,6 +216,13 @@ Authors' Addresses
 
    EMail: wsanchez@wsanchez.net
    URI:   http://www.apple.com/
+
+
+
+
+Sanchez & Daboo              Standards Track                    [Page 4]
+
+RFC 5397                WebDAV Current Principal           December 2008
 
 
    Cyrus Daboo
@@ -332,61 +259,23 @@ Authors' Addresses
 
 
 
-Sanchez & Daboo            Expires May 4, 2009                  [Page 6]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sanchez & Daboo              Standards Track                    [Page 5]
 
-Internet-Draft          WebDAV Current Principal            October 2008
 
-
-Full Copyright Statement
-
-   Copyright (C) The IETF Trust (2008).
-
-   This document is subject to the rights, licenses and restrictions
-   contained in BCP 78, and except as set forth therein, the authors
-   retain all their rights.
-
-   This document and the information contained herein are provided on an
-   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
-   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND
-   THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS
-   OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF
-   THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
-   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
-
-Intellectual Property
-
-   The IETF takes no position regarding the validity or scope of any
-   Intellectual Property Rights or other rights that might be claimed to
-   pertain to the implementation or use of the technology described in
-   this document or the extent to which any license under such rights
-   might or might not be available; nor does it represent that it has
-   made any independent effort to identify any such rights.  Information
-   on the procedures with respect to rights in RFC documents can be
-   found in BCP 78 and BCP 79.
-
-   Copies of IPR disclosures made to the IETF Secretariat and any
-   assurances of licenses to be made available, or the result of an
-   attempt made to obtain a general license or permission for the use of
-   such proprietary rights by implementers or users of this
-   specification can be obtained from the IETF on-line IPR repository at
-   http://www.ietf.org/ipr.
-
-   The IETF invites any interested party to bring to its attention any
-   copyrights, patents or patent applications, or other proprietary
-   rights that may cover technology that may be required to implement
-   this standard.  Please address the information to the IETF at
-   ietf-ipr@ietf.org.
-
-
-
-
-
-
-
-
-
-
-
-
-Sanchez & Daboo            Expires May 4, 2009                  [Page 7]
-
