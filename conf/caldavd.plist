@@ -46,7 +46,7 @@
     -->
 
     <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
-    <key>RedirectNonSSL</key>
+    <key>RedirectHTTPToHTTPS</key>
     <false/>
 
 

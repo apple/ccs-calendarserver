@@ -91,7 +91,7 @@ defaultConfig = {
     "ServerHostName": "", # Network host name.
     "HTTPPort": 0,        # HTTP port (0 to disable HTTP)
     "SSLPort" : 0,        # SSL port (0 to disable HTTPS)
-    "RedirectNonSSL" : False, # If True, all nonSSL requests redirected to an SSL Port
+    "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
 
     # Note: we'd use None above, but that confuses the command-line parser.
 

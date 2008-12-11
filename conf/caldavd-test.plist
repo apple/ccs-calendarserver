@@ -44,7 +44,7 @@
     <integer>8443</integer>
 
     <!-- Redirect non-SSL ports to an SSL port -->
-    <key>RedirectNonSSL</key>
+    <key>RedirectHTTPToHTTPS</key>
     <false/>
 
     <!--

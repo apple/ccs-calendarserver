@@ -676,7 +676,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             for port in config.BindHTTPPorts:
 
-                if config.RedirectNonSSL and successfulSSLPorts:
+                if config.RedirectHTTPToHTTPS and successfulSSLPorts:
                     # Redirect non-SSL ports to the first ssl port
                     RedirectRequest.port = successfulSSLPorts[0]
                     self.log_info("Redirecting %s:%s to %s" %
