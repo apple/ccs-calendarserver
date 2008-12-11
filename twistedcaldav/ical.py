@@ -1707,6 +1707,14 @@ class Component (object):
                 self.removeProperty(duration)
                 self.addProperty(Property("DTEND", newdtend))
 
+            rid = self.getProperty("RECURRENCE-ID")
+            if rid is not None:
+                rid.setValue(normalizeToUTC(rid.value()))
+                try:
+                    del rid.params()["TZID"]
+                except KeyError:
+                    pass
+
     def normalizePropertyValueLists(self, propname):
         """
         Convert properties that have a list of values into single properties, to make it easier
