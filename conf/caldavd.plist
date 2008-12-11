@@ -177,11 +177,11 @@
 
     <!-- Enables directory listings for principals -->
     <key>EnablePrincipalListings</key>
-    <true/>
+    <false/>
 
     <!-- Render calendar collections as a monolithic iCalendar object -->
     <key>EnableMonolithicCalendars</key>
-    <true/>
+    <false/>
 
 
     <!--
