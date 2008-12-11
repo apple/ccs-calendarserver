@@ -46,6 +46,7 @@ from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
+from twisted.web2.channel import HTTPFactory
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
@@ -64,7 +65,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from twistedcaldav.httpfactory import HTTP503LoggingFactory
+from twistedcaldav.httpfactory import HTTP503LoggingFactory, RedirectRequest
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
@@ -648,16 +649,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
-            for port in config.BindHTTPPorts:
-                self.log_info("Adding server at %s:%s" % (bindAddress, port))
-
-                httpService = TCPServer(
-                    int(port), channel,
-                    interface=bindAddress,
-                    backlog=config.ListenBacklog,
-                )
-                httpService.setServiceParent(service)
-
+            successfulSSLPorts = []
             for port in config.BindSSLPorts:
                 self.log_info("Adding SSL server at %s:%s"
                               % (bindAddress, port))
@@ -680,6 +672,27 @@ class CalDAVServiceMaker (LoggingMixIn):
                         backlog=config.ListenBacklog,
                     )
                     httpsService.setServiceParent(service)
+                    successfulSSLPorts.append(int(port))
+
+            for port in config.BindHTTPPorts:
+
+                if config.RedirectNonSSL and successfulSSLPorts:
+                    # Redirect non-SSL ports to the first ssl port
+                    RedirectRequest.port = successfulSSLPorts[0]
+                    self.log_info("Redirecting %s:%s to %s" %
+                        (bindAddress, port, RedirectRequest.port))
+                    TCPServer(int(port), HTTPFactory(RedirectRequest),
+                        interface=bindAddress, backlog=config.ListenBacklog,
+                    ).setServiceParent(service)
+
+                else:
+                    # Set up non-SSL port
+                    self.log_info("Adding server at %s:%s" %
+                        (bindAddress, port))
+                    TCPServer(int(port), channel,
+                        interface=bindAddress, backlog=config.ListenBacklog,
+                    ).setServiceParent(service)
+
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)

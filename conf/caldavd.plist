@@ -45,6 +45,10 @@
     <integer>8443</integer>
     -->
 
+    <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
+    <key>RedirectNonSSL</key>
+    <false/>
+
 
     <!--
         Network address configuration information
