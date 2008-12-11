@@ -82,7 +82,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     # Check size of results is within limit
     if len(resources) > max_number_of_multigets:
         log.err("Too many results in multiget report: %d" % len(resources))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
 
     """
     Three possibilities exist:

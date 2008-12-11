@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
+from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.http import HTTPError, Response, StatusResponse
 from twisted.web2.http_headers import MimeType
@@ -79,7 +80,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in free-busy report")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
     
     # Now build a new calendar object with the free busy info we have
     fbcalendar = report_common.buildFreeBusyResult(fbinfo, timerange)

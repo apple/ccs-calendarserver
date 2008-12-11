@@ -15,17 +15,17 @@
 ##
 
 from hashlib import md5
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2.dav.fileop import delete
+from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
-from twistedcaldav.method.report import NumberOfMatchesWithinLimits
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
-from twisted.internet import reactor
 import datetime
 import time
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -384,7 +384,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             # Check size of results is within limit
             matchtotal += 1
             if matchtotal > max_number_of_matches:
-                raise NumberOfMatchesWithinLimits
+                raise NumberOfMatchesWithinLimits(max_number_of_results)
 
             if calendar.mainType() == "VEVENT":
                 processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)

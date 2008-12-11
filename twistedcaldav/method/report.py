@@ -1,6 +1,5 @@
-# -*- test-case-name: twisted.web2.dav.test.test_report -*-
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -41,11 +40,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.log import Logger
 
 log = Logger()
-
-max_number_of_matches = 500
-
-class NumberOfMatchesWithinLimits(Exception):
-    pass
 
 @inlineCallbacks
 def http_REPORT(self, request):
