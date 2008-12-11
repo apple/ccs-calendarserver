@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ Date/time Utilities
 """
 
 __all__ = [
+    "normalizeStartEndDuration",
     "normalizeToUTC",
     "normalizeForIndex",
     "floatoffset",
@@ -33,6 +34,21 @@ __all__ = [
 
 import datetime
 from vobject.icalendar import utc
+
+def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
+    """
+    Given a DTSTART and DTEND or DURATION (or neither), return a normalized tuple of
+    DTSTART and DTEND.
+    """
+    
+    assert dtend is None or duration is None, "Cannot specify both dtend and duration" 
+    dtstart = normalizeToUTC(dtstart)
+    if dtend is not None:
+        dtend = normalizeToUTC(dtend)
+    elif duration:
+        dtend = dtstart + duration
+    
+    return (dtstart, dtend)
 
 def normalizeToUTC(dt):
     """

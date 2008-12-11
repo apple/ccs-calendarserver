@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ __all__ = [
 
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
-from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap
+from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
+    normalizeStartEndDuration
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
@@ -1664,9 +1665,47 @@ class Component (object):
             if normalize_function:
                 prop.setValue(normalize_function(prop.value()))
 
+        # Do datetime normalization
+        self.normalizeDateTimes()
+
         # Do to all sub-components too
         for component in self.subcomponents():
             component.normalizeAll()
+
+    def normalizeDateTimes(self):
+        """
+        Normalize various datetime properties into UTC and handle DTEND/DURATION variants in such
+        a way that we can compare objects with slight differences.
+        
+        Strictly speaking we should not need to do this as clients should not be messing with
+        these properties - i.e. they should roundtrip them. Unfortunately some do...
+        """
+        
+        if self.name() == "VEVENT":
+            dtstart = self.getProperty("DTSTART")
+            dtend = self.getProperty("DTEND")
+            duration = self.getProperty("DURATION")
+            
+            newdtstart, newdtend = normalizeStartEndDuration(
+                dtstart.value(),
+                dtend.value() if dtend is not None else None,
+                duration.value() if duration is not None else None,
+            )
+            
+            dtstart.setValue(newdtstart)
+            try:
+                del dtstart.params()["TZID"]
+            except KeyError:
+                pass
+            if dtend is not None:
+                dtend.setValue(newdtend)
+                try:
+                    del dtend.params()["TZID"]
+                except KeyError:
+                    pass
+            elif duration is not None:
+                self.removeProperty(duration)
+                self.addProperty(Property("DTEND", newdtend))
 
     def normalizePropertyValueLists(self, propname):
         """
