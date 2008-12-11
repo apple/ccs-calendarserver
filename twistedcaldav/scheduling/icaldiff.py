@@ -441,7 +441,7 @@ class iCalDiff(object):
                 continue
 
             # Change that is not allowed
-            log.debug("Component properties are different: %s" % (propdiff,))
+            log.debug("Component properties are different (trigger is '%s'): %s" % (prop.name(), propdiff,))
             return False, False
 
         # Compare subcomponents.
