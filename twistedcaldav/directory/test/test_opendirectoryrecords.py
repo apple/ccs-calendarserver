@@ -232,6 +232,27 @@ else:
             self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
+        def test_noGUID(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01", guid=""),
+                ],
+            }
+            self._service.reloadCache(DirectoryService.recordType_users)
+            self._verifyRecords(DirectoryService.recordType_users, ())
+
+        def test_systemRecord(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("root",   guid="FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000"),
+                    fakeODRecord("daemon", guid="FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000001"),
+                    fakeODRecord("uucp",   guid="ffffeeee-dddd-cccc-bbbb-aaaa00000004"), # Try lowercase also
+                    fakeODRecord("nobody", guid="ffffeeee-dddd-cccc-bbbb-aaaafffffffe"),
+                ],
+            }
+            self._service.reloadCache(DirectoryService.recordType_users)
+            self._verifyRecords(DirectoryService.recordType_users, ())
+
         def test_duplicateEmail(self):
             self._service.fakerecords = {
                 DirectoryService.recordType_users: [
@@ -264,7 +285,6 @@ else:
             self._verifyRecords(DirectoryService.recordType_users, ("user01", "user02"))
             self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
             self._verifyDisabledRecords(DirectoryService.recordType_users, (), ())
-
 
         def test_duplicateName(self):
             self._service.fakerecords = {

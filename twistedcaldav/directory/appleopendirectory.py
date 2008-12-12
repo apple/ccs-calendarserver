@@ -474,6 +474,11 @@ class OpenDirectoryService(DirectoryService):
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
+            if recordGUID.lower().startswith("ffffeeee-dddd-cccc-bbbb-aaaa"):
+                self.log_debug("Ignoring system record (%s)%s in node %s."
+                               % (recordType, recordShortName, recordNodeName))
+                continue
+
             # Determine enabled state
             enabledForCalendaring = True
 
