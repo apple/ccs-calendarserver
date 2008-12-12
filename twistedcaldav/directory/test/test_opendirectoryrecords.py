@@ -52,6 +52,14 @@ else:
             for call in self.service._delayedCalls:
                 call.cancel()
 
+        def loadRecords(self, records):
+            self.service.fakerecords = records
+
+            for recordType in self.service.recordTypes():
+                if recordType not in records:
+                    self.service.fakerecords[recordType] = []
+                self.service.reloadCache(recordType)
+
         def verifyRecords(self, recordType, expected):
             expected = set(expected)
             found = set(self.service._records[recordType]["records"].keys())
@@ -109,7 +117,7 @@ else:
             self.assertTrue(service.restrictToGUID)
 
         def test_normal(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02"),
@@ -126,12 +134,7 @@ else:
                     fakeODRecord("Location 01"),
                     fakeODRecord("Location 02"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
-            self.service.reloadCache(DirectoryService.recordType_groups)
-            self.service.reloadCache(DirectoryService.recordType_resources)
-            self.service.reloadCache(DirectoryService.recordType_locations)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
@@ -146,7 +149,6 @@ else:
             self.verifyDisabledRecords(DirectoryService.recordType_locations, (), ())
 
         def test_normal_disabledusers(self):
-            
             self.service.restrictEnabledRecords = True
             self.service.restrictToGroup = "restrictedaccess"
 
@@ -207,13 +209,11 @@ else:
             self.verifyRecordsCheckEnabled(DirectoryService.recordType_locations, (), False)
 
         def test_normalCacheMiss(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
@@ -233,36 +233,34 @@ else:
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
         def test_noGUID(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01", guid=""),
                 ],
-            }
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
+
             self.verifyRecords(DirectoryService.recordType_users, ())
 
         def test_systemRecord(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("root",   guid="FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000"),
                     fakeODRecord("daemon", guid="FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000001"),
                     fakeODRecord("uucp",   guid="ffffeeee-dddd-cccc-bbbb-aaaa00000004"), # Try lowercase also
                     fakeODRecord("nobody", guid="ffffeeee-dddd-cccc-bbbb-aaaafffffffe"),
                 ],
-            }
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
+
             self.verifyRecords(DirectoryService.recordType_users, ())
 
         def test_duplicateEmail(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02", email="shared@example.com"),
                     fakeODRecord("User 03", email="shared@example.com"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
@@ -272,30 +270,26 @@ else:
             self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user03").emailAddresses)
 
         def test_duplicateRecords(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02"),
                     fakeODRecord("User 02"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
         def test_duplicateName(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02", guid="A25775BB-1281-4606-98C6-2893B2D5CCD7"),
                     fakeODRecord("User 02", guid="30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
             self.verifyDisabledRecords(
@@ -305,15 +299,13 @@ else:
             )
 
         def test_duplicateGUID(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                     fakeODRecord("User 03", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
             self.verifyDisabledRecords(
@@ -323,16 +315,14 @@ else:
             )
 
         def test_duplicateCombo(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                     fakeODRecord("User 02", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8", shortName="user03"),
                     fakeODRecord("User 02", guid="136E369F-DB40-4135-878D-B75D38242D39"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
             self.verifyDisabledRecords(
@@ -342,15 +332,13 @@ else:
             )
 
         def test_duplicateGUIDCacheMiss(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02", guid="EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E"),
                     fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
+            })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
@@ -376,7 +364,7 @@ else:
             )
 
         def test_groupmembers(self):
-            self.service.fakerecords = {
+            self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02"),
@@ -399,12 +387,7 @@ else:
                     fakeODRecord("Location 01"),
                     fakeODRecord("Location 02"),
                 ],
-            }
-
-            self.service.reloadCache(DirectoryService.recordType_users)
-            self.service.reloadCache(DirectoryService.recordType_groups)
-            self.service.reloadCache(DirectoryService.recordType_resources)
-            self.service.reloadCache(DirectoryService.recordType_locations)
+            })
 
             group1 = self.service.recordWithShortName(DirectoryService.recordType_groups, "group01")
             self.assertTrue(group1 is not None)
