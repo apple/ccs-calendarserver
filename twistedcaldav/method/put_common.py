@@ -783,14 +783,18 @@ class StoreCalendarObjectResource(object):
         self.rollback.source_deleted = True
         log.debug("Source removed %s" % (self.source.fp.path,))
 
+        # Change CTag on the parent calendar collection
+        if self.sourcecal:
+            yield self.sourceparent.updateCTag()
+  
+        returnValue(None)
+
+    @inlineCallbacks
+    def doSourceQuotaCheck(self):
         # Update quota
         if self.sourcequota is not None:
             delete_size = 0 - self.old_source_size
             yield self.source.quotaSizeAdjust(self.request, delete_size)
-
-        # Change CTag on the parent calendar collection
-        if self.sourcecal:
-            yield self.sourceparent.updateCTag()
   
         returnValue(None)
 
@@ -1006,6 +1010,10 @@ class StoreCalendarObjectResource(object):
                     self.rollback.Rollback()
                     returnValue(result)
     
+            # Delete the original source if needed.
+            if self.deletesource:
+                yield self.doSourceQuotaCheck()
+
             # Do quota check on destination
             if self.destquota is not None:
                 yield self.doDestinationQuotaCheck()
