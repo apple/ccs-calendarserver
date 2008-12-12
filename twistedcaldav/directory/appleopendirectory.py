@@ -474,7 +474,8 @@ class OpenDirectoryService(DirectoryService):
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
-            if recordGUID.lower().startswith("ffffeeee-dddd-cccc-bbbb-aaaa"):
+            lguid = recordGUID.lower()[:28]
+            if lguid in ("ffffeeee-dddd-cccc-bbbb-aaaa", "abcdefab-cdef-abcd-efab-cdef"):
                 self.log_debug("Ignoring system record (%s)%s in node %s."
                                % (recordType, recordShortName, recordNodeName))
                 continue
