@@ -652,9 +652,6 @@ class XMPPNotifier(LoggingMixIn):
     def publishNodeFailure(self, result, nodeName):
         try:
             iq = result.value.getElement()
-            self.log_error("PubSub node publish error: %s" %
-                (iq.toXml().encode('ascii', 'replace')),)
-            self.sendDebug("Node publish failed (%s)" % (nodeName,), iq)
 
             if iq.name == "error":
                 if iq['code'] == '400':
@@ -663,6 +660,9 @@ class XMPPNotifier(LoggingMixIn):
                 elif iq['code'] == '404':
                     self.createNode(nodeName)
             else:
+                self.log_error("PubSub node publish error: %s" %
+                    (iq.toXml().encode('ascii', 'replace')),)
+                self.sendDebug("Node publish failed (%s)" % (nodeName,), iq)
                 # Don't know how to proceed
                 self.unlockNode(None, nodeName)
         except:

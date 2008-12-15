@@ -365,9 +365,14 @@ defaultConfig = {
     # Umask
     "umask": 0027,
 
+    # A TCP port used for communication between the child and master
+    # processes (bound to 127.0.0.1). Specify 0 to let OS assign a port.
+    "ControlPort": 0,
+
     # A unix socket used for communication between the child and master
-    # processes.
+    # processes. If blank, then an AF_INET socket is used instead.
     "ControlSocket": "/var/run/caldavd.sock",
+
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5

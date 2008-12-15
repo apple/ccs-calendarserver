@@ -601,9 +601,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 realRoot = logWrapper
 
-            logObserver = AMPCommonAccessLoggingObserver(
-                config.ControlSocket,
-            )
+            if config.ControlSocket:
+                mode = "AF_UNIX"
+                id = config.ControlSocket
+                self.log_info("Logging via AF_UNIX: %s" % (id,))
+            else:
+                mode = "IF_INET"
+                id = int(config.ControlPort)
+                self.log_info("Logging via AF_INET: %d" % (id,))
+
+            logObserver = AMPCommonAccessLoggingObserver(mode, id)
 
         elif config.ProcessType == "Single":
             realRoot = logWrapper
@@ -703,6 +710,20 @@ class CalDAVServiceMaker (LoggingMixIn):
 
     def makeService_Combined(self, options):
         s = MultiService()
+
+        # The logger service must come before the monitor service, otherwise
+        # we won't know which logging port to pass to the slaves' command lines
+
+        logger = AMPLoggingFactory(
+            RotatingFileAccessLoggingObserver(config.AccessLogFile)
+        )
+        if config.ControlSocket:
+            loggingService = UNIXServer(config.ControlSocket, logger)
+        else:
+            loggingService = ControlPortTCPServer(config.ControlPort, logger,
+                interface="127.0.0.1")
+        loggingService.setServiceParent(s)
+
         monitor = DelayedStartupProcessMonitor()
         monitor.setServiceParent(s)
         s.processMonitor = monitor
@@ -792,11 +813,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 sslPort
             )
 
-            monitor.addProcess(
-                process.getName(),
-                process.getCommandLine(),
-                env=parentEnv
-            )
+            monitor.addProcessObject(process, parentEnv)
 
             if config.HTTPPort:
                 hosts.append(process.getHostLine())
@@ -923,11 +940,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                 "-n", "caldav_notifier",
                 "-f", options["config"],
             ]
-            monitor.addProcess(
-                "notifications",
-                notificationsArgv,
-                env=parentEnv,
-            )
+            monitor.addProcess("notifications", notificationsArgv,
+                env=parentEnv)
 
         if (
             config.Scheduling.iMIP.Enabled and
@@ -943,14 +957,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             ]
             monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
 
-
-        logger = AMPLoggingFactory(
-            RotatingFileAccessLoggingObserver(config.AccessLogFile)
-        )
-
-        loggingService = UNIXServer(config.ControlSocket, logger)
-
-        loggingService.setServiceParent(s)
 
         return s
 
@@ -973,7 +979,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         )
 
         return service
-
 
 class TwistdSlaveProcess(object):
     prefix = "caldav"
@@ -1025,7 +1030,9 @@ class TwistdSlaveProcess(object):
             "-o", "PIDFile=None",
             "-o", "ErrorLogFile=None",
             "-o", "MultiProcess/ProcessCount=%d"
-                  % (config.MultiProcess.ProcessCount,)
+                  % (config.MultiProcess.ProcessCount,),
+            "-o", "ControlPort=%d"
+                  % (config.ControlPort,),
         ])
 
         if config.Memcached.ServerEnabled:
@@ -1059,11 +1066,42 @@ class TwistdSlaveProcess(object):
         return """<host name="%s" ip="127.0.0.1:%s" />""" % (name, port[0])
 
 
+class ControlPortTCPServer(TCPServer):
+    """ This TCPServer retrieves the port number that was actually assigned
+        when the service was started, and stores that into config.ControlPort
+    """
+
+    def startService(self):
+        TCPServer.startService(self)
+        # Record the port we were actually assigned
+        config.ControlPort = self._port.getHost().port
+
 class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+
+    def __init__(self, *args, **kwargs):
+        procmon.ProcessMonitor.__init__(self, *args, **kwargs)
+
+        # processObjects stores TwistdSlaveProcesses which need to have their
+        # command-lines determined just in time
+        self.processObjects = []
+
+    def addProcessObject(self, process, env):
+        self.processObjects.append((process, env))
+
     def startService(self):
         Service.startService(self)
-        self.active = 1
 
+        # Now we're ready to build the command lines and actualy add the
+        # processes to procmon.  This step must be done prior to setting
+        # active to 1
+        for processObject, env in self.processObjects:
+            self.addProcess(
+                processObject.getName(),
+                processObject.getCommandLine(),
+                env=env
+            )
+
+        self.active = 1
         delay = 0
 
         if config.MultiProcess.StaggeredStartup.Enabled:

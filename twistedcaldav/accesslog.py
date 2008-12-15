@@ -259,8 +259,9 @@ class LogMessage(amp.Command):
 
 
 class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
-    def __init__(self, socket):
-        self.socket = socket
+    def __init__(self, mode, id):
+        self.mode = mode
+        self.id = id
         self.protocol = None
         self._buffer = []
 
@@ -279,7 +280,10 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.flushBuffer()
 
         self.client = protocol.ClientCreator(reactor, amp.AMP)
-        d = self.client.connectUNIX(self.socket)
+        if self.mode == "AF_UNIX":
+            d = self.client.connectUNIX(self.id)
+        else:
+            d = self.client.connectTCP("localhost", self.id)
         d.addCallback(_gotProtocol)
 
     def stop(self):

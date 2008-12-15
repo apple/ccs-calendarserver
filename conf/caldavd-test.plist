@@ -609,7 +609,8 @@
     <key>ResponseCompression</key>
     <false/>
 
-    <!-- A unix socket used for communication between the child and master processes. -->
+    <!-- A unix socket used for communication between the child and master processes.
+         An empty value tells the server to use a tcp socket instead. -->
     <key>ControlSocket</key>
     <string>logs/caldavd.sock</string>
 
