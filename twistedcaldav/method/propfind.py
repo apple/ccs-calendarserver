@@ -1,6 +1,6 @@
 # -*- test-case-name: twisted.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -115,68 +115,78 @@ def http_PROPFIND(self, request):
     # the child resource loop and supply those to the checkPrivileges on each child.
     filtered_aces = (yield self.inheritedACEsforChildren(request))
 
-    resources = [(self, my_url)]
+    resources = [(True, self, my_url)]
 
-    yield self.findChildrenFaster(depth, request, lambda x, y: resources.append((x, y)), None, None, (davxml.Read(),), inherited_aces=filtered_aces)
+    yield self.findChildrenFaster(
+        depth,
+        request,
+        lambda x, y: resources.append((True, x, y)),
+        lambda x, y: resources.append((False, x, y)),
+        None,
+        (davxml.Read(),),
+        inherited_aces=filtered_aces,
+    )
 
-    for resource, uri in resources:
-        if search_properties is "names":
-            try:
-                resource_properties = (yield resource.listProperties(request))
-            except:
-                log.err("Unable to get properties for resource %r" % (resource,))
-                raise
-
-            properties_by_status = {
-                responsecode.OK: [propertyName(p) for p in resource_properties]
-            }
-        else:
-            properties_by_status = {
-                responsecode.OK        : [],
-                responsecode.NOT_FOUND : [],
-            }
-
-            if search_properties is "all":
-                properties_to_enumerate = (yield resource.listAllprop(request))
+    for readable, resource, uri in resources:
+        if readable:
+            if search_properties is "names":
+                try:
+                    resource_properties = (yield resource.listProperties(request))
+                except:
+                    log.err("Unable to get properties for resource %r" % (resource,))
+                    raise
+    
+                properties_by_status = {
+                    responsecode.OK: [propertyName(p) for p in resource_properties]
+                }
             else:
-                properties_to_enumerate = search_properties
-
-            for property in properties_to_enumerate:
-                has = (yield resource.hasProperty(property, request))
-                if has:
-                    try:
-                        resource_property = (yield resource.readProperty(property, request))
-                    except:
-                        f = Failure()
-
-                        log.err("Error reading property %r for resource %s: %s" % (property, uri, f.value))
-
-                        status = statusForFailure(f, "getting property: %s" % (property,))
-                        if status not in properties_by_status:
-                            properties_by_status[status] = []
-                        properties_by_status[status].append(propertyName(property))
-                    else:
-                        properties_by_status[responsecode.OK].append(resource_property)
+                properties_by_status = {
+                    responsecode.OK        : [],
+                    responsecode.NOT_FOUND : [],
+                }
+    
+                if search_properties is "all":
+                    properties_to_enumerate = (yield resource.listAllprop(request))
                 else:
-                    properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
+                    properties_to_enumerate = search_properties
+    
+                for property in properties_to_enumerate:
+                    has = (yield resource.hasProperty(property, request))
+                    if has:
+                        try:
+                            resource_property = (yield resource.readProperty(property, request))
+                        except:
+                            f = Failure()
+    
+                            log.err("Error reading property %r for resource %s: %s" % (property, uri, f.value))
+    
+                            status = statusForFailure(f, "getting property: %s" % (property,))
+                            if status not in properties_by_status:
+                                properties_by_status[status] = []
+                            properties_by_status[status].append(propertyName(property))
+                        else:
+                            properties_by_status[responsecode.OK].append(resource_property)
+                    else:
+                        properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
-        propstats = []
-
-        for status in properties_by_status:
-            properties = properties_by_status[status]
-            if not properties: continue
-
-            xml_status    = davxml.Status.fromResponseCode(status)
-            xml_container = davxml.PropertyContainer(*properties)
-            xml_propstat  = davxml.PropertyStatus(xml_container, xml_status)
-
-            propstats.append(xml_propstat)
-
-        xml_resource = davxml.HRef(uri)
-        xml_response = davxml.PropertyStatusResponse(xml_resource, *propstats)
-
+            propstats = []
+    
+            for status in properties_by_status:
+                properties = properties_by_status[status]
+                if not properties: continue
+    
+                xml_status    = davxml.Status.fromResponseCode(status)
+                xml_container = davxml.PropertyContainer(*properties)
+                xml_propstat  = davxml.PropertyStatus(xml_container, xml_status)
+    
+                propstats.append(xml_propstat)
+    
+            xml_response = davxml.PropertyStatusResponse(davxml.HRef(uri), *propstats)
+        else:
+            xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+    
         xml_responses.append(xml_response)
-
+            
     #
     # Return response
     #
