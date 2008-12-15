@@ -69,4 +69,4 @@ fi;
 
 python twistedcaldav/test/data/makelargecalendars.py -n 1 -d "${documentroot}";
 
-cd "${cdt}" && python testcaldav.py -r "${documentroot}" -s "${serverinfo}" "$@";
+cd "${cdt}" && python testcaldav.py -s "${serverinfo}" "$@";
