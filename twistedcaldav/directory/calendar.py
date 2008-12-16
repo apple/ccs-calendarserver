@@ -362,14 +362,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         myPrincipal = self.principalForRecord()
 
         aces = (
-            # DAV:read access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                ),
-            ),
             # Inheritable DAV:all access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
