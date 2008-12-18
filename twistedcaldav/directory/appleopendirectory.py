@@ -349,6 +349,8 @@ class OpenDirectoryService(DirectoryService):
         'firstName' : dsattributes.kDS1AttrFirstName,
         'lastName' : dsattributes.kDS1AttrLastName,
         'emailAddresses' : dsattributes.kDSNAttrEMailAddress,
+        'recordName' : dsattributes.kDSNAttrRecordName,
+        'guid' : dsattributes.kDS1AttrGeneratedUID,
     }
 
     _toODRecordTypes = {

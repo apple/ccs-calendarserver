@@ -56,6 +56,7 @@ from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.directory.wiki import getWikiACL
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
 
@@ -82,6 +83,42 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
             # ...otherwise permissions are fixed, and are not subject to
             # inheritance rules, etc.
             returnValue(self.defaultAccessControlList())
+
+
+
+# Converter methods for recordsMatchingFields()
+#
+# A DAV property can be associated with one of these converter methods,
+# which take the string being matched and return the appropriate record
+# field name to match against, as well as a new match string which has been
+# converted to the appropriate form.
+
+def cuTypeConverter(cuType):
+    """ Converts calendar user types to OD type names """
+
+    return "recordType", DirectoryRecord.fromCUType(cuType)
+
+def cuAddressConverter(origCUAddr):
+    """ Converts calendar user addresses to OD-compatible form """
+
+    cua = normalizeCUAddr(origCUAddr)
+
+    if cua.startswith("urn:uuid:"):
+        return "guid", cua[9:]
+
+    elif cua.startswith("mailto:"):
+        return "emailAddresses", cua[7:]
+
+    elif cua.startswith("/") or cua.startswith("http"):
+        ignored, collection, id = cua.rsplit("/", 2)
+        if collection == "__uids__":
+            return "guid", id
+        else:
+            return "recordName", id
+
+    else:
+        raise ValueError("Invalid calendar user address format: %s" %
+            (origCUAddr,))
 
 
 class DirectoryProvisioningResource (
@@ -144,8 +181,11 @@ class DirectoryProvisioningResource (
         ("DAV:" , "displayname") :
             ("fullName", None, "Display Name", davxml.DisplayName),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
-            ("recordType", DirectoryRecord.fromCUType, "Calendar User Type",
+            ("", cuTypeConverter, "Calendar User Type",
             caldavxml.CalendarUserType),
+        ("urn:ietf:params:xml:ns:caldav" , "calendar-user-address-set") :
+            ("", cuAddressConverter, "Calendar User Address Set",
+            caldavxml.CalendarUserAddressSet),
         (_cs_ns, "first-name") :
             ("firstName", None, "First Name", customxml.FirstNameProperty),
         (_cs_ns, "last-name") :
@@ -161,11 +201,11 @@ class DirectoryProvisioningResource (
         that field's name, otherwise return None
         """
         field, converter, description, xmlClass = self._fieldMap.get(
-            property.qname(), (None, None, None))
+            property.qname(), (None, None, None, None))
         if field is None:
             return (None, None)
         elif converter is not None:
-            match = converter(match)
+            field, match = converter(match)
         return (field, match)
 
     def principalSearchPropertySet(self):

@@ -406,6 +406,42 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
                     yield self._checkPrivileges(*args)
 
+    def test_propertyToField(self):
+
+        class stubElement(object):
+            def __init__(self, ns, name):
+                self.ns = ns
+                self.name = name
+
+            def qname(self):
+                return self.ns, self.name
+
+        provisioningResource = self.principalRootResources['BasicDirectoryService']
+
+        expected = (
+            ("DAV:", "displayname", "morgen", "fullName", "morgen"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-type", "INDIVIDUAL", "recordType", "users"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-type", "GROUP", "recordType", "groups"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-type", "RESOURCE", "recordType", "resources"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-type", "ROOM", "recordType", "locations"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "/principals/__uids__/AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA/", "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "http://example.com:8008/principals/__uids__/AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA/", "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "urn:uuid:AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "/principals/users/example/", "recordName", "example"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "https://example.com:8443/principals/users/example/", "recordName", "example"),
+            ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set", "mailto:example@example.com", "emailAddresses", "example@example.com"),
+            ("http://calendarserver.org/ns/", "first-name", "morgen", "firstName", "morgen"),
+            ("http://calendarserver.org/ns/", "last-name", "sagen", "lastName", "sagen"),
+            ("http://calendarserver.org/ns/", "email-address-set", "example@example.com", "emailAddresses", "example@example.com"),
+        )
+
+        for ns, property, match, field, converted in expected:
+            el = stubElement(ns, property)
+            self.assertEquals(
+                provisioningResource.propertyToField(el, match),
+                (field, converted)
+            )
+
     def _allRecords(self):
         """
         @return: an iterable of tuples
