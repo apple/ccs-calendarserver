@@ -169,13 +169,15 @@ class DirectoryService(LoggingMixIn):
                 value = value.lower()
 
             if matchType == 'starts-with':
-                return fieldValue.lower().startswith(value.lower())
-            else:
+                return fieldValue.startswith(value)
+            elif matchType == 'contains':
                 try:
-                    discard = fieldValue.lower().index(value.lower())
+                    discard = fieldValue.index(value)
                     return True
                 except ValueError:
                     return False
+            else: # exact
+                return fieldValue == value
 
         def recordMatches(record):
             if operand == "and":

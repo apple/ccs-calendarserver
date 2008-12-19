@@ -394,8 +394,10 @@ class OpenDirectoryService(DirectoryService):
                 ODField = self._ODFields[field]
                 if matchType == "starts-with":
                     comparison = dsattributes.eDSStartsWith
-                else:
+                elif matchType == "contains":
                     comparison = dsattributes.eDSContains
+                else:
+                    comparison = dsattributes.eDSExact
                 expressions.append(dsquery.match(ODField, value, comparison))
 
 
