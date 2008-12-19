@@ -42,14 +42,10 @@ disable_setup="false";
       profile="";
       reactor="";
 
-if [ "${CALENDARSERVER_CACHE_DEPS-__NO__}" == "__NO__" ]; then
-  cache_deps="";
+if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then
+  cache_deps="${wd}/.dependencies";
 else
-  if [ -z "${CALENDARSERVER_CACHE_DEPS}" ]; then
-    cache_deps="${HOME}/.calendarserver_deps";
-  else
-    cache_deps="${CALENDARSERVER_CACHE_DEPS}";
-  fi;
+  cache_deps="${CALENDARSERVER_CACHE_DEPS}";
 fi;
 
 usage ()
