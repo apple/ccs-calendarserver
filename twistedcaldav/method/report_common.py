@@ -138,7 +138,7 @@ def allPropertiesForResource(request, prop, resource, calendar=None, timezone=No
     Return all (non-hidden) properties for the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -160,7 +160,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, timezone=No
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -185,7 +185,7 @@ def propertyListForResource(request, prop, resource, calendar=None, timezone=Non
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -226,7 +226,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param props: a list of property elements or qname tuples for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -298,9 +298,9 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     @param matchtotal:  the running total for the number of matches.
     @param excludeuid:  a C{str} containing a UID value to exclude any components with that
         UID from contributing to free-busy.
-    @param organizer:   a C{str} containing the value of the ORGANIZER proeprty in the VFREEBUSY request.
+    @param organizer:   a C{str} containing the value of the ORGANIZER property in the VFREEBUSY request.
         This is used in conjunction with the UID value to process exclusions.
-    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting tyhe free-busy information
+    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting the free-busy information
         is the same as the calendar user being targeted.
     @param servertoserver:       a C{bool} indicating whether we are doing a local or remote lookup request.
     """
@@ -312,6 +312,10 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             yield calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),))
         except AccessDeniedError:
             returnValue(matchtotal)
+
+    # May need organizer principal
+    organizer_principal = calresource.principalForCalendarUserAddress(organizer) if organizer else None
+    organizer_uid = organizer_principal.principalUID() if organizer_principal else ""
 
     #
     # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
@@ -339,7 +343,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         tz = None
     tzinfo = filter.settimezone(tz)
 
-    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+    # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
@@ -363,8 +367,8 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         calendar = calresource.iCalendar(name)
         
         # The calendar may come back as None if the resource is being changed, or was deleted
-        # between our initial index query and getting here. For now we will ignore this errror, but in
-        # the longer term we need to simplement some form of locking, perhaps.
+        # between our initial index query and getting here. For now we will ignore this error, but in
+        # the longer term we need to implement some form of locking, perhaps.
         if calendar is None:
             log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
             continue
@@ -373,18 +377,22 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         if excludeuid:
             # See if we have a UID match
             if (excludeuid == uid):
+                test_organizer = calendar.getOrganizer()
+                test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                test_uid = test_principal.principalUID() if test_principal else ""
+
                 # Check that ORGANIZER's match (security requirement)
-                if (organizer is None) or (organizer == calendar.getOrganizer()):
+                if (organizer is None) or (organizer_uid == test_uid):
                     continue
                 # Check for no ORGANIZER and check by same calendar user
-                elif (calendar.getOrganizer() is None) and same_calendar_user:
+                elif (test_organizer is None) and same_calendar_user:
                     continue
 
         if filter.match(calendar, None):
             # Check size of results is within limit
             matchtotal += 1
             if matchtotal > max_number_of_matches:
-                raise NumberOfMatchesWithinLimits(max_number_of_results)
+                raise NumberOfMatchesWithinLimits(max_number_of_matches)
 
             if calendar.mainType() == "VEVENT":
                 processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
@@ -486,7 +494,7 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
             if fbtype == "FREE":
                 continue
             
-            # Look at each period in the propert
+            # Look at each period in the property
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Clip period for this instance
@@ -555,7 +563,7 @@ def processAvailablePeriods(calendar, timerange):
             uid = component.propertyValue("UID")
             uidmap.setdefault(uid, []).append(component)
             
-    # Then we expand each uid set seperately
+    # Then we expand each uid set separately
     for componentSet in uidmap.itervalues():
         instances = InstanceList()
         instances.expandTimeRanges(componentSet, timerange.end)

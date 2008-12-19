@@ -332,6 +332,10 @@ class StoreCalendarObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
 
+                # Normalize the calendar user addresses once we know we have valid
+                # calendar data
+                self.destination.iCalendarAddressDoNormalization(self.calendar)
+
                 # Must have a valid UID at this point
                 self.uid = self.calendar.resourceUID()
             else:

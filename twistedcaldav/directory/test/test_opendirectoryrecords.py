@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,19 +27,26 @@ else:
     from twistedcaldav.directory.util import uuidFromName
 
     class OpenDirectoryService (RealOpenDirectoryService):
-        def _queryDirectory(self, recordType, shortName=None, guid=None):
-            if shortName is None and guid is None:
+        def _queryDirectory(self, recordType, lookup=None):
+            self._didQuery = True
+            if lookup is None:
                 return self.fakerecords[recordType]
 
-            assert shortName is None or guid is None
-            if guid is not None:
-                guid = guid.lower()
+            if lookup[0] == "guid":
+                lookup = (lookup[0], lookup[1].lower(),)
 
             records = []
 
             for name, record in self.fakerecords[recordType]:
-                if name == shortName or record[dsattributes.kDS1AttrGeneratedUID] == guid:
-                    records.append((name, record))
+                if lookup[0] == "shortName":
+                    if name == lookup[1]:
+                        records.append((name, record))
+                elif lookup[0] == "guid":
+                    if record[dsattributes.kDS1AttrGeneratedUID] == lookup[1]:
+                        records.append((name, record))
+                elif lookup[0] == "email":
+                    if record[dsattributes.kDSNAttrEMailAddress] == lookup[1]:
+                        records.append((name, record))
 
             return tuple(records)
     
@@ -94,6 +101,22 @@ else:
 
             check("disabled names", expectedNames)
             check("disabled guids", (guid.lower() for guid in expectedGUIDs))
+
+        def verifyQuery(self, f, *args):
+            try:
+                delattr(self.service, "_didQuery")
+            except AttributeError:
+                pass
+            self.assertFalse(f(*args))
+            self.assertTrue(hasattr(self.service, "_didQuery"))
+
+        def verifyNoQuery(self, f, *args):
+            try:
+                delattr(self.service, "_didQuery")
+            except AttributeError:
+                pass
+            self.assertFalse(f(*args))
+            self.assertFalse(hasattr(self.service, "_didQuery"))
 
         def test_restrictionGroupName(self):
             service = OpenDirectoryService(
@@ -226,8 +249,8 @@ else:
                 ],
             }
 
-            self.service.reloadCache(DirectoryService.recordType_users, shortName="user02")
-            self.service.reloadCache(DirectoryService.recordType_users, guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A")
+            self.service.reloadCache(DirectoryService.recordType_users, lookup=("shortName", "user02",))
+            self.service.reloadCache(DirectoryService.recordType_users, lookup=("guid", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A",))
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
@@ -353,8 +376,8 @@ else:
                 ],
             }
 
-            self.service.reloadCache(DirectoryService.recordType_users, shortName="user04")
-            self.service.reloadCache(DirectoryService.recordType_users, guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0")
+            self.service.reloadCache(DirectoryService.recordType_users, lookup=("shortName", "user04",))
+            self.service.reloadCache(DirectoryService.recordType_users, lookup=("guid", "62368DDF-0C62-4C97-9A58-DE9FD46131A0",))
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
             self.verifyDisabledRecords(
@@ -434,7 +457,7 @@ else:
                     guidForShortName("user02"),
                 ]),
             ]
-            self.service.reloadCache(DirectoryService.recordType_groups, guid=guidForShortName("group03"))
+            self.service.reloadCache(DirectoryService.recordType_groups, lookup=("guid", guidForShortName("group03"),))
 
             group1 = self.service.recordWithShortName(DirectoryService.recordType_groups, "group01")
             self.assertTrue(group1 is not None)
@@ -452,6 +475,138 @@ else:
             user2 = self.service.recordWithShortName(DirectoryService.recordType_users, "user02")
             self.assertTrue(user2 is not None)
             self.assertEqual(set((group2, group3)), user2.groups()) 
+
+        def test_negativeCacheShortname(self):
+            self.loadRecords({
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                    fakeODRecord("User 04"),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03"),
+                    fakeODRecord("Group 04"),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03"),
+                    fakeODRecord("Resource 04"),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03"),
+                    fakeODRecord("Location 04"),
+                ],
+            })
+
+            self.assertTrue(self.service.recordWithShortName(DirectoryService.recordType_users, "user01"))
+            self.verifyQuery(self.service.recordWithShortName, DirectoryService.recordType_users, "user05")
+            self.verifyNoQuery(self.service.recordWithShortName, DirectoryService.recordType_users, "user05")
+
+            self.assertTrue(self.service.recordWithShortName(DirectoryService.recordType_groups, "group01"))
+            self.verifyQuery(self.service.recordWithShortName, DirectoryService.recordType_groups, "group05")
+            self.verifyNoQuery(self.service.recordWithShortName, DirectoryService.recordType_groups, "group05")
+
+            self.assertTrue(self.service.recordWithShortName(DirectoryService.recordType_resources, "resource01"))
+            self.verifyQuery(self.service.recordWithShortName, DirectoryService.recordType_resources, "resource05")
+            self.verifyNoQuery(self.service.recordWithShortName, DirectoryService.recordType_resources, "resource05")
+
+            self.assertTrue(self.service.recordWithShortName(DirectoryService.recordType_locations, "location01"))
+            self.verifyQuery(self.service.recordWithShortName, DirectoryService.recordType_locations, "location05")
+            self.verifyNoQuery(self.service.recordWithShortName, DirectoryService.recordType_locations, "location05")
+
+        def test_negativeCacheGUID(self):
+            self.loadRecords({
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                    fakeODRecord("User 04"),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03"),
+                    fakeODRecord("Group 04"),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03"),
+                    fakeODRecord("Resource 04"),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03"),
+                    fakeODRecord("Location 04"),
+                ],
+            })
+
+            self.assertTrue(self.service.recordWithGUID(guidForShortName("user01")))
+            self.verifyQuery(self.service.recordWithGUID, guidForShortName("user05"))
+            self.verifyNoQuery(self.service.recordWithGUID, guidForShortName("user05"))
+
+            self.assertTrue(self.service.recordWithGUID(guidForShortName("group01")))
+            self.verifyQuery(self.service.recordWithGUID, guidForShortName("group05"))
+            self.verifyNoQuery(self.service.recordWithGUID, guidForShortName("group05"))
+
+            self.assertTrue(self.service.recordWithGUID(guidForShortName("resource01")))
+            self.verifyQuery(self.service.recordWithGUID, guidForShortName("resource05"))
+            self.verifyNoQuery(self.service.recordWithGUID, guidForShortName("resource05"))
+
+            self.assertTrue(self.service.recordWithGUID(guidForShortName("location01")))
+            self.verifyQuery(self.service.recordWithGUID, guidForShortName("location05"))
+            self.verifyNoQuery(self.service.recordWithGUID, guidForShortName("location05"))
+
+        def test_negativeCacheEmailAddress(self):
+            self.loadRecords({
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                    fakeODRecord("User 04"),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03"),
+                    fakeODRecord("Group 04"),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03"),
+                    fakeODRecord("Resource 04"),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03"),
+                    fakeODRecord("Location 04"),
+                ],
+            })
+
+            self.assertTrue(self.service.recordWithEmailAddress("user01@example.com"))
+            self.verifyQuery(self.service.recordWithEmailAddress, "user05@example.com")
+            self.verifyNoQuery(self.service.recordWithEmailAddress, "user05@example.com")
+
+            self.assertTrue(self.service.recordWithEmailAddress("group01@example.com"))
+            self.verifyQuery(self.service.recordWithEmailAddress, "group05@example.com")
+            self.verifyNoQuery(self.service.recordWithEmailAddress, "group05@example.com")
+
+            self.assertTrue(self.service.recordWithEmailAddress("resource01@example.com"))
+            self.verifyQuery(self.service.recordWithEmailAddress, "resource05@example.com")
+            self.verifyNoQuery(self.service.recordWithEmailAddress, "resource05@example.com")
+
+            self.assertTrue(self.service.recordWithEmailAddress("location01@example.com"))
+            self.verifyQuery(self.service.recordWithEmailAddress, "location05@example.com")
+            self.verifyNoQuery(self.service.recordWithEmailAddress, "location05@example.com")
 
 def fakeODRecord(fullName, shortName=None, guid=None, email=None, members=None):
     if shortName is None:

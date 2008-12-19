@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -274,17 +274,25 @@ class OpenDirectoryService(DirectoryService):
 
             # Cache miss; try looking the record up, in case it is new
             # FIXME: This is a blocking call (hopefully it's a fast one)
-            self.reloadCache(recordType, shortName=shortName)
+            self.reloadCache(recordType, lookup=("shortName", shortName,))
             record = self.recordsForType(recordType).get(shortName, None)
             if record is None:
                 # Add to negative cache
                 self._storage(recordType)["disabled names"].add(shortName)
             return record
 
+    def recordWithEmailAddress(self, emailAddress):
+        return self._recordWithAttribute("emails", "disabled emails", "email", emailAddress)
+
     def recordWithGUID(self, guid):
+        return self._recordWithAttribute("guids", "disabled guids", "guid", guid)
+
+    recordWithUID = recordWithGUID
+
+    def _recordWithAttribute(self, cacheKey, disabledKey, lookupKey, value):
         def lookup():
             for recordType in self.recordTypes():
-                record = self._storage(recordType)["guids"].get(guid, None)
+                record = self._storage(recordType)[cacheKey].get(value, None)
                 if record:
                     return record
             else:
@@ -296,25 +304,23 @@ class OpenDirectoryService(DirectoryService):
             # Cache miss; try looking the record up, in case it is new
             for recordType in self.recordTypes():
                 # Check negative cache
-                if guid in self._storage(recordType)["disabled guids"]:
+                if value in self._storage(recordType)[disabledKey]:
                     continue
 
-                self.reloadCache(recordType, guid=guid)
+                self.reloadCache(recordType, lookup=(lookupKey, value,))
                 record = lookup()
 
                 if record is None:
-                    self._storage(recordType)["disabled guids"].add(guid)
+                    self._storage(recordType)[disabledKey].add(value)
                 else:
-                    self.log_info("Faulted record with GUID %s into %s record cache"
-                                  % (guid, recordType))
+                    self.log_info("Faulted record with %s %s into %s record cache"
+                                  % (lookupKey, value, recordType))
                     break
             else:
                 # Nothing found; add to negative cache
-                self.log_info("Unable to find any record with GUID %s" % (guid,))
+                self.log_info("Unable to find any record with %s %s" % (lookupKey, value,))
 
         return record
-
-    recordWithUID = recordWithGUID
 
     def groupsForGUID(self, guid):
         
@@ -419,19 +425,15 @@ class OpenDirectoryService(DirectoryService):
         return deferred
 
 
-    def reloadCache(self, recordType, shortName=None, guid=None):
-        if shortName is not None:
-            self.log_info("Faulting record with shortName %s into %s record cache" % (shortName, recordType))
-        elif guid is not None:
-            self.log_info("Faulting record with guid %s into %s record cache" % (guid, recordType))
-        elif shortName is None and guid is None:
-            self.log_info("Reloading %s record cache" % (recordType,))
+    def reloadCache(self, recordType, lookup=None):
+        if lookup is not None:
+            self.log_info("Faulting record with %s %s into %s record cache" % (lookup[0], lookup[1], recordType))
         else:
-            raise AssertionError("%r.reloadCache(%s, %s, %s)" % (self, recordType, shortName, guid))
+            self.log_info("Reloading %s record cache" % (recordType,))
 
-        results = self._queryDirectory(recordType, shortName=shortName, guid=guid)
+        results = self._queryDirectory(recordType, lookup=lookup)
 
-        if shortName is None and guid is None:
+        if lookup is None:
             records = {}
             guids   = {}
             emails  = {}
@@ -638,7 +640,7 @@ class OpenDirectoryService(DirectoryService):
                     else:
                         emails[email] = record
 
-        if shortName is None and guid is None:
+        if lookup is None:
             #
             # Replace the entire cache
             #
@@ -686,7 +688,7 @@ class OpenDirectoryService(DirectoryService):
                 % (len(self._records[recordType]["guids"]), enabled_count, recordType, cacheTimeout)
             )
 
-    def _queryDirectory(self, recordType, shortName=None, guid=None):
+    def _queryDirectory(self, recordType, lookup=None):
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDS1AttrDistinguishedName,
@@ -754,10 +756,14 @@ class OpenDirectoryService(DirectoryService):
             self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
 
         query = None
-        if shortName is not None:
-            query = dsquery.match(dsattributes.kDSNAttrRecordName, shortName, dsattributes.eDSExact)
-        elif guid is not None:
-            query = dsquery.match(dsattributes.kDS1AttrGeneratedUID, guid, dsattributes.eDSExact)
+        if lookup is not None:
+            queryattr = {
+                "shortName" : dsattributes.kDSNAttrRecordName,
+                "guid"      : dsattributes.kDS1AttrGeneratedUID,
+                "email"     : dsattributes.kDSNAttrEMailAddress,
+            }.get(lookup[0])
+            assert queryattr is not None, "Invalid type for record faulting query"
+            query = dsquery.match(queryattr, lookup[1], dsattributes.eDSExact)
 
         try:
             if query:

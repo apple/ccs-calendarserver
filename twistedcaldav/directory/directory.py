@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -138,9 +138,26 @@ class DirectoryService(LoggingMixIn):
 
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
+        if address.startswith("urn:uuid:"):
+            guid = address[9:]
+            return self.recordWithGUID(guid)
+        elif address.startswith("mailto:"):
+            email = address[7:]
+            result = self.recordWithEmailAddress(email)
+            if result:
+                return result
+
         for record in self.allRecords():
             if address in record.calendarUserAddresses:
                 return record
+                
+        return None
+
+    def recordWithEmailAddress(self, email):
+        for record in self.allRecords():
+            if email in record.emailAddresses:
+                return record
+                
         return None
 
     def allRecords(self):

@@ -59,8 +59,10 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 from urlparse import urlsplit
+import itertools
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
@@ -626,6 +628,73 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         returned by L{iCalendar} when given the same arguments.
         """
         return caldavxml.CalendarData.fromCalendar(self.iCalendar(name))
+
+    def iCalendarAddressDoNormalization(self, ical):
+        """
+        Normalize calendar user addresses in the supplied iCalendar object into their
+        urn:uuid form where possible. Also reset CN= property and add X-CALENDARSERVER-EMAIL property.
+
+        @param ical: calendar object to normalize.
+        @type ical: L{Component}
+        """
+        
+        def normalizeCalendarUserAddress(prop):
+            """
+            Do the ORGANIZER/ATTENDEE property normalization.
+
+            @param prop: organizer/attendee property
+            @type prop: L{Property}
+            """
+            
+            # Check that we have a principal for this calendar user address - if not we
+            # cannot do anything with it
+            cuaddr = normalizeCUAddr(prop.value())
+            principal = self.principalForCalendarUserAddress(cuaddr)
+            if principal is None:
+                return
+
+            # Always re-write value to urn:uuid
+            prop.setValue("urn:uuid:%s" % (principal.record.guid,))
+
+            # Always re-write the CN parameter
+            if principal.record.fullName:
+                prop.params()["CN"] = [principal.record.fullName,]
+            else:
+                try:
+                    del prop.params()["CN"]
+                except KeyError:
+                    pass
+
+            # Re-write the X-CALENDARSERVER-EMAIL if its value no longer matches
+            oldemail = prop.params().get("X-CALENDARSERVER-EMAIL", (None,))[0]
+            if oldemail:
+                oldemail = "mailto:%s" % (oldemail,)
+            if oldemail is None or oldemail not in principal.record.calendarUserAddresses:
+                if cuaddr.startswith("mailto:") and cuaddr in principal.record.calendarUserAddresses:
+                    email = cuaddr[7:]
+                else:
+                    for addr in principal.record.calendarUserAddresses:
+                        if addr.startswith("mailto:"):
+                            email = addr[7:]
+                            break
+                    else:
+                        email = None
+                        
+                if email:
+                    prop.params()["X-CALENDARSERVER-EMAIL"] = [email,]
+                else:
+                    try:
+                        del prop.params()["X-CALENDARSERVER-EMAIL"]
+                    except KeyError:
+                        pass
+
+        for component in ical.subcomponents():
+            if component.name() != "VTIMEZONE":
+                for prop in itertools.chain(
+                    component.properties("ORGANIZER"),
+                    component.properties("ATTENDEE")
+                ):
+                    normalizeCalendarUserAddress(prop)
 
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
