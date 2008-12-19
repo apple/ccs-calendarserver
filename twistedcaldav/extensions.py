@@ -270,7 +270,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
                 caseless = (caseless == "yes")
                 matchType = match.attributes.get("match-type", "contains")
-                if matchType not in ("starts-with", "contains", "exact"):
+                if matchType not in ("starts-with", "contains", "equals"):
                     msg = "Bad XML: unknown value for match-type attribute: %s" % (matchType,)
                     log.warn(msg)
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
