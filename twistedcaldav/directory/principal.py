@@ -630,13 +630,13 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         return succeed(self._getRelatives("members", infinity=True))
 
     @inlineCallbacks
-    def groupMemberships(self):
-        groups = self._getRelatives("groups", infinity=True)
+    def groupMemberships(self, infinity=False):
+        groups = self._getRelatives("groups", infinity=infinity)
 
         if config.EnableProxyPrincipals:
             # Get any directory specified proxies
-            groups.update(self._getRelatives("proxyFor", proxy='read-write', infinity=True))
-            groups.update(self._getRelatives("readOnlyProxyFor", proxy='read-only', infinity=True))
+            groups.update(self._getRelatives("proxyFor", proxy='read-write', infinity=infinity))
+            groups.update(self._getRelatives("readOnlyProxyFor", proxy='read-only', infinity=infinity))
 
             # Get proxy group UIDs and map to principal resources
             proxies = []
@@ -649,6 +649,10 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             groups.update(proxies)
 
         returnValue(groups)
+
+    def expandedGroupMemberships(self):
+        return self.groupMemberships(infinity=True)
+
 
     @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):

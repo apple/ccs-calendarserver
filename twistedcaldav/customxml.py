@@ -385,6 +385,17 @@ class ExpandedGroupMemberSet (davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
 
+class ExpandedGroupMembership (davxml.WebDAVElement):
+    """
+    The expanded list of groups a principal is a member of
+    """
+    namespace = calendarserver_namespace
+    name = "expanded-group-membership"
+    protected = True
+    hidden = True
+
+    allowed_children = { (dav_namespace, "href"): (0, None) }
+
 class IScheduleInbox (davxml.WebDAVEmptyElement):
     """
     Denotes the resourcetype of a iSchedule Inbox.

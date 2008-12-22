@@ -851,6 +851,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (calendarserver_namespace, "calendar-proxy-read-for"  ),
         (calendarserver_namespace, "calendar-proxy-write-for" ),
         (calendarserver_namespace, "expanded-group-member-set"),
+        (calendarserver_namespace, "expanded-group-membership"),
     )
 
     @classmethod
@@ -943,6 +944,12 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             elif name == "expanded-group-member-set":
                 principals = (yield self.expandedGroupMembers())
                 returnValue(customxml.ExpandedGroupMemberSet(
+                    *[davxml.HRef(p.principalURL()) for p in principals]
+                ))
+
+            elif name == "expanded-group-membership":
+                principals = (yield self.expandedGroupMemberships())
+                returnValue(customxml.ExpandedGroupMembership(
                     *[davxml.HRef(p.principalURL()) for p in principals]
                 ))
 
