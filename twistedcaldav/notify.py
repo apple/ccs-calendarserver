@@ -340,7 +340,7 @@ class Coalescer(LoggingMixIn):
         if sendAnywayAfterCount:
             self.sendAnywayAfterCount = sendAnywayAfterCount
 
-        if delaySeconds:
+        if delaySeconds is not None:
             self.delaySeconds = delaySeconds
 
         if reactor is None:
