@@ -295,6 +295,7 @@ defaultConfig = {
         "CoalesceSeconds" : 10,
         "InternalNotificationHost" : "localhost",
         "InternalNotificationPort" : 62309,
+        "BindAddress" : "127.0.0.1",
 
         "Services" : {
             "SimpleLineNotifier" : {

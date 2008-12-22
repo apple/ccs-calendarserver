@@ -32,7 +32,6 @@ it deals with passing along notifications to the notification server.
 These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 """
 
-# TODO: bindAddress to local
 # TODO: add CalDAVTester test for examining new xmpp-uri property
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
@@ -1301,7 +1300,8 @@ class NotificationServiceMaker(object):
         internet.TCPServer(
             config.Notifications.InternalNotificationPort,
             InternalNotificationFactory(notifiers,
-                delaySeconds=config.Notifications.CoalesceSeconds)
+                delaySeconds=config.Notifications.CoalesceSeconds),
+            interface=config.Notifications.BindAddress
         ).setServiceParent(multiService)
 
         return multiService
