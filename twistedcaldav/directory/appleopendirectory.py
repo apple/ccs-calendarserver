@@ -307,8 +307,15 @@ class OpenDirectoryService(DirectoryService):
                 if value in self._storage(recordType)[disabledKey]:
                     continue
 
-                self.reloadCache(recordType, lookup=(lookupKey, value,))
-                record = lookup()
+                try:
+                    self.reloadCache(recordType, lookup=(lookupKey, value,))
+                    record = lookup()
+                except opendirectory.ODError, e:
+                    if e.message[1] == -14140:
+                        # Unsupported attribute on record - don't fail
+                        record = None
+                    else:
+                        raise
 
                 if record is None:
                     self._storage(recordType)[disabledKey].add(value)
