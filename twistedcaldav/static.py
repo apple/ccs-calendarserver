@@ -895,12 +895,23 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
+    def hasDeadProperty(self, name):
+        return False
+
+    def etag(self):
+        return None
+
+    def checkPreconditions(self, request):
+        return None
+
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)
+
+
 
 class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFile):
     """
@@ -1006,6 +1017,18 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
             responsecode.FORBIDDEN,
             (caldav_namespace, "calendar-collection-location-ok")
         )
+
+    def hasDeadProperty(self, name):
+        return False
+
+    def etag(self):
+        return None
+
+    def checkPreconditions(self, request):
+        return None
+
+    def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
+        return succeed(None)
 
 ##
 # Utilities

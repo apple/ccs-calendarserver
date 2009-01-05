@@ -64,6 +64,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
+from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.httpfactory import HTTP503LoggingFactory, RedirectRequest
 from twistedcaldav.static import CalendarHomeProvisioningFile
@@ -481,7 +482,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                           % (self.timezoneServiceResourceClass,))
 
             timezoneService = self.timezoneServiceResourceClass(
-                os.path.join(config.DocumentRoot, "timezones"),
+                NotFilePath(isfile=True),
                 root,
             )
             root.putChild("timezones", timezoneService)
@@ -492,7 +493,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                           % (self.iScheduleResourceClass,))
     
             ischedule = self.iScheduleResourceClass(
-                os.path.join(config.DocumentRoot, "ischedule"),
+                NotFilePath(isfile=True),
                 root,
             )
             root.putChild("ischedule", ischedule)
