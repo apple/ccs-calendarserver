@@ -183,7 +183,7 @@
 
     <!-- Render calendar collections as a monolithic iCalendar object -->
     <key>EnableMonolithicCalendars</key>
-    <false/>
+    <true/>
 
 
     <!--
