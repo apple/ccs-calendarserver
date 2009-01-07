@@ -14,7 +14,10 @@
 # limitations under the License.
 ##
 
+import os
+import re
 import sys
+from subprocess import Popen, PIPE, STDOUT
 
 ##
 # getNCPU
@@ -117,3 +120,44 @@ def utf8String(s):
     if isinstance(s, unicode):
         s = s.encode("utf-8")
     return s
+
+##
+# Keychain access
+##
+
+class KeychainPasswordNotFound(Exception):
+    """
+    Exception raised when the password does not exist
+    """
+
+class KeychainAccessError(Exception):
+    """
+    Exception raised when not able to access keychain
+    """
+
+passwordRegExp = re.compile(r'password: "(.*)"')
+
+def getPasswordFromKeychain(account):
+    if os.path.isfile("/usr/bin/security"):
+        child = Popen(
+            args=[
+                "/usr/bin/security", "find-generic-password",
+                "-a", account, "-g",
+            ],
+            stdout=PIPE, stderr=STDOUT,
+        )
+        output, error = child.communicate()
+
+        if child.returncode:
+            raise KeychainPasswordNotFound(error)
+        else:
+            match = passwordRegExp.search(output)
+            if not match:
+                error = "Password for %s not found in keychain" % (account,)
+                raise KeychainPasswordNotFound(error)
+            else:
+                return match.group(1)
+
+    else:
+        error = "Keychain access utility ('security') not found"
+        raise KeychainAccessError(error)

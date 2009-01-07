@@ -34,6 +34,9 @@ from twext.python.plistlib import readPlist
 
 from twistedcaldav.log import Logger
 from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError
+from twistedcaldav.util import (
+    KeychainAccessError, KeychainPasswordNotFound, getPasswordFromKeychain
+)
 
 log = Logger()
 
@@ -418,6 +421,7 @@ class Config (object):
             self.updateDropBox,
             self.updateLogLevels,
             self.updateNotifications,
+            self.updateScheduling,
         ]
 
     def __str__(self):
@@ -638,10 +642,49 @@ class Config (object):
                 service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
                 service["Enabled"]
             ):
+                # Get password from keychain.  If not there, fall back to what
+                # is in the plist.
+                try:
+                    password = getPasswordFromKeychain("icalserver.xmpp")
+                    service["Password"] = password
+                    log.info("XMPP password successfully retreived from keychain")
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    log.error("XMPP password not found in keychain")
+
+                # Check for empty fields
                 for key, value in service.iteritems():
                     if not value and key not in ("AllowedJIDs", "HeartbeatMinutes"):
                         raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                                  % (key, value))
+
+    @staticmethod
+    def updateScheduling(self, items):
+        #
+        # Scheduling
+        #
+        service = self.Scheduling["iMIP"]
+
+        if service["Enabled"]:
+            for direction in ("Sending", "Receiving"):
+                # Get password from keychain.  If not there, fall back to what
+                # is in the plist. Keychain account names are icalserver.sending
+                # and icalserver.receiving.
+                try:
+                    account = "icalserver.%s" % (direction.lower(),)
+                    password = getPasswordFromKeychain(account)
+                    service[direction]["Password"] = password
+                    log.info("iMIP %s password successfully retreived from keychain" % (direction,))
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    log.info("iMIP %s password not found in keychain" % (direction,))
+
 
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
