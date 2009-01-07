@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         return davxml.ACL(*aces)
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
+        # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
 class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
@@ -196,12 +196,15 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             principals.append(principal)
             yield principal.cacheNotifier.changed()
 
-        # Map the principals to UIDs.
-        uids = [p.principalUID() for p in principals]
-
-        yield self._index().setGroupMembers(self.uid, uids)
+        yield self.setGroupMemberSetPrincipals(principals)
         yield self.parent.cacheNotifier.changed()
         returnValue(True)
+
+    @inlineCallbacks
+    def setGroupMemberSetPrincipals(self, principals):
+        # Map the principals to UIDs.
+        uids = [p.principalUID() for p in principals]
+        yield self._index().setGroupMembers(self.uid, uids)
 
     ##
     # HTTP
@@ -314,7 +317,20 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         if self.hasEditableMembership():
             # Get member UIDs from database and map to principal resources
             members = yield self._index().getMembers(self.uid)
-            returnValue([p for p in [self.pcollection.principalForUID(uid) for uid in members] if p])
+            found = []
+            missing = []
+            for uid in members:
+                p = self.pcollection.principalForUID(uid)
+                if p:
+                    found.append(p)
+                else:
+                    missing.append(uid)
+
+            # Clean-up ones that are missing
+            for uid in missing:
+                yield self._index().removePrincipal(uid)
+
+            returnValue(found)
         else:
             # Fixed proxies
             if self.proxyType == "calendar-proxy-write":
@@ -357,10 +373,10 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
     class ProxyDBMemcacher(Memcacher):
         
         def setMembers(self, guid, members):
-            return self.set("members:%s" % (guid,), str(",".join(members)))
+            return self.set("members:%s" % (str(guid),), str(",".join(members)))
 
         def setMemberships(self, guid, memberships):
-            return self.set("memberships:%s" % (guid,), str(",".join(memberships)))
+            return self.set("memberships:%s" % (str(guid),), str(",".join(memberships)))
 
         def getMembers(self, guid):
             def _value(value):
@@ -370,7 +386,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
                     return None
                 else:
                     return set()
-            d = self.get("members:%s" % (guid,))
+            d = self.get("members:%s" % (str(guid),))
             d.addCallback(_value)
             return d
 
@@ -382,15 +398,15 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
                     return None
                 else:
                     return set()
-            d = self.get("memberships:%s" % (guid,))
+            d = self.get("memberships:%s" % (str(guid),))
             d.addCallback(_value)
             return d
 
         def deleteMember(self, guid):
-            return self.delete("members:%s" % (guid,))
+            return self.delete("members:%s" % (str(guid),))
 
         def deleteMembership(self, guid):
-            return self.delete("memberships:%s" % (guid,))
+            return self.delete("memberships:%s" % (str(guid),))
 
     def __init__(self, path):
         path = os.path.join(path, CalendarUserProxyDatabase.dbFilename)
@@ -435,15 +451,44 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         @param principalUID: the UID of the group principal to remove.
         """
 
+        # Need to get the members before we do the delete
+        members = yield self.getMembers(principalUID)
+
         self._delete_from_db(principalUID)
         self._db_commit()
         
         # Update cache
-        members = yield self.getMembers(principalUID)
         if members:
             for member in members:
                 yield self._memcacher.deleteMembership(member)
             yield self._memcacher.deleteMember(principalUID)
+
+    @inlineCallbacks
+    def removePrincipal(self, principalUID):
+        """
+        Remove a group membership record.
+
+        @param principalUID: the UID of the principal to remove.
+        """
+        
+        for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
+            groupUID = "%s#%s" % (principalUID, suffix,)
+            self._delete_from_db(groupUID)
+            
+            # Update cache
+            members = yield self.getMembers(groupUID)
+            if members:
+                for member in members:
+                    yield self._memcacher.deleteMembership(member)
+                yield self._memcacher.deleteMember(groupUID)
+
+        memberships = (yield self.getMemberships(principalUID))
+        for groupUID in memberships:
+            yield self._memcacher.deleteMember(groupUID)
+            
+        self._delete_from_db_member(principalUID)
+        yield self._memcacher.deleteMembership(principalUID)
+        self._db_commit()
 
     @inlineCallbacks
     def getMembers(self, principalUID):
@@ -454,10 +499,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         """
 
         def _members():
-            members = set()
-            for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID):
-                members.add(row[0])
-            return members
+            return set([row[0] for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID)])
 
         # Pull from cache
         result = yield self._memcacher.getMembers(principalUID)
@@ -475,10 +517,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         """
 
         def _members():
-            members = set()
-            for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalUID):
-                members.add(row[0])
-            return members
+            return set([row[0] for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalUID)])
 
         # Pull from cache
         result = yield self._memcacher.getMemberships(principalUID)
@@ -509,6 +548,14 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
         @param principalUID: the UID of the group principal to remove.
         """
         self._db_execute("delete from GROUPS where GROUPNAME = :1", principalUID)
+
+    def _delete_from_db_member(self, principalUID):
+        """
+        Deletes the specified member entry from the database.
+
+        @param principalUID: the UID of the member principal to remove.
+        """
+        self._db_execute("delete from GROUPS where MEMBER = :1", principalUID)
 
     def _db_version(self):
         """

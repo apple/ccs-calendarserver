@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -268,6 +268,82 @@ class ProxyPrincipalDB (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsB, set("X",))
             self.assertEqual(membershipsC, set("X",))
             self.assertEqual(membershipsD, set())
+
+    @inlineCallbacks
+    def test_cachingDBRemoveSpecial(self):
+    
+        for processType in ("Single", "Combined",):
+            config.ProcessType = processType
+
+            # Get the DB
+            db_path = self.mktemp()
+            os.mkdir(db_path)
+            db = CalendarUserProxyDatabase(db_path)
+            
+            # Do one insert and check the result
+            yield db.setGroupMembers("A", ("B", "C", "D",))
+            yield db.setGroupMembers("X", ("B", "C",))
+    
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+            
+            # Remove and check the result
+            yield db.removeGroup("A")
+    
+            membersA = yield db.getMembers("A")
+            membersX = yield db.getMembers("X")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+    
+            self.assertEqual(membersA, set())
+            self.assertEqual(membersX, set(("B", "C",)))
+            self.assertEqual(membershipsB, set("X",))
+            self.assertEqual(membershipsC, set("X",))
+            self.assertEqual(membershipsD, set())
+
+    @inlineCallbacks
+    def test_cachingDBRemovePrincipal(self):
+    
+        for processType in ("Single", "Combined",):
+            config.ProcessType = processType
+
+            # Get the DB
+            db_path = self.mktemp()
+            os.mkdir(db_path)
+            db = CalendarUserProxyDatabase(db_path)
+            
+            # Do one insert and check the result
+            yield db.setGroupMembers("A", ("B", "C", "D",))
+            yield db.setGroupMembers("X", ("B", "C",))
+    
+            membersA = yield db.getMembers("A")
+            membersX = yield db.getMembers("X")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+    
+            self.assertEqual(membersA, set(("B", "C", "D",)))
+            self.assertEqual(membersX, set(("B", "C",)))
+            self.assertEqual(membershipsB, set(("A", "X",)))
+            self.assertEqual(membershipsC, set(("A", "X",)))
+            self.assertEqual(membershipsD, set(("A",)))
+            
+            # Remove and check the result
+            yield db.removePrincipal("B")
+    
+            membersA = yield db.getMembers("A")
+            membersX = yield db.getMembers("X")
+            membershipsB = yield db.getMemberships("B")
+            membershipsC = yield db.getMemberships("C")
+            membershipsD = yield db.getMemberships("D")
+    
+            self.assertEqual(membersA, set(("C", "D",)))
+            self.assertEqual(membersX, set(("C",)))
+            self.assertEqual(membershipsB, set())
+            self.assertEqual(membershipsC, set(("A", "X",)))
+            self.assertEqual(membershipsD, set(("A",),))
 
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):

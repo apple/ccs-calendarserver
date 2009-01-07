@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -645,6 +645,8 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
                 subprincipal = self.parent.principalForUID(uid)
                 if subprincipal:
                     proxies.append(subprincipal)
+                else:
+                    yield self._calendar_user_proxy_index().removeGroup(uid)
 
             groups.update(proxies)
 
@@ -677,8 +679,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
             for uid in memberships:
                 subprincipal = self.parent.principalForUID(uid)
-                if subprincipal and subprincipal.isProxyType(read_write):
-                    proxies.append(subprincipal.parent)
+                if subprincipal:
+                    if subprincipal.isProxyType(read_write):
+                        proxies.append(subprincipal.parent)
+                else:
+                    yield self._calendar_user_proxy_index().removeGroup(uid)
 
             proxyFors.update(proxies)
 

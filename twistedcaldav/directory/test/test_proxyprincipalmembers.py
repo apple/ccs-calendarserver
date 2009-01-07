@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ from twisted.internet.defer import DeferredList, inlineCallbacks
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
+from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util
 
@@ -75,6 +76,42 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(gotMemberships)
         return d
     
+    @inlineCallbacks
+    def _addProxy(self, principal, subPrincipalName, proxyPrincipal):
+
+        if isinstance(principal, tuple):
+            principal = self._getPrincipalByShortName(principal[0], principal[1])
+        principal = principal.getChild(subPrincipalName)
+        members = (yield principal.groupMembers())
+
+        if isinstance(proxyPrincipal, tuple):
+            proxyPrincipal = self._getPrincipalByShortName(proxyPrincipal[0], proxyPrincipal[1])
+        members.add(proxyPrincipal)
+        
+        principal.setGroupMemberSetPrincipals(members)
+
+    @inlineCallbacks
+    def _removeProxy(self, recordType, recordName, subPrincipalName, proxyRecordType, proxyRecordName):
+
+        principal = self._getPrincipalByShortName(recordType, recordName)
+        principal = principal.getChild(subPrincipalName)
+        members = (yield principal.groupMembers())
+
+        proxyPrincipal = self._getPrincipalByShortName(proxyRecordType, proxyRecordName)
+        for p in members:
+            if p.principalUID() == proxyPrincipal.principalUID():
+                members.remove(p)
+                break
+        
+        principal.setGroupMemberSetPrincipals(members)
+
+    def _clearProxy(self, principal, subPrincipalName):
+
+        if isinstance(principal, tuple):
+            principal = self._getPrincipalByShortName(principal[0], principal[1])
+        principal = principal.getChild(subPrincipalName)
+        principal.setGroupMemberSetPrincipals(set())
+
     @inlineCallbacks
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
         principal = self._getPrincipalByShortName(recordType, recordName)
@@ -278,3 +315,121 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             False
         )
 
+    @inlineCallbacks
+    def test_UserProxy(self):
+        
+        for proxyType in ("calendar-proxy-read", "calendar-proxy-write"):
+
+            yield self._addProxy(
+                (DirectoryService.recordType_users, "wsanchez",),
+                proxyType,
+                (DirectoryService.recordType_users, "cdaboo",),
+            )
+    
+            yield self._groupMembersTest(
+                DirectoryService.recordType_users, "wsanchez",
+                proxyType,
+                ("Cyrus Daboo",),
+            )
+            
+            yield self._addProxy(
+                (DirectoryService.recordType_users, "wsanchez",),
+                proxyType,
+                (DirectoryService.recordType_users, "lecroy",),
+            )
+    
+            yield self._groupMembersTest(
+                DirectoryService.recordType_users, "wsanchez",
+                proxyType,
+                ("Cyrus Daboo", "Chris Lecroy",),
+            )
+    
+            yield self._removeProxy(
+                DirectoryService.recordType_users, "wsanchez",
+                proxyType,
+                DirectoryService.recordType_users, "cdaboo",
+            )
+    
+            yield self._groupMembersTest(
+                DirectoryService.recordType_users, "wsanchez",
+                proxyType,
+                ("Chris Lecroy",),
+            )
+
+    @inlineCallbacks
+    def test_InvalidUserProxy(self):
+
+        for doMembershipFirst in (True, False,):
+            for proxyType in ("calendar-proxy-read", "calendar-proxy-write"):
+                principal = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
+                proxyGroup = principal.getChild(proxyType)
+
+                testPrincipal = self._getPrincipalByShortName(DirectoryService.recordType_users, "cdaboo")
+
+                fakePrincipal = self._getPrincipalByShortName(DirectoryService.recordType_users, "dreid")
+                fakeProxyGroup = fakePrincipal.getChild(proxyType)
+
+                yield self._addProxy(
+                    principal,
+                    proxyType,
+                    testPrincipal,
+                )
+                members = yield proxyGroup._index().getMembers(proxyGroup.uid)
+                self.assertEquals(len(members), 1)
+
+                yield self._addProxy(
+                    fakePrincipal,
+                    proxyType,
+                    testPrincipal,
+                )
+                members = yield fakeProxyGroup._index().getMembers(fakeProxyGroup.uid)
+                self.assertEquals(len(members), 1)
+
+                uids = [p.principalUID() for p in (yield testPrincipal.groupMemberships())]
+                self.assertTrue("5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1#%s" % (proxyType,) in uids)
+
+                memberships = yield testPrincipal._calendar_user_proxy_index().getMemberships(testPrincipal.principalUID())
+                self.assertEquals(len(memberships), 2)
+
+                yield self._addProxy(
+                    principal,
+                    proxyType,
+                    fakePrincipal,
+                )
+                members = yield proxyGroup._index().getMembers(proxyGroup.uid)
+                self.assertEquals(len(members), 2)
+
+                # Remove the dreid user from the directory service
+                del directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+
+                @inlineCallbacks
+                def _membershipTest():
+                    uids = [p.principalUID() for p in (yield testPrincipal.groupMemberships())]
+                    self.assertTrue("5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1#%s" % (proxyType,) not in uids)
+
+                    memberships = yield testPrincipal._calendar_user_proxy_index().getMemberships(testPrincipal.principalUID())
+                    self.assertEquals(len(memberships), 1)
+
+                @inlineCallbacks
+                def _membersTest():
+                    yield self._groupMembersTest(
+                        DirectoryService.recordType_users, "wsanchez",
+                        proxyType,
+                        ("Cyrus Daboo",),
+                    )
+                    members = yield proxyGroup._index().getMembers(proxyGroup.uid)
+                    self.assertEquals(len(members), 1)
+
+                if doMembershipFirst:
+                    yield _membershipTest()
+                    yield _membersTest()
+                else:
+                    yield _membersTest()
+                    yield _membershipTest()
+
+                # Restore removed user
+                parser = XMLAccountsParser(directoryService.xmlFile)
+                directoryService._parsedAccounts = parser.items
+
+                self._clearProxy(principal, proxyType)
+                self._clearProxy(fakePrincipal, proxyType)
