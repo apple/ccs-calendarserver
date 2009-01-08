@@ -116,18 +116,19 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
     """
 
     def _defer(properties_by_status):
+        propstats = []
+
         for status in properties_by_status:
             properties = properties_by_status[status]
             if properties:
-                responses.append(
-                    davxml.PropertyStatusResponse(
-                        href,
-                        davxml.PropertyStatus(
-                            davxml.PropertyContainer(*properties),
-                            davxml.Status.fromResponseCode(status)
-                        )
-                    )
-                )
+                xml_status = davxml.Status.fromResponseCode(status)
+                xml_container = davxml.PropertyContainer(*properties)
+                xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
+
+                propstats.append(xml_propstat)
+
+        if propstats:
+            responses.append(davxml.PropertyStatusResponse(href, *propstats))
 
     d = propertiesForResource(request, propertyreq, resource, calendar, timezone, isowner)
     d.addCallback(_defer)
