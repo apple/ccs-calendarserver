@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -449,54 +449,94 @@ class ImplicitProcessor(object):
         for calURL in calendars:
             testcal = (yield self.request.locateResource(calURL))
             
-            # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-            fbinfo = ([], [], [])
-            
             # Now do search for overlapping time-range
             for instance in instances.instances.itervalues():
-                try:
-                    tr = caldavxml.TimeRange(start="20000101", end="20000101")
-                    tr.start = instance.start
-                    tr.end = instance.end
-                    yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
-                    
-                    # If any fbinfo entries exist we have an overlap
-                    if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
+                if instance_states[instance]:
+                    try:
+                        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
+                        fbinfo = ([], [], [])
+                        
+                        tr = caldavxml.TimeRange(start="20000101", end="20000101")
+                        tr.start = instance.start
+                        tr.end = instance.end
+                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
+                        
+                        # If any fbinfo entries exist we have an overlap
+                        if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
+                            instance_states[instance] = False
+                    except NumberOfMatchesWithinLimits:
                         instance_states[instance] = False
-                except NumberOfMatchesWithinLimits:
-                    instance_states[instance] = False
-                    log.info("Exceeded number of matches whilst trying to find free-time.")
+                        log.info("Exceeded number of matches whilst trying to find free-time.")
             
             # If everything is declined we can exit now
-            if all([not state for state in instance_states.itervalues()]):
+            if not any(instance_states.itervalues()):
                 break
         
         # TODO: here we should do per-instance ACCEPT/DECLINE behavior
         # For now we will assume overall ACCEPT/DECLINE
 
         # Collect all the accepted and declined states
-        accepted = all(instance_states.itervalues())
+        all_accepted = all(instance_states.itervalues())
+        all_declined = not any(instance_states.itervalues())
 
-        # Extract the ATTENDEE property matching current recipient from the calendar data
+        # Do the simple case of all accepted or decline separately
         cuas = self.recipient.principal.calendarUserAddresses()
-        attendeeProps = calendar.getAttendeeProperties(cuas)
-        if not attendeeProps:
-            returnValue((False, "",))
-    
-        if accepted:
-            partstat = "ACCEPTED"
-        else:
-            partstat = "DECLINED"
-            
-            # Make sure declined events are TRANSPARENT on the calendar
-            calendar.replacePropertyInAllComponents(Property("TRANSP", "TRANSPARENT"))
-
-        made_changes = False
-        for attendeeProp in attendeeProps:
-            if attendeeProp.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
-                attendeeProp.params()["PARTSTAT"] = [partstat]
-                made_changes = True
+        if all_accepted or all_declined:
+            # Extract the ATTENDEE property matching current recipient from the calendar data
+            attendeeProps = calendar.getAttendeeProperties(cuas)
+            if not attendeeProps:
+                returnValue((False, "",))
         
+            if all_accepted:
+                partstat = "ACCEPTED"
+            else:
+                partstat = "DECLINED"
+            calendar.replacePropertyInAllComponents(Property("TRANSP", "OPAQUE" if all_accepted else "TRANSPARENT"))
+    
+            made_changes = self.changeAttendeePartstat(attendeeProps, partstat)
+        
+        else:
+            # Hard case: some accepted some declined
+            # What we will do is mark any master instance as accepted, then mark each existing
+            # overridden instance as accepted or declined, and generate new overridden instances for
+            # any other declines.
+            
+            made_changes = False
+            partstat = "MIXED RESPONSE"
+
+            # See if there is a master component first
+            master = calendar.masterComponent()
+            if master:
+                attendee = master.getAttendeeProperty(cuas)
+                if attendee:
+                    made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED")
+                    master.replaceProperty(Property("TRANSP", "OPAQUE"))
+
+            # Look at expanded instances and change partstat accordingly
+            for instance, accepted in instance_states.iteritems():
+                
+                overridden = calendar.overriddenComponent(instance.rid)
+                if not overridden and accepted:
+                    # Nothing to do as master is always ACCEPTED
+                    continue 
+                
+                if overridden:
+                    # Change ATTENDEE property to match new state
+                    attendee = overridden.getAttendeeProperty(cuas)
+                    if attendee:
+                        made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED" if accepted else "DECLINED")
+                        overridden.replaceProperty(Property("TRANSP", "OPAQUE" if accepted else "TRANSPARENT"))
+                else:
+                    # Derive a new overridden component and change partstat
+                    derived = calendar.deriveInstance(instance.rid)
+                    if derived:
+                        attendee = derived.getAttendeeProperty(cuas)
+                        if attendee:
+                            self.changeAttendeePartstat(attendee, "ACCEPTED" if accepted else "DECLINED")
+                            derived.replaceProperty(Property("TRANSP", "OPAQUE" if accepted else "TRANSPARENT"))
+                            calendar.addComponent(derived)
+                            made_changes = True
+            
         # Fake a SCHEDULE-STATUS on the ORGANIZER property
         if made_changes:
             calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED, "ORGANIZER", None)
@@ -565,3 +605,26 @@ class ImplicitProcessor(object):
         
         # Change CTag on the parent calendar collection
         yield collection.updateCTag()
+
+    def changeAttendeePartstat(self, attendees, partstat):
+        """
+        Change the PARTSTAT on any ATTENDEE properties passed in.
+
+        @param attendees: a single ATTENDEE property or a list of them
+        @type attendees: L{Property}, C{list} or C{tuple}
+        @param partstat: new PARTSTAT to set
+        @type partstat: C{str}
+        
+        @return: C{True} if any change was made, C{False} otherwise
+        """
+
+        if isinstance(attendees, Property):
+            attendees = (attendees,)
+
+        madeChanges = False
+        for attendee in attendees:
+            if attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
+                attendee.params()["PARTSTAT"] = [partstat]
+                madeChanges = True
+        
+        return madeChanges

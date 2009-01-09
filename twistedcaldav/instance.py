@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from twistedcaldav.dateops import normalizeForIndex, compareDateTime, difference
 
 from vobject.icalendar import utc
 
-# The maximum number of instances we will ezpand out to.
+# The maximum number of instances we will expand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
 max_allowed_instances = 1000
 
@@ -300,7 +300,7 @@ class InstanceList(object):
         rid = component.getRecurrenceIDUTC()
         range = component.getRange()
         
-        # Now add this instance, effectively overridding the one with the matching R-ID
+        # Now add this instance, effectively overriding the one with the matching R-ID
         start = normalizeForIndex(start)
         end = normalizeForIndex(end)
         rid = normalizeForIndex(rid)
@@ -322,7 +322,7 @@ class InstanceList(object):
             for key in sorted(x for x in self.instances.keys() if x > str(rid)):
                 oldinstance = self.instances[key]
                 
-                # Do not override instance that is alreday overridden
+                # Do not override instance that is already overridden
                 if oldinstance.overridden:
                     continue
                 
@@ -372,7 +372,7 @@ class InstanceList(object):
         Add the specified master VAVAILABILITY Component to the instance list, expanding it
         within the supplied time range. VAVAILABILITY components are not recurring, they have an
         optional DTSTART and DTEND/DURATION defining a single time-range which may be bounded
-        depedning on the presence of the properties. If unbounded at one or both ends, we will
+        depending on the presence of the properties. If unbounded at one or both ends, we will
         set the time to 1/1/1900 in the past and 1/1/3000 in the future.
         @param component: the Component to expand
         @param limit: the end datetime.datetime for expansion
