@@ -89,7 +89,9 @@ def scanData(basePath, scanFile, doFix):
                 level2Path = os.path.join(level1Path, "%02X" % (j,))
                 if os.path.exists(level2Path):
                     for item in os.listdir(level2Path):
-                        scanCalendarHome(basePath, os.path.join(level2Path, item), scanFile, doFix)
+                        calendarHome = os.path.join(level2Path, item)
+                        if os.path.isdir(calendarHome):
+                            scanCalendarHome(basePath, calendarHome, scanFile, doFix)
 
 def scanCalendarHome(basePath, calendarHome, scanFile, doFix):
     print "Scanning: %s" % (calendarHome,)
@@ -134,7 +136,7 @@ def scanCalendar(basePath, calendarPath, scanFile, doFix):
 
         # See whether there is a \" that needs fixing.
         # NB Have to handle the case of a folded line... 
-        if icsData.find('\\"') != -1 or icsData.find('\\\r\n "') != -1:
+        if icsData.find('\\"') != -1 or icsData.find('\\\r\n "') != -1 or icsData.find('\r\n \r\n "') != -1:
             if doFix:
                 if fixPath(icsPath, icsData):
                     didFix = True
@@ -208,7 +210,7 @@ def fixPath(icsPath, icsData=None):
         
     # Fix by continuously replacing \" with " until no more replacements occur
     while True:
-        newIcsData = icsData.replace('\\"', '"').replace('\\\r\n "', '\r\n "')
+        newIcsData = icsData.replace('\\"', '"').replace('\\\r\n "', '\r\n "').replace('\r\n \r\n "', '\r\n "')
         if newIcsData == icsData:
             break
         else:
