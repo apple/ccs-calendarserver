@@ -172,6 +172,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                 except ValueError:
                     log.err("Invalid calendar resource during multiget: %s" % (href,))
                     responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                except IOError:
+                    # This can happen because of a race-condition between the
+                    # time we determine which resources exist and the deletion
+                    # of one of these resources in another request.  In this
+                    # case, return a 404 for the now missing resource rather
+                    # than raise an error for the entire report.
+                    log.err("Missing calendar resource during multiget: %s" % (href,))
+                    responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
 
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
