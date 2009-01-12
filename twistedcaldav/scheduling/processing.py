@@ -17,7 +17,6 @@
 from hashlib import md5
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.web2.dav.fileop import delete
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twistedcaldav import customxml, caldavxml
@@ -365,7 +364,7 @@ class ImplicitProcessor(object):
                     
                     # Delete the attendee's copy of the event
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                    yield self.deleteCalendarResource(self.recipient_calendar_collection, self.recipient_calendar_name)
+                    yield self.deleteCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name)
 
                     # Build the schedule-changes XML element
                     changes = customxml.ScheduleChanges(
@@ -588,23 +587,25 @@ class ImplicitProcessor(object):
         returnValue(newchild)
 
     @inlineCallbacks
-    def deleteCalendarResource(self, collection, name):
+    def deleteCalendarResource(self, collURL, collection, name):
         """
         Delete the calendar resource in the specified calendar.
         
-        @param collection: the L{CalDAVFile} for the calendar collection to store the resource in.
-        @param name: the C{str} for the resource name to write into, or {None} to write a new resource.
-        @return: L{Deferred}
+        @param collURL: the URL of the calendar collection.
+        @type name: C{str}
+        @param collection: the calendar collection to delete the resource from.
+        @type collection: L{CalDAVFile}
+        @param name: the resource name to write into, or {None} to write a new resource.
+        @type name: C{str}
         """
         
+        from twistedcaldav.method.delete_common import DeleteResource
         delchild = collection.getChild(name)
-        index = collection.index()
-        index.deleteResource(delchild.fp.basename())
-        
-        yield delete("", delchild.fp, "0")
-        
-        # Change CTag on the parent calendar collection
-        yield collection.updateCTag()
+        childURL = joinURL(collURL, name)
+        self.request._rememberResource(delchild, childURL)
+
+        deleter = DeleteResource(self.request, delchild, childURL, collection, "0", internal_request=True)
+        yield deleter.run()
 
     def changeAttendeePartstat(self, attendees, partstat):
         """

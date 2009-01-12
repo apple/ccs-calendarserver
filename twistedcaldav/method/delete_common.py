@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,12 +39,14 @@ log = Logger()
 
 class DeleteResource(object):
     
-    def __init__(self, request, resource, parent, depth):
+    def __init__(self, request, resource, resource_uri, parent, depth, internal_request=False):
         
         self.request = request
         self.resource = resource
+        self.resource_uri = resource_uri
         self.parent = parent
         self.depth = depth
+        self.internal_request = internal_request
 
     @inlineCallbacks
     def deleteResource(self, delresource, deluri, parent):
@@ -107,15 +109,15 @@ class DeleteResource(object):
         else:
             old_size = 0
         
-        # Get data we need for implicit scheduling
-        calendar = delresource.iCalendar()
-        scheduler = ImplicitScheduler()
-        do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
-        if do_implicit_action:
-            lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
-        else:
-            scheduler = None
-            lock = None
+        scheduler = None
+        lock = None
+        if not self.internal_request:
+            # Get data we need for implicit scheduling
+            calendar = delresource.iCalendar()
+            scheduler = ImplicitScheduler()
+            do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
+            if do_implicit_action:
+                lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
 
         try:
             if lock:
@@ -205,7 +207,7 @@ class DeleteResource(object):
 
         log.debug("Deleting collection %s" % (self.resource.fp.path,))
 
-        errors = ResponseQueue(self.request.uri, "DELETE", responsecode.NO_CONTENT)
+        errors = ResponseQueue(self.resource_uri, "DELETE", responsecode.NO_CONTENT)
  
         @inlineCallbacks
         def doDeleteCalendar(delresource, deluri):
@@ -220,10 +222,10 @@ class DeleteResource(object):
 
             returnValue(True)
 
-        yield applyToCalendarCollections(self.resource, self.request, self.request.uri, self.depth, doDeleteCalendar, None)
+        yield applyToCalendarCollections(self.resource, self.request, self.resource_uri, self.depth, doDeleteCalendar, None)
 
         # Now do normal delete
-        more_responses = (yield self.deleteResource(self.resource, self.request.uri, self.parent))
+        more_responses = (yield self.deleteResource(self.resource, self.resource_uri, self.parent))
         
         if isinstance(more_responses, MultiStatusResponse):
             # Merge errors
@@ -237,15 +239,15 @@ class DeleteResource(object):
     def run(self):
 
         if isCalendarCollectionResource(self.parent):
-            response = (yield self.deleteCalendarResource(self.resource, self.request.uri, self.parent))
+            response = (yield self.deleteCalendarResource(self.resource, self.resource_uri, self.parent))
             
         elif isCalendarCollectionResource(self.resource):
-            response = (yield self.deleteCalendar(self.resource, self.request.uri, self.parent))
+            response = (yield self.deleteCalendar(self.resource, self.resource_uri, self.parent))
         
         elif self.resource.isCollection():
             response = (yield self.deleteCollection())
 
         else:
-            response = (yield self.deleteResource(self.resource, self.request.uri, self.parent))
+            response = (yield self.deleteResource(self.resource, self.resource_uri, self.parent))
 
         returnValue(response)
