@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,23 +16,24 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2 import responsecode
+from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError
 
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.scheduling.itip import iTipGenerator
-from twistedcaldav.log import Logger
-from twistedcaldav.scheduling.scheduler import CalDAVScheduler
-from twistedcaldav.method import report_common
-from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav import caldavxml
-from twisted.web2.dav import davxml
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import TwistedSchedulingObjectResource
+from twistedcaldav.ical import Property
+from twistedcaldav.log import Logger
+from twistedcaldav.method import report_common
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
     LocalCalendarUser
-from twistedcaldav.customxml import TwistedSchedulingObjectResource
+from twistedcaldav.scheduling.icaldiff import iCalDiff
+from twistedcaldav.scheduling.itip import iTipGenerator
+from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 
 __all__ = [
     "ImplicitScheduler",
@@ -45,14 +46,18 @@ log = Logger()
 # Handle the case where a PUT removes the ORGANIZER property. That should be equivalent to cancelling the entire meeting.
 # Support SCHEDULE-AGENT property
 # Support SCHEDULE-STATUS property
-# Support live calendars
 # Support Schedule-Reply header
 #
 
 class ImplicitScheduler(object):
     
+    # Return Status codes
+    STATUS_OK                       = 0
+    STATUS_ORPHANED_CANCELLED_EVENT = 1
+
     def __init__(self):
-        pass
+        
+        self.return_status = ImplicitScheduler.STATUS_OK
 
     @inlineCallbacks
     def testImplicitSchedulingPUT(self, request, resource, resource_uri, calendar, internal_request=False):
@@ -190,7 +195,7 @@ class ImplicitScheduler(object):
         @param do_smart_merge: if True, merge attendee data on disk with new data being stored,
             else overwrite data on disk.
         @return: a new calendar object modified with scheduling information,
-            or C{None} if nothing happened
+            or C{None} if nothing happened or C{int} if some other state occurs
         """
         
         # Setup some parameters
@@ -205,7 +210,10 @@ class ImplicitScheduler(object):
         else:
             returnValue(None)
 
-        returnValue(self.return_calendar if hasattr(self, "return_calendar") else self.calendar)
+        if self.return_status:
+            returnValue(self.return_status)
+        else:
+            returnValue(self.return_calendar if hasattr(self, "return_calendar") else self.calendar)
 
     @inlineCallbacks
     def refreshAllAttendeesExceptSome(self, request, resource, calendar, attendees):
@@ -658,8 +666,14 @@ class ImplicitScheduler(object):
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
                     returnValue(None)
             elif isinstance(self.organizerAddress, LocalCalendarUser):
-                log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy" % (self.attendee, self.uid,))
-                assert self.organizer_calendar, "Must have the organizer's copy of an invite"
+                # Check to see whether all instances are CANCELLED
+                if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
+                    log.debug("Attendee '%s' is creating CANCELLED event for UID: '%s' - missing organizer copy" % (self.attendee, self.uid,))
+                    self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
+                    returnValue(None)
+                else:
+                    log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy" % (self.attendee, self.uid,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
                 log.debug("Attendee '%s' is not allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))

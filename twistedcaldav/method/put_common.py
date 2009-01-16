@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -726,9 +726,12 @@ class StoreCalendarObjectResource(object):
             if do_implicit_action and self.allowImplicitSchedule:
                 new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
                 if new_calendar:
-                    self.calendar = new_calendar
-                    self.calendardata = str(self.calendar)
-                    data_changed = True
+                    if isinstance(new_calendar, int):
+                        returnValue(new_calendar)
+                    else:
+                        self.calendar = new_calendar
+                        self.calendardata = str(self.calendar)
+                        data_changed = True
                 did_implicit_action = True
         else:
             is_scheduling_resource = False
@@ -915,7 +918,18 @@ class StoreCalendarObjectResource(object):
             new_has_private_comments = self.preservePrivateComments()
     
             # Do scheduling
-            is_scheduling_resource, data_changed, did_implicit_action = (yield self.doImplicitScheduling())
+            implicit_result = (yield self.doImplicitScheduling())
+            if isinstance(implicit_result, int):
+                if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
+                    if reservation:
+                        yield reservation.unreserve()
+            
+                    returnValue(StatusResponse(responsecode.CREATED, "Resource created but immediately deleted by the server."))
+                else:
+                    log.err("Invalid return status code from ImplicitScheduler: %s" % (implicit_result,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            else:
+                is_scheduling_resource, data_changed, did_implicit_action = implicit_result
 
             # Initialize the rollback system
             self.setupRollback()
