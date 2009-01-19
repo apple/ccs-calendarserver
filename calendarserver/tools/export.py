@@ -16,6 +16,21 @@
 # limitations under the License.
 ##
 
+"""
+This tool reads calendar data from a series of inputs and generates a
+single iCalendar file which can be opened in many calendar
+applications.
+
+This can be used to quickly create an iCalendar file from a user's
+calendars.
+
+This tool requires access to the calendar server's configuration and
+data storage; it does not operate by talking to the server via the
+network.  It therefore does not apply any of the access restrictions
+that the server would.  As such, one should be midful that data
+exported via this tool may be sensitive.
+"""
+
 import os
 import sys
 from getopt import getopt, GetoptError
@@ -41,7 +56,7 @@ def usage(e=None):
     print ""
     print "Generate an iCalendar file containing the merged content of each calendar"
     print "collection read."
-    print ""
+    print __doc__
     print "options:"
     print "  -h --help: print this help and exit"
     print "  -f --config: Specify caldavd.plist configuration path"
