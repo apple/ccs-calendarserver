@@ -100,10 +100,10 @@ extensions = []
 if sys.platform == "darwin":
     extensions.append(
         Extension(
-            "twistedcaldav._sacl",
+            "calendarserver.platform.darwin._sacl",
             extra_compile_args = ["-arch", "ppc", "-arch", "i386"],
             extra_link_args = ["-framework", "Security", "-arch", "ppc", "-arch", "i386"],
-            sources = ["twistedcaldav/_sacl.c"]
+            sources = ["calendarserver/platform/darwin/_sacl.c"]
         )
     )
 
@@ -126,6 +126,9 @@ dist = setup(
     platforms        = [ "all" ],
     packages         = [
                          "calendarserver",
+                         "calendarserver.platform",
+                         "calendarserver.platform.darwin",
+                         "calendarserver.provision",
                          "calendarserver.tap",
                          "calendarserver.tap.test",
                          "calendarserver.test",

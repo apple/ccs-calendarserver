@@ -58,7 +58,6 @@ from twistedcaldav.accesslog import AMPLoggingFactory
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.config import config, defaultConfig, defaultConfigFile
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.root import RootResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -82,6 +81,8 @@ try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
 except ImportError:
     NegotiateCredentialFactory = None
+
+from calendarserver.provision.root import RootResource
 
 log = Logger()
 

@@ -16,16 +16,8 @@
 
 import os
 
-from twistedcaldav.root import RootResource
-from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
-
 from twisted.cred.portal import Portal
-
 from twisted.internet.defer import inlineCallbacks, maybeDeferred
-
 from twisted.web2 import http_headers
 from twisted.web2 import responsecode
 from twisted.web2 import server
@@ -34,8 +26,14 @@ from twisted.web2.dav import auth
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.iweb import IResponse
-
 from twisted.web2.test.test_server import SimpleRequest
+
+from twistedcaldav.test.util import TestCase
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from twistedcaldav.directory.test.test_xmlfile import xmlFile
+
+from calendarserver.provision.root import RootResource
 
 class FakeCheckSACL(object):
     def __init__(self, sacls=None):
