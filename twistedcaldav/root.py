@@ -19,8 +19,7 @@ __all__ = [
     "RootResource",
 ]
 
-from twisted.internet.defer import succeed, inlineCallbacks,\
-    returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 from twisted.web2 import responsecode
@@ -29,35 +28,26 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web.xmlrpc import Proxy
 
-from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore, DirectoryPrincipalPropertySearchMixIn
+from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
+from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.config import config
+from twistedcaldav.log import Logger
 from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache
-from twistedcaldav.log import Logger
 from twistedcaldav.static import CalendarHomeFile
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 log = Logger()
 
-
-class RootACLMixIn (object):
-    def defaultAccessControlList(self):
-        return config.RootResourceACL
-
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
-
-
-class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile):
+class RootResource (DirectoryPrincipalPropertySearchMixIn, DAVFile):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.
     """
 
     useSacls = False
-    saclService = 'calendar'
+    saclService = "calendar"
 
     def __init__(self, path, *args, **kwargs):
         super(RootResource, self).__init__(path, *args, **kwargs)
@@ -72,7 +62,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
         self.contentFilters = []
 
-        if config.Memcached['ClientEnabled']:
+        if config.Memcached["ClientEnabled"]:
             self.responseCache = MemcacheResponseCache(self.fp)
 
             CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
@@ -86,18 +76,27 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
         if not config.EnableKeepAlive:
             def addConnectionClose(request, response):
-                response.headers.setHeader('connection', ('close',))
+                response.headers.setHeader("connection", ("close",))
                 request.chanRequest.channel.setReadPersistent(False)
                 return response
             self.contentFilters.append((addConnectionClose, True))
 
 
     def deadProperties(self):
-        if not hasattr(self, '_dead_properties'):
+        if not hasattr(self, "_dead_properties"):
             self._dead_properties = CachingXattrPropertyStore(self)
 
         return self._dead_properties
 
+    def defaultAccessControlList(self):
+        return config.RootResourceACL
+
+    def accessControlList(
+        self, request, inheritance=True, expanding=False, inherited_aces=None
+    ):
+        # Permissions here are fixed, and are not subject to
+        # inheritance rules, etc.
+        return succeed(self.defaultAccessControlList())
 
     @inlineCallbacks
     def checkSacl(self, request):
@@ -118,7 +117,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
         # SACLs are authorization for the use of the service,
         # so unauthenticated access doesn't make any sense.
         if authzUser == davxml.Principal(davxml.Unauthenticated()):
-            log.msg("Unauthenticated users not enabled with the '%s' SACL" % (self.saclService,))
+            log.msg("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
             response = (yield UnauthorizedResponse.makeResponse(
                 request.credentialFactories,
                 request.remoteAddr
@@ -136,10 +135,10 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
         username = principal.record.shortName
 
         if RootResource.CheckSACL(username, self.saclService) != 0:
-            log.msg("User '%s' is not enabled with the '%s' SACL" % (username, self.saclService,))
+            log.msg("User %r is not enabled with the %r SACL" % (username, self.saclService,))
             raise HTTPError(responsecode.FORBIDDEN)
 
-        # Mark SACL's as having been checked so we can avoid doing it multiple times
+        # Mark SACLs as having been checked so we can avoid doing it multiple times
         request.checkedSACL = True
 
 
@@ -153,7 +152,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
 
         # Examine cookies for wiki auth token
         wikiConfig = config.Authentication.Wiki
-        cookies = request.headers.getHeader('cookie')
+        cookies = request.headers.getHeader("cookie")
         if wikiConfig["Enabled"] and cookies is not None:
             for cookie in cookies:
                 if cookie.name == wikiConfig["Cookie"]:
@@ -207,7 +206,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
 
-        if request.method == 'PROPFIND' and not getattr(request, 'notInCache', False):
+        if request.method == "PROPFIND" and not getattr(request, "notInCache", False):
             try:
                 authnUser, authzUser = (yield self.authenticate(request))
                 request.authnUser = authnUser
@@ -220,7 +219,7 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, RootACLMixIn, DAVFile
                 raise HTTPError(response)
 
             try:
-                if not getattr(request, 'checkingCache', False):
+                if not getattr(request, "checkingCache", False):
                     request.checkingCache = True
                     response = (yield self.responseCache.getResponseForRequest(request))
                     if response is None:
