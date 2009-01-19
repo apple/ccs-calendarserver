@@ -60,10 +60,6 @@ class DirectoryCalendarProvisioningResource (
     def defaultAccessControlList(self):
         return config.ProvisioningResourceACL
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
-
 
 class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningResource):
     """

@@ -40,7 +40,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 log = Logger()
 
-class RootResource (DirectoryPrincipalPropertySearchMixIn, DAVFile):
+class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn, DAVFile):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.
@@ -90,13 +90,6 @@ class RootResource (DirectoryPrincipalPropertySearchMixIn, DAVFile):
 
     def defaultAccessControlList(self):
         return config.RootResourceACL
-
-    def accessControlList(
-        self, request, inheritance=True, expanding=False, inherited_aces=None
-    ):
-        # Permissions here are fixed, and are not subject to
-        # inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
 
     @inlineCallbacks
     def checkSacl(self, request):
