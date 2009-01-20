@@ -506,7 +506,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.2 Simple component, PARTSTAT change",
@@ -537,7 +537,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False,)
+                (True, False, (),)
             ),
             (
                 "#1.3 Simple component, bad change",
@@ -568,7 +568,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (),)
             ),
             (
                 "#1.4 Simple component, valarm change",
@@ -609,7 +609,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.5 Simple component, vcalendar props change ok",
@@ -651,7 +651,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.6 Simple component, vcalendar props change bad",
@@ -693,7 +693,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.7 Simple component, vtimezone no change",
@@ -760,7 +760,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.8 Simple component, vtimezone bad change",
@@ -827,7 +827,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (),)
             ),
         )
 
@@ -885,7 +885,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.2 Complex component, alarm change",
@@ -944,7 +944,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.3 Complex component, missing override",
@@ -985,7 +985,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (),)
             ),
             (
                 "#1.4 Complex component, additional override no change ok",
@@ -1043,7 +1043,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, True, (),)
             ),
             (
                 "#1.5 Complex component, additional override change ok",
@@ -1101,7 +1101,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False,)
+                (True, False, (),)
             ),
             (
                 "#1.6 Complex component, additional override bad",
@@ -1159,7 +1159,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (),)
             ),
         )
 

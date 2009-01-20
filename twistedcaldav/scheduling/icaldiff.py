@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, Property
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
@@ -239,19 +239,19 @@ class iCalDiff(object):
         self.calendar2 = duplicateAndNormalize(self.calendar2)
 
         if self.calendar1 == self.calendar2:
-            return True, True
+            return True, True, ()
 
         # Need to look at each component and do special comparisons
         
         # Make sure the same VCALENDAR properties match
         if not self._checkVCALENDARProperties():
             self._logDiffError("attendeeDiff: VCALENDAR properties do not match")
-            return False, False
+            return False, False, ()
         
         # Make sure the same VTIMEZONE components appear
         if not self._compareVTIMEZONEs():
             self._logDiffError("attendeeDiff: VTIMEZONEs do not match")
-            return False, False
+            return False, False, ()
         
         # Compare each component instance from the new calendar with each derived
         # component instance from the old one
@@ -377,37 +377,56 @@ class iCalDiff(object):
         map2 = mapComponents(self.calendar2)
         set2 = set(map2.keys())
 
+        # Ugly case: if an Attendee has a STATUS:CANCELLED meeting and the ORGANIZER does not,
+        # we may need to remove an EXDATE for the cancelled instance from the ORGANIZER's
+        # master instance to ensure that matches
+        cancelled_rids = []
+        master2 = self.calendar2.masterComponent()
+        for key in set2 - set1:
+            component2 = map2[key]
+            if component2.propertyValue("STATUS") == "CANCELLED":
+                rid = component2.getRecurrenceIDUTC()
+                cancelled_rids.append(rid)
+                if master2:
+                    master2.addProperty(Property("EXDATE", [rid,]))
+        
         # All the components in calendar1 must be in calendar2
         result = set1 - set2
         if result:
             log.debug("Missing components from first calendar: %s" % (result,))
-            return False, False
+            return False, False, ()
 
         # Now verify that each component in set1 matches what is in set2
         attendee_unchanged = True
         for key, value in map1.iteritems():
             component1 = value
             component2 = map2[key]
-            
+
             nomismatch, no_attendee_change = self._testComponents(component1, component2)
             if not nomismatch:
-                return False, False
+                return False, False, ()
             attendee_unchanged &= no_attendee_change
         
         # Now verify that each additional component in set2 matches a derived component in set1
         for key in set2 - set1:
+            
+            # First check if the attendee's copy is cancelled
+            component2 = map2[key]
+            if component2.propertyValue("STATUS") == "CANCELLED":
+                continue
+
+            # Now derive the organizer's expected instance and compare
             component1 = self.calendar1.deriveInstance(key[2])
             if component1 is None:
                 log.debug("_compareComponents: Could not derive instance: %s" % (key[2],))
-                return False, False
-            component2 = map2[key]
+                return False, False, ()
             
             nomismatch, no_attendee_change = self._testComponents(component1, component2)
             if not nomismatch:
-                return False, False
+                return False, False, ()
             attendee_unchanged &= no_attendee_change
             
-        return True, attendee_unchanged
+        return True, attendee_unchanged, tuple(cancelled_rids)
 
     def _testComponents(self, comp1, comp2):
         

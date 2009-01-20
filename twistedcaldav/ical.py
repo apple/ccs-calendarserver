@@ -1724,6 +1724,14 @@ class Component (object):
                 self.removeProperty(duration)
                 self.addProperty(Property("DTEND", newdtend))
 
+            exdates = self.properties("EXDATE")
+            for exdate in exdates:
+                exdate.setValue([normalizeToUTC(value) for value in exdate.value()])
+                try:
+                    del exdate.params()["TZID"]
+                except KeyError:
+                    pass
+
             rid = self.getProperty("RECURRENCE-ID")
             if rid is not None:
                 rid.setValue(normalizeToUTC(rid.value()))
