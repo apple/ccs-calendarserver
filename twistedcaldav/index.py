@@ -299,11 +299,10 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             qualifiers = None
 
         # Perform the search
-        if qualifiers is not None:
-            rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
-
+        if qualifiers is None:
+            rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
         else:
-            raise IndexedSearchException()
+            rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
 
         # Check result for missing resources
 
@@ -315,8 +314,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
-
-
 
     def bruteForceSearch(self):
         """
