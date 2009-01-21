@@ -721,12 +721,8 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             qname = property.qname()
 
-
-        def _succeeded(result, propVal):
+        def doneWaiting(result, propVal):
             return propVal
-
-        def _failed(failure):
-            return customxml.PubSubXMPPURIProperty()
 
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
@@ -738,8 +734,9 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
                         getPubSubXMPPURI(url, pubSubConfiguration))
                     nodeCacher = getNodeCacher()
                     d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
-                    d.addCallback(_succeeded, propVal)
-                    d.addErrback(_failed)
+                    # In either case we're going to return the xmpp-uri value
+                    d.addCallback(doneWaiting, propVal)
+                    d.addErrback(doneWaiting, propVal)
                     return d
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
