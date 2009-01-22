@@ -767,7 +767,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             self.log_info("%d processors found. Configuring %d processes."
                           % (cpuCount, processCount))
 
-            config.MultiProcess.ProcessCount = cpuCount
+            config.MultiProcess.ProcessCount = processCount
 
         if config.MultiProcess.ProcessCount > 1:
             if config.BindHTTPPorts:
