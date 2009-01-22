@@ -128,6 +128,7 @@ class DirectoryService(LoggingMixIn):
         return None
 
     def recordWithCalendarUserAddress(self, address):
+        address = address.lower()
         for record in self.allRecords():
             if address in record.calendarUserAddresses:
                 return record

@@ -351,7 +351,7 @@ class OpenDirectoryService(DirectoryService):
             if isinstance(emails, str):
                 emails = [emails]
             for email in emails:
-                result.add("mailto:%s" % (email,))
+                result.add("mailto:%s" % (email.lower(),))
                 
         return result
 

@@ -241,7 +241,7 @@ class XMLAccountRecord (object):
                 self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:
                 if child.firstChild is not None:
-                    self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
+                    self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_AUTOSCHEDULE:
                 # Only Resources & Locations
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
