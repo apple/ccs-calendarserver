@@ -25,6 +25,7 @@ from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 import datetime
 import time
 
@@ -221,6 +222,16 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def doImplicitAttendeeUpdate(self):
         
+        # Do security check: ORGANZIER in iTIP MUST match existing resource value
+        if self.recipient_calendar:
+            existing_organizer = self.recipient_calendar.getOrganizer()
+            existing_organizer = normalizeCUAddr(existing_organizer) if existing_organizer else ""
+            new_organizer = normalizeCUAddr(self.message.getOrganizer())
+            new_organizer = normalizeCUAddr(new_organizer) if new_organizer else ""
+            if existing_organizer != new_organizer:
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                raise ImplicitProcessorException("5.3;Organizer change not allowed")
+
         # Different based on method
         if self.method == "REQUEST":
             result = (yield self.doImplicitAttendeeRequest())
