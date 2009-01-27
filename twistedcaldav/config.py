@@ -657,7 +657,7 @@ class Config (object):
 
                 # Check for empty fields
                 for key, value in service.iteritems():
-                    if not value and key not in ("AllowedJIDs", "HeartbeatMinutes"):
+                    if not value and key not in ("AllowedJIDs", "HeartbeatMinutes", "Password"):
                         raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                                  % (key, value))
 
@@ -671,11 +671,11 @@ class Config (object):
         if service["Enabled"]:
             for direction in ("Sending", "Receiving"):
                 # Get password from keychain.  If not there, fall back to what
-                # is in the plist. Keychain account names are icalserver.sending
+                # is in the plist. Keychain label names are icalserver.sending
                 # and icalserver.receiving.
                 try:
-                    account = "icalserver.%s" % (direction.lower(),)
-                    password = getPasswordFromKeychain(account)
+                    label = "icalserver.%s" % (direction.lower(),)
+                    password = getPasswordFromKeychain(label)
                     service[direction]["Password"] = password
                     log.info("iMIP %s password successfully retreived from keychain" % (direction,))
                 except KeychainAccessError:
