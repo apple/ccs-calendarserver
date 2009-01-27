@@ -16,6 +16,7 @@
 # DRI: David Reid, dreid@apple.com
 ##
 
+import sys
 import os
 import stat
 
@@ -160,7 +161,11 @@ class CalDAVOptions(Options):
             log.msg("Config file %s not found, using defaults"
                     % (self['config'],))
 
-        parseConfig(self['config'])
+        try:
+            parseConfig(self['config'])
+        except ConfigurationError, e:
+            log.err("Invalid configuration: %s" % (e,))
+            sys.exit(1)
 
         config.updateDefaults(self.overrides)
 
