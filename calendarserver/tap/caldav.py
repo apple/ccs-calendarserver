@@ -190,7 +190,12 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.log_info("Reading configuration from file: %s"
                       % (self["config"],))
-        config.loadConfig(self["config"])
+
+        try:
+            config.loadConfig(self["config"])
+        except ConfigurationError, e:
+            log.err("Invalid configuration: %s" % (e,))
+            sys.exit(1)
 
         config.updateDefaults(self.overrides)
 
