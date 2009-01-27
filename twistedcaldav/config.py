@@ -706,6 +706,11 @@ def _cleanup(configDict):
 
     def deprecated(oldKey, newKey):
         log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+        if oldKey in configDict and newKey in configDict:
+            raise ConfigurationError(
+                "Both %r and %r options are specified; use the %r option only."
+                % (oldKey, newKey, newKey)
+            )
 
     def renamed(oldKey, newKey):
         deprecated(oldKey, newKey)
