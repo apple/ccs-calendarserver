@@ -114,20 +114,34 @@ else:
 </plist>
 """
 
+        plist_invalid_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.WhitePagesFramework</key>
+    <string>R&D</string>
+</dict>
+</plist>
+"""
+
         test_bool = (
-            (plist_good_false, False, "1234-GUID-5678", "1234-GUID-5679"),
-            (plist_good_true, True, "", ""),
-            (plist_good_missing, False, None, None),
-            (plist_wrong, False, None, None),
-            (plist_bad, False, None, None),
-            (plist_invalid, False, None, None),
+            (plist_good_false, False, "1234-GUID-5678", "1234-GUID-5679", None),
+            (plist_good_true, True, "", "", None),
+            (plist_good_missing, False, None, None, None),
+            (plist_wrong, False, None, None, None),
+            (plist_bad, False, None, None, ValueError),
+            (plist_invalid, False, None, None, ValueError),
+            (plist_invalid_xml, False, None, None, ValueError),
         )
 
         def test_plists(self):
             service = OpenDirectoryService(node="/Search", dosetup=False)
             
             for item in ODResourceInfoParse.test_bool:
-                item1, item2, item3 = service._parseResourceInfo(item[0], "guid", "name")
-                self.assertEqual(item1, item[1])
-                self.assertEqual(item2, item[2])
-                self.assertEqual(item3, item[3])
+                if item[4] is None:
+                    item1, item2, item3 = service._parseResourceInfo(item[0], "guid", "locations", "name")
+                    self.assertEqual(item1, item[1])
+                    self.assertEqual(item2, item[2])
+                    self.assertEqual(item3, item[3])
+                else:
+                    self.assertRaises(item[4], service._parseResourceInfo, item[0], "guid", "locations", "name")

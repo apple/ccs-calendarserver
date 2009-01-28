@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -190,6 +190,33 @@ class OpenDirectoryService(DirectoryService):
                 result.add("mailto:%s" % (email.lower(),))
                 
         return result
+
+    def _parseResourceInfo(self, plist, guid, recordType, shortname):
+        """
+        Parse OD ResourceInfo attribute and extract information that the server needs.
+
+        @param plist: the plist that is the attribute value.
+        @type plist: str
+        @param guid: the directory GUID of the record being parsed.
+        @type guid: str
+        @param shortname: the record shortname of the record being parsed.
+        @type shortname: str
+        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
+        """
+        try:
+            plist = readPlistFromString(plist)
+            wpframework = plist.get("com.apple.WhitePagesFramework", {})
+            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
+            proxy = wpframework.get("CalendaringDelegate", None)
+            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+        except (ExpatError, AttributeError), e:
+            self.log_error(
+                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
+                (recordType, shortname, guid, e, plist,)
+            )
+            raise ValueError("Invalid ResourceInfo")
+
+        return (autoaccept, proxy, read_only_proxy,)
 
     def recordTypes(self):
         return (
@@ -528,19 +555,9 @@ class OpenDirectoryService(DirectoryService):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
                     try:
-                        plist = readPlistFromString(resourceInfo)
-                    except ExpatError, e:
-                        self.log_error(
-                            "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s, name=%s): %s\n%s" %
-                            (recordType, recordShortName, recordGUID, recordFullName, e, resourceInfo)
-                        )
+                        autoSchedule, proxy, read_only_proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordType, recordShortName)
+                    except ValueError:
                         continue
-
-                    wpframework = plist.get("com.apple.WhitePagesFramework", {})
-                    autoSchedule = wpframework.get("AutoAcceptsInvitation", False)
-                    proxy = wpframework.get("CalendaringDelegate", None)
-                    read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-
                     if proxy:
                         proxyGUIDs = (proxy,)
                     if read_only_proxy:
