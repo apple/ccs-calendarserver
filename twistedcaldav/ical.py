@@ -1042,12 +1042,14 @@ class Component (object):
         # Must not contain more than one type of iCalendar component, except for
         # the required timezone components, and component UIDs must match
         #
-        ctype          = None
-        component_id   = None
-        component_rids = set()
-        timezone_refs  = set()
-        timezones      = set()
-        got_master     = False
+        ctype            = None
+        component_id     = None
+        component_rids   = set()
+        timezone_refs    = set()
+        timezones        = set()
+        got_master       = False
+        got_override     = False
+        master_recurring = False
         
         for subcomponent in self.subcomponents():
             # Disallowed in CalDAV-Access-08, section 4.1
@@ -1070,21 +1072,32 @@ class Component (object):
                 uid = subcomponent.propertyValue("UID")
                 if uid is None:
                     raise ValueError("All components must have UIDs")
-                    
+                rid = subcomponent.getRecurrenceIDUTC()
+                
+                # Verify that UIDs are the same
                 if component_id is None:
                     component_id = uid
-                else:
-                    if component_id != uid:
+                elif component_id != uid:
                         raise ValueError("Calendar resources may not contain components with different UIDs " +
                                          "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
-                    elif subcomponent.propertyValue("Recurrence-ID") is None:
-                        if got_master:
-                            raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs " +
-                                             "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
-                        else:
-                            got_master = True
-        
-                rid = subcomponent.getRecurrenceIDUTC()
+
+                # Verify that there is only one master component
+                if rid is None:
+                    if got_master:
+                        raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs " +
+                                         "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
+                    else:
+                        got_master = True
+                        master_recurring = subcomponent.hasProperty("RRULE") or subcomponent.hasProperty("RDATE")
+                else:
+                    got_override = True
+                            
+                # Check that if an override is present then the master is recurring
+                if got_override and got_master and not master_recurring:
+                    raise ValueError("Calendar resources must have a recurring master component if there is an overridden one " +
+                             "(%s)" % (subcomponent.propertyValue("UID"),))
+                
+                # Check for duplicate RECURRENCE-IDs        
                 if rid in component_rids:
                     raise ValueError("Calendar resources may not contain components with the same Recurrence-IDs " +
                                      "(%s)" % (rid,))

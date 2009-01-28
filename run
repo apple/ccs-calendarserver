@@ -692,7 +692,7 @@ fi;
 
 caldavtester="${top}/CalDAVTester";
 
-svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 3608;
+svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 3619;
 
 #
 # Calendar Server
