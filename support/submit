@@ -32,7 +32,9 @@ src="$(cd "${wd}/.." && pwd)";
 # Command line
 ##
 
-build=false;
+  build=false;
+install=false;
+package=false;
 
 submission_enabled=true;
 
@@ -43,32 +45,39 @@ usage ()
   if [ "${1-}" != "-" ]; then echo "$@"; echo; fi;
 
   echo "Usage: ${program} release";
-  echo "       ${program} -b";
+  echo "       ${program} -b[ip]";
   echo "";
   echo "Options:";
   echo "	-b Run buildit";
+  echo "	-i Install resulting build on this system";
+  echo "	-p Create a package with the resulting build";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hb' option; do
+while getopts 'hbip' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'b') build=true; ;;
+    'b')   build=true; ;;
+    'i') install=true; ;;
+    'p') package=true; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
 
 if ! "${build}"; then
-    if [ $# == 0 ]; then usage "No release specified"; fi;
-    release="$1"; shift;
+  if "${install}"; then usage "-i flag requires -b"; fi;
+  if "${package}"; then usage "-p flag requires -b"; fi;
 
-    if ! "${submission_enabled}"; then
-        echo "Submissions from this branch are not enabled.";
-        exit 1;
-    fi;
+  if [ $# == 0 ]; then usage "No release specified"; fi;
+  release="$1"; shift;
+
+  if ! "${submission_enabled}"; then
+    echo "Submissions from this branch are not enabled.";
+    exit 1;
+  fi;
 fi;
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
@@ -151,9 +160,29 @@ make -C "${wc}" prep;
 if "${build}"; then
   echo "";
   echo "Building ${project_version}...";
-  sudo ~rc/bin/buildit "${wc}" \
+
+  if "${package}"; then
+    package_tmp="${tmp}/pkg";
+    install -d "${package_tmp}";
+    merge_flags="-merge \"${package_tmp}\"";
+  elif "${install}"; then
+    merge_flags="-merge /";
+  fi;
+
+  sudo ~rc/bin/buildit "${wc}" CALENDARSERVER_CACHE_DEPS="${CALENDARSERVER_CACHE_DEPS-${wd}/.dependencies}" \
     $(file /usr/lib/libSystem.dylib | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
-    -release SnowLeopard;
+    -release SnowLeopard \
+    ${merge_flags};
+
+  if "${package}"; then
+    package_file="${project_version}.tgz";
+    echo "Creating package: ${package_file}...";
+    tar -C "${package_tmp}" -cvzf "${package_file}" .;
+    if "${install}"; then
+      echo "Installing package: ${package_file}";
+      tar -C / -xvzf "${package_file}";
+    fi;
+  fi;
 else
   echo "";
   echo "Submitting sources for ${project_version}...";
