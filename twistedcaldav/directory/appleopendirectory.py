@@ -29,6 +29,8 @@ from uuid import UUID
 
 from twext.python.plistlib import readPlistFromString
 
+from xml.parsers.expat import ExpatError
+
 import opendirectory
 import dsattributes
 import dsquery
@@ -188,35 +190,6 @@ class OpenDirectoryService(DirectoryService):
                 result.add("mailto:%s" % (email.lower(),))
                 
         return result
-
-    def _parseResourceInfo(self, plist, guid, shortname):
-        """
-        Parse OD ResourceInfo attribute and extract information that the server needs.
-
-        @param plist: the plist that is the attribute value.
-        @type plist: str
-        @param guid: the directory GUID of the record being parsed.
-        @type guid: str
-        @param shortname: the record shortname of the record being parsed.
-        @type shortname: str
-        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
-        """
-        try:
-            plist = readPlistFromString(plist)
-            wpframework = plist.get("com.apple.WhitePagesFramework", {})
-            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
-            proxy = wpframework.get("CalendaringDelegate", None)
-            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-        except AttributeError:
-            self.log_error(
-                "Failed to parse ResourceInfo attribute of record %s (%s): %s" %
-                (shortname, guid, plist,)
-            )
-            autoaccept = False
-            proxy = None
-            read_only_proxy = None
-
-        return (autoaccept, proxy, read_only_proxy,)
 
     def recordTypes(self):
         return (
@@ -554,7 +527,20 @@ class OpenDirectoryService(DirectoryService):
             if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
-                    autoSchedule, proxy, read_only_proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordShortName)
+                    try:
+                        plist = readPlistFromString(resourceInfo)
+                    except ExpatError, e:
+                        self.log_error(
+                            "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s, name=%s): %s\n%s" %
+                            (recordType, recordShortName, recordGUID, recordFullName, e, resourceInfo)
+                        )
+                        continue
+
+                    wpframework = plist.get("com.apple.WhitePagesFramework", {})
+                    autoSchedule = wpframework.get("AutoAcceptsInvitation", False)
+                    proxy = wpframework.get("CalendaringDelegate", None)
+                    read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+
                     if proxy:
                         proxyGUIDs = (proxy,)
                     if read_only_proxy:
