@@ -172,7 +172,7 @@ if "${build}"; then
   fi;
 
   sudo ~rc/bin/buildit "${wc}" CALENDARSERVER_CACHE_DEPS="${CALENDARSERVER_CACHE_DEPS-${wd}/.dependencies}" \
-    $(file /usr/lib/libSystem.dylib | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
+    $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
     -release SnowLeopard \
     ${merge_flags};
 
