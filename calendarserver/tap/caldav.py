@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -507,11 +507,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         # IMIP delivery resource
         #
-        self.log_info("Setting up iMIP inbox resource: %r"
-                      % (self.imipResourceClass,))
-
-        imipInbox = self.imipResourceClass(root)
-        root.putChild("inbox", imipInbox)
+        if config.Scheduling.iMIP.Enabled:
+            self.log_info("Setting up iMIP inbox resource: %r"
+                          % (self.imipResourceClass,))
+    
+            imipInbox = self.imipResourceClass(root)
+            root.putChild("inbox", imipInbox)
 
         #
         # Configure ancillary data

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
+from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, bindMethods
@@ -864,9 +865,6 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
     def __init__(self, path, parent):
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
         IScheduleInboxResource.__init__(self, parent)
-        
-        self.fp.open("w").close()
-        self.fp.restat(False)
 
     def __repr__(self):
         return "<%s (server-to-server inbox resource): %s>" % (self.__class__.__name__, self.fp.path)
@@ -892,8 +890,10 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
-    def hasDeadProperty(self, name):
-        return False
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
     def etag(self):
         return None
@@ -1015,8 +1015,10 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
-    def hasDeadProperty(self, name):
-        return False
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
     def etag(self):
         return None

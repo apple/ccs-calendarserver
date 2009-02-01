@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ from twisted.python.usage import Options, UsageError
 from twisted.web import resource, server, client
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
@@ -185,8 +186,10 @@ class IMIPInboxResource(CalDAVFile):
     def isPseudoCalendarCollection(self):
         return False
 
-    def hasDeadProperty(self, name):
-        return False
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
     def etag(self):
         return None
