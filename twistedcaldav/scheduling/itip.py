@@ -447,7 +447,7 @@ class iTipGenerator(object):
             else:
                 instance = original.overriddenComponent(instance_rid)
                 if instance is None:
-                    instance = original.masterComponent()
+                    instance = original.deriveInstance(instance_rid)
             assert instance is not None, "Need a master component"
 
             # Add some required properties extracted from the original
