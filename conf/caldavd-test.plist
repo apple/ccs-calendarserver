@@ -526,6 +526,12 @@
           <string></string>
           <key>Port</key>
           <integer>587</integer>
+          <key>UseSSL</key>
+          <true/>
+          <key>Username</key>
+          <string></string>
+          <key>Password</key>
+          <string></string>
           <key>Address</key>
           <string></string> <!-- Address email will be sent from -->
         </dict>

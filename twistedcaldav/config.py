@@ -261,6 +261,9 @@ defaultConfig = {
                 "Server"        : "",    # SMTP server to relay messages through
                 "Port"          : 587,   # SMTP server port to relay messages through
                 "Address"       : "",    # 'From' address for server
+                "UseSSL"        : True,
+                "Username"      : "",    # For account sending mail
+                "Password"      : "",    # For account sending mail
             },
             "Receiving": {
                 "Server"        : "",    # Server to retrieve email messages from

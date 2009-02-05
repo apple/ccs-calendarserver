@@ -25,10 +25,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from twisted.application import internet, service
-from twisted.internet import protocol, defer, ssl
+from twisted.internet import protocol, defer, ssl, reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
-from twisted.mail.smtp import messageid, rfc822date, sendmail
+from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 from twisted.web import resource, server, client
@@ -55,6 +55,13 @@ import datetime
 import email.utils
 import os
 import uuid
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+
 
 __all__ = [
     "IMIPInboxResource",
@@ -793,9 +800,20 @@ class MailHandler(LoggingMixIn):
             self.log_error("Mail gateway failed to send message %s from %s to %s (Reason: %s)" %
                 (msgId, fromAddr, toAddr, failure.getErrorMessage()))
 
-        deferred = sendmail(settings['Server'], fromAddr, toAddr, message,
-            port=settings['Port'])
+        deferred = defer.Deferred()
 
+        if settings["UseSSL"]:
+            contextFactory = ssl.ClientContextFactory()
+        else:
+            contextFactory = None
+
+        factory = ESMTPSenderFactory(settings['Username'], settings['Password'],
+            fromAddr, toAddr, StringIO(str(message)), deferred,
+            contextFactory=contextFactory,
+            requireAuthentication=False,
+            requireTransportSecurity=False)
+
+        reactor.connectTCP(settings['Server'], settings['Port'], factory)
         deferred.addCallback(_success, msgId, fromAddr, toAddr)
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
 
