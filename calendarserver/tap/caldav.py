@@ -497,7 +497,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.Scheduling.iSchedule.Enabled:
             self.log_info("Setting up iSchedule inbox resource: %r"
                           % (self.iScheduleResourceClass,))
-    
+
             ischedule = self.iScheduleResourceClass(
                 NotFilePath(isfile=True),
                 root,
@@ -510,7 +510,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.Scheduling.iMIP.Enabled:
             self.log_info("Setting up iMIP inbox resource: %r"
                           % (self.imipResourceClass,))
-    
+
             imipInbox = self.imipResourceClass(root)
             root.putChild("inbox", imipInbox)
 
@@ -693,7 +693,12 @@ class CalDAVServiceMaker (LoggingMixIn):
 
                 if config.RedirectHTTPToHTTPS and successfulSSLPorts:
                     # Redirect non-SSL ports to the first ssl port
-                    RedirectRequest.port = successfulSSLPorts[0]
+                    # Or for slave processes, use the main SSL port (since the slave's ports
+                    # aren't accessible to clients).  <rdar://6541865>
+                    if config.ProcessType == "Slave":
+                        RedirectRequest.port = config.SSLPort
+                    else:
+                        RedirectRequest.port = successfulSSLPorts[0]
                     self.log_info("Redirecting %s:%s to %s" %
                         (bindAddress, port, RedirectRequest.port))
                     TCPServer(int(port), HTTPFactory(RedirectRequest),
@@ -1147,7 +1152,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     def signalProcess(self, signal, name):
         """
         Send a signal to each monitored process
-        
+
         @param signal: the signal to send
         @type signal: C{int}
         @param startswithname: is set only signal those processes
