@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,8 +167,9 @@ class iCalDiff(object):
         
         for prop in props_to_test:
             # Change => no merge
-            if old_comp.getProperty(prop) != new_comp.getProperty(prop):
-                # Always overwrite as we have a big change going on
+            old_props = set(old_comp.properties(prop))
+            new_props = set(new_comp.properties(prop))
+            if old_props.difference(new_props):
                 return True
 
         return False
