@@ -664,7 +664,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
-            successfulSSLPorts = []
             for port in config.BindSSLPorts:
                 self.log_info("Adding SSL server at %s:%s"
                               % (bindAddress, port))
@@ -687,18 +686,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                         backlog=config.ListenBacklog,
                     )
                     httpsService.setServiceParent(service)
-                    successfulSSLPorts.append(int(port))
 
             for port in config.BindHTTPPorts:
 
-                if config.RedirectHTTPToHTTPS and successfulSSLPorts:
-                    # Redirect non-SSL ports to the first ssl port
-                    # Or for slave processes, use the main SSL port (since the slave's ports
-                    # aren't accessible to clients).  <rdar://6541865>
-                    if config.ProcessType == "Slave":
-                        RedirectRequest.port = config.SSLPort
-                    else:
-                        RedirectRequest.port = successfulSSLPorts[0]
+                if config.RedirectHTTPToHTTPS:
+                    # Redirect non-SSL ports to the configured SSL port.
+                    RedirectRequest.port = config.SSLPort
                     self.log_info("Redirecting %s:%s to %s" %
                         (bindAddress, port, RedirectRequest.port))
                     TCPServer(int(port), HTTPFactory(RedirectRequest),
