@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -675,6 +675,7 @@ def fakeODRecord(fullName, shortName=None, guid=None, email=None, members=None, 
     attrs = {
         dsattributes.kDS1AttrDistinguishedName: fullName,
         dsattributes.kDS1AttrGeneratedUID: guid,
+        dsattributes.kDSNAttrRecordName: shortName,
         dsattributes.kDSNAttrEMailAddress: email,
         dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
     }

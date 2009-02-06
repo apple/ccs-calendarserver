@@ -239,7 +239,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
                 """---------------------\n"""
                 """GUID: %s\n"""                   % (self.parent.record.guid,),
                 """Record type: %s\n"""            % (self.parent.record.recordType,),
-                """Short name: %s\n"""             % (self.parent.record.shortName,),
+                """Short names: %s\n"""            % (",".join(self.parent.record.shortNames,)),
                 """Full name: %s\n"""              % (self.parent.record.fullName,),
                 """Principal UID: %s\n"""          % (self.parent.principalUID(),),
                 """Principal URL: %s\n"""          % (format_link(self.parent.principalURL()),),

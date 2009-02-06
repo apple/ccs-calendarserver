@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,30 +64,30 @@ class XMLDirectoryService(DirectoryService):
         return recordTypes
 
     def listRecords(self, recordType):
-        for entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
+        for _ignore_entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
             yield XMLDirectoryRecord(
                 service       = self,
                 recordType    = recordType,
-                shortName     = entryShortName,
+                shortNames    = tuple(xmlPrincipal.shortNames),
                 xmlPrincipal  = xmlPrincipal,
             )
 
     def recordWithShortName(self, recordType, shortName):
-        for entryShortName, xmlprincipal in self._entriesForRecordType(recordType):
-            if entryShortName == shortName:
+        for _ignore_entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
+            if shortName in xmlPrincipal.shortNames:
                 return XMLDirectoryRecord(
                     service       = self,
                     recordType    = recordType,
-                    shortName     = entryShortName,
-                    xmlPrincipal  = xmlprincipal,
+                    shortNames    = tuple(xmlPrincipal.shortNames),
+                    xmlPrincipal  = xmlPrincipal,
                 )
 
         return None
 
     def _entriesForRecordType(self, recordType):
         try:
-            for entry in sorted(self._accounts()[recordType].itervalues(), key=lambda x: x.shortName):
-                yield entry.shortName, entry
+            for shortName, entry in sorted(self._accounts()[recordType].iteritems(), key=lambda x: x[0]):
+                yield shortName, entry
         except KeyError:
             return
 
@@ -108,12 +108,12 @@ class XMLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, shortName, xmlPrincipal):
+    def __init__(self, service, recordType, shortNames, xmlPrincipal):
         super(XMLDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
             guid                  = xmlPrincipal.guid,
-            shortName             = shortName,
+            shortNames            = shortNames,
             fullName              = xmlPrincipal.name,
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,

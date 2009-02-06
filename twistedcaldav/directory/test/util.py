@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ class DirectoryTestCase (TestCase):
         for group, info in self.groups.iteritems():
             prefix = info.get("prefix", "")
             groupRecord = service.recordWithShortName(prefix + DirectoryService.recordType_groups, group)
-            result = set((m.recordType, prefix + m.shortName) for m in groupRecord.members())
+            result = set((m.recordType, prefix + m.shortNames[0]) for m in groupRecord.members())
             expected = set(self.groups[group]["members"])
             self.assertEquals(
                 result, expected,
@@ -187,7 +187,7 @@ class DirectoryTestCase (TestCase):
             for shortName, info in data.iteritems():
                 prefix = info.get("prefix", "")
                 record = service.recordWithShortName(prefix + recordType, shortName)
-                result = set(prefix + g.shortName for g in record.groups())
+                result = set(prefix + g.shortNames[0] for g in record.groups())
                 expected = set(g for g in self.groups if (record.recordType, shortName) in self.groups[g]["members"])
                 self.assertEquals(
                     result, expected,
@@ -204,7 +204,7 @@ class DirectoryTestCase (TestCase):
                 continue
             assert records is not None, "%r(%r) returned None" % (service.listRecords, recordType)
             for record in records:
-                names.add(prefix + record.shortName)
+                names.add(prefix + record.shortNames[0])
 
         return names
 
@@ -238,7 +238,7 @@ class DirectoryTestCase (TestCase):
         else:
             prefix = ""
 
-        self.assertEquals(prefix + record.shortName, shortName)
+        self.assertEquals(prefix + record.shortNames[0], shortName)
         self.assertEquals(set(record.calendarUserAddresses), addresses)
 
         if value("guid"):

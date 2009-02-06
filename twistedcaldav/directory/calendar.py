@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,11 +165,14 @@ class DirectoryCalendarHomeTypeProvisioningResource (DirectoryCalendarProvisioni
 
     def listChildren(self):
         if config.EnablePrincipalListings:
-            return (
-                record.shortName
-                for record in self.directory.listRecords(self.recordType)
-                if record.enabledForCalendaring
-            )
+
+            def _recordShortnameExpand():
+                for record in self.directory.listRecords(self.recordType):
+                    if record.enabledForCalendaring:
+                        for shortName in record.shortNames:
+                            yield shortName
+
+            return _recordShortnameExpand()
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)

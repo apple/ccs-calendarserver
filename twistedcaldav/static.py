@@ -611,7 +611,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                 # Pre 2.0: All in one directory
                 self.fp.child(name),
                 # Pre 1.2: In types hierarchy instead of the GUID hierarchy
-                self.parent.getChild(record.recordType).fp.child(record.shortName),
+                self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
             ):
                 if oldPath.exists():
                     # The child exists at an old location.  Move to new location.

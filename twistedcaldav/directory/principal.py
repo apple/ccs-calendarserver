@@ -33,6 +33,7 @@ __all__ = [
 from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
+import itertools
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -380,7 +381,13 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
     def listChildren(self):
         if config.EnablePrincipalListings:
-            return (record.shortName for record in self.directory.listRecords(self.recordType))
+
+            def _recordShortnameExpand():
+                for record in self.directory.listRecords(self.recordType):
+                    for shortName in record.shortNames:
+                        yield shortName
+
+            return _recordShortnameExpand()
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -491,12 +498,12 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         self.parent = parent
         self._url   = url
 
-        self._alternate_urls = (
-            joinURL(parent.parent.principalCollectionURL(), record.recordType, record.shortName) + slash,
-        )
+        self._alternate_urls = tuple([
+            joinURL(parent.parent.principalCollectionURL(), record.recordType, shortName) + slash for shortName in record.shortNames
+        ])
 
     def __str__(self):
-        return "(%s) %s" % (self.record.recordType, self.record.shortName)
+        return "(%s) %s" % (self.record.recordType, self.record.shortNames[0])
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -536,7 +543,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """---------------------\n"""
             """GUID: %s\n"""                   % (self.record.guid,),
             """Record type: %s\n"""            % (self.record.recordType,),
-            """Short name: %s\n"""             % (self.record.shortName,),
+            """Short names: %s\n"""            % (",".join(self.record.shortNames),),
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
@@ -563,7 +570,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         if self.record.fullName:
             return self.record.fullName
         else:
-            return self.record.shortName
+            return self.record.shortNames[0]
 
     ##
     # ACL
@@ -749,7 +756,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             """---------------------\n"""
             """GUID: %s\n"""                   % (self.record.guid,),
             """Record type: %s\n"""            % (self.record.recordType,),
-            """Short name: %s\n"""             % (self.record.shortName,),
+            """Short names: %s\n"""            % (",".join(self.record.shortNames),),
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
@@ -905,19 +912,16 @@ def format_list(items, *args):
     return "".join(genlist())
 
 def format_principals(principals):
-    def sort(a, b):
-        def sortkey(principal):
+    def recordKey(principal):
+        try:
+            record = principal.record
+        except AttributeError:
             try:
-                record = principal.record
-            except AttributeError:
-                try:
-                    record = principal.parent.record
-                except:
-                    return None
+                record = principal.parent.record
+            except:
+                return None
 
-            return [record.recordType, record.shortName]
-
-        return cmp(sortkey(a), sortkey(b))
+        return (record.recordType, record.shortNames[0])
 
     def describe(principal):
         if hasattr(principal, "record"):
@@ -928,7 +932,7 @@ def format_principals(principals):
     return format_list(
         """<a href="%s">%s%s</a>"""
         % (principal.principalURL(), escape(str(principal)), describe(principal))
-        for principal in sorted(principals, sort)
+        for principal in sorted(principals, key=recordKey)
     )
 
 def format_link(url):

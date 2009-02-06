@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,9 +84,9 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         record = request.site.resource.getDirectory().recordWithUID(uid)
                         if record:
                             if record.recordType == DirectoryService.recordType_users:
-                                return record.shortName
+                                return record.shortNames[0]
                             else:
-                                return "(%s)%s" % (record.recordType, record.shortName,)
+                                return "(%s)%s" % (record.recordType, record.shortNames[0],)
                         else:
                             return uid
                         

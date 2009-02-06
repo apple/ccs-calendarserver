@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,8 +53,8 @@ class SudoTestCase(
 
     def test_listRecords(self):
         for record in self.service().listRecords(self.recordType):
-            self.failUnless(record.shortName in self.sudoers)
-            self.assertEqual(self.sudoers[record.shortName]['password'],
+            self.failUnless(record.shortNames[0] in self.sudoers)
+            self.assertEqual(self.sudoers[record.shortNames[0]]['password'],
                              record.password)
 
     def test_recordWithShortName(self):

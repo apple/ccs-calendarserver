@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
     def _add_to_db(self, record):
         # Do regular account entry
         recordType = record.recordType
-        shortName = record.shortName
+        shortName = record.shortNames[0]
         guid = record.guid
         password = record.password
         name = record.name
@@ -348,7 +348,7 @@ class SQLDirectoryRecord(DirectoryRecord):
             service               = service,
             recordType            = recordType,
             guid                  = guid,
-            shortName             = shortName,
+            shortNames            = (shortName,),
             fullName              = name,
             firstName             = None,
             lastName              = None,

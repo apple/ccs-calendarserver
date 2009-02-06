@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -251,22 +251,22 @@ class DirectoryRecord(LoggingMixIn):
             self.service.guid,
             self.service.realmName,
             self.guid,
-            self.shortName,
+            ",".join(self.shortNames),
             self.fullName
         )
 
     def __init__(
-        self, service, recordType, guid, shortName, fullName,
+        self, service, recordType, guid, shortNames, fullName,
         firstName, lastName, emailAddresses,
         calendarUserAddresses, autoSchedule, enabledForCalendaring=True,
         uid=None,
     ):
         assert service.realmName is not None
         assert recordType
-        assert shortName
+        assert shortNames and isinstance(shortNames, tuple) 
 
         if not guid:
-            guid = uuidFromName(service.guid, "%s:%s" % (recordType, shortName))
+            guid = uuidFromName(service.guid, "%s:%s" % (recordType, ",".join(shortNames)))
 
         if uid is None:
             uid = guid
@@ -281,7 +281,7 @@ class DirectoryRecord(LoggingMixIn):
         self.recordType            = recordType
         self.guid                  = guid
         self.uid                   = uid
-        self.shortName             = shortName
+        self.shortNames            = shortNames
         self.fullName              = fullName
         self.firstName             = firstName
         self.lastName              = lastName
@@ -294,7 +294,7 @@ class DirectoryRecord(LoggingMixIn):
         if not isinstance(other, DirectoryRecord):
             return NotImplemented
 
-        for attr in ("service", "recordType", "shortName", "guid"):
+        for attr in ("service", "recordType", "shortNames", "guid"):
             diff = cmp(getattr(self, attr), getattr(other, attr))
             if diff != 0:
                 return diff
@@ -302,7 +302,7 @@ class DirectoryRecord(LoggingMixIn):
 
     def __hash__(self):
         h = hash(self.__class__)
-        for attr in ("service", "recordType", "shortName", "guid",
+        for attr in ("service", "recordType", "shortNames", "guid",
                      "enabledForCalendaring"):
             h = (h + hash(getattr(self, attr))) & sys.maxint
 

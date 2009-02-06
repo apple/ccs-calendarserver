@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ class IDirectoryRecord(Interface):
     recordType            = Attribute("The type of this record.")
     guid                  = Attribute("The GUID of this record.")
     uid                   = Attribute("The UID of this record.")
-    shortName             = Attribute("The name of this record.")
+    shortNames            = Attribute("The names for this record.")
     fullName              = Attribute("The full name of this record.")
     firstName             = Attribute("The first name of this record.")
     lastName              = Attribute("The last name of this record.")

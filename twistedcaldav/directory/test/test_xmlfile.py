@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class XMLFile (
             ( DirectoryService.recordType_resources , ()         ),
         ):
             self.assertEquals(
-                set(r.shortName for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
 
@@ -143,7 +143,7 @@ class XMLFile (
             ( DirectoryService.recordType_resources , ()             ),
         ):
             self.assertEquals(
-                set(r.shortName for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
         self.assertTrue(service.recordWithShortName(DirectoryService.recordType_locations, "my office").autoSchedule)
@@ -166,7 +166,7 @@ class XMLFile (
         )
         
         def _findRecords():
-            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
 
         self.assertRaises(ValueError, _findRecords)
         
@@ -198,7 +198,7 @@ class XMLFile (
             ( DirectoryService.recordType_resources , ()                       ),
         ):
             self.assertEquals(
-                set(r.shortName for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
         self.assertTrue(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
@@ -222,7 +222,7 @@ class XMLFile (
         )
         
         def _findRecords():
-            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
 
         self.assertRaises(ValueError, _findRecords)
 
@@ -257,7 +257,7 @@ class XMLFile (
             ( DirectoryService.recordType_resources , ()             ),
         ):
             self.assertEquals(
-                set(r.shortName for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
         self.assertEqual(set([("users", "test",)],), service.recordWithShortName(DirectoryService.recordType_locations, "my office")._proxies)
@@ -283,6 +283,6 @@ class XMLFile (
         )
         
         def _findRecords():
-            set(r.shortName for r in service.listRecords(DirectoryService.recordType_users))
+            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
 
         self.assertRaises(ValueError, _findRecords)

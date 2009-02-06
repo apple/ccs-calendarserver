@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ limitations under the License.
 <!ELEMENT accounts (user*, group*, resource*, location*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid, guid, password, name, cuaddr*, disable-calendar?)>
+  <!ELEMENT user (uid+, guid, password, name, first-name?, last-name?, email-address*, cuaddr*, disable-calendar?)>
     <!ATTLIST user repeat CDATA "1">
 
-  <!ELEMENT group (uid, guid, password, name, members, cuaddr*, disable-calendar?)>
+  <!ELEMENT group (uid+, guid, password, name, members, cuaddr*, disable-calendar?)>
     <!ATTLIST group repeat CDATA "1">
 
-  <!ELEMENT resource (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
+  <!ELEMENT resource (uid+, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
     <!ATTLIST resource repeat CDATA "1">
 
-  <!ELEMENT location (uid, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
+  <!ELEMENT location (uid+, guid, password, name, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>

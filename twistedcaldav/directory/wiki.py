@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ class WikiDirectoryRecord(DirectoryRecord):
             recordType=recordType,
             guid=None,
             uid="%s%s" % (WikiDirectoryService.UIDPrefix, shortName),
-            shortName=shortName,
+            shortNames=(shortName,),
             fullName=shortName,
             firstName="",
             lastName="",
@@ -146,7 +146,7 @@ def getWikiACL(resource, request):
 
     wikiConfig = config.Authentication.Wiki
     userID = "unauthenticated"
-    wikiID = resource.record.shortName
+    wikiID = resource.record.shortNames[0]
 
     try:
         url = str(request.authzUser.children[0])

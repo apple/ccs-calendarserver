@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,22 +106,22 @@ class XMLAccountsParser(object):
         def updateMembership(group):
             # Update group membership
             for recordType, shortName in group.members:
-                item = self.items[recordType].get(shortName, None)
+                item = self.items[recordType].get(shortName)
                 if item is not None:
-                    item.groups.add(group.shortName)
+                    item.groups.add(group.shortNames[0])
 
         def updateProxyFor(proxier):
             # Update proxy membership
             for recordType, shortName in proxier.proxies:
-                item = self.items[recordType].get(shortName, None)
+                item = self.items[recordType].get(shortName)
                 if item is not None:
-                    item.proxyFor.add((proxier.recordType, proxier.shortName))
+                    item.proxyFor.add((proxier.recordType, proxier.shortNames[0]))
 
             # Update read-only proxy membership
             for recordType, shortName in proxier.readOnlyProxies:
-                item = self.items[recordType].get(shortName, None)
+                item = self.items[recordType].get(shortName)
                 if item is not None:
-                    item.readOnlyProxyFor.add((proxier.recordType, proxier.shortName))
+                    item.readOnlyProxyFor.add((proxier.recordType, proxier.shortNames[0]))
 
         for child in node._get_childNodes():
             child_name = child._get_localName()
@@ -143,9 +143,9 @@ class XMLAccountsParser(object):
             if repeat > 1:
                 for i in xrange(1, repeat+1):
                     newprincipal = principal.repeat(i)
-                    self.items[recordType][newprincipal.shortName] = newprincipal
+                    self.items[recordType][newprincipal.shortNames[0]] = newprincipal
             else:
-                self.items[recordType][principal.shortName] = principal
+                self.items[recordType][principal.shortNames[0]] = principal
 
         # Do reverse membership mapping only after all records have been read in
         for records in self.items.itervalues():
@@ -162,7 +162,7 @@ class XMLAccountRecord (object):
         @param recordType: record type for directory entry.
         """
         self.recordType = recordType
-        self.shortName = None
+        self.shortNames = []
         self.guid = None
         self.password = None
         self.name = None
@@ -185,10 +185,12 @@ class XMLAccountRecord (object):
         done on them with the numeric value provided.
         @param ctr: an integer to substitute into text.
         """
-        if self.shortName.find("%") != -1:
-            shortName = self.shortName % ctr
-        else:
-            shortName = self.shortName
+        shortNames = []
+        for shortName in self.shortNames:
+            if shortName.find("%") != -1:
+                shortNames.append(shortName % ctr)
+            else:
+                shortNames.append(shortName)
         if self.guid and self.guid.find("%") != -1:
             guid = self.guid % ctr
         else:
@@ -223,7 +225,7 @@ class XMLAccountRecord (object):
                 calendarUserAddresses.add(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
-        result.shortName = shortName
+        result.shortNames = shortNames
         result.guid = guid
         result.password = password
         result.name = name
@@ -245,7 +247,7 @@ class XMLAccountRecord (object):
                 continue
             elif child_name == ELEMENT_SHORTNAME:
                 if child.firstChild is not None:
-                    self.shortName = child.firstChild.data.encode("utf-8")
+                    self.shortNames.append(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_GUID:
                 if child.firstChild is not None:
                     guid = child.firstChild.data.encode("utf-8")

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
                 shortNames = set(typeResource.listChildren())
-                self.assertEquals(shortNames, set(r.shortName for r in directory.listRecords(recordType)))
+                self.assertEquals(shortNames, set(r.shortNames[0] for r in directory.listRecords(recordType)))
 
                 for shortName in shortNames:
                     #print "     -> %s" % (shortName,)
@@ -131,7 +131,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalProvisioningResource.principalForShortName()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            principal = provisioningResource.principalForShortName(recordType, record.shortName)
+            principal = provisioningResource.principalForShortName(recordType, record.shortNames[0])
             self.failIf(principal is None)
             self.assertEquals(record, principal.record)
 
@@ -143,7 +143,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
             for user in directory.listRecords(DirectoryService.recordType_users):
-                userResource = provisioningResource.principalForUser(user.shortName)
+                userResource = provisioningResource.principalForUser(user.shortNames[0])
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
 
@@ -193,7 +193,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.failIf(principal is None)
             if record.enabledForCalendaring:
                 self.assertEquals(record.autoSchedule, principal.autoSchedule())
-                if record.shortName == "gemini":
+                if record.shortNames[0] == "gemini":
                     self.assertTrue(principal.autoSchedule())
                 else:
                     self.assertFalse(principal.autoSchedule())

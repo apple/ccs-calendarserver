@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ else:
                 recordType            = DirectoryService.recordType_users,
                 guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
                 nodeName              = "/LDAPv2/127.0.0.1",
-                shortName             = "user",
+                shortNames            = ("user",),
                 fullName              = "Some user",
                 firstName             = "Some",
                 lastName              = "User",

@@ -127,7 +127,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         request.checkingSACL = True
         principal = (yield request.locateResource(authzUser.children[0].children[0].data))
         delattr(request, "checkingSACL")
-        username = principal.record.shortName
+        username = principal.record.shortNames[0]
 
         if RootResource.CheckSACL(username, self.saclService) != 0:
             log.msg("User %r is not enabled with the %r SACL" % (username, self.saclService,))
