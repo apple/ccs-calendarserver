@@ -36,4 +36,4 @@ if __name__ == "__main__":
             sys.path[0:0] = path.split(":")
 
     from twistedcaldav.admin.script import run
-    main()
+    run()
