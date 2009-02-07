@@ -428,6 +428,21 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         return d
 
     ##
+    # DAVResource
+    ##
+
+    def displayName(self):
+        if 'record' in dir(self):
+            if self.record.fullName:
+                return self.record.fullName
+            elif self.record.shortNames:
+                return self.record.shortNames[0]
+            else:
+                return super(DAVResource, self).displayName()
+        else:
+            return super(DAVResource, self).displayName()
+
+    ##
     # CalDAV
     ##
 
