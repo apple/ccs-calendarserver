@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ class iTipProcessing(object):
         if method:
             calendar.removeProperty(method)
         
-        if config.Scheduling.CalDAV.OldDraftCompatibility and recipient and not autoprocessing:
-            iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient)
+        if recipient and not autoprocessing:
+            iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
 
         return calendar
         
@@ -135,8 +135,8 @@ class iTipProcessing(object):
                     component = component.duplicate()
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
                     calendar.addComponent(component)
-                    if config.Scheduling.CalDAV.OldDraftCompatibility and recipient and not autoprocessing:
-                        iTipProcessing.fixForiCal3((component,), recipient)
+                    if recipient and not autoprocessing:
+                        iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
 
             # Write back the modified object
             return calendar, props_changed, rids
@@ -409,9 +409,10 @@ class iTipProcessing(object):
             [to_component.addProperty(comment) for comment in private_comments]
     
     @staticmethod
-    def fixForiCal3(components, recipient):
+    def fixForiCal3(components, recipient, compatibilityMode):
         # For each component where the ATTENDEE property of the recipient has PARTSTAT
         # NEEDS-ACTION we need to add X-APPLE-NEEDS-REPLY:TRUE
+        # We also add TRANSP:TRANSPARENT
         for component in components:
             if component.name() == "VTIMEZONE":
                 continue
@@ -419,7 +420,9 @@ class iTipProcessing(object):
             if attendee:
                 partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
                 if partstat == "NEEDS-ACTION":
-                    component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
+                    if compatibilityMode:
+                        component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
+                    component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
 
 class iTipGenerator(object):
     
