@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+from __future__ import with_statement
+import gettext
+import inspect
+import datetime
+import os
+import struct
+import array
+from locale import normalize
+from twistedcaldav.config import config
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 """
 Localization module
@@ -83,12 +96,6 @@ or with different punctuation.
 
 TODO: recurrence
 """
-
-
-import gettext
-import inspect
-import datetime
-from twistedcaldav.config import config
 
 
 class translationTo(object):
@@ -333,3 +340,159 @@ monthsAbbrev = [
     _("NOV"),
     _("DEC"),
 ]
+
+
+
+##
+# String file conversion routines
+##
+
+def processLocalizationFiles(settings):
+
+    lprojRoot = settings.TranslationsDirectory
+    gnuRoot = settings.LocalesDirectory
+
+    # Do we have an Apple translations directory?
+    if lprojRoot and gnuRoot and os.path.exists(lprojRoot):
+
+        log.info("Looking for Apple .lproj directories in %s" % (lprojRoot,))
+
+        # Make sure the gnutext translations directory exists
+        if not os.path.exists(gnuRoot):
+            os.mkdir(gnuRoot)
+
+        # Scan for Apple translations (directories ending in .lproj)
+        for item in os.listdir(lprojRoot):
+            if item.endswith(".lproj"):
+                stringsFile = os.path.join(lprojRoot, item,
+                    'calendarserver.strings')
+                localeName = normalize(item[:-6])
+                moFile = os.path.join(gnuRoot, localeName, 'LC_MESSAGES',
+                    'calendarserver.mo')
+                if os.path.exists(stringsFile):
+                    if (not os.path.exists(moFile) or
+                        os.stat(stringsFile).st_mtime >
+                        os.stat(moFile).st_mtime):
+                        log.info("Converting %s to %s" % (stringsFile, moFile))
+                        try:
+                            convertStringsFile(stringsFile, moFile)
+                        except Exception, e:
+                            log.error("Failed to convert %s to %s: %s" %
+                                (stringsFile, moFile, e))
+                    else:
+                        log.info("%s is up to date" % (moFile,))
+
+class ParseError(Exception):
+    pass
+
+def parseString(text, index=0):
+
+    value = ""
+
+    while index < len(text):
+        ch = text[index]
+
+        if ch == '"':
+            if text[index-1] != "\\":
+                # At unescaped quote
+                if value:
+                    # ...marking end of string; return it
+                    return (value, index+1)
+                else:
+                    # ...marking beginning of string; skip it
+                    index += 1
+                continue
+
+        value += text[index]
+        index += 1
+
+    # no closing quote "
+    raise ParseError("No closing quote")
+
+def parseLine(line):
+
+    key, index = parseString(line)
+    remaining = line[index:].strip()
+    if remaining[0] != "=":
+        raise ParseError("Expected equals sign")
+    remaining = remaining[1:].strip()
+    value, index = parseString(remaining)
+    return (key, value)
+
+
+def convertStringsFile(src, dest):
+    strings = { }
+
+    dir = os.path.dirname(dest)
+
+    if not os.path.exists(dir):
+        try:
+            os.makedirs(dir)
+        except OSError:
+            # can't create directory to hold .po file
+            return
+
+    with open(src) as input:
+        lines = input.readlines()
+
+    for num, line in enumerate(lines):
+        line = line.strip()
+        if not line.startswith('"'):
+            continue
+
+        try:
+            key, value = parseLine(line)
+        except ParseError, err:
+            log.error("Error on line %d of %s: %s" % (num+1, src, str(err)))
+            raise
+
+        strings[key] = value
+
+    # The format of GNUtext MO files is described here:
+    # http://www.gnu.org/software/autoconf/manual/gettext/MO-Files.html
+
+    originals = strings.keys()
+    originals.sort()
+
+    descriptors = []
+    keys = ''
+    values = ''
+
+    for original in originals:
+        translation = strings[original]
+
+        descriptors.append((len(keys), len(original), len(values),
+            len(translation)))
+        keys += original + '\0' # <NUL> terminated
+        values += translation + '\0'
+
+    # The header is 28 bytes, each descriptor is 8 bytes, with two descriptors
+    # per string (one pointing at original, one pointing at translation)
+    keysOffset = 28 + len(originals) * 2 * 8
+    valuesOffset = keysOffset + len(keys)
+
+    keyDescriptors = []
+    valueDescriptors = []
+    for origOffset, origLen, transOffset, transLen in descriptors:
+        keyDescriptors.append(origLen)
+        keyDescriptors.append(keysOffset + origOffset)
+        valueDescriptors.append(transLen)
+        valueDescriptors.append(valuesOffset + transOffset)
+
+    result = struct.pack(
+        "Iiiiiii",
+        0x950412DEL,         # magic number
+        0,                   # file format revision
+        len(originals),      # number of strings
+        28,                  # offset of table with original strings
+        28+len(originals)*8, # offset of table with translation strings
+        0,                   # size of hashing table
+        0                    # offset of hashing table
+    )
+    result += array.array("i", keyDescriptors).tostring()
+    result += array.array("i", valueDescriptors).tostring()
+    result += keys
+    result += values
+
+    with open(dest, "wb") as outFile:
+        outFile.write(result)

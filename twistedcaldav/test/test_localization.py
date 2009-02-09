@@ -62,7 +62,7 @@ class LocalizationTests(TestCase):
 
     def test_TimeFormattingAMPM(self):
 
-        with translationTo('en', localeDir=localeDir) as t:
+        with translationTo('English', localeDir=localeDir) as t:
 
             self.assertEquals(t.dtTime(time(0,0)), "12:00 AM")
             self.assertEquals(t.dtTime(time(12,0)), "12:00 PM")
@@ -82,7 +82,7 @@ class LocalizationTests(TestCase):
 
     def test_CalendarFormatting(self):
 
-        with translationTo('en', localeDir=localeDir) as t:
+        with translationTo('English', localeDir=localeDir) as t:
 
             comp = data[0][1]
             self.assertEquals(t.date(comp), "Saturday, October 25, 2008")

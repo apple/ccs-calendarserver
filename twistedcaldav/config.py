@@ -344,8 +344,9 @@ defaultConfig = {
     # Localization
     #
     "Localization" : {
-        "LocalesDirectory" : "/usr/share/caldavd/locales",
-        "Language" : "en",
+        "TranslationsDirectory" : "/usr/share/caldavd/share/translations",
+        "LocalesDirectory" : "/usr/share/caldavd/share/locales",
+        "Language" : "English",
     },
 
 

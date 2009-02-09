@@ -76,6 +76,7 @@ from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.util import getNCPU
+from twistedcaldav.localization import processLocalizationFiles
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -716,6 +717,9 @@ class CalDAVServiceMaker (LoggingMixIn):
 
     def makeService_Combined(self, options):
         s = MultiService()
+
+        # Process localization string files
+        processLocalizationFiles(config.Localization)
 
         # The logger service must come before the monitor service, otherwise
         # we won't know which logging port to pass to the slaves' command lines
