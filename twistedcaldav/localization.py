@@ -21,6 +21,7 @@ import datetime
 import os
 import struct
 import array
+import codecs
 from locale import normalize
 from twistedcaldav.config import config
 from twistedcaldav.log import Logger
@@ -420,6 +421,12 @@ def parseLine(line):
     return (key, value)
 
 
+boms = {
+    codecs.BOM_UTF8 : 'UTF8',
+    codecs.BOM_UTF16_BE : 'UTF-16BE',
+    codecs.BOM_UTF16_LE : 'UTF-16LE',
+}
+
 def convertStringsFile(src, dest):
     strings = { }
 
@@ -433,9 +440,19 @@ def convertStringsFile(src, dest):
             return
 
     with open(src) as input:
-        lines = input.readlines()
+        contents = input.read()
+        for bom, encoding in boms.iteritems():
+            if contents.startswith(bom):
+                contents = contents[len(bom):]
+                break
+        else:
+            encoding = "UTF8"
+
+    contents = contents.decode(encoding)
+    lines = contents.split("\n")
 
     for num, line in enumerate(lines):
+        print num, line
         line = line.strip()
         if not line.startswith('"'):
             continue
@@ -443,7 +460,7 @@ def convertStringsFile(src, dest):
         try:
             key, value = parseLine(line)
         except ParseError, err:
-            log.error("Error on line %d of %s: %s" % (num+1, src, str(err)))
+            log.info("Error on line %d of %s: %s" % (num+1, src, str(err)))
             raise
 
         strings[key] = value
@@ -461,10 +478,13 @@ def convertStringsFile(src, dest):
     for original in originals:
         translation = strings[original]
 
-        descriptors.append((len(keys), len(original), len(values),
-            len(translation)))
-        keys += original + '\0' # <NUL> terminated
-        values += translation + '\0'
+        origStr = original.encode("UTF-8")
+        transStr = translation.encode("UTF-8")
+
+        descriptors.append((len(keys), len(origStr), len(values),
+            len(transStr)))
+        keys += origStr + '\0' # <NUL> terminated
+        values += transStr + '\0'
 
     # The header is 28 bytes, each descriptor is 8 bytes, with two descriptors
     # per string (one pointing at original, one pointing at translation)
