@@ -236,6 +236,8 @@ class iCalDiff(object):
             return calendar
 
         # Do straight comparison without alarms
+        self.originalCalendar1 = self.calendar1
+        self.originalCalendar2 = self.calendar2
         self.calendar1 = duplicateAndNormalize(self.calendar1)
         self.calendar2 = duplicateAndNormalize(self.calendar2)
 
@@ -250,15 +252,27 @@ class iCalDiff(object):
             return False, False, ()
         
         # Make sure the same VTIMEZONE components appear
+        tzidRemapping = False
         if not self._compareVTIMEZONEs():
-            self._logDiffError("attendeeDiff: VTIMEZONEs do not match")
-            return False, False, ()
+            # Not an error any more. Instead we need to merge back the original TZIDs
+            # into the event being written.
+            tzidRemapping = True
         
         # Compare each component instance from the new calendar with each derived
         # component instance from the old one
         result = self._compareComponents()
         if not result[0]:
             self._logDiffError("attendeeDiff: Mismatched calendar objects")
+        else:
+            # May need to do some rewriting
+            if tzidRemapping:
+                try:
+                    self._remapTZIDs()
+                    self._logDiffError("attendeeDiff: VTIMEZONEs re-mapped")
+                except ValueError, e:
+                    self._logDiffError("attendeeDiff: VTIMEZONE re-mapping failed: %s" % (str(e),))
+                    return False, False, ()
+
         return result
     
     def _attendeeMerge(self):
@@ -337,6 +351,15 @@ class iCalDiff(object):
             log.debug("VCALENDAR properties differ: %s" % (propdiff,))
         return result
 
+    @staticmethod
+    def _extractTZIDs(calendar):
+
+        tzids = set()
+        for component in calendar.subcomponents():
+            if component.name() == "VTIMEZONE":
+                tzids.add(component.propertyValue("TZID"))
+        return tzids
+
     def _compareVTIMEZONEs(self):
 
         # FIXME: clients may re-write timezones so the best we can do is
@@ -344,20 +367,116 @@ class iCalDiff(object):
         # of a VTIMEZONE and thus could show events at different times than the
         # organizer.
         
-        def extractTZIDs(calendar):
-
-            tzids = set()
-            for component in calendar.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    tzids.add(component.propertyValue("TZID"))
-            return tzids
-        
-        tzids1 = extractTZIDs(self.calendar1)
-        tzids2 = extractTZIDs(self.calendar2)
+        tzids1 = self._extractTZIDs(self.calendar1)
+        tzids2 = self._extractTZIDs(self.calendar2)
         result = tzids1 == tzids2
         if not result:
             log.debug("Different VTIMEZONES: %s %s" % (tzids1, tzids2))
         return result
+
+    def _remapTZIDs(self):
+        """
+        Re-map TZIDs that changed between the existing calendar data and the new data
+        being written for the attendee.
+        """
+
+        # Do master component re-map first
+        old_master = self.originalCalendar1.masterComponent()
+        new_master = self.originalCalendar2.masterComponent()
+        self._remapTZIDsOnComponent(old_master, new_master)
+        
+        # Now do each corresponding overridden component
+        for newComponent in self.originalCalendar2.subcomponents():
+            
+            # Make sure we have an appropriate component
+            if newComponent.name() == "VTIMEZONE":
+                continue
+            rid = newComponent.getRecurrenceIDUTC()
+            if rid is None:
+                continue
+
+            # Find matching component in new calendar
+            oldComponent = self.originalCalendar1.overriddenComponent(rid)
+            if oldComponent is None:
+                # Derive a new instance from the new calendar and transfer attendee status
+                oldComponent = self.originalCalendar2.deriveInstance(rid)
+
+            if oldComponent:
+                self._remapTZIDsOnComponent(oldComponent, newComponent)
+        
+        
+        # Now manipulate the VTIMEZONE components in the calendar data
+        for newComponent in tuple(self.originalCalendar2.subcomponents()):
+            # Make sure we have an appropriate component
+            if newComponent.name() == "VTIMEZONE":
+                self.originalCalendar2.removeComponent(newComponent)
+                
+        # The following statement is required to force vobject to serialize the
+        # calendar data and in the process add any missing VTIMEZONEs as needed.
+        _ignore = str(self.originalCalendar2)
+        
+    def _remapTZIDsOnComponent(self, oldComponent, newComponent):
+        """
+        Re-map TZIDs that changed between the existing calendar data and the new data
+        being written for the attendee.
+        """
+
+        # Look at each property that culd contain a TZID:
+        # DTSTART, DTEND, RDATE, EXDATE, RECURRENCE-ID, DUE.
+        # NB EXDATE/RDATE can occur multiple times - special case
+        checkPropertiesOneOff = (
+            "DTSTART",
+            "DTEND",
+            "RECURRENCE-ID",
+            "DUE",
+        )
+        checkPropertiesMultiple = (
+            "RDATE",
+            "EXDATE",
+        )
+        
+        for propName in checkPropertiesOneOff:
+            oldProp = oldComponent.getProperty(propName)
+            newProp = newComponent.getProperty(propName)
+            
+            # Special case behavior where DURATIOn is mapped to DTEND
+            if propName == "DTEND" and oldProp is None and newProp is not None:
+                oldProp = oldComponent.getProperty("DTSTART")
+
+            # Transfer tzinfo from old property value to the new one
+            if oldProp is not None and newProp is not None:
+                if "X-VOBJ-ORIGINAL-TZID" in oldProp.params():
+                    oldTZID = oldProp.paramValue("X-VOBJ-ORIGINAL-TZID")
+                    if "X-VOBJ-ORIGINAL-TZID" in newProp.params():
+                        newTZID = newProp.paramValue("X-VOBJ-ORIGINAL-TZID")
+                        
+                        if oldTZID != newTZID:
+                            newProp.params()["X-VOBJ-ORIGINAL-TZID"][0] = oldTZID
+                            newProp.setValue(newProp.value().replace(tzinfo=oldProp.value().tzinfo))
+                    else:
+                        raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
+                        
+        for propName in checkPropertiesMultiple:
+            oldProps = oldComponent.properties(propName)
+            newProps = newComponent.properties(propName)
+            oldTZID = None
+            oldTzinfo = None
+            for prop in oldProps:
+                if "X-VOBJ-ORIGINAL-TZID" in prop.params():
+                    if oldTZID and oldTZID != prop.paramValue("X-VOBJ-ORIGINAL-TZID"):
+                        raise ValueError("Cannot handle different TZIDs on multiple %s" % (propName,))
+                    else:
+                        oldTZID = prop.paramValue("X-VOBJ-ORIGINAL-TZID")
+                        oldTzinfo = prop.value()[0].tzinfo
+            for prop in newProps:
+                if "X-VOBJ-ORIGINAL-TZID" in prop.params():
+                    if oldTZID:
+                        prop.params()["X-VOBJ-ORIGINAL-TZID"][0] = oldTZID
+                        prop.setValue([item.replace(tzinfo=oldTzinfo) for item in prop.value()])
+                    else:
+                        raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
+                elif oldTZID:
+                    raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
 
     def _compareComponents(self):
         
