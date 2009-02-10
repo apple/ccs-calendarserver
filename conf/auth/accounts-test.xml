@@ -43,6 +43,7 @@ limitations under the License.
     <name>User %02d</name>
     <first-name>User</first-name>
     <last-name>%02d</last-name>
+    <email-address>user%02d@example.com</email-address>
     <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">

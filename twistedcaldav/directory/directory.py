@@ -28,6 +28,7 @@ __all__ = [
 ]
 
 import sys
+import types
 
 from zope.interface import implements
 
@@ -181,20 +182,30 @@ class DirectoryService(LoggingMixIn):
         # service
 
         def fieldMatches(fieldValue, value, caseless, matchType):
-            if caseless:
-                fieldValue = fieldValue.lower()
-                value = value.lower()
-
-            if matchType == 'starts-with':
-                return fieldValue.startswith(value)
-            elif matchType == 'contains':
-                try:
-                    discard = fieldValue.index(value)
-                    return True
-                except ValueError:
-                    return False
-            else: # exact
-                return fieldValue == value
+            if fieldValue is None:
+                return False
+            elif type(fieldValue) in types.StringTypes:
+                fieldValue = (fieldValue,)
+            
+            for testValue in fieldValue:
+                if caseless:
+                    testValue = testValue.lower()
+                    value = value.lower()
+    
+                if matchType == 'starts-with':
+                    if testValue.startswith(value):
+                        return True
+                elif matchType == 'contains':
+                    try:
+                        _ignore_discard = testValue.index(value)
+                        return True
+                    except ValueError:
+                        pass
+                else: # exact
+                    if testValue == value:
+                        return True
+                    
+            return False
 
         def recordMatches(record):
             if operand == "and":
