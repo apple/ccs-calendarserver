@@ -949,6 +949,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             notificationsArgv = [
                 sys.executable,
                 config.Twisted.twistd,
+                "--reactor=%s" % (config.Twisted.reactor,),
                 "-n", "caldav_notifier",
                 "-f", options["config"],
             ]
@@ -964,6 +965,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             mailGatewayArgv = [
                 sys.executable,
                 config.Twisted.twistd,
+                "--reactor=%s" % (config.Twisted.reactor,),
                 "-n", "caldav_mailgateway",
                 "-f", options["config"],
             ]

@@ -30,6 +30,8 @@ limitations under the License.
   <array>
     <string>/usr/sbin/caldavd</string>
     <string>-X</string>
+    <string>-R</string>
+    <string>caldav_kqueue</string>
   </array>
 
   <key>InitGroups</key>
