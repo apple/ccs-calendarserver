@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import sys
 import os
 from random import random
 from uuid import UUID
+
+from xml.parsers.expat import ExpatError
 
 import opendirectory
 import dsattributes
@@ -355,7 +357,7 @@ class OpenDirectoryService(DirectoryService):
                 
         return result
 
-    def _parseResourceInfo(self, plist, guid, shortname):
+    def _parseResourceInfo(self, plist, guid, recordType, shortname):
         """
         Parse OD ResourceInfo attribute and extract information that the server needs.
 
@@ -373,14 +375,12 @@ class OpenDirectoryService(DirectoryService):
             autoaccept = wpframework.get("AutoAcceptsInvitation", False)
             proxy = wpframework.get("CalendaringDelegate", None)
             read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-        except AttributeError:
+        except (ExpatError, AttributeError), e:
             self.log_error(
-                "Failed to parse ResourceInfo attribute of record %s (%s): %s" %
-                (shortname, guid, plist,)
+                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
+                (recordType, shortname, guid, e, plist,)
             )
-            autoaccept = False
-            proxy = None
-            read_only_proxy = None
+            raise ValueError("Invalid ResourceInfo")
 
         return (autoaccept, proxy, read_only_proxy,)
 
@@ -699,7 +699,10 @@ class OpenDirectoryService(DirectoryService):
             if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
-                    autoSchedule, proxy, read_only_proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordShortName)
+                    try:
+                        autoSchedule, proxy, read_only_proxy = self._parseResourceInfo(resourceInfo, recordGUID, recordType, recordShortName)
+                    except ValueError:
+                        continue
                     if proxy:
                         proxyGUIDs = (proxy,)
                     if read_only_proxy:
