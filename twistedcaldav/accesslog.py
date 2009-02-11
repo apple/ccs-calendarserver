@@ -60,13 +60,13 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
     def emit(self, eventDict):
 
         if eventDict.get('interface') is iweb.IRequest:
-
+            
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
             firstLine = '%s %s HTTP/%s' %(
                 request.method,
-                request.uri,
+                request.uri.replace('"', '%22'),
                 '.'.join([str(x) for x in request.clientproto]))
     
             # Try to determine authentication and authorization identifiers

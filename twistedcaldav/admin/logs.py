@@ -26,13 +26,13 @@ import datetime
 import sys
 import time
 
-from twext.python.plistlib import readPlist, writePlist
+from twext.python.plistlib import readPlist, writePlist, Dict
 
 from twistedcaldav.admin import util
 
 PLIST_VERSION = 4
 
-statsTemplate = plistlib.Dict(
+statsTemplate = Dict(
     version=PLIST_VERSION,
     bytesOut="0",
     startDate="",
@@ -271,6 +271,11 @@ class LogAction(object):
                         continue
                     else:
                         pline = parseCLFLine(line)
+                        
+                        # Warn about problems but continue processing the file.
+                        if (len(pline) < 10):
+                            print "\nWarning: Skipping line %d: %s" % (line_count, line)
+                            continue
                         
                         if self.stats.addDate(pline[3]):
                             self.stats.addBytes(int(pline[6]))
