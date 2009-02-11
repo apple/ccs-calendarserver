@@ -742,6 +742,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             "PATH": os.environ.get("PATH", ""),
             "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
         }
+        if "KRB5_KTNAME" in os.environ:
+            parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
 
         hosts = []
         sslHosts = []
