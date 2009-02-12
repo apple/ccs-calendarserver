@@ -28,8 +28,6 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
-from twisted.web2.dav.idav import IDAVResource
-from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL, normalizeURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response

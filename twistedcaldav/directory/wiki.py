@@ -23,7 +23,6 @@ __all__ = [
     "WikiDirectoryService",
 ]
 
-from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
 from twisted.web.xmlrpc import Proxy, Fault
 from twisted.web2.http import HTTPError, StatusResponse

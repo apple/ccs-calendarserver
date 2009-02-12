@@ -22,7 +22,6 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
-from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits

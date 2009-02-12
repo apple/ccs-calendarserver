@@ -25,7 +25,6 @@ from urllib import unquote
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL

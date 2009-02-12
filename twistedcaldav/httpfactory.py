@@ -16,7 +16,7 @@
 
 from twisted.internet import protocol
 from twisted.python import log
-from twisted.web2.channel.http import HTTPFactory, HTTPChannel
+from twisted.web2.channel.http import HTTPFactory
 from twisted.web2.http import Request, RedirectResponse
 
 from twistedcaldav.config import config

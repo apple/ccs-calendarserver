@@ -33,7 +33,6 @@ __all__ = [
 from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
-import itertools
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue

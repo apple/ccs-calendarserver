@@ -59,8 +59,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
     TwistedScheduleMatchETags
-from twistedcaldav.extensions import DAVFile, DirectoryPrincipalPropertySearchMixIn
-from twistedcaldav.extensions import CachingXattrPropertyStore
+from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
 from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
