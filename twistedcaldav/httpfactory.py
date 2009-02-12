@@ -31,14 +31,17 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
     def connectionMade(self):
         if config.MoreAccessLogData:
             log.msg(overloaded=self)
-        self.transport.write("HTTP/1.0 503 Service Unavailable\r\n"
-                             "Content-Type: text/html\r\n"
-                             "Retry-After: " + config.HTTPRetryAfter + "\r\n"
-                             "Connection: close\r\n\r\n"
-                             "<html><head><title>503 Service Unavailable</title></head>"
-                             "<body><h1>Service Unavailable</h1>"
-                             "The server is currently overloaded, "
-                             "please try again later.</body></html>")
+        self.transport.write(
+            "HTTP/1.0 503 Service Unavailable\r\n"
+            "Content-Type: text/html\r\n"
+            "Retry-After: %(retry)d\r\n"
+            "Connection: close\r\n\r\n"
+            "<html><head><title>503 Service Unavailable</title></head>"
+            "<body><h1>Service Unavailable</h1>"
+            "The server is currently overloaded, "
+            "please try again later.</body></html>"
+            % { "retry": config.HTTPRetryAfter }
+        )
         self.transport.loseConnection()
 
 class HTTP503LoggingFactory(HTTPFactory):
