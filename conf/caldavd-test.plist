@@ -615,9 +615,7 @@
     <key>ResponseCompression</key>
     <false/>
     
-    <!-- The retry-after value to return with a 503 error.  The value of this field can be either
-         an integer number of seconds (e.g. 180) or an HTTP-date 
-         (e.g. Sat, 14 Feb 2009 23:59:59 GMT). -->
+    <!-- The retry-after value (in seconds) to return with a 503 error. -->
     <key>HTTPRetryAfter</key>
     <string>180</string>
 
