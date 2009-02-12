@@ -654,7 +654,7 @@ class Config (object):
                 # Get password from keychain.  If not there, fall back to what
                 # is in the plist.
                 try:
-                    password = getPasswordFromKeychain("icalserver.xmpp")
+                    password = getPasswordFromKeychain(service["JID"])
                     service["Password"] = password
                     log.info("XMPP password successfully retreived from keychain")
                 except KeychainAccessError:

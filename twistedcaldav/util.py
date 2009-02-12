@@ -137,12 +137,12 @@ class KeychainAccessError(Exception):
 
 passwordRegExp = re.compile(r'password: "(.*)"')
 
-def getPasswordFromKeychain(label):
+def getPasswordFromKeychain(account):
     if os.path.isfile("/usr/bin/security"):
         child = Popen(
             args=[
                 "/usr/bin/security", "find-generic-password",
-                "-l", label, "-g",
+                "-a", account, "-g",
             ],
             stdout=PIPE, stderr=STDOUT,
         )
@@ -153,7 +153,7 @@ def getPasswordFromKeychain(label):
         else:
             match = passwordRegExp.search(output)
             if not match:
-                error = "Password for %s not found in keychain" % (label,)
+                error = "Password for %s not found in keychain" % (account,)
                 raise KeychainPasswordNotFound(error)
             else:
                 return match.group(1)
