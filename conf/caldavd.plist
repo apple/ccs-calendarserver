@@ -325,22 +325,6 @@
           <!-- PubSub service address -->
           <key>ServiceAddress</key>
           <string>pubsub.xmpp.host.name</string>
-
-          <key>NodeConfiguration</key>
-          <dict>
-            <key>pubsub#deliver_payloads</key>
-            <string>1</string>
-            <key>pubsub#persist_items</key>
-            <string>1</string>
-          </dict>
-
-          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
-          <key>KeepAliveSeconds</key>
-          <integer>120</integer>
-
-          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
-          <key>HeartbeatMinutes</key>
-          <integer>30</integer>
         </dict>
       </dict>
     </dict>
@@ -363,14 +347,6 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>OldDraftCompatibility</key>
-        <true/>
-        <key>ScheduleTagCompatibility</key>
-        <true/>
-        <key>DefaultCalendarProvisioned</key>
-        <true/>
-        <key>EnablePrivateComments</key>
-        <true/>
       </dict>
 
       <!-- iSchedule protocol options -->
@@ -473,16 +449,6 @@
     <!-- Service ACLs (Mac OS X) -->
     <key>EnableSACLs</key>
     <false/>
-
-    <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
-    <key>ResponseCompression</key>
-    <true/>
-    
-    <!-- The retry-after value to return with a 503 error.  The value of this field can be either
-         an integer number of seconds (e.g. 180) or an HTTP-date 
-         (e.g. Sat, 14 Feb 2009 23:59:59 GMT). -->
-    <key>HTTPRetryAfter</key>
-    <string>180</string>
 
 
   </dict>
