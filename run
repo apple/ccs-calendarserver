@@ -695,6 +695,14 @@ caldavtester="${top}/CalDAVTester";
 svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 3653;
 
 #
+# PyFlakes
+#
+
+pyflakes="${top}/Pyflakes";
+
+svn_get "Pyflakes" "${pyflakes}" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
+
+#
 # Calendar Server
 #
 
