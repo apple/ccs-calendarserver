@@ -386,6 +386,11 @@ defaultConfig = {
     # RFC2616 Section 3.5
     "ResponseCompression": True,
 
+    # The retry-after value to return with a 503 error
+    # Can be either a duration (in seconds) or a specific time (e.g.
+    # Fri, 31 Dec 1999 23:59:59 GMT
+    "HTTPRetryAfter": "180",
+
     # Profiling options
     "Profiling": {
         "Enabled": False,

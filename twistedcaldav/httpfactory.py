@@ -33,6 +33,7 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
             log.msg(overloaded=self)
         self.transport.write("HTTP/1.0 503 Service Unavailable\r\n"
                              "Content-Type: text/html\r\n"
+                             "Retry-After: " + config.HTTPRetryAfter + "\r\n"
                              "Connection: close\r\n\r\n"
                              "<html><head><title>503 Service Unavailable</title></head>"
                              "<body><h1>Service Unavailable</h1>"

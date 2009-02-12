@@ -614,6 +614,12 @@
     <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
     <key>ResponseCompression</key>
     <false/>
+    
+    <!-- The retry-after value to return with a 503 error.  The value of this field can be either
+         an integer number of seconds (e.g. 180) or an HTTP-date 
+         (e.g. Sat, 14 Feb 2009 23:59:59 GMT). -->
+    <key>HTTPRetryAfter</key>
+    <string>180</string>
 
     <!-- A unix socket used for communication between the child and master processes.
          An empty value tells the server to use a tcp socket instead. -->
