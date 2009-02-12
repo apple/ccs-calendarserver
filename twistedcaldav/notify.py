@@ -54,6 +54,7 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav import memcachepool
 from zope.interface import Interface, implements
 from fnmatch import fnmatch
+import uuid
 
 __all__ = [
     "ClientNotifier",
@@ -1079,7 +1080,18 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
 
         self.notifier = notifier
         self.settings = settings
+
         self.jid = settings['JID']
+
+        # Ignore JID resource from plist
+        slash = self.jid.find("/")
+        if slash > -1:
+            self.jid = self.jid[0:slash]
+
+        # Generate a unique JID resource value
+        resource = "icalserver.%s" % uuid.uuid4().hex
+        self.jid = "%s/%s" % (self.jid, resource)
+
         self.keepAliveSeconds = settings.get('KeepAliveSeconds', 120)
         self.xmlStream = None
         self.presenceCall = None
