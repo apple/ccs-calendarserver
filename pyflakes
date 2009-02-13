@@ -12,9 +12,9 @@ if [ $# -eq 0 ]; then
   set - calendarserver twistedcaldav twext;
 fi;
 
-cd "${wd}" && "${flakes}/bin/pyflakes" "$@"                              |
-  grep -ve "undefined name '_'"                                          |
-  grep -ve "redefinition of unused"                                      |
-  grep -ve "'from .* import \\*' used; unable to detect undefined names" |
-  grep -ve "redefinition of function"                                    |
-  cat;
+cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
+  -e "/undefined name '_'/d"                                          \
+  -e "/redefinition of unused/d"                                      \
+  -e "/'from .* import \\*' used; unable to detect undefined names/d" \
+  -e "/redefinition of function/d"                                    \
+  ;
