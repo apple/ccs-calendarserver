@@ -82,6 +82,8 @@ serviceDefaultParams = {
 }
 
 defaultConfig = {
+    # Note: Don't use None values below; that confuses the command-line parser.
+
     #
     # Public network address information
     #
@@ -95,8 +97,6 @@ defaultConfig = {
     "HTTPPort": 0,        # HTTP port (0 to disable HTTP)
     "SSLPort" : 0,        # SSL port (0 to disable HTTPS)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-
-    # Note: we'd use None above, but that confuses the command-line parser.
 
     #
     # Network address configuration information
@@ -114,6 +114,8 @@ defaultConfig = {
     "DocumentRoot"         : "/Library/CalendarServer/Documents",
     "UserQuota"            : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
+
+    "Aliases": {},
 
     #
     # Directory service

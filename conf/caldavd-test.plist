@@ -81,6 +81,16 @@
     <key>DocumentRoot</key>
     <string>twistedcaldav/test/data/</string>
 
+    <!-- Child aliases -->
+    <key>Aliases</key>
+    <dict>
+      <key>webcal</key>
+      <dict>
+        <key>path</key>
+        <string>/usr/share/collaboration</string>
+      </dict>
+    </dict>
+
     <!-- User quota (in bytes) -->
     <key>UserQuota</key>
     <integer>104857600</integer><!-- 100Mb -->

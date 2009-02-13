@@ -47,6 +47,7 @@ from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
 from twisted.web2.channel import HTTPFactory
+from twisted.web2.static import File as FileResource
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
@@ -482,6 +483,14 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         root.putChild("principals", principalCollection)
         root.putChild("calendars", calendarCollection)
+
+        for name, info in config.Aliases.iteritems():
+            if os.path.sep in name or not info.get("path", None):
+                self.log_error("Invalid alias: %s" % (name,))
+                continue
+            self.log_info("Adding alias %s -> %s" % (name, info["path"]))
+            resource = FileResource(info["path"])
+            root.putChild(name, resource)
 
         # Timezone service is optional
         if config.EnableTimezoneService:
