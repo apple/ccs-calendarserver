@@ -1013,11 +1013,18 @@ class Component (object):
         """
         @raise ValueError: if the given calendar data is not valid.
         """
-        if self.name() != "VCALENDAR": raise ValueError("Not a calendar")
-        if not self.resourceType(): raise ValueError("Unknown resource type")
+        if self.name() != "VCALENDAR":
+            log.debug("Not a calendar: %s" % (self,))
+            raise ValueError("Not a calendar")
+        if not self.resourceType():
+            log.debug("Unknown resource type: %s" % (self,))
+            raise ValueError("Unknown resource type")
 
         version = self.propertyValue("VERSION")
-        if version != "2.0": raise ValueError("Not a version 2.0 iCalendar (version=%s)" % (version,))
+        if version != "2.0":
+            msg = "Not a version 2.0 iCalendar (version=%s)" % (version,)
+            log.debug(msg)
+            raise ValueError(msg)
 
     def validateForCalDAV(self):
         """
@@ -1028,7 +1035,9 @@ class Component (object):
 
         # Disallowed in CalDAV-Access-08, section 4.1
         if self.hasProperty("METHOD"):
-            raise ValueError("METHOD property is not allowed in CalDAV iCalendar data")
+            msg = "METHOD property is not allowed in CalDAV iCalendar data"
+            log.debug(msg)
+            raise ValueError(msg)
 
         self.validateComponentsForCalDAV(False)
 
@@ -1054,7 +1063,9 @@ class Component (object):
         for subcomponent in self.subcomponents():
             # Disallowed in CalDAV-Access-08, section 4.1
             if not method and subcomponent.hasProperty("METHOD"):
-                raise ValueError("METHOD property is not allowed in CalDAV iCalendar data")
+                msg = "METHOD property is not allowed in CalDAV iCalendar data"
+                log.debug(msg)
+                raise ValueError(msg)
         
             if subcomponent.name() == "VTIMEZONE":
                 timezones.add(subcomponent.propertyValue("TZID"))
@@ -1063,29 +1074,36 @@ class Component (object):
                     ctype = subcomponent.name()
                 else:
                     if ctype != subcomponent.name():
-                        raise ValueError("Calendar resources may not contain more than one type of calendar " +
-                                         "component (%s and %s found)" % (ctype, subcomponent.name()))
+                        msg = "Calendar resources may not contain more than one type of calendar component (%s and %s found)" % (ctype, subcomponent.name())
+                        log.debug(msg)
+                        raise ValueError(msg)
         
                 if ctype not in allowedComponents:
-                    raise ValueError("Component type: %s not allowed" % (ctype,))
+                    msg = "Component type: %s not allowed" % (ctype,)
+                    log.debug(msg)
+                    raise ValueError(msg)
                     
                 uid = subcomponent.propertyValue("UID")
                 if uid is None:
-                    raise ValueError("All components must have UIDs")
+                    msg = "All components must have UIDs"
+                    log.debug(msg)
+                    raise ValueError(msg)
                 rid = subcomponent.getRecurrenceIDUTC()
                 
                 # Verify that UIDs are the same
                 if component_id is None:
                     component_id = uid
                 elif component_id != uid:
-                        raise ValueError("Calendar resources may not contain components with different UIDs " +
-                                         "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
+                    msg = "Calendar resources may not contain components with different UIDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
+                    log.debug(msg)
+                    raise ValueError(msg)
 
                 # Verify that there is only one master component
                 if rid is None:
                     if got_master:
-                        raise ValueError("Calendar resources may not contain components with the same UIDs and no Recurrence-IDs " +
-                                         "(%s and %s found)" % (component_id, subcomponent.propertyValue("UID")))
+                        msg = "Calendar resources may not contain components with the same UIDs and no Recurrence-IDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
+                        log.debug(msg)
+                        raise ValueError(msg)
                     else:
                         got_master = True
                         master_recurring = subcomponent.hasProperty("RRULE") or subcomponent.hasProperty("RDATE")
@@ -1094,13 +1112,15 @@ class Component (object):
                             
                 # Check that if an override is present then the master is recurring
                 if got_override and got_master and not master_recurring:
-                    raise ValueError("Calendar resources must have a recurring master component if there is an overridden one " +
-                             "(%s)" % (subcomponent.propertyValue("UID"),))
+                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
+                    log.debug(msg)
+                    raise ValueError(msg)
                 
                 # Check for duplicate RECURRENCE-IDs        
                 if rid in component_rids:
-                    raise ValueError("Calendar resources may not contain components with the same Recurrence-IDs " +
-                                     "(%s)" % (rid,))
+                    msg = "Calendar resources may not contain components with the same Recurrence-IDs (%s)" % (rid,)
+                    log.debug(msg)
+                    raise ValueError(msg)
                 else:
                     component_rids.add(rid)
 
@@ -1111,7 +1131,9 @@ class Component (object):
         #
         for timezone_ref in timezone_refs:
             if timezone_ref not in timezones:
-                raise ValueError("Timezone ID %s is referenced but not defined" % (timezone_ref,))
+                msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
+                log.debug(msg)
+                raise ValueError(msg)
         
         #
         # FIXME:
@@ -1120,8 +1142,7 @@ class Component (object):
         #
         for timezone in timezones:
             if timezone not in timezone_refs:
-                #raise ValueError(
-                log.msg(
+                log.debug(
                     "Timezone %s is not referenced by any non-timezone component" % (timezone,)
                 )
 

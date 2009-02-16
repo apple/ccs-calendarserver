@@ -33,6 +33,7 @@ iTIP (RFC2446) processing.
 import datetime
 
 from twistedcaldav.config import config
+from twistedcaldav.dateops import normalizeToUTC
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 
@@ -118,6 +119,24 @@ class iTipProcessing(object):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, component)
             
+            # Now try to match recurrences
+            for component in calendar.subcomponents():
+                if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
+                    rid = component.getRecurrenceIDUTC()
+                    if new_calendar.overriddenComponent(rid) is None:
+                        new_component = new_calendar.deriveInstance(rid)
+                        new_calendar.addComponent(new_component)
+                        iTipProcessing.transferItems(calendar, master_valarms, private_comments, new_component)
+                        if component.propertyValue("STATUS") == "CANCELLED":
+                            new_component.replaceProperty(Property("STATUS", "CANCELLED"))
+                            for exdate in master_component.properties("EXDATE"):
+                                for value in exdate.value():
+                                    if value == rid:
+                                        exdate.value().remove(value)
+                                        if len(exdate.value()) == 0:
+                                            master_component.removeProperty(exdate)
+                                        break
+            
             # Replace the entire object
             return new_calendar, props_changed, rids
 
@@ -142,7 +161,7 @@ class iTipProcessing(object):
             return calendar, props_changed, rids
 
     @staticmethod
-    def processCancel(itip_message, calendar):
+    def processCancel(itip_message, calendar, autoprocessing=False):
         """
         Process a METHOD=CANCEL.
         
@@ -164,7 +183,13 @@ class iTipProcessing(object):
 
         # Check to see if this is a cancel of the entire event
         if itip_message.masterComponent() is not None:
-            return True, True, None
+            if autoprocessing:
+                # Delete the entire event off the auto-processed calendar
+                return True, True, None
+            else:
+                # Cancel every instance in the existing event
+                calendar.replacePropertyInAllComponents(Property("STATUS", "CANCELLED"))
+                return True, False, None
 
         # iTIP CANCEL can contain multiple components being cancelled in the RECURRENCE-ID case.
         # So we need to iterate over each iTIP component.
@@ -189,16 +214,27 @@ class iTipProcessing(object):
             if overridden:
                 # We are cancelling an overridden component.
 
-                # Exclude the cancelled instance
-                exdates.append(component.getRecurrenceIDUTC())
+                if autoprocessing:
+                    # Exclude the cancelled instance
+                    exdates.append(component.getRecurrenceIDUTC())
                 
-                # Remove the existing component.
-                calendar.removeComponent(overridden)
+                    # Remove the existing component.
+                    calendar.removeComponent(overridden)
+                else:
+                    # Existing component is cancelled.
+                    overridden.replaceProperty(Property("STATUS", "CANCELLED"))
+
             elif calendar_master:
                 # We are trying to CANCEL a non-overridden instance.
-
-                # Exclude the cancelled instance
-                exdates.append(component.getRecurrenceIDUTC())
+                
+                if autoprocessing:
+                    # Exclude the cancelled instance
+                    exdates.append(component.getRecurrenceIDUTC())
+                else:
+                    # Derive a new component and cancel it.
+                    overridden = calendar.deriveInstance(rid)
+                    overridden.replaceProperty(Property("STATUS", "CANCELLED"))
+                    calendar.addComponent(overridden)
 
         # If we have any EXDATEs lets add them to the existing calendar object.
         if exdates and calendar_master:
@@ -461,7 +497,7 @@ class iTipGenerator(object):
             comp.addProperty(Property("SEQUENCE", seq))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
-                comp.addProperty(Property("RECURRENCE-ID", instance_rid))
+                comp.addProperty(Property("RECURRENCE-ID", normalizeToUTC(instance_rid)))
             
             def addProperties(propname):
                 for property in instance.properties(propname):

@@ -648,8 +648,12 @@ class ImplicitScheduler(object):
             yield self.doAccessControl(self.attendeePrincipal, False)
 
         if self.action == "remove":
-            log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
-            yield self.scheduleCancelWithOrganizer()
+            if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
+                log.debug("Implicit - attendee '%s' is removing cancelled UID: '%s'" % (self.attendee, self.uid))
+                # Nothing else to do
+            else:
+                log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
+                yield self.scheduleCancelWithOrganizer()
         
         else:
             # Get the ORGANIZER's current copy of the calendar object
@@ -662,7 +666,7 @@ class ImplicitScheduler(object):
                     self.oldcalendar = None
 
                 # Determine whether the current change is allowed
-                change_allowed, no_itip, cancelled_rids = self.isAttendeeChangeInsignificant()
+                change_allowed, no_itip = self.isAttendeeChangeInsignificant()
 
                 if not change_allowed:
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
@@ -672,21 +676,6 @@ class ImplicitScheduler(object):
                     else:
                         log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
-
-                # Remove orphaned attendee cancelled events
-                if cancelled_rids:
-                    log.debug("Attendee '%s' is creating CANCELLED overridden instances for UID: '%s' - removing instances" % (self.attendee, self.uid,))
-                    master = self.calendar.masterComponent()
-                    for rid in cancelled_rids:
-                        self.calendar.removeComponent(self.calendar.overriddenComponent(rid))
-                        if master:
-                            master.addProperty(Property("EXDATE", [rid,]))
-                    
-                    # If no components left, make sure we delete the orphaned event
-                    if self.calendar.mainType() is None:
-                        log.debug("Attendee '%s' CANCELLED all instances of UID: '%s' - removing entire event" % (self.attendee, self.uid,))
-                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
-                        returnValue(None)
 
                 if no_itip:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
@@ -758,9 +747,7 @@ class ImplicitScheduler(object):
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,))
         differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
-        change_allowed, no_itip, cancelled_rids = differ.attendeeDiff(self.attendee)
-
-        return change_allowed, no_itip, cancelled_rids
+        return differ.attendeeDiff(self.attendee)
 
     def scheduleWithOrganizer(self):
 

@@ -369,7 +369,7 @@ class ImplicitProcessor(object):
             autoprocessed = self.recipient.principal.autoSchedule()
 
             # Check to see if this is a cancel of the entire event
-            processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar)
+            processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
             if processed_message:
                 if delete_original:
                     
@@ -393,14 +393,14 @@ class ImplicitProcessor(object):
                     yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
 
                     # Build the schedule-changes XML element
+                    actions = (customxml.Cancel(),)
+                    if rids:
+                        actions += (customxml.Recurrences(
+                            *[customxml.RecurrenceID.fromString(rid) for rid in rids]
+                        ),)
                     changes = customxml.ScheduleChanges(
                         customxml.DTStamp(),
-                        customxml.Action(
-                            customxml.Cancel(),
-                            customxml.Recurrences(
-                                *[customxml.RecurrenceID.fromString(rid) for rid in rids]
-                            ),
-                        ),
+                        customxml.Action(*actions),
                     )
                     result = (True, autoprocessed, changes)
             else:
