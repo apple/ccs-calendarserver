@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -506,7 +506,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.2 Simple component, PARTSTAT change",
@@ -537,7 +537,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False, (),)
+                (True, False,)
             ),
             (
                 "#1.3 Simple component, bad change",
@@ -568,7 +568,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (),)
+                (False, False,)
             ),
             (
                 "#1.4 Simple component, valarm change",
@@ -609,7 +609,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.5 Simple component, vcalendar props change ok",
@@ -651,7 +651,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.6 Simple component, vcalendar props change bad",
@@ -693,7 +693,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.7 Simple component, vtimezone no change",
@@ -760,7 +760,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.8 Simple component, vtimezone bad change",
@@ -813,6 +813,34 @@ BEGIN:DAYLIGHT
 DTSTART:19900404T010000
 RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
 TZNAME:EDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (False, False,)
+            ),
+            (
+                "#1.9 Simple component, vtimezone substitute",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US-Eastern
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
 TZOFFSETFROM:-0500
 TZOFFSETTO:-0400
 END:DAYLIGHT
@@ -824,10 +852,116 @@ TZOFFSETFROM:-0400
 TZOFFSETTO:-0500
 END:STANDARD
 END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:America/New_York
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=America/New_York:20080601T120000
+DTEND;TZID=America/New_York:20080601T130000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (),)
+                (True, True,)
+            ),
+            (
+                "#1.10 Simple component, vtimezone substitute",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US-Eastern
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=America/Los_Angeles:20080601T090000
+DTEND;TZID=America/Los_Angeles:20080601T100000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True,)
             ),
         )
 
@@ -885,7 +1019,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.2 Complex component, alarm change",
@@ -944,7 +1078,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.3 Complex component, missing override",
@@ -985,7 +1119,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (),)
+                (False, False,)
             ),
             (
                 "#1.4 Complex component, additional override no change ok",
@@ -1043,7 +1177,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (),)
+                (True, True,)
             ),
             (
                 "#1.5 Complex component, additional override change ok",
@@ -1101,7 +1235,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False, (),)
+                (True, False,)
             ),
             (
                 "#1.6 Complex component, additional override bad",
@@ -1159,7 +1293,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (),)
+                (False, False,)
             ),
         )
 
