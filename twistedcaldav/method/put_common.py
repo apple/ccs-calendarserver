@@ -213,6 +213,20 @@ def storeCalendarObjectResource(
 
         return result, message
         
+    def validContentLength():
+        """
+        Make sure that the length of the source data is within bounds.
+        """
+        result = True
+        message = ""
+        if config.MaximumAttachmentSize:
+            calsize = source.contentLength()
+            if calsize is not None and calsize > config.MaximumAttachmentSize:
+                result = False
+                message = "File size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
+
+        return result, message
+        
     def validCalendarDataCheck():
         """
         Check that the calendar data is valid iCalendar.
@@ -254,13 +268,12 @@ def storeCalendarObjectResource(
     
     def validSizeCheck():
         """
-        Make sure that the content-type of the source resource is text/calendar.
-        This test is only needed when the source is not in a calendar collection.
+        Make sure that the size of the data is within bounds.
         """
         result = True
         message = ""
         if config.MaximumAttachmentSize:
-            calsize = len(str(calendar))
+            calsize = len(calendardata)
             if calsize > config.MaximumAttachmentSize:
                 result = False
                 message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
@@ -355,6 +368,20 @@ def storeCalendarObjectResource(
                 log.err(message)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
 
+            # Valid data sizes - do before parsing the data
+            if source is not None:
+                # Valid content length check on the source resource
+                result, message = validContentLength()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+            else:
+                # Valid calendar data size check
+                result, message = validSizeCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+
             if not sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
                 if source is not None:
@@ -397,12 +424,6 @@ def storeCalendarObjectResource(
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
                 calendar = source.iCalendar()
-
-            # Valid calendar data size check
-            result, message = validSizeCheck()
-            if not result:
-                log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
 
             # Check access
             if destinationcal and config.EnablePrivateEvents:
