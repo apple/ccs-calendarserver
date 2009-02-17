@@ -176,7 +176,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         shortName = record.shortNames[0]
         guid = record.guid
         password = record.password
-        name = record.name
+        name = record.fullName
 
         self._db_execute(
             """
