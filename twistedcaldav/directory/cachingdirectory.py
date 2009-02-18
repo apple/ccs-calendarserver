@@ -206,9 +206,11 @@ class CachingDirectoryService(DirectoryService):
             # Now try again from cache
             record = lookup()
             if record:
+                self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
                 return record
             
             # Add to negative cache with timestamp
+            self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
             
         return None

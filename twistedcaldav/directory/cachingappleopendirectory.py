@@ -451,6 +451,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 listRecordTypes,
                 attrs,
             )
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
         except opendirectory.ODError, ex:
             self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
