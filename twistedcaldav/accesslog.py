@@ -113,9 +113,14 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 (time.time() - request.initTime) * 1000,
             )
             if config.MoreAccessLogData:
+                try:
+                    serverInstance = request.chanRequest.transport.server.port
+                except AttributeError:
+                    serverInstance = "Unknown"
+                
                 format_str += ' [%d %d]'
                 format_data += (
-                    request.chanRequest.transport.server.port,
+                    serverInstance,
                     request.chanRequest.channel.factory.outstandingRequests,
                 )
             self.logMessage(format_str % format_data)
