@@ -227,6 +227,21 @@ fi;
 
 export PYTHONPATH="${caldav}";
 
+# Find a command that can hash up a string for us
+if type -t openssl > /dev/null; then
+  hash="hash"; hash () { openssl dgst -md5; }
+elif type -t md5 > /dev/null; then
+  hash="md5";
+elif type -t md5sum > /dev/null; then
+  hash="md5sum";
+elif type -t cksum > /dev/null; then
+  hash="hash"; hash () { cksum | cut -f 1 -d " "; }
+elif type -t sum > /dev/null; then
+  hash="hash"; hash () { sum | cut -f 1 -d " "; }
+else
+  hash="";
+fi;
+
 ##
 # Download and set up dependancies
 ##
@@ -315,10 +330,10 @@ www_get () {
 
     echo "";
 
-    if [ -n "${cache_deps}" ]; then
+    if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      cache_file="${cache_deps}/${name}-$(echo "${url}" | md5)-$(basename "${url}")";
+      cache_file="${cache_deps}/${name}-$(echo "${url}" | "${hash}")-$(basename "${url}")";
 
       if [ ! -f "${cache_file}" ]; then
 	echo "Downloading ${name}...";
@@ -400,8 +415,8 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ]; then
-      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | md5)@r${revision}.tgz";
+    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
+      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | "${hash}")@r${revision}.tgz";
 
       mkdir -p "${cache_deps}";
 
