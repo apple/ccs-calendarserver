@@ -622,7 +622,12 @@ class iTipGenerator(object):
         itip.removeXProperties(do_subcomponents=False)
                 
         # Component properties - remove all X- except for those specified
-        keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",) if reply else ()
+        if not reply:
+            # Organizer properties that need to go to the Attendees
+            keep_properties = ("X-APPLE-DROPBOX",)
+        else:
+            # Attendee properties that need to go to the Organizer
+            keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",)
         itip.removeXProperties(keep_properties=keep_properties)
         
         # Property Parameters

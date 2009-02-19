@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2020,6 +2020,113 @@ END:VCALENDAR
         for title, original, result in data:
             ical1 = Component.fromString(original)
             ical1.normalizeAll()
+            ical1 = str(ical1)
+            ical2 = Component.fromString(result)
+            ical2 = str(ical2)
+            diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
+            self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
+
+    def test_normalize_attachments(self):
+        
+        data = (
+            (
+                "1.1 - no attach",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.2 - attach with no dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+ATTACH:http://example.com/file.txt
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+ATTACH:http://example.com/file.txt
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.3 - attach with dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+ATTACH:http://example.com/calendars/user.dropbox/file.txt
+X-APPLE-DROPBOX:/calendars/user.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+X-APPLE-DROPBOX:/calendars/user.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.4 - attach with different dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+ATTACH:http://example.com/calendars/user.dropbox/file.txt
+X-APPLE-DROPBOX:/calendars/user1.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114
+ATTACH:http://example.com/calendars/user.dropbox/file.txt
+X-APPLE-DROPBOX:/calendars/user1.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+        
+        for title, original, result in data:
+            ical1 = Component.fromString(original)
+            ical1.normalizeAttachments()
             ical1 = str(ical1)
             ical2 = Component.fromString(result)
             ical2 = str(ical2)

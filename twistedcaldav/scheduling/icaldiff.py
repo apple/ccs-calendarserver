@@ -241,6 +241,7 @@ class iCalDiff(object):
             calendar.normalizePropertyValueLists("EXDATE")
             calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
             calendar.normalizeAll()
+            calendar.normalizeAttachments()
             iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
             return calendar
 

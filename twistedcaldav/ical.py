@@ -1791,6 +1791,23 @@ class Component (object):
                     for value in prop.value():
                         component.addProperty(Property(propname, [value,]))
 
+    def normalizeAttachments(self):
+        """
+        Remove any ATTACH properties that relate to a dropbox.
+        """
+        
+        # Do to all sub-components
+        for component in self.subcomponents():
+            dropboxPrefix = component.propertyValue("X-APPLE-DROPBOX")
+            if dropboxPrefix is None:
+                continue
+            for attachment in tuple(component.properties("ATTACH")):
+                valueType = attachment.paramValue("VALUE")
+                if valueType in (None, "URI"):
+                    dataValue = attachment.value()
+                    if dataValue.find(dropboxPrefix) != -1:
+                        component.removeProperty(attachment)
+
 ##
 # Dates and date-times
 ##
