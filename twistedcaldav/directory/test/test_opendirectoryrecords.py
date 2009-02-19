@@ -67,9 +67,9 @@ else:
                     self.service.fakerecords[recordType] = []
                 self.service.reloadCache(recordType)
 
-        def verifyRecords(self, recordType, expected):
+        def verifyRecords(self, recordType, expected, key="records"):
             expected = set(expected)
-            found = set(self.service._records[recordType]["records"].keys())
+            found = set(self.service._records[recordType][key].keys())
             
             missing = expected.difference(found)
             extras = found.difference(expected)
@@ -101,6 +101,19 @@ else:
 
             check("disabled names", expectedNames)
             check("disabled guids", (guid.lower() for guid in expectedGUIDs))
+
+        def verifyDisabledNames(self, recordType, expectedNames):
+            def check(disabledType, expected):
+                expected = set(expected)
+                found = self.service._records[recordType][disabledType]
+            
+                missing = expected.difference(found)
+                extras = found.difference(expected)
+
+                self.assertTrue(len(missing) == 0, msg="Disabled directory records not found: %s" % (missing,))
+                self.assertTrue(len(extras) == 0, msg="Disabled directory records not expected: %s" % (extras,))
+
+            check("disabled names", expectedNames)
 
         def verifyQuery(self, f, *args):
             try:
@@ -315,10 +328,18 @@ else:
             })
 
             self.verifyRecords(DirectoryService.recordType_users, ("user01",))
-            self.verifyDisabledRecords(
+            self.verifyRecords(
+                DirectoryService.recordType_users,
+                (
+                    guidForShortName("user01"),
+                    "A25775BB-1281-4606-98C6-2893B2D5CCD7".lower(),
+                    "30CA2BB9-C935-4A5D-80E2-79266BCB0255".lower(),
+                ),
+                key="guids",
+            )
+            self.verifyDisabledNames(
                 DirectoryService.recordType_users,
                 ("user02",),
-                ("A25775BB-1281-4606-98C6-2893B2D5CCD7", "30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
             )
 
         def test_duplicateGUID(self):
@@ -351,7 +372,7 @@ else:
             self.verifyDisabledRecords(
                 DirectoryService.recordType_users,
                 ("user02", "user03"),
-                ("113D7F74-F84A-4F17-8C96-CE8F10D68EF8", "136E369F-DB40-4135-878D-B75D38242D39"),
+                ("113D7F74-F84A-4F17-8C96-CE8F10D68EF8",),
             )
 
         def test_duplicateGUIDCacheMiss(self):
@@ -383,7 +404,7 @@ else:
             self.verifyDisabledRecords(
                 DirectoryService.recordType_users,
                 ("user02", "user03", "user04", "user05"),
-                ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0", "D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
+                ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0",),
             )
 
         def test_groupmembers(self):

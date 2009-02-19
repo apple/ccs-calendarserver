@@ -473,7 +473,7 @@ class OpenDirectoryService(DirectoryService):
             if isinstance(recordShortNames, str):
                 recordShortNames = (recordShortNames,)
             else:
-                recordShortNames = tuple(recordShortNames) if recordShortNames else ()
+                recordShortNames = tuple(set(recordShortNames)) if recordShortNames else ()
             recordFullName     = value.get(dsattributes.kDS1AttrDistinguishedName)
             recordFirstName    = value.get(dsattributes.kDS1AttrFirstName)
             recordLastName     = value.get(dsattributes.kDS1AttrLastName)
@@ -578,53 +578,51 @@ class OpenDirectoryService(DirectoryService):
                 readOnlyProxyGUIDs    = readOnlyProxyGUIDs,
             )
 
-            def disableRecord(record):
-                self.log_warn("Record disabled due to conflict (record name and GUID must match): %s" % (record,))
+            def disableGUID(guid, record):
+                """
+                Disable the record by removing it from all indexes.
+                """
 
-                shortNames = record.shortNames
-                guid       = record.guid
+                self.log_warn("GUID %s disabled due to conflict for record: %s"
+                              % (guid, record))
 
-                disabledNames.update(shortNames)
                 disabledGUIDs.add(guid)
+                disabledNames.update(record.shortNames)
+                disabledEmails.update(record.emailAddresses)
 
-                for shortName in shortNames:
-                    if shortName in records:
-                        del records[shortName]
                 if guid in guids:
-                    del guids[guid]
-
-            # Check for disabled items
-            if disabledNames.intersection(record.shortNames) or record.guid in disabledGUIDs:
-                disableRecord(record)
-            else:
-                # Check for duplicate items and disable all names/guids for mismatched duplicates.
-                existing_records = set()
+                    try:
+                        del guids[guid]
+                    except KeyError:
+                        pass
                 for shortName in record.shortNames:
-                    if shortName in records:
-                        existing_records.add(records[shortName])
-                if record.guid in guids:
-                    existing_records.add(guids[record.guid])
+                    try:
+                        del records[shortName]
+                    except KeyError:
+                        pass
+                for email in record.emailAddresses:
+                    try:
+                        del emails[email]
+                    except KeyError:
+                        pass
 
-                if existing_records:
-                    disable = False
-                    for existing_record in existing_records:
-                        if record.guid != existing_record.guid or record.shortNames != existing_record.shortNames:
-                            disable = True
-                            break
-                        
-                    if disable:
-                        for existing_record in existing_records:
-                            disableRecord(existing_record)
-                            if existing_record.enabledForCalendaring:
-                                enabled_count -= 1
-                        disableRecord(record)
-
-                if len(disabledNames.intersection(record.shortNames)) == 0:
+            if record.guid in disabledGUIDs:
+                disableGUID(record.guid, record)
+            else:
+                # Check for duplicates
+                existing_record = guids.get(record.guid)
+                if existing_record is not None:
+                    if existing_record.shortNames != record.shortNames:
+                        disableGUID(record.guid, record)
+                        disableGUID(record.guid, existing_record)
+                        if existing_record.enabledForCalendaring:
+                            enabled_count -= 1
+                else:
                     guids[record.guid] = record
-                    for shortName in record.shortNames:
-                        records[shortName] = record
                     self.log_debug("Added record %s to OD record cache" % (record,))
-
+                    if record.enabledForCalendaring:
+                        enabled_count += 1
+        
                     # Do group indexing if needed
                     if recordType == self.recordType_groups:
                         self._indexGroup(record, record._memberGUIDs, groupsForGUID)
@@ -634,27 +632,51 @@ class OpenDirectoryService(DirectoryService):
                         self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
                         self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
 
-            def disableEmail(emailAddress, record):
-                self.log_warn("Email address %s disabled due to conflict for record: %s"
-                              % (emailAddress, record))
-
-                record.emailAddresses.remove(emailAddress)
-                disabledEmails.add(emailAddress)
-
-                if emailAddress in emails:
-                    del emails[emailAddress]
-
-            for email in frozenset(recordEmailAddresses):
-                if email in disabledEmails:
-                    disableEmail(email, record)
-                else:
-                    # Check for duplicates
-                    existing_record = emails.get(email)
-                    if existing_record is not None:
-                        disableEmail(email, record)
-                        disableEmail(email, existing_record)
-                    else:
-                        emails[email] = record
+                    # Index non-duplicate shortNames
+                    def disableName(shortName, record):
+                        self.log_warn("Short name %s disabled due to conflict for record: %s"
+                                      % (shortName, record))
+        
+                        record.shortNames = tuple([item for item in record.shortNames if item != shortName])
+                        disabledNames.add(shortName)
+        
+                        if shortName in records:
+                            del records[shortName]
+        
+                    for shortName in tuple(record.shortNames):
+                        if shortName in disabledNames:
+                            disableName(shortName, record)
+                        else:
+                            # Check for duplicates
+                            existing_record = records.get(shortName)
+                            if existing_record is not None and existing_record != record:
+                                disableName(shortName, record)
+                                disableName(shortName, existing_record)
+                            else:
+                                records[shortName] = record
+        
+                    # Index non-duplicate emails
+                    def disableEmail(emailAddress, record):
+                        self.log_warn("Email address %s disabled due to conflict for record: %s"
+                                      % (emailAddress, record))
+        
+                        record.emailAddresses.remove(emailAddress)
+                        disabledEmails.add(emailAddress)
+        
+                        if emailAddress in emails:
+                            del emails[emailAddress]
+        
+                    for email in frozenset(recordEmailAddresses):
+                        if email in disabledEmails:
+                            disableEmail(email, record)
+                        else:
+                            # Check for duplicates
+                            existing_record = emails.get(email)
+                            if existing_record is not None:
+                                disableEmail(email, record)
+                                disableEmail(email, existing_record)
+                            else:
+                                emails[email] = record
 
         if lookup is None:
             #
