@@ -173,7 +173,10 @@ class XMLAccountRecord (object):
         self.groups = set()
         self.calendarUserAddresses = set()
         self.autoSchedule = False
-        self.enabledForCalendaring = True
+        if recordType == DirectoryService.recordType_groups:
+            self.enabledForCalendaring = False
+        else:
+            self.enabledForCalendaring = True
         self.proxies = set()
         self.proxyFor = set()
         self.readOnlyProxies = set()
@@ -282,19 +285,20 @@ class XMLAccountRecord (object):
                     raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
                 self.autoSchedule = True
             elif child_name == ELEMENT_DISABLECALENDAR:
-                # Only Users or Groups
-                if self.recordType not in (DirectoryService.recordType_users, DirectoryService.recordType_groups):
-                    raise ValueError("<disable-calendar> element only allowed for Users or Groups: %s" % (child_name,))
+                # FIXME: Not sure I see why this restriction is needed. --wsanchez
+                ## Only Users or Groups
+                #if self.recordType != DirectoryService.recordType_users:
+                #    raise ValueError("<disable-calendar> element only allowed for Users: %s" % (child_name,))
                 self.enabledForCalendaring = False
             elif child_name == ELEMENT_PROXIES:
                 # Only Resources & Locations
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
+                    raise ValueError("<proxies> element only allowed for Resources and Locations: %s" % (child_name,))
                 self._parseMembers(child, self.proxies)
             elif child_name == ELEMENT_READ_ONLY_PROXIES:
                 # Only Resources & Locations
                 if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
+                    raise ValueError("<read-only-proxies> element only allowed for Resources and Locations: %s" % (child_name,))
                 self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))

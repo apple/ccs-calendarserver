@@ -269,7 +269,7 @@ class DirectoryRecord(LoggingMixIn):
     def __init__(
         self, service, recordType, guid, shortNames, fullName,
         firstName, lastName, emailAddresses,
-        calendarUserAddresses, autoSchedule, enabledForCalendaring=True,
+        calendarUserAddresses, autoSchedule, enabledForCalendaring=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -281,6 +281,15 @@ class DirectoryRecord(LoggingMixIn):
 
         if uid is None:
             uid = guid
+
+        if enabledForCalendaring is None:
+            if recordType == service.recordType_groups:
+                enabledForCalendaring = False
+            else:
+                enabledForCalendaring = True
+
+        if enabledForCalendaring and recordType == service.recordType_groups:
+            raise AssertionError("Groups may not be enabled for calendaring")
 
         if enabledForCalendaring:
             calendarUserAddresses = set(calendarUserAddresses)

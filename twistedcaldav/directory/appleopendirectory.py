@@ -219,10 +219,10 @@ class OpenDirectoryService(DirectoryService):
 
     def recordTypes(self):
         return (
-            DirectoryService.recordType_users,
-            DirectoryService.recordType_groups,
-            DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources,
+            self.recordType_users,
+            self.recordType_groups,
+            self.recordType_locations,
+            self.recordType_resources,
         )
 
     def _storage(self, recordType):
@@ -243,7 +243,7 @@ class OpenDirectoryService(DirectoryService):
                     )
 
                 # Reload the restricted access group details if reloading user records
-                if recordType == DirectoryService.recordType_users:
+                if recordType == self.recordType_users:
                     self.restrictedGUIDs = None
 
                 d = deferToThread(self.reloadCache, recordType)
@@ -332,7 +332,7 @@ class OpenDirectoryService(DirectoryService):
         
         # Lookup in index
         try:
-            return self._storage(DirectoryService.recordType_groups)["groupsForGUID"][guid]
+            return self._storage(self.recordType_groups)["groupsForGUID"][guid]
         except KeyError:
             return ()
 
@@ -364,19 +364,6 @@ class OpenDirectoryService(DirectoryService):
         'recordName' : dsattributes.kDSNAttrRecordName,
         'guid' : dsattributes.kDS1AttrGeneratedUID,
     }
-
-    _toODRecordTypes = {
-        DirectoryService.recordType_users :
-            dsattributes.kDSStdRecordTypeUsers,
-        DirectoryService.recordType_locations :
-            dsattributes.kDSStdRecordTypePlaces,
-        DirectoryService.recordType_groups :
-            dsattributes.kDSStdRecordTypeGroups,
-        DirectoryService.recordType_resources :
-            dsattributes.kDSStdRecordTypeResources,
-    }
-
-    _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 
@@ -413,10 +400,17 @@ class OpenDirectoryService(DirectoryService):
                 expressions.append(dsquery.match(ODField, value, comparison))
 
 
+        recordTypeToODAttr = {
+            self.recordType_users:     dsattributes.kDSStdRecordTypeUsers,
+            self.recordType_locations: dsattributes.kDSStdRecordTypePlaces,
+            self.recordType_groups:    dsattributes.kDSStdRecordTypeGroups,
+            self.recordType_resources: dsattributes.kDSStdRecordTypeResources,
+        }
+
         if recordType is None:
-            recordTypes = self._toODRecordTypes.values()
+            recordTypes = self.recordTypeToODAttr.values()
         else:
-            recordTypes = (self._toODRecordTypes[recordType],)
+            recordTypes = (self.recordTypeToODAttr[recordType],)
 
         self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" % (recordTypes, operand, caseless, fields))
         deferred = deferToThread(
@@ -448,9 +442,9 @@ class OpenDirectoryService(DirectoryService):
             disabledGUIDs  = set()
             disabledEmails = set()
             
-            if recordType == DirectoryService.recordType_groups:
+            if recordType == self.recordType_groups:
                 groupsForGUID = {}
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            elif recordType in (self.recordType_resources, self.recordType_locations):
                 proxiesForGUID = {}
                 readOnlyProxiesForGUID = {}
         else:
@@ -464,9 +458,9 @@ class OpenDirectoryService(DirectoryService):
             disabledGUIDs  = storage["disabled guids"]
             disabledEmails = storage["disabled emails"]
             
-            if recordType == DirectoryService.recordType_groups:
+            if recordType == self.recordType_groups:
                 groupsForGUID = storage["groupsForGUID"]
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            elif recordType in (self.recordType_resources, self.recordType_locations):
                 proxiesForGUID = storage["proxiesForGUID"]
                 readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
 
@@ -497,35 +491,34 @@ class OpenDirectoryService(DirectoryService):
                 continue
 
             # Determine enabled state
-            enabledForCalendaring = True
+            if recordType == self.recordType_groups:
+                enabledForCalendaring = False
+            else:
+                if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
+                    enabledForCalendaring = recordGUID in self.restrictedGUIDs
+                else:
+                    enabledForCalendaring = True
 
-            if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
-                enabledForCalendaring = recordGUID in self.restrictedGUIDs
-
-            if not enabledForCalendaring:
+            if enabledForCalendaring:
+                enabled_count += 1
+                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
+            else:
                 # Some records we want to keep even though they are not enabled for calendaring.
                 # Others we discard.
-                if recordType in (
-                    DirectoryService.recordType_users,
-                    DirectoryService.recordType_groups,
+                if recordType not in (
+                    self.recordType_users,
+                    self.recordType_groups,
                 ):
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                        % (recordType, recordShortName)
-                    )
-                else:
                     self.log_debug(
                         "Record (%s) %s is not enabled for calendaring"
                         % (recordType, recordShortName)
                     )
                     continue
-            else:
-                enabled_count += 1
 
-            # Get calendar user addresses from directory record.
-            if enabledForCalendaring:
-                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
-            else:
+                self.log_debug(
+                    "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
+                    % (recordType, recordShortName)
+                )
                 calendarUserAddresses = ()
 
             # Get email address from directory record
@@ -537,7 +530,7 @@ class OpenDirectoryService(DirectoryService):
                     recordEmailAddresses.add(addr.lower())
 
             # Special case for groups, which have members.
-            if recordType == DirectoryService.recordType_groups:
+            if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                 if memberGUIDs is None:
                     memberGUIDs = ()
@@ -555,7 +548,7 @@ class OpenDirectoryService(DirectoryService):
             autoSchedule = False
             proxyGUIDs = ()
             readOnlyProxyGUIDs = ()
-            if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            if recordType in (self.recordType_resources, self.recordType_locations):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
                     try:
@@ -633,11 +626,11 @@ class OpenDirectoryService(DirectoryService):
                     self.log_debug("Added record %s to OD record cache" % (record,))
 
                     # Do group indexing if needed
-                    if recordType == DirectoryService.recordType_groups:
+                    if recordType == self.recordType_groups:
                         self._indexGroup(record, record._memberGUIDs, groupsForGUID)
 
                     # Do proxy indexing if needed
-                    elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                    elif recordType in (self.recordType_resources, self.recordType_locations):
                         self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
                         self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
 
@@ -678,11 +671,11 @@ class OpenDirectoryService(DirectoryService):
             }
 
             # Add group indexing if needed
-            if recordType == DirectoryService.recordType_groups:
+            if recordType == self.recordType_groups:
                 storage["groupsForGUID"] = groupsForGUID
 
             # Add proxy indexing if needed
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            elif recordType in (self.recordType_resources, self.recordType_locations):
                 storage["proxiesForGUID"] = proxiesForGUID
                 storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
 
@@ -722,19 +715,19 @@ class OpenDirectoryService(DirectoryService):
             dsattributes.kDSNAttrMetaNodeLocation,
         ]
 
-        if recordType == DirectoryService.recordType_users:
+        if recordType == self.recordType_users:
             listRecordType = dsattributes.kDSStdRecordTypeUsers
 
-        elif recordType == DirectoryService.recordType_groups:
+        elif recordType == self.recordType_groups:
             listRecordType = dsattributes.kDSStdRecordTypeGroups
             attrs.append(dsattributes.kDSNAttrGroupMembers)
             attrs.append(dsattributes.kDSNAttrNestedGroups)
 
-        elif recordType == DirectoryService.recordType_locations:
+        elif recordType == self.recordType_locations:
             listRecordType = dsattributes.kDSStdRecordTypePlaces
             attrs.append(dsattributes.kDSNAttrResourceInfo)
         
-        elif recordType == DirectoryService.recordType_resources:
+        elif recordType == self.recordType_resources:
             listRecordType = dsattributes.kDSStdRecordTypeResources
             attrs.append(dsattributes.kDSNAttrResourceInfo)
         
@@ -871,7 +864,7 @@ class OpenDirectoryRecord(DirectoryRecord):
         )
 
     def members(self):
-        if self.recordType != DirectoryService.recordType_groups:
+        if self.recordType != self.service.recordType_groups:
             return
 
         for guid in self._memberGUIDs:
@@ -883,7 +876,7 @@ class OpenDirectoryRecord(DirectoryRecord):
         return self.service.groupsForGUID(self.guid)
 
     def proxies(self):
-        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+        if self.recordType not in (self.service.recordType_resources, self.service.recordType_locations):
             return
 
         for guid in self._proxyGUIDs:
@@ -899,12 +892,12 @@ class OpenDirectoryRecord(DirectoryRecord):
 
     def proxyFor(self):
         result = set()
-        result.update(self.service.proxiesForGUID(DirectoryService.recordType_resources, self.guid))
-        result.update(self.service.proxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        result.update(self.service.proxiesForGUID(self.service.recordType_resources, self.guid))
+        result.update(self.service.proxiesForGUID(self.service.recordType_locations, self.guid))
         return result
 
     def readOnlyProxies(self):
-        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+        if self.recordType not in (self.service.recordType_resources, self.service.recordType_locations):
             return
 
         for guid in self._readOnlyProxyGUIDs:
@@ -920,8 +913,8 @@ class OpenDirectoryRecord(DirectoryRecord):
 
     def readOnlyProxyFor(self):
         result = set()
-        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_resources, self.guid))
-        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(self.service.recordType_resources, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(self.service.recordType_locations, self.guid))
         return result
 
     def verifyCredentials(self, credentials):
