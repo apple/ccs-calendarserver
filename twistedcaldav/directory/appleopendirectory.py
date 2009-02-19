@@ -408,9 +408,9 @@ class OpenDirectoryService(DirectoryService):
         }
 
         if recordType is None:
-            recordTypes = self.recordTypeToODAttr.values()
+            recordTypes = recordTypeToODAttr.values()
         else:
-            recordTypes = (self.recordTypeToODAttr[recordType],)
+            recordTypes = (recordTypeToODAttr[recordType],)
 
         self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" % (recordTypes, operand, caseless, fields))
         deferred = deferToThread(
