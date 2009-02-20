@@ -85,6 +85,7 @@ except ImportError:
     NegotiateCredentialFactory = None
 
 from calendarserver.provision.root import RootResource
+from calendarserver.webcal.resource import WebCalendarResource
 
 log = Logger()
 
@@ -321,6 +322,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     iScheduleResourceClass       = IScheduleInboxFile
     imipResourceClass            = IMIPInboxResource
     timezoneServiceResourceClass = TimezoneServiceFile
+    webCalendarResourceClass     = WebCalendarResource
 
     def makeService(self, options):
 
@@ -523,6 +525,15 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             imipInbox = self.imipResourceClass(root)
             root.putChild("inbox", imipInbox)
+
+        #
+        # WebCal
+        #
+        if config.WebCalendarRoot:
+            self.log_info("Setting up WebCalendar resource: %s"
+                          % (config.WebCalendarRoot,))
+            webCalendar = self.webCalendarResourceClass(config.WebCalendarRoot)
+            root.putChild("webcal", webCalendar)
 
         #
         # Configure ancillary data
