@@ -452,7 +452,7 @@ def convertStringsFile(src, dest):
     lines = contents.split("\n")
 
     for num, line in enumerate(lines):
-        print num, line
+        # print num, line
         line = line.strip()
         if not line.startswith('"'):
             continue
