@@ -85,6 +85,37 @@ limitations under the License.
     </members>
   </group>
   <group>
+    <uid>group02</uid>
+    <guid>group02</guid>
+    <password>group02</password>
+    <name>Group 02</name>
+    <members>
+      <member type="users">user06</member>
+      <member type="users">user07</member>
+    </members>
+  </group>
+  <group>
+    <uid>group03</uid>
+    <guid>group03</guid>
+    <password>group03</password>
+    <name>Group 03</name>
+    <members>
+      <member type="users">user08</member>
+      <member type="users">user09</member>
+    </members>
+  </group>
+  <group>
+    <uid>group04</uid>
+    <guid>group04</guid>
+    <password>group04</password>
+    <name>Group 04</name>
+    <members>
+      <member type="groups">group02</member>
+      <member type="groups">group03</member>
+      <member type="users">user10</member>
+    </members>
+  </group>
+  <group>
     <uid>disabledgroup</uid>
     <guid>disabledgroup</guid>
     <password>disabledgroup</password>
@@ -93,36 +124,5 @@ limitations under the License.
       <member type="users">user01</member>
     </members>
     <disable-calendar/>
-  </group>
-  <group>
-    <uid>subgroup1</uid>
-    <guid>subgroup1</guid>
-    <password>subgroup1</password>
-    <name>Sub Group 1</name>
-    <members>
-      <member type="users">user10</member>
-      <member type="users">user11</member>
-    </members>
-  </group>
-  <group>
-    <uid>subgroup2</uid>
-    <guid>subgroup2</guid>
-    <password>subgroup2</password>
-    <name>Sub Group 2</name>
-    <members>
-      <member type="users">user12</member>
-      <member type="users">user13</member>
-    </members>
-  </group>
-  <group>
-    <uid>toplevelgroup</uid>
-    <guid>toplevelgroup</guid>
-    <password>toplevelgroup</password>
-    <name>Top Level Group</name>
-    <members>
-      <member type="groups">subgroup1</member>
-      <member type="groups">subgroup2</member>
-      <member type="users">user14</member>
-    </members>
   </group>
 </accounts>
