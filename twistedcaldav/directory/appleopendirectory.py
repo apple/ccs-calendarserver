@@ -470,10 +470,14 @@ class OpenDirectoryService(DirectoryService):
             # Now get useful record info.
             recordGUID         = value.get(dsattributes.kDS1AttrGeneratedUID)
             recordShortNames   = value.get(dsattributes.kDSNAttrRecordName)
-            if isinstance(recordShortNames, str):
-                recordShortNames = (recordShortNames,)
+            if recordShortNames:
+                if isinstance(recordShortNames, str):
+                    recordShortNames = (recordShortNames,)
+                else:
+                    s = set()
+                    recordShortNames = tuple([(s.add(x), x)[1] for x in recordShortNames if x not in s])
             else:
-                recordShortNames = tuple(set(recordShortNames)) if recordShortNames else ()
+                recordShortNames = ()
             recordFullName     = value.get(dsattributes.kDS1AttrDistinguishedName)
             recordFirstName    = value.get(dsattributes.kDS1AttrFirstName)
             recordLastName     = value.get(dsattributes.kDS1AttrLastName)
