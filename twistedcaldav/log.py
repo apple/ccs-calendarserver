@@ -169,7 +169,7 @@ class Logger (object):
         """
         Called internally to emit log messages at a given log level.
         """
-        assert level in logLevels
+        assert level in logLevels, "Unknown log level: %r" % (level,)
 
         # FIXME: Filtering should be done by the log observer(s)
         if self.willLogAtLevel(level):
