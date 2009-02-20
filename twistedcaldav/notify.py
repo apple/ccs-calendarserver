@@ -1076,7 +1076,7 @@ class XMPPNotifier(LoggingMixIn):
 class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
 
     def __init__(self, notifier, settings, reactor=None, keepAlive=True):
-        self.log_info("Setting up XMPPNotificationFactory")
+        self.log_warn("Setting up XMPPNotificationFactory")
 
         self.notifier = notifier
         self.settings = settings
@@ -1115,7 +1115,7 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
 
     def connected(self, xmlStream):
         self.xmlStream = xmlStream
-        self.log_info("XMPP connection successful")
+        self.log_warn("XMPP connection successful")
         # Log all traffic
         xmlStream.rawDataInFn = self.rawDataIn
         xmlStream.rawDataOutFn = self.rawDataOut
@@ -1126,14 +1126,14 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
         if self.presenceCall is not None:
             self.presenceCall.cancel()
             self.presenceCall = None
-        self.log_info("XMPP disconnected")
+        self.log_warn("XMPP disconnected")
 
     def initFailed(self, failure):
         self.xmlStream = None
-        self.log_info("XMPP Initialization failed: %s" % (failure,))
+        self.log_warn("XMPP Initialization failed: %s" % (failure,))
 
     def authenticated(self, xmlStream):
-        self.log_info("XMPP authentication successful: %s" % (self.jid,))
+        self.log_warn("XMPP authentication successful: %s" % (self.jid,))
         # xmlStream.addObserver('/message', self.handleMessage)
         self.sendPresence()
         self.notifier.streamOpened(xmlStream)
