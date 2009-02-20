@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav import customxml
 
 log = Logger()
 
@@ -377,7 +378,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
 
     def renderHTTP(self, request):
         
-        log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+        log.error("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
 
         return super(DAVResource, self).renderHTTP(request)
 
@@ -573,16 +574,52 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
+
+    liveProperties = tuple(SuperDAVPrincipalResource.liveProperties) + (
+        (calendarserver_namespace, "expanded-group-member-set"),
+        (calendarserver_namespace, "expanded-group-membership"),
+    )
+
+    @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property
         else:
             qname = property.qname()
 
-        if qname == (dav_namespace, "resourcetype"):
-            return succeed(self.resourceType())
+        namespace, name = qname
 
-        return super(DAVPrincipalResource, self).readProperty(property, request)
+        if namespace == dav_namespace:
+            if name == "resourcetype":
+                returnValue(self.resourceType())
+
+        elif namespace == calendarserver_namespace:
+            if name == "expanded-group-member-set":
+                principals = (yield self.expandedGroupMembers())
+                returnValue(customxml.ExpandedGroupMemberSet(
+                    *[davxml.HRef(p.principalURL()) for p in principals]
+                ))
+
+            elif name == "expanded-group-membership":
+                principals = (yield self.expandedGroupMemberships())
+                returnValue(customxml.ExpandedGroupMembership(
+                    *[davxml.HRef(p.principalURL()) for p in principals]
+                ))
+
+        result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
+        returnValue(result)
+
+    def groupMembers(self):
+        return succeed(())
+
+    def expandedGroupMembers(self):
+        return succeed(())
+
+    def groupMemberships(self):
+        return succeed(())
+
+    def expandedGroupMemberships(self):
+        return succeed(())
 
     def resourceType(self):
         # Allow live property to be overridden by dead property

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -865,8 +865,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (calendarserver_namespace, "email-address-set"),
         (calendarserver_namespace, "calendar-proxy-read-for"  ),
         (calendarserver_namespace, "calendar-proxy-write-for" ),
-        (calendarserver_namespace, "expanded-group-member-set"),
-        (calendarserver_namespace, "expanded-group-membership"),
     )
 
     @classmethod
@@ -956,30 +954,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
 
-            elif name == "expanded-group-member-set":
-                principals = (yield self.expandedGroupMembers())
-                returnValue(customxml.ExpandedGroupMemberSet(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
-                ))
-
-            elif name == "expanded-group-membership":
-                principals = (yield self.expandedGroupMemberships())
-                returnValue(customxml.ExpandedGroupMembership(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
-                ))
-
-
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
-
-    def groupMembers(self):
-        return succeed(())
-
-    def expandedGroupMembers(self):
-        return succeed(())
-
-    def groupMemberships(self):
-        return succeed(())
 
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
