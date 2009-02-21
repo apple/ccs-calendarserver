@@ -133,6 +133,7 @@ dist = setup(
                          "calendarserver.tap.test",
                          "calendarserver.test",
                          "calendarserver.tools",
+                         "calendarserver.webcal",
                          "twisted.plugins",
                          "twext",
                          "twext.internet",
