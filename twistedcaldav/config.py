@@ -26,6 +26,7 @@ __all__ = [
 import os
 import copy
 import re
+import stat
 
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -430,6 +431,7 @@ class Config (object):
             self.updateRejectClients,
             self.updateDropBox,
             self.updateLogLevels,
+            self.updateControlSocket,
             self.updateNotifications,
             self.updateScheduling,
         ]
@@ -598,6 +600,17 @@ class Config (object):
 
         except InvalidLogLevelError, e:
             raise ConfigurationError("Invalid log level: %s" % (e.level))
+
+    @staticmethod
+    def updateControlSocket(self, items):
+        
+        # Make sure no old socket files are lying around.
+        if (os.path.exists(self.ControlSocket)):
+            # See if the file represents an active socket.
+            # If not, delete it.
+            if (not stat.S_ISSOCK(os.stat(self.ControlSocket).st_mode)):
+                log.warn("Deleting stale socket file: %s" % self.ControlSocket)
+                os.remove(self.ControlSocket)
 
     def updateDefaults(self, items):
         _mergeData(self._defaults, items)
