@@ -65,8 +65,8 @@ class WebCalendarResource (FileResource):
 <html lang="en">
  <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta name="caldav_principal_path" content="$(timeZone)s">
-  <meta name="tzid" content="%(principalURL)s">
+  <meta name="caldav_principal_path" content="%(principalURL)s">
+  <meta name="tzid" content="%(timeZone)s">
   <title>Calendar</title>
   <link rel="stylesheet" href="/webcal/calendar/css/calendar_standalone.css" type="text/css" media="screen" charset="utf-8">
   <link rel="stylesheet" href="/webcal/css/required/niftydate.css" type="text/css" media="screen" charset="utf-8">
@@ -78,7 +78,7 @@ class WebCalendarResource (FileResource):
   <link rel="stylesheet" href="/webcal/css/required/tags.css" type="text/css" media="screen" charset="utf-8">
   <link rel="stylesheet" href="/webcal/css/required/tooltip.css" type="text/css" media="screen" charset="utf-8">
   <link rel="stylesheet" href="/webcal/css/required/paginator.css" type="text/css" media="screen" charset="utf-8">
-  <script src="temp_exported_locStrings.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/webcal/calendar/temp_exported_locStrings.js" type="text/javascript" charset="utf-8"></script>
   <script src="/webcal/javascript/prototype.js" type="text/javascript" charset="utf-8"></script>
   <script src="/webcal/javascript/md5.js" type="text/javascript" charset="utf-8"></script>
   <script src="/webcal/javascript/effects.js" type="text/javascript" charset="utf-8"></script>
