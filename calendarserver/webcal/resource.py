@@ -73,8 +73,8 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         if not self.fp.isdir():
             return responsecode.NOT_FOUND
 
-        self.authenticate(request)
-
+        # Get URL of authenticated principal.
+        # Don't need to authenticate here because the ACL will have already required it.
         authenticatedPrincipalURL = str(request.authnUser.childOfType(davxml.HRef))
 
         data = """
