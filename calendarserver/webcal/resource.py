@@ -25,10 +25,24 @@ __all__ = [
 from twisted.web2 import responsecode
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
-from twisted.web2.static import File as FileResource
 from twisted.web2.stream import MemoryStream
+from twisted.web2.dav import davxml
+from twisted.web2.dav.static import DAVFile
 
-class WebCalendarResource (FileResource):
+from twistedcaldav.extensions import ReadOnlyResourceMixIn
+
+class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                ),
+                davxml.Protected(),
+            ),
+        )
+
     def etag(self):
         # Can't be calculated here
         return None
@@ -53,11 +67,15 @@ class WebCalendarResource (FileResource):
         return None
 
     def createSimilarFile(self, path):
-        return FileResource(path)
+        return DAVFile(path)
 
     def render(self, request):
         if not self.fp.isdir():
             return responsecode.NOT_FOUND
+
+        self.authenticate(request)
+
+        authenticatedPrincipalURL = str(request.authnUser.childOfType(davxml.HRef))
 
         data = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
@@ -100,7 +118,7 @@ class WebCalendarResource (FileResource):
 </html>
 """ % {
     "timeZone": "America/Los_Angeles",
-    "principalURL": "/principals/users/admin/",
+    "principalURL": authenticatedPrincipalURL,
     "debug": "true",
 }
 
