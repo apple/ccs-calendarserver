@@ -21,6 +21,7 @@ __all__ = [
 ]
 
 import os
+import stat
 import sys
 
 from tempfile import mkstemp
@@ -617,6 +618,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         self.log_info("Setting up service")
 
+        # Make sure no old socket files are lying around.
+        if (os.path.exists(config.ControlSocket)):
+            # See if the file represents an active socket.  If not, delete it.
+            if (not stat.S_ISSOCK(os.stat(config.ControlSocket).st_mode)):
+                self.log_warn("Deleting stale socket file: %s" % config.ControlSocket)
+                os.remove(config.ControlSocket)
+        
         if config.ProcessType == "Slave":
             if (
                 config.MultiProcess.ProcessCount > 1 and
@@ -741,6 +749,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Process localization string files
         processLocalizationFiles(config.Localization)
 
+        # Make sure no old socket files are lying around.
+        if (os.path.exists(config.ControlSocket)):
+            # See if the file represents an active socket.  If not, delete it.
+            if (not stat.S_ISSOCK(os.stat(config.ControlSocket).st_mode)):
+                self.log_warn("Deleting stale socket file: %s" % config.ControlSocket)
+                os.remove(config.ControlSocket)
+        
         # The logger service must come before the monitor service, otherwise
         # we won't know which logging port to pass to the slaves' command lines
 
