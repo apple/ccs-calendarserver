@@ -95,6 +95,7 @@ class IDirectoryRecord(Interface):
     guid                  = Attribute("The GUID of this record.")
     uid                   = Attribute("The UID of this record.")
     shortNames            = Attribute("The names for this record.")
+    authIDs               = Attribute("Alternative security identities for this record.")
     fullName              = Attribute("The full name of this record.")
     firstName             = Attribute("The first name of this record.")
     lastName              = Attribute("The last name of this record.")

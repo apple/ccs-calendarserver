@@ -289,6 +289,22 @@ else:
 
             self.verifyRecords(DirectoryService.recordType_users, ())
 
+        def test_duplicateAuthIDs(self):
+            self.loadRecords({
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02", email="shared@example.com"),
+                    fakeODRecord("User 03", email="shared@example.com"),
+                ],
+            })
+
+            self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
+            self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
+
+            self.assertTrue (self.service.recordWithShortName(DirectoryService.recordType_users, "user01").authIDs)
+            self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user02").authIDs)
+            self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user03").authIDs)
+
         def test_duplicateEmail(self):
             self.loadRecords({
                 DirectoryService.recordType_users: [
@@ -585,6 +601,50 @@ else:
             self.verifyQuery(self.service.recordWithGUID, guidForShortName("location05"))
             self.verifyNoQuery(self.service.recordWithGUID, guidForShortName("location05"))
 
+        def test_negativeCacheAuthID(self):
+            self.loadRecords({
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                    fakeODRecord("User 04"),
+                ],
+                DirectoryService.recordType_groups: [
+                    fakeODRecord("Group 01"),
+                    fakeODRecord("Group 02"),
+                    fakeODRecord("Group 03"),
+                    fakeODRecord("Group 04"),
+                ],
+                DirectoryService.recordType_resources: [
+                    fakeODRecord("Resource 01"),
+                    fakeODRecord("Resource 02"),
+                    fakeODRecord("Resource 03"),
+                    fakeODRecord("Resource 04"),
+                ],
+                DirectoryService.recordType_locations: [
+                    fakeODRecord("Location 01"),
+                    fakeODRecord("Location 02"),
+                    fakeODRecord("Location 03"),
+                    fakeODRecord("Location 04"),
+                ],
+            })
+
+            self.assertTrue(self.service.recordWithAuthID("Kerberos:user01@example.com"))
+            self.verifyQuery(self.service.recordWithAuthID, "Kerberos:user05@example.com")
+            self.verifyNoQuery(self.service.recordWithAuthID, "Kerberos:user05@example.com")
+
+            self.assertTrue(self.service.recordWithAuthID("Kerberos:group01@example.com"))
+            self.verifyQuery(self.service.recordWithAuthID, "Kerberos:group05@example.com")
+            self.verifyNoQuery(self.service.recordWithAuthID, "Kerberos:group05@example.com")
+
+            self.assertTrue(self.service.recordWithAuthID("Kerberos:resource01@example.com"))
+            self.verifyQuery(self.service.recordWithAuthID, "Kerberos:resource05@example.com")
+            self.verifyNoQuery(self.service.recordWithAuthID, "Kerberos:resource05@example.com")
+
+            self.assertTrue(self.service.recordWithAuthID("Kerberos:location01@example.com"))
+            self.verifyQuery(self.service.recordWithAuthID, "Kerberos:location05@example.com")
+            self.verifyNoQuery(self.service.recordWithAuthID, "Kerberos:location05@example.com")
+
         def test_negativeCacheEmailAddress(self):
             self.loadRecords({
                 DirectoryService.recordType_users: [
@@ -697,6 +757,7 @@ def fakeODRecord(fullName, shortName=None, guid=None, email=None, members=None, 
         dsattributes.kDS1AttrDistinguishedName: fullName,
         dsattributes.kDS1AttrGeneratedUID: guid,
         dsattributes.kDSNAttrRecordName: shortName,
+        dsattributes.kDSNAttrAltSecurityIdentities: "Kerberos:%s" % (email,),
         dsattributes.kDSNAttrEMailAddress: email,
         dsattributes.kDSNAttrMetaNodeLocation: "/LDAPv3/127.0.0.1",
     }

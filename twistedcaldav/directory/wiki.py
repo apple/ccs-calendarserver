@@ -119,15 +119,11 @@ class WikiDirectoryRecord(DirectoryRecord):
             service=service,
             recordType=recordType,
             guid=None,
-            uid="%s%s" % (WikiDirectoryService.UIDPrefix, shortName),
             shortNames=(shortName,),
             fullName=shortName,
-            firstName="",
-            lastName="",
-            emailAddresses=set(),
-            calendarUserAddresses=set(),
-            autoSchedule=False,
-            enabledForCalendaring=True)
+            enabledForCalendaring=True,
+            uid="%s%s" % (WikiDirectoryService.UIDPrefix, shortName),
+        )
 
 
 

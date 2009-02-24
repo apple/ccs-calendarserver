@@ -100,14 +100,12 @@ class SudoDirectoryService(DirectoryService):
         # We were checking if principal is enabled; seems unnecessary in current
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
-        sudouser = self.recordWithShortName(
-            SudoDirectoryService.recordType_sudoers,
-            credentials.credentials.username)
 
-        if sudouser is None:
-            raise UnauthorizedLogin("No such user: %s" % (sudouser,))
+        if credentials.authnPrincipal is None or not hasattr(credentials.authnPrincipal, "record"):
+            raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
+        sudouser = credentials.authnPrincipal.record
 
-        if sudouser.verifyCredentials(credentials.credentials):
+        if credentials.authnPrincipal.record.verifyCredentials(credentials.credentials):
             return (
                 credentials.authnPrincipal.principalURL(),
                 credentials.authzPrincipal.principalURL(),
@@ -129,12 +127,7 @@ class SudoDirectoryRecord(DirectoryRecord):
             guid=None,
             shortNames=(shortName,),
             fullName=shortName,
-            firstName="",
-            lastName="",
-            emailAddresses=set(),
-            calendarUserAddresses=set(),
-            autoSchedule=False,
-            enabledForCalendaring=False)
+        )
 
         self.password = entry['password']
 

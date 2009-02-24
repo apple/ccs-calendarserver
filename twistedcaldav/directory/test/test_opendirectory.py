@@ -66,6 +66,7 @@ else:
                 guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
                 nodeName              = "/LDAPv2/127.0.0.1",
                 shortNames            = ("user",),
+                authIDs               = set(),
                 fullName              = "Some user",
                 firstName             = "Some",
                 lastName              = "User",

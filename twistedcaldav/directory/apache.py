@@ -144,12 +144,6 @@ class AbstractDirectoryRecord(DirectoryRecord):
             recordType            = recordType,
             guid                  = None,
             shortNames            = (shortName,),
-            fullName              = None,
-            firstName             = None,
-            lastName              = None,
-            emailAddresses        = set(),
-            calendarUserAddresses = set(),
-            autoSchedule          = False,
         )
 
 class AbstractUserRecord(AbstractDirectoryRecord):

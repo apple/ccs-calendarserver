@@ -34,15 +34,18 @@ from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
 
+from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
+from twisted.protocols.sip import DigestedCredentials
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.noneprops import NonePropertyStore
 
+from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
@@ -160,6 +163,20 @@ class DirectoryProvisioningResource (
 
     def principalForUser(self, user):
         return self.principalForShortName(DirectoryService.recordType_users, user)
+
+    def principalForAuthID(self, user):
+        # Basic/Digest creds -> just lookup user name
+        if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
+            return self.principalForUser(user.username)
+        elif isinstance(user, NegotiateCredentials):
+            authID = "Kerberos:%s" % (user.principal,)
+            principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
+            if principal:
+                return principal
+            elif user.username:
+                return self.principalForUser(user.username)
+        
+        return None
 
     def principalForUID(self, uid):
         raise NotImplementedError("Subclass must implement principalForUID()")
@@ -519,8 +536,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def renderDirectoryBody(self, request):
 
+        extras = self.extraDirectoryBodyItems(request)
         output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-        
+
         members = (yield self.groupMembers())
         
         memberships = (yield self.groupMemberships())
@@ -543,6 +561,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """GUID: %s\n"""                   % (self.record.guid,),
             """Record type: %s\n"""            % (self.record.recordType,),
             """Short names: %s\n"""            % (",".join(self.record.shortNames),),
+            """Security Identities: %s\n"""    % (",".join(self.record.authIDs),),
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
@@ -554,9 +573,12 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """\nGroup memberships:\n"""       , format_principals(memberships),
             """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
             """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
-            """</pre></blockquote></div>""",
+            """%s</pre></blockquote></div>"""  % extras,
             output
         )))
+
+    def extraDirectoryBodyItems(self, request):
+        return ""
 
     ##
     # DAV
@@ -729,49 +751,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     """
     Directory calendar principal resource.
     """
-    @inlineCallbacks
-    def renderDirectoryBody(self, request):
 
-        output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-        
-        members = (yield self.groupMembers())
-        
-        memberships = (yield self.groupMemberships())
-        
-        proxyFor = (yield self.proxyFor(True))
-        
-        readOnlyProxyFor = (yield self.proxyFor(False))
-        
-        returnValue("".join((
-            """<div class="directory-listing">"""
-            """<h1>Principal Details</h1>"""
-            """<pre><blockquote>"""
-            """Directory Information\n"""
-            """---------------------\n"""
-            """Directory GUID: %s\n"""         % (self.record.service.guid,),
-            """Realm: %s\n"""                  % (self.record.service.realmName,),
-            """\n"""
-            """Principal Information\n"""
-            """---------------------\n"""
-            """GUID: %s\n"""                   % (self.record.guid,),
-            """Record type: %s\n"""            % (self.record.recordType,),
-            """Short names: %s\n"""            % (",".join(self.record.shortNames),),
-            """Full name: %s\n"""              % (self.record.fullName,),
-            """First name: %s\n"""             % (self.record.firstName,),
-            """Last name: %s\n"""              % (self.record.lastName,),
-            """Email addresses:\n"""           , format_list(self.record.emailAddresses),
-            """Principal UID: %s\n"""          % (self.principalUID(),),
-            """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-            """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-            """\nGroup members:\n"""           , format_principals(members),
-            """\nGroup memberships:\n"""       , format_principals(memberships),
-            """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
-            """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
+    def extraDirectoryBodyItems(self, request):
+        return "".join((
             """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
             """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-            """</pre></blockquote></div>""",
-            output
-        )))
+        ))
 
     ##
     # CalDAV

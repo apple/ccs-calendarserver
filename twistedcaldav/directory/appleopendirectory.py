@@ -288,6 +288,9 @@ class OpenDirectoryService(DirectoryService):
 
     recordWithUID = recordWithGUID
 
+    def recordWithAuthID(self, authID):
+        return self._recordWithAttribute("authIDs", "disabled authIDs", "authID", authID)
+
     def _recordWithAttribute(self, cacheKey, disabledKey, lookupKey, value):
         def lookup():
             for recordType in self.recordTypes():
@@ -436,11 +439,13 @@ class OpenDirectoryService(DirectoryService):
         if lookup is None:
             records = {}
             guids   = {}
+            authIDs = {}
             emails  = {}
 
-            disabledNames  = set()
-            disabledGUIDs  = set()
-            disabledEmails = set()
+            disabledNames   = set()
+            disabledGUIDs   = set()
+            disabledAuthIDs = set()
+            disabledEmails  = set()
             
             if recordType == self.recordType_groups:
                 groupsForGUID = {}
@@ -452,11 +457,13 @@ class OpenDirectoryService(DirectoryService):
 
             records = storage["records"]
             guids   = storage["guids"]
+            authIDs = storage["authIDs"]
             emails  = storage["emails"]
 
-            disabledNames  = storage["disabled names"]
-            disabledGUIDs  = storage["disabled guids"]
-            disabledEmails = storage["disabled emails"]
+            disabledNames   = storage["disabled names"]
+            disabledGUIDs   = storage["disabled guids"]
+            disabledAuthIDs = storage["disabled authIDs"]
+            disabledEmails  = storage["disabled emails"]
             
             if recordType == self.recordType_groups:
                 groupsForGUID = storage["groupsForGUID"]
@@ -465,24 +472,37 @@ class OpenDirectoryService(DirectoryService):
                 readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
 
         enabled_count = 0
+        
+        def _uniqueTupleFromAttribute(attribute):
+            if attribute:
+                if isinstance(attribute, str):
+                    return (attribute,)
+                else:
+                    s = set()
+                    return tuple([(s.add(x), x)[1] for x in attribute if x not in s])
+            else:
+                return ()
+            
+        def _setFromAttribute(attribute, lower=False):
+            if attribute:
+                if isinstance(attribute, str):
+                    return set((attribute.lower() if lower else attribute,))
+                else:
+                    return set([item.lower() if lower else item for item in attribute])
+            else:
+                return ()
+            
         for (recordShortName, value) in results:
 
             # Now get useful record info.
-            recordGUID         = value.get(dsattributes.kDS1AttrGeneratedUID)
-            recordShortNames   = value.get(dsattributes.kDSNAttrRecordName)
-            if recordShortNames:
-                if isinstance(recordShortNames, str):
-                    recordShortNames = (recordShortNames,)
-                else:
-                    s = set()
-                    recordShortNames = tuple([(s.add(x), x)[1] for x in recordShortNames if x not in s])
-            else:
-                recordShortNames = ()
-            recordFullName     = value.get(dsattributes.kDS1AttrDistinguishedName)
-            recordFirstName    = value.get(dsattributes.kDS1AttrFirstName)
-            recordLastName     = value.get(dsattributes.kDS1AttrLastName)
-            recordEmailAddress = value.get(dsattributes.kDSNAttrEMailAddress)
-            recordNodeName     = value.get(dsattributes.kDSNAttrMetaNodeLocation)
+            recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
+            recordShortNames     = _uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordAuthIDs        = _setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
+            recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
+            recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
+            recordLastName       = value.get(dsattributes.kDS1AttrLastName)
+            recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
+            recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if not recordGUID:
                 self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
@@ -525,14 +545,6 @@ class OpenDirectoryService(DirectoryService):
                 )
                 calendarUserAddresses = ()
 
-            # Get email address from directory record
-            recordEmailAddresses = set()
-            if isinstance(recordEmailAddress, str):
-                recordEmailAddresses.add(recordEmailAddress.lower())
-            elif isinstance(recordEmailAddress, list):
-                for addr in recordEmailAddresses:
-                    recordEmailAddresses.add(addr.lower())
-
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
@@ -570,6 +582,7 @@ class OpenDirectoryService(DirectoryService):
                 guid                  = recordGUID,
                 nodeName              = recordNodeName,
                 shortNames            = recordShortNames,
+                authIDs               = recordAuthIDs,
                 fullName              = recordFullName,
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
@@ -592,6 +605,7 @@ class OpenDirectoryService(DirectoryService):
 
                 disabledGUIDs.add(guid)
                 disabledNames.update(record.shortNames)
+                disabledAuthIDs.update(record.authIDs)
                 disabledEmails.update(record.emailAddresses)
 
                 if guid in guids:
@@ -602,6 +616,11 @@ class OpenDirectoryService(DirectoryService):
                 for shortName in record.shortNames:
                     try:
                         del records[shortName]
+                    except KeyError:
+                        pass
+                for authID in record.authIDs:
+                    try:
+                        del authIDs[authID]
                     except KeyError:
                         pass
                 for email in record.emailAddresses:
@@ -659,6 +678,29 @@ class OpenDirectoryService(DirectoryService):
                             else:
                                 records[shortName] = record
         
+                    # Index non-duplicate authIDs
+                    def disableAuthIDs(authID, record):
+                        self.log_warn("Auth ID %s disabled due to conflict for record: %s"
+                                      % (authID, record))
+        
+                        record.authIDs.remove(authID)
+                        disabledAuthIDs.add(authID)
+        
+                        if authID in authIDs:
+                            del authIDs[authID]
+        
+                    for authID in frozenset(recordAuthIDs):
+                        if authID in disabledAuthIDs:
+                            disableAuthIDs(authID, record)
+                        else:
+                            # Check for duplicates
+                            existing_record = authIDs.get(authID)
+                            if existing_record is not None:
+                                disableAuthIDs(authID, record)
+                                disableAuthIDs(authID, existing_record)
+                            else:
+                                authIDs[authID] = record
+        
                     # Index non-duplicate emails
                     def disableEmail(emailAddress, record):
                         self.log_warn("Email address %s disabled due to conflict for record: %s"
@@ -687,13 +729,15 @@ class OpenDirectoryService(DirectoryService):
             # Replace the entire cache
             #
             storage = {
-                "status"         : "new",
-                "records"        : records,
-                "guids"          : guids,
-                "emails"         : emails,
-                "disabled names" : disabledNames,
-                "disabled guids" : disabledGUIDs,
-                "disabled emails": disabledEmails,
+                "status"           : "new",
+                "records"          : records,
+                "guids"            : guids,
+                "authIDs"          : authIDs,
+                "emails"           : emails,
+                "disabled names"   : disabledNames,
+                "disabled guids"   : disabledGUIDs,
+                "disabled authIDs" : disabledAuthIDs,
+                "disabled emails"  : disabledEmails,
             }
 
             # Add group indexing if needed
@@ -734,6 +778,7 @@ class OpenDirectoryService(DirectoryService):
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrRecordName,
+            dsattributes.kDSNAttrAltSecurityIdentities,
             dsattributes.kDS1AttrDistinguishedName,
             dsattributes.kDS1AttrFirstName,
             dsattributes.kDS1AttrLastName,
@@ -803,6 +848,7 @@ class OpenDirectoryService(DirectoryService):
             queryattr = {
                 "shortName" : dsattributes.kDSNAttrRecordName,
                 "guid"      : dsattributes.kDS1AttrGeneratedUID,
+                "authID"    : dsattributes.kDSNAttrAltSecurityIdentities,
                 "email"     : dsattributes.kDSNAttrEMailAddress,
             }.get(lookup[0])
             assert queryattr is not None, "Invalid type for record faulting query"
@@ -850,7 +896,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     Open Directory implementation of L{IDirectoryRecord}.
     """
     def __init__(
-        self, service, recordType, guid, nodeName, shortNames, fullName,
+        self, service, recordType, guid, nodeName, shortNames, authIDs, fullName,
         firstName, lastName, emailAddresses,
         calendarUserAddresses, autoSchedule, enabledForCalendaring,
         memberGUIDs, proxyGUIDs, readOnlyProxyGUIDs,
@@ -860,6 +906,7 @@ class OpenDirectoryRecord(DirectoryRecord):
             recordType            = recordType,
             guid                  = guid,
             shortNames            = shortNames,
+            authIDs               = authIDs,
             fullName              = fullName,
             firstName             = firstName,
             lastName              = lastName,

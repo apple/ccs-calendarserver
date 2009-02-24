@@ -16,6 +16,7 @@
 
 import os
 
+from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
@@ -144,6 +145,19 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             for user in directory.listRecords(DirectoryService.recordType_users):
                 userResource = provisioningResource.principalForUser(user.shortNames[0])
+                self.failIf(userResource is None)
+                self.assertEquals(user, userResource.record)
+
+    def test_principalForAuthID(self):
+        """
+        DirectoryPrincipalProvisioningResource.principalForAuthID()
+        """
+        for directory in directoryServices:
+            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+
+            for user in directory.listRecords(DirectoryService.recordType_users):
+                creds = UsernamePassword(user.shortNames[0], "bogus")
+                userResource = provisioningResource.principalForAuthID(creds)
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
 

@@ -10,7 +10,7 @@ Index: twisted/web2/dav/test/test_acl.py
  from twisted.web2.dav.util import davXMLFromStream
  from twisted.web2.dav.auth import TwistedPasswordProperty, IPrincipal, DavRealm, TwistedPropertyChecker, AuthenticationWrapper
  
-@@ -38,6 +39,22 @@
+@@ -38,6 +39,25 @@
  from twisted.web2.dav.test.util import Site, serialize
  from twisted.web2.dav.test.test_resource import TestResource, TestDAVPrincipalResource
  
@@ -21,6 +21,9 @@ Index: twisted/web2/dav/test/test_acl.py
 +    
 +    def principalForUser(self, user):
 +        return self.principalForShortName('users', user)
++
++    def principalForAuthID(self, creds):
++        return self.principalForShortName('users', creds.username)
 +
 +    def principalForShortName(self, type, shortName):
 +        typeResource = self.children.get(type, None)
@@ -33,7 +36,7 @@ Index: twisted/web2/dav/test/test_acl.py
  class ACL(twisted.web2.dav.test.util.TestCase):
      """
      RFC 3744 (WebDAV ACL) tests.
-@@ -46,8 +63,18 @@
+@@ -46,8 +66,18 @@
          if not hasattr(self, "docroot"):
              self.docroot = self.mktemp()
              os.mkdir(self.docroot)
@@ -53,7 +56,7 @@ Index: twisted/web2/dav/test/test_acl.py
              portal = Portal(DavRealm())
              portal.registerChecker(TwistedPropertyChecker())
  
-@@ -56,26 +83,14 @@
+@@ -56,26 +86,14 @@
              loginInterfaces = (IPrincipal,)
  
              self.site = Site(AuthenticationWrapper(
@@ -82,7 +85,7 @@ Index: twisted/web2/dav/test/test_acl.py
          for name, acl in (
              ("none"       , self.grant()),
              ("read"       , self.grant(davxml.Read())),
-@@ -361,9 +376,7 @@
+@@ -361,9 +379,7 @@
                  if method == "GET":
                      ok = responsecode.OK
                  elif method == "REPORT":
@@ -93,7 +96,7 @@ Index: twisted/web2/dav/test/test_acl.py
                  else:
                      raise AssertionError("We shouldn't be here.  (method = %r)" % (method,))
  
-@@ -377,6 +390,9 @@
+@@ -377,6 +393,9 @@
                      path = os.path.join(self.docroot, name)
  
                      request = SimpleRequest(self.site, method, "/" + name)

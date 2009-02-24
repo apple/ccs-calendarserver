@@ -1,6 +1,6 @@
 ##
 # Copyright (c) 2001-2004 Twisted Matrix Laboratories.
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -183,8 +183,9 @@ class NegotiateCredentials(object):
 
     implements(credentials.ICredentials)
 
-    def __init__(self, username):
+    def __init__(self, principal, username):
         
+        self.principal = principal
         self.username = username
         
 class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
@@ -233,7 +234,8 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
             raise error.UnauthorizedLogin('Bad credentials: %s' % (ex[0],))
 
         response = kerberos.authGSSServerResponse(context)
-        username = kerberos.authGSSServerUserName(context)
+        principal = kerberos.authGSSServerUserName(context)
+        username = principal
         realmname = ""
         
         # Username may include realm suffix which we want to strip
@@ -242,13 +244,10 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
             username = splits[0]
             realmname = splits[1]
         
-        # We currently do not support cross-realm authentciation, so we
+        # We currently do not support cross-realm authentication, so we
         # must verify that the realm we got exactly matches the one we expect.
         if realmname != self.realm:
-            self.log_error("authGSSServer Realms do not match: %s vs %s" % (realmname, self.realm,))
-            kerberos.authGSSServerClean(context)
-            raise error.UnauthorizedLogin('Bad credentials: mismatched realm')
-
+            username = principal
 
         # Close the context
         try:
@@ -270,7 +269,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         request.addResponseFilter(responseFilterAddWWWAuthenticate)
 
-        return succeed(NegotiateCredentials(username))
+        return succeed(NegotiateCredentials(principal, username))
 
 class NegotiateCredentialsChecker(object):
 

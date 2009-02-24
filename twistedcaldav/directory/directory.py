@@ -90,9 +90,8 @@ class DirectoryService(LoggingMixIn):
         # implementation because you shouldn't have a principal object for a
         # disabled directory principal.
 
-        user = self.recordWithShortName(DirectoryService.recordType_users, credentials.credentials.username)
-        if user is None:
-            raise UnauthorizedLogin("No such user: %s" % (user,))
+        if credentials.authnPrincipal is None:
+            raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
 
         # Handle Kerberos as a separate behavior
         try:
@@ -108,13 +107,13 @@ class DirectoryService(LoggingMixIn):
                 credentials.authzPrincipal.principalURL(),
             )
         else:
-            if user.verifyCredentials(credentials.credentials):
+            if credentials.authnPrincipal.record.verifyCredentials(credentials.credentials):
                 return (
                     credentials.authnPrincipal.principalURL(),
                     credentials.authzPrincipal.principalURL(),
                 )
             else:
-                raise UnauthorizedLogin("Incorrect credentials for %s" % (user,)) 
+                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,)) 
 
     def recordTypes(self):
         raise NotImplementedError("Subclass must implement recordTypes()")
@@ -134,6 +133,12 @@ class DirectoryService(LoggingMixIn):
     def recordWithGUID(self, guid):
         for record in self.allRecords():
             if record.guid == guid:
+                return record
+        return None
+
+    def recordWithAuthID(self, authID):
+        for record in self.allRecords():
+            if authID in record.authIDs:
                 return record
         return None
 
@@ -267,9 +272,9 @@ class DirectoryRecord(LoggingMixIn):
         )
 
     def __init__(
-        self, service, recordType, guid, shortNames, fullName,
-        firstName, lastName, emailAddresses,
-        calendarUserAddresses, autoSchedule, enabledForCalendaring=None,
+        self, service, recordType, guid, shortNames=(), authIDs=set(), fullName=None,
+        firstName=None, lastName=None, emailAddresses=set(),
+        calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -302,6 +307,7 @@ class DirectoryRecord(LoggingMixIn):
         self.guid                  = guid
         self.uid                   = uid
         self.shortNames            = shortNames
+        self.authIDs               = authIDs
         self.fullName              = fullName
         self.firstName             = firstName
         self.lastName              = lastName

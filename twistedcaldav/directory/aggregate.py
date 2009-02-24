@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,6 +102,9 @@ class AggregateDirectoryService(DirectoryService):
     def recordWithUID(self, uid):
         return self._queryAll("recordWithUID", uid)
 
+    def recordWithAuthID(self, authID):
+        return self._queryAll("recordWithAuthID", authID)
+
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
 
@@ -151,17 +154,11 @@ class AggregateDirectoryService(DirectoryService):
     userRecordTypes = [DirectoryService.recordType_users]
 
     def requestAvatarId(self, credentials):
-        for type in self.userRecordTypes:
-            user = self.recordWithShortName(
-                type,
-                credentials.credentials.username)
-
-            if user:
-                return self.serviceForRecordType(
-                    type).requestAvatarId(credentials)
         
-        raise UnauthorizedLogin("No such user: %s" % (
-                credentials.credentials.username,))
+        if credentials.authnPrincipal:
+            return credentials.authnPrincipal.record.service.requestAvatarId(credentials)
+        
+        raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
 
 class DuplicateRecordTypeError(DirectoryError):
     """
