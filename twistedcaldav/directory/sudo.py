@@ -127,6 +127,7 @@ class SudoDirectoryRecord(DirectoryRecord):
             guid=None,
             shortNames=(shortName,),
             fullName=shortName,
+            enabledForCalendaring=False,
         )
 
         self.password = entry['password']
