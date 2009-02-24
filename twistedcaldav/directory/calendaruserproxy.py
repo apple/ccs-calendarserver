@@ -183,8 +183,9 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
 
-        # Map the URIs to principals.
+        # Map the URIs to principals and a set of UIDs.
         principals = []
+        newUIDs = set()
         for uri in members:
             principal = self.pcollection._principalForURI(uri)
             # Invalid principals MUST result in an error.
@@ -194,10 +195,24 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
                     "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
-            yield principal.cacheNotifier.changed()
+            newUIDs.add(principal.principalUID())
 
+        # Get the old set of UIDs
+        oldUIDs = (yield self._index().getMembers(self.uid))
+        
+        # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
+        
+        # Invalidate the primary principal's cache, and any principal's whose
+        # membership status changed
         yield self.parent.cacheNotifier.changed()
+        
+        changedUIDs = newUIDs.symmetric_difference(oldUIDs)
+        for uid in changedUIDs:
+            principal = self.pcollection.principalForUID(uid)
+            if principal:
+                yield principal.cacheNotifier.changed()
+            
         returnValue(True)
 
     @inlineCallbacks
@@ -296,7 +311,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         if uid not in uids:
             from twistedcaldav.directory.principal import DirectoryPrincipalResource
             uids.add(uid)
-            principal = self.parent.parent.principalForUID(uid)
+            principal = self.pcollection.principalForUID(uid)
             if isinstance(principal, CalendarUserProxyPrincipalResource):
                 members = yield self._directGroupMembers()
                 for member in members:

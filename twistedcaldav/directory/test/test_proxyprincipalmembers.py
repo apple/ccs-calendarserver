@@ -241,10 +241,13 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def test_setGroupMemberSet(self):
         class StubMemberDB(object):
             def __init__(self):
-                self.members = None
+                self.members = set()
 
             def setGroupMembers(self, uid, members):
                 self.members = members
+
+            def getMembers(self, uid):
+                return self.members
 
 
         user = self._getPrincipalByShortName(directoryService.recordType_users,
