@@ -533,7 +533,10 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.WebCalendarRoot:
             self.log_info("Setting up WebCalendar resource: %s"
                           % (config.WebCalendarRoot,))
-            webCalendar = self.webCalendarResourceClass(config.WebCalendarRoot)
+            webCalendar = self.webCalendarResourceClass(
+                config.WebCalendarRoot,
+                principalCollections=(principalCollection,),
+            )
             root.putChild("webcal", webCalendar)
 
         #
