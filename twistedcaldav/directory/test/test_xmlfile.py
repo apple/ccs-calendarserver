@@ -201,30 +201,10 @@ class XMLFile (
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
-        self.assertTrue(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
+
+        # All groups are disabled
+        self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
-
-    def test_badDisableCalendar(self):
-        service = self.service()
-
-        self.xmlFile().open("w").write(
-"""<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
-<accounts realm="Test Realm">
-  <location>
-    <uid>my office</uid>
-    <password>nimda</password>
-    <name>Super User</name>
-    <disable-calendar/>
-  </location>
-</accounts>
-"""
-        )
-        
-        def _findRecords():
-            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
-
-        self.assertRaises(ValueError, _findRecords)
 
     def test_okProxies(self):
         service = self.service()
