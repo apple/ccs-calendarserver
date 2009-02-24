@@ -79,8 +79,10 @@ else:
                 
         def verifyRecordsCheckEnabled(self, recordType, expected, enabled):
             expected = set(expected)
-            found = set([item for item in self.service._records[recordType]["records"].iterkeys()
-                         if self.service._records[recordType]["records"][item].enabledForCalendaring == enabled])
+            found = set((
+                item for item in self.service._records[recordType]["records"].iterkeys()
+                if self.service._records[recordType]["records"][item].enabledForCalendaring == enabled
+            ))
             
             missing = expected.difference(found)
             extras = found.difference(expected)
@@ -184,7 +186,7 @@ else:
             self.verifyRecords(DirectoryService.recordType_locations, ("location01", "location02"))
             self.verifyDisabledRecords(DirectoryService.recordType_locations, (), ())
 
-        def test_normal_disabledusers(self):
+        def test_normalDisabledUsers(self):
             self.service.restrictEnabledRecords = True
             self.service.restrictToGroup = "restrictedaccess"
 
@@ -217,14 +219,14 @@ else:
 
             # Disable certain records
             self.service.restrictedGUIDs = set((
-                self.service.fakerecords[DirectoryService.recordType_users][0][1][dsattributes.kDS1AttrGeneratedUID],
-                self.service.fakerecords[DirectoryService.recordType_users][1][1][dsattributes.kDS1AttrGeneratedUID],
+                self.service.fakerecords[DirectoryService.recordType_users    ][0][1][dsattributes.kDS1AttrGeneratedUID],
+                self.service.fakerecords[DirectoryService.recordType_users    ][1][1][dsattributes.kDS1AttrGeneratedUID],
                 self.service.fakerecords[DirectoryService.recordType_resources][0][1][dsattributes.kDS1AttrGeneratedUID],
                 self.service.fakerecords[DirectoryService.recordType_resources][1][1][dsattributes.kDS1AttrGeneratedUID],
                 self.service.fakerecords[DirectoryService.recordType_locations][0][1][dsattributes.kDS1AttrGeneratedUID],
                 self.service.fakerecords[DirectoryService.recordType_locations][1][1][dsattributes.kDS1AttrGeneratedUID],
-                self.service.fakerecords[DirectoryService.recordType_groups][0][1][dsattributes.kDS1AttrGeneratedUID],
-                self.service.fakerecords[DirectoryService.recordType_groups][1][1][dsattributes.kDS1AttrGeneratedUID],
+                self.service.fakerecords[DirectoryService.recordType_groups   ][0][1][dsattributes.kDS1AttrGeneratedUID],
+                self.service.fakerecords[DirectoryService.recordType_groups   ][1][1][dsattributes.kDS1AttrGeneratedUID],
             ))
 
             self.service.reloadCache(DirectoryService.recordType_users)
@@ -235,8 +237,9 @@ else:
             self.verifyRecordsCheckEnabled(DirectoryService.recordType_users, ("user01", "user02"), True)
             self.verifyRecordsCheckEnabled(DirectoryService.recordType_users, ("user03", "user04"), False)
 
-            self.verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group01", "group02"), True)
-            self.verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group03", "group04"), False)
+            # Groups are always disabled
+            #self.verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group01", "group02"), True)
+            #self.verifyRecordsCheckEnabled(DirectoryService.recordType_groups, ("group03", "group04"), False)
 
             self.verifyRecordsCheckEnabled(DirectoryService.recordType_resources, ("resource01", "resource02"), True)
             self.verifyRecordsCheckEnabled(DirectoryService.recordType_resources, (), False)
@@ -423,7 +426,7 @@ else:
                 ("EDB9EE55-31F2-4EA9-B5FB-D8AE2A8BA35E", "62368DDF-0C62-4C97-9A58-DE9FD46131A0",),
             )
 
-        def test_groupmembers(self):
+        def test_groupMembers(self):
             self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
