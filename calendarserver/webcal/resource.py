@@ -22,6 +22,9 @@ __all__ = [
     "WebCalendarResource",
 ]
 
+from urlparse import urlparse
+from cgi import parse_qs
+
 from twisted.web2 import responsecode
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
@@ -73,10 +76,27 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         if not self.fp.isdir():
             return responsecode.NOT_FOUND
 
+        #
         # Get URL of authenticated principal.
         # Don't need to authenticate here because the ACL will have already required it.
+        #
         authenticatedPrincipalURL = str(request.authnUser.childOfType(davxml.HRef))
 
+        #
+        # Parse debug query arg
+        #
+        query = parse_qs(urlparse(request.uri).query)
+        debug = query.get("debug", None)
+        if debug is not None:
+            debug = debug[0]
+        if debug and debug.lower() in ("1", "true", "yes"):
+            debug = "true"
+        else:
+            debug = "false"
+
+        #
+        # Make some HTML
+        #
         data = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 
@@ -114,12 +134,13 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
   <script type="text/javascript" charset="utf-8">
    setTimeout(function() { if (window.prepare) prepare() }, 10);
   </script>
+  <h1>%(debug)s</h1>
  </body>
 </html>
 """ % {
     "timeZone": "America/Los_Angeles",
     "principalURL": authenticatedPrincipalURL,
-    "debug": "true",
+    "debug": debug,
 }
 
         response = Response()
