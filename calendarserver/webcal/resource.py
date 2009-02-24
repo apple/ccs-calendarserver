@@ -82,17 +82,25 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         #
         authenticatedPrincipalURL = str(request.authnUser.childOfType(davxml.HRef))
 
+        def queryValue(arg):
+            query = parse_qs(urlparse(request.uri).query, True)
+            return query.get(arg, [""])[0]
+            
         #
         # Parse debug query arg
         #
-        query = parse_qs(urlparse(request.uri).query)
-        debug = query.get("debug", None)
-        if debug is not None:
-            debug = debug[0]
-        if debug and debug.lower() in ("1", "true", "yes"):
+        debug = queryValue("debug")
+        if debug is not None and debug.lower() in ("1", "true", "yes"):
             debug = "true"
         else:
             debug = "false"
+
+        #
+        # Parse TimeZone query arg
+        #
+        tzid = queryValue("tzid")
+        if not tzid:
+            tzid = "America/Los_Angeles"
 
         #
         # Make some HTML
@@ -104,7 +112,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
  <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="caldav_principal_path" content="%(principalURL)s">
-  <meta name="tzid" content="%(timeZone)s">
+  <meta name="tzid" content="%(tzid)s">
   <title>Calendar</title>
   <link rel="stylesheet" href="/webcal/calendar/css/calendar_standalone.css" type="text/css" media="screen" charset="utf-8">
   <link rel="stylesheet" href="/webcal/css/required/niftydate.css" type="text/css" media="screen" charset="utf-8">
@@ -134,11 +142,10 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
   <script type="text/javascript" charset="utf-8">
    setTimeout(function() { if (window.prepare) prepare() }, 10);
   </script>
-  <h1>%(debug)s</h1>
  </body>
 </html>
 """ % {
-    "timeZone": "America/Los_Angeles",
+    "tzid": tzid,
     "principalURL": authenticatedPrincipalURL,
     "debug": debug,
 }
