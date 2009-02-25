@@ -353,7 +353,7 @@ class iTipProcessing(object):
             partstat_changed = (oldpartstat != partstat)
             
             if partstat == "NEEDS-ACTION":
-                existing_attendee.params()["RSVP"] = [True]
+                existing_attendee.params()["RSVP"] = ["TRUE"]
             else:
                 try:
                     del existing_attendee.params()["RSVP"]
