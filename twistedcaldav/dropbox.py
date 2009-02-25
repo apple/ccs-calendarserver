@@ -44,6 +44,9 @@ class DropBoxHomeResource (DAVResource):
     def isCollection(self):
         return True
 
+    def http_PUT(self, request):
+        return responsecode.FORBIDDEN
+
 class DropBoxCollectionResource (DAVResource):
     """
     Drop box resource.
