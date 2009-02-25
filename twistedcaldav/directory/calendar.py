@@ -347,6 +347,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def isCollection(self):
         return True
 
+    def http_COPY(self, request):
+        return responsecode.FORBIDDEN
+
     ##
     # ACL
     ##
