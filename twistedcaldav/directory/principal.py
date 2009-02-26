@@ -38,7 +38,7 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
-from twisted.protocols.sip import DigestedCredentials
+from twisted.web2.auth.digest import DigestedCredentials
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
 from twisted.web2.dav import davxml
