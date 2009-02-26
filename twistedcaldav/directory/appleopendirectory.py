@@ -313,7 +313,7 @@ class OpenDirectoryService(DirectoryService):
                     self.reloadCache(recordType, lookup=(lookupKey, value,))
                     record = lookup()
                 except opendirectory.ODError, e:
-                    if e.message[1] == -14140:
+                    if e.message[1] == -14140 or e.message[1] == -14200:
                         # Unsupported attribute on record - don't fail
                         record = None
                     else:
