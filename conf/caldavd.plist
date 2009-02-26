@@ -310,7 +310,7 @@
     <dict>
       <!-- Time spent coalescing notifications before delivery -->
       <key>CoalesceSeconds</key>
-      <integer>10</integer>
+      <integer>3</integer>
 
       <key>Services</key>
       <dict>
