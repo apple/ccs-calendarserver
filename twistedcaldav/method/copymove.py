@@ -119,13 +119,14 @@ def http_MOVE(self, request):
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
         is_calendar_collection = isPseudoCalendarCollectionResource(self)
+        defaultCalendar = (yield self.isDefaultCalendar(request)) if is_calendar_collection else False
 
         # Do default WebDAV action
         result = (yield super(CalDAVFile, self).http_MOVE(request))
         
         if is_calendar_collection:
             # Do some clean up
-            yield self.movedCalendar(request, destination, destination_uri)
+            yield self.movedCalendar(request, defaultCalendar, destination, destination_uri)
 
         returnValue(result)
         

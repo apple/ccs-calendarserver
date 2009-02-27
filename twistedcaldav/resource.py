@@ -549,21 +549,11 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
             inbox.processFreeBusyCalendar(request.path, False)
-            
-            # Also check the default calendar setting and remove it if the default is deleted
-            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
-            if default and len(default.children) == 1:
-                defaultURL = normalizeURL(str(default.children[0]))
-                if normalizeURL(request.path) == defaultURL:
-                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(), request)               
 
     @inlineCallbacks
-    def movedCalendar(self, request, destination, destination_uri):
+    def movedCalendar(self, request, defaultCalendar, destination, destination_uri):
         """
         Calendar has been moved. Need to do some extra clean-up.
-
-        @param request:
-        @type request:
         """
         
         # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
@@ -576,12 +566,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             inbox.processFreeBusyCalendar(request.path, False)
             inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
             
-            # Also check the default calendar setting and remove it if the default is deleted
-            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
-            if default and len(default.children) == 1:
-                defaultURL = normalizeURL(str(default.children[0]))
-                if normalizeURL(request.path) == defaultURL:
-                    yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)), request)               
+            # Adjust the default calendar setting if necessary
+            if defaultCalendar:
+                yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)), request)               
 
     def isCalendarOpaque(self):
         
@@ -592,6 +579,24 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             return property.children[0] == caldavxml.Opaque()
         else:
             return False
+
+    @inlineCallbacks
+    def isDefaultCalendar(self, request):
+        
+        assert self.isCalendarCollection()
+        
+        # Not allowed to delete the default calendar
+        principal = (yield self.ownerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            inbox = (yield request.locateResource(inboxURL))
+            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+            if default and len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                myURL = (yield self.canonicalURL(request))
+                returnValue(defaultURL == myURL)
+
+        returnValue(False)
 
     def iCalendar(self, name=None):
         """

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.method.report_common import applyToCalendarCollections
 
 
 """
@@ -25,12 +24,15 @@ __all__ = ["DeleteResource"]
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse
+from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse,\
+    ErrorResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from twistedcaldav.method.report_common import applyToCalendarCollections
 from twistedcaldav.resource import isCalendarCollectionResource,\
     isPseudoCalendarCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
@@ -159,6 +161,12 @@ class DeleteResource(object):
         This has to emulate the behavior in fileop.delete in that any errors need to be
         reported back in a multistatus response.
         """
+
+        # Not allowed to delete the default calendar
+        default = (yield delresource.isDefaultCalendar(self.request))
+        if default:
+            log.err("Cannot DELETE default calendar: %s" % (delresource,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "default-calendar-delete-allowed",)))
 
         if self.depth != "infinity":
             msg = "Client sent illegal depth header value for DELETE: %s" % (self.depth,)

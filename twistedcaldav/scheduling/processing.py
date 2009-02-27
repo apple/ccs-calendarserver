@@ -260,37 +260,33 @@ class ImplicitProcessor(object):
             else:
                 default = None
             
-            # Must have a calendar if auto-replying
-            if default is None and self.recipient.principal.autoSchedule():
-                log.error("No default calendar for auto-replying recipient: '%s'." % (self.recipient.cuaddr,))
+            # Must have a default calendar
+            if default is None:
+                log.error("No default calendar for recipient: '%s'." % (self.recipient.cuaddr,))
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
-            if default:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                autoprocessed = self.recipient.principal.autoSchedule()
-                new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
-                name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
-                
-                # Handle auto-reply behavior
-                if autoprocessed:
-                    send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            autoprocessed = self.recipient.principal.autoSchedule()
+            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
+            name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
+            
+            # Handle auto-reply behavior
+            if autoprocessed:
+                send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
 
-                new_resource = (yield self.writeCalendarResource(defaultURL, default, name, new_calendar))
-                
-                if autoprocessed and send_reply:
-                    reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
+            new_resource = (yield self.writeCalendarResource(defaultURL, default, name, new_calendar))
+            
+            if autoprocessed and send_reply:
+                reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
-                # Build the schedule-changes XML element
-                changes = customxml.ScheduleChanges(
-                    customxml.DTStamp(),
-                    customxml.Action(
-                        customxml.Create(),
-                    ),
-                )
-                result = (True, autoprocessed, changes,)
-            else:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new not processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (False, False, None,)
+            # Build the schedule-changes XML element
+            changes = customxml.ScheduleChanges(
+                customxml.DTStamp(),
+                customxml.Action(
+                    customxml.Create(),
+                ),
+            )
+            result = (True, autoprocessed, changes,)
         else:
             # Processing update to existing event
             autoprocessed = self.recipient.principal.autoSchedule()
