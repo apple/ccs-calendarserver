@@ -73,7 +73,7 @@ from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.mail import IMIPInboxResource
 from twistedcaldav.timezones import TimezoneCache
-from twistedcaldav.upgrade import UpgradeTheServer
+from twistedcaldav.upgrade import upgradeData
 from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
@@ -327,8 +327,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
     def makeService(self, options):
 
-        # Now do any on disk upgrades we might need.
-        UpgradeTheServer.doUpgrade()
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
@@ -339,6 +337,16 @@ class CalDAVServiceMaker (LoggingMixIn):
                 % (config.ProcessType,)
             )
         else:
+
+            if config.ProcessType in ('Combined', 'Single'):
+
+                # Process localization string files
+                processLocalizationFiles(config.Localization)
+
+                # Now do any on disk upgrades we might need.
+                upgradeData(config)
+
+
             service = serviceMethod(options)
 
             #

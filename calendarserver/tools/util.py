@@ -44,7 +44,7 @@ def getDirectory():
     BaseDirectoryService = namedClass(config.DirectoryService.type)
 
     class MyDirectoryService (BaseDirectoryService):
-        def principalCollection(self):
+        def getPrincipalCollection(self):
             if not hasattr(self, "_principalCollection"):
                 #
                 # Instantiating a CalendarHomeProvisioningResource with a directory
@@ -60,11 +60,21 @@ def getDirectory():
 
             return self._principalCollection
 
+        def setPrincipalCollection(self, coll):
+            # See principal.py line 237:  self.directory.principalCollection = self
+            pass
+
+        principalCollection = property(getPrincipalCollection, setPrincipalCollection)
+
         def calendarHomeForShortName(self, recordType, shortName):
-            principal = self.principalCollection().principalForShortName(recordType, shortName)
+            principal = self.principalCollection.principalForShortName(recordType, shortName)
             if principal:
                 return principal.calendarHome()
             return None
+
+        def principalForCalendarUserAddress(self, cua):
+            return self.principalCollection.principalForCalendarUserAddress(cua)
+
 
     return MyDirectoryService(**config.DirectoryService.params)
 

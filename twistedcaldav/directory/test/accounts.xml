@@ -30,6 +30,7 @@ limitations under the License.
     <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
     <password>zehcnasw</password>
     <name>Wilfredo Sanchez</name>
+    <email-address>wsanchez@example.com</email-address>
     <cuaddr>mailto:wsanchez@example.com</cuaddr>
   </user>
   <user>
@@ -37,6 +38,7 @@ limitations under the License.
     <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
     <password>oobadc</password>
     <name>Cyrus Daboo</name>
+    <email-address>cdaboo@example.com</email-address>
     <cuaddr>mailto:cdaboo@example.com</cuaddr>
   </user>
   <user>
@@ -44,6 +46,7 @@ limitations under the License.
     <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
     <password>yorcel</password>
     <name>Chris Lecroy</name>
+    <email-address>lecroy@example.com</email-address>
     <cuaddr>mailto:lecroy@example.com</cuaddr>
   </user>
   <user>
@@ -51,6 +54,7 @@ limitations under the License.
     <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
     <password>dierd</password>
     <name>David Reid</name>
+    <email-address>dreid@example.com</email-address>
     <cuaddr>mailto:dreid@example.com</cuaddr>
   </user>
   <user repeat="2">
@@ -60,6 +64,7 @@ limitations under the License.
   </user>
   <group>
     <uid>managers</uid>
+    <guid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
     <password>managers</password>
     <name>Managers</name>
     <members>
@@ -143,6 +148,7 @@ limitations under the License.
     <uid>mercury</uid>
     <password>mercury</password>
     <name>Mecury Seven</name>
+    <email-address>mercury@example.com</email-address>
     <cuaddr>mailto:mercury@example.com</cuaddr>
     <proxies>
       <member type="groups">left_coast</member>
@@ -152,6 +158,7 @@ limitations under the License.
     <uid>gemini</uid>
     <password>gemini</password>
     <name>Gemini Twelve</name>
+    <email-address>gemini@example.com</email-address>
     <cuaddr>mailto:gemini@example.com</cuaddr>
     <auto-schedule/>
     <proxies>
@@ -162,6 +169,7 @@ limitations under the License.
     <uid>apollo</uid>
     <password>apollo</password>
     <name>Apollo Eleven</name>
+    <email-address>apollo@example.com</email-address>
     <cuaddr>mailto:apollo@example.com</cuaddr>
     <proxies>
       <member type="groups">both_coasts</member>
@@ -171,6 +179,7 @@ limitations under the License.
     <uid>orion</uid>
     <password>orion</password>
     <name>Orion</name>
+    <email-address>orion@example.com</email-address>
     <cuaddr>mailto:orion@example.com</cuaddr>
     <proxies>
       <member type="groups">recursive1_coasts</member>
@@ -180,12 +189,14 @@ limitations under the License.
     <uid>transporter</uid>
     <password>transporter</password>
     <name>Mass Transporter</name>
+    <email-address>transporter@example.com</email-address>
     <cuaddr>mailto:transporter@example.com</cuaddr>
   </resource>
   <resource>
     <uid>ftlcpu</uid>
     <password>ftlcpu</password>
     <name>Faster-Than-Light Microprocessor</name>
+    <email-address>ftlcpu@example.com</email-address>
     <cuaddr>mailto:ftlcpu@example.com</cuaddr>
   </resource>
   <resource>
@@ -193,6 +204,7 @@ limitations under the License.
     <guid>non_calendar_proxy</guid>
     <password>non_calendar_proxy</password>
     <name>Non-calendar proxy</name>
+    <email-address>non_calendar_proxy@example.com</email-address>
     <cuaddr>mailto:non_calendar_proxy@example.com</cuaddr>
     <proxies>
       <member type="groups">non_calendar_group</member>

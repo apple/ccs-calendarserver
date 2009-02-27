@@ -149,14 +149,7 @@ class DirectoryService(LoggingMixIn):
             return self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             email = address[7:]
-            result = self.recordWithEmailAddress(email)
-            if result:
-                return result
-
-        for record in self.allRecords():
-            if address in record.calendarUserAddresses:
-                return record
-                
+            return self.recordWithEmailAddress(email)
         return None
 
     def recordWithEmailAddress(self, email):

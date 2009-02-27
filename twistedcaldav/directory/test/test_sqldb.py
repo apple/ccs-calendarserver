@@ -26,26 +26,26 @@ xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
-class SQLDB (
-    twistedcaldav.directory.test.test_xmlfile.XMLFileBase,
-    twistedcaldav.directory.test.util.BasicTestCase,
-    twistedcaldav.directory.test.util.DigestTestCase
-):
-    """
-    Test SQL directory implementation.
-    """
-    def service(self):
-        return SQLDirectoryService(os.getcwd(), self.xmlFile())
-
-    def test_verifyCredentials_digest(self):
-        super(SQLDB, self).test_verifyCredentials_digest()
-    test_verifyCredentials_digest.todo = ""
-
-    def test_verifyRealmFromDB(self):
-        # Make sure the database has been initialized with the XML file
-        self.service()
-
-        # Then get an instance without using the XML file
-        service = SQLDirectoryService(os.getcwd(), None)
-
-        self.assertEquals(service.realmName, "Test")
+# class SQLDB (
+#     twistedcaldav.directory.test.test_xmlfile.XMLFileBase,
+#     twistedcaldav.directory.test.util.BasicTestCase,
+#     twistedcaldav.directory.test.util.DigestTestCase
+# ):
+#     """
+#     Test SQL directory implementation.
+#     """
+#     def service(self):
+#         return SQLDirectoryService(os.getcwd(), self.xmlFile())
+# 
+#     def test_verifyCredentials_digest(self):
+#         super(SQLDB, self).test_verifyCredentials_digest()
+#     test_verifyCredentials_digest.todo = ""
+# 
+#     def test_verifyRealmFromDB(self):
+#         # Make sure the database has been initialized with the XML file
+#         self.service()
+# 
+#         # Then get an instance without using the XML file
+#         service = SQLDirectoryService(os.getcwd(), None)
+# 
+#         self.assertEquals(service.realmName, "Test")

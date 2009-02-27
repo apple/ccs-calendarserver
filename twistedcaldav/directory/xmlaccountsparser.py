@@ -274,6 +274,7 @@ class XMLAccountRecord (object):
             elif child_name == ELEMENT_EMAIL_ADDRESS:
                 if child.firstChild is not None:
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
+                    self.calendarUserAddresses.add("mailto:%s" % (child.firstChild.data.encode("utf-8"),))
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:

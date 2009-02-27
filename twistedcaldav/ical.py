@@ -45,6 +45,7 @@ from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset
 import cStringIO as StringIO
 import datetime
 import heapq
+import itertools
 
 log = Logger()
 
@@ -1808,6 +1809,66 @@ class Component (object):
                     if dataValue.find(dropboxPrefix) != -1:
                         component.removeProperty(attachment)
 
+    def normalizeCalendarUserAddresses(self, lookupFunction):
+        """
+        Do the ORGANIZER/ATTENDEE property normalization.
+
+        @param lookupFunction: function returning full name, guid, CUAs for a given CUA
+        @type lookupFunction: L{Function}
+        """
+        for component in self.subcomponents():
+            if component.name() == "VTIMEZONE":
+                continue
+            for prop in itertools.chain(
+                component.properties("ORGANIZER"),
+                component.properties("ATTENDEE")
+            ):
+
+                # Check that we can lookup this calendar user address - if not
+                # we cannot do anything with it
+                cuaddr = normalizeCUAddr(prop.value())
+                name, guid, cuaddrs = lookupFunction(cuaddr)
+                if guid is None:
+                    continue
+
+                # Always re-write value to urn:uuid
+                prop.setValue("urn:uuid:%s" % (guid,))
+
+                # Always re-write the CN parameter
+                if name:
+                    prop.params()["CN"] = [name,]
+                else:
+                    try:
+                        del prop.params()["CN"]
+                    except KeyError:
+                        pass
+
+                # Re-write the X-CALENDARSERVER-EMAIL if its value no longer
+                # matches
+                oldemail = prop.params().get("X-CALENDARSERVER-EMAIL",
+                    (None,))[0]
+                if oldemail:
+                    oldemail = "mailto:%s" % (oldemail,)
+                if oldemail is None or oldemail not in cuaddrs:
+                    if cuaddr.startswith("mailto:") and cuaddr in cuaddrs:
+                        email = cuaddr[7:]
+                    else:
+                        for addr in cuaddrs:
+                            if addr.startswith("mailto:"):
+                                email = addr[7:]
+                                break
+                        else:
+                            email = None
+
+                    if email:
+                        prop.params()["X-CALENDARSERVER-EMAIL"] = [email,]
+                    else:
+                        try:
+                            del prop.params()["X-CALENDARSERVER-EMAIL"]
+                        except KeyError:
+                            pass
+
+        
 ##
 # Dates and date-times
 ##

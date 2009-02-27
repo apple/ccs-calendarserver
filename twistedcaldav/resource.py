@@ -657,64 +657,17 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         @param ical: calendar object to normalize.
         @type ical: L{Component}
         """
-        
-        def normalizeCalendarUserAddress(prop):
-            """
-            Do the ORGANIZER/ATTENDEE property normalization.
 
-            @param prop: organizer/attendee property
-            @type prop: L{Property}
-            """
-            
-            # Check that we have a principal for this calendar user address - if not we
-            # cannot do anything with it
-            cuaddr = normalizeCUAddr(prop.value())
+        def lookupFunction(cuaddr):
             principal = self.principalForCalendarUserAddress(cuaddr)
             if principal is None:
-                return
-
-            # Always re-write value to urn:uuid
-            prop.setValue("urn:uuid:%s" % (principal.record.guid,))
-
-            # Always re-write the CN parameter
-            if principal.record.fullName:
-                prop.params()["CN"] = [principal.record.fullName,]
+                return (None, None, None)
             else:
-                try:
-                    del prop.params()["CN"]
-                except KeyError:
-                    pass
+                return (principal.record.fullName, principal.record.guid,
+                    principal.record.calendarUserAddresses)
 
-            # Re-write the X-CALENDARSERVER-EMAIL if its value no longer matches
-            oldemail = prop.params().get("X-CALENDARSERVER-EMAIL", (None,))[0]
-            if oldemail:
-                oldemail = "mailto:%s" % (oldemail,)
-            if oldemail is None or oldemail not in principal.record.calendarUserAddresses:
-                if cuaddr.startswith("mailto:") and cuaddr in principal.record.calendarUserAddresses:
-                    email = cuaddr[7:]
-                else:
-                    for addr in principal.record.calendarUserAddresses:
-                        if addr.startswith("mailto:"):
-                            email = addr[7:]
-                            break
-                    else:
-                        email = None
-                        
-                if email:
-                    prop.params()["X-CALENDARSERVER-EMAIL"] = [email,]
-                else:
-                    try:
-                        del prop.params()["X-CALENDARSERVER-EMAIL"]
-                    except KeyError:
-                        pass
+        ical.normalizeCalendarUserAddresses(lookupFunction)
 
-        for component in ical.subcomponents():
-            if component.name() != "VTIMEZONE":
-                for prop in itertools.chain(
-                    component.properties("ORGANIZER"),
-                    component.properties("ATTENDEE")
-                ):
-                    normalizeCalendarUserAddress(prop)
 
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
