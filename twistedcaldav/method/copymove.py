@@ -47,6 +47,10 @@ def http_COPY(self, request):
     the destination if its a calendar collection.
     """
 
+    # Copy of calendar collections isn't allowed.
+    if isPseudoCalendarCollectionResource(self):
+        returnValue(responsecode.FORBIDDEN)
+
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result or not destinationcal:
         # Do default WebDAV action
