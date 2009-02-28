@@ -33,6 +33,7 @@ from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
+from twisted.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
@@ -46,6 +47,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
                     davxml.Privilege(davxml.Read()),
                 ),
                 davxml.Protected(),
+                TwistedACLInheritable(),
             ),
         )
 
@@ -73,7 +75,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return None
 
     def createSimilarFile(self, path):
-        return DAVFile(path)
+        return DAVFile(path, principalCollections=self.principalCollections())
 
     _htmlContent_lastCheck      = 0
     _htmlContent_statInfo       = 0
@@ -87,7 +89,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         else:
             cacheAttr = "_htmlContent"
             templateFileName = "template.html"
-        templateFileName = os.path.join(config.WebCalendarRoot, "calendar", templateFileName)+"1"
+        templateFileName = os.path.join(config.WebCalendarRoot, "calendar", templateFileName)
 
         #
         # See if the file changed, and dump the cached template if so.
@@ -100,12 +102,6 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
                 statInfo = os.stat(templateFileName)
                 statInfo = (statInfo.st_mtime, statInfo.st_size)
                 if statInfo != getattr(self, cacheAttr + "_statInfo"):
-                    print "*"*40
-                    print currentTime
-                    print getattr(self, cacheAttr + "_lastCheck")
-                    print statInfo
-                    print getattr(self, cacheAttr + "_statInfo")
-                    print "*"*40
                     delattr(self, cacheAttr)
                     setattr(self, cacheAttr + "_statInfo", statInfo)
                 setattr(self, cacheAttr + "_lastCheck", currentTime)
