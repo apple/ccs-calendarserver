@@ -33,18 +33,14 @@ from cPickle import loads as unpickle, PicklingError, UnpicklingError
 log = Logger()
 
 
-
-
 #
 # upgrade_to_1
 #
 # Upconverts data from any calendar server version prior to data format 1
 #
-errorOccurred = False
 
 def upgrade_to_1(config):
 
-    global errorOccurred
     errorOccurred = False
 
     def fixBadQuotes(data):
@@ -93,8 +89,7 @@ def upgrade_to_1(config):
 
     def upgradeCalendarCollection(calPath, directory):
 
-        global errorOccurred
-
+        errorOccurred = False
         collectionUpdated = False
 
         for resource in os.listdir(calPath):
@@ -151,15 +146,20 @@ def upgrade_to_1(config):
             ctagValue = zlib.compress(ctagValue)
             xattr.setxattr(calPath, "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag", ctagValue)
 
+        return errorOccurred
+
 
     def upgradeCalendarHome(homePath, directory):
+
+        errorOccurred = False
 
         log.info("Upgrading calendar home: %s" % (homePath,))
 
         for cal in os.listdir(homePath):
             calPath = os.path.join(homePath, cal)
             log.info("Upgrading calendar: %s" % (calPath,))
-            upgradeCalendarCollection(calPath, directory)
+            if not upgradeCalendarCollection(calPath, directory):
+                errorOccurred = True
 
             # Change the calendar-free-busy-set xattrs of the inbox to the
             # __uids__/<guid> form
@@ -171,7 +171,7 @@ def upgrade_to_1(config):
                             # Need to write the xattr back to disk
                             xattr.setxattr(calPath, attr, value)
 
-
+        return errorOccurred
 
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
@@ -310,7 +310,8 @@ def upgrade_to_1(config):
                             secondPath = os.path.join(firstPath, second)
                             for home in os.listdir(secondPath):
                                 homePath = os.path.join(secondPath, home)
-                                upgradeCalendarHome(homePath, directory)
+                                if not upgradeCalendarHome(homePath, directory):
+                                    errorOccurred = True
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
