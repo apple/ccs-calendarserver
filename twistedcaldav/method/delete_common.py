@@ -29,7 +29,8 @@ from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse,\
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, ScheduleTag
+from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.report_common import applyToCalendarCollections
@@ -49,6 +50,29 @@ class DeleteResource(object):
         self.parent = parent
         self.depth = depth
         self.internal_request = internal_request
+
+    def validIfScheduleMatch(self):
+        """
+        Check for If-ScheduleTag-Match header behavior.
+        """
+        
+        # Only when a direct request
+        if not self.internal_request:
+            header = self.request.headers.getHeader("If-Schedule-Tag-Match")
+            if header:
+                # Do "precondition" test
+                matched = False
+                if self.resource.exists() and self.resource.hasDeadProperty(ScheduleTag):
+                    scheduletag = self.resource.readDeadProperty(ScheduleTag)
+                    matched = (scheduletag == header)
+                if not matched:
+                    log.debug("If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" % (header, scheduletag,))
+                    raise HTTPError(responsecode.PRECONDITION_FAILED)
+            
+            elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
+                # Actually by the time we get here the pre-condition will already have been tested and found to be OK
+                # (CalDAVFile.checkPreconditions) so we can ignore this case.
+                pass
 
     @inlineCallbacks
     def deleteResource(self, delresource, deluri, parent):
@@ -104,6 +128,9 @@ class DeleteResource(object):
         # TODO: need to use transaction based delete on live scheduling object resources
         # as the iTIP operation may fail and may need to prevent the delete from happening.
     
+        # Do If-Schedule-Tag-Match behavior first
+        self.validIfScheduleMatch()
+
         # Do quota checks before we start deleting things
         myquota = (yield delresource.quota(self.request))
         if myquota is not None:

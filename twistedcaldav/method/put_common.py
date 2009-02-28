@@ -395,11 +395,13 @@ class StoreCalendarObjectResource(object):
             header = self.request.headers.getHeader("If-Schedule-Tag-Match")
             if header:
                 # Do "precondition" test
-                matched = False
-                if self.destination.exists() and self.destination.hasDeadProperty(ScheduleTag):
-                    scheduletag = self.destination.readDeadProperty(ScheduleTag)
-                    matched = (scheduletag == header)
-                if not matched:
+                
+                # If COPY/MOVE get Schedule-Tag on source, else use destination
+                def _getScheduleTag(resource):
+                    return resource.readDeadProperty(ScheduleTag) if resource.exists() and resource.hasDeadProperty(ScheduleTag) else None
+
+                scheduletag = _getScheduleTag(self.source if self.source else self.destination)
+                if scheduletag != header:
                     log.debug("If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" % (header, scheduletag,))
                     raise HTTPError(responsecode.PRECONDITION_FAILED)
                 self.schedule_tag_match = True
