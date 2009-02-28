@@ -96,12 +96,12 @@ class XMLDirectoryService(DirectoryService):
         if self._alwaysStat or currentTime - self._lastCheck > 60:
             self.xmlFile.restat()
             self._lastCheck = currentTime
-        fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
-        if fileInfo != self._fileInfo:
-            parser = XMLAccountsParser(self.xmlFile)
-            self._parsedAccounts = parser.items
-            self.realmName = parser.realm
-            self._fileInfo = fileInfo
+            fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
+            if fileInfo != self._fileInfo:
+                parser = XMLAccountsParser(self.xmlFile)
+                self._parsedAccounts = parser.items
+                self.realmName = parser.realm
+                self._fileInfo = fileInfo
         return self._parsedAccounts
 
 class XMLDirectoryRecord(DirectoryRecord):
