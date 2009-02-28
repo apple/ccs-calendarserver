@@ -22,6 +22,9 @@ __all__ = [
     "WebCalendarResource",
 ]
 
+import os
+
+from time import time
 from urlparse import urlparse
 from cgi import parse_qs
 
@@ -30,9 +33,9 @@ from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
-from twisted.web2.dav.static import DAVFile
 
-from twistedcaldav.extensions import ReadOnlyResourceMixIn
+from twistedcaldav.config import config
+from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
     def defaultAccessControlList(self):
@@ -72,6 +75,58 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
     def createSimilarFile(self, path):
         return DAVFile(path)
 
+    _htmlContent_lastCheck      = 0
+    _htmlContent_statInfo       = 0
+    _htmlContentDebug_lastCheck = 0
+    _htmlContentDebug_statInfo  = 0
+
+    def htmlContent(self, debug=False):
+        if debug:
+            cacheAttr = "_htmlContentDebug"
+            templateFileName = "debug_template.html"
+        else:
+            cacheAttr = "_htmlContent"
+            templateFileName = "template.html"
+        templateFileName = os.path.join(config.WebCalendarRoot, "calendar", templateFileName)+"1"
+
+        #
+        # See if the file changed, and dump the cached template if so.
+        # Don't bother to check if we've checked in the past minute.
+        # We don't cache if debug is true.
+        #
+        if not debug and hasattr(self, cacheAttr):
+            currentTime = time()
+            if currentTime - getattr(self, cacheAttr + "_lastCheck") > 60:
+                statInfo = os.stat(templateFileName)
+                statInfo = (statInfo.st_mtime, statInfo.st_size)
+                if statInfo != getattr(self, cacheAttr + "_statInfo"):
+                    print "*"*40
+                    print currentTime
+                    print getattr(self, cacheAttr + "_lastCheck")
+                    print statInfo
+                    print getattr(self, cacheAttr + "_statInfo")
+                    print "*"*40
+                    delattr(self, cacheAttr)
+                    setattr(self, cacheAttr + "_statInfo", statInfo)
+                setattr(self, cacheAttr + "_lastCheck", currentTime)
+
+        #
+        # If we don't have a cached template, load it up.
+        #
+        if not hasattr(self, cacheAttr):
+            templateFile = open(templateFileName)
+            try:
+                htmlContent = templateFile.read()
+            finally:
+                templateFile.close()
+
+            if debug:
+                # Don't cache
+                return htmlContent
+            setattr(self, cacheAttr, htmlContent)
+
+        return getattr(self, cacheAttr)
+
     def render(self, request):
         if not self.fp.isdir():
             return responsecode.NOT_FOUND
@@ -90,10 +145,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         # Parse debug query arg
         #
         debug = queryValue("debug")
-        if debug is not None and debug.lower() in ("1", "true", "yes"):
-            debug = "true"
-        else:
-            debug = "false"
+        debug = debug is not None and debug.lower() in ("1", "true", "yes")
 
         #
         # Parse TimeZone query arg
@@ -105,53 +157,17 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         #
         # Make some HTML
         #
-        data = """
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-
-<html lang="en">
- <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta name="caldav_principal_path" content="%(principalURL)s">
-  <meta name="tzid" content="%(tzid)s">
-  <title>Calendar</title>
-  <link rel="stylesheet" href="/webcal/calendar/css/calendar_standalone.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/niftydate.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/calendar.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/dialog.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/forms.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/search.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/widgets.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/tags.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/tooltip.css" type="text/css" media="screen" charset="utf-8">
-  <link rel="stylesheet" href="/webcal/css/required/paginator.css" type="text/css" media="screen" charset="utf-8">
-  <script src="/webcal/calendar/temp_exported_locStrings.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/prototype.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/md5.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/effects.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/builder.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/locUtils.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/formatDate.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/widgets_core.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/widgets.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/caldav.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/webcal/javascript/calaccess.js" type="text/javascript" charset="utf-8"></script>
-  <script type="text/javascript" charset="utf-8">gDebug = %(debug)s;</script>
- </head>
- <body>
-  <div id="module_calendars"></div>
-  <script type="text/javascript" charset="utf-8">
-   setTimeout(function() { if (window.prepare) prepare() }, 10);
-  </script>
- </body>
-</html>
-""" % {
-    "tzid": tzid,
-    "principalURL": authenticatedPrincipalURL,
-    "debug": debug,
-}
+        try:
+            htmlContent = self.htmlContent(debug) % {
+                "tzid": tzid,
+                "principalURL": authenticatedPrincipalURL,
+            }
+        except IOError, e:
+            self.log_error("Unable to obtain WebCalendar template: %s" % (e,))
+            return responsecode.NOT_FOUND
 
         response = Response()
-        response.stream = MemoryStream(data, start=1)
+        response.stream = MemoryStream(htmlContent)
 
         for (header, value) in (
             ("content-type", self.contentType()),
