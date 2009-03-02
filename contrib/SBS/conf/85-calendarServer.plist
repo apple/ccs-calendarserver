@@ -6,11 +6,11 @@
     <string>calendarServer</string>
     
     <key>RestoreBinaryPath</key>
-    <string>/usr/libexec/sbs_backup/calendarServer_restore</string>
+    <string>/usr/libexec/server_backup/calendarServer_restore</string>
     <key>RestoreLog</key>
-    <string>/private/var/log/sbs_backup/calendarServer_restore.log</string>
+    <string>/private/var/log/server_backup/calendarServer_restore.log</string>
 
     <key>Version</key>
-    <string>10.5</string>
+    <string>10.6</string>
 </dict>
 </plist>

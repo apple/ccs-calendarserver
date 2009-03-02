@@ -107,10 +107,10 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -m 0755 $(DSTROOT)$(VARDIR)/log/caldavd
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
 	$(_v) $(INSTALL_FILE) $(Sources)/contrib/launchd/calendarserver.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/sbs_backup/
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
-	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/sbs_backup/
-	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/bin/calendarServer_restore $(DSTROOT)$(LIBEXECDIR)/sbs_backup/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/server_backup/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(LIBEXECDIR)/server_backup/
+	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/server_backup/
+	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/bin/calendarServer_restore $(DSTROOT)$(LIBEXECDIR)/server_backup/
 
 install:: prep
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/AppleInternal/ServerTools
