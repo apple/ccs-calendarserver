@@ -416,6 +416,7 @@
         </dict>
         <key>AddressPatterns</key>
         <array>
+          <string>mailto:.*</string>
         </array>
       </dict>
 
