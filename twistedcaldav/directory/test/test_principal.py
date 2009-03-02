@@ -198,6 +198,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 else:
                     self.failIf(principal is not None)
 
+        # Explicitly check the disabled record
+        self.failIf(provisioningResource.principalForCalendarUserAddress("mailto:nocalendar@example.com") is not None)
+        self.failIf(provisioningResource.principalForCalendarUserAddress("urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5") is not None)
+        self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/users/nocalendar/") is not None)
+        self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/__uids__/543D28BA-F74F-4D5F-9243-B3E3A61171E5/") is not None)
+
     def test_autoSchedule(self):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()

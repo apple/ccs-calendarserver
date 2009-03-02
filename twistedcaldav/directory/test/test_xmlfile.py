@@ -35,13 +35,14 @@ class XMLFileBase(object):
     ))
 
     users = {
-        "admin"   : { "password": "nimda",    "guid": "D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "addresses": () },
-        "wsanchez": { "password": "zehcnasw", "guid": "6423F94A-6B76-4A3A-815B-D52CFD77935D", "addresses": ("mailto:wsanchez@example.com",) },
-        "cdaboo"  : { "password": "oobadc",   "guid": "5A985493-EE2C-4665-94CF-4DFEA3A89500", "addresses": ("mailto:cdaboo@example.com",)   },
-        "lecroy"  : { "password": "yorcel",   "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)   },
-        "dreid"   : { "password": "dierd",    "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)    },
-        "user01"  : { "password": "01user",   "guid": None                                  , "addresses": () },
-        "user02"  : { "password": "02user",   "guid": None                                  , "addresses": () },
+        "admin"      : { "password": "nimda",      "guid": "D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "addresses": () },
+        "wsanchez"   : { "password": "zehcnasw",   "guid": "6423F94A-6B76-4A3A-815B-D52CFD77935D", "addresses": ("mailto:wsanchez@example.com",) },
+        "cdaboo"     : { "password": "oobadc",     "guid": "5A985493-EE2C-4665-94CF-4DFEA3A89500", "addresses": ("mailto:cdaboo@example.com",)   },
+        "lecroy"     : { "password": "yorcel",     "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)   },
+        "dreid"      : { "password": "dierd",      "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)    },
+        "nocalendar" : { "password": "radnelacon", "guid": "543D28BA-F74F-4D5F-9243-B3E3A61171E5", "addresses": () },
+        "user01"     : { "password": "01user",     "guid": None                                  , "addresses": () },
+        "user02"     : { "password": "02user",     "guid": None                                  , "addresses": () },
     }
 
     groups = {

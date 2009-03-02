@@ -274,7 +274,6 @@ class XMLAccountRecord (object):
             elif child_name == ELEMENT_EMAIL_ADDRESS:
                 if child.firstChild is not None:
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
-                    self.calendarUserAddresses.add("mailto:%s" % (child.firstChild.data.encode("utf-8"),))
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
             elif child_name == ELEMENT_CUADDR:
@@ -303,6 +302,10 @@ class XMLAccountRecord (object):
                 self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
+
+        if self.enabledForCalendaring:
+            for email in self.emailAddresses:
+                self.calendarUserAddresses.add("mailto:%s" % (email,))
 
     def _parseMembers(self, node, addto):
         for child in node._get_childNodes():

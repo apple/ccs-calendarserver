@@ -144,13 +144,15 @@ class DirectoryService(LoggingMixIn):
 
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
+        record = None
         if address.startswith("urn:uuid:"):
             guid = address[9:]
-            return self.recordWithGUID(guid)
+            record = self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             email = address[7:]
-            return self.recordWithEmailAddress(email)
-        return None
+            record = self.recordWithEmailAddress(email)
+
+        return record if record and record.enabledForCalendaring else None
 
     def recordWithEmailAddress(self, email):
         for record in self.allRecords():
