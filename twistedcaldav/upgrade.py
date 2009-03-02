@@ -103,7 +103,7 @@ def upgrade_to_1(config):
                 # Skip directories
                 continue
 
-            log.info("Processing: %s" % (resPath,))
+            log.debug("Processing: %s" % (resPath,))
             needsRewrite = False
             with open(resPath) as res:
                 data = res.read()
@@ -111,7 +111,7 @@ def upgrade_to_1(config):
                 try:
                     data, fixed = fixBadQuotes(data)
                     if fixed:
-                        log.info("Fixing bad quotes in %s" % (resPath,))
+                        log.debug("Fixing bad quotes in %s" % (resPath,))
                         needsRewrite = True
                 except Exception, e:
                     log.error("Error while fixing bad quotes in %s: %s" %
@@ -122,7 +122,7 @@ def upgrade_to_1(config):
                 try:
                     data, fixed = normalizeCUAddrs(data, directory)
                     if fixed:
-                        log.info("Normalized CUAddrs in %s" % (resPath,))
+                        log.debug("Normalized CUAddrs in %s" % (resPath,))
                         needsRewrite = True
                 except Exception, e:
                     log.error("Error while normalizing %s: %s" %
@@ -153,11 +153,11 @@ def upgrade_to_1(config):
 
         errorOccurred = False
 
-        log.info("Upgrading calendar home: %s" % (homePath,))
+        log.debug("Upgrading calendar home: %s" % (homePath,))
 
         for cal in os.listdir(homePath):
             calPath = os.path.join(homePath, cal)
-            log.info("Upgrading calendar: %s" % (calPath,))
+            log.debug("Upgrading calendar: %s" % (calPath,))
             if not upgradeCalendarCollection(calPath, directory):
                 errorOccurred = True
 
@@ -205,7 +205,7 @@ def upgrade_to_1(config):
                 % (oldDbPath, newDbPath, str(e))
             )
 
-        log.info(
+        log.debug(
             "Moved the calendar user proxy database from '%s' to '%s'."
             % (oldDbPath, newDbPath,)
         )
@@ -256,7 +256,7 @@ def upgrade_to_1(config):
 
             # Now delete the on disk representation of principals
             rmdir(oldPrincipals)
-            log.info(
+            log.debug(
                 "Removed the old principal directory at '%s'."
                 % (oldPrincipals,)
             )
