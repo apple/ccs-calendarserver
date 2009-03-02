@@ -1334,7 +1334,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                (),
+                {},
                 (),
             ),
             (
@@ -1361,7 +1361,7 @@ SUMMARY:Test1
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY",),
+                {"SUMMARY":set(),},
                 (),
             ),
             (
@@ -1390,7 +1390,7 @@ DESCRIPTION:Something to do.
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY", "LOCATION", "DESCRIPTION",),
+                {"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),},
                 (),
             ),
             (
@@ -1424,7 +1424,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("ATTENDEE",),
+                {"ATTENDEE":set(),},
                 (),
             ),
             (
@@ -1456,7 +1456,7 @@ ATTENDEE:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("ATTENDEE",),
+                {"ATTENDEE":set(),},
                 (),
             ),
             (
@@ -1489,7 +1489,7 @@ ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("PARTSTAT",),
+                {"ATTENDEE":set(),},
                 (),
             ),
             (
@@ -1523,7 +1523,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("PARTSTAT", "ATTENDEE",),
+                {"ATTENDEE":set(),},
                 (),
             ),
             (
@@ -1556,7 +1556,40 @@ ATTENDEE;RSVP=TRUE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                {"ATTENDEE":set(),},
                 (),
+            ),
+            (
+                "#1.9 Simple component, DTSTART/DTEND VALUE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DTEND;VALUE=DATE:20080601
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                {"DTEND":set(("VALUE",)), "DTSTART":set(("VALUE",)),},
                 (),
             ),
         )
@@ -1594,7 +1627,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                (),
+                {},
                 (),
             ),
             (
@@ -1623,7 +1656,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY",),
+                {"SUMMARY":set(),},
                 ("",),
             ),
             (
@@ -1654,7 +1687,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY", "LOCATION", "DESCRIPTION",),
+                {"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),},
                 ("",),
             ),
             (
@@ -1690,7 +1723,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("ATTENDEE",),
+                {"ATTENDEE":set(),},
                 ("",),
             ),
             (
@@ -1724,7 +1757,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("ATTENDEE",),
+                {"ATTENDEE":set(),},
                 ("",),
             ),
             (
@@ -1759,7 +1792,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("PARTSTAT",),
+                {"ATTENDEE":set(),},
                 ("",),
             ),
             (
@@ -1795,7 +1828,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("PARTSTAT", "ATTENDEE",),
+                {"ATTENDEE":set(),},
                 ("",),
             ),
         )
@@ -1853,7 +1886,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                (),
+                {},
                 (),
             ),
             (
@@ -1902,7 +1935,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY",),
+                {"SUMMARY":set(),},
                 ("20080602T120000Z",),
             ),
             (
@@ -1951,7 +1984,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY",),
+                {"SUMMARY":set(),},
                 ("",),
             ),
             (
@@ -2000,7 +2033,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY",),
+                {"SUMMARY":set(),},
                 ("", "20080602T120000Z",),
             ),
             (
@@ -2050,7 +2083,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                ("SUMMARY", "DESCRIPTION"),
+                {"SUMMARY":set(), "DESCRIPTION":set()},
                 ("", "20080602T120000Z",),
             ),
             (
@@ -2086,7 +2119,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                (),
+                {},
                 (),
             ),
             (
@@ -2122,7 +2155,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                ("DTSTART", "DTEND", ),
+                {"DTSTART":set(), "DTEND":set(), },
                 ("20080602T120000Z",),
             ),
             (
@@ -2158,7 +2191,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                (),
+                {},
                 (),
             ),
             (
@@ -2194,14 +2227,14 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                ("DTSTART", "DTEND", ),
+                {"DTSTART":set(), "DTEND":set(), },
                 ("20080602T120000Z",),
             ),
         )
         
         for description, calendar1, calendar2, changes, rids in itertools.chain(data1, data2, data3,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            expected_changes = set(changes)
+            expected_changes = changes
             expected_rids = set(rids) if rids else None
             got_changes, got_rids = differ.whatIsDifferent()
             self.assertEqual(got_changes, expected_changes, msg="%s expected changes: '%s', got: '%s'" % (description, expected_changes, got_changes,))

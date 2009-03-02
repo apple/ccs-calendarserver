@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -517,71 +517,34 @@ class Changes (davxml.WebDAVElement):
     namespace = calendarserver_namespace
     name = "changes"
     allowed_children = {
-        (calendarserver_namespace, "datetime" )          : (0, 1),
-        (calendarserver_namespace, "location" )          : (0, 1),
-        (calendarserver_namespace, "summary" )           : (0, 1),
-        (calendarserver_namespace, "description" )       : (0, 1),
-        (calendarserver_namespace, "recurrence" )        : (0, 1),
-        (calendarserver_namespace, "status" )            : (0, 1),
-        (calendarserver_namespace, "attendees" )         : (0, 1),
-        (calendarserver_namespace, "attendee-partstat" ) : (0, 1),
+        (calendarserver_namespace, "changed-property" )  : (0, None),
     }
 
-class Datetime (davxml.WebDAVEmptyElement):
+class ChangedProperty (davxml.WebDAVElement):
     """
-    Date time change.
+    Changes to a property.
     """
     namespace = calendarserver_namespace
-    name = "datetime"
+    name = "changed-property"
 
-class Location (davxml.WebDAVEmptyElement):
-    """
-    Location changed.
-    """
-    namespace = calendarserver_namespace
-    name = "location"
+    allowed_children = {
+        (calendarserver_namespace, "changed-parameter" )  : (0, None),
+    }
 
-class Summary (davxml.WebDAVEmptyElement):
-    """
-    Summary changed.
-    """
-    namespace = calendarserver_namespace
-    name = "summary"
+    allowed_attributes = {
+        "name" : True,
+    }
 
-class Description (davxml.WebDAVEmptyElement):
+class ChangedParameter (davxml.WebDAVEmptyElement):
     """
-    Description changed.
+    Changes to a parameter.
     """
     namespace = calendarserver_namespace
-    name = "description"
+    name = "changed-parameter"
 
-class Recurrence (davxml.WebDAVEmptyElement):
-    """
-    Recurrence changed.
-    """
-    namespace = calendarserver_namespace
-    name = "recurrence"
-
-class Status (davxml.WebDAVEmptyElement):
-    """
-    Status changed.
-    """
-    namespace = calendarserver_namespace
-    name = "status"
-
-class Attendees (davxml.WebDAVEmptyElement):
-    """
-    Attendees changed.
-    """
-    namespace = calendarserver_namespace
-    name = "attendees"
-
-class AttendeePartStat (davxml.WebDAVEmptyElement):
-    """
-    Attendee partstats changed.
-    """
-    namespace = calendarserver_namespace
-    name = "attendee-partstat"
+    allowed_attributes = {
+        "name" : True,
+    }
 
 class Recurrences (davxml.WebDAVElement):
     """

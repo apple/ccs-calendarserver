@@ -237,20 +237,11 @@ class iCalDiff(object):
             log.debug("attendeeDiff: doing smart Attendee diff/merge")
             self._attendeeMerge()
 
-        def duplicateAndNormalize(calendar):
-            calendar = calendar.duplicate()
-            calendar.normalizePropertyValueLists("EXDATE")
-            calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
-            calendar.normalizeAll()
-            calendar.normalizeAttachments()
-            iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
-            return calendar
-
         # Do straight comparison without alarms
         self.originalCalendar1 = self.calendar1
         self.originalCalendar2 = self.calendar2
-        self.calendar1 = duplicateAndNormalize(self.calendar1)
-        self.calendar2 = duplicateAndNormalize(self.calendar2)
+        self.calendar1 = self._attendeeDuplicateAndNormalize(self.calendar1)
+        self.calendar2 = self._attendeeDuplicateAndNormalize(self.calendar2)
 
         if self.calendar1 == self.calendar2:
             return True, True
@@ -286,6 +277,15 @@ class iCalDiff(object):
 
         return result
     
+    def _attendeeDuplicateAndNormalize(self, calendar):
+        calendar = calendar.duplicate()
+        calendar.normalizePropertyValueLists("EXDATE")
+        calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+        calendar.normalizeAll()
+        calendar.normalizeAttachments()
+        iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
+        return calendar
+
     def _attendeeMerge(self):
         """
         Merge changes to ATTENDEE properties in calendar1 into calendar2.
@@ -302,6 +302,10 @@ class iCalDiff(object):
         and PARTSTAT parameters that are different.
         """
 
+        # Do straight comparison without alarms
+        self.calendar1 = self._attendeeDuplicateAndNormalize(self.calendar1)
+        self.calendar2 = self._attendeeDuplicateAndNormalize(self.calendar2)
+
         # First get uid/rid map of components
         def mapComponents(calendar):
             map = {}
@@ -314,7 +318,7 @@ class iCalDiff(object):
                 map[(name, uid, rid,)] = component
             return map
         
-        props_changed = set()
+        props_changed = {}
         rids = set()
 
         map1 = mapComponents(self.calendar1)
@@ -637,27 +641,28 @@ class iCalDiff(object):
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         comp1.transformAllToNative()
         comp2.transformAllToNative()
+        addedChanges = False
         
-        regular_changes = [prop.name() for prop in propdiff if prop.name() != "ATTENDEE"]
-        changed.update(regular_changes)
+        for prop in propdiff:
+            if prop.name() in (
+                "TRANSP",
+                "DTSTAMP",
+                "CREATED",
+                "LAST-MODIFIED",
+                "SEQUENCE",
+            ):
+                continue
+            changed.setdefault(prop.name(), set())
+            addedChanges = True
+            prop1s = tuple(comp1.properties(prop.name()))
+            prop2s = tuple(comp2.properties(prop.name()))
+            if len(prop1s) == 1 and len(prop2s) == 1:
+                param1s = set(["%s=%s" % (name, value) for name, value in prop1s[0].params().iteritems()])
+                param2s = set(["%s=%s" % (name, value) for name, value in prop2s[0].params().iteritems()])
+                paramDiffs = param1s ^ param2s
+                changed[prop.name()].update([param.split("=")[0] for param in paramDiffs])
         
-        attendees = set([prop for prop in propdiff if prop.name() == "ATTENDEE"])
-        done_attendee = False
-        done_partstat = False
-        for ctr, attendee in enumerate(attendees):
-            for check_ctr, check_attendee in enumerate(attendees):
-                if (ctr != check_ctr) and check_attendee.value() == attendee.value():
-                    if check_attendee.params().get("PARTSTAT", ("NEEDS-ACTION",)) != attendee.params().get("PARTSTAT", ("NEEDS-ACTION",)):
-                        changed.add("PARTSTAT")
-                        done_partstat = True
-                    break
-            else:
-                changed.add("ATTENDEE")
-                done_attendee = True
-            if done_attendee and done_partstat:
-                break
-
-        if regular_changes or done_attendee or done_partstat:
+        if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
             rids.add(dateTimeToString(rid) if rid is not None else "")
 

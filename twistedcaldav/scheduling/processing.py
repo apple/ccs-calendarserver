@@ -305,25 +305,11 @@ class ImplicitProcessor(object):
                     reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
                 # Build the schedule-changes XML element
-                changes = ()
+                changes = []
                 if props_changed:
-                    changemap = {
-                        "DTSTART"     : customxml.Datetime(),
-                        "DTEND"       : customxml.Datetime(),
-                        "DURATION"    : customxml.Datetime(),
-                        "DUE"         : customxml.Datetime(),
-                        "COMPLETED"   : customxml.Datetime(),
-                        "LOCATION"    : customxml.Location(),
-                        "SUMMARY"     : customxml.Summary(),
-                        "DESCRIPTION" : customxml.Description(),
-                        "RRULE"       : customxml.Recurrence(),
-                        "RDATE"       : customxml.Recurrence(),
-                        "EXDATE"      : customxml.Recurrence(),
-                        "STATUS"      : customxml.Status(),
-                        "ATTENDEE"    : customxml.Attendees(),
-                        "PARTSTAT"    : customxml.PartStat(),
-                    }
-                    changes += tuple([changemap[prop] for prop in props_changed if prop in changemap])
+                    for propName, paramNames in sorted(props_changed.iteritems(), key=lambda x:x[0]):
+                        params = tuple([customxml.ChangedParameter(name=param) for param in paramNames])
+                        changes.append(customxml.ChangedProperty(*params, **{"name":propName}))
                 update_details = (customxml.Changes(*changes),)
                 if rids is not None:
                     recurrences = []
