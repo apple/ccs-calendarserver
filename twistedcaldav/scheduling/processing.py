@@ -181,7 +181,9 @@ class ImplicitProcessor(object):
                 ),
             )
 
-            self.updateAllAttendeesExceptSome(recipient_calendar_resource, processed_attendees)
+            # Only update other attendees when the partstat was changed by the reply
+            if partstat_changed:
+                self.updateAllAttendeesExceptSome(recipient_calendar_resource, processed_attendees)
 
             result = (True, False, changes,)
 
