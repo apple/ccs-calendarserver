@@ -461,7 +461,7 @@
 
     <!-- Service ACLs (Mac OS X) -->
     <key>EnableSACLs</key>
-    <false/>
+    <true/>
 
 
   </dict>
