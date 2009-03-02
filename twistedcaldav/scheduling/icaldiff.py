@@ -650,6 +650,7 @@ class iCalDiff(object):
                 "CREATED",
                 "LAST-MODIFIED",
                 "SEQUENCE",
+                "X-CALENDARSERVER-PRIVATE-COMMENT",
             ):
                 continue
             changed.setdefault(prop.name(), set())
