@@ -2015,6 +2015,40 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
+            (
+                "1.3",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE-TIME:20071114T000000Z
+RRULE:FREQ=WEEKLY;WKST=SU;INTERVAL=1;BYDAY=MO,WE,FR
+TRANSP:OPAQUE
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user03@example.com
+ATTENDEE;RSVP=FALSE:mailto:user04@example.com
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+ATTENDEE:mailto:user04@example.com
+RRULE:BYDAY=MO,WE,FR;FREQ=WEEKLY;INTERVAL=1;WKST=SU
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
         )
         
         for title, original, result in data:

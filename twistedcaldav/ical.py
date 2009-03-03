@@ -1717,7 +1717,7 @@ class Component (object):
             if normalize_function:
                 prop.setValue(normalize_function(prop.value()))
 
-        # Do datetime normalization
+        # Do datetime/rrule normalization
         self.normalizeDateTimes()
 
         # Do to all sub-components too
@@ -1729,11 +1729,16 @@ class Component (object):
         Normalize various datetime properties into UTC and handle DTEND/DURATION variants in such
         a way that we can compare objects with slight differences.
         
+        Also normalize the RRULE value parts.
+        
         Strictly speaking we should not need to do this as clients should not be messing with
         these properties - i.e. they should roundtrip them. Unfortunately some do...
         """
         
+        # TODO: what about VJOURNAL and VTODO?
         if self.name() == "VEVENT":
+            
+            # Basic time properties
             dtstart = self.getProperty("DTSTART")
             dtend = self.getProperty("DTEND")
             duration = self.getProperty("DURATION")
@@ -1774,6 +1779,14 @@ class Component (object):
                     del rid.params()["TZID"]
                 except KeyError:
                     pass
+
+            # Recurrence rules - we need to normalize the order of the value parts
+            rrules = self.properties("RRULE")
+            for rrule in rrules:
+                indexedTokens = {}
+                indexedTokens.update([valuePart.split("=") for valuePart in rrule.value().split(";")])
+                sortedValue = ";".join(["%s=%s" % (key, value,) for key, value in sorted(indexedTokens.iteritems(), key=lambda x:x[0])])
+                rrule.setValue(sortedValue)
 
     def normalizePropertyValueLists(self, propname):
         """
