@@ -35,7 +35,7 @@ __all__ = [
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
-    normalizeStartEndDuration
+    normalizeStartEndDuration, toString
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
@@ -1580,7 +1580,7 @@ class Component (object):
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
-            if (dateTimeToString(rid) if rid else "") not in rids:
+            if (toString(rid) if rid else "") not in rids:
                 self.removeComponent(component)
                 remaining -= 1
                 

@@ -14,13 +14,12 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.dateops import normalizeToUTC
+from twistedcaldav.dateops import normalizeToUTC, toString
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
 
-from vobject.icalendar import dateTimeToString
 from difflib import unified_diff
 
 """
@@ -665,7 +664,7 @@ class iCalDiff(object):
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids.add(dateTimeToString(rid) if rid is not None else "")
+            rids.add(toString(rid) if rid is not None else "")
 
     def _logDiffError(self, title):
 

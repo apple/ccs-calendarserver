@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,18 @@ __all__ = [
 ]
 
 import datetime
-from vobject.icalendar import utc
+from vobject.icalendar import utc, dateTimeToString, dateToString
+
+def toString(dt):
+    """
+    Convert a L{datetime.date} or L{datetime.datetime} object to a string.
+    @param dt: a L{datetime.date} or L{datetime.datetime} object to normalize
+    @return: the converted date or datetime
+    """
+    if not isinstance(dt, datetime.date):
+        raise TypeError("%r is not a datetime.date instance" % (dt,))
+    
+    return dateTimeToString(dt) if isinstance(dt, datetime.datetime) else dateToString(dt)
 
 def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
     """
