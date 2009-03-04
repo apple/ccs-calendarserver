@@ -33,7 +33,7 @@ iTIP (RFC2446) processing.
 import datetime
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeToUTC
+from twistedcaldav.dateops import normalizeToUTC, toString
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 
@@ -284,7 +284,7 @@ class iTipProcessing(object):
             attendees.add(attendee)
             partstat_changed = partstat_changed or partstat
             private_comment_changed = private_comment_changed or private_comment
-            if rids is not None:
+            if rids is not None and (partstat_changed or private_comment_changed):
                 rids.add("")
 
         # Now do all overridden ones
@@ -309,8 +309,8 @@ class iTipProcessing(object):
             attendees.add(attendee)
             partstat_changed = partstat_changed or partstat
             private_comment_changed = private_comment_changed or private_comment
-            if rids is not None:
-                rids.add(rid)
+            if rids is not None and (partstat_changed or private_comment_changed):
+                rids.add(toString(rid))
 
         return True, (attendees, partstat_changed, private_comment_changed, rids)
 
