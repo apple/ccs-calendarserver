@@ -480,7 +480,7 @@ class Config (object):
 
         for param in items.get("DirectoryService", {}).get("params", {}):
             if dsType in serviceDefaultParams and param not in serviceDefaultParams[dsType]:
-                raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
+                log.warn("Parameter %s is not supported by service %s" % (param, dsType))
 
         _mergeData(self._data, items)
 
