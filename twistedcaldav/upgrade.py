@@ -32,6 +32,24 @@ from cPickle import loads as unpickle, PicklingError, UnpicklingError
 
 log = Logger()
 
+def getCalendarServerIDs(config):
+
+    # Determine uid/gid for ownership of directories we create here
+    uid = -1
+    if config.UserName:
+        try:
+            uid = pwd.getpwnam(config.UserName).pw_uid
+        except KeyError:
+            log.error("User not found: %s" % (config.UserName,))
+
+    gid = -1
+    if config.GroupName:
+        try:
+            gid = grp.getgrnam(config.GroupName).gr_gid
+        except KeyError:
+            log.error("Group not found: %s" % (config.GroupName,))
+
+    return uid, gid
 
 #
 # upgrade_to_1
@@ -229,22 +247,7 @@ def upgrade_to_1(config):
     directory = getDirectory()
     docRoot = config.DocumentRoot
 
-
-    # Determine uid/gid for ownership of directories we create here
-    uid = -1
-    if config.UserName:
-        try:
-            uid = pwd.getpwnam(config.UserName).pw_uid
-        except KeyError:
-            log.error("User not found: %s" % (config.UserName,))
-
-    gid = -1
-    if config.GroupName:
-        try:
-            gid = grp.getgrnam(config.GroupName).gr_gid
-        except KeyError:
-            log.error("Group not found: %s" % (config.GroupName,))
-
+    uid, gid = getCalendarServerIDs(config)
 
     if os.path.exists(docRoot):
 
@@ -343,12 +346,15 @@ def upgradeData(config):
             log.error("Invalid version number in %s; skipping migration" %
                 (versionFilePath,))
 
+    uid, gid = getCalendarServerIDs(config)
+
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.info("Upgrading to version %d" % (version,))
             method(config)
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
+            os.chown(versionFilePath, uid, gid)
 
 
 class UpgradeError(RuntimeError):

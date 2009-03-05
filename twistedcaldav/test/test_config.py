@@ -179,7 +179,8 @@ class ConfigTests(TestCase):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
         self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
 
-        self.assertRaises(ConfigurationError, config.update, {"DirectoryService": {"params": {"restrictEnabledRecords": False}}})
+        # Unrecognized params no longer raise an exception
+        # self.assertRaises(ConfigurationError, config.update, {"DirectoryService": {"params": {"restrictEnabledRecords": False}}})
 
     def testDirectoryService_unknownType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")

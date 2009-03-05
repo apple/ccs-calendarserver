@@ -39,6 +39,7 @@ from twisted.internet.reactor import callLater
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
+from twisted.internet.defer import succeed, returnValue
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
@@ -360,12 +361,39 @@ class OpenDirectoryService(DirectoryService):
             index.setdefault(guid, set()).add(group)
 
     _ODFields = {
-        'fullName' : dsattributes.kDS1AttrDistinguishedName,
-        'firstName' : dsattributes.kDS1AttrFirstName,
-        'lastName' : dsattributes.kDS1AttrLastName,
-        'emailAddresses' : dsattributes.kDSNAttrEMailAddress,
-        'recordName' : dsattributes.kDSNAttrRecordName,
-        'guid' : dsattributes.kDS1AttrGeneratedUID,
+        'fullName' : {
+            'odField' : dsattributes.kDS1AttrDistinguishedName,
+            'excludes' : set(),
+        },
+        'firstName' : {
+            'odField' : dsattributes.kDS1AttrFirstName,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'lastName' : {
+            'odField' : dsattributes.kDS1AttrLastName,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'emailAddresses' : {
+            'odField' : dsattributes.kDSNAttrEMailAddress,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'recordName' : {
+            'odField' : dsattributes.kDSNAttrRecordName,
+            'excludes' : set(),
+        },
+        'guid' : {
+            'odField' : dsattributes.kDS1AttrGeneratedUID,
+            'excludes' : set(),
+        },
     }
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
@@ -390,10 +418,48 @@ class OpenDirectoryService(DirectoryService):
         operand = (dsquery.expression.OR if operand == "or"
             else dsquery.expression.AND)
 
+        excluded = set()
+        for field, value, caseless, matchType in fields:
+            if field in self._ODFields:
+                ODField = self._ODFields[field]['odField']
+                excluded = excluded | self._ODFields[field]['excludes']
+
+        _ODTypes = {
+            self.recordType_users:     dsattributes.kDSStdRecordTypeUsers,
+            self.recordType_locations: dsattributes.kDSStdRecordTypePlaces,
+            self.recordType_groups:    dsattributes.kDSStdRecordTypeGroups,
+            self.recordType_resources: dsattributes.kDSStdRecordTypeResources,
+        }
+
+        if recordType is None:
+            # The client is looking for records in any of the four types
+            recordTypes = set(_ODTypes.values())
+
+            # Certain query combinations yield invalid results.  In particular,
+            # any time you query on EMailAddress and are specifying Places
+            # and/or Resources in the requested types, you will get all
+            # Places/Resources returned.  So here we will filter out known
+            # invalid combinations:
+            excludeFields = False
+            recordTypes = list(recordTypes - excluded)
+
+        else:
+            # The client is after only one recordType, so let's tailor the
+            # query to not include any fields OD has trouble with:
+            excludeFields = True
+            recordTypes = [_ODTypes[recordType]]
+
         expressions = []
         for field, value, caseless, matchType in fields:
             if field in self._ODFields:
-                ODField = self._ODFields[field]
+
+                if (excludeFields and
+                    _ODTypes[recordType] in self._ODFields[field]['excludes']):
+                    # This is a field we're excluding because it behaves badly
+                    # for the record type result we're looking for.  Skip it.
+                    continue
+
+                ODField = self._ODFields[field]['odField']
                 if matchType == "starts-with":
                     comparison = dsattributes.eDSStartsWith
                 elif matchType == "contains":
@@ -402,20 +468,14 @@ class OpenDirectoryService(DirectoryService):
                     comparison = dsattributes.eDSExact
                 expressions.append(dsquery.match(ODField, value, comparison))
 
+        if not recordTypes or not expressions:
+            # If we've excluded all types or all expressions, short circuit.
+            self.log_info("Empty query, skipping call to OD")
+            return []
 
-        recordTypeToODAttr = {
-            self.recordType_users:     dsattributes.kDSStdRecordTypeUsers,
-            self.recordType_locations: dsattributes.kDSStdRecordTypePlaces,
-            self.recordType_groups:    dsattributes.kDSStdRecordTypeGroups,
-            self.recordType_resources: dsattributes.kDSStdRecordTypeResources,
-        }
+        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
+            (recordTypes, operand, caseless, fields))
 
-        if recordType is None:
-            recordTypes = recordTypeToODAttr.values()
-        else:
-            recordTypes = (recordTypeToODAttr[recordType],)
-
-        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" % (recordTypes, operand, caseless, fields))
         deferred = deferToThread(
             opendirectory.queryRecordsWithAttributes,
             self.directory,
