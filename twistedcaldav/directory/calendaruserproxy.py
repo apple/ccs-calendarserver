@@ -343,6 +343,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
             # Clean-up ones that are missing
             for uid in missing:
+                self.log_debug("Removing missing proxy principal for '%s' from %s" % (uid, self,))
                 yield self._index().removePrincipal(uid)
 
             returnValue(found)
