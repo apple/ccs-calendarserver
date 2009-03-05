@@ -954,13 +954,21 @@ class Component (object):
             if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
                 newcomp.removeProperty(property)
         
-        # Adjust times
-        offset = rid - newcomp.getStartDateUTC()
+        # New DTSTART is the RECURRENCE-ID we are deriving but adjusted to the
+        # original DTSTART's localtime
         dtstart = newcomp.getProperty("DTSTART")
-        dtstart.setValue(dtstart.value() + offset)
         if newcomp.hasProperty("DTEND"):
             dtend = newcomp.getProperty("DTEND")
-            dtend.setValue(dtend.value() + offset)
+            oldduration = dtend.value() - dtstart.value()
+            
+        newdtstartValue = rid
+        if isinstance(newdtstartValue, datetime.datetime):
+            if dtstart.value().tzinfo:
+                newdtstartValue = newdtstartValue.astimezone(dtstart.value().tzinfo)
+        dtstart.setValue(newdtstartValue)
+        if newcomp.hasProperty("DTEND"):
+            dtend.setValue(newdtstartValue + oldduration)
+
         try:
             rid_params = {"X-VOBJ-ORIGINAL-TZID":dtstart.params()["X-VOBJ-ORIGINAL-TZID"]}
         except KeyError:
