@@ -101,8 +101,7 @@ if sys.platform == "darwin":
     extensions.append(
         Extension(
             "calendarserver.platform.darwin._sacl",
-            extra_compile_args = ["-arch", "ppc", "-arch", "i386"],
-            extra_link_args = ["-framework", "Security", "-arch", "ppc", "-arch", "i386"],
+            extra_link_args = ["-framework", "Security"],
             sources = ["calendarserver/platform/darwin/_sacl.c"]
         )
     )
