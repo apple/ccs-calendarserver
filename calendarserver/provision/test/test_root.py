@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,6 +76,8 @@ class RootTests(TestCase):
 
         self.site = server.Site(self.root)
 
+class SACLTests(RootTests):
+    
     @inlineCallbacks
     def test_noSacls(self):
         """
@@ -244,3 +246,71 @@ class RootTests(TestCase):
             headers=http_headers.Headers({"Destination":"/copy/"})
         )
         return self.send(request, do_test)
+
+class SACLCacheTests(RootTests):
+    
+    class StubResponseCacheResource(object):
+        def __init__(self):
+            self.cache = {}
+            self.responseCache = self
+    
+
+        def getResponseForRequest(self, request):
+            if str(request) in self.cache:
+                return self.cache[str(request)]
+    
+    
+        def cacheResponseForRequest(self, request, response):
+            self.cache[str(request)] = response
+            return response
+
+    def setUp(self):
+        super(SACLCacheTests, self).setUp()
+        self.root.resource.responseCache = SACLCacheTests.StubResponseCacheResource()
+
+    @inlineCallbacks
+    def test_PROPFIND(self):
+        self.root.resource.useSacls = True
+
+        body = """<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:">
+<D:prop>
+<D:getetag/>
+<D:displayname/>
+</D:prop>
+</D:propfind>
+"""
+
+        request = SimpleRequest(
+            self.site,
+            "PROPFIND",
+            "/principals/users/dreid/",
+            headers=http_headers.Headers({
+                    'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
+                    'Content-Type': 'application/xml; charset="utf-8"',
+                    'Depth':'1',
+            }),
+            content=body
+        )
+
+        response = (yield self.send(request, None))
+        print response
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+
+        request = SimpleRequest(
+            self.site,
+            "PROPFIND",
+            "/principals/users/dreid/",
+            headers=http_headers.Headers({
+                    'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
+                    'Content-Type': 'application/xml; charset="utf-8"',
+                    'Depth':'1',
+            }),
+            content=body
+        )
+
+        response = (yield self.send(request, None))
+        print response
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))

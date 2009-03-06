@@ -125,7 +125,16 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         # Figure out the "username" from the davxml.Principal object
         request.checkingSACL = True
-        principal = (yield request.locateResource(authzUser.children[0].children[0].data))
+
+        for collection in self.principalCollections():
+            principal = collection._principalForURI(authzUser.children[0].children[0].data)
+            if principal is None:
+                response = (yield UnauthorizedResponse.makeResponse(
+                    request.credentialFactories,
+                    request.remoteAddr
+                ))
+                raise HTTPError(response)
+
         delattr(request, "checkingSACL")
         username = principal.record.shortNames[0]
 
@@ -201,7 +210,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
 
-        if request.method == "PROPFIND" and not getattr(request, "notInCache", False):
+        if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:
                 authnUser, authzUser = (yield self.authenticate(request))
                 request.authnUser = authnUser
