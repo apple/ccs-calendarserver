@@ -26,7 +26,7 @@ import sys
 
 from tempfile import mkstemp
 from subprocess import Popen, PIPE
-from pwd import getpwnam
+from pwd import getpwnam, getpwuid
 from grp import getgrnam
 from OpenSSL.SSL import Error as SSLError
 
@@ -210,8 +210,7 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         def gottaBeRoot():
             if os.getuid() != 0:
-                import pwd
-                username = pwd.getpwuid(os.getuid())[0]
+                username = getpwuid(os.getuid()).pw_name
                 raise UsageError("Only root can drop privileges.  You are: %r"
                                  % (username,))
 
@@ -278,12 +277,12 @@ class CalDAVOptions (Options, LoggingMixIn):
                 )
 
             if username:
-                uid = getpwnam(username)[2]
+                uid = getpwnam(username).pw_uid
             else:
                 uid = -1
 
             if groupname:
-                gid = getgrnam(groupname)[2]
+                gid = getgrnam(groupname).pw_uid
             else:
                 gid = -1
 
