@@ -789,7 +789,7 @@ Index: twisted/web2/dav/resource.py
              "Not a meta-principal: %r" % (principal,)
          )
  
-@@ -1517,6 +1589,270 @@
+@@ -1517,6 +1589,280 @@
          return None
  
      ##
@@ -998,6 +998,8 @@ Index: twisted/web2/dav/resource.py
 +                d = waitForDeferred(self.updateQuotaUse(request, adjust))
 +                yield d
 +                d.getResult()
++                yield None
++                return
 +        
 +        # Check the next parent
 +        url = request.urlForResource(self)
@@ -1050,7 +1052,15 @@ Index: twisted/web2/dav/resource.py
 +        # Get current value
 +        def _defer(size):
 +            size += adjust
-+            self.writeDeadProperty(TwistedQuotaUsedProperty(str(size)))
++            
++            # Sanity check the resulting size
++            if size > 0:
++                self.writeDeadProperty(TwistedQuotaUsedProperty(str(size)))
++            else:
++                # Remove the dead property and re-read to do brute force quota calc
++                log.msg("Attempt to set quota used to a negative value: %s (adjustment: %s)" % (size, adjust,))
++                self.removeDeadProperty(TwistedQuotaUsedProperty)
++                return self.currentQuotaUse(request)
 +
 +        d = self.currentQuotaUse(request)
 +        d.addCallback(_defer)
@@ -1060,7 +1070,7 @@ Index: twisted/web2/dav/resource.py
      # HTTP
      ##
  
-@@ -1525,15 +1861,11 @@
+@@ -1525,15 +1871,11 @@
          #litmus = request.headers.getRawHeaders("x-litmus")
          #if litmus: log.msg("*** Litmus test: %s ***" % (litmus,))
  
@@ -1078,7 +1088,7 @@ Index: twisted/web2/dav/resource.py
  
          def setHeaders(response):
              response = IResponse(response)
-@@ -1567,7 +1899,7 @@
+@@ -1567,7 +1909,7 @@
      def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
          return succeed(None)
  
@@ -1087,7 +1097,7 @@ Index: twisted/web2/dav/resource.py
      """
      Resource representing a WebDAV principal.  (RFC 3744, section 2)
      """
-@@ -1577,7 +1909,7 @@
+@@ -1577,7 +1919,7 @@
      # WebDAV
      ##
  
@@ -1096,7 +1106,7 @@ Index: twisted/web2/dav/resource.py
          (dav_namespace, "alternate-URI-set"),
          (dav_namespace, "principal-URL"    ),
          (dav_namespace, "group-member-set" ),
-@@ -1585,14 +1917,11 @@
+@@ -1585,14 +1927,11 @@
      )
  
      def davComplianceClasses(self):
@@ -1112,7 +1122,7 @@ Index: twisted/web2/dav/resource.py
      def readProperty(self, property, request):
          def defer():
              if type(property) is tuple:
-@@ -1610,10 +1939,20 @@
+@@ -1610,10 +1949,20 @@
                      return davxml.PrincipalURL(davxml.HRef(self.principalURL()))
  
                  if name == "group-member-set":
@@ -1135,7 +1145,7 @@ Index: twisted/web2/dav/resource.py
  
                  if name == "resourcetype":
                      if self.isCollection():
-@@ -1655,7 +1994,7 @@
+@@ -1655,7 +2004,7 @@
          principals.  Subclasses should override this method to provide member
          URLs for this resource if appropriate.
          """
@@ -1144,7 +1154,7 @@ Index: twisted/web2/dav/resource.py
  
      def groupMemberships(self):
          """
-@@ -1666,6 +2005,7 @@
+@@ -1666,6 +2015,7 @@
          """
          unimplemented(self)
  
@@ -1152,7 +1162,7 @@ Index: twisted/web2/dav/resource.py
      def principalMatch(self, href):
          """
          Check whether the supplied principal matches this principal or is a
-@@ -1675,10 +2015,33 @@
+@@ -1675,10 +2025,33 @@
          """
          uri = str(href)
          if self.principalURL() == uri:
@@ -1188,7 +1198,7 @@ Index: twisted/web2/dav/resource.py
  class AccessDeniedError(Exception):
      def __init__(self, errors):
          """ 
-@@ -1718,6 +2081,37 @@
+@@ -1718,6 +2091,37 @@
  davxml.registerElement(TwistedACLInheritable)
  davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
  
