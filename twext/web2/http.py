@@ -15,5 +15,25 @@
 ##
 
 """
-Extentions to the Twisted Framework.
+Extensions to twisted.web2.http
 """
+
+__all__ = [
+    "XMLResponse",
+]
+
+from twisted.web2.http import Response
+from twisted.web2.http_headers import MimeType
+
+
+class XMLResponse (Response):
+    """
+    XML L{Response} object.
+    Renders itself as an XML document.
+    """
+    def __init__(self, code, element):
+        """
+        @param xml_responses: an iterable of davxml.Response objects.
+        """
+        Response.__init__(self, code, stream=element.toxml())
+        self.headers.setHeader("content-type", MimeType("text", "xml"))

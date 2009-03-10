@@ -25,7 +25,6 @@ __all__ = [
     "DAVFile",
     "ReadOnlyWritePropertiesResourceMixIn",
     "ReadOnlyResourceMixIn",
-    "XMLResponse",
     "CachingXattrPropertyStore",
 ]
 
@@ -1040,18 +1039,6 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to                    
         # inheritance rules, etc.                                               
         return succeed(self.defaultAccessControlList())
-
-class XMLResponse (Response):
-    """
-    XML L{Response} object.
-    Renders itself as an XML document.
-    """
-    def __init__(self, code, element):
-        """
-        @param xml_responses: an iterable of davxml.Response objects.
-        """
-        Response.__init__(self, code, stream=element.toxml())
-        self.headers.setHeader("content-type", MimeType("text", "xml"))
 
 class PropertyNotFoundError (HTTPError):
     def __init__(self, qname):

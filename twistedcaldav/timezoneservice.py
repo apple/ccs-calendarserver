@@ -30,9 +30,10 @@ from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
 
+from twext.web2.http import XMLResponse
+
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.extensions import XMLResponse
 from twistedcaldav.ical import parse_date_or_datetime
 from twistedcaldav.ical import tzexpand
 from twistedcaldav.resource import CalDAVResource
