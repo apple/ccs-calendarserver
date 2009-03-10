@@ -28,7 +28,6 @@ network.
 import os
 import sys
 from getopt import getopt, GetoptError
-from os.path import dirname, abspath
 
 from twistedcaldav.upgrade import upgradeData
 from calendarserver.tools.util import loadConfig

@@ -17,7 +17,7 @@
 from twext.python.plistlib import writePlist
 
 from twistedcaldav.log import logLevelForNamespace
-from twistedcaldav.config import config, defaultConfig, ConfigurationError
+from twistedcaldav.config import config, defaultConfig
 from twistedcaldav.static import CalDAVFile
 from twistedcaldav.test.util import TestCase
 
@@ -174,13 +174,6 @@ class ConfigTests(TestCase):
         self.assertEquals(config.DirectoryService.params.node, "/Search")
         self.assertEquals(config.DirectoryService.params.restrictEnabledRecords, True)
         self.assertEquals(config.DirectoryService.params.restrictToGroup, "12345")
-
-    def testDirectoryService_badParam(self):
-        self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
-
-        # Unrecognized params no longer raise an exception
-        # self.assertRaises(ConfigurationError, config.update, {"DirectoryService": {"params": {"restrictEnabledRecords": False}}})
 
     def testDirectoryService_unknownType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")

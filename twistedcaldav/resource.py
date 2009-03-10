@@ -59,10 +59,8 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 from urlparse import urlsplit
-import itertools
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__

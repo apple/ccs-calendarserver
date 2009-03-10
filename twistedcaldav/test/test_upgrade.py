@@ -16,9 +16,7 @@
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.upgrade import (
-    UpgradeError, upgradeData, updateFreeBusySet, updateFreeBusyHref
-)
+from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 from twisted.web2.dav import davxml

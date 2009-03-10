@@ -22,12 +22,11 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Component
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav import caldavxml
-from calendarserver.tools.util import getDirectory, dummyDirectoryRecord
-import xattr, itertools, os, zlib, hashlib, datetime, pwd, grp
-from zlib import compress, decompress
-from cPickle import loads as unpickle, PicklingError, UnpicklingError
+from calendarserver.tools.util import getDirectory
+import xattr, os, zlib, hashlib, datetime, pwd, grp
+from zlib import compress
+from cPickle import loads as unpickle, UnpicklingError
 
 
 log = Logger()
@@ -401,7 +400,7 @@ def updateFreeBusySet(value, directory):
         try:
             freeBusySet = unpickle(value)
         except UnpicklingError:
-            log.err("Invalid xattr property value for: %s" % attr)
+            log.err("Invalid free/busy property value")
             # MOR: continue on?
             return None
 
