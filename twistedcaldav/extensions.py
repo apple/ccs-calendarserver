@@ -280,19 +280,23 @@ class SudoSACLMixin (object):
             returnValue(result)
 
 def updateCacheTokenOnCallback(f):
-    def fun(self, *args, **kwargs):
-        def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
+    def wrapper(self, *args, **kwargs):
+        if hasattr(self, "cacheNotifier"):
+            def updateToken(response):
+                d = self.cacheNotifier.changed()
+                d.addCallback(lambda _: response)
+                return d
 
-        d = maybeDeferred(f, self, *args, **kwargs)
+            d = maybeDeferred(f, self, *args, **kwargs)
 
-        if hasattr(self, 'cacheNotifier'):
-            d.addCallback(_updateToken)
+            if hasattr(self, "cacheNotifier"):
+                d.addCallback(updateToken)
 
-        return d
+            return d
+        else:
+            return f(self, *args, **kwargs)
 
-    return fun
+    return wrapper
 
 
 class DirectoryPrincipalPropertySearchMixIn(object):
@@ -467,9 +471,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
     """
 
     def renderHTTP(self, request):
-        
         log.error("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
-
         return super(DAVResource, self).renderHTTP(request)
 
     @updateCacheTokenOnCallback
