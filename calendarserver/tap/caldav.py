@@ -282,7 +282,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 uid = -1
 
             if groupname:
-                gid = getgrnam(groupname).pw_uid
+                gid = getgrnam(groupname).gr_gid
             else:
                 gid = -1
 
