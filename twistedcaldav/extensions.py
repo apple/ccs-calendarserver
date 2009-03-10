@@ -56,12 +56,12 @@ from twisted.web2.dav.xattrprops import xattrPropertyStore
 from twisted.web2.dav.method import prop_common
 from twisted.web2.dav.method.report import max_number_of_matches
 
-from twistedcaldav.customxml import calendarserver_namespace, NResults
+from twistedcaldav import customxml
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav import customxml
 
 log = Logger()
 
@@ -97,38 +97,41 @@ for m in (
     submodule(twisted, m).log = Logger("twisted." + m)
 del m
 
-class SudoSACLMixin(object):
+class SudoSACLMixin (object):
     """
-    Mixin class to let DAVResource, and DAVFile subclasses below know
-    about sudoer principals and how to find their AuthID
+    Mixin class to let DAVResource, and DAVFile subclasses know about
+    sudoer principals and how to find their AuthID.
     """
 
     @inlineCallbacks
     def authenticate(self, request):
         # Bypass normal authentication if its already been done (by SACL check)
-        if (hasattr(request, "authnUser") and
+        if (
+            hasattr(request, "authnUser") and
             hasattr(request, "authzUser") and
             request.authnUser is not None and
-            request.authzUser is not None):
+            request.authzUser is not None
+        ):
             returnValue((request.authnUser, request.authzUser))
 
-        # Copy of SuperDAVResource.authenticate except we pass the creds on as well
-        # as we will need to take different actions based on what the auth method was
+        # Copy of SuperDAVResource.authenticate except we pass the
+        # creds on as well as we will need to take different actions
+        # based on what the auth method was
         if not (
-            hasattr(request, 'portal') and 
-            hasattr(request, 'credentialFactories') and
-            hasattr(request, 'loginInterfaces')
+            hasattr(request, "portal") and 
+            hasattr(request, "credentialFactories") and
+            hasattr(request, "loginInterfaces")
         ):
             request.authnUser = davxml.Principal(davxml.Unauthenticated())
             request.authzUser = davxml.Principal(davxml.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))
 
-        authHeader = request.headers.getHeader('authorization')
+        authHeader = request.headers.getHeader("authorization")
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:
-                log.err("Client authentication scheme %s is not provided by server %s"
-                        % (authHeader[0], request.credentialFactories.keys()))
+                log.error("Client authentication scheme %s is not provided by server %s"
+                               % (authHeader[0], request.credentialFactories.keys()))
 
                 response = (yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
@@ -156,27 +159,28 @@ class SudoSACLMixin(object):
             request.authzUser = davxml.Principal(davxml.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))
 
-
     def principalsForAuthID(self, request, creds):
         """
-        Return authentication and authorization prinicipal identifiers for the
-        authentication identifer passed in. In this implementation authn and authz
-        principals are the same.
+        Return authentication and authorization prinicipal identifiers
+        for the authentication identifer passed in. In this
+        implementation authn and authz principals are the same.
 
         @param request: the L{IRequest} for the request in progress.
         @param creds: L{Credentials} or the principal to lookup.
         @return: a deferred tuple of two tuples. Each tuple is
-            C{(principal, principalURI)} where: C{principal} is the L{Principal}
-            that is found; {principalURI} is the C{str} URI of the principal.
-            The first tuple corresponds to authentication identifiers,
-            the second to authorization identifiers.
-            It will errback with an HTTPError(responsecode.FORBIDDEN) if
-            the principal isn't found.
+            C{(principal, principalURI)} where: C{principal} is the
+            L{Principal} that is found; {principalURI} is the C{str}
+            URI of the principal.  The first tuple corresponds to
+            authentication identifiers, the second to authorization
+            identifiers.  It will errback with an
+            HTTPError(responsecode.FORBIDDEN) if the principal isn't
+            found.
         """
         authnPrincipal = self.findPrincipalForAuthID(creds)
 
         if authnPrincipal is None:
-            log.msg("Could not find the principal resource for user id: %s" % (creds.username,))
+            log.info("Could not find the principal resource for user id: %s"
+                     % (creds.username,))
             raise HTTPError(responsecode.FORBIDDEN)
 
         d = self.authorizationPrincipal(request, creds.username, authnPrincipal)
@@ -185,11 +189,10 @@ class SudoSACLMixin(object):
 
     def findPrincipalForAuthID(self, creds):
         """
-        Return an authentication and authorization principal identifiers for 
-        the authentication identifier passed in.  Check for sudo users before
-        regular users.
+        Return an authentication and authorization principal
+        identifiers for the authentication identifier passed in.
+        Check for sudo users before regular users.
         """
-        
         if type(creds) is str:
             return super(SudoSACLMixin, self).findPrincipalForAuthID(creds)
 
@@ -209,18 +212,21 @@ class SudoSACLMixin(object):
     @inlineCallbacks
     def authorizationPrincipal(self, request, authID, authnPrincipal):
         """
-        Determine the authorization principal for the given request and authentication principal.
-        This implementation looks for an X-Authorize-As header value to use as the authorization principal.
+        Determine the authorization principal for the given request
+        and authentication principal.  This implementation looks for
+        an X-Authorize-As header value to use as the authorization
+        principal.
         
         @param request: the L{IRequest} for the request in progress.
-        @param authID: a string containing the authentication/authorization identifier
-            for the principal to lookup.
-        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-        @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
-            resource and URI respectively.
+        @param authID: a string containing the
+            authentication/authorization identifier for the principal
+            to lookup.
+        @param authnPrincipal: the L{IDAVPrincipal} for the
+            authenticated principal
+        @return: a deferred result C{tuple} of (L{IDAVPrincipal},
+            C{str}) containing the authorization principal resource
+            and URI respectively.
         """
-        # FIXME: Unroll defgen
-
         # Look for X-Authorize-As Header
         authz = request.headers.getRawHeaders("x-authorize-as")
 
@@ -239,36 +245,40 @@ class SudoSACLMixin(object):
                 return True
             return False
 
-        if hasattr(authnPrincipal, "record") and authnPrincipal.record.recordType == SudoDirectoryService.recordType_sudoers:
+        if (
+            hasattr(authnPrincipal, "record") and
+            authnPrincipal.record.recordType == SudoDirectoryService.recordType_sudoers
+        ):
             if authz:
                 if isSudoUser(authz):
-                    log.msg("Cannot proxy as another proxy: user '%s' as user '%s'" % (authID, authz))
+                    log.info("Cannot proxy as another proxy: user %r as user %r"
+                             % (authID, authz))
                     raise HTTPError(responsecode.FORBIDDEN)
                 else:
-                    authzPrincipal = getPrincipalForType(
-                        DirectoryService.recordType_users, authz)
+                    authzPrincipal = getPrincipalForType(DirectoryService.recordType_users, authz)
 
                     if not authzPrincipal:
                         authzPrincipal = self.findPrincipalForAuthID(authz)
 
                     if authzPrincipal is not None:
-                        log.msg("Allow proxy: user '%s' as '%s'" % (authID, authz,))
+                        log.info("Allow proxy: user %r as %r"
+                                 % (authID, authz,))
                         returnValue(authzPrincipal)
                     else:
-                        log.msg("Could not find authorization user id: '%s'" % 
-                                (authz,))
+                        log.info("Could not find authorization user id: %r"
+                                 % (authz,))
                         raise HTTPError(responsecode.FORBIDDEN)
             else:
-                log.msg("Cannot authenticate proxy user '%s' without X-Authorize-As header" % (authID, ))
+                log.info("Cannot authenticate proxy user %r without X-Authorize-As header"
+                         % (authID,))
                 raise HTTPError(responsecode.BAD_REQUEST)
         elif authz:
-            log.msg("Cannot proxy: user '%s' as '%s'" % (authID, authz,))
+            log.info("Cannot proxy: user %r as %r" % (authID, authz,))
             raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
             result = (yield super(SudoSACLMixin, self).authorizationPrincipal(request, authID, authnPrincipal))
             returnValue(result)
-
 
 def updateCacheTokenOnCallback(f):
     def fun(self, *args, **kwargs):
@@ -361,7 +371,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
             elif child.qname() == (calendarserver_namespace, "limit"):
                 try:
-                    nresults = child.childOfType(NResults)
+                    nresults = child.childOfType(customxml.NResults)
                     clientLimit = int(str(nresults))
                 except (TypeError, ValueError,):
                     msg = "Bad XML: unknown value for <limit> element"
