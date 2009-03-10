@@ -17,7 +17,6 @@
 from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory
-from twisted.web2.http import Request, RedirectResponse
 
 from twistedcaldav.config import config
 
@@ -59,17 +58,3 @@ class HTTP503LoggingFactory(HTTPFactory):
         for arg,value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
         return p
-
-
-class RedirectRequest(Request):
-    """ Use 301 redirects to send client to SSL port """
-
-    port = 443
-
-    def process(self):
-        if self.port == 443:
-            location = "https://%s%s" % (config.ServerHostName, self.uri)
-        else:
-            location = "https://%s:%d%s" % (config.ServerHostName, self.port,
-                self.uri)
-        self.writeResponse(RedirectResponse(location))
