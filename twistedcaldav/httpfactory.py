@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,43 +18,53 @@ from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory
 
-from twistedcaldav.config import config
-
-__all__ = ['HTTP503LoggingFactory', ]
+__all__ = [
+    "HTTP503LoggingFactory",
+]
 
 class OverloadedLoggingServerProtocol(protocol.Protocol):
-    
-    def __init__(self, outstandingRequests):
+    def __init__(self, retryAfter, outstandingRequests):
+        self.retryAfter = retryAfter
         self.outstandingRequests = outstandingRequests
 
     def connectionMade(self):
-        if config.MoreAccessLogData:
-            log.msg(overloaded=self)
+        log.msg(overloaded=self)
+
         self.transport.write(
             "HTTP/1.0 503 Service Unavailable\r\n"
             "Content-Type: text/html\r\n"
-            "Retry-After: %(retry)s\r\n"
+        )
+
+        if self.retryAfter:
+            self.transport.write(
+                "Retry-After: %s\r\n" % (self.retryAfter,)
+            )
+
+        self.transport.write(
             "Connection: close\r\n\r\n"
-            "<html><head><title>503 Service Unavailable</title></head>"
+            "<html><head><title>Service Unavailable</title></head>"
             "<body><h1>Service Unavailable</h1>"
             "The server is currently overloaded, "
             "please try again later.</body></html>"
-            % { "retry": config.HTTPRetryAfter }
         )
         self.transport.loseConnection()
 
 class HTTP503LoggingFactory(HTTPFactory):
-    """Factory for HTTP server."""
+    """
+    Factory for HTTP server which emits a 503 response when overloaded.
+    """
 
-    def __init__(self, requestFactory, maxRequests=600, **kwargs):
+    def __init__(self, requestFactory, maxRequests=600, retryAfter=0, **kwargs):
+        self.retryAfter = retryAfter
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
-        
+
     def buildProtocol(self, addr):
         if self.outstandingRequests >= self.maxRequests:
-            return OverloadedLoggingServerProtocol(self.outstandingRequests)
+            return OverloadedLoggingServerProtocol(self.retryAfter, self.outstandingRequests)
         
         p = protocol.ServerFactory.buildProtocol(self, addr)
         
         for arg,value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
+
         return p

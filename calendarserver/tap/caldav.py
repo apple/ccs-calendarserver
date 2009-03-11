@@ -675,12 +675,14 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         channel = HTTP503LoggingFactory(
             site,
-            maxRequests=config.MaxRequests,
-            betweenRequestsTimeOut=config.IdleConnectionTimeOut,
+            maxRequests = config.MaxRequests,
+            betweenRequestsTimeOut = config.IdleConnectionTimeOut,
+            retryAfter = config.HTTPRetryAfter,
         )
 
         def updateChannel(config, items):
             channel.maxRequests = config.MaxRequests
+            channel.retryAfter = config.HTTPRetryAfter
 
         config.addHook(updateChannel)
 
