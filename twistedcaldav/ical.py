@@ -926,13 +926,19 @@ class Component (object):
                     return True
         return False
         
-    def deriveInstance(self, rid):
+    def deriveInstance(self, rid, allowCancelled=False):
         """
         Derive an instance from the master component that has the provided RECURRENCE-ID, but
-        with all other properties, components etc from the master.
+        with all other properties, components etc from the master. If the requested override is
+        currently marked as an EXDATE in the existing master, allow an option whereby the override
+        is added as STATUS:CANCELLED and the EXDATE removed.
 
         @param rid: recurrence-id value
         @type rid: L{datetime.datetime}
+        @param allowCancelled: whether to allow a STATUS:CANCELLED override
+        @type allowCancelled: C{bool}
+        
+        @return: L{Component} for newly derived instance, or None if not valid override
         """
         
         # Must have a master component
@@ -942,16 +948,26 @@ class Component (object):
 
         # TODO: Check that the recurrence-id is a valid instance
         # For now we just check that there is no matching EXDATE
-        for exdate in self.properties("EXDATE"):
-            if exdate == rid:
-                return None
+        didCancel = False
+        for exdate in tuple(master.properties("EXDATE")):
+            for exdateValue in exdate.value():
+                if exdateValue == rid:
+                    if allowCancelled:
+                        exdate.value().remove(exdateValue)
+                        if len(exdate.value()) == 0:
+                            master.removeProperty(exdate)
+                        didCancel = True
+                        break
+                    else:
+                        # Cannot derive from an existing EXDATE
+                        return None
         
         # Create the derived instance
         newcomp = master.duplicate()
 
         # Strip out unwanted recurrence properties
         for property in tuple(newcomp.properties()):
-            if property.name() in ["RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID"]:
+            if property.name() in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
                 newcomp.removeProperty(property)
         
         # New DTSTART is the RECURRENCE-ID we are deriving but adjusted to the
@@ -974,7 +990,10 @@ class Component (object):
         except KeyError:
             rid_params = {}
         newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value(), params=rid_params))
-            
+        
+        if didCancel:
+            newcomp.addProperty(Property("STATUS", "CANCELLED"))
+
         return newcomp
         
     def resourceUID(self):

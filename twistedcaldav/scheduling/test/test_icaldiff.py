@@ -18,6 +18,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 import twistedcaldav.test.util
 from difflib import unified_diff
+from twistedcaldav.dateops import toString
 
 import itertools
 
@@ -474,7 +475,9 @@ END:VCALENDAR
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             self.assertEqual(differ.organizerDiff(), result, msg=description)
 
-    def test_attendee_diff_simple(self):
+
+    def test_attendee_merge_simple(self):
+
         
         data = (
             (
@@ -506,7 +509,19 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.2 Simple component, PARTSTAT change",
@@ -537,7 +552,19 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False,)
+                (True, True, (None,), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.3 Simple component, bad change",
@@ -568,7 +595,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (), None)
             ),
             (
                 "#1.4 Simple component, valarm change",
@@ -609,7 +636,24 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test for Attendee
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.5 Simple component, vcalendar props change ok",
@@ -651,7 +695,24 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test for Attendee
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.6 Simple component, vcalendar props change bad",
@@ -693,7 +754,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (False, False, (), None)
             ),
             (
                 "#1.7 Simple component, vtimezone no change",
@@ -760,7 +821,37 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US-Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.8 Simple component, vtimezone bad change",
@@ -827,7 +918,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (), None)
             ),
             (
                 "#1.9 Simple component, vtimezone substitute",
@@ -894,7 +985,37 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US-Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.10 Simple component, vtimezone substitute",
@@ -961,15 +1082,52 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US-Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
         )
 
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            self.assertEqual(differ.attendeeDiff(attendee), result, msg=description)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple([toString(i) if i else None for i in diffResult[2]]),
+                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+            )
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
-    def test_attendee_diff_complex(self):
+    def test_attendee_merge_complex(self):
         
         data = (
             (
@@ -1019,7 +1177,28 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.2 Complex component, alarm change",
@@ -1078,7 +1257,33 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test for Attendee
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.3 Complex component, missing override",
@@ -1119,7 +1324,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (), None)
             ),
             (
                 "#1.4 Complex component, additional override no change ok",
@@ -1177,7 +1382,37 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.5 Complex component, additional override change ok",
@@ -1235,7 +1470,37 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, False,)
+                (True, True, ("20080602T120000Z", "20080604T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.6 Complex component, additional override bad",
@@ -1293,13 +1558,439 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False,)
+                (False, False, (), None)
             ),
         )
 
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            self.assertEqual(differ.attendeeDiff(attendee), result, msg=description)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple([toString(i) if i else None for i in diffResult[2]]),
+                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+            )
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
+
+
+    def test_attendee_merge_exdate(self):
+        
+        data = (
+            (
+                "#1.1 Single component, one EXDATE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+EXDATE:20080604T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ("20080604T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.2 Single component, two EXDATEs",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+EXDATE:20080604T120000Z,20080605T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ("20080604T120000Z", "20080605T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080605T120000Z
+DTSTART:20080605T120000Z
+DTEND:20080605T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.3 Two components, one EXDATE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+EXDATE:20080604T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ("20080604T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.4 Two components, two EXDATEs",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+EXDATE:20080604T120000Z
+EXDATE:20080606T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ("20080604T120000Z", "20080606T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080606T120000Z
+DTSTART:20080606T120000Z
+DTEND:20080606T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+        )
+
+        for description, calendar1, calendar2, attendee, result in data:
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple([toString(i) if i else None for i in diffResult[2]]),
+                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+            )
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
+
+    def test_attendee_merge_cancelled(self):
+        
+        data = (
+            (
+                "#1.1 Remove EXDATE add CANCELLED",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+EXDATE:20080604T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+RECURRENCE-ID:20080604T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.2 Removed CANCELLED add EXDATE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+RECURRENCE-ID:20080604T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:FREQ=DAILY
+EXDATE:20080604T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+EXDATE:20080604T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+        )
+
+        for description, calendar1, calendar2, attendee, result in data:
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple([toString(i) if i else None for i in diffResult[2]]),
+                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+            )
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
     def test_what_is_different(self):
         
@@ -3046,641 +3737,6 @@ END:VCALENDAR
 
             differ = iCalDiff(cal1, cal2, True)
             differ.organizerDiff()
-
-            strcal2 = str(cal2)
-            strchanged = str(Component.fromString(changed_calendar))
-            self.assertEqual(strchanged, strcal2, msg="%s mismatch:\n%s" % (description, "\n".join(unified_diff(strchanged.split("\n"), strcal2.split("\n")))))
-
-    def test_attendee_smart_merge(self):
-        
-        data1 = (
-            (
-                "#1.1 Simple component, no change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#1.2 Simple component, client change only",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#1.3 Simple component, server change only",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#1.4 Simple component, both change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-        )
-        
-        data2 = (
-            (
-                "#2.1 Simple recurring component, no change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#2.2 Simple recurring component, client instance change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#2.3 Simple recurring component, server instance change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-            (
-                "#2.4 Simple recurring component, both instance change",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080604T120000Z
-DTSTART:20080604T120000Z
-DTEND:20080604T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-                """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-RRULE:FREQ=DAILY
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080602T120000Z
-DTSTART:20080602T120000Z
-DTEND:20080602T130000Z
-SUMMARY:Test - 2
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080604T120000Z
-DTSTART:20080604T120000Z
-DTEND:20080604T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user3@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T120000Z
-DTEND:20080603T130000Z
-SUMMARY:Test
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
-ATTENDEE;PARTSTAT=DECLINED:mailto:user3@example.com
-END:VEVENT
-END:VCALENDAR
-""",
-            ),
-        )
-        
-        for description, calendar1, calendar2, changed_calendar in itertools.chain(data1, data2,):
-            cal1 = Component.fromString(calendar1)
-            cal2 = Component.fromString(calendar2)
-
-            differ = iCalDiff(cal1, cal2, True)
-            differ.attendeeDiff("mailto:user2@example.com")
 
             strcal2 = str(cal2)
             strchanged = str(Component.fromString(changed_calendar))

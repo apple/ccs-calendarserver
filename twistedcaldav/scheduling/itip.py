@@ -124,18 +124,10 @@ class iTipProcessing(object):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
                     rid = component.getRecurrenceIDUTC()
                     if new_calendar.overriddenComponent(rid) is None:
-                        new_component = new_calendar.deriveInstance(rid)
+                        allowCancelled = component.propertyValue("STATUS") == "CANCELLED"
+                        new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
                         new_calendar.addComponent(new_component)
                         iTipProcessing.transferItems(calendar, master_valarms, private_comments, new_component)
-                        if component.propertyValue("STATUS") == "CANCELLED":
-                            new_component.replaceProperty(Property("STATUS", "CANCELLED"))
-                            for exdate in master_component.properties("EXDATE"):
-                                for value in exdate.value():
-                                    if value == rid:
-                                        exdate.value().remove(value)
-                                        if len(exdate.value()) == 0:
-                                            master_component.removeProperty(exdate)
-                                        break
             
             # Replace the entire object
             return new_calendar, props_changed, rids

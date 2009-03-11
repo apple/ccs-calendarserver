@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.dateops import normalizeToUTC, toString
+from twistedcaldav.dateops import normalizeToUTC, toString,\
+    normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
@@ -220,80 +221,305 @@ class iCalDiff(object):
         else:
             new_property.params()[parameter] = paramvalue
 
-    def attendeeDiff(self, attendee):
+    def attendeeMerge(self, attendee):
         """
         Merge the ATTENDEE specific changes with the organizer's view of the attendee's event.
         This will remove any attempt by the attendee to change things like the time or location.
        
         @param attendee: the value of the ATTENDEE property corresponding to the attendee making the change
         @type attendee: C{str}
+        
+        @return: C{tuple} of:
+            C{bool} - change is allowed
+            C{bool} - iTIP reply needs to be sent
+            C{list} - list of RECURRENCE-IDs changed
+            L{Component} - new calendar object to store
         """
         
         self.attendee = normalizeCUAddr(attendee)
 
-        # If smart merge is needed we have to do this before trying the diff
-        if self.smart_merge:
-            log.debug("attendeeDiff: doing smart Attendee diff/merge")
-            self._attendeeMerge()
+        self.newCalendar = self.calendar1.duplicate()
+        self.newMaster = self.newCalendar.masterComponent()
 
-        # Do straight comparison without alarms
-        self.originalCalendar1 = self.calendar1
-        self.originalCalendar2 = self.calendar2
-        self.calendar1 = self._attendeeDuplicateAndNormalize(self.calendar1)
-        self.calendar2 = self._attendeeDuplicateAndNormalize(self.calendar2)
+        changeCausesReply = False
+        changedRids = []
+        
+        # First get uid/rid map of components
+        def mapComponents(calendar):
+            map = {}
+            cancelledRids = set()
+            master = None
+            for component in calendar.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                name = component.name()
+                uid = component.propertyValue("UID")
+                rid = component.getRecurrenceIDUTC()
+                map[(name, uid, rid,)] = component
+                if component.propertyValue("STATUS") == "CANCELLED" and rid is not None:
+                    cancelledRids.add(rid)
+                if rid is None:
+                    master = component
+            
+            # Normalize each master by adding any STATUS:CANCELLED components as EXDATEs
+            exdates = set()
+            if master:
+                # Get all EXDATEs in UTC
+                for exdate in master.properties("EXDATE"):
+                    exdates.update([normalizeToUTC(value) for value in exdate.value()])
+               
+            return exdates, map
+        
+        exdates1, map1 = mapComponents(self.calendar1)
+        set1 = set(map1.keys())
+        exdates2, map2 = mapComponents(self.calendar2)
+        set2 = set(map2.keys())
 
-        if self.calendar1 == self.calendar2:
-            return True, True
+        # All the components in calendar1 must be in calendar2 unless they are CANCELLED
+        result = set1 - set2
+        for key in result:
+            _ignore_name, _ignore_uid, rid = key
+            component = map1[key]
+            if component.propertyValue("STATUS") != "CANCELLED":
+                # Attendee may decline by EXDATE'ing an instance - we need to handle that
+                if rid in exdates2:
+                    # Mark Attendee as DECLINED in the server instance
+                    if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
+                        changeCausesReply = True
+                        changedRids.append(rid)
+                else:
+                    log.debug("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
+                    return False, False, (), None
+            else: 
+                if rid not in exdates2:
+                    log.debug("attendeeMerge: Missing EXDATE for cancelled components from first calendar: %s" % (key,))
+                    return False, False, (), None
+                else:
+                    # Remove the CANCELLED component from the new calendar and add an EXDATE
+                    overridden = self.newCalendar.overriddenComponent(rid)
+                    self.newCalendar.removeComponent(overridden)
+                    if self.newMaster:
+                        self.newMaster.addProperty(Property("EXDATE", (rid,)))
+        
+        # Derive a new component in the new calendar for each new one in set2
+        for key in set2 - set1:
+            
+            # First check if the attendee's copy is cancelled and properly EXDATE'd
+            # and skip it if so.
+            _ignore_name, _ignore_uid, rid = key
+            component2 = map2[key]
+            if component2.propertyValue("STATUS") == "CANCELLED":
+                if rid not in exdates1:
+                    log.debug("attendeeMerge: Cancelled component not found in first calendar (or no EXDATE): %s" % (key,))
+                    return False, False, (), None
+                else:
+                    # Derive new component with STATUS:CANCELLED and remove EXDATE
+                    newOverride = self.newCalendar.deriveInstance(rid, allowCancelled=True)
+                    if newOverride is None:
+                        log.debug("attendeeMerge: Could not derive instance for cancelled component: %s" % (key,))
+                        return False, False, (), None
+                    self.newCalendar.addComponent(newOverride)
+            else:
+                # Derive new component
+                newOverride = self.newCalendar.deriveInstance(rid)
+                if newOverride is None:
+                    log.debug("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
+                    return False, False, (), None
+                self.newCalendar.addComponent(newOverride)
 
-        # Need to look at each component and do special comparisons
+        # So now newCalendar has all the same components as set2. Check changes and do transfers.
         
         # Make sure the same VCALENDAR properties match
-        if not self._checkVCALENDARProperties():
-            self._logDiffError("attendeeDiff: VCALENDAR properties do not match")
+        if not self._checkVCALENDARProperties(self.newCalendar, self.calendar2):
+            self._logDiffError("attendeeMerge: VCALENDAR properties do not match")
+            return False, False, (), None
+
+        # Now we transfer per-Attendee
+        # data from calendar2 into newCalendar to sync up changes, whilst verifying that other
+        # key properties are unchanged
+        declines = []
+        for key in set2:
+            _ignore_name, _ignore_uid, rid = key
+            serverData = self.newCalendar.overriddenComponent(rid)
+            clientData = map2[key]
+            
+            allowed, reply = self._transferAttendeeData(serverData, clientData, declines)
+            if not allowed:
+                self._logDiffError("attendeeMerge: Mismatched calendar objects")
+                return False, False, (), None
+            changeCausesReply |= reply
+            if reply:
+                changedRids.append(rid)
+
+        # We need to derive instances for any declined using an EXDATE
+        for decline in sorted(declines):
+            overridden = self.newCalendar.overriddenComponent(decline)
+            if not overridden:
+                overridden = self.newCalendar.deriveInstance(decline)
+                if overridden:
+                    self.newCalendar.addComponent(overridden)
+                    if self._attendeeDecline(overridden):
+                        changeCausesReply = True
+                        changedRids.append(decline)
+                else:
+                    log.debug("Unable to override and instance to mark as DECLINED: %s" % (decline,))
+                    return False, False, (), None
+
+        return True, changeCausesReply, changedRids, self.newCalendar
+
+    def _checkVCALENDARProperties(self, serverData, clientData):
+
+        self._transferProperty("X-CALENDARSERVER-ACCESS", serverData, clientData)
+
+        # Get property differences in the VCALENDAR objects
+        propdiff = set(serverData.properties()) ^ set(clientData.properties())
+        
+        # Ignore certain properties
+        ignored = ("PRODID", "CALSCALE",)
+        propdiff = set([prop for prop in propdiff if prop.name() not in ignored])
+        
+        result = len(propdiff) == 0
+        if not result:
+            log.debug("VCALENDAR properties differ: %s" % (propdiff,))
+        return result
+
+    def _transferAttendeeData(self, serverComponent, clientComponent, declines):
+        
+        # First check validity of date-time related properties
+        if not self._checkInvalidChanges(serverComponent, clientComponent, declines):
             return False, False
         
-        # Make sure the same VTIMEZONE components appear
-        tzidRemapping = False
-        if not self._compareVTIMEZONEs():
-            # Not an error any more. Instead we need to merge back the original TZIDs
-            # into the event being written.
-            tzidRemapping = True
+        # Now look for items to transfer from one to the other.
+        # We care about the ATTENDEE's PARTSTAT, TRANSP, VALARMS, X-APPLE-NEEDS-REPLY,
+        # DTSTAMP, LAST-MODIFIED
         
-        # Compare each component instance from the new calendar with each derived
-        # component instance from the old one
-        result = self._compareComponents()
-        if not result[0]:
-            self._logDiffError("attendeeDiff: Mismatched calendar objects")
-        else:
-            # May need to do some rewriting
-            if tzidRemapping:
+        replyNeeded = False
+
+        # ATTENDEE/PARTSTAT/RSVP
+        serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
+        clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
+        if serverAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != clientAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]:
+            serverAttendee.params()["PARTSTAT"] = clientAttendee.params().get("PARTSTAT", "NEEDS-ACTION")
+            replyNeeded = True
+        if serverAttendee.params().get("RSVP", ("FALSE",))[0] != clientAttendee.params().get("RSVP", ("FALSE",))[0]:
+            if clientAttendee.params().get("RSVP", ("FALSE",))[0] == "FALSE":
                 try:
-                    self._remapTZIDs()
-                    self._logDiffError("attendeeDiff: VTIMEZONEs re-mapped")
-                except ValueError, e:
-                    self._logDiffError("attendeeDiff: VTIMEZONE re-mapping failed: %s" % (str(e),))
-                    return False, False
+                    del serverAttendee.params()["RSVP"]
+                except KeyError:
+                    pass
+            else:
+                serverAttendee.params()["RSVP"] = ["TRUE",]
 
-        return result
-    
-    def _attendeeDuplicateAndNormalize(self, calendar):
-        calendar = calendar.duplicate()
-        calendar.normalizePropertyValueLists("EXDATE")
-        calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
-        calendar.normalizeAll()
-        calendar.normalizeAttachments()
-        iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
-        return calendar
-
-    def _attendeeMerge(self):
-        """
-        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        # Transfer these properties from the client data
+        replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
+        self._transferProperty("TRANSP", serverComponent, clientComponent)
+        self._transferProperty("DTSTAMP", serverComponent, clientComponent)
+        self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
+        self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
         
-        NB At this point we are going to assume that the changes in calendar1 are only
-        other ATTENDEE PARTSTAT changes as this method should only get called when
-        If-Schedule-Tag-Match is present and does not generate an error for an Attendee.
+        # Handle VALARMs
+        serverComponent.removeAlarms()
+        for comp in clientComponent.subcomponents():
+            if comp.name() == "VALARM":
+                serverComponent.addComponent(comp)
+        
+        return True, replyNeeded
+        
+    def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
+        
+        # Properties we care about: DTSTART, DTEND, DURATION, RRULE, RDATE, EXDATE
+        
+        serverProps = self._getNormalizedDateTimeProperties(serverComponent)
+        clientProps = self._getNormalizedDateTimeProperties(clientComponent)
+        
+        # Need to special case EXDATEs as an Attendee can effectively DECLINE by adding an EXDATE
+        if serverProps[:-1] != clientProps[:-1]:
+            invalidChanges = []
+            propNames = ("DTSTART", "DTEND", "RRULE", "RDATE", "EXDATE")
+            invalidChanges = [propName for ctr, propName in enumerate(propNames) if serverProps[ctr] != clientProps[ctr]]
+            log.debug("Critical properties do not match: %s" % (", ".join(invalidChanges),))
+            return False
+        elif serverProps[-1] != clientProps[-1]:
+            # Bad if EXDATEs have been removed
+            missing = serverProps[-1] - clientProps[-1]
+            if missing:
+                log.debug("EXDATEs missing: %s" % (", ".join([toString(exdate) for exdate in missing]),))
+                return False
+            declines.extend(clientProps[-1] - serverProps[-1])
+            return True
+        else:
+            return True
+        
+    def _getNormalizedDateTimeProperties(self, component):
+        
+        # Basic time properties
+        dtstart = component.getProperty("DTSTART")
+        dtend = component.getProperty("DTEND")
+        duration = component.getProperty("DURATION")
+        
+        newdtstart, newdtend = normalizeStartEndDuration(
+            dtstart.value(),
+            dtend.value() if dtend is not None else None,
+            duration.value() if duration is not None else None,
+        )
+        
+        # Recurrence rules - we need to normalize the order of the value parts
+        newrrules = set()
+        rrules = component.properties("RRULE")
+        for rrule in rrules:
+            indexedTokens = {}
+            indexedTokens.update([valuePart.split("=") for valuePart in rrule.value().split(";")])
+            sortedValue = ";".join(["%s=%s" % (key, value,) for key, value in sorted(indexedTokens.iteritems(), key=lambda x:x[0])])
+            newrrules.add(sortedValue)
+        
+        # RDATEs
+        newrdates = set()
+        rdates = component.properties("RDATE")
+        for rdate in rdates:
+            newrdates.update([normalizeToUTC(value) for value in rdate.value()])
+        
+        # EXDATEs
+        newexdates = set()
+        exdates = component.properties("EXDATE")
+        for exdate in exdates:
+            newexdates.update([normalizeToUTC(value) for value in exdate.value()])
+
+        return newdtstart, newdtend, newrrules, newrdates, newexdates
+
+    def _transferProperty(self, propName, serverComponent, clientComponent):
+
+        changed = False
+        serverProp = serverComponent.getProperty(propName)
+        clientProp = clientComponent.getProperty(propName)
+        if serverProp != clientProp:
+            if clientProp:
+                serverComponent.replaceProperty(Property(propName, clientProp.value()))
+            else:
+                serverComponent.removeProperty(serverProp)
+            changed = True
+        return changed
+
+
+    def _attendeeDecline(self, component):
         """
-        self._doSmartMerge(self.attendee, False)
+        Marke attendee as DECLINED in the component.
+
+        @param component:
+        @type component:
+        
+        @return: C{bool} indicating whether the PARTSTAT value was in fact changed
+        """
+        attendee = component.getAttendeeProperty((self.attendee,))
+        partstatChanged = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != "DECLINED"
+        attendee.params()["PARTSTAT"] = ["DECLINED",]
+        try:
+            del attendee.params()["RSVP"]
+        except KeyError:
+            pass
+        prop = component.getProperty("X-APPLE-NEEDS-REPLY")
+        if prop:
+            component.removeProperty(prop)
+        return partstatChanged
 
     def whatIsDifferent(self):
         """
@@ -351,280 +577,14 @@ class iCalDiff(object):
             rids = None
         return props_changed, rids
 
-    def _checkVCALENDARProperties(self):
-
-        # Get property differences in the VCALENDAR objects
-        propdiff = set(self.calendar1.properties()) ^ set(self.calendar2.properties())
-        
-        # Ignore certain properties
-        ignored = ("PRODID", "CALSCALE",)
-        propdiff = set([prop for prop in propdiff if prop.name() not in ignored])
-        
-        result = len(propdiff) == 0
-        if not result:
-            log.debug("VCALENDAR properties differ: %s" % (propdiff,))
-        return result
-
-    @staticmethod
-    def _extractTZIDs(calendar):
-
-        tzids = set()
-        for component in calendar.subcomponents():
-            if component.name() == "VTIMEZONE":
-                tzids.add(component.propertyValue("TZID"))
-        return tzids
-
-    def _compareVTIMEZONEs(self):
-
-        # FIXME: clients may re-write timezones so the best we can do is
-        # compare TZIDs. That is not ideal as a client could have an old version
-        # of a VTIMEZONE and thus could show events at different times than the
-        # organizer.
-        
-        tzids1 = self._extractTZIDs(self.calendar1)
-        tzids2 = self._extractTZIDs(self.calendar2)
-        result = tzids1 == tzids2
-        if not result:
-            log.debug("Different VTIMEZONES: %s %s" % (tzids1, tzids2))
-        return result
-
-    def _remapTZIDs(self):
-        """
-        Re-map TZIDs that changed between the existing calendar data and the new data
-        being written for the attendee.
-        """
-
-        # Do master component re-map first
-        old_master = self.originalCalendar1.masterComponent()
-        new_master = self.originalCalendar2.masterComponent()
-        self._remapTZIDsOnComponent(old_master, new_master)
-        
-        # Now do each corresponding overridden component
-        for newComponent in self.originalCalendar2.subcomponents():
-            
-            # Make sure we have an appropriate component
-            if newComponent.name() == "VTIMEZONE":
-                continue
-            rid = newComponent.getRecurrenceIDUTC()
-            if rid is None:
-                continue
-
-            # Find matching component in new calendar
-            oldComponent = self.originalCalendar1.overriddenComponent(rid)
-            if oldComponent is None:
-                # Derive a new instance from the new calendar and transfer attendee status
-                oldComponent = self.originalCalendar2.deriveInstance(rid)
-
-            if oldComponent:
-                self._remapTZIDsOnComponent(oldComponent, newComponent)
-        
-        
-        # Now manipulate the VTIMEZONE components in the calendar data
-        for newComponent in tuple(self.originalCalendar2.subcomponents()):
-            # Make sure we have an appropriate component
-            if newComponent.name() == "VTIMEZONE":
-                self.originalCalendar2.removeComponent(newComponent)
-                
-        # The following statement is required to force vobject to serialize the
-        # calendar data and in the process add any missing VTIMEZONEs as needed.
-        _ignore = str(self.originalCalendar2)
-        log.debug(_ignore)
-        
-    def _remapTZIDsOnComponent(self, oldComponent, newComponent):
-        """
-        Re-map TZIDs that changed between the existing calendar data and the new data
-        being written for the attendee.
-        """
-
-        # Look at each property that culd contain a TZID:
-        # DTSTART, DTEND, RDATE, EXDATE, RECURRENCE-ID, DUE.
-        # NB EXDATE/RDATE can occur multiple times - special case
-        checkPropertiesOneOff = (
-            "DTSTART",
-            "DTEND",
-            "RECURRENCE-ID",
-            "DUE",
-        )
-        checkPropertiesMultiple = (
-            "RDATE",
-            "EXDATE",
-        )
-        
-        for propName in checkPropertiesOneOff:
-            oldProp = oldComponent.getProperty(propName)
-            newProp = newComponent.getProperty(propName)
-            
-            # Special case behavior where DURATIOn is mapped to DTEND
-            if propName == "DTEND" and oldProp is None and newProp is not None:
-                oldProp = oldComponent.getProperty("DTSTART")
-
-            # Transfer tzinfo from old property value to the new one
-            if oldProp is not None and newProp is not None:
-                if "X-VOBJ-ORIGINAL-TZID" in oldProp.params():
-                    oldTZID = oldProp.paramValue("X-VOBJ-ORIGINAL-TZID")
-                    if "X-VOBJ-ORIGINAL-TZID" in newProp.params():
-                        newTZID = newProp.paramValue("X-VOBJ-ORIGINAL-TZID")
-                        
-                        if oldTZID != newTZID:
-                            newProp.params()["X-VOBJ-ORIGINAL-TZID"][0] = oldTZID
-                            newProp.setValue(newProp.value().replace(tzinfo=oldProp.value().tzinfo))
-                    else:
-                        raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
-                        
-        for propName in checkPropertiesMultiple:
-            oldProps = oldComponent.properties(propName)
-            newProps = newComponent.properties(propName)
-            oldTZID = None
-            oldTzinfo = None
-            for prop in oldProps:
-                if "X-VOBJ-ORIGINAL-TZID" in prop.params():
-                    if oldTZID and oldTZID != prop.paramValue("X-VOBJ-ORIGINAL-TZID"):
-                        raise ValueError("Cannot handle different TZIDs on multiple %s" % (propName,))
-                    else:
-                        oldTZID = prop.paramValue("X-VOBJ-ORIGINAL-TZID")
-                        oldTzinfo = prop.value()[0].tzinfo
-            for prop in newProps:
-                if "X-VOBJ-ORIGINAL-TZID" in prop.params():
-                    if oldTZID:
-                        prop.params()["X-VOBJ-ORIGINAL-TZID"][0] = oldTZID
-                        prop.setValue([item.replace(tzinfo=oldTzinfo) for item in prop.value()])
-                    else:
-                        raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
-                elif oldTZID:
-                    raise ValueError("Cannot handle mismatched TZIDs on %s" % (propName,))
-
-    def _compareComponents(self):
-        
-        # First get uid/rid map of components
-        def mapComponents(calendar):
-            map = {}
-            cancelledRids = set()
-            master = None
-            for component in calendar.subcomponents():
-                if component.name() == "VTIMEZONE":
-                    continue
-                name = component.name()
-                uid = component.propertyValue("UID")
-                rid = component.getRecurrenceIDUTC()
-                map[(name, uid, rid,)] = component
-                if component.propertyValue("STATUS") == "CANCELLED" and rid is not None:
-                    cancelledRids.add(rid)
-                if rid is None:
-                    master = component
-            
-            # Normalize each master by adding any STATUS:CANCELLED components as EXDATEs
-            exdates = set()
-            if master:
-                for rid in sorted(cancelledRids):
-                    master.addProperty(Property("EXDATE", [rid,]))
-                
-                # Get all EXDATEs in UTC
-                for exdate in master.properties("EXDATE"):
-                    exdates.update([normalizeToUTC(value) for value in exdate.value()])
-               
-            return exdates, map
-        
-        exdates1, map1 = mapComponents(self.calendar1)
-        set1 = set(map1.keys())
-        exdates2, map2 = mapComponents(self.calendar2)
-        set2 = set(map2.keys())
-
-        # All the components in calendar1 must be in calendar2 unless they are CANCELLED
-        result = set1 - set2
-        for key in result:
-            component = map1[key]
-            if component.propertyValue("STATUS") != "CANCELLED":
-                log.debug("Missing uncancelled component from first calendar: %s" % (key,))
-                return False, False
-            else: 
-                _ignore_name, _ignore_uid, rid = key
-                if rid not in exdates2:
-                    log.debug("Missing EXDATE for cancelled components from first calendar: %s" % (key,))
-                    return False, False
-                    
-
-        # Now verify that each component in set1 matches what is in set2
-        attendee_unchanged = True
-        for key, value in map1.iteritems():
-            component1 = value
-            component2 = map2.get(key)
-            if component2 is None:
-                continue
-
-            nomismatch, no_attendee_change = self._testComponents(component1, component2)
-            if not nomismatch:
-                return False, False
-            attendee_unchanged &= no_attendee_change
-        
-        # Now verify that each additional component in set2 matches a derived component in set1
-        for key in set2 - set1:
-            
-            # First check if the attendee's copy is cancelled and properly EXDATE'd
-            # and skip it if so.
-            component2 = map2[key]
-            if component2.propertyValue("STATUS") == "CANCELLED":
-                _ignore_name, _ignore_uid, rid = key
-                if rid not in exdates1:
-                    log.debug("Cancelled component not found in first calendar (or no EXDATE): %s" % (key,))
-                    return False, False
-                continue
-
-            # Now derive the organizer's expected instance and compare
-            component1 = self.calendar1.deriveInstance(key[2])
-            if component1 is None:
-                log.debug("_compareComponents: Could not derive instance: %s" % (key[2],))
-                return False, False
-            
-            nomismatch, no_attendee_change = self._testComponents(component1, component2)
-            if not nomismatch:
-                return False, False
-            attendee_unchanged &= no_attendee_change
-            
-        return True, attendee_unchanged
-
-    def _testComponents(self, comp1, comp2):
-        
-        assert isinstance(comp1, Component) and isinstance(comp2, Component)
-        
-        if comp1.name() != comp2.name():
-            log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
-            return False, False
-        
-        # Only accept a change to this attendee's own ATTENDEE property
-        comp1.transformAllFromNative()
-        comp2.transformAllFromNative()
-        propdiff = set(comp1.properties()) ^ set(comp2.properties())
-        comp1.transformAllToNative()
-        comp2.transformAllToNative()
-        for prop in tuple(propdiff):
-            # These ones are OK to change
-            if prop.name() in (
-                "TRANSP",
-                "DTSTAMP",
-                "CREATED",
-                "LAST-MODIFIED",
-                "SEQUENCE",
-            ):
-                propdiff.remove(prop)
-                continue
-            
-            # These ones can change and trigger a reschedule
-            if ((prop.name() == "ATTENDEE" and prop.value() == self.attendee) or
-                prop.name() == "X-CALENDARSERVER-PRIVATE-COMMENT"):
-                continue
-
-            # Change that is not allowed
-            log.debug("Component properties are different (trigger is '%s'): %s" % (prop.name(), propdiff,))
-            return False, False
-
-        # Compare subcomponents.
-        # NB at this point we assume VALARMS have been removed.
-        result = set(comp1.subcomponents()) ^ set(comp2.subcomponents())
-        if result:
-            log.debug("Sub-components are different: %s" % (result,))
-            return False, False
-        
-        return True, len(propdiff) == 0
+    def _attendeeDuplicateAndNormalize(self, calendar):
+        calendar = calendar.duplicate()
+        calendar.normalizePropertyValueLists("EXDATE")
+        calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+        calendar.normalizeAll()
+        calendar.normalizeAttachments()
+        iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
+        return calendar
 
     def _diffComponents(self, comp1, comp2, changed, rids):
         

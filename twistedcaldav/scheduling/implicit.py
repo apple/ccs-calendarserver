@@ -666,9 +666,11 @@ class ImplicitScheduler(object):
                     self.oldcalendar = None
 
                 # Determine whether the current change is allowed
-                change_allowed, no_itip = self.isAttendeeChangeInsignificant()
+                changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
+                if changeAllowed:
+                    self.return_calendar = self.calendar = newCalendar
 
-                if not change_allowed:
+                if not changeAllowed:
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
                         log.debug("Attendee '%s' is creating CANCELLED event for mismatched UID: '%s' - removing entire event" % (self.attendee, self.uid,))
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
@@ -677,7 +679,7 @@ class ImplicitScheduler(object):
                         log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
 
-                if no_itip:
+                if not doITipReply:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
                     returnValue(None)
             elif isinstance(self.organizerAddress, LocalCalendarUser):
@@ -747,7 +749,7 @@ class ImplicitScheduler(object):
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,))
         differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
-        return differ.attendeeDiff(self.attendee)
+        return differ.attendeeMerge(self.attendee)
 
     def scheduleWithOrganizer(self):
 
