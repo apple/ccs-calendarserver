@@ -138,6 +138,7 @@ dist = setup(
                          "twext.internet",
                          "twext.python",
                          "twext.web2",
+                         "twext.web2.channel",
                          "twistedcaldav",
                          "twistedcaldav.admin",
                          "twistedcaldav.directory",

@@ -22,7 +22,7 @@ __all__ = [
     "HTTP503LoggingFactory",
 ]
 
-class OverloadedLoggingServerProtocol(protocol.Protocol):
+class OverloadedLoggingServerProtocol (protocol.Protocol):
     def __init__(self, retryAfter, outstandingRequests):
         self.retryAfter = retryAfter
         self.outstandingRequests = outstandingRequests
@@ -49,11 +49,10 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
         )
         self.transport.loseConnection()
 
-class HTTP503LoggingFactory(HTTPFactory):
+class HTTP503LoggingFactory (HTTPFactory):
     """
     Factory for HTTP server which emits a 503 response when overloaded.
     """
-
     def __init__(self, requestFactory, maxRequests=600, retryAfter=0, **kwargs):
         self.retryAfter = retryAfter
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)

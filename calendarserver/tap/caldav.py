@@ -52,6 +52,7 @@ from twisted.web2.static import File as FileResource
 from twisted.web2.http import Request, RedirectResponse
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.web2.channel.http import HTTP503LoggingFactory
 
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
@@ -68,7 +69,6 @@ from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from twistedcaldav.httpfactory import HTTP503LoggingFactory
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
@@ -676,8 +676,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         channel = HTTP503LoggingFactory(
             site,
             maxRequests = config.MaxRequests,
-            betweenRequestsTimeOut = config.IdleConnectionTimeOut,
             retryAfter = config.HTTPRetryAfter,
+            betweenRequestsTimeOut = config.IdleConnectionTimeOut,
         )
 
         def updateChannel(config, items):
