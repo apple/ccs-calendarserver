@@ -391,7 +391,7 @@ class iCalDiff(object):
         
         # Now look for items to transfer from one to the other.
         # We care about the ATTENDEE's PARTSTAT, TRANSP, VALARMS, X-APPLE-NEEDS-REPLY,
-        # DTSTAMP, LAST-MODIFIED
+        # DTSTAMP, LAST-MODIFIED, and ATTACH's referring to a dropbox
         
         replyNeeded = False
 
@@ -417,6 +417,10 @@ class iCalDiff(object):
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
         
+        # Dropbox
+        if not self._transferDropBoxData(serverComponent, clientComponent):
+            return False, False
+
         # Handle VALARMs
         serverComponent.removeAlarms()
         for comp in clientComponent.subcomponents():
@@ -424,6 +428,42 @@ class iCalDiff(object):
                 serverComponent.addComponent(comp)
         
         return True, replyNeeded
+    
+    def _transferDropBoxData(self, serverComponent, clientComponent):
+        
+        serverDropbox = serverComponent.propertyValue("X-APPLE-DROPBOX")
+        clientDropbox = clientComponent.propertyValue("X-APPLE-DROPBOX")
+        
+        # Handle four cases
+        if not clientDropbox:
+            return True
+        elif not serverDropbox:
+            # Attendee not allowed to add a dropbox
+            log.debug("Attendee not allowed to add dropbox: %s" % (clientDropbox,))
+            return False
+        else:
+            # Values must be the same
+            if serverDropbox != clientDropbox:
+                log.debug("Attendee not allowed to change dropbox from: %s to: %s" % (serverDropbox, clientDropbox,))
+                return False
+
+            # Remove existing ATTACH's from server
+            for attachment in tuple(serverComponent.properties("ATTACH")):
+                valueType = attachment.paramValue("VALUE")
+                if valueType in (None, "URI"):
+                    dataValue = attachment.value()
+                    if dataValue.find(serverDropbox) != -1:
+                        serverComponent.removeProperty(attachment)
+        
+            # Copy new ATTACH's to server
+            for attachment in tuple(clientComponent.properties("ATTACH")):
+                valueType = attachment.paramValue("VALUE")
+                if valueType in (None, "URI"):
+                    dataValue = attachment.value()
+                    if dataValue.find(serverDropbox) != -1:
+                        serverComponent.addProperty(attachment)
+                        
+            return True
         
     def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
         

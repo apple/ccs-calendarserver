@@ -1992,6 +1992,257 @@ END:VCALENDAR
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+    def test_attendee_merge_dropbox(self):
+        
+        data = (
+            (
+                "#1.1 Remove dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.2 Add dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (False, False, (), None,)
+            ),
+            (
+                "#1.3 Different dropbox",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/7073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/7073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (False, False, (), None,)
+            ),
+            (
+                "#1.4 Change dropbox - remove ATTACH",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#1.5 Change dropbox - add ATTACH",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd-2.plist
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd-2.plist
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+        )
+
+        for description, calendar1, calendar2, attendee, result in data:
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple([toString(i) if i else None for i in diffResult[2]]),
+                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+            )
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
+
     def test_what_is_different(self):
         
         data1 = (
