@@ -5,8 +5,8 @@
 Test the memcache client protocol.
 """
 
-from twisted.protocols.memcache import MemCacheProtocol, NoSuchCommand
-from twisted.protocols.memcache import ClientError, ServerError
+from twext.protocols.memcache import MemCacheProtocol, NoSuchCommand
+from twext.protocols.memcache import ClientError, ServerError
 
 from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransportWithDisconnection

@@ -18,8 +18,9 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, fail
 from twisted.internet.protocol import ReconnectingClientFactory
 
+from twext.protocols.memcache import MemCacheProtocol, NoSuchCommand
+
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcache import MemCacheProtocol, NoSuchCommand
 
 
 class PooledMemCacheProtocol(MemCacheProtocol):
