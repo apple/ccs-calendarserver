@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList, inlineCallbacks
+from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -23,8 +23,10 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 import twistedcaldav.test.util
+from twistedcaldav.config import config
 
 directoryService = XMLDirectoryService(xmlFile)
 
@@ -362,8 +364,21 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     @inlineCallbacks
     def test_InvalidUserProxy(self):
 
+
+        # Set up the in-memory (non-null) memcacher:
+        config.ProcessType = "Single"
+        principal = self._getPrincipalByShortName(
+            DirectoryService.recordType_users, "wsanchez")
+        db = principal._calendar_user_proxy_index()
+
+        # Set the clock to the epoch:
+        theTime = 0
+        db._memcacher.theTime = theTime
+
+
         for doMembershipFirst in (True, False,):
             for proxyType in ("calendar-proxy-read", "calendar-proxy-write"):
+
                 principal = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
                 proxyGroup = principal.getChild(proxyType)
 
@@ -377,6 +392,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     proxyType,
                     testPrincipal,
                 )
+
                 members = yield proxyGroup._index().getMembers(proxyGroup.uid)
                 self.assertEquals(len(members), 1)
 
@@ -414,20 +430,66 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     self.assertEquals(len(memberships), 1)
 
                 @inlineCallbacks
-                def _membersTest():
+                def _membersTest(theTime):
                     yield self._groupMembersTest(
                         DirectoryService.recordType_users, "wsanchez",
                         proxyType,
                         ("Cyrus Daboo",),
                     )
+
+                    # Trigger the proxy DB clean up, which won't actually
+                    # remove anything because we haven't exceeded the timeout
+                    yield proxyGroup.groupMembers()
+
+                    # Advance 10 seconds
+                    theTime += 10
+                    db._memcacher.theTime = theTime
+
+                    # When we first examine the members, we have not exceeded
+                    # the clean-up timeout, so we'll still have 2:
+                    members = yield proxyGroup._index().getMembers(proxyGroup.uid)
+                    self.assertEquals(len(members), 2)
+
+                    # Restore removed user
+                    parser = XMLAccountsParser(directoryService.xmlFile)
+                    directoryService._parsedAccounts = parser.items
+
+                    # Trigger the proxy DB clean up, which will actually
+                    # remove the deletion timer because the principal has been
+                    # restored
+                    yield proxyGroup.groupMembers()
+
+                    # Verify the deletion timer has been removed
+                    result = yield db._memcacher.checkDeletionTimer("5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1")
+                    self.assertEquals(result, None)
+
+                    # Remove the dreid user from the directory service
+                    del directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+
+                    # Trigger the proxy DB clean up, which won't actually
+                    # remove anything because we haven't exceeded the timeout
+                    yield proxyGroup.groupMembers()
+
+                    cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 * 2
+                    # Advance beyond the timeout
+                    theTime += cacheTimeout
+                    db._memcacher.theTime = theTime
+
+                    # Trigger the proxy DB clean up
+                    yield proxyGroup.groupMembers()
+
+                    # The missing principal has now been cleaned out of the
+                    # proxy DB
                     members = yield proxyGroup._index().getMembers(proxyGroup.uid)
                     self.assertEquals(len(members), 1)
+                    returnValue(theTime)
+
 
                 if doMembershipFirst:
                     yield _membershipTest()
-                    yield _membersTest()
+                    theTime = yield _membersTest(theTime)
                 else:
-                    yield _membersTest()
+                    theTime = yield _membersTest(theTime)
                     yield _membershipTest()
 
                 # Restore removed user

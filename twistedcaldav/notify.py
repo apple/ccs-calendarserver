@@ -368,16 +368,16 @@ class Coalescer(LoggingMixIn):
                     # reschedule for delaySeconds in the future
                     delayed.reset(self.delaySeconds)
                     self.uris[uri][1] = count
-                    self.log_info("Delaying: %s" % (uri,))
+                    self.log_debug("Delaying: %s" % (uri,))
                 else:
-                    self.log_info("Not delaying to avoid starvation: %s" % (uri,))
+                    self.log_debug("Not delaying to avoid starvation: %s" % (uri,))
             else:
-                self.log_info("Scheduling: %s" % (uri,))
+                self.log_debug("Scheduling: %s" % (uri,))
                 self.uris[uri] = [self.reactor.callLater(self.delaySeconds,
                     self.delayedEnqueue, op, uri), 0]
 
     def delayedEnqueue(self, op, uri):
-        self.log_info("Time to send: %s" % (uri,))
+        self.log_debug("Time to send: %s" % (uri,))
         self.uris[uri][1] = 0
         for notifier in self.notifiers:
             notifier.enqueue(op, uri)
@@ -907,14 +907,14 @@ class XMPPNotifier(LoggingMixIn):
         for child in iq.children[0].children:
             jid = child['jid']
             if self.allowedInRoster(jid):
-                self.log_info("In roster: %s" % (jid,))
+                self.log_debug("In roster: %s" % (jid,))
                 if not self.roster.has_key(jid):
                     self.roster[jid] = { 'debug' : False, 'available' : False }
             else:
                 self.log_info("JID not allowed in roster: %s" % (jid,))
 
     def handlePresence(self, iq):
-        self.log_info("Presence IQ: %s" %
+        self.log_debug("Presence IQ: %s" %
             (iq.toXml().encode('ascii', 'replace')),)
         presenceType = iq.getAttribute('type')
 
