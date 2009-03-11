@@ -118,7 +118,10 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 returnValue(caldavxml.CalendarFreeBusySet())
         elif qname == (caldav_namespace, "schedule-default-calendar-URL"):
             # Must have a valid default
-            defaultCalendarProperty = self.readDeadProperty(property)
+            try:
+                defaultCalendarProperty = self.readDeadProperty(property)
+            except HTTPError:
+                defaultCalendarProperty = None
             if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
                 defaultCalendar = str(defaultCalendarProperty.children[0])
                 cal = (yield request.locateResource(str(defaultCalendar)))

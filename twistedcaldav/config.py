@@ -246,7 +246,6 @@ defaultConfig = {
             "AddressPatterns"            : [],    # Reg-ex patterns to match local calendar user addresses
             "OldDraftCompatibility"      : True,  # Whether to maintain compatibility with non-implicit mode
             "ScheduleTagCompatibility"   : True,  # Whether to support older clients that do not use Schedule-Tag feature
-            "DefaultCalendarProvisioned" : True,  # Whether the provisioned default calendar is marked as the scheduling default
             "EnablePrivateComments"      : True,  # Private comments from attendees to organizer
         },
 

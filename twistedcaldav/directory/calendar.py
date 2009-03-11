@@ -301,9 +301,8 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             inbox.provision()
             inbox.processFreeBusyCalendar(childURL, True)
 
-            # Default calendar may need to be marked as the default for scheduling
-            if config.Scheduling.CalDAV.DefaultCalendarProvisioned:
-                inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(childURL)))
+            # Default calendar is marked as the default for scheduling
+            inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(childURL)))
 
             return self
 

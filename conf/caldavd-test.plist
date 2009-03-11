@@ -505,8 +505,6 @@
         <true/>
         <key>ScheduleTagCompatibility</key>
         <true/>
-        <key>DefaultCalendarProvisioned</key>
-        <true/>
         <key>EnablePrivateComments</key>
         <true/>
       </dict>
