@@ -58,9 +58,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             if RootResource.CheckSACL:
                 self.useSacls = True
             else:
-                log.msg(("RootResource.CheckSACL is unset but "
-                         "config.EnableSACLs is True, SACLs will not be "
-                         "turned on."))
+                log.warn("SACLs are enabled, but SACLs are not supported.")
 
         self.contentFilters = []
 
