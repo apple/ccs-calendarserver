@@ -1,17 +1,19 @@
-# Copyright (c) 2007 Twisted Matrix Laboratories.
+# Copyright (c) 2007-2009 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
 """
 Test the memcache client protocol.
 """
 
-from twistedcaldav.memcache import MemCacheProtocol, NoSuchCommand
-from twistedcaldav.memcache import ClientError, ServerError
+from twisted.protocols.memcache import MemCacheProtocol, NoSuchCommand
+from twisted.protocols.memcache import ClientError, ServerError
 
+from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransportWithDisconnection
 from twisted.internet.task import Clock
 from twisted.internet.defer import Deferred, gatherResults, TimeoutError
-from twistedcaldav.test.util import TestCase
+
+
 
 class MemCacheTestCase(TestCase):
     """
@@ -23,13 +25,13 @@ class MemCacheTestCase(TestCase):
         Create a memcache client, connect it to a string protocol, and make it
         use a deterministic clock.
         """
-        TestCase.setUp(self)
         self.proto = MemCacheProtocol()
         self.clock = Clock()
         self.proto.callLater = self.clock.callLater
         self.transport = StringTransportWithDisconnection()
         self.transport.protocol = self.proto
         self.proto.makeConnection(self.transport)
+
 
     def _test(self, d, send, recv, result):
         """
@@ -189,6 +191,19 @@ class MemCacheTestCase(TestCase):
             {"foo": "bar", "egg": "spam"})
 
 
+    def test_statsWithArgument(self):
+        """
+
+        L{MemCacheProtocol.stats} takes an optional C{str} argument which,
+        if specified, is sent along with the I{STAT} command.  The I{STAT}
+        responses from the server are parsed as key/value pairs and returned
+        as a C{dict} (as in the case where the argument is not specified).
+        """
+        return self._test(self.proto.stats("blah"), "stats blah\r\n",
+            "STAT foo bar\r\nSTAT egg spam\r\nEND\r\n",
+            {"foo": "bar", "egg": "spam"})
+
+
     def test_version(self):
         """
         Test version retrieval via the L{MemCacheProtocol.version} command: it
@@ -304,7 +319,7 @@ class MemCacheTestCase(TestCase):
         def check(result):
             self.assertEquals(result, (0, "bar"))
             self.assertEquals(len(self.clock.calls), 1)
-            for _ignore in range(self.proto.persistentTimeOut):
+            for i in range(self.proto.persistentTimeOut):
                 self.clock.advance(1)
             return self.assertFailure(d2, TimeoutError).addCallback(checkTime)
         def checkTime(ignored):
