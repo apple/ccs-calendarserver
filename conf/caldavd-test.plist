@@ -628,7 +628,7 @@
     
     <!-- The retry-after value (in seconds) to return with a 503 error. -->
     <key>HTTPRetryAfter</key>
-    <string>180</string>
+    <int>180</int>
 
     <!-- A unix socket used for communication between the child and master processes.
          An empty value tells the server to use a tcp socket instead. -->
