@@ -268,7 +268,6 @@ class SACLCacheTests(RootTests):
         super(SACLCacheTests, self).setUp()
         self.root.resource.responseCache = SACLCacheTests.StubResponseCacheResource()
 
-    @inlineCallbacks
     def test_PROPFIND(self):
         self.root.resource.useSacls = True
 
@@ -293,24 +292,28 @@ class SACLCacheTests(RootTests):
             content=body
         )
 
-        response = (yield self.send(request, None))
-        print response
-        if response.code != responsecode.MULTI_STATUS:
-            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+        def gotResponse1(response):
+            if response.code != responsecode.MULTI_STATUS:
+                self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
 
-        request = SimpleRequest(
-            self.site,
-            "PROPFIND",
-            "/principals/users/dreid/",
-            headers=http_headers.Headers({
-                    'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
-                    'Content-Type': 'application/xml; charset="utf-8"',
-                    'Depth':'1',
-            }),
-            content=body
-        )
+            request = SimpleRequest(
+                self.site,
+                "PROPFIND",
+                "/principals/users/dreid/",
+                headers=http_headers.Headers({
+                        'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
+                        'Content-Type': 'application/xml; charset="utf-8"',
+                        'Depth':'1',
+                }),
+                content=body
+            )
 
-        response = (yield self.send(request, None))
-        print response
-        if response.code != responsecode.MULTI_STATUS:
-            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+            d = self.send(request, gotResponse2)
+            return d
+
+        def gotResponse2(response):
+            if response.code != responsecode.MULTI_STATUS:
+                self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+
+        d = self.send(request, gotResponse1)
+        return d
