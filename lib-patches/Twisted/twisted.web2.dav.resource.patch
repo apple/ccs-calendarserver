@@ -1054,7 +1054,7 @@ Index: twisted/web2/dav/resource.py
 +            size += adjust
 +            
 +            # Sanity check the resulting size
-+            if size > 0:
++            if size >= 0:
 +                self.writeDeadProperty(TwistedQuotaUsedProperty(str(size)))
 +            else:
 +                # Remove the dead property and re-read to do brute force quota calc
