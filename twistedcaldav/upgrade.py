@@ -128,7 +128,7 @@ def upgrade_to_1(config):
                 try:
                     data, fixed = fixBadQuotes(data)
                     if fixed:
-                        log.debug("Fixing bad quotes in %s" % (resPath,))
+                        log.warn("Fixing bad quotes in %s" % (resPath,))
                         needsRewrite = True
                 except Exception, e:
                     log.error("Error while fixing bad quotes in %s: %s" %
@@ -172,21 +172,26 @@ def upgrade_to_1(config):
 
         log.debug("Upgrading calendar home: %s" % (homePath,))
 
-        for cal in os.listdir(homePath):
-            calPath = os.path.join(homePath, cal)
-            log.debug("Upgrading calendar: %s" % (calPath,))
-            if not upgradeCalendarCollection(calPath, directory):
-                errorOccurred = True
+        try:
+            for cal in os.listdir(homePath):
+                calPath = os.path.join(homePath, cal)
+                log.debug("Upgrading calendar: %s" % (calPath,))
+                if not upgradeCalendarCollection(calPath, directory):
+                    errorOccurred = True
 
-            # Change the calendar-free-busy-set xattrs of the inbox to the
-            # __uids__/<guid> form
-            if cal == "inbox":
-                for attr, value in xattr.xattr(calPath).iteritems():
-                    if attr == "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set":
-                        value = updateFreeBusySet(value, directory)
-                        if value is not None:
-                            # Need to write the xattr back to disk
-                            xattr.setxattr(calPath, attr, value)
+                # Change the calendar-free-busy-set xattrs of the inbox to the
+                # __uids__/<guid> form
+                if cal == "inbox":
+                    for attr, value in xattr.xattr(calPath).iteritems():
+                        if attr == "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set":
+                            value = updateFreeBusySet(value, directory)
+                            if value is not None:
+                                # Need to write the xattr back to disk
+                                xattr.setxattr(calPath, attr, value)
+
+        except Exception, e:
+            log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
+            raise
 
         return errorOccurred
 
@@ -270,6 +275,8 @@ def upgrade_to_1(config):
 
             # Move calendar homes to new location:
 
+            log.warn("Moving calendar homes to %s" % (uidHomes,))
+
             if os.path.exists(uidHomes):
                 for home in os.listdir(uidHomes):
 
@@ -303,7 +310,9 @@ def upgrade_to_1(config):
                             moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
                     os.rmdir(dirPath)
 
-            # Upgrade calendar homes in the new location:
+
+            # Count how many calendar homes we'll be processing
+            total = 0
             for first in os.listdir(uidHomes):
                 if len(first) == 2:
                     firstPath = os.path.join(uidHomes, first)
@@ -311,9 +320,33 @@ def upgrade_to_1(config):
                         if len(second) == 2:
                             secondPath = os.path.join(firstPath, second)
                             for home in os.listdir(secondPath):
-                                homePath = os.path.join(secondPath, home)
-                                if not upgradeCalendarHome(homePath, directory):
-                                    errorOccurred = True
+                                total += 1
+
+            if total:
+                log.warn("Processing %d calendar homes in %s" % (total, uidHomes))
+
+                # Upgrade calendar homes in the new location:
+                count = 0
+                for first in os.listdir(uidHomes):
+                    if len(first) == 2:
+                        firstPath = os.path.join(uidHomes, first)
+                        for second in os.listdir(firstPath):
+                            if len(second) == 2:
+                                secondPath = os.path.join(firstPath, second)
+                                for home in os.listdir(secondPath):
+                                    homePath = os.path.join(secondPath, home)
+
+
+                                    if not upgradeCalendarHome(homePath,
+                                        directory):
+                                        errorOccurred = True
+
+                                    count += 1
+                                    if count % 10 == 0:
+                                        log.warn("Processed calendar home %d of %d"
+                                            % (count, total))
+
+                log.warn("Done processing calendar homes")
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
@@ -349,7 +382,7 @@ def upgradeData(config):
 
     for version, method in upgradeMethods:
         if onDiskVersion < version:
-            log.info("Upgrading to version %d" % (version,))
+            log.warn("Upgrading to version %d" % (version,))
             method(config)
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
@@ -377,7 +410,6 @@ def updateFreeBusyHref(href, directory):
     record = directory.recordWithShortName(recordType, shortName)
     if record is None:
         msg = "Can't update free-busy href; %s is not in the directory" % shortName
-        log.error(msg)
         raise UpgradeError(msg)
 
     uid = record.uid
