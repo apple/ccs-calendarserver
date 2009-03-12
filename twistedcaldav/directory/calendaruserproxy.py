@@ -39,6 +39,7 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
+from twistedcaldav.log import LoggingMixIn
 
 import itertools
 import os
@@ -347,7 +348,6 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
             # Clean-up ones that are missing
             for uid in missing:
-                self.log_debug("Removing missing proxy principal for '%s' from %s" % (uid, self,))
                 cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 # in seconds
 
                 yield self._index().removePrincipal(uid,
@@ -376,7 +376,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     def hasEditableMembership(self):
         return self.parent.hasEditableProxyMembership()
 
-class CalendarUserProxyDatabase(AbstractSQLDatabase):
+class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
     """
     A database to maintain calendar user proxy group memberships.
 
@@ -537,8 +537,13 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase):
 
             elif overdue is None:
                 # No timer was previously set
+                self.log_debug("Delaying removal of missing proxy principal '%s'" %
+                    (principalUID,))
                 self._memcacher.setDeletionTimer(principalUID, delay=delay)
                 returnValue(None)
+
+        self.log_debug("Removing missing proxy principal for '%s'" %
+            (principalUID,))
 
         for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
             groupUID = "%s#%s" % (principalUID, suffix,)
