@@ -100,23 +100,23 @@ install:: build
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
 install::
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(MANDIR)/man8
-	$(_v) $(INSTALL_FILE) $(Sources)/doc/caldavd.8 $(DSTROOT)$(MANDIR)/man8
-	$(_v) $(INSTALL_FILE) $(Sources)/doc/caldav_export.8 $(DSTROOT)$(MANDIR)/man8
-	$(_v) $(INSTALL_FILE) $(Sources)/doc/caladmin.8 $(DSTROOT)$(MANDIR)/man8
-	$(_v) gzip -9 -f $(DSTROOT)$(MANDIR)/man8/*.8
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)
-	$(_v) $(INSTALL_DIRECTORY) -m 0755 $(DSTROOT)$(VARDIR)/log/caldavd
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
-	$(_v) $(INSTALL_FILE) $(Sources)/contrib/launchd/calendarserver.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)/server_backup/
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(LIBEXECDIR)/server_backup/
-	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/conf/85-calendarServer.plist $(DSTROOT)$(ETCDIR)/server_backup/
-	$(_v) $(INSTALL_FILE) $(Sources)/contrib/SBS/bin/calendarServer_restore $(DSTROOT)$(LIBEXECDIR)/server_backup/
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldav_export.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caladmin.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)"
+	$(_v) $(INSTALL_DIRECTORY) -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(ETCDIR)/server_backup/"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/conf/85-calendarServer.plist" "$(DSTROOT)$(ETCDIR)/server_backup/"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/bin/calendarServer_restore" "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
 
 install:: prep
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/AppleInternal/ServerTools
-	$(_v) $(INSTALL_FILE) $(Sources)/CalDAVTester.tgz $(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools"
+	$(_v) $(INSTALL_FILE) "$(Sources)/CalDAVTester.tgz" "$(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz"
 
 #
 # Automatic Extract
