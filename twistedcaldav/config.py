@@ -165,7 +165,7 @@ defaultConfig = {
             "ServicePrincipal": ""
         },
         "Wiki": {
-            "Enabled": True,
+            "Enabled": False,
             "Cookie": "sessionID",
             "URL": "http://127.0.0.1:8086/RPC2",
             "UserMethod": "userForSession",
