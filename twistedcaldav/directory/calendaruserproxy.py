@@ -62,12 +62,14 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         )
 
         # Add admins
-        aces += tuple([davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal)),
-                    davxml.Grant(davxml.Privilege(davxml.All())),
-                    davxml.Protected(),
-                 ) for principal in config.AdminPrincipals
-                ])
+        aces += tuple((
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(principal)),
+                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Protected(),
+            )
+            for principal in config.AdminPrincipals
+        ))
 
         return davxml.ACL(*aces)
 
