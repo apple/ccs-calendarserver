@@ -115,6 +115,7 @@
       -->
 
     <!-- XML File Directory Service -->
+    <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
@@ -126,9 +127,9 @@
         <string>/etc/caldavd/accounts.xml</string>
       </dict>
     </dict>
+    -->
     
     <!-- Open Directory Service (Mac OS X) -->
-    <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
@@ -146,7 +147,7 @@
         <integer>30</integer>
       </dict>
     </dict>
-     -->
+
 
     <!--
         Special principals
@@ -231,6 +232,13 @@
         <string></string>
       </dict>
 
+      <!-- Wikiserver authentication (Mac OS X) -->
+      <key>Wiki</key>
+      <dict>
+        <key>Enabled</key>
+        <true/>
+      </dict>
+
     </dict>
 
 
@@ -279,10 +287,10 @@
       -->
 
     <key>UserName</key>
-    <string>daemon</string>
+    <string>calendar</string>
 
     <key>GroupName</key>
-    <string>daemon</string>
+    <string>calendar</string>
 
     <key>ProcessType</key>
     <string>Combined</string>
@@ -434,8 +442,25 @@
         Non-standard CalDAV extensions
       -->
 
+    <!-- Calendar Drop Box -->
+    <key>EnableDropBox</key>
+    <true/>
+
     <!-- Private Events -->
     <key>EnablePrivateEvents</key>
+    <true/>
+
+    <!-- Timezone Service -->
+    <key>EnableTimezoneService</key>
+    <true/>
+
+
+    <!--
+        Miscellaneous items
+      -->
+
+    <!-- Service ACLs (Mac OS X) -->
+    <key>EnableSACLs</key>
     <true/>
 
 

@@ -94,6 +94,7 @@ install:: build
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.pyc"
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/_twisted_zsh_stub"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
