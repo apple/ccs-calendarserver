@@ -622,5 +622,7 @@ class ImplicitProcessor(object):
             if attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
                 attendee.params()["PARTSTAT"] = [partstat]
                 madeChanges = True
+            if "RSVP" in attendee.params():
+                del attendee.params()["RSVP"]
         
         return madeChanges
