@@ -70,6 +70,18 @@ for branch in branches:
 else:
     version = "unknown (%s :: %s)" % (base_version, svn_revision)
 
+def find_modules():
+    for root, dirs, files in os.walk(os.path.dirname(__file__)):
+        for exclude in (
+            ".svn",
+            "build",
+        ):
+            if exclude in dirs:
+                dirs.remove(exclude)
+
+        if "__init__.py" in files:
+            yield ".".join(root.split(os.path.sep)[1:])
+
 #
 # Options
 #
@@ -123,32 +135,7 @@ dist = setup(
     author_email     = None,
     license          = None,
     platforms        = [ "all" ],
-    packages         = [
-                         "calendarserver",
-                         "calendarserver.platform",
-                         "calendarserver.platform.darwin",
-                         "calendarserver.provision",
-                         "calendarserver.tap",
-                         "calendarserver.tap.test",
-                         "calendarserver.test",
-                         "calendarserver.tools",
-                         "calendarserver.webcal",
-                         "twisted.plugins",
-                         "twext",
-                         "twext.internet",
-                         "twext.python",
-                         "twext.web2",
-                         "twext.web2.channel",
-                         "twistedcaldav",
-                         "twistedcaldav.admin",
-                         "twistedcaldav.directory",
-                         "twistedcaldav.directory.test",
-                         "twistedcaldav.method",
-                         "twistedcaldav.query",
-                         "twistedcaldav.scheduling",
-                         "twistedcaldav.scheduling.test",
-                         "twistedcaldav.test",
-                       ],
+    packages         = find_modules()
     package_data     = {
                          "twistedcaldav": [
                            "zoneinfo/*.ics",
