@@ -679,20 +679,25 @@ class Config (object):
 
         if service["Enabled"]:
             for direction in ("Sending", "Receiving"):
-                # Get password from keychain.  If not there, fall back to what
-                # is in the plist. Keychain label names are icalserver.sending
-                # and icalserver.receiving.
-                try:
-                    label = "icalserver.%s" % (direction.lower(),)
-                    password = getPasswordFromKeychain(label)
-                    service[direction]["Password"] = password
-                    log.info("iMIP %s password successfully retreived from keychain" % (direction,))
-                except KeychainAccessError:
-                    # The system doesn't support keychain
-                    pass
-                except KeychainPasswordNotFound:
-                    # The password doesn't exist in the keychain.
-                    log.info("iMIP %s password not found in keychain" % (direction,))
+                if service[direction].Username:
+                    # Get password from keychain.  If not there, fall back to
+                    # what is in the plist.
+                    try:
+                        if direction == "Sending":
+                            account = service.Sending.Address
+                        else:
+                            account = "%s@%s" % (service.Receiving.Username,
+                                service.Receiving.Server)
+                        password = getPasswordFromKeychain(account)
+                        service[direction]["Password"] = password
+                        log.info("iMIP %s password successfully retreived from keychain" % (direction,))
+                    except KeychainAccessError:
+                        # The system doesn't support keychain
+                        pass
+                    except KeychainPasswordNotFound:
+                        # The password doesn't exist in the keychain.
+                        log.info("iMIP %s password not found in keychain" %
+                            (direction,))
 
 
 def _mergeData(oldData, newData):
