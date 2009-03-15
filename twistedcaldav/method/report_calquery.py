@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,16 +25,19 @@ import urllib
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace,\
+    NumberOfRecurrencesWithinLimits
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.method import report_common
 from twistedcaldav.index import IndexedSearchException
+from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.log import Logger
+from twistedcaldav.method import report_common
 
 log = Logger()
 
@@ -227,6 +230,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     try:
         depth = request.headers.getHeader("depth", "0")
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
+    except TooManyInstancesError, ex:
+        log.err("Too many instances need to be computed in calendar-query report")
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+                NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
+            ))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -202,10 +202,15 @@ def getTimerangeArguments(timerange):
     tzinfo = timerange.tzinfo
 
     # Now force to floating UTC
-    startfloat = floatoffset(start, tzinfo)
-    endfloat = floatoffset(end, tzinfo)
+    startfloat = floatoffset(start, tzinfo) if start else None
+    endfloat = floatoffset(end, tzinfo) if end else None
 
-    return str(start), str(end), str(startfloat), str(endfloat)
+    return (
+        str(start) if start else None,
+        str(end) if end else None,
+        str(startfloat) if startfloat else None,
+        str(endfloat) if endfloat else None,
+    )
 
 def sqlcalendarquery(filter):
     """

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,9 @@ class sqlgenerator(object):
     INOP          = " IN "
     NOTINOP       = " NOT IN "
 
-    TIMESPANTEST  = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
+    TIMESPANTEST         = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
+    TIMESPANTEST_NOEND   = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
+    TIMESPANTEST_NOSTART = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
 
     def __init__(self, expr):
         self.expression = expr
@@ -118,11 +120,20 @@ class sqlgenerator(object):
         
         # time-range
         elif isinstance(expr, expression.timerangeExpression):
-            arg1 = self.setArgument(expr.end)
-            arg2 = self.setArgument(expr.start)
-            arg3 = self.setArgument(expr.endfloat)
-            arg4 = self.setArgument(expr.startfloat)
-            test = self.TIMESPANTEST % (arg1, arg2, arg3, arg4)
+            if expr.start and expr.end:
+                arg1 = self.setArgument(expr.end)
+                arg2 = self.setArgument(expr.start)
+                arg3 = self.setArgument(expr.endfloat)
+                arg4 = self.setArgument(expr.startfloat)
+                test = self.TIMESPANTEST % (arg1, arg2, arg3, arg4)
+            elif expr.start and expr.end is None:
+                arg1 = self.setArgument(expr.start)
+                arg2 = self.setArgument(expr.startfloat)
+                test = self.TIMESPANTEST_NOEND % (arg1, arg2)
+            elif not expr.start and expr.end:
+                arg1 = self.setArgument(expr.end)
+                arg2 = self.setArgument(expr.endfloat)
+                test = self.TIMESPANTEST_NOSTART % (arg1, arg2)
             self.sout.write(test)
             self.usedtimespan = True
         

@@ -34,14 +34,17 @@ __all__ = [
 
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
+
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
     normalizeStartEndDuration, toString
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+
 from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
+
 import cStringIO as StringIO
 import datetime
 import heapq
@@ -725,6 +728,21 @@ class Component (object):
         self.transformAllToNative()
         return self._vobject.getrruleset(addRDate)
 
+    def getEffectiveStartEnd(self):
+        # Get the start/end range needed for instance comparisons
+
+        if self.name() in ("VEVENT", "VJOURNAL",):
+            return self.getStartDateUTC(), self.getEndDateUTC()
+        elif self.name() == "VTODO":
+            start = self.getStartDateUTC()
+            due = self.getDueDateUTC()
+            if start is None and due is not None:
+                return due, due
+            else:
+                return start, due
+        else:
+            return None, None
+
     def addProperty(self, property):
         """
         Adds a property to this component.
@@ -921,8 +939,22 @@ class Component (object):
                 if component.name() != "VTIMEZONE" and component.isRecurring():
                     return True
         else:
-            for propname in ("RRULE", "RDATE", "EXDATE", "RECUURENCE-ID",):
+            for propname in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",):
                 if self.hasProperty(propname):
+                    return True
+        return False
+        
+    def isRecurringUnbounded(self):
+        """
+        Check for unbounded recurrence.
+        """
+
+        master = self.masterComponent()
+        if master:
+            rrules = master.properties("RRULE")
+            for rrule in rrules:
+                s = str(rrule)
+                if "COUNT" not in s and "UNTIL" not in s:
                     return True
         return False
         

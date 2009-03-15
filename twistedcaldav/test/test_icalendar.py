@@ -2166,3 +2166,72 @@ END:VCALENDAR
             ical2 = str(ical2)
             diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
             self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
+
+    def test_recurring_unbounded(self):
+        
+        data = (
+            (
+                "1.1 - non-recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T000000Z
+DTEND:20090102T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False
+            ),
+            (
+                "1.2 - recurring bounded COUNT",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T000000Z
+DTEND:20090102T000000Z
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                False
+            ),
+            (
+                "1.3 - recurring bounded UNTIL",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T000000Z
+DTEND:20090102T000000Z
+RRULE:FREQ=DAILY;UNTIL=20090108T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False
+            ),
+            (
+                "1.4 - recurring unbounded",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T000000Z
+DTEND:20090102T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                True
+            ),
+        )
+        
+        for title, calendar, expected in data:
+            ical = Component.fromString(calendar)
+            result = ical.isRecurringUnbounded()
+            self.assertEqual(result, expected, "Failed recurring unbounded test: %s" % (title,))

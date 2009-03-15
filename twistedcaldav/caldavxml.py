@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,15 +83,19 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
     CalDAV element containing a time range.
     """
     allowed_attributes = {
-        "start": True,
-        "end"  : True,
+        "start": False,
+        "end"  : False,
     }
 
     def __init__(self, *children, **attributes):
         super(CalDAVTimeRangeElement, self).__init__(*children, **attributes)
 
-        self.start = parse_date_or_datetime(attributes["start"])
-        self.end   = parse_date_or_datetime(attributes["end"  ])
+        # One of start or end must be present
+        if "start" not in attributes and "end" not in attributes:
+            raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
+        
+        self.start = parse_date_or_datetime(attributes["start"]) if "start" in attributes else None
+        self.end = parse_date_or_datetime(attributes["end"]) if "end" in attributes else None
 
 class CalDAVTimeZoneElement (CalDAVTextElement):
     """
@@ -929,9 +933,17 @@ class Filter (CalDAVElement):
         # We need to prepare ourselves for a time-range query by pre-calculating
         # the set of instances up to the latest time-range limit. That way we can
         # avoid having to do some form of recurrence expansion for each query sub-part.
-        maxend = self.children[0].getLastExpandTime()
+        maxend, isStartTime = self.getmaxtimerange()
         if maxend:
-            instances = component.expandTimeRanges(maxend)
+            if isStartTime:
+                if component.isRecurringUnbounded():
+                    # Unbounded recurrence is always within a start-only time-range
+                    instances = None
+                else:
+                    # Expand the instances up to infinity
+                    instances = component.expandTimeRanges(datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc))
+            else:
+                instances = component.expandTimeRanges(maxend)
         else:
             instances = None
         self.children[0].setInstances(instances)
@@ -972,6 +984,13 @@ class Filter (CalDAVElement):
         # Default to using utc tzinfo
         self.children[0].settzinfo(utc)
         return utc
+
+    def getmaxtimerange(self):
+        """
+        Get the date farthest into the future in any time-range elements
+        """
+        
+        return self.children[0].getmaxtimerange(None, False)
 
 class ComponentFilter (CalDAVFilterElement):
     """
@@ -1029,28 +1048,6 @@ class ComponentFilter (CalDAVFilterElement):
             return not self.defined
         return self.defined
         
-    def getLastExpandTime(self):
-        """
-        Get the latest time-range end value from any time-range element in this
-        or child comp-filter elements.
-        @return: the L{datetime.datetime} corresponding to the max. time to expand to,
-                    or None if there is no time-range
-        """
-        
-        # Look for time-range in this filter
-        if self.qualifier and self.defined:
-            maxend = self.qualifier.end
-        else:
-            maxend = None
-            
-        # Now look at each comp-filter element in this one
-        for compfilter in [x for x in self.filters if isinstance(x, ComponentFilter)]:
-            end = compfilter.getLastExpandTime()
-            if end and ((maxend is None) or (end > maxend)):
-                maxend = end
-
-        return maxend
-    
     def setInstances(self, instances):
         """
         Give the list of instances to each comp-filter element.
@@ -1134,6 +1131,29 @@ class ComponentFilter (CalDAVFilterElement):
         for x in self.filters:
             x.settzinfo(tzinfo)
 
+    def getmaxtimerange(self, currentMaximum, currentIsStartTime):
+        """
+        Get the date furthest into the future in any time-range elements
+        
+        @param currentMaximum: current future value to compare with
+        @type currentMaximum: L{datetime.datetime}
+        """
+        
+        # Give tzinfo to any TimeRange we have
+        isStartTime = False
+        if isinstance(self.qualifier, TimeRange):
+            isStartTime = self.qualifier.end is None
+            compareWith = self.qualifier.start if isStartTime else self.qualifier.end
+            if currentMaximum is None or currentMaximum < compareWith:
+                currentMaximum = compareWith
+                currentIsStartTime = isStartTime
+        
+        # Pass down to sub components/properties
+        for x in self.filters:
+            currentMaximum, currentIsStartTime = x.getmaxtimerange(currentMaximum, currentIsStartTime)
+
+        return currentMaximum, currentIsStartTime
+
 class PropertyFilter (CalDAVFilterElement):
     """
     Limits a search to specific properties.
@@ -1203,6 +1223,25 @@ class PropertyFilter (CalDAVFilterElement):
         # Give tzinfo to any TimeRange we have
         if isinstance(self.qualifier, TimeRange):
             self.qualifier.settzinfo(tzinfo)
+
+    def getmaxtimerange(self, currentMaximum, currentIsStartTime):
+        """
+        Get the date furthest into the future in any time-range elements
+        
+        @param currentMaximum: current future value to compare with
+        @type currentMaximum: L{datetime.datetime}
+        """
+        
+        # Give tzinfo to any TimeRange we have
+        isStartTime = False
+        if isinstance(self.qualifier, TimeRange):
+            isStartTime = self.qualifier.end is None
+            compareWith = self.qualifier.start if isStartTime else self.qualifier.end
+            if currentMaximum is None or currentMaximum < compareWith:
+                currentMaximum = compareWith
+                currentIsStartTime = isStartTime
+
+        return currentMaximum, currentIsStartTime
 
 class ParameterFilter (CalDAVFilterElement):
     """
@@ -1385,17 +1424,17 @@ class TimeRange (CalDAVTimeRangeElement):
         @return:      True if valid, False otherwise
         """
         
-        if not isinstance(self.start, datetime.datetime):
+        if self.start is not None and not isinstance(self.start, datetime.datetime):
             log.msg("start attribute in <time-range> is not a date-time: %s" % (self.start,))
             return False
-        if not isinstance(self.end, datetime.datetime):
+        if self.end is not None and not isinstance(self.end, datetime.datetime):
             log.msg("end attribute in <time-range> is not a date-time: %s" % (self.end,))
             return False
-        if self.start.tzinfo != utc:
+        if self.start is not None and self.start.tzinfo != utc:
             log.msg("start attribute in <time-range> is not UTC: %s" % (self.start,))
             return False
-        if self.end.tzinfo != utc:
-            log.msg("end attribute in <time-range> is not UTC: %s" % (self.start,))
+        if self.end is not None and self.end.tzinfo != utc:
+            log.msg("end attribute in <time-range> is not UTC: %s" % (self.end,))
             return False
 
         # No other tests
@@ -1421,7 +1460,19 @@ class TimeRange (CalDAVTimeRangeElement):
         if component is None:
             return False
         
-        assert instances is not None, "Failure to expand instance for time-range filter: %r" % (self,)
+        assert instances is not None or self.end is None, "Failure to expand instance for time-range filter: %r" % (self,)
+        
+        # Special case open-ended unbounded
+        if instances is None:
+            if component.getRecurrenceIDUTC() is None:
+                return True
+            else:
+                # See if the overridden component's start is past the start
+                start, _ignore_end = component.getEffectiveStartEnd()
+                if start is None:
+                    return True
+                else:
+                    return start >= self.start
 
         # Handle alarms as a special case
         alarms = (component.name() == "VALARM")

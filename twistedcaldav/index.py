@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import datetime
 import os
 import time
 import hashlib
-from dateutil.parser import parse as dateparse
 
 try:
     import sqlite3 as sqlite
@@ -86,7 +85,7 @@ maximum_future_expansion_duration = datetime.timedelta(days=365*5)
 
 class ReservationError(LookupError):
     """
-    Attempt to reserve a UID which is already reserved or to unreverse a UID
+    Attempt to reserve a UID which is already reserved or to unreserve a UID
     which is not reserved.
     """
 
@@ -281,16 +280,16 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         if isinstance(filter, caldavxml.Filter):
             qualifiers = calendarquery.sqlcalendarquery(filter)
             if qualifiers is not None:
-                if len(qualifiers[1]) > 1:
-                    # Bring index up to a given date if it's not already
-                    try:
-                        # TODO: is there a more reliable way to get the date?
-                        minDate = dateparse(qualifiers[1][1]).date()
-                    except ValueError:
-                        # this isn't a date after all
-                        minDate = None
-                    if minDate:
-                        self.testAndUpdateIndex(minDate)
+                # Determine how far we need to extend the current expansion of
+                # events. If we have an open-ended time-range we will expand one
+                # year past the start. That should catch bounded recurrences - unbounded
+                # will have been indexed with an "infinite" value always included.
+                maxDate, isStartDate = filter.getmaxtimerange()
+                if maxDate:
+                    maxDate = maxDate.date()
+                    if isStartDate:
+                        maxDate += datetime.timedelta(days=365)
+                    self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handler this filter in an indexed search
                 raise IndexedSearchException()
@@ -487,7 +486,7 @@ class CalendarIndex (AbstractCalendarIndex):
             instance = instances[key]
             start = instance.start.replace(tzinfo=utc)
             end = instance.end.replace(tzinfo=utc)
-            float = ('N', 'Y')[instance.start.tzinfo is None]
+            float = 'Y' if instance.start.tzinfo is None else 'N'
             self._db_execute(
                 """
                 insert into TIMESPAN (NAME, FLOAT, START, END)
@@ -495,6 +494,19 @@ class CalendarIndex (AbstractCalendarIndex):
                 """, name, float, start, end
             )
 
+        # Special - for unbounded recurrence we insert a value for "infinity"
+        # that will allow an open-ended time-range to always match it.
+        if calendar.isRecurringUnbounded():
+            start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+            float = 'N'
+            self._db_execute(
+                """
+                insert into TIMESPAN (NAME, FLOAT, START, END)
+                values (:1, :2, :3, :4)
+                """, name, float, start, end
+            )
+             
         self._db_execute(
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX)

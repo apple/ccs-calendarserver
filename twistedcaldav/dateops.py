@@ -210,18 +210,25 @@ def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
     """
     # Can't compare datetime.date and datetime.datetime objects, so normalize
     # to date if they are mixed.
-    if isinstance(start1, datetime.datetime) and not isinstance(start2, datetime.datetime): start1 = start1.date()
-    if isinstance(start2, datetime.datetime) and not isinstance(start1, datetime.datetime): start2 = start2.date()
+    if isinstance(start1, datetime.datetime) and (start2 is not None) and not isinstance(start2, datetime.datetime): start1 = start1.date()
+    if isinstance(start2, datetime.datetime) and (start1 is not None) and not isinstance(start1, datetime.datetime): start2 = start2.date()
     if isinstance(end1,   datetime.datetime) and (end2 is not None) and not isinstance(end2,   datetime.datetime): end1   = end1.date()
     if isinstance(end2,   datetime.datetime) and (end1 is not None) and not isinstance(end1,   datetime.datetime): end2   = end2.date()
 
     # Note that start times are inclusive and end times are not.
-    if end1 is not None and end2 is not None:
-        return compareDateTime(start1, end2, defaulttz) < 0 and compareDateTime(end1, start2, defaulttz) > 0
-    elif end1 is None:
-        return compareDateTime(start1, start2, defaulttz) >= 0 and compareDateTime(start1, end2, defaulttz) < 0
-    elif end2 is None:
-        return compareDateTime(start2, start1, defaulttz) >= 0 and compareDateTime(start2, end1, defaulttz) < 0
+    if start1 is not None and start2 is not None:
+        if end1 is not None and end2 is not None:
+            return compareDateTime(start1, end2, defaulttz) < 0 and compareDateTime(end1, start2, defaulttz) > 0
+        elif end1 is None:
+            return compareDateTime(start1, start2, defaulttz) >= 0 and compareDateTime(start1, end2, defaulttz) < 0
+        elif end2 is None:
+            return compareDateTime(start2, end1, defaulttz) < 0
+        else:
+            return False
+    elif start1 is not None:
+        return compareDateTime(start1, end2, defaulttz) < 0
+    elif start2 is not None:
+        return compareDateTime(end1, end2, defaulttz) < 0 and compareDateTime(end1, start2, defaulttz) > 0
     else:
         return False
 
