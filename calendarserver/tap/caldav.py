@@ -678,7 +678,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             maxRequests = config.MaxRequests,
             retryAfter = config.HTTPRetryAfter,
             betweenRequestsTimeOut = config.IdleConnectionTimeOut,
-            expovariate = True,
+            vary = True,
         )
 
         def updateChannel(config, items):
