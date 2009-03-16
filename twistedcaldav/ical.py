@@ -1809,16 +1809,14 @@ class Component (object):
             )
             
             dtstart.setValue(newdtstart)
-            try:
-                del dtstart.params()["TZID"]
-            except KeyError:
-                pass
+            if "X-VOBJ-ORIGINAL-TZID" in dtstart.params():
+                dtstart.params()["ORIGINAL-TZID"] = dtstart.params()["X-VOBJ-ORIGINAL-TZID"]
+                del dtstart.params()["X-VOBJ-ORIGINAL-TZID"]
             if dtend is not None:
                 dtend.setValue(newdtend)
-                try:
-                    del dtend.params()["TZID"]
-                except KeyError:
-                    pass
+                if "X-VOBJ-ORIGINAL-TZID" in dtend.params():
+                    dtend.params()["ORIGINAL-TZID"] = dtend.params()["X-VOBJ-ORIGINAL-TZID"]
+                    del dtend.params()["X-VOBJ-ORIGINAL-TZID"]
             elif duration is not None:
                 self.removeProperty(duration)
                 self.addProperty(Property("DTEND", newdtend))

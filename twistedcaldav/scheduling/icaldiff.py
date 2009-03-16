@@ -661,6 +661,9 @@ class iCalDiff(object):
                 param2s = set(["%s=%s" % (name, value) for name, value in prop2s[0].params().iteritems()])
                 paramDiffs = param1s ^ param2s
                 changed[prop.name()].update([param.split("=")[0] for param in paramDiffs])
+            if "ORIGINAL-TZID" in changed[prop.name()]:
+                changed[prop.name()].remove("ORIGINAL-TZID")
+                changed[prop.name()].add("TZID")
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
