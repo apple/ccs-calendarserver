@@ -63,6 +63,8 @@ class HTTP503LoggingFactory (HTTPFactory):
     def buildProtocol(self, addr):
         if self.expovariate:
             retryAfter = int(expovariate(1.0/self.retryAfter))
+            if retryAfter > 2 * self.retryAfter:
+                retryAfter = self.retryAfter
         else:
             retryAfter = self.retryAfter
 
