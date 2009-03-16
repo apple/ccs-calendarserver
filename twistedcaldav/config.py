@@ -241,6 +241,9 @@ defaultConfig = {
     # RFC2616 Section 3.5
     "ResponseCompression": True,
 
+    # The retry-after value (in seconds) to return with a 503 error                          
+    "HTTPRetryAfter": 180,
+
     # Set the maximum number of outstanding requests to this server.
     "MaxRequests": 600,
 

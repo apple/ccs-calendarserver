@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+from random import expovariate
+
 from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory
@@ -30,13 +32,21 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
     def connectionMade(self):
         if config.MoreAccessLogData:
             log.msg(overloaded=self)
+
+        retryAfter = int(expovariate(1.0/config.HTTPRetryAfter))
+        if retryAfter > 2 * config.HTTPRetryAfter:
+            retryAfter = config.HTTPRetryAfter
+
         self.transport.write("HTTP/1.0 503 Service Unavailable\r\n"
                              "Content-Type: text/html\r\n"
+                             "Retry-After: %(retryAfter)s\r\n"
                              "Connection: close\r\n\r\n"
                              "<html><head><title>503 Service Unavailable</title></head>"
                              "<body><h1>Service Unavailable</h1>"
                              "The server is currently overloaded, "
-                             "please try again later.</body></html>")
+                             "please try again later.</body></html>"
+                             % { "retryAfter": retryAfter })
+
         self.transport.loseConnection()
 
 class HTTP503LoggingFactory(HTTPFactory):
