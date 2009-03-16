@@ -181,7 +181,7 @@ defaultConfig = {
     "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
     "RotateAccessLog"   : False,
-    "MoreAccessLogData" : False,
+    "MoreAccessLogData" : True,
     "DefaultLogLevel"   : "",
     "LogLevels"         : {},
     "AccountingCategories": {
