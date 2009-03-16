@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+from random import expovariate
+
 from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory
@@ -53,16 +55,22 @@ class HTTP503LoggingFactory (HTTPFactory):
     """
     Factory for HTTP server which emits a 503 response when overloaded.
     """
-    def __init__(self, requestFactory, maxRequests=600, retryAfter=0, **kwargs):
+    def __init__(self, requestFactory, maxRequests=600, retryAfter=0, expovariate=False, **kwargs):
         self.retryAfter = retryAfter
+        self.expovariate = expovariate
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
 
     def buildProtocol(self, addr):
+        if self.expovariate:
+            retryAfter = int(expovariate(1.0/self.retryAfter))
+        else:
+            retryAfter = self.retryAfter
+
         if self.outstandingRequests >= self.maxRequests:
-            return OverloadedLoggingServerProtocol(self.retryAfter, self.outstandingRequests)
-        
+            return OverloadedLoggingServerProtocol(retryAfter, self.outstandingRequests)
+
         p = protocol.ServerFactory.buildProtocol(self, addr)
-        
+
         for arg,value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
 
