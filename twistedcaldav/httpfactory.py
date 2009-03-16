@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from random import expovariate
+from random import randint
 
 from twisted.internet import protocol
 from twisted.python import log
@@ -33,9 +33,7 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
         if config.MoreAccessLogData:
             log.msg(overloaded=self)
 
-        retryAfter = int(expovariate(1.0/config.HTTPRetryAfter))
-        if retryAfter > 2 * config.HTTPRetryAfter:
-            retryAfter = config.HTTPRetryAfter
+        retryAfter = randint(int(config.HTTPRetryAfter * 1/2), int(config.HTTPRetryAfter * 3/2))
 
         self.transport.write("HTTP/1.0 503 Service Unavailable\r\n"
                              "Content-Type: text/html\r\n"
