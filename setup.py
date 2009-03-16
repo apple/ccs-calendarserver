@@ -71,7 +71,8 @@ else:
     version = "unknown (%s :: %s)" % (base_version, svn_revision)
 
 def find_modules():
-    for root, dirs, files in os.walk(os.path.dirname(__file__)):
+    modules = [] # distutils does not want a generator, because it uses len( )
+    for root, dirs, files in os.walk("."):
         for exclude in (
             ".svn",
             "build",
@@ -80,7 +81,9 @@ def find_modules():
                 dirs.remove(exclude)
 
         if "__init__.py" in files:
-            yield ".".join(root.split(os.path.sep)[1:])
+            modules.append(".".join(root.split(os.path.sep)[1:]))
+
+    return modules
 
 #
 # Options
@@ -135,7 +138,7 @@ dist = setup(
     author_email     = None,
     license          = None,
     platforms        = [ "all" ],
-    packages         = find_modules()
+    packages         = find_modules(),
     package_data     = {
                          "twistedcaldav": [
                            "zoneinfo/*.ics",
