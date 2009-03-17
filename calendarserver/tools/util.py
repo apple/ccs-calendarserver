@@ -66,6 +66,15 @@ def getDirectory():
 
         principalCollection = property(getPrincipalCollection, setPrincipalCollection)
 
+        def calendarHomeForRecord(self, record):
+            principal = self.principalCollection.principalForRecord(record)
+            if principal:
+                try:
+                    return principal.calendarHome()
+                except AttributeError:
+                    pass
+            return None
+
         def calendarHomeForShortName(self, recordType, shortName):
             principal = self.principalCollection.principalForShortName(recordType, shortName)
             if principal:
