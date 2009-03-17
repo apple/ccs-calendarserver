@@ -75,6 +75,7 @@ def find_modules():
     for root, dirs, files in os.walk("."):
         for exclude in (
             ".svn",
+            "_trial_temp",
             "build",
         ):
             if exclude in dirs:
