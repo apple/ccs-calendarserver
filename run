@@ -243,7 +243,7 @@ else
 fi;
 
 ##
-# Download and set up dependancies
+# Routines
 ##
 
 run () {
@@ -252,6 +252,7 @@ run () {
     exit 0;
   fi;
 
+  echo "";
   echo "Using ${python} as Python";
 
   if "${do_run}"; then
@@ -271,6 +272,7 @@ run () {
     fi;
 
     echo "";
+    echo "Starting server...";
     exec ${caldavd_wrapper_command}                   \
         "${caldav}/bin/caldavd" ${daemonize}          \
         -f "${config}"                                \
@@ -442,13 +444,11 @@ py_build () {
     local     path="$1"; shift;
     local optional="$1"; shift;
 
-    if "${do_setup}" && (
-        "${force_setup}" || [ ! -d "${path}/build/${py_platform_libdir}" ]
-    ); then
+    if "${do_setup}"; then
       echo "";
       echo "Building ${name}...";
       cd "${path}";
-      if ! "${python}" ./setup.py build --build-lib "build/${py_platform_libdir}" "$@"; then
+      if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
           if "${optional}"; then
               echo "WARNING: ${name} failed to build.";
               echo "WARNING: ${name} is not required to run the server; continuing without it.";
@@ -478,6 +478,10 @@ py_have_module () {
 
     PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
 }
+
+##
+# Download and set up dependancies
+##
 
 #
 # Zope Interface
