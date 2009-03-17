@@ -57,7 +57,6 @@ def usage(e=None):
     print ""
     print "input specifiers:"
     print "  -a --all: add all calendar homes"
-    print "  -c --collection: add a calendar collection"
     print "  -H --home: add a calendar home (and all calendars within it)"
     print "  -r --record: add a directory record's calendar home (format: 'recordType:shortName')"
     print "  -u --user: add a user's calendar home (shorthand for '-r users:shortName')"
@@ -70,11 +69,11 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:o:ac:H:r:u:", [
+            sys.argv[1:], "hf:o:aH:r:u:", [
                 "config=",
                 "output=",
                 "help",
-                "all", "collection=", "home=", "record=", "user=",
+                "all", "home=", "record=", "user=",
             ],
         )
     except GetoptError, e:
