@@ -259,7 +259,7 @@ defaultConfig = {
             "Enabled"          : False, # Server-to-iMIP protocol
             "MailGatewayServer" : "localhost",
             "MailGatewayPort"   : 62310,
-            "Username"          : "",    # For account injecting replies
+            "Username"          : "com.apple.calendarserver", # For account injecting replies
             "Password"          : "",    # For account injecting replies
             "Sending": {
                 "Server"        : "",    # SMTP server to relay messages through
