@@ -71,7 +71,10 @@ else:
     version = "unknown (%s :: %s)" % (base_version, svn_revision)
 
 def find_modules():
-    modules = [] # distutils does not want a generator, because it uses len( )
+    modules = [
+        "twisted.plugins",
+    ]
+
     for root, dirs, files in os.walk("."):
         for exclude in (
             ".svn",
