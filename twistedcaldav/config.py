@@ -678,6 +678,12 @@ class Config (object):
         service = self.Scheduling["iMIP"]
 
         if service["Enabled"]:
+
+            # Get password for the user that is allowed to inject iMIP replies
+            # to the server's /inbox
+            if service.Username:
+                service.Password = getPasswordFromKeychain(service.Username)
+
             for direction in ("Sending", "Receiving"):
                 if service[direction].Username:
                     # Get password from keychain.  If not there, fall back to
