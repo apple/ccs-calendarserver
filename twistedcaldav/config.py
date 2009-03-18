@@ -259,6 +259,8 @@ defaultConfig = {
             "Enabled"          : False, # Server-to-iMIP protocol
             "MailGatewayServer" : "localhost",
             "MailGatewayPort"   : 62310,
+            "Username"          : "",    # For account injecting replies
+            "Password"          : "",    # For account injecting replies
             "Sending": {
                 "Server"        : "",    # SMTP server to relay messages through
                 "Port"          : 587,   # SMTP server port to relay messages through
@@ -680,9 +682,16 @@ class Config (object):
         if service["Enabled"]:
 
             # Get password for the user that is allowed to inject iMIP replies
-            # to the server's /inbox
-            if service.Username:
-                service.Password = getPasswordFromKeychain(service.Username)
+            # to the server's /inbox; if not available, fall back to plist
+            if service["Username"]:
+                try:
+                    service["Password"] = getPasswordFromKeychain(service["Username"])
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    log.info("iMIP injecting password not found in keychain")
 
             for direction in ("Sending", "Receiving"):
                 if service[direction].Username:
