@@ -287,6 +287,15 @@ class MaxResourceSize (CalDAVTextElement):
     hidden = True
     protected = True
 
+class MaxAttendeesPerInstance (CalDAVTextElement):
+    """
+    Specifies restrictions on a calendar collection.
+    (CalDAV-access-15, section 5.2.9)
+    """
+    name = "max-attendees-per-instance"
+    hidden = True
+    protected = True
+
 class Calendar (CalDAVEmptyElement):
     """
     Denotes a calendar collection.

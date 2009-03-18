@@ -245,6 +245,13 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                         str(config.MaximumAttachmentSize)
                     ))
 
+            elif name == "max-attendees-per-instance":
+                # CalDAV-access-15, section 5.2.9
+                if config.MaxAttendeesPerInstance:
+                    returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
+                        str(config.MaxAttendeesPerInstance)
+                    ))
+
             elif name == "schedule-calendar-transp":
                 # For backwards compatibility, if the property does not exist we need to create
                 # it and default to the old free-busy-set value.

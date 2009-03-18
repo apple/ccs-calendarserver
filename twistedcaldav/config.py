@@ -110,11 +110,12 @@ defaultConfig = {
     #
     # Data store
     #
-    "DataRoot"             : "/Library/CalendarServer/Data",
-    "DocumentRoot"         : "/Library/CalendarServer/Documents",
-    "UserQuota"            : 104857600, # User quota (in bytes)
-    "MaximumAttachmentSize":   1048576, # Attachment size limit (in bytes)
-    "WebCalendarRoot"      : "/usr/share/collaboration",
+    "DataRoot"                : "/Library/CalendarServer/Data",
+    "DocumentRoot"            : "/Library/CalendarServer/Documents",
+    "UserQuota"               : 104857600, # User quota (in bytes)
+    "MaximumAttachmentSize"   :   1048576, # Attachment size limit (in bytes)
+    "MaxAttendeesPerInstance" :       100, # Maximum number of unique attendees
+    "WebCalendarRoot"         : "/usr/share/collaboration",
 
     "Aliases": {},
 

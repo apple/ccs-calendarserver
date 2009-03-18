@@ -101,6 +101,11 @@
     <key>MaximumAttachmentSize</key>
     <integer>1048576</integer><!-- 1Mb -->
 
+    <!-- Maximum number of unique attendees per entire event -->
+    <!-- 0 for no limit -->
+    <key>MaxAttendeesPerInstance</key>
+    <integer>100</integer>
+
 
     <!--
         Directory service

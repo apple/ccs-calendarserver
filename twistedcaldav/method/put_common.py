@@ -332,6 +332,12 @@ class StoreCalendarObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
 
+                # Valid attendee list size check
+                result, message = self.validAttendeeListSizeCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-attendees-per-instance")))
+
                 # Normalize the calendar user addresses once we know we have valid
                 # calendar data
                 self.destination.iCalendarAddressDoNormalization(self.calendar)
@@ -510,6 +516,23 @@ class StoreCalendarObjectResource(object):
             if calsize > config.MaximumAttachmentSize:
                 result = False
                 message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
+
+        return result, message
+
+    def validAttendeeListSizeCheck(self):
+        """
+        Make sure that the Attendee list length is within bounds.
+        """
+        result = True
+        message = ""
+        if config.MaxAttendeesPerInstance:
+            uniqueAttendees = set()
+            for attendee in self.calendar.getAllAttendeeProperties():
+                uniqueAttendees.add(attendee.value())
+            attendeeListLength = len(uniqueAttendees)
+            if attendeeListLength > config.MaxAttendeesPerInstance:
+                result = False
+                message = "Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance)
 
         return result, message
 
