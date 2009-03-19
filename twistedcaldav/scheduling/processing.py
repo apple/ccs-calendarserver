@@ -498,20 +498,23 @@ class ImplicitProcessor(object):
             made_changes = False
             partstat = "MIXED RESPONSE"
 
+            # Default state is whichever of ACCEPTED or DECLINED has most instances
+            defaultStateAccepted = len(filter(lambda x:x, instance_states.values())) >= len(instance_states.keys()) / 2
+
             # See if there is a master component first
             master = calendar.masterComponent()
             if master:
                 attendee = master.getAttendeeProperty(cuas)
                 if attendee:
-                    made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED")
-                    master.replaceProperty(Property("TRANSP", "OPAQUE"))
+                    made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED" if defaultStateAccepted else "DECLINED")
+                    master.replaceProperty(Property("TRANSP", "OPAQUE" if defaultStateAccepted else "TRANSPARENT"))
 
             # Look at expanded instances and change partstat accordingly
-            for instance, accepted in instance_states.iteritems():
+            for instance, accepted in sorted(instance_states.iteritems(), key=lambda x: x[0].rid):
                 
                 overridden = calendar.overriddenComponent(instance.rid)
-                if not overridden and accepted:
-                    # Nothing to do as master is always ACCEPTED
+                if not overridden and accepted == defaultStateAccepted:
+                    # Nothing to do as state matches the master
                     continue 
                 
                 if overridden:
