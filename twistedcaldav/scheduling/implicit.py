@@ -250,9 +250,14 @@ class ImplicitScheduler(object):
         self.originator = self.organizer
         
         # Need to re-insert RSVP=TRUE for any NEEDS-ACTION
+
+        # We want to suppress chatty iMIP messages when other attendees reply
+        self.request.suppressRefresh = False
+
         for attendee in self.calendar.getAllAttendeeProperties():
             if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
                 attendee.params()["RSVP"] = ["TRUE",]
+                self.request.suppressRefresh = True
         
         self.request.doing_attendee_refresh = True
         try:
@@ -673,12 +678,12 @@ class ImplicitScheduler(object):
             status = str(item.children[1])
             responses[recipient] = status
             
-        # Now apply to each ATTENDEE/ORGANIZER in the original data
-        self.calendar.setParameterToValueForPropertyWithValue(
-            "SCHEDULE-STATUS",
-            status,
-            "ATTENDEE" if is_organizer else "ORGANIZER",
-            recipient)
+            # Now apply to each ATTENDEE/ORGANIZER in the original data
+            self.calendar.setParameterToValueForPropertyWithValue(
+                "SCHEDULE-STATUS",
+                status,
+                "ATTENDEE" if is_organizer else "ORGANIZER",
+                recipient)
 
     @inlineCallbacks
     def doImplicitAttendee(self):

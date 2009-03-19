@@ -368,13 +368,16 @@ class Scheduler(object):
         if caldav_recipients:
             yield self.generateLocalSchedulingResponses(caldav_recipients, responses, freebusy)
 
-        # Now process remote recipients
-        if remote_recipients:
-            yield self.generateRemoteSchedulingResponses(remote_recipients, responses, freebusy)
+        # To reduce chatter, we suppress certain messages
+        if not getattr(self.request, 'suppressRefresh', False):
 
-        # Now process iMIP recipients
-        if imip_recipients:
-            yield self.generateIMIPSchedulingResponses(imip_recipients, responses, freebusy)
+            # Now process remote recipients
+            if remote_recipients:
+                yield self.generateRemoteSchedulingResponses(remote_recipients, responses, freebusy)
+
+            # Now process iMIP recipients
+            if imip_recipients:
+                yield self.generateIMIPSchedulingResponses(imip_recipients, responses, freebusy)
     
         # Return with final response if we are done
         returnValue(responses)
