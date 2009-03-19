@@ -91,6 +91,8 @@ class DigestCredentialsMemcache(Memcacher):
 
     implements(IDigestCredentialsDatabase)
 
+    CHALLENGE_MAXTIME_SECS = 8 * 60 * 60    # 8 hrs
+
     def __init__(self, namespace):
         super(DigestCredentialsMemcache, self).__init__(
             namespace=namespace,
@@ -112,7 +114,7 @@ class DigestCredentialsMemcache(Memcacher):
         super(DigestCredentialsMemcache, self).set(
             key,
             value,
-            expire_time=DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
+            expire_time=self.CHALLENGE_MAXTIME_SECS
         )
 
 class QopDigestCredentialFactory(DigestCredentialFactory):

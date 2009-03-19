@@ -25,6 +25,8 @@ from twisted.web2.test.test_server import SimpleRequest
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
+from twisted.web2.auth.digest import DigestCredentialFactory
+import time
 
 import md5
 import sys
@@ -553,6 +555,43 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
 
+    @inlineCallbacks
+    def test_stale_response(self):
+        """
+        Test that we can decode a valid response to our challenge
+        """
+
+        oldTime = DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
+        DigestCredentialFactory.CHALLENGE_LIFETIME_SECS = 2
+
+        for ctr, factory in enumerate(self.credentialFactories):
+            challenge = (yield factory.getChallenge(clientAddress))
+    
+            clientResponse = authRequest1[ctr] % (
+                challenge['nonce'],
+                self.getDigestResponse(challenge, "00000001"),
+            )
+    
+            creds = (yield factory.decode(clientResponse, _trivial_GET()))
+            self.failUnless(creds.checkPassword('password'))
+            
+            time.sleep(3)
+            request = _trivial_GET()
+            try:
+                clientResponse = authRequest2[ctr] % (
+                    challenge['nonce'],
+                    self.getDigestResponse(challenge, "00000002"),
+                )
+                creds = (yield factory.decode(clientResponse, request))
+                self.fail("Nonce should have timed out")
+            except error.LoginFailed:
+                self.assertTrue(hasattr(request.remoteAddr, "stale"))
+            except Exception, e:
+                self.fail("Invalid exception from nonce timeout: %s" % e)
+            challenge = (yield factory.getChallenge(request.remoteAddr))
+            self.assertTrue(challenge.get("stale") == "true")
+            
+        DigestCredentialFactory.CHALLENGE_LIFETIME_SECS = oldTime
 
 def _trivial_GET():
     return SimpleRequest(None, 'GET', '/')
