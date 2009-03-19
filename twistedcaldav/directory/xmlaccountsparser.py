@@ -165,7 +165,7 @@ class XMLAccountRecord (object):
         self.shortNames = []
         self.guid = None
         self.password = None
-        self.name = None
+        self.fullName = None
         self.firstName = None
         self.lastName = None
         self.emailAddresses = set()
@@ -202,10 +202,10 @@ class XMLAccountRecord (object):
             password = self.password % ctr
         else:
             password = self.password
-        if self.name.find("%") != -1:
-            name = self.name % ctr
+        if self.fullName.find("%") != -1:
+            fullName = self.fullName % ctr
         else:
-            name = self.name
+            fullName = self.fullName
         if self.firstName and self.firstName.find("%") != -1:
             firstName = self.firstName % ctr
         else:
@@ -231,7 +231,7 @@ class XMLAccountRecord (object):
         result.shortNames = shortNames
         result.guid = guid
         result.password = password
-        result.name = name
+        result.fullName = fullName
         result.firstName = firstName
         result.lastName = lastName
         result.emailAddresses = emailAddresses
@@ -264,7 +264,7 @@ class XMLAccountRecord (object):
                     self.password = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_NAME:
                 if child.firstChild is not None:
-                    self.name = child.firstChild.data.encode("utf-8")
+                    self.fullName = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_FIRST_NAME:
                 if child.firstChild is not None:
                     self.firstName = child.firstChild.data.encode("utf-8")
