@@ -120,7 +120,7 @@ class MemCacheTestCase(TestCase):
         lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
         yield self._test(
             lock.acquire(),
-            "add lock:locking 0 0 1\r\n1\r\n",
+            "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
             "STORED\r\n",
             True
         )
@@ -136,7 +136,7 @@ class MemCacheTestCase(TestCase):
         lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking", timeout=0)
         yield self._test(
             lock.acquire(),
-            "add lock:locking 0 0 1\r\n1\r\n",
+            "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
             "STORED\r\n",
             True
         )
@@ -153,7 +153,7 @@ class MemCacheTestCase(TestCase):
         try:
             yield self._test(
                 lock.acquire(),
-                "add lock:locking 0 0 1\r\n1\r\n",
+                "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
                 "NOT_STORED\r\n",
                 True
             )
@@ -175,14 +175,14 @@ class MemCacheTestCase(TestCase):
         lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
         yield self._test(
             lock.acquire(),
-            "add lock:locking 0 0 1\r\n1\r\n",
+            "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
             "STORED\r\n",
             True
         )
         self.assertTrue(lock._hasLock)
         yield self._test(
             lock.release(),
-            "delete lock:locking\r\n",
+            "delete lock:bG9ja2luZw==\r\n",
             "DELETED\r\n",
             True
         )
@@ -198,13 +198,13 @@ class MemCacheTestCase(TestCase):
         lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
         yield self._test(
             lock.acquire(),
-            "add lock:locking 0 0 1\r\n1\r\n",
+            "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
             "STORED\r\n",
             True
         )
         yield self._test(
             lock.clean(),
-            "delete lock:locking\r\n",
+            "delete lock:bG9ja2luZw==\r\n",
             "DELETED\r\n",
             True
         )
@@ -219,7 +219,7 @@ class MemCacheTestCase(TestCase):
         lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", u"locking")
         yield self._test(
             lock.acquire(),
-            "add lock:locking 0 0 1\r\n1\r\n",
+            "add lock:bG9ja2luZw== 0 0 1\r\n1\r\n",
             "STORED\r\n",
             True
         )

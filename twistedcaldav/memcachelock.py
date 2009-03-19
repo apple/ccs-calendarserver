@@ -18,6 +18,7 @@ from twistedcaldav.memcacher import Memcacher
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue,\
     succeed
 from twisted.internet import reactor
+import base64
 import time
 
 class MemcacheLock(Memcacher):
@@ -41,7 +42,7 @@ class MemcacheLock(Memcacher):
         if isinstance(locktoken, unicode):
             locktoken = locktoken.encode("utf-8")
         assert isinstance(locktoken, str), "Lock token must be a str."
-        self._locktoken = locktoken
+        self._locktoken = base64.b64encode(locktoken)
         self._timeout = timeout
         self._retry_interval = retry_interval
         self._expire_time = expire_time
