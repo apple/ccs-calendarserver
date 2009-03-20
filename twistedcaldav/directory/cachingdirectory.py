@@ -221,16 +221,17 @@ class CachingDirectoryService(DirectoryService):
 class CachingDirectoryRecord(DirectoryRecord):
 
     def __init__(
-        self, service, recordType, guid, shortNames, fullName,
-        firstName, lastName, emailAddresses,
-        calendarUserAddresses, autoSchedule, enabledForCalendaring=True,
-        uid=None,
+        self, service, recordType, guid, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        calendarUserAddresses=set(), autoSchedule=False,
+        enabledForCalendaring=None, uid=None,
     ):
         super(CachingDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
             guid                  = guid,
             shortNames            = shortNames,
+            authIDs               = authIDs,
             fullName              = fullName,
             firstName             = firstName,
             lastName              = lastName,

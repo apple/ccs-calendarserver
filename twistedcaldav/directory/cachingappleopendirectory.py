@@ -218,10 +218,10 @@ class OpenDirectoryService(CachingDirectoryService):
 
     def recordTypes(self):
         return (
-            DirectoryService.recordType_users,
-            DirectoryService.recordType_groups,
-            DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources,
+            self.recordType_users,
+            self.recordType_groups,
+            self.recordType_locations,
+            self.recordType_resources,
         )
 
     def groupsForGUID(self, guid):
@@ -317,26 +317,41 @@ class OpenDirectoryService(CachingDirectoryService):
             return ()
 
     _ODFields = {
-        'fullName' : dsattributes.kDS1AttrDistinguishedName,
-        'firstName' : dsattributes.kDS1AttrFirstName,
-        'lastName' : dsattributes.kDS1AttrLastName,
-        'emailAddresses' : dsattributes.kDSNAttrEMailAddress,
-        'recordName' : dsattributes.kDSNAttrRecordName,
-        'guid' : dsattributes.kDS1AttrGeneratedUID,
+        'fullName' : {
+            'odField' : dsattributes.kDS1AttrDistinguishedName,
+            'excludes' : set(),
+        },
+        'firstName' : {
+            'odField' : dsattributes.kDS1AttrFirstName,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'lastName' : {
+            'odField' : dsattributes.kDS1AttrLastName,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'emailAddresses' : {
+            'odField' : dsattributes.kDSNAttrEMailAddress,
+            'excludes' : set([
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
+        },
+        'recordName' : {
+            'odField' : dsattributes.kDSNAttrRecordName,
+            'excludes' : set(),
+        },
+        'guid' : {
+            'odField' : dsattributes.kDS1AttrGeneratedUID,
+            'excludes' : set(),
+        },
     }
 
-    _toODRecordTypes = {
-        DirectoryService.recordType_users :
-            dsattributes.kDSStdRecordTypeUsers,
-        DirectoryService.recordType_locations :
-            dsattributes.kDSStdRecordTypePlaces,
-        DirectoryService.recordType_groups :
-            dsattributes.kDSStdRecordTypeGroups,
-        DirectoryService.recordType_resources :
-            dsattributes.kDSStdRecordTypeResources,
-    }
-
-    _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 
@@ -360,10 +375,48 @@ class OpenDirectoryService(CachingDirectoryService):
         operand = (dsquery.expression.OR if operand == "or"
             else dsquery.expression.AND)
 
+        excluded = set()
+        for field, value, caseless, matchType in fields:
+            if field in self._ODFields:
+                ODField = self._ODFields[field]['odField']
+                excluded = excluded | self._ODFields[field]['excludes']
+
+        _ODTypes = {
+            self.recordType_users:     dsattributes.kDSStdRecordTypeUsers,
+            self.recordType_locations: dsattributes.kDSStdRecordTypePlaces,
+            self.recordType_groups:    dsattributes.kDSStdRecordTypeGroups,
+            self.recordType_resources: dsattributes.kDSStdRecordTypeResources,
+        }
+
+        if recordType is None:
+            # The client is looking for records in any of the four types
+            recordTypes = set(_ODTypes.values())
+
+            # Certain query combinations yield invalid results.  In particular,
+            # any time you query on EMailAddress and are specifying Places
+            # and/or Resources in the requested types, you will get all
+            # Places/Resources returned.  So here we will filter out known
+            # invalid combinations:
+            excludeFields = False
+            recordTypes = list(recordTypes - excluded)
+
+        else:
+            # The client is after only one recordType, so let's tailor the
+            # query to not include any fields OD has trouble with:
+            excludeFields = True
+            recordTypes = [_ODTypes[recordType]]
+
         expressions = []
         for field, value, caseless, matchType in fields:
             if field in self._ODFields:
-                ODField = self._ODFields[field]
+
+                if (excludeFields and
+                    _ODTypes[recordType] in self._ODFields[field]['excludes']):
+                    # This is a field we're excluding because it behaves badly
+                    # for the record type result we're looking for.  Skip it.
+                    continue
+
+                ODField = self._ODFields[field]['odField']
                 if matchType == "starts-with":
                     comparison = dsattributes.eDSStartsWith
                 elif matchType == "contains":
@@ -372,13 +425,14 @@ class OpenDirectoryService(CachingDirectoryService):
                     comparison = dsattributes.eDSExact
                 expressions.append(dsquery.match(ODField, value, comparison))
 
+        if not recordTypes or not expressions:
+            # If we've excluded all types or all expressions, short circuit.
+            self.log_info("Empty query, skipping call to OD")
+            return []
 
-        if recordType is None:
-            recordTypes = self._toODRecordTypes.values()
-        else:
-            recordTypes = (self._toODRecordTypes[recordType],)
+        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
+            (recordTypes, operand, caseless, fields))
 
-        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" % (recordTypes, operand, caseless, fields))
         deferred = deferToThread(
             opendirectory.queryRecordsWithAttributes,
             self.directory,
@@ -389,6 +443,7 @@ class OpenDirectoryService(CachingDirectoryService):
         )
         deferred.addCallback(collectResults)
         return deferred
+
 
     def queryDirectory(self, recordTypes, indexType, indexKey):
         
@@ -453,32 +508,45 @@ class OpenDirectoryService(CachingDirectoryService):
             )
             self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
         except opendirectory.ODError, ex:
-            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
-            raise
+            if ex.message[1] == -14140 or ex.message[1] == -14200:
+                # Unsupported attribute on record - don't fail
+                return
+            else:
+                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                raise
 
+        enabled_count = 0
+
+        def _uniqueTupleFromAttribute(attribute):
+            if attribute:
+                if isinstance(attribute, str):
+                    return (attribute,)
+                else:
+                    s = set()
+                    return tuple([(s.add(x), x)[1] for x in attribute if x not in s])
+            else:
+                return ()
+
+        def _setFromAttribute(attribute, lower=False):
+            if attribute:
+                if isinstance(attribute, str):
+                    return set((attribute.lower() if lower else attribute,))
+                else:
+                    return set([item.lower() if lower else item for item in attribute])
+            else:
+                return ()
+            
         for (recordShortName, value) in results:
 
             # Now get useful record info.
-            recordGUID         = value.get(dsattributes.kDS1AttrGeneratedUID)
-            recordShortNames   = value.get(dsattributes.kDSNAttrRecordName)
-            recordType         = value.get(dsattributes.kDSNAttrRecordType)
-            if isinstance(recordType, list):
-                recordType = recordType[0]                
-            if isinstance(recordShortNames, str):
-                recordShortNames = (recordShortNames,)
-            else:
-                recordShortNames = tuple(recordShortNames) if recordShortNames else ()
-            recordFullName     = value.get(dsattributes.kDS1AttrDistinguishedName)
-            recordFirstName    = value.get(dsattributes.kDS1AttrFirstName)
-            recordLastName     = value.get(dsattributes.kDS1AttrLastName)
-            recordEmailAddress = value.get(dsattributes.kDSNAttrEMailAddress)
-            recordNodeName     = value.get(dsattributes.kDSNAttrMetaNodeLocation)
-
-            if not recordType:
-                self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
-                               % (recordShortName, recordNodeName))
-                continue
-            recordType = self._fromODRecordTypes[recordType]
+            recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
+            recordShortNames     = _uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordAuthIDs        = _setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
+            recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
+            recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
+            recordLastName       = value.get(dsattributes.kDS1AttrLastName)
+            recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
+            recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if not recordGUID:
                 self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
@@ -491,45 +559,38 @@ class OpenDirectoryService(CachingDirectoryService):
                 continue
 
             # Determine enabled state
-            enabledForCalendaring = True
+            if recordType == self.recordType_groups:
+                enabledForCalendaring = False
+            else:
+                if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
+                    enabledForCalendaring = recordGUID in self.restrictedGUIDs
+                else:
+                    enabledForCalendaring = True
 
-            if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
-                enabledForCalendaring = recordGUID in self.restrictedGUIDs
-
-            if not enabledForCalendaring:
+            if enabledForCalendaring:
+                enabled_count += 1
+                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
+            else:
                 # Some records we want to keep even though they are not enabled for calendaring.
                 # Others we discard.
-                if recordType in (
-                    DirectoryService.recordType_users,
-                    DirectoryService.recordType_groups,
+                if recordType not in (
+                    self.recordType_users,
+                    self.recordType_groups,
                 ):
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                        % (recordType, recordShortName)
-                    )
-                else:
                     self.log_debug(
                         "Record (%s) %s is not enabled for calendaring"
                         % (recordType, recordShortName)
                     )
                     continue
 
-            # Get calendar user addresses from directory record.
-            if enabledForCalendaring:
-                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
-            else:
+                self.log_debug(
+                    "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
+                    % (recordType, recordShortName)
+                )
                 calendarUserAddresses = ()
 
-            # Get email address from directory record
-            recordEmailAddresses = set()
-            if isinstance(recordEmailAddress, str):
-                recordEmailAddresses.add(recordEmailAddress.lower())
-            elif isinstance(recordEmailAddress, list):
-                for addr in recordEmailAddresses:
-                    recordEmailAddresses.add(addr.lower())
-
             # Special case for groups, which have members.
-            if recordType == DirectoryService.recordType_groups:
+            if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
                 if memberGUIDs is None:
                     memberGUIDs = ()
@@ -547,7 +608,7 @@ class OpenDirectoryService(CachingDirectoryService):
             autoSchedule = False
             proxyGUIDs = ()
             readOnlyProxyGUIDs = ()
-            if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            if recordType in (self.recordType_resources, self.recordType_locations):
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
                     try:
@@ -565,6 +626,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 guid                  = recordGUID,
                 nodeName              = recordNodeName,
                 shortNames            = recordShortNames,
+                authIDs               = recordAuthIDs,
                 fullName              = recordFullName,
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
@@ -578,13 +640,14 @@ class OpenDirectoryService(CachingDirectoryService):
             )
             self.recordCacheForType(recordType).addRecord(record)
 
+
 class OpenDirectoryRecord(CachingDirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
     def __init__(
-        self, service, recordType, guid, nodeName, shortNames, fullName,
-        firstName, lastName, emailAddresses,
+        self, service, recordType, guid, nodeName, shortNames, authIDs,
+        fullName, firstName, lastName, emailAddresses,
         calendarUserAddresses, autoSchedule, enabledForCalendaring,
         memberGUIDs, proxyGUIDs, readOnlyProxyGUIDs,
     ):
@@ -593,6 +656,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             recordType            = recordType,
             guid                  = guid,
             shortNames            = shortNames,
+            authIDs               = authIDs,
             fullName              = fullName,
             firstName             = firstName,
             lastName              = lastName,
@@ -625,7 +689,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
         )
 
     def members(self):
-        if self.recordType != DirectoryService.recordType_groups:
+        if self.recordType != self.service.recordType_groups:
             return
 
         for guid in self._memberGUIDs:
@@ -643,7 +707,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                 yield record
 
     def proxies(self):
-        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+        if self.recordType not in (self.service.recordType_resources, self.service.recordType_locations):
             return
 
         for guid in self._proxyGUIDs:
@@ -659,12 +723,12 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
     def proxyFor(self):
         result = set()
-        result.update(self.service.proxiesForGUID(DirectoryService.recordType_resources, self.guid))
-        result.update(self.service.proxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        result.update(self.service.proxiesForGUID(self.service.recordType_resources, self.guid))
+        result.update(self.service.proxiesForGUID(self.service.recordType_locations, self.guid))
         return result
 
     def readOnlyProxies(self):
-        if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+        if self.recordType not in (self.service.recordType_resources, self.service.recordType_locations):
             return
 
         for guid in self._readOnlyProxyGUIDs:
@@ -680,8 +744,8 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
     def readOnlyProxyFor(self):
         result = set()
-        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_resources, self.guid))
-        result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_locations, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(self.service.recordType_resources, self.guid))
+        result.update(self.service.readOnlyProxiesForGUID(self.service.recordType_locations, self.guid))
         return result
 
     def verifyCredentials(self, credentials):
