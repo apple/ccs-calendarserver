@@ -266,9 +266,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         else:
             qname = property
     
-        props = (yield resource.listProperties(request))
+        has = (yield resource.hasProperty(property, request))
 
-        if qname in props:
+        if has:
             try:
                 prop = (yield resource.readProperty(qname, request))
                 properties_by_status[responsecode.OK].append(prop)
