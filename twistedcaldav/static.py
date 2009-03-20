@@ -333,7 +333,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         return calendar_data
 
     def iCalendarXML(self, name=None):
-        return caldavxml.CalendarData.fromCalendarData(self.iCalendarText(name))
+        return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
 
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources

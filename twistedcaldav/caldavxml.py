@@ -396,17 +396,13 @@ class CalendarData (CalDAVElement):
 
     @classmethod
     def fromCalendar(clazz, calendar):
-        assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-        return clazz(davxml.PCDATAElement(str(calendar)))
-
-    @classmethod
-    def fromCalendarData(clazz, caldata):
-        """
-        Return a CalendarData element comprised of the supplied calendar data.
-        @param caldata: a string of valid calendar data.
-        @return: a L{CalendarData} element.
-        """
-        return clazz(davxml.PCDATAElement(caldata))
+        if isinstance(calendar, str):
+            return clazz(davxml.PCDATAElement(calendar))
+        elif isinstance(calendar, iComponent):
+            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
+            return clazz(davxml.PCDATAElement(str(calendar)))
+        else:
+            raise ValueError("Not a calendar: %s" % (calendar,))
 
     def __init__(self, *children, **attributes):
         super(CalendarData, self).__init__(*children, **attributes)
@@ -501,7 +497,7 @@ class CalendarData (CalDAVElement):
         @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendar(resource.iCalendar(), timezone)
+        return self.elementFromCalendar(resource.iCalendarText(), timezone)
 
     def elementFromCalendar(self, calendar, timezone=None):
         """
@@ -530,7 +526,7 @@ class CalendarData (CalDAVElement):
         @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access, timezone)
+        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendarText(), access, timezone)
 
     def elementFromCalendarWithAccessRestrictions(self, calendar, access, timezone=None):
         """
@@ -657,11 +653,21 @@ class CalendarData (CalDAVElement):
         Returns a calendar object containing the data in the given calendar
         which is specified by this CalendarData.
         """
-        if calendar is None or calendar.name() != "VCALENDAR":
+        if calendar is None or isinstance(calendar, str) and not calendar:
             raise ValueError("Not a calendar: %r" % (calendar,))
 
         # Empty element: get all data
         if not self.children: return calendar
+
+        # If we were passed a string, parse it out as a Component
+        if isinstance(calendar, str):
+            try:
+                calendar = iComponent.fromString(calendar)
+            except ValueError:
+                raise ValueError("Not a calendar: %r" % (calendar,))
+
+        if calendar is None or calendar.name() != "VCALENDAR":
+            raise ValueError("Not a calendar: %r" % (calendar,))
 
         # Pre-process the calendar data based on expand and limit options
         if self.freebusy_set:
