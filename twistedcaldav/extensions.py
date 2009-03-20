@@ -471,7 +471,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
     """
 
     def renderHTTP(self, request):
-        log.error("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+        log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
         return super(DAVResource, self).renderHTTP(request)
 
     @updateCacheTokenOnCallback
