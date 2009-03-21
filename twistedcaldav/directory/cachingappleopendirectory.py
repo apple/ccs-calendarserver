@@ -352,6 +352,18 @@ class OpenDirectoryService(CachingDirectoryService):
         },
     }
 
+    _toODRecordTypes = {
+        DirectoryService.recordType_users :
+            dsattributes.kDSStdRecordTypeUsers,
+        DirectoryService.recordType_locations :
+            dsattributes.kDSStdRecordTypePlaces,
+        DirectoryService.recordType_groups :
+            dsattributes.kDSStdRecordTypeGroups,
+        DirectoryService.recordType_resources :
+            dsattributes.kDSStdRecordTypeResources,
+    }
+
+    _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 
@@ -381,16 +393,9 @@ class OpenDirectoryService(CachingDirectoryService):
                 ODField = self._ODFields[field]['odField']
                 excluded = excluded | self._ODFields[field]['excludes']
 
-        _ODTypes = {
-            self.recordType_users:     dsattributes.kDSStdRecordTypeUsers,
-            self.recordType_locations: dsattributes.kDSStdRecordTypePlaces,
-            self.recordType_groups:    dsattributes.kDSStdRecordTypeGroups,
-            self.recordType_resources: dsattributes.kDSStdRecordTypeResources,
-        }
-
         if recordType is None:
             # The client is looking for records in any of the four types
-            recordTypes = set(_ODTypes.values())
+            recordTypes = set(self._toODRecordTypes.values())
 
             # Certain query combinations yield invalid results.  In particular,
             # any time you query on EMailAddress and are specifying Places
@@ -404,14 +409,14 @@ class OpenDirectoryService(CachingDirectoryService):
             # The client is after only one recordType, so let's tailor the
             # query to not include any fields OD has trouble with:
             excludeFields = True
-            recordTypes = [_ODTypes[recordType]]
+            recordTypes = [self._toODRecordTypes[recordType]]
 
         expressions = []
         for field, value, caseless, matchType in fields:
             if field in self._ODFields:
 
                 if (excludeFields and
-                    _ODTypes[recordType] in self._ODFields[field]['excludes']):
+                    self._toODRecordTypes[recordType] in self._ODFields[field]['excludes']):
                     # This is a field we're excluding because it behaves badly
                     # for the record type result we're looking for.  Skip it.
                     continue
@@ -541,12 +546,22 @@ class OpenDirectoryService(CachingDirectoryService):
             # Now get useful record info.
             recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
             recordShortNames     = _uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordType           = value.get(dsattributes.kDSNAttrRecordType)
+            if isinstance(recordType, list):
+                recordType = recordType[0]
             recordAuthIDs        = _setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
             recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
             recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
             recordLastName       = value.get(dsattributes.kDS1AttrLastName)
             recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
+
+            if not recordType:
+                self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
+                    % (recordShortName, recordNodeName))
+                continue
+
+            recordType = self._fromODRecordTypes[recordType]
 
             if not recordGUID:
                 self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
