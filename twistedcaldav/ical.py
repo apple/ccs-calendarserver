@@ -879,6 +879,26 @@ class Component (object):
 
         return newcomp
 
+    def cacheExpandedTimeRanges(self, limit):
+        """
+        Expand instances up to the specified limit and cache the results in this object
+        so we can return cached results in the future.
+ 
+        @param limit: the max datetime to cache up to.
+        @type limit: L{datetime.datetime} or L{datetime.date}
+        """
+        
+        # Checked for cached values first
+        if hasattr(self, "cachedInstances"):
+            cachedLimit = self.cachedInstances.limit
+            if cachedLimit is None or cachedLimit >= limit:
+                # We have already fully expanded, or cached up to the requested time,
+                # so return cached instances
+                return self.cachedInstances
+        
+        self.cachedInstances = self.expandTimeRanges(limit)
+        return self.cachedInstances
+
     def expandTimeRanges(self, limit):
         """
         Expand the set of recurrence instances for the components
@@ -993,6 +1013,25 @@ class Component (object):
                     else:
                         # Cannot derive from an existing EXDATE
                         return None
+        
+        # Check whether recurrence-id matches an RDATE - if so it is OK
+        rdates = set()
+        for rdate in master.properties("RDATE"):
+            rdates.update([normalizeToUTC(item) for item in rdate.value()])
+        if rid not in rdates:
+            # Check whether we have a truncated RRULE
+            rrules = master.properties("RRULE")
+            if len(tuple(rrules)):
+                limit = rid
+                limit += datetime.timedelta(days=365)
+                instances = self.cacheExpandedTimeRanges(limit)
+                rids = set([instances[key].rid for key in instances])
+                if rid not in rids:
+                    # No match to a valid RRULE instance
+                    return None
+            else:
+                # No RRULE and no match to an RDATE => error
+                return None
         
         # Create the derived instance
         newcomp = master.duplicate()

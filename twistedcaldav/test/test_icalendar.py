@@ -18,6 +18,7 @@ import os
 import datetime
 from dateutil.tz import tzutc
 from difflib import unified_diff
+import itertools
 
 from twisted.trial.unittest import SkipTest
 
@@ -2235,3 +2236,338 @@ END:VCALENDAR
             ical = Component.fromString(calendar)
             result = ical.isRecurringUnbounded()
             self.assertEqual(result, expected, "Failed recurring unbounded test: %s" % (title,))
+
+    def test_derive_instance(self):
+        
+        data = (
+            (
+                "1.1 - simple",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 2, 8, 0, 0, tzinfo=tzutc()),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+END:VEVENT
+""",
+            ),
+            (
+                "1.2 - simple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 2, 18, 0, 0, tzinfo=tzutc()),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T180000Z
+DTSTART:20090102T180000Z
+DTEND:20090102T190000Z
+END:VEVENT
+""",
+            ),
+            (
+                "1.3 - multiple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z,20090103T180000Z
+RDATE:20090104T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 3, 18, 0, 0, tzinfo=tzutc()),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090103T180000Z
+DTSTART:20090103T180000Z
+DTEND:20090103T190000Z
+END:VEVENT
+""",
+            ),
+            (
+                "2.1 - invalid simple",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 2, 9, 0, 0, tzinfo=tzutc()),
+                None,
+            ),
+            (
+                "2.2 - invalid simple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 2, 19, 0, 0, tzinfo=tzutc()),
+                None,
+            ),
+            (
+                "2.3 - invalid multiple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z,20090103T180000Z
+RDATE:20090104T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 3, 19, 0, 0, tzinfo=tzutc()),
+                None,
+            ),
+        )
+        
+        for title, calendar, rid, result in data:
+            ical = Component.fromString(calendar)
+            derived = ical.deriveInstance(rid)
+            derived = str(derived).replace("\r", "") if derived else None
+            self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
+
+    def test_derive_instance_multiple(self):
+        
+        data = (
+            (
+                "1.1 - simple",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 2, 8, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 4, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+END:VEVENT
+""",
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090104T080000Z
+DTSTART:20090104T080000Z
+DTEND:20090104T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+            (
+                "1.2 - simple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 2, 18, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 4, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T180000Z
+DTSTART:20090102T180000Z
+DTEND:20090102T190000Z
+END:VEVENT
+""",
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090104T080000Z
+DTSTART:20090104T080000Z
+DTEND:20090104T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+            (
+                "1.3 - multiple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z,20090103T180000Z
+RDATE:20090104T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 3, 18, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 5, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090103T180000Z
+DTSTART:20090103T180000Z
+DTEND:20090103T190000Z
+END:VEVENT
+""",
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090105T080000Z
+DTSTART:20090105T080000Z
+DTEND:20090105T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+            (
+                "2.1 - invalid simple",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 2, 9, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    None,
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090103T080000Z
+DTSTART:20090103T080000Z
+DTEND:20090103T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+            (
+                "2.2 - invalid simple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 2, 19, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    None,
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090103T080000Z
+DTSTART:20090103T080000Z
+DTEND:20090103T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+            (
+                "2.3 - invalid multiple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+RRULE:FREQ=DAILY
+RDATE:20090102T180000Z,20090103T180000Z
+RDATE:20090104T180000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2009, 1, 3, 19, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                ),
+                (
+                    None,
+                    """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090103T080000Z
+DTSTART:20090103T080000Z
+DTEND:20090103T090000Z
+END:VEVENT
+""",
+                ),
+            ),
+        )
+        
+        for title, calendar, rids, results in data:
+            ical = Component.fromString(calendar)
+            for rid, result in itertools.izip(rids, results):
+                derived = ical.deriveInstance(rid)
+                derived = str(derived).replace("\r", "") if derived else None
+                self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))

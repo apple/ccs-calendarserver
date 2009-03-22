@@ -98,9 +98,11 @@ class iTipProcessing(object):
         if current_master:
             master_valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
             private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
+            transps = current_master.properties("TRANSP")
         else:
             master_valarms = ()
             private_comments = ()
+            transps = ()
 
         if itip_message.masterComponent() is not None:
             
@@ -113,11 +115,13 @@ class iTipProcessing(object):
                 master_component.addComponent(alarm)
             for comment in private_comments:
                 master_component.addProperty(comment)
+            for transp in transps:
+                master_component.replaceProperty(transp)
                 
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, component)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, component)
             
             # Now try to match recurrences
             for component in calendar.subcomponents():
@@ -126,8 +130,9 @@ class iTipProcessing(object):
                     if new_calendar.overriddenComponent(rid) is None:
                         allowCancelled = component.propertyValue("STATUS") == "CANCELLED"
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
-                        new_calendar.addComponent(new_component)
-                        iTipProcessing.transferItems(calendar, master_valarms, private_comments, new_component)
+                        if new_component:
+                            new_calendar.addComponent(new_component)
+                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, new_component)
             
             # Replace the entire object
             return new_calendar, props_changed, rids
@@ -144,7 +149,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, component, remove_matched=True)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, component, remove_matched=True)
                     calendar.addComponent(component)
                     if recipient and not autoprocessing:
                         iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
@@ -225,8 +230,9 @@ class iTipProcessing(object):
                 else:
                     # Derive a new component and cancel it.
                     overridden = calendar.deriveInstance(rid)
-                    overridden.replaceProperty(Property("STATUS", "CANCELLED"))
-                    calendar.addComponent(overridden)
+                    if overridden:
+                        overridden.replaceProperty(Property("STATUS", "CANCELLED"))
+                        calendar.addComponent(overridden)
 
         # If we have any EXDATEs lets add them to the existing calendar object.
         if exdates and calendar_master:
@@ -279,7 +285,8 @@ class iTipProcessing(object):
             if rids is not None and (partstat_changed or private_comment_changed):
                 rids.add("")
 
-        # Now do all overridden ones
+        # Now do all overridden ones (sort by RECURRENCE-ID)
+        sortedComponents = []
         for itip_component in itip_message.subcomponents():
             
             # Make sure we have an appropriate component
@@ -288,14 +295,19 @@ class iTipProcessing(object):
             rid = itip_component.getRecurrenceIDUTC()
             if rid is None:
                 continue
+            sortedComponents.append((rid, itip_component,))
             
+        sortedComponents.sort(key=lambda x:x[0])
+        
+        for rid, itip_component in sortedComponents:
             # Find matching component in organizer's copy
             match_component = calendar.overriddenComponent(rid)
             if match_component is None:
                 # Attendee is overriding an instance themselves - we need to create a derived one
                 # for the Organizer
                 match_component = calendar.deriveInstance(rid)
-                calendar.addComponent(match_component)
+                if match_component:
+                    calendar.addComponent(match_component)
 
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
             attendees.add(attendee)
@@ -423,7 +435,7 @@ class iTipProcessing(object):
         return attendee.value(), partstat_changed, private_comment_changed
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, to_component, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, transps, to_component, remove_matched=False):
 
         rid = to_component.getRecurrenceIDUTC()
 
@@ -433,6 +445,7 @@ class iTipProcessing(object):
             # Copy over VALARMs from existing component
             [to_component.addComponent(comp) for comp in matched.subcomponents() if comp.name() == "VALARM"]
             [to_component.addProperty(prop) for prop in matched.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")]
+            [to_component.replaceProperty(prop) for prop in matched.properties("TRANSP")]
 
             # Remove the old one
             if remove_matched:
@@ -443,6 +456,7 @@ class iTipProcessing(object):
             # into the new one.
             [to_component.addComponent(alarm) for alarm in master_valarms]
             [to_component.addProperty(comment) for comment in private_comments]
+            [to_component.replaceProperty(transp) for transp in transps]
     
     @staticmethod
     def fixForiCal3(components, recipient, compatibilityMode):
