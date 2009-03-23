@@ -23,15 +23,18 @@ __all__ = [
 ]
 
 from time import time
+import types
 
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
+    CachingDirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 
-class XMLDirectoryService(DirectoryService):
+class XMLDirectoryService(CachingDirectoryService):
     """
     XML based implementation of L{IDirectoryService}.
     """
@@ -63,33 +66,94 @@ class XMLDirectoryService(DirectoryService):
         )
         return recordTypes
 
-    def listRecords(self, recordType):
-        for _ignore_entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
-            yield XMLDirectoryRecord(
-                service       = self,
-                recordType    = recordType,
-                shortNames    = tuple(xmlPrincipal.shortNames),
-                xmlPrincipal  = xmlPrincipal,
-            )
+    def queryDirectory(self, recordTypes, indexType, indexKey):
+        
+        for recordType in recordTypes:
+            for xmlPrincipal in self._accounts()[recordType].itervalues():
+                
+                matched = False
+                if indexType == self.INDEX_TYPE_GUID:
+                    matched = indexKey == xmlPrincipal.guid
+                elif indexType == self.INDEX_TYPE_SHORTNAME:
+                    matched = indexKey in xmlPrincipal.shortNames
+                elif indexType == self.INDEX_TYPE_EMAIL:
+                    matched = indexKey in xmlPrincipal.emailAddresses
+                
+                if matched:
+                    record = XMLDirectoryRecord(
+                        service       = self,
+                        recordType    = recordType,
+                        shortNames    = tuple(xmlPrincipal.shortNames),
+                        xmlPrincipal  = xmlPrincipal,
+                    )
+                    self.recordCacheForType(recordType).addRecord(record)
+            
+    def recordsMatchingFields(self, fields, operand="or", recordType=None):
+        # Default, brute force method search of underlying XML data
 
-    def recordWithShortName(self, recordType, shortName):
-        for _ignore_entryShortName, xmlPrincipal in self._entriesForRecordType(recordType):
-            if shortName in xmlPrincipal.shortNames:
-                return XMLDirectoryRecord(
-                    service       = self,
-                    recordType    = recordType,
-                    shortNames    = tuple(xmlPrincipal.shortNames),
-                    xmlPrincipal  = xmlPrincipal,
-                )
+        def fieldMatches(fieldValue, value, caseless, matchType):
+            if fieldValue is None:
+                return False
+            elif type(fieldValue) in types.StringTypes:
+                fieldValue = (fieldValue,)
+            
+            for testValue in fieldValue:
+                if caseless:
+                    testValue = testValue.lower()
+                    value = value.lower()
+    
+                if matchType == 'starts-with':
+                    if testValue.startswith(value):
+                        return True
+                elif matchType == 'contains':
+                    try:
+                        _ignore_discard = testValue.index(value)
+                        return True
+                    except ValueError:
+                        pass
+                else: # exact
+                    if testValue == value:
+                        return True
+                    
+            return False
 
-        return None
+        def xmlPrincipalMatches(xmlPrincipal):
+            if operand == "and":
+                for fieldName, value, caseless, matchType in fields:
+                    try:
+                        fieldValue = getattr(xmlPrincipal, fieldName)
+                        if not fieldMatches(fieldValue, value, caseless, matchType):
+                            return False
+                    except AttributeError:
+                        # No property => no match
+                        return False
+                # we hit on every property
+                return True
+            else: # "or"
+                for fieldName, value, caseless, matchType in fields:
+                    try:
+                        fieldValue = getattr(xmlPrincipal, fieldName)
+                        if fieldMatches(fieldValue, value, caseless, matchType):
+                            return True
+                    except AttributeError:
+                        # No value
+                        pass
+                # we didn't hit any
+                return False
 
-    def _entriesForRecordType(self, recordType):
-        try:
-            for shortName, entry in sorted(self._accounts()[recordType].iteritems(), key=lambda x: x[0]):
-                yield shortName, entry
-        except KeyError:
-            return
+        if recordType is None:
+            recordTypes = list(self.recordTypes())
+        else:
+            recordTypes = (recordType,)
+
+        for recordType in recordTypes:
+            for xmlPrincipal in self._accounts()[recordType].itervalues():
+                if xmlPrincipalMatches(xmlPrincipal):
+                    
+                    # Load/cache record from its GUID
+                    record = self.recordWithGUID(xmlPrincipal.guid)
+                    if record:
+                        yield record
 
     def _accounts(self):
         currentTime = time()
@@ -104,7 +168,7 @@ class XMLDirectoryService(DirectoryService):
                 self._fileInfo = fileInfo
         return self._parsedAccounts
 
-class XMLDirectoryRecord(DirectoryRecord):
+class XMLDirectoryRecord(CachingDirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
