@@ -372,17 +372,13 @@ class CalendarData (CalDAVElement):
 
     @classmethod
     def fromCalendar(clazz, calendar):
-        assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-        return clazz(davxml.PCDATAElement(str(calendar)))
-
-    @classmethod
-    def fromCalendarData(clazz, caldata):
-        """
-        Return a CalendarData element comprised of the supplied calendar data.
-        @param caldata: a string of valid calendar data.
-        @return: a L{CalendarData} element.
-        """
-        return clazz(davxml.PCDATAElement(caldata))
+        if isinstance(calendar, str):
+            return clazz(davxml.PCDATAElement(calendar))
+        elif isinstance(calendar, iComponent):
+            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
+            return clazz(davxml.PCDATAElement(str(calendar)))
+        else:
+            raise ValueError("Not a calendar: %s" % (calendar,))
 
     def __init__(self, *children, **attributes):
         super(CalendarData, self).__init__(*children, **attributes)
@@ -476,7 +472,7 @@ class CalendarData (CalDAVElement):
         @param resource: the resource whose calendar data is to be returned.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendar(resource.iCalendar())
+        return self.elementFromCalendar(resource.iCalendarText())
 
     def elementFromCalendar(self, calendar):
         """
@@ -503,7 +499,7 @@ class CalendarData (CalDAVElement):
         @param access: private event access restriction level.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendar(), access)
+        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendarText(), access)
 
     def elementFromCalendarWithAccessRestrictions(self, calendar, access):
         """
@@ -627,15 +623,21 @@ class CalendarData (CalDAVElement):
         Returns a calendar object containing the data in the given calendar
         which is specified by this CalendarData.
         """
-        if calendar is None or calendar.name() != "VCALENDAR":
+        if calendar is None or isinstance(calendar, str) and not calendar:
             raise ValueError("Not a calendar: %r" % (calendar,))
 
         # Empty element: get all data
         if not self.children: return calendar
 
-        # CalDAV:comp is required 
-        if self.component is None:
-            raise ValueError("CalDAV:calendar-data %s has no CalDAV:comp child" % (self,))
+        # If we were passed a string, parse it out as a Component
+        if isinstance(calendar, str):
+            try:
+                calendar = iComponent.fromString(calendar)
+            except ValueError:
+                raise ValueError("Not a calendar: %r" % (calendar,))
+
+        if calendar is None or calendar.name() != "VCALENDAR":
+            raise ValueError("Not a calendar: %r" % (calendar,))
 
         # Pre-process the calendar data based on expand and limit options
         if self.freebusy_set:

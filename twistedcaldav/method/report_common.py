@@ -258,11 +258,11 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
         else:
             qname = property
     
-        props = waitForDeferred(resource.listProperties(request))
-        yield props
-        props = props.getResult()
+        has = waitForDeferred(resource.hasProperty(property, request))
+        yield has
+        has = has.getResult()
 
-        if qname in props:
+        if has:
             try:
                 prop = waitForDeferred(resource.readProperty(qname, request))
                 yield prop
