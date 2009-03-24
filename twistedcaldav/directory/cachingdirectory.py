@@ -176,12 +176,15 @@ class CachingDirectoryService(DirectoryService):
         
         if recordTypes is None:
             recordTypes = self.recordTypes()
-        
+
         def lookup():
             for recordType in recordTypes:
                 record = self.recordCacheForType(recordType).findRecord(indexType, indexKey)
                 if record:
-                    return record
+                    if (time.time() - record.cachedTime > self.cacheTimeout):
+                        return None
+                    else:
+                        return record
             else:
                 return None
 
