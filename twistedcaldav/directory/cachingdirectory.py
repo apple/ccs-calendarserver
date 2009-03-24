@@ -93,7 +93,7 @@ class DictRecordTypeCache(RecordTypeCache):
                     continue
                 if isinstance(indexData, str):
                     indexData = (indexData,)
-                if type(indexData) in (types.ListType, types.TupleType):
+                if type(indexData) in (types.ListType, types.TupleType, set):
                     for item in indexData:
                         try:
                             del self.recordsIndexedBy[indexType][item]
@@ -182,6 +182,7 @@ class CachingDirectoryService(DirectoryService):
                 record = self.recordCacheForType(recordType).findRecord(indexType, indexKey)
                 if record:
                     if (time.time() - record.cachedTime > self.cacheTimeout):
+                        self.recordCacheForType(recordType).removeRecord(record)
                         return None
                     else:
                         return record
