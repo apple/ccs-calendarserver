@@ -185,6 +185,34 @@ class IMIPInboxResource(CalDAVFile):
 
         self.parent = parent
 
+    def accessControlList(self, request, inheritance=True,
+        expanding=False, inherited_aces=None):
+
+        if not hasattr(self, "iMIPACL"):
+
+            for principalCollection in self.principalCollections():
+                principal = principalCollection.principalForShortName("users",
+                    config.Scheduling.iMIP.Username)
+                if principal is not None:
+                    break
+            else:
+                log.err("iMIP injection principal not found: %s" %
+                    (config.Scheduling.iMIP.Username,))
+                raise HTTPError(responsecode.FORBIDDEN)
+
+            self.iMIPACL = davxml.ACL(
+                davxml.ACE(
+                    davxml.Principal(
+                        davxml.HRef.fromString(principal.principalURL())
+                    ),
+                    davxml.Grant(
+                        davxml.Privilege(caldavxml.ScheduleDeliver()),
+                    ),
+                ),
+            )
+
+        return succeed(self.iMIPACL)
+
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
 
@@ -229,7 +257,7 @@ class IMIPInboxResource(CalDAVFile):
         """
 
         # Check authentication and access controls
-        # yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
+        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
 
         # Inject using the IMIPScheduler.
         scheduler = IMIPScheduler(request, self)
@@ -377,6 +405,10 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
 
         self.quietLoss = 1
         self.transport.loseConnection()
+
+        if not hasattr(self.factory, "username"):
+            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; authentication required for calendar server")))
+            return self.factory.deferred
 
         if hasattr(self.factory, "retried"):
             self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; could not authenticate user %s with calendar server" % (self.factory.username,))))
