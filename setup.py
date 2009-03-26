@@ -25,7 +25,7 @@ import os
 # Compute the version number.
 #
 
-base_version = "2.0"
+base_version = "2.1"
 
 branches = (
     "tags/release/CalendarServer-" + base_version,
