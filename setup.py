@@ -19,56 +19,9 @@
 import sys
 import os
 
-#
-# Compute the version number.
-#
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "support"))
 
-base_version = "2.2"
-
-branches = (
-    "tags/release/CalendarServer-" + base_version,
-    "branches/release/CalendarServer-" + base_version + "-dev",
-    "trunk",
-)
-
-for branch in branches:
-    cmd = "svnversion -n %r %s" % (os.path.dirname(__file__), branch)
-    svnversion = os.popen(cmd)
-    svn_revision = svnversion.read()
-    svnversion.close()
-
-    if "S" in svn_revision:
-        continue
-
-    if branch == "trunk":
-        base_version = "trunk"
-    elif branch.endswith("-dev"):
-        base_version += "-dev"
-
-    if svn_revision == "exported":
-        if "RC_JASPER" in os.environ:
-            # Weird Apple thing: Get the B&I version number from the path
-            if __file__.startswith(os.path.sep):
-                project_name = os.path.basename(os.path.dirname(__file__))
-            else:
-                wd = os.path.dirname(__file__)
-                if wd:
-                    os.chdir(wd)
-                project_name = os.path.basename(os.getcwd())
-
-            prefix = "CalendarServer-"
-
-            if project_name.startswith(prefix):
-                version = version = "%s (%s)" % (base_version, project_name[len(prefix):])
-                break
-
-        version = "%s (unknown)" % (base_version,)
-    else:
-        version = "%s (r%s)" % (base_version, svn_revision)
-
-    break
-else:
-    version = "unknown (%s :: %s)" % (base_version, svn_revision)
+from version import version
 
 def find_modules():
     modules = [
@@ -104,8 +57,9 @@ classifiers = None
 # Write version file
 #
 
+version_string = "%s (%s)" % version()
 version_file = file(os.path.join("twistedcaldav", "version.py"), "w")
-version_file.write('version = "%s"\n' % (version,))
+version_file.write('version = "%s"\n' % version_string)
 version_file.close()
 
 #
@@ -133,7 +87,7 @@ from distutils.core import setup
 
 dist = setup(
     name             = "twistedcaldav",
-    version          = version,
+    version          = version_string,
     description      = description,
     long_description = long_description,
     url              = None,
