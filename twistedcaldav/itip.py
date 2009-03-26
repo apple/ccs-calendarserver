@@ -134,8 +134,12 @@ def processRequest(request, principal, inbox, calendar, child):
             # See whether the new component is older than any existing ones and throw it away if so
             newinfo = (None,) + getComponentSyncInfo(new_master)
             cal = updatecal.iCalendar(calmatch)
-            info = getSyncInfo(calmatch, cal)
-            if compareSyncInfo(info, newinfo) < 0:
+            old_master = cal.masterComponent()
+            if old_master:
+                info = getSyncInfo(calmatch, cal)
+            else:
+                info = None
+            if info is None or compareSyncInfo(info, newinfo) < 0:
                 # Existing resource is older and will be replaced
                 check_reply = True
             else:
