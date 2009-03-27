@@ -20,7 +20,7 @@ Index: twisted/web2/auth/digest.py
 +    from hashlib import md5, sha1
 +except ImportError:
 +    from md5 import new as md5
-+    import sha.new as sha1
++    from sha import new as sha1
  import random, sys
  
  # The digest math

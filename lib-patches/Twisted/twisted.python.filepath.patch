@@ -12,7 +12,7 @@ Index: twisted/python/filepath.py
 +try:
 +    from hashlib import sha1
 +except ImportError:
-+    import sha.new as sha1
++    from sha import new as sha1
 +
  from os.path import isabs, exists, normpath, abspath, splitext
  from os.path import basename, dirname
