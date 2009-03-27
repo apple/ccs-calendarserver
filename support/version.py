@@ -49,15 +49,8 @@ def version():
             base_version += "-dev"
 
         if svn_revision == "exported":
-            if "RC_JASPER" in os.environ:
-                # Weird Apple thing: Get the B&I version number from the path
-                if source_root.startswith(os.path.sep):
-                    project_name = basename(source_root)
-                else:
-                    wd = source_root
-                    if wd:
-                        os.chdir(wd)
-                    project_name = basename(os.getcwd())
+            if "RC_JASPER" in os.environ and os.environ["RC_JASPER"] == "YES":
+                project_name = basename(os.environ["SRCROOT"])
 
                 prefix = "CalendarServer-"
 
