@@ -19,7 +19,7 @@ Index: twisted/web2/auth/digest.py
 +try:
 +    from hashlib import md5, sha1
 +except ImportError:
-+    import md5.new as md5
++    from md5 import new as md5
 +    import sha.new as sha1
  import random, sys
  

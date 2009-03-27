@@ -12,7 +12,7 @@ Index: twisted/words/protocols/jabber/sasl_mechanisms.py
 +try:
 +    from hashlib import md5
 +except ImportError:
-+    import md5.new as md5
++    from md5 import new as md5
 +
  from zope.interface import Interface, Attribute, implements
  

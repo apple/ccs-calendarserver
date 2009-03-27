@@ -34,7 +34,7 @@ import time
 try:
     from hashlib import md5
 except ImportError:
-    import md5.new as md5
+    from md5 import new as md5
 
 from vobject.icalendar import utc
 

@@ -11,7 +11,7 @@ Index: twisted/internet/_sslverify.py
 +try:
 +    from hashlib import md5
 +except ImportError:
-+    import md5.new as md5
++    from md5 import new as md5
  from OpenSSL import SSL, crypto
  
  from twisted.python import reflect, util

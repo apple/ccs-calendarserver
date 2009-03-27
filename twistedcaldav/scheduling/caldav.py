@@ -19,7 +19,7 @@ import time
 try:
     from hashlib import md5
 except ImportError:
-    import md5.new as md5
+    from md5 import new as md5
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
