@@ -144,6 +144,9 @@ def usage(e=None):
     print "  -H --home: add a calendar home (and all calendars within it)"
     print "  -r --record: add a directory record's calendar home (format: 'recordType:shortName')"
     print "  -u --user: add a user's calendar home (shorthand for '-r users:shortName')"
+    print "  --no-icalendar: Don't read iCalendar data"
+    print "  --no-properties: Don't read DAV properties"
+    print "  --no-index: Don't read indexes"
 
     if e:
         sys.exit(64)
@@ -153,11 +156,12 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:o:aH:r:u:F", [
+            sys.argv[1:], "hf:o:aH:r:u:", [
                 "config=",
                 "output=",
                 "help",
                 "all", "home=", "record=", "user=",
+                "no-icalendar", "no-properties", "no-index",
             ],
         )
     except GetoptError, e:
@@ -170,6 +174,8 @@ def main():
     records = set()
     allRecords = False
     readCalendarData = True
+    readProperties = True
+    readIndexes = True
 
     observer = log.FileLogObserver(open("/ngs/app/icalt/warmup/warmup.log", "a"))
     log.addObserver(observer.emit)
@@ -189,8 +195,14 @@ def main():
         elif opt in ("-a", "--all"):
             allRecords = True
 
-        elif opt in ("-F",):
+        elif opt in ("--no-icalendar",):
             readCalendarData = False
+
+        elif opt in ("--no-properties",):
+            readProperties = False
+
+        elif opt in ("--no-indexes",):
+            readIndexes = False
 
         elif opt in ("-H", "--home"):
             path = abspath(arg)
@@ -241,35 +253,61 @@ def main():
     for calendarHome in calendarHomes:
         n += 1
         log.msg("%.2f%% (%d of %d)" % (100.0 * n/N, n, N))
-        processCalendarHome(calendarHome, readCalendarData=readCalendarData)
+        processCalendarHome(
+            calendarHome,
+            readCalendarData = readCalendarData,
+            readProperties = readProperties,
+            readIndexes = readIndexes,
+        )
 
-def processCalendarHome(calendarHome, readCalendarData=True):
-    readProperties(calendarHome)
+def processCalendarHome(
+    calendarHome,
+    readCalendarData = True,
+    readProperties = True,
+    readIndexes = True
+):
+    if readProperties:
+        readPropertiesForResource(calendarHome)
 
     for childName in calendarHome.listChildren():
         child = calendarHome.getChild(childName)
         if isPseudoCalendarCollectionResource(child):
             if childName in ("inbox", "outbox"):
                 child.provision()
-            processCalendar(child, readCalendarData=readCalendarData)
+            processCalendar(
+                child,
+                readCalendarData = readCalendarData,
+                readProperties = readProperties,
+                readIndexes = readIndexes,
+            )
 
-def processCalendar(calendarCollection, readCalendarData=True):
-    readProperties(calendarCollection)
+def processCalendar(
+    calendarCollection,
+    readCalendarData = True,
+    readProperties = True,
+    readIndexes = True
+):
+    if readProperties:
+        readPropertiesForResource(calendarCollection)
 
-    try:
-        for name, uid, type in calendarCollection.index().search(None):
-            child = calendarCollection.getChild(name)
+    if readIndexes:
+        try:
+            for name, uid, type in calendarCollection.index().search(None):
+                pass
+        except sqlite3.OperationalError:
+            # Outbox doesn't live on disk
+            if calendarCollection.fp.basename() != "outbox":
+                raise
 
-            if readCalendarData:
-                childCalendar = child.iCalendarText()
-            readProperties(child)
+    for name in calendarCollection.listChildren()
+        child = calendarCollection.getChild(name)
 
-    except sqlite3.OperationalError:
-        # Outbox doesn't live on disk
-        if calendarCollection.fp.basename() != "outbox":
-            raise
+        if readCalendarData:
+            childCalendar = child.iCalendarText()
+        if readProperties:
+            readPropertiesForResource(child)
 
-def readProperties(resource):
+def readPropertiesForResource(resource):
     log.msg(resource)
     for qname in tuple(resource.deadProperties().list()):
         try:
