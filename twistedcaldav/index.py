@@ -81,7 +81,7 @@ maximum_future_expansion_duration = datetime.timedelta(days=356*5)
 
 class ReservationError(LookupError):
     """
-    Attempt to reserve a UID which is already reserved or to unreverse a UID
+    Attempt to reserve a UID which is already reserved or to unreserve a UID
     which is not reserved.
     """
 
@@ -423,6 +423,19 @@ class CalendarIndex (AbstractCalendarIndex):
                 """, name, float, start, end
             )
 
+        # Special - for unbounded recurrence we insert a value for "infinity"
+        # that will allow an open-ended time-range to always match it.
+        if calendar.isRecurringUnbounded():
+            start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+            float = 'N'
+            self._db_execute(
+                """
+                insert into TIMESPAN (NAME, FLOAT, START, END)
+                values (:1, :2, :3, :4)
+                """, name, float, start, end
+            )
+             
         self._db_execute(
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX)

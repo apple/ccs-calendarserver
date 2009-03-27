@@ -25,16 +25,18 @@ import urllib
 from twisted.internet.defer import deferredGenerator, succeed, waitForDeferred
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import dav_namespace
+from twisted.web2.dav.element.base import dav_namespace, PCDATAElement
 from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace,\
+    NumberOfRecurrencesWithinLimits
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.method import report_common
+from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.log import Logger
+from twistedcaldav.method import report_common
 
 log = Logger()
 
@@ -240,6 +242,12 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         d = waitForDeferred(report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),)))
         yield d
         d.getResult()
+    except TooManyInstancesError, ex:
+        log.err("Too many instances need to be computed in calendar-query report")
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+                NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
+            ))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))

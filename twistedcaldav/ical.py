@@ -636,6 +636,21 @@ class Component (object):
         self.transformAllToNative()
         return self._vobject.getrruleset(addRDate)
 
+    def getEffectiveStartEnd(self):
+        # Get the start/end range needed for instance comparisons
+
+        if self.name() in ("VEVENT", "VJOURNAL",):
+            return self.getStartDateUTC(), self.getEndDateUTC()
+        elif self.name() == "VTODO":
+            start = self.getStartDateUTC()
+            due = self.getDueDateUTC()
+            if start is None and due is not None:
+                return due, due
+            else:
+                return start, due
+        else:
+            return None, None
+
     def addProperty(self, property):
         """
         Adds a property to this component.
@@ -771,6 +786,36 @@ class Component (object):
         instances.expandTimeRanges(componentSet, limit)
         return instances
 
+    def isRecurring(self):
+        """
+        Check whether any recurrence properties are present in any component.
+        """
+
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE" and component.isRecurring():
+                    return True
+        else:
+            for propname in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",):
+                if self.hasProperty(propname):
+                    return True
+        return False
+        
+    def isRecurringUnbounded(self):
+        """
+        Check for unbounded recurrence.
+        """
+
+        master = self.masterComponent()
+        if master:
+            rrules = master.properties("RRULE")
+            for rrule in rrules:
+                s = str(rrule)
+                if "COUNT" not in s and "UNTIL" not in s:
+                    return True
+        return False
+        
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.

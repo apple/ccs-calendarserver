@@ -202,10 +202,15 @@ def getTimerangeArguments(timerange):
     tzinfo = timerange.tzinfo
 
     # Now force to floating UTC
-    startfloat = floatoffset(start, tzinfo)
-    endfloat = floatoffset(end, tzinfo)
+    startfloat = floatoffset(start, tzinfo) if start else None
+    endfloat = floatoffset(end, tzinfo) if end else None
 
-    return str(start), str(end), str(startfloat), str(endfloat)
+    return (
+        str(start) if start else None,
+        str(end) if end else None,
+        str(startfloat) if startfloat else None,
+        str(endfloat) if endfloat else None,
+    )
 
 def sqlcalendarquery(filter):
     """
