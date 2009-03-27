@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+set -u
+
+if [ "$(whoami)" != "_calendar" ]; then
+  echo "Must be calendar user, not $(whoami).";
+  exit 1;
+fi;
+
+cd /Library/CalendarServer/Documents/calendars/__uids__;
+
+for d in $(find . -depth 1); do
+  args="";
+  for h in "${d}"/*/*; do
+    args="${args} --home ${h}";
+  done;
+  /ngs/app/icalt/caldav_warmup ${args} &
+done;
