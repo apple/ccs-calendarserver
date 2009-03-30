@@ -4,6 +4,10 @@ from twisted.application.service import IServiceMaker
 
 from twisted.python import reflect
 
+from twisted.internet.protocol import Factory
+Factory.noisy = False
+
+
 def serviceMakerProperty(propname):
     def getProperty(self):
         return getattr(reflect.namedClass(self.serviceMakerClass), propname)
@@ -13,12 +17,13 @@ def serviceMakerProperty(propname):
 
 class TAP(object):
     implements(IPlugin, IServiceMaker)
+
     def __init__(self, serviceMakerClass):
         self.serviceMakerClass = serviceMakerClass
         self._serviceMaker = None
 
-    options = serviceMakerProperty("options")
-    tapname = serviceMakerProperty("tapname")
+    options     = serviceMakerProperty("options")
+    tapname     = serviceMakerProperty("tapname")
     description = serviceMakerProperty("description")
 
     def makeService(self, options):
