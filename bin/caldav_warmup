@@ -37,7 +37,9 @@ from os.path import dirname, abspath
 
 from twisted.python import log
 from twisted.python.reflect import namedClass
+from twisted.web2.dav import davxml
 
+from twistedcaldav import caldavxml
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.config import config, defaultConfigFile
@@ -170,14 +172,15 @@ def main():
     configFileName = None
     outputFileName = None
 
-    calendarHomes = set()
+    directory = None
+    calendarHomePaths = set()
     records = set()
     allRecords = False
     readCalendarData = True
     readProperties = True
     readIndexes = True
 
-    observer = log.FileLogObserver(open("/ngs/app/icalt/warmup/warmup.log", "a"))
+    observer = log.FileLogObserver(open("/dev/stdout", "a"))
     log.addObserver(observer.emit)
 
     def checkExists(resource):
@@ -205,11 +208,7 @@ def main():
             readIndexes = False
 
         elif opt in ("-H", "--home"):
-            path = abspath(arg)
-            parent = CalDAVFile(dirname(abspath(path)))
-            calendarHome = CalendarHomeFile(arg, parent, dummyDirectoryRecord)
-            checkExists(calendarHome)
-            calendarHomes.add(calendarHome)
+            calendarHomePaths.add(arg)
 
         elif opt in ("-r", "--record"):
             try:
@@ -228,9 +227,24 @@ def main():
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
 
-    if records or allRecords:
-        config = loadConfig(configFileName)
+    if records or allRecords or calendarHomePaths:
+        loadConfig(configFileName)
         directory = getDirectory()
+
+        calendarHomes = set()
+
+        for path in calendarHomePaths:
+            path = abspath(path)
+            guid = os.path.basename(path)
+
+            record = directory.recordWithGUID(guid)
+            if record is None:
+                record = dummyDirectoryRecord
+
+            parent = CalDAVFile(dirname(abspath(path)))
+            calendarHome = CalendarHomeFile(arg, parent, record)
+            checkExists(calendarHome)
+            calendarHomes.add(calendarHome)
 
         for record in records:
             recordType, shortName = record
@@ -255,6 +269,7 @@ def main():
         log.msg("%.2f%% (%d of %d)" % (100.0 * n/N, n, N))
         processCalendarHome(
             calendarHome,
+            directory = directory,
             readCalendarData = readCalendarData,
             readProperties = readProperties,
             readIndexes = readIndexes,
@@ -262,6 +277,7 @@ def main():
 
 def processCalendarHome(
     calendarHome,
+    directory = None,
     readCalendarData = True,
     readProperties = True,
     readIndexes = True
@@ -280,6 +296,40 @@ def processCalendarHome(
                 readProperties = readProperties,
                 readIndexes = readIndexes,
             )
+            # OMG NO SRLY FIXME
+            if childName == "meetingmaker":
+                #
+                # Add calendar to F/B set
+                #
+                if calendarHome.record == dummyDirectoryRecord:
+                    print "Unable to edit F/B info for %s" % (calendarHome,)
+                    continue
+
+                calendarURL = "/calendars/__uids__/%s/meetingmaker" % (calendarHome.record.guid,)
+
+                inbox = calendarHome.getChild("inbox")
+
+                if not inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet):
+                    needFB = True
+                    hrefs = []
+                else:
+                    fbProp = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
+                    hrefs = list(fbProp.childrenOfType(davxml.HRef))
+
+                    needFB = False
+
+                    for href in hrefs:
+                        print "*"*10, href
+                        if str(href) == calendarURL:
+                            break
+                    else:
+                        needFB = True
+
+                if needFB:
+                    log.msg("Adding Meeting Maker calendar to F/B set for %s" % (calendarHome,))
+                    hrefs.append(davxml.HRef(calendarURL))
+                    fbProp = caldavxml.CalendarFreeBusySet(*hrefs)
+                    inbox.writeDeadProperty(fbProp)
 
 def processCalendar(
     calendarCollection,
@@ -299,7 +349,7 @@ def processCalendar(
             if calendarCollection.fp.basename() != "outbox":
                 raise
 
-    for name in calendarCollection.listChildren()
+    for name in calendarCollection.listChildren():
         child = calendarCollection.getChild(name)
 
         if readCalendarData:
@@ -308,7 +358,7 @@ def processCalendar(
             readPropertiesForResource(child)
 
 def readPropertiesForResource(resource):
-    log.msg(resource)
+    #log.msg(resource)
     for qname in tuple(resource.deadProperties().list()):
         try:
             property = resource.readDeadProperty(qname)
