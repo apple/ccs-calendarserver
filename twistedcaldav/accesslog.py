@@ -283,7 +283,7 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if self.mode == "AF_UNIX":
             d = self.client.connectUNIX(self.id)
         else:
-            d = self.client.connectTCP("localhost", self.id)
+            d = self.client.connectTCP("127.0.0.1", self.id)
         d.addCallback(_gotProtocol)
 
     def stop(self):
