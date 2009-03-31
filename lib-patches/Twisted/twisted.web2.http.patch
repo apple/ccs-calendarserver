@@ -2,15 +2,7 @@ Index: twisted/web2/http.py
 ===================================================================
 --- twisted/web2/http.py	(revision 19773)
 +++ twisted/web2/http.py	(working copy)
-@@ -15,6 +15,7 @@
- import socket
- import time
- import cgi
-+import urllib
- 
- # twisted imports
- from twisted.internet import interfaces, error
-@@ -26,7 +27,7 @@
+@@ -26,7 +26,7 @@
  from twisted.web2 import http_headers
  from twisted.web2 import iweb
  from twisted.web2 import stream
@@ -19,7 +11,7 @@ Index: twisted/web2/http.py
  
  defaultPortForScheme = {'http': 80, 'https':443, 'ftp':21}
  
-@@ -66,9 +67,9 @@
+@@ -66,9 +66,9 @@
              object.
          @type codeOrResponse: C{int} or L{http.Response}
          """
@@ -32,16 +24,7 @@ Index: twisted/web2/http.py
  
      def __repr__(self):
          return "<%s %s>" % (self.__class__.__name__, self.response)
-@@ -174,7 +175,7 @@
-             "Document moved to %s." % (location,)
-         )
- 
--        self.headers.setHeader("location", location)
-+        self.headers.setHeader("location", urllib.quote(location, safe=":/"))
- 
-         
- def NotModifiedResponse(oldResponse=None):
-@@ -408,9 +409,22 @@
+@@ -408,9 +408,22 @@
      def _sendContinue(self):
          self.chanRequest.writeIntermediateResponse(responsecode.CONTINUE)
  
@@ -65,7 +48,7 @@ Index: twisted/web2/http.py
  
      def _error(self, reason):
          if reason.check(error.ConnectionLost):
-@@ -471,5 +485,5 @@
+@@ -471,5 +484,5 @@
  else:
      components.registerAdapter(compat.OldResourceAdapter, resource.IResource, iweb.IOldNevowResource)
  
