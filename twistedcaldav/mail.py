@@ -543,8 +543,8 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
         port = config.HTTPPort
 
     # If we're running on same host as calendar server, inject via localhost
-    if config.Scheduling['iMIP']['MailGatewayServer'] == 'localhost':
-        host = 'localhost'
+    if config.Scheduling['iMIP']['MailGatewayServer'] == '127.0.0.1':
+        host = '127.0.0.1'
     else:
         host = config.ServerHostName
     path = "inbox"

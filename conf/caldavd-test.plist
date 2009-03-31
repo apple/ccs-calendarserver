@@ -419,7 +419,7 @@
       <integer>3</integer>
 
       <key>InternalNotificationHost</key>
-      <string>localhost</string>
+      <string>127.0.0.1</string>
 
       <key>InternalNotificationPort</key>
       <integer>62309</integer>
@@ -532,7 +532,7 @@
         <key>Enabled</key>
         <false/>
         <key>MailGatewayServer</key>
-        <string>localhost</string>
+        <string>127.0.0.1</string>
         <key>MailGatewayPort</key>
         <integer>62310</integer>
         <key>Sending</key>
