@@ -302,7 +302,7 @@ def processCalendarHome(
                 # Add calendar to F/B set
                 #
                 if calendarHome.record == dummyDirectoryRecord:
-                    print "Unable to edit F/B info for %s" % (calendarHome,)
+                    log.err("Unable to edit F/B info for %s" % (calendarHome,))
                     continue
 
                 calendarURL = "/calendars/__uids__/%s/meetingmaker" % (calendarHome.record.guid,)
@@ -319,7 +319,6 @@ def processCalendarHome(
                     needFB = False
 
                     for href in hrefs:
-                        print "*"*10, href
                         if str(href) == calendarURL:
                             break
                     else:
