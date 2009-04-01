@@ -408,7 +408,15 @@ class CalendarIndex (AbstractCalendarIndex):
         """
         uid = calendar.resourceUID()
 
-        expand_max = datetime.date.today() + default_future_expansion_duration
+        # Decide how far to expand based on the component
+        master = calendar.masterComponent()
+        if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
+            # When there is no master we have a set of overridden components - index them all.
+            # When there is one instance - index it.
+            # When bounded - index all.
+            expand_max = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+        else:
+            expand_max = datetime.date.today() + default_future_expansion_duration
 
         instances = calendar.expandTimeRanges(expand_max)
         for key in instances:
