@@ -670,6 +670,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
     liveProperties = tuple(SuperDAVPrincipalResource.liveProperties) + (
         (calendarserver_namespace, "expanded-group-member-set"),
         (calendarserver_namespace, "expanded-group-membership"),
+        (calendarserver_namespace, "record-type"),
     )
 
     @inlineCallbacks
@@ -697,6 +698,10 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
                 returnValue(customxml.ExpandedGroupMembership(
                     *[davxml.HRef(p.principalURL()) for p in principals]
                 ))
+
+            elif name == "record-type":
+                returnValue(customxml.RecordType(self.record.recordType))
+
 
         result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
         returnValue(result)

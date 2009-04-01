@@ -571,6 +571,13 @@ class RecurrenceID (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "recurrenceid"
 
+class RecordType (davxml.WebDAVTextElement):
+    """
+    Exposes the type of a record
+    """
+    name = "record-type"
+    protected = True
+
 ##
 # Extensions to davxml.ResourceType
 ##
