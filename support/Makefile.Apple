@@ -114,7 +114,7 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/conf/85-calendarServer.plist" "$(DSTROOT)$(ETCDIR)/server_backup/"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/bin/calendarServer_restore" "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
 
-install:: prep
+install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools"
 	$(_v) $(INSTALL_FILE) "$(Sources)/CalDAVTester.tgz" "$(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz"
 
