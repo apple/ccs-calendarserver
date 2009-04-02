@@ -189,7 +189,12 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     ))
 
 
-        if self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
+        # We don't want the /inbox resource to pay attention to SACLs because
+        # we just want it to use the hard-coded ACL for the imip reply user
+        if segments[0] == "inbox":
+            request.checkedSACL = True
+
+        elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             yield self.checkSacl(request)
             child = (yield super(RootResource, self).locateChild(request, segments))
             returnValue(child)

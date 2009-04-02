@@ -802,7 +802,7 @@ class IMIPScheduler(Scheduler):
         # Get the request IP and map to hostname.
         clientip = self.request.remoteAddr.host
         host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
-        for host in itertools.chain((host,), aliases):
+        for host in itertools.chain((host, clientip), aliases):
             if host == allowed:
                 break
         else:
