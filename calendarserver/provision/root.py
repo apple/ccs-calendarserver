@@ -196,8 +196,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             yield self.checkSacl(request)
-            child = (yield super(RootResource, self).locateChild(request, segments))
-            returnValue(child)
 
         if config.RejectClients:
             #

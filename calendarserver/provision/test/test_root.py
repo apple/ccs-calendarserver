@@ -253,10 +253,11 @@ class SACLCacheTests(RootTests):
         def __init__(self):
             self.cache = {}
             self.responseCache = self
-    
+            self.cacheHitCount = 0
 
         def getResponseForRequest(self, request):
             if str(request) in self.cache:
+                self.cacheHitCount += 1
                 return self.cache[str(request)]
     
     
@@ -314,6 +315,7 @@ class SACLCacheTests(RootTests):
         def gotResponse2(response):
             if response.code != responsecode.MULTI_STATUS:
                 self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+            self.assertEqual(self.root.resource.responseCache.cacheHitCount, 1)
 
         d = self.send(request, gotResponse1)
         return d
