@@ -158,9 +158,9 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:o:aH:r:u:", [
+            sys.argv[1:], "hf:aH:r:u:", [
                 "config=",
-                "output=",
+                "log=",
                 "help",
                 "all", "home=", "record=", "user=",
                 "no-icalendar", "no-properties", "no-index",
@@ -170,7 +170,7 @@ def main():
         usage(e)
 
     configFileName = None
-    outputFileName = None
+    logFileName = "/dev/stdout"
 
     directory = None
     calendarHomePaths = set()
@@ -179,9 +179,6 @@ def main():
     readCalendarData = True
     readProperties = True
     readIndexes = True
-
-    observer = log.FileLogObserver(open("/dev/stdout", "a"))
-    log.addObserver(observer.emit)
 
     def checkExists(resource):
         if not resource.exists():
@@ -194,6 +191,9 @@ def main():
 
         elif opt in ("-f", "--config"):
             configFileName = arg
+
+        elif opt in ("--log",):
+            logFileName = arg
 
         elif opt in ("-a", "--all"):
             allRecords = True
@@ -227,6 +227,9 @@ def main():
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
 
+    observer = log.FileLogObserver(open(logFileName, "a"))
+    log.addObserver(observer.emit)
+
     if records or allRecords or calendarHomePaths:
         loadConfig(configFileName)
         directory = getDirectory()
@@ -239,10 +242,18 @@ def main():
 
             record = directory.recordWithGUID(guid)
             if record is None:
-                record = dummyDirectoryRecord
+                record = DirectoryRecord(
+                    service = DummyDirectoryService(),
+                    recordType = "dummy",
+                    guid = guid,
+                    shortName = "dummy",
+                    fullName = "",
+                    calendarUserAddresses = set(),
+                    autoSchedule = False,
+                )
 
             parent = CalDAVFile(dirname(abspath(path)))
-            calendarHome = CalendarHomeFile(arg, parent, record)
+            calendarHome = CalendarHomeFile(path, parent, record)
             checkExists(calendarHome)
             calendarHomes.add(calendarHome)
 
@@ -301,7 +312,7 @@ def processCalendarHome(
                 #
                 # Add calendar to F/B set
                 #
-                if calendarHome.record == dummyDirectoryRecord:
+                if calendarHome.record.recordType is dummyDirectoryRecord:
                     log.err("Unable to edit F/B info for %s" % (calendarHome,))
                     continue
 
