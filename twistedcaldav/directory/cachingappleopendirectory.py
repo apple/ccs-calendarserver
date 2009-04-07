@@ -91,7 +91,6 @@ class OpenDirectoryService(CachingDirectoryService):
         else:
             self.restrictToGUID = True
         self.restrictedGUIDs = None
-        self.cacheTimeout = cacheTimeout
         self._records = {}
         self._delayedCalls = set()
 

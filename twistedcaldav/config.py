@@ -73,7 +73,7 @@ serviceDefaultParams = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/caldavd/accounts.xml",
     },
-    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+    "twistedcaldav.directory.cachingappleopendirectory.OpenDirectoryService": {
         "node": "/Search",
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
@@ -218,7 +218,7 @@ defaultConfig = {
             "Scheduler": "LeastConnections",
         },
         "StaggeredStartup": {
-            "Enabled": True,
+            "Enabled": False,
             "Interval": 15,
         },
     },
