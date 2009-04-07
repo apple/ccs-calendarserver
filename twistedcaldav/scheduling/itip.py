@@ -419,18 +419,19 @@ class iTipProcessing(object):
                 private_comment_changed = True
             
             else:
-                # Remove all property parameters
-                private_comment.params().clear()
-                
-                # Add default parameters
-                private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
-                private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
-                
-                # Set new value
-                oldvalue = private_comment.value()
-                private_comment.setValue(attendee_comment.value())
-
-                private_comment_changed = (oldvalue != attendee_comment.value())
+                # Only change if different
+                if private_comment.value() != attendee_comment.value():
+                    # Remove all property parameters
+                    private_comment.params().clear()
+                    
+                    # Add default parameters
+                    private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
+                    private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
+                    
+                    # Set new value
+                    private_comment.setValue(attendee_comment.value())
+    
+                    private_comment_changed = True
 
         return attendee.value(), partstat_changed, private_comment_changed
 
