@@ -43,6 +43,9 @@ static PyObject *appleauth_CheckSACL(PyObject *self, PyObject *args) {
     // If the username is empty, see if there is a com.apple.access_<service>
     // group
     if ( usernameSize == 0 ) {
+        if ( strlen(serviceName) > 255 - strlen(prefix) ) {
+            return Py_BuildValue("i", (-3));
+        }
         memcpy(groupName, prefix, strlen(prefix));
         strcpy(groupName + strlen(prefix), serviceName);
         if ( mbr_group_name_to_uuid(groupName, group_uu) == 0 ) {
