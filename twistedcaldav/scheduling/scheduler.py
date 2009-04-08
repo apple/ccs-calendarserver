@@ -319,8 +319,8 @@ class Scheduler(object):
                     "Originator: %s\nRecipients:\n%sServer Instance:%s\n\n%s"
                     % (
                         str(self.originator),
-                        "".join(["    %s\n" % (recipient,) for recipient in self.recipients]),
-                        self.request.serverInstance,
+                        str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
+                        str(self.request.serverInstance),
                         str(self.calendar)
                     )
                 )
