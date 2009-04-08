@@ -125,7 +125,7 @@ install::
 $(BuildDirectory)/$(Project):
 	@echo "Copying source for $(Project)..."
 	$(_v) $(MKDIR) -p "$@"
-	$(_v) pax -rw bin conf Makefile lib-patches setup.py kqreactor.py calendarserver twistedcaldav twext twisted support "$@/"
+	$(_v) pax -rw bin conf Makefile lib-patches setup.py kqreactor.py memcache.py calendarserver twistedcaldav twext twisted support "$@/"
 
 $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
