@@ -410,7 +410,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         wikiACL = (yield getWikiACL(self, request))
         if wikiACL is not None:
             # ACL depends on wiki server...
-            log.info("Wiki ACL: %s" % (wikiACL,))
+            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
             returnValue(wikiACL)
         else:
             # ...otherwise permissions are fixed, and are not subject to

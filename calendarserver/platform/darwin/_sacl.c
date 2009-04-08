@@ -30,10 +30,30 @@ static PyObject *appleauth_CheckSACL(PyObject *self, PyObject *args) {
     char *serviceName;
     int serviceNameSize;
 
+    char *prefix = "com.apple.access_";
+    char groupName[256];
+    uuid_t group_uu;
+
     // get the args
     if (!PyArg_ParseTuple(args, "s#s#", &username,
                           &usernameSize, &serviceName, &serviceNameSize)) {
         return NULL;
+    }
+
+    // If the username is empty, see if there is a com.apple.access_<service>
+    // group
+    if ( usernameSize == 0 ) {
+        memcpy(groupName, prefix, strlen(prefix));
+        strcpy(groupName + strlen(prefix), serviceName);
+        if ( mbr_group_name_to_uuid(groupName, group_uu) == 0 ) {
+            // com.apple.access_<serviceName> group does exist, so
+            // unauthenticated users are not allowed
+            return Py_BuildValue("i", (-1));
+        } else {
+            // com.apple.access_<serviceName> group doesn't exist, so
+            // unauthenticated users are allowed
+            return Py_BuildValue("i", 0);
+        }
     }
 
     // get a uuid for the user

@@ -106,16 +106,20 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             ))
             raise HTTPError(response)
 
-        # Ensure that the user is not unauthenticated.
-        # SACLs are authorization for the use of the service,
-        # so unauthenticated access doesn't make any sense.
+        # SACLs are enabled in the plist, but there may not actually
+        # be a SACL group assigned to this service.  Let's see if
+        # unauthenticated users are allowed by calling CheckSACL
+        # with an empty string.
         if authzUser == davxml.Principal(davxml.Unauthenticated()):
-            log.msg("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
-            response = (yield UnauthorizedResponse.makeResponse(
-                request.credentialFactories,
-                request.remoteAddr
-            ))
-            raise HTTPError(response)
+            if RootResource.CheckSACL("", self.saclService) != 0:
+                log.msg("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
+                response = (yield UnauthorizedResponse.makeResponse(
+                    request.credentialFactories,
+                    request.remoteAddr
+                ))
+                raise HTTPError(response)
+            else:
+                returnValue(True)
 
         # Cache the authentication details
         request.authnUser = authnUser
