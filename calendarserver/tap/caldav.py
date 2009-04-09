@@ -1010,7 +1010,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         if (
             config.Notifications.Enabled and
-            config.Notifications.InternalNotificationHost == "127.0.0.1"
+            config.Notifications.InternalNotificationHost == "localhost"
         ):
             self.log_info("Adding notification service")
 
@@ -1026,7 +1026,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         if (
             config.Scheduling.iMIP.Enabled and
-            config.Scheduling.iMIP.MailGatewayServer == "127.0.0.1"
+            config.Scheduling.iMIP.MailGatewayServer == "localhost"
         ):
             self.log_info("Adding mail gateway service")
 

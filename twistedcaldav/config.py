@@ -258,7 +258,7 @@ defaultConfig = {
 
         "iMIP": {
             "Enabled"          : False, # Server-to-iMIP protocol
-            "MailGatewayServer" : "127.0.0.1",
+            "MailGatewayServer" : "localhost",
             "MailGatewayPort"   : 62310,
             "Username"          : "com.apple.calendarserver", # For account injecting replies
             "Password"          : "",    # For account injecting replies
@@ -304,7 +304,7 @@ defaultConfig = {
     "Notifications" : {
         "Enabled": False,
         "CoalesceSeconds" : 3,
-        "InternalNotificationHost" : "127.0.0.1",
+        "InternalNotificationHost" : "localhost",
         "InternalNotificationPort" : 62309,
         "BindAddress" : "127.0.0.1",
 

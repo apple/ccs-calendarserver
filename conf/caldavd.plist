@@ -376,7 +376,7 @@
         <key>Enabled</key>
         <false/>
         <key>MailGatewayServer</key>
-        <string>127.0.0.1</string>
+        <string>localhost</string>
         <key>MailGatewayPort</key>
         <integer>62310</integer>
         <key>Sending</key>
