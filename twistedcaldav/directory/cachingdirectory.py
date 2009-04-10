@@ -13,12 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
-from twistedcaldav.config import config
+
 import time
 import types
 import memcache
 import base64
+
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.config import config
 
 """
 Caching directory service implementation.
@@ -142,7 +144,6 @@ class CachingDirectoryService(DirectoryService):
 
         self._initCaches(cacheClass)
 
-
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
             self.memcacheClient = memcache.Client(['%s:%s' %
@@ -151,6 +152,9 @@ class CachingDirectoryService(DirectoryService):
         return self.memcacheClient
 
     def memcacheSet(self, key, record):
+        if not config.Memcached.ClientEnabled:
+            return
+
         hideService = isinstance(record, DirectoryRecord)
 
         try:
@@ -170,12 +174,14 @@ class CachingDirectoryService(DirectoryService):
                 record.service = self
 
     def memcacheGet(self, key):
+        if not config.Memcached.ClientEnabled:
+            return None
+
         key = base64.b64encode(key)
         record = self._getMemcacheClient().get(key)
         if record is not None and isinstance(record, DirectoryRecord):
             record.service = self
         return record
-
 
     def _initCaches(self, cacheClass):
         self._recordCaches = dict([
@@ -184,7 +190,6 @@ class CachingDirectoryService(DirectoryService):
         ])
             
         self._disabledKeys = dict([(indexType, dict()) for indexType in self.indexTypes()])
-
 
     def indexTypes(self):
         
