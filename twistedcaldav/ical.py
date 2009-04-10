@@ -1009,6 +1009,10 @@ class Component (object):
                         if len(exdate.value()) == 0:
                             master.removeProperty(exdate)
                         didCancel = True
+
+                        # We changed the instance set so remove any instance cache
+                        if hasattr(self, "cachedInstances"):
+                            delattr(self, "cachedInstances")
                         break
                     else:
                         # Cannot derive from an existing EXDATE
