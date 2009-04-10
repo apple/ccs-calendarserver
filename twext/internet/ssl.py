@@ -22,7 +22,7 @@ __all__ = [
     "ChainingOpenSSLContextFactory",
 ]
 
-from OpenSSL.SSL import Context as SSLContext, SSLv23_METHOD
+from OpenSSL.SSL import Context as SSLContext, SSLv3_METHOD
 
 from twisted.internet.ssl import DefaultOpenSSLContextFactory
 
@@ -30,7 +30,7 @@ from twisted.internet.ssl import DefaultOpenSSLContextFactory
 class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
     def __init__(
         self, privateKeyFileName, certificateFileName,
-        sslmethod=SSLv23_METHOD, certificateChainFile=None,
+        sslmethod=SSLv3_METHOD, certificateChainFile=None,
         passwdCallback=None
     ):
         self.certificateChainFile = certificateChainFile
