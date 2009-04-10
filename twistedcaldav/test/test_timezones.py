@@ -16,7 +16,7 @@
 
 import twistedcaldav.test.util
 from twistedcaldav.ical import Component
-from vobject.icalendar import utc
+from vobject.icalendar import utc, getTzid
 from vobject.icalendar import registerTzid
 from twistedcaldav.timezones import TimezoneCache, TimezoneException
 from twistedcaldav.timezones import readTZ, listTZs
@@ -54,15 +54,23 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         Properties in components
         """
         
-        registerTzid("America/New_York", None)
-        self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
+        oldtzid = getTzid("America/New_York")
+        try:
+            registerTzid("America/New_York", None)
+            self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
+        finally:
+            registerTzid("America/New_York", oldtzid)
 
     def test_truncatedDec(self):
         """
         Properties in components
         """
-        registerTzid("America/New_York", None)
-        self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
+        oldtzid = getTzid("America/New_York")
+        try:
+            registerTzid("America/New_York", None)
+            self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
+        finally:
+            registerTzid("America/New_York", oldtzid)
 
     def test_truncatedAprThenDecFail(self):
         """
@@ -71,45 +79,57 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         if TimezoneCache.activeCache:
             TimezoneCache.activeCache.unregister()
 
-        registerTzid("America/New_York", None)
-        self.doTest(
-            "TruncatedApr01.ics",
-            datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
-            datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
-        )
-        self.doTest(
-            "TruncatedDec10.ics",
-            datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
-            datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
-            testEqual=False
-        )
+        oldtzid = getTzid("America/New_York")
+        try:
+            registerTzid("America/New_York", None)
+            self.doTest(
+                "TruncatedApr01.ics",
+                datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
+                datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
+            )
+            self.doTest(
+                "TruncatedDec10.ics",
+                datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
+                datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
+                testEqual=False
+            )
+        finally:
+            registerTzid("America/New_York", oldtzid)
 
     def test_truncatedAprThenDecOK(self):
         """
         Properties in components
         """
-        registerTzid("America/New_York", None)
-        tzcache = TimezoneCache()
-        tzcache.register()
-        self.doTest(
-            "TruncatedApr01.ics",
-            datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
-            datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
-        )
-        self.doTest(
-            "TruncatedDec10.ics",
-            datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
-            datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
-        )
-        tzcache.unregister()
+        oldtzid = getTzid("America/New_York")
+        try:
+            registerTzid("America/New_York", None)
+            tzcache = TimezoneCache()
+            tzcache.register()
+            self.doTest(
+                "TruncatedApr01.ics",
+                datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
+                datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
+            )
+            self.doTest(
+                "TruncatedDec10.ics",
+                datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
+                datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
+            )
+            tzcache.unregister()
+        finally:
+            registerTzid("America/New_York", oldtzid)
 
     def test_truncatedDecThenApr(self):
         """
         Properties in components
         """
-        registerTzid("America/New_York", None)
-        self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
-        self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
+        oldtzid = getTzid("America/New_York")
+        try:
+            registerTzid("America/New_York", None)
+            self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
+            self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
+        finally:
+            registerTzid("America/New_York", oldtzid)
 
 class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     """
