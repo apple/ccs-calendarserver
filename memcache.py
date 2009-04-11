@@ -681,6 +681,8 @@ class Client(local):
         if not server:
             return 0
 
+        if token:
+            cmd = "cas"
         self._statlog(cmd)
 
         store_info = self._val_to_store_info(val, min_compress_len)
@@ -734,7 +736,7 @@ class Client(local):
         if not server:
             raise MemcacheError("Memcache connection error")
 
-        self._statlog('get')
+        self._statlog('gets')
 
         try:
             server.send_cmd("gets %s" % key)
