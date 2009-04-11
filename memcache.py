@@ -85,6 +85,11 @@ SERVER_MAX_VALUE_LENGTH = 1024*1024
 class _Error(Exception):
     pass
 
+class MemcacheError(_Error):
+    """
+    Memcache connection error
+    """
+
 try:
     # Only exists in Python 2.4+
     from threading import local
@@ -698,7 +703,7 @@ class Client(local):
         check_key(key)
         server, key = self._get_server(key)
         if not server:
-            return None
+            raise MemcacheError("Memcache connection error")
 
         self._statlog('get')
 
@@ -712,7 +717,7 @@ class Client(local):
         except (_Error, socket.error), msg:
             if type(msg) is types.TupleType: msg = msg[1]
             server.mark_dead(msg)
-            return None
+            raise MemcacheError("Memcache connection error")
         return value
 
     def get_multi(self, keys, key_prefix=''):
