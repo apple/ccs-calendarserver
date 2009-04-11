@@ -480,7 +480,7 @@ class Client(local):
         '''
         return self._set("replace", key, val, time, min_compress_len)
 
-    def set(self, key, val, time=0, min_compress_len=0):
+    def set(self, key, val, time=0, min_compress_len=0, token=None):
         '''Unconditionally sets a key to a given value in the memcache.
 
         The C{key} can optionally be an tuple, with the first element
@@ -504,7 +504,7 @@ class Client(local):
         discarded. For backwards compatability, this parameter defaults to 0,
         indicating don't ever try to compress.
         '''
-        return self._set("set", key, val, time, min_compress_len)
+        return self._set("set", key, val, time, min_compress_len, token=token)
 
 
     def _map_and_prefix_keys(self, key_iterable, key_prefix):
@@ -675,7 +675,7 @@ class Client(local):
 
         return (flags, len(val), val)
 
-    def _set(self, cmd, key, val, time, min_compress_len = 0):
+    def _set(self, cmd, key, val, time, min_compress_len = 0, token=None):
         check_key(key)
         server, key = self._get_server(key)
         if not server:
@@ -686,10 +686,14 @@ class Client(local):
         store_info = self._val_to_store_info(val, min_compress_len)
         if not store_info: return(0)
 
-        fullcmd = "%s %s %d %d %d\r\n%s" % (cmd, key, store_info[0], time, store_info[1], store_info[2])
+        if token:
+            fullcmd = "cas %s %d %d %d %d\r\n%s" % (key, store_info[0], time, store_info[1], token, store_info[2])
+        else:
+            fullcmd = "%s %s %d %d %d\r\n%s" % (cmd, key, store_info[0], time, store_info[1], store_info[2])
         try:
             server.send_cmd(fullcmd)
-            return(server.expect("STORED") == "STORED")
+            return (server.expect("STORED") == "STORED")
+
         except socket.error, msg:
             if type(msg) is types.TupleType: msg = msg[1]
             server.mark_dead(msg)
@@ -719,6 +723,31 @@ class Client(local):
             server.mark_dead(msg)
             raise MemcacheError("Memcache connection error")
         return value
+
+    def gets(self, key):
+        '''Retrieves a key from the memcache.
+
+        @return: The value or None.
+        '''
+        check_key(key)
+        server, key = self._get_server(key)
+        if not server:
+            raise MemcacheError("Memcache connection error")
+
+        self._statlog('get')
+
+        try:
+            server.send_cmd("gets %s" % key)
+            rkey, flags, rlen, cas_token = self._expectvalue_cas(server)
+            if not rkey:
+                return (None, None)
+            value = self._recv_value(server, flags, rlen)
+            server.expect("END")
+        except (_Error, socket.error), msg:
+            if type(msg) is types.TupleType: msg = msg[1]
+            server.mark_dead(msg)
+            raise MemcacheError("Memcache connection error")
+        return (value, cas_token)
 
     def get_multi(self, keys, key_prefix=''):
         '''
@@ -803,6 +832,19 @@ class Client(local):
             return (rkey, flags, rlen)
         else:
             return (None, None, None)
+
+    def _expectvalue_cas(self, server, line=None):
+        if not line:
+            line = server.readline()
+
+        if line[:5] == 'VALUE':
+            resp, rkey, flags, len, token = line.split()
+            flags = int(flags)
+            rlen = int(len)
+            rtoken = int(token)
+            return (rkey, flags, rlen, rtoken)
+        else:
+            return (None, None, None, None)
 
     def _recv_value(self, server, flags, rlen):
         rlen += 2 # include \r\n
