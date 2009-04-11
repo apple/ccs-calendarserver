@@ -14,14 +14,6 @@
 # limitations under the License.
 ##
 
-import time
-import types
-import memcache
-import base64
-
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
-from twistedcaldav.config import config
-
 """
 Caching directory service implementation.
 """
@@ -31,6 +23,16 @@ __all__ = [
     "CachingDirectoryRecord",
     "DictRecordTypeCache",
 ]
+
+
+import time
+import types
+import memcache
+import base64
+
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.config import config
+
 
 class RecordTypeCache(object):
     """
@@ -162,10 +164,12 @@ class CachingDirectoryService(DirectoryService):
                 record.service = None # so we don't pickle service
 
             key = base64.b64encode(key)
-            if not self._getMemcacheClient().set(key, record, self.cacheTimeout):
+            if not self._getMemcacheClient().set(key, record, time=self.cacheTimeout):
                 self.log_error("Could not write to memcache, retrying")
-                if not self._getMemcacheClient(refresh=True).set(key, record,
-                    self.cacheTimeout):
+                if not self._getMemcacheClient(refresh=True).set(
+                    key, record,
+                    time=self.cacheTimeout
+                ):
                     self.log_error("Could not write to memcache again, giving up")
                     del self.memcacheClient
                     raise DirectoryMemcacheError("Failed to write to memcache")
