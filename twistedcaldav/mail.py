@@ -26,7 +26,7 @@ from email.mime.text import MIMEText
 
 from twisted.application import internet, service
 from twisted.internet import protocol, defer, ssl, reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
@@ -58,7 +58,6 @@ import os
 import uuid
 from hashlib import md5, sha1
 import base64
-import time
 
 try:
     from cStringIO import StringIO
