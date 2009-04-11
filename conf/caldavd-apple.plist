@@ -250,7 +250,7 @@
     <key>AccessLogFile</key>
     <string>/var/log/caldavd/access.log</string>
     <key>RotateAccessLog</key>
-    <false/>
+    <true/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>
