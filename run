@@ -16,6 +16,19 @@
 # limitations under the License.
 ##
 
+##
+# WARNING: This script is intended for use by developers working on
+# the Calendar Server code base.  It is not intended for use in a
+# deployment configuration.
+#
+# DO NOT use this script as a system startup tool (eg. in /etc/init.d,
+# /Library/StartupItems, launchd plists, etc.)
+#
+# For those uses, install the server properly (eg. with "./run -i
+# /tmp/foo && cd /tmp/foo && pax -pe -rvw . /") and use the caldavd
+# executable to start the server.
+##
+
 set -e
 set -u
 
