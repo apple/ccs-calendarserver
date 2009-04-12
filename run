@@ -446,7 +446,7 @@ fi;
 if ! py_have_module xml.dom.ext; then
   xml="${top}/PyXML-0.8.4";
 
-  www_get "PyXML" "${xml}" http://easynews.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+  www_get "PyXML" "${xml}" http://softlayer.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
   py_build "PyXML" "${xml}" false;
   py_install "PyXML" "${xml}";
 
@@ -460,7 +460,7 @@ fi;
 if ! py_have_module OpenSSL; then
   ssl="${top}/pyOpenSSL-0.6";
 
-  www_get "PyOpenSSL" "${ssl}" http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
+  www_get "PyOpenSSL" "${ssl}" http://softlayer.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz;
   py_build "PyOpenSSL" "${ssl}" false;
   py_install "PyOpenSSL" "${ssl}";
 
@@ -521,7 +521,7 @@ fi;
 if ! py_have_module ctypes; then
   ctypes="${top}/ctypes-1.0.0"
 
-  www_get "ctypes" "${ctypes}" http://easynews.dl.sourceforge.net/sourceforge/ctypes/ctypes-1.0.0.tar.gz;
+  www_get "ctypes" "${ctypes}" http://softlayer.dl.sourceforge.net/sourceforge/ctypes/ctypes-1.0.0.tar.gz;
   py_build "ctypes" "${ctypes}" true;
   py_install "ctypes" "${ctypes}";
 
@@ -669,7 +669,7 @@ fi;
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
 
-  www_get "PyDirector" "${pydirector}" http://easynews.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+  www_get "PyDirector" "${pydirector}" http://softlayer.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
   put_setuptools "${pydirector}";
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
