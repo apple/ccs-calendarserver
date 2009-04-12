@@ -28,7 +28,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
-from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
+from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.config import config
 from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
@@ -93,7 +93,13 @@ class RootResource (RootACLMixIn, DAVFile):
 
     def deadProperties(self):
         if not hasattr(self, '_dead_properties'):
-            self._dead_properties = CachingXattrPropertyStore(self)
+            # Get the property store from super
+            deadProperties = super(RootResource, self).deadProperties()
+  
+            # Wrap the property store in a memory store
+            deadProperties = CachingPropertyStore(deadProperties)
+
+            self._dead_properties = deadProperties
 
         return self._dead_properties
 

@@ -143,7 +143,7 @@ dist = setup(
     scripts          = [ "bin/caldavd", "bin/caladmin" ],
     data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
     ext_modules      = extensions,
-    py_modules       = ["kqreactor"],
+    py_modules       = ["kqreactor", "memcacheclient"],
 )
 
 if "install" in dist.commands:
