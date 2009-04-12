@@ -86,6 +86,23 @@ class MemcachePropertyCollection (LoggingMixIn):
             self._propertyCache = self._loadCache()
         return self._propertyCache
 
+    def childCache(self, child):
+        path = child.fp.path
+        key = self._keyForPath(path)
+        propertyCache = self.propertyCache()
+
+        try:
+            childCache, token = propertyCache["key"]
+        except KeyError:
+            self.log_debug("No child property cache for %s" % (child,))
+            childCache, token = ({}, None)
+
+            #message = "No child property cache for %s" % (child,)
+            #log.error(message)
+            #raise AssertionError(message)
+
+        return propertyCache, key, childCache, token
+
     def _keyForPath(self, path):
         key = "|".join((
             self.__class__.__name__,
@@ -117,6 +134,17 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         result = client.gets_multi((key for key, name in keys))
 
+        if self.logger.willLogAtLevel("debug"):
+            if abortIfMissing:
+                missing = "missing "
+            else:
+                missing = ""
+            self.log_debug("Loaded keys for %schildren of %s: %s" % (
+                missing,
+                self.collection,
+                [name for key, name in keys],
+            ))
+
         missing = tuple((
             name for key, name in keys
             if key not in result
@@ -134,7 +162,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         return result
 
     def _storeCache(self, cache):
-        self.log_error("Storing cache for %s" % (self.collection,))
+        self.log_debug("Storing cache for %s" % (self.collection,))
 
         values = dict((
             (self._keyForPath(path), props)
@@ -171,12 +199,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         return cache
 
     def setProperty(self, child, property):
-        path = child.fp.path
-        key = self._keyForPath(path)
-        propertyCache = self.propertyCache()
-        childCache, token = propertyCache.get(key, (None, None))
-
-        assert childCache is not None, "No child cache?"
+        propertyCache, key, childCache, token = self.childCache(child)
 
         if childCache.get(property.qname(), None) == property:
             # No changes
@@ -189,7 +212,8 @@ class MemcachePropertyCollection (LoggingMixIn):
             result = client.set(key, childCache, time=self.cacheTimeout, token=token)
             if not result:
                 delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to set property")
+                raise MemcacheError("Unable to set property %s on %s"
+                                    % (property.sname(), child))
 
             loaded = self._loadCache(childNames=(child.fp.basename(),))
             propertyCache.update(loaded.iteritems())
@@ -206,15 +230,10 @@ class MemcachePropertyCollection (LoggingMixIn):
         if client is not None:
             result = client.delete(key)
             if not result:
-                raise MemcacheError("Unable to delete property")
+                raise MemcacheError("Unable to flush cache on %s" % (child,))
 
     def deleteProperty(self, child, qname):
-        path = child.fp.path
-        key = self._keyForPath(path)
-        propertyCache = self.propertyCache()
-        childCache, token = propertyCache.get(key, (None, None))
-
-        assert childCache is not None, "No child cache?"
+        propertyCache, key, childCache, token = self.childCache(child)
 
         del childCache[qname]
 
@@ -223,7 +242,8 @@ class MemcachePropertyCollection (LoggingMixIn):
             result = client.set(key, childCache, time=self.cacheTimeout, token=token)
             if not result:
                 delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to delete property")
+                raise MemcacheError("Unable to delete property {%s}%s on %s"
+                                    % (qname[0], qname[1], child))
 
             loaded = self._loadCache(childNames=(child.fp.basename(),))
             propertyCache.update(loaded.iteritems())
