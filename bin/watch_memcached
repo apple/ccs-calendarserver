@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -e
+set -u
+
+watch ()
+{
+  while :; do
+    echo stats;
+    sleep 1;
+    echo "----------------------------------------" >&2;
+  done | nc localhost 11211 2>&1;
+}
+
+if ! watch; then
+  echo "Error contacting memcached for stats.";
+  exit 1;
+fi;
