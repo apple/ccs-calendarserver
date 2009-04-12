@@ -45,152 +45,6 @@ log = Logger()
 
 NoValue = ""
 
-class MemcachePropertyStore (LoggingMixIn):
-    """
-    DAV property store using memcache on top of another property store
-    implementation.
-    """
-    def __init__(self, propertyStore, cacheTimeout=0):
-        self.propertyStore = propertyStore
-        self.resource = propertyStore.resource
-        self.cacheTimeout = cacheTimeout
-
-    def _getMemcacheClient(self, refresh=False):
-        raise NotImplementedError()
-        if not config.Memcached.ClientEnabled:
-            # Not allowed to switch form caching to not caching
-            assert not hasattr(self, self._memcacheClient)
-            return None
-
-        if refresh or not hasattr(self, "_memcacheClient"):
-            self._memcacheClient = MemcacheClient(
-                ["%s:%s" % (config.Memcached.BindAddress, config.Memcached.Port)],
-                debug=0,
-                pickleProtocol=2,
-            )
-        assert self._memcacheClient is not None
-        return self._memcacheClient
-
-    def keyForQname(self, qname):
-        # FIXME: This only works for file resources
-        key = "|".join((
-            self.__class__.__name__,
-            self.propertyStore.resource.fp.path,
-            "{%s}%s" % qname,
-        ))
-        return md5(key).hexdigest()
-
-    def get(self, qname):
-        #self.log_debug("MemcachePropertyStore read for %s on %s"
-        #               % (qname, self.propertyStore.resource.fp.path))
-
-        #
-        # First, check to see if we've cached the property already.
-        #
-        key = self.keyForQname(qname)
-        client = self._getMemcacheClient()
-
-        if client is not None:
-            try:
-                property = client.get(key)
-                if property is not None:
-                    if property is "":
-                        # Negative cache hit
-                        raise HTTPError(StatusResponse(
-                            responsecode.NOT_FOUND,
-                            "No such property: {%s}%s" % qname
-                        ))
-                    else:
-                        # Cache hit
-                        return property
-            except MemcacheError, e:
-                self.log_error("Error from memcache: %s" % (e,))
-                pass
-
-        #
-        # No luck, check in the property store
-        #
-        self.log_debug("Cache miss for %s on %s"
-                       % (qname, self.propertyStore.resource.fp.path))
-
-        if client is None:
-            return self.propertyStore.get(qname)
-
-        try:
-            property = self.propertyStore.get(qname)
-            assert property is not None
-
-            # Cache the result
-            client.set(key, property, time=self.cacheTimeout)
-        except HTTPError, e:
-            if e.response.code == responsecode.NOT_FOUND:
-                # Cache the non-result
-                client.set(key, NoValue, time=self.cacheTimeout)
-            raise
-
-        return property
-
-    def set(self, property):
-        #self.log_debug("Write for %s on %s"
-        #               % (property.qname(), self.propertyStore.resource.fp.path))
-
-        client = self._getMemcacheClient()
-        if client is not None:
-            key = self.keyForQname(property.qname())
-
-            if client.set(key, property, time=self.cacheTimeout):
-                return
-
-            # Refresh the memcache connection and try again
-            client = self._getMemcacheClient(refresh=True)
-            if client.set(key, property, time=self.cacheTimeout):
-                self.log_error("Temporary write failure for %s on %s"
-                               % (property.qname(), self.propertyStore.resource.fp.path))
-                return
-
-            message = (
-                "Write failure for %s on %s"
-                % (property.qname(), self.propertyStore.resource.fp.path)
-            )
-            self.log_error(message)
-            raise MemcacheError(message)
-
-        self.propertyStore.set(property)
-
-    def delete(self, qname):
-        #self.log_debug("Delete for %s on %s"
-        #               % (qname, self.propertyStore.resource.fp.path))
-        client = self._getMemcacheClient()
-        if client is not None:
-            key = self.keyForQname(property.qname())
-            # Flush the cache
-            client.delete(key)
-
-        self.propertyStore.delete(qname)
-
-    def contains(self, qname):
-        #self.log_debug("Contains for %s"
-        #               % (self.propertyStore.resource.fp.path,))
-        client = self._getMemcacheClient()
-        if client is not None:
-            key = self.keyForQname(qname)
-            property = client.get(key)
-            if property is not None:
-                if property is "":
-                    # Negative cache hit                                                                                                         
-                    return False
-                else:
-                    # Cache hit
-                    return True
-
-        return self.propertyStore.contains(qname)
-
-    def list(self):
-        #self.log_debug("List for %s"
-        #               % (self.propertyStore.resource.fp.path,))
-        return self.propertyStore.list()
-
-
 class MemcachePropertyCollection (LoggingMixIn):
     """
     Manages a single property store for all resources in a collection.
@@ -202,12 +56,12 @@ class MemcachePropertyCollection (LoggingMixIn):
     @classmethod
     def memcacheClient(cls, refresh=False):
         if not hasattr(MemcachePropertyCollection, "_memcacheClient"):
-            if not config.Memcached.ClientEnabled:
+            if not config.Memcached["ClientEnabled"]:
                 return None
 
             log.info("Instantiating memcache connection for MemcachePropertyCollection")
             MemcachePropertyCollection._memcacheClient = MemcacheClient(
-                ["%s:%s" % (config.Memcached.BindAddress, config.Memcached.Port)],
+                ["%s:%s" % (config.Memcached["BindAddress"], config.Memcached["Port"])],
                 debug=0,
                 pickleProtocol=2,
             )
