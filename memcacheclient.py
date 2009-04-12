@@ -691,7 +691,7 @@ class Client(local):
         store_info = self._val_to_store_info(val, min_compress_len)
         if not store_info: return(0)
 
-        if token:
+        if token is not None:
             fullcmd = "cas %s %d %d %d %s\r\n%s" % (key, store_info[0], time, store_info[1], token, store_info[2])
         else:
             fullcmd = "%s %s %d %d %d\r\n%s" % (cmd, key, store_info[0], time, store_info[1], store_info[2])
