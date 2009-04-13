@@ -724,7 +724,7 @@ fi;
 
 caldavtester="${top}/CalDAVTester";
 
-svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 3967;
+svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 4009;
 
 #
 # PyFlakes
