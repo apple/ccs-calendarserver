@@ -3,11 +3,17 @@
 set -e
 set -u
 
+if [ $# -gt 0 ]; then
+  interval="$1"; shift;
+else
+  interval="5";
+fi;
+
 watch ()
 {
   while :; do
     echo stats;
-    sleep 1;
+    sleep "${interval}";
     echo "----------------------------------------" >&2;
   done | nc localhost 11211 2>&1;
 }
