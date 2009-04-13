@@ -25,7 +25,7 @@ DAV Property store using memcache on top of another property store
 implementation.
 """
 
-__all__ = ["MemcachePropertyStore"]
+__all__ = ["MemcachePropertyCollection"]
 
 try:
     from hashlib import md5
