@@ -258,22 +258,23 @@ class CachingDirectoryService(DirectoryService):
                 pass
             
             # Check memcache
-            key = "dir|%s|%s" % (indexType, indexKey)
-            record = self.memcacheGet(key)
-            self.log_debug("Memcache: checking %s" % (key,))
-            if record is None:
-                self.log_debug("Memcache: miss %s" % (key,))
-            else:
-                self.log_debug("Memcache: hit %s" % (key,))
-                self.recordCacheForType(record.recordType).addRecord(record)
-                return record
+            if config.Memcached.ClientEnabled:
+                key = "dir|%s|%s" % (indexType, indexKey)
+                record = self.memcacheGet(key)
+                self.log_debug("Memcache: checking %s" % (key,))
+                if record is None:
+                    self.log_debug("Memcache: miss %s" % (key,))
+                else:
+                    self.log_debug("Memcache: hit %s" % (key,))
+                    self.recordCacheForType(record.recordType).addRecord(record)
+                    return record
 
-            # Check negative memcache
-            val = self.memcacheGet("-%s" % (key,))
-            if val == 1:
-                self.log_debug("Memcache: negative %s" % (key,))
-                self._disabledKeys[indexType][indexKey] = time.time()
-                return None
+                # Check negative memcache
+                val = self.memcacheGet("-%s" % (key,))
+                if val == 1:
+                    self.log_debug("Memcache: negative %s" % (key,))
+                    self._disabledKeys[indexType][indexKey] = time.time()
+                    return None
 
             # Try query
             self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
@@ -284,18 +285,19 @@ class CachingDirectoryService(DirectoryService):
             if record:
                 self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
 
-                # share with others via memcache
-                for shortName in record.shortNames:
-                    key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
+                if config.Memcached.ClientEnabled:
+                    # share with others via memcache
+                    for shortName in record.shortNames:
+                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
+                        self.log_debug("Memcache: storing %s" % (key,))
+                        self.memcacheSet(key, record)
+                    for emailAddress in record.emailAddresses:
+                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
+                        self.log_debug("Memcache: storing %s" % (key,))
+                        self.memcacheSet(key, record)
+                    key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_GUID, record.guid)
                     self.log_debug("Memcache: storing %s" % (key,))
                     self.memcacheSet(key, record)
-                for emailAddress in record.emailAddresses:
-                    key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
-                    self.log_debug("Memcache: storing %s" % (key,))
-                    self.memcacheSet(key, record)
-                key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_GUID, record.guid)
-                self.log_debug("Memcache: storing %s" % (key,))
-                self.memcacheSet(key, record)
                 return record
 
 
@@ -303,8 +305,9 @@ class CachingDirectoryService(DirectoryService):
             self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
 
-            self.log_debug("Memcache: storing (negative) %s" % (key,))
-            self.memcacheSet("-%s" % (key,), 1)
+            if config.Memcached.ClientEnabled:
+                self.log_debug("Memcache: storing (negative) %s" % (key,))
+                self.memcacheSet("-%s" % (key,), 1)
 
         return None
 

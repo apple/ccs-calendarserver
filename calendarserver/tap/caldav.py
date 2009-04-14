@@ -344,7 +344,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                 processLocalizationFiles(config.Localization)
 
                 # Now do any on disk upgrades we might need.
+                # Memcache isn't running at this point, so temporarily change
+                # the config so nobody tries to talk to it while upgrading
+                memcacheSetting = config.Memcached.ClientEnabled
+                config.Memcached.ClientEnabled = False
                 upgradeData(config)
+                config.Memcached.ClientEnabled = memcacheSetting
 
 
             service = serviceMethod(options)
