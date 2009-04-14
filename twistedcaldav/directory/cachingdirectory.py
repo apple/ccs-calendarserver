@@ -145,6 +145,7 @@ class CachingDirectoryService(DirectoryService):
         self.cacheTimeout = cacheTimeout * 60
 
         self._initCaches(cacheClass)
+        super(CachingDirectoryService, self).__init__()
 
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
@@ -182,9 +183,18 @@ class CachingDirectoryService(DirectoryService):
             return None
 
         key = base64.b64encode(key)
-        record = self._getMemcacheClient().get(key)
-        if record is not None and isinstance(record, DirectoryRecord):
-            record.service = self
+        try:
+            record = self._getMemcacheClient().get(key)
+            if record is not None and isinstance(record, DirectoryRecord):
+                record.service = self
+        except memcache.MemcacheError:
+            self.log_error("Could not read from memcache, retrying")
+            try:
+                record = self._getMemcacheClient(refresh=True).get(key, record)
+            except memcache.MemcacheError:
+                self.log_error("Could not read from memcache again, giving up")
+                del self.memcacheClient
+                raise DirectoryMemcacheError("Failed to read from memcache")
         return record
 
     def _initCaches(self, cacheClass):
