@@ -56,7 +56,8 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.extensions import DAVFile
-from twistedcaldav.extensions import CachingXattrPropertyStore
+from twistedcaldav.extensions import CachingPropertyStore
+from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule
@@ -86,9 +87,16 @@ class CalDAVFile (CalDAVResource, DAVFile):
         else:
             return super(CalDAVFile, self).__repr__()
 
-    def deadProperties(self):
+    def deadProperties(self, caching=True):
         if not hasattr(self, "_dead_properties"):
-            self._dead_properties = CachingXattrPropertyStore(self)
+            # Get the property store from super
+            deadProperties = super(CalDAVFile, self).deadProperties()
+
+            if caching:
+                # Wrap the property store in a memory store
+                deadProperties = CachingPropertyStore(deadProperties)
+
+            self._dead_properties = deadProperties
 
         return self._dead_properties
 
@@ -315,6 +323,53 @@ class CalDAVFile (CalDAVResource, DAVFile):
             child for child in super(CalDAVFile, self).listChildren()
             if not child.startswith(".")
         ]
+
+    def propertyCollection(self):
+        if not hasattr(self, "_propertyCollection"):
+            self._propertyCollection = MemcachePropertyCollection(self)
+        return self._propertyCollection
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+
+        similar = super(CalDAVFile, self).createSimilarFile(path)
+
+        if isCalendarCollectionResource(self):
+            #
+            # Override the dead property store
+            #
+            superDeadProperties = similar.deadProperties
+
+            def deadProperties():
+                if not hasattr(similar, "_dead_properties"):
+                    similar._dead_properties = self.propertyCollection().propertyStoreForChild(
+                        similar,
+                        superDeadProperties(caching=False)
+                    )
+                return similar._dead_properties
+
+            similar.deadProperties = deadProperties
+
+            #
+            # Override DELETE, MOVE
+            #
+            for method in ("DELETE", "MOVE"):
+                method = "http_" + method
+                original = getattr(similar, method)
+
+                def override(request, original=original):
+                    # Call original method
+                    response = original(request)
+
+                    # Wipe the cache
+                    similar.deadProperties().flushCache()
+
+                    return response
+
+                setattr(similar, method, override)
+
+        return similar
 
     def updateCTag(self):
         assert self.isCollection()

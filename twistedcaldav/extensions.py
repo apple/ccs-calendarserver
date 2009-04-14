@@ -47,7 +47,6 @@ from twisted.web2.dav.static import DAVFile as SuperDAVFile
 from twisted.web2.dav.resource import DAVResource as SuperDAVResource
 from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
 from twisted.web2.dav.util import joinURL
-from twisted.web2.dav.xattrprops import xattrPropertyStore
 
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
@@ -771,51 +770,51 @@ class PropertyNotFoundError (HTTPError):
         HTTPError.__init__(self,
             StatusResponse(
                 responsecode.NOT_FOUND,
-                "No such property: %s" % (qname,)
+                "No such property: {%s}%s" % qname
             )
         )
 
-class CachingXattrPropertyStore(xattrPropertyStore, LoggingMixIn):
+class CachingPropertyStore (LoggingMixIn):
     """
-    A Property Store that caches attributes from the xattrs.
+    DAV property store using a dict in memory on top of another
+    property store implementation.
     """
-    def __init__(self, resource):
-        super(CachingXattrPropertyStore, self).__init__(resource)
+    def __init__(self, propertyStore):
+        self.propertyStore = propertyStore
+        self.resource = propertyStore.resource
 
     def get(self, qname):
-        self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        #self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
         cache = self._cache()
 
         if qname in cache:
             property = cache.get(qname, None)
             if property is None:
-                self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                #self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                 try:
-                    property = super(CachingXattrPropertyStore, self).get(qname)
+                    property = self.propertyStore.get(qname)
                 except HTTPError, e:
-                    self.log_debug("Cache double miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                    #self.log_debug("Cache double miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                     del cache[qname]
                     raise PropertyNotFoundError(qname)
                 cache[qname] = property
-            else:
-                self.log_debug("Cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
 
             return property
         else:
             raise PropertyNotFoundError(qname)
 
     def set(self, property):
-        self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
+        #self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
 
         cache = self._cache()
 
         cache[property.qname()] = None
-        super(CachingXattrPropertyStore, self).set(property)
+        self.propertyStore.set(property)
         cache[property.qname()] = property
 
     def contains(self, qname):
-        self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
         try:
             cache = self._cache()
@@ -826,27 +825,28 @@ class CachingXattrPropertyStore(xattrPropertyStore, LoggingMixIn):
                 raise
 
         if qname in cache:
-            self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            #self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
         else:
             return False
 
     def delete(self, qname):
-        self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
+        #self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
         if self._data is not None and qname in self._data:
             del self._data[qname]
 
-        super(CachingXattrPropertyStore, self).delete(qname)
+        self.propertyStore.delete(qname)
 
     def list(self):
-        self.log_debug("List: %r" % (self.resource.fp.path,))
+        #self.log_debug("List: %r" % (self.resource.fp.path,))
         return self._cache().iterkeys()
 
     def _cache(self):
         if not hasattr(self, "_data"):
+            #self.log_debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
-                for name in super(CachingXattrPropertyStore, self).list()
+                for name in self.propertyStore.list()
             )
         return self._data
