@@ -149,14 +149,12 @@ class CachingDirectoryService(DirectoryService):
 
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
-            self.memcacheClient = memcache.Client(['%s:%s' %
+            self.memcacheClient = memcache.ClientFactory.getClient(['%s:%s' %
                 (config.Memcached.BindAddress, config.Memcached.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
 
     def memcacheSet(self, key, record):
-        if not config.Memcached.ClientEnabled:
-            return
 
         hideService = isinstance(record, DirectoryRecord)
 
@@ -179,8 +177,6 @@ class CachingDirectoryService(DirectoryService):
                 record.service = self
 
     def memcacheGet(self, key):
-        if not config.Memcached.ClientEnabled:
-            return None
 
         key = base64.b64encode(key)
         try:
