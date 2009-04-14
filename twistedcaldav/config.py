@@ -699,11 +699,10 @@ class Config (object):
                     # Get password from keychain.  If not there, fall back to
                     # what is in the plist.
                     try:
-                        if direction == "Sending":
-                            account = service.Sending.Address
-                        else:
-                            account = "%s@%s" % (service.Receiving.Username,
-                                service.Receiving.Server)
+                        account = "%s@%s" % (
+                            service[direction].Username,
+                            service[direction].Server
+                        )
                         password = getPasswordFromKeychain(account)
                         service[direction]["Password"] = password
                         log.info("iMIP %s password successfully retreived from keychain" % (direction,))
