@@ -824,9 +824,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (caldav_namespace, "schedule-inbox-URL"       ),
         (caldav_namespace, "schedule-outbox-URL"      ),
         (caldav_namespace, "calendar-user-type"       ),
-        (calendarserver_namespace, "first-name"       ),
-        (calendarserver_namespace, "last-name"        ),
-        (calendarserver_namespace, "email-address-set"),
         (calendarserver_namespace, "calendar-proxy-read-for"  ),
         (calendarserver_namespace, "calendar-proxy-write-for" ),
     )
@@ -886,25 +883,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                     returnValue(None)
                 else:
                     returnValue(customxml.DropBoxHomeURL(davxml.HRef(url)))
-
-            elif name == "first-name":
-                firstName = self.record.firstName
-                if firstName:
-                    returnValue(customxml.FirstNameProperty(firstName))
-                else:
-                    returnValue(None)
-
-            elif name == "last-name":
-                lastName = self.record.lastName
-                if lastName:
-                    returnValue(customxml.LastNameProperty(lastName))
-                else:
-                    returnValue(None)
-
-            elif name == "email-address-set":
-                returnValue(customxml.EmailAddressSet(
-                    *[customxml.EmailAddressProperty(addr) for addr in self.record.emailAddresses]
-                ))
 
             elif name == "calendar-proxy-read-for":
                 results = (yield self.proxyFor(False))

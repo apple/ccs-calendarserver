@@ -58,6 +58,7 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource, Calendar
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
@@ -490,6 +491,13 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     """
     Directory principal resource.
     """
+
+    liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
+        (calendarserver_namespace, "first-name"       ),
+        (calendarserver_namespace, "last-name"        ),
+        (calendarserver_namespace, "email-address-set"),
+    )
+
     cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, parent, record):
@@ -520,6 +528,38 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
     def __str__(self):
         return "(%s) %s" % (self.record.recordType, self.record.shortNames[0])
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        namespace, name = qname
+
+        if namespace == calendarserver_namespace:
+            if name == "first-name":
+                firstName = self.record.firstName
+                if firstName:
+                    returnValue(customxml.FirstNameProperty(firstName))
+                else:
+                    returnValue(None)
+
+            elif name == "last-name":
+                lastName = self.record.lastName
+                if lastName:
+                    returnValue(customxml.LastNameProperty(lastName))
+                else:
+                    returnValue(None)
+
+            elif name == "email-address-set":
+                returnValue(customxml.EmailAddressSet(
+                    *[customxml.EmailAddressProperty(addr) for addr in self.record.emailAddresses]
+                ))
+
+        result = (yield super(DirectoryPrincipalResource, self).readProperty(property, request))
+        returnValue(result)
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -751,6 +791,24 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     """
     Directory calendar principal resource.
     """
+
+    @property
+    def liveProperties(self):
+        # This needs to be a dynamic property because CalendarPrincipalResource
+        # liveProperties changes on the fly (drop box enabling)
+        return (
+            tuple(DirectoryPrincipalResource.liveProperties) +
+            tuple(CalendarPrincipalResource.liveProperties)
+        )
+
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        # Ouch, multiple inheritance.
+        result = (yield DirectoryPrincipalResource.readProperty(self, property, request))
+        if not result:
+            result = (yield CalendarPrincipalResource.readProperty(self, property, request))
+        returnValue(result)
 
     def extraDirectoryBodyItems(self, request):
         return "".join((
