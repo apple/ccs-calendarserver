@@ -24,6 +24,7 @@ __all__ = [
 ]
 
 import sys
+import time
 from uuid import UUID
 
 from twext.python.plistlib import readPlistFromString
@@ -91,6 +92,7 @@ class OpenDirectoryService(CachingDirectoryService):
         else:
             self.restrictToGUID = True
         self.restrictedGUIDs = None
+        self.restrictedTimestamp = 0
         self._records = {}
         self._delayedCalls = set()
 
@@ -576,7 +578,40 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordType == self.recordType_groups:
                 enabledForCalendaring = False
             else:
-                if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
+                if self.restrictEnabledRecords:
+                    if time.time() - self.restrictedTimestamp > self.cacheTimeout:
+                        attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
+                        valueToMatch = self.restrictToGroup
+                        self.log_debug("Doing restricted group membership check")
+                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                            self.directory,
+                            attributeToMatch,
+                            valueToMatch,
+                            dsattributes.eDSExact,
+                            False,
+                            dsattributes.kDSStdRecordTypeGroups,
+                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                        ))
+                        results = opendirectory.queryRecordsWithAttribute_list(
+                            self.directory,
+                            attributeToMatch,
+                            valueToMatch,
+                            dsattributes.eDSExact,
+                            False,
+                            dsattributes.kDSStdRecordTypeGroups,
+                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                        )
+
+                        if len(results) == 1:
+                            members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
+                            nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
+                        else:
+                            members = []
+                            nestedGroups = []
+                        self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
+                        self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
+                        self.restrictedTimestamp = time.time()
+
                     enabledForCalendaring = recordGUID in self.restrictedGUIDs
                 else:
                     enabledForCalendaring = True
