@@ -29,6 +29,7 @@ from subprocess import Popen, PIPE
 from pwd import getpwnam, getpwuid
 from grp import getgrnam
 from OpenSSL.SSL import Error as SSLError
+import OpenSSL
 
 from zope.interface import implements
 
@@ -722,6 +723,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                         config.SSLCertificate,
                         certificateChainFile=config.SSLAuthorityChain,
                         passwdCallback=getSSLPassphrase,
+                        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
                     )
                 except SSLError, e:
                     self.log_error("Unable to set up SSL context factory: %s"
