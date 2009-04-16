@@ -38,6 +38,7 @@ import dsquery
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
+from twistedcaldav.config import config
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
@@ -578,7 +579,10 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordType == self.recordType_groups:
                 enabledForCalendaring = False
             else:
-                if self.restrictEnabledRecords:
+                if (
+                    self.restrictEnabledRecords and
+                    config.Scheduling.iMIP.Username != recordShortName
+                ):
                     if time.time() - self.restrictedTimestamp > self.cacheTimeout:
                         attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
                         valueToMatch = self.restrictToGroup
