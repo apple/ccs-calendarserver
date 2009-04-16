@@ -700,7 +700,14 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
                 ))
 
             elif name == "record-type":
-                returnValue(customxml.RecordType(self.record.recordType))
+                if hasattr(self, "record"):
+                    returnValue(customxml.RecordType(self.record.recordType))
+                else:
+                    raise HTTPError(StatusResponse(
+                        responsecode.NOT_FOUND,
+                        "Property %s does not exist." % (qname,)
+                    ))
+
 
 
         result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
