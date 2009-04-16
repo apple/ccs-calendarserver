@@ -27,6 +27,8 @@ __all__ = [
     "isPseudoCalendarCollectionResource",
 ]
 
+import urllib
+
 from zope.interface import implements
 
 from twisted.internet import reactor
@@ -140,7 +142,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             # Render a monolithic iCalendar file
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=request.path+"/"))
+                return RedirectResponse(request.unparseURL(path=urllib.quote(request.path, safe=':/')+'/'))
 
             def _defer(data):
                 response = Response()

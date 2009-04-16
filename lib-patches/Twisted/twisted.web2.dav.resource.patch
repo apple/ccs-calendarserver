@@ -2,7 +2,7 @@ Index: twisted/web2/dav/resource.py
 ===================================================================
 --- twisted/web2/dav/resource.py	(revision 19773)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -31,20 +31,30 @@
+@@ -31,20 +31,31 @@
      "DAVResource",
      "DAVLeafResource",
      "DAVPrincipalResource",
@@ -18,7 +18,7 @@ Index: twisted/web2/dav/resource.py
      "unauthenticatedPrincipal",
  ]
  
--import urllib
+ import urllib
 +import __builtin__
 +if not hasattr(__builtin__, "set"):
 +    import sets.Set as set
@@ -1084,7 +1084,7 @@ Index: twisted/web2/dav/resource.py
 -        if self.isCollection() and request.uri[-1:] != "/":
 -            return RedirectResponse(request.uri + "/")
 +        if self.isCollection() and request.path[-1:] != "/":
-+            return RedirectResponse(request.unparseURL(path=request.path+'/'))
++            return RedirectResponse(request.unparseURL(path=urllib.quote(request.path, safe=':/')+'/'))
  
          def setHeaders(response):
              response = IResponse(response)
