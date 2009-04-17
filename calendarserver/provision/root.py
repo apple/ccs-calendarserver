@@ -28,7 +28,7 @@ from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web.xmlrpc import Proxy
 
-from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
+from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.config import config
@@ -81,10 +81,16 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 return response
             self.contentFilters.append((addConnectionClose, True))
 
-
     def deadProperties(self):
+        # FIXME: Same as in static.py's CalDAVFile
         if not hasattr(self, "_dead_properties"):
-            self._dead_properties = CachingXattrPropertyStore(self)
+            # Get the property store from super
+            deadProperties = super(RootResource, self).deadProperties()
+
+            # Wrap the property store in a memory store
+            deadProperties = CachingPropertyStore(deadProperties)
+
+            self._dead_properties = deadProperties
 
         return self._dead_properties
 

@@ -39,8 +39,7 @@ import os
 import errno
 from urlparse import urlsplit
 
-from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue,\
-    maybeDeferred
+from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode, http, http_headers
 from twisted.web2.http import HTTPError, StatusResponse
@@ -57,9 +56,9 @@ from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
-    TwistedScheduleMatchETags
-from twistedcaldav.extensions import DAVFile, CachingXattrPropertyStore
+from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
+from twistedcaldav.extensions import DAVFile, CachingPropertyStore
+from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
@@ -142,9 +141,16 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         return super(CalDAVFile, self).checkPreconditions(request)
 
-    def deadProperties(self):
+    def deadProperties(self, caching=True):
         if not hasattr(self, "_dead_properties"):
-            self._dead_properties = CachingXattrPropertyStore(self)
+            # Get the property store from super
+            deadProperties = super(CalDAVFile, self).deadProperties()
+
+            if caching:
+                # Wrap the property store in a memory store
+                deadProperties = CachingPropertyStore(deadProperties)
+
+            self._dead_properties = deadProperties
 
         return self._dead_properties
 
@@ -374,6 +380,53 @@ class CalDAVFile (CalDAVResource, DAVFile):
             child for child in super(CalDAVFile, self).listChildren()
             if not child.startswith(".")
         ]
+
+    def propertyCollection(self):
+        if not hasattr(self, "_propertyCollection"):
+            self._propertyCollection = MemcachePropertyCollection(self)
+        return self._propertyCollection
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+
+        similar = super(CalDAVFile, self).createSimilarFile(path)
+
+        if isCalendarCollectionResource(self):
+            #
+            # Override the dead property store
+            #
+            superDeadProperties = similar.deadProperties
+
+            def deadProperties():
+                if not hasattr(similar, "_dead_properties"):
+                    similar._dead_properties = self.propertyCollection().propertyStoreForChild(
+                        similar,
+                        superDeadProperties(caching=False)
+                    )
+                return similar._dead_properties
+
+            similar.deadProperties = deadProperties
+
+            #
+            # Override DELETE, MOVE
+            #
+            for method in ("DELETE", "MOVE"):
+                method = "http_" + method
+                original = getattr(similar, method)
+
+                def override(request, original=original):
+                    # Call original method
+                    response = original(request)
+
+                    # Wipe the cache
+                    similar.deadProperties().flushCache()
+
+                    return response
+
+                setattr(similar, method, override)
+
+        return similar
 
     def updateCTag(self):
         assert self.isCollection()

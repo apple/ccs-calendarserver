@@ -13,8 +13,8 @@ Usage summary
 
 This should give you a feel for how this module operates::
 
-    import memcache
-    mc = memcache.Client(['127.0.0.1:11211'], debug=0)
+    import memcacheclient
+    mc = memcacheclient.Client(['127.0.0.1:11211'], debug=0)
 
     mc.set("some_key", "Some value")
     value = mc.get("some_key")
@@ -80,7 +80,7 @@ __license__   = "Python"
 
 SERVER_MAX_KEY_LENGTH = 250
 #  Storing values larger than 1MB requires recompiling memcached.  If you do,
-#  this value can be changed by doing "memcache.SERVER_MAX_VALUE_LENGTH = N"
+#  this value can be changed by doing "memcacheclient.SERVER_MAX_VALUE_LENGTH = N"
 #  after importing this module.
 SERVER_MAX_VALUE_LENGTH = 1024*1024
 
@@ -1103,7 +1103,7 @@ class TestClient(Client):
 
 
 class _Host:
-    _DEAD_RETRY = 30  # number of seconds before retrying a dead server.
+    _DEAD_RETRY = 1  # number of seconds before retrying a dead server.
     _SOCKET_TIMEOUT = 3  #  number of seconds before sockets timeout.
 
     def __init__(self, host, debugfunc=None):
@@ -1264,11 +1264,11 @@ def check_key(key, key_extra_len=0):
                 raise Client.MemcachedKeyCharacterError, "Control characters not allowed"
 
 def _doctest():
-    import doctest, memcache
+    import doctest, memcacheclient
     servers = ["127.0.0.1:11211"]
     mc = Client(servers, debug=1)
     globs = {"mc": mc}
-    return doctest.testmod(memcache, globs=globs)
+    return doctest.testmod(memcacheclient, globs=globs)
 
 if __name__ == "__main__":
     print "Testing docstrings..."

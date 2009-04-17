@@ -27,7 +27,7 @@ __all__ = [
 
 import time
 import types
-import memcache
+import memcacheclient
 import base64
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
@@ -149,7 +149,7 @@ class CachingDirectoryService(DirectoryService):
 
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
-            self.memcacheClient = memcache.ClientFactory.getClient(['%s:%s' %
+            self.memcacheClient = memcacheclient.ClientFactory.getClient(['%s:%s' %
                 (config.Memcached.BindAddress, config.Memcached.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
@@ -183,11 +183,11 @@ class CachingDirectoryService(DirectoryService):
             record = self._getMemcacheClient().get(key)
             if record is not None and isinstance(record, DirectoryRecord):
                 record.service = self
-        except memcache.MemcacheError:
+        except memcacheclient.MemcacheError:
             self.log_error("Could not read from memcache, retrying")
             try:
                 record = self._getMemcacheClient(refresh=True).get(key)
-            except memcache.MemcacheError:
+            except memcacheclient.MemcacheError:
                 self.log_error("Could not read from memcache again, giving up")
                 del self.memcacheClient
                 raise DirectoryMemcacheError("Failed to read from memcache")
