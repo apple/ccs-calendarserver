@@ -92,7 +92,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         propertyCache = self.propertyCache()
 
         try:
-            childCache, token = propertyCache["key"]
+            childCache, token = propertyCache[key]
         except KeyError:
             self.log_debug("No child property cache for %s" % (child,))
             childCache, token = ({}, None)
