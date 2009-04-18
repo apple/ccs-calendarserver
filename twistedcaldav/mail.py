@@ -1277,7 +1277,8 @@ class MailHandler(LoggingMixIn):
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version
-        if os.path.exists(iconPath) and htmlTemplate.find("cid:%(iconName)s") != -1:
+        if (iconPath != None and os.path.exists(iconPath) and
+            htmlTemplate.find("cid:%(iconName)s") != -1):
 
             with open(iconPath) as iconFile:
                 msgIcon = MIMEImage(iconFile.read(),
