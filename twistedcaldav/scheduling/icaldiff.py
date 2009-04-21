@@ -548,7 +548,7 @@ class iCalDiff(object):
 
     def _attendeeDecline(self, component):
         """
-        Marke attendee as DECLINED in the component.
+        Mark attendee as DECLINED in the component.
 
         @param component:
         @type component:

@@ -36,7 +36,7 @@ from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
 
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
-    normalizeStartEndDuration, toString
+    normalizeStartEndDuration, toString, normalizeForIndex
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
@@ -1030,7 +1030,8 @@ class Component (object):
                 limit += datetime.timedelta(days=365)
                 instances = self.cacheExpandedTimeRanges(limit)
                 rids = set([instances[key].rid for key in instances])
-                if rid not in rids:
+                instance_rid = normalizeForIndex(rid)
+                if instance_rid not in rids:
                     # No match to a valid RRULE instance
                     return None
             else:
@@ -1052,10 +1053,14 @@ class Component (object):
             dtend = newcomp.getProperty("DTEND")
             oldduration = dtend.value() - dtstart.value()
             
-        newdtstartValue = rid
-        if isinstance(newdtstartValue, datetime.datetime):
+        if isinstance(dtstart.value(), datetime.datetime):
             if dtstart.value().tzinfo:
-                newdtstartValue = newdtstartValue.astimezone(dtstart.value().tzinfo)
+                newdtstartValue = rid.astimezone(dtstart.value().tzinfo)
+            else:
+                newdtstartValue = rid
+        else:
+            newdtstartValue = datetime.date.fromordinal(rid.toordinal())
+            
         dtstart.setValue(newdtstartValue)
         if newcomp.hasProperty("DTEND"):
             dtend.setValue(newdtstartValue + oldduration)
@@ -1265,6 +1270,12 @@ class Component (object):
         """
         if self.name() == "VTIMEZONE":
             return self._vobject.gettzinfo()
+        elif self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    return component.gettzinfo()
+            else:
+                return None
         else:
             return None
 

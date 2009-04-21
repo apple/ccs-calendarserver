@@ -24,8 +24,9 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
-from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
+from vobject.icalendar import utc
 import datetime
 import time
 
@@ -442,7 +443,16 @@ class ImplicitProcessor(object):
     
         for calURL in calendars:
             testcal = (yield self.request.locateResource(calURL))
-            
+
+            # Get the timezone property from the collection, and store in the query filter
+            # for use during the query itself.
+            has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
+            if has_prop:
+                tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
+                tzinfo = tz.gettzinfo()
+            else:
+                tzinfo = utc
+
             # Now do search for overlapping time-range
             for instance in instances.instances.itervalues():
                 if instance_states[instance]:
@@ -450,9 +460,17 @@ class ImplicitProcessor(object):
                         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
                         fbinfo = ([], [], [])
                         
+                        def makeTimedUTC(dt):
+                            if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
+                                dt = datetime.datetime.fromordinal(dt.toordinal())
+                            if dt.tzinfo is None:
+                                dt = dt.replace(tzinfo=tzinfo).astimezone(utc)
+                            return dt
+                        
                         tr = caldavxml.TimeRange(start="20000101", end="20000101")
-                        tr.start = instance.start
-                        tr.end = instance.end
+                        tr.start = makeTimedUTC(instance.start)
+                        tr.end = makeTimedUTC(instance.end)
+
                         yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
                         
                         # If any fbinfo entries exist we have an overlap

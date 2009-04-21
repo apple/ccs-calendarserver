@@ -2360,9 +2360,131 @@ END:VCALENDAR
                 datetime.datetime(2009, 1, 3, 19, 0, 0, tzinfo=tzutc()),
                 None,
             ),
+            (
+                "3.1 - simple all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.date(2009, 1, 8),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;VALUE=DATE:20090108
+DTSTART;VALUE=DATE:20090108
+DTEND;VALUE=DATE:20090109
+END:VEVENT
+""",
+            ),
+            (
+                "3.2 - simple all-day rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+RDATE;VALUE=DATE:20090103
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.date(2009, 1, 3),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;VALUE=DATE:20090103
+DTSTART;VALUE=DATE:20090103
+DTEND;VALUE=DATE:20090104
+END:VEVENT
+""",
+            ),
+            (
+                "3.3 - multiple all-day rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+RDATE;VALUE=DATE:20090103,20090110
+RDATE;VALUE=DATE:20090118
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.date(2009, 1, 10),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;VALUE=DATE:20090110
+DTSTART;VALUE=DATE:20090110
+DTEND;VALUE=DATE:20090111
+END:VEVENT
+""",
+            ),
+            (
+                "4.1 - invalid all-day simple",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.date(2009, 1, 3),
+                None,
+            ),
+            (
+                "4.2 - invalid all-day simple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+RDATE;VALUE=DATE:20090104
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.date(2009, 1, 5),
+                None,
+            ),
+            (
+                "4.3 - invalid all-day multiple rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20090101
+DTEND;VALUE=DATE:20090102
+RRULE:FREQ=WEEKLY
+RDATE;VALUE=DATE:20090104,20090111
+RDATE;VALUE=DATE:20090118
+END:VEVENT
+END:VCALENDAR
+""",
+                datetime.datetime(2009, 1, 19),
+                None,
+            ),
         )
         
         for title, calendar, rid, result in data:
+            if not title.startswith("3"):
+                continue
             ical = Component.fromString(calendar)
             derived = ical.deriveInstance(rid)
             derived = str(derived).replace("\r", "") if derived else None
