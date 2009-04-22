@@ -4,7 +4,7 @@
 #
 # This is only useful internally at Apple, probably.
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -103,6 +103,7 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8" "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldav_export.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caladmin.8" "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)"
 	$(_v) $(INSTALL_DIRECTORY) -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"

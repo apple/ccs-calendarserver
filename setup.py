@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ dist = setup(
                            "images/*/*.jpg",
                          ],
                        },
-    scripts          = [ "bin/caldavd", "bin/caldav_export" ],
+    scripts          = [ "bin/caldavd", "bin/caladmin", "bin/caldav_export" ],
     data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
     ext_modules      = extensions,
     py_modules       = ["kqreactor", "memcacheclient"],

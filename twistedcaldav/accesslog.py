@@ -26,10 +26,12 @@ __all__ = [
 ]
 
 import datetime
+import logging
 import os
 import time
 
 from twisted.internet import protocol
+from twisted.protocols import amp
 
 from twisted.web2 import iweb
 from twisted.web2.dav import davxml
@@ -61,6 +63,9 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
 
         if eventDict.get('interface') is iweb.IRequest:
             
+            if config.GlobalStatsLoggingFrequency is not 0: 
+                self.logGlobalHit()
+
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
@@ -143,6 +148,10 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
     def __init__(self, logpath):
         self.logpath = logpath
+        self.globalHitCount = 0 
+        self.globalHitHistory = [] 
+        for i in range(0, config.GlobalStatsLoggingFrequency + 1): 
+            self.globalHitHistory.append({'time':int(time.time()), 'hits':0})
 
     def logMessage(self, message, allowrotate=True):
         """
@@ -158,6 +167,21 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.rotate()
         self.f.write(message + '\n')
 
+    def rotateGlobalHitHistoryStats(self): 
+        """ 
+        Roll the global hit history array: push the current stats as 
+        the last element; pop the first (oldest) element and reschedule the task. 
+        """ 
+
+        self.globalHitHistory.append({'time':int(time.time()), 'hits':self.globalHitCount}) 
+        del self.globalHitHistory[0] 
+        log.msg("rotateGlobalHitHistoryStats: %s" % (self.globalHitHistory,), logLevel=logging.DEBUG) 
+        if config.GlobalStatsLoggingFrequency is not 0: 
+            self.reactor.callLater(
+                config.GlobalStatsLoggingPeriod * 60 / config.GlobalStatsLoggingFrequency, 
+                self.rotateGlobalHitHistoryStats
+            ) 
+
     def start(self):
         """
         Start logging. Open the log file and log an 'open' message.
@@ -166,6 +190,11 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         super(RotatingFileAccessLoggingObserver, self).start()
         self._open()
         self.logMessage("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
+ 
+        # Need a reactor for the callLater() support for rotateGlobalHitHistoryStats() 
+        from twisted.internet import reactor 
+        self.reactor = reactor 
+        self.rotateGlobalHitHistoryStats() 
 
     def stop(self):
         """
@@ -250,13 +279,39 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self._open()
         self.logMessage("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
 
+    def logGlobalHit(self): 
+        """ 
+        Increment the service-global hit counter 
+        """ 
 
-from twisted.protocols import amp
+        self.globalHitCount += 1 
 
+    def getGlobalHits(self): 
+        """ 
+        Return the global hit stats 
+        """ 
+
+        stats = '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0">' 
+        stats += "<dict><key>totalHits</key><integer>%d</integer>" 
+        stats += "<key>recentHits</key><dict>" 
+        stats += "<key>count</key><integer>%d</integer>" 
+        stats += "<key>since</key><integer>%d</integer>" 
+        stats += "<key>period</key><integer>%d</integer>" 
+        stats += "<key>frequency</key><integer>%d</integer>" 
+        stats += "</dict></dict></plist>" 
+        return stats % (
+            self.globalHitCount,
+            self.globalHitCount - self.globalHitHistory[0]['hits'], 
+            self.globalHitHistory[0]['time'],
+            config.GlobalStatsLoggingPeriod,
+            config.GlobalStatsLoggingFrequency
+        ) 
 
 class LogMessage(amp.Command):
     arguments = [('message', amp.String())]
 
+class LogGlobalHit(amp.Command): 
+    arguments = [] 
 
 class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     def __init__(self, mode, id):
@@ -302,6 +357,16 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         else:
             self._buffer.append(message)
 
+    def logGlobalHit(self): 
+        """ 
+        Log a server hit via the remote AMP Protocol 
+        """ 
+
+        if self.protocol is not None: 
+            d = self.protocol.callRemote(LogGlobalHit) 
+            d.addErrback(log.err) 
+        else: 
+            log.msg("logGlobalHit() only works with an AMP Protocol") 
 
 class AMPLoggingProtocol(amp.AMP):
     """
@@ -319,6 +384,11 @@ class AMPLoggingProtocol(amp.AMP):
 
     LogMessage.responder(logMessage)
 
+    def logGlobalHit(self): 
+        self.observer.logGlobalHit() 
+        return {} 
+
+    LogGlobalHit.responder(logGlobalHit)
 
 class AMPLoggingFactory(protocol.ServerFactory):
     def __init__(self, observer):

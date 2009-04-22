@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import commands
 
 from twisted.web import microdom
 
-from twistedcaldav.directory.principal import RecordTypeProperty
 from twistedcaldav.sql import db_prefix, AbstractSQLDatabase
 from twistedcaldav.index import schema_version, collection_types
 

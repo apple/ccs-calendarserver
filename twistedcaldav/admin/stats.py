@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ Statisitcs Types:
 """
 
 import os
+import socket 
+import plistlib 
+import time 
 
 from twistedcaldav.admin import util        
 
@@ -91,3 +94,68 @@ class StatsAction(object):
             report['data'][stat] = value
 
         return report
+
+class StatsWatchAction(object):
+    """
+    Pulls the current server stats from the main server process via a socket
+    For example:
+
+    bin/caladmin --config conf/caldavd-dev.plist statswatch
+    bin/caladmin --config conf/caldavd-dev.plist statswatch --refresh
+    """
+ 
+    def __init__(self, config):
+        self.config = config
+        self.refresh = None
+ 
+    def getHitStats(self):
+        response = ""
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(self.config.parent.masterConfig.GlobalStatsSocket)
+        while 1:
+            data = sock.recv(8192)
+            if not data: break
+            response += data
+            sock.close()
+            return response
+ 
+    def run(self):
+        if self.config['refresh'] is not None:
+            self.refresh = int(self.config['refresh'])
+ 
+        response = self.getHitStats()
+        plist = plistlib.readPlistFromString(response)
+        total = plist['totalHits']
+        since = time.time() - plist['recentHits']['since']
+        if self.refresh is None:
+            print "Total hits:\t%8d" % (total,)
+            if plist['recentHits']['frequency'] is not 0:
+                print "Last %dm%ds:\t%8d" % (since / 60, since % 60, plist['recentHits']['count'])
+                print "Rate:\t\t%8.2f" % (plist['recentHits']['count'] * 1.0 / (since if since != 0 else 1))
+                units = "second"
+                interval = plist['recentHits']['period'] * 60 / plist['recentHits']['frequency']
+                if interval % 60 is 0:
+                    interval = interval / 60
+                    units = "minute"
+                    print "Update interval: %d %s%s" % (interval, units, ("", "s")[interval > 1])
+                else:
+                    print "Recent stats are not updated."
+        else:
+            # attempt to gauge the recent hits for the first line of output
+            total_prev = (total - (plist['recentHits']['count'] / (since if since != 0 else 1) * self.refresh))
+            while 1:
+                print "Total hits: %10d\tLast %7s: %8d\tRate: %8.2f" % (
+                    total,
+                    "%dm%02ds" % (since / 60, since % 60),
+                    plist['recentHits']['count'],
+                    (total - total_prev) * 1.0 / (self.refresh if self.refresh != 0 else 1)
+                )
+                total_prev = total
+                time.sleep(self.refresh)
+                response = self.getHitStats()
+                plist = plistlib.readPlistFromString(response)
+                total = plist['totalHits']
+                since = time.time() - plist['recentHits']['since']
+ 
+        return None
+

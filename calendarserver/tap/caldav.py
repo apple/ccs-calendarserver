@@ -39,6 +39,7 @@ from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.internet.reactor import callLater
 from twisted.internet.process import ProcessExitedAlready
+from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.address import IPv4Address
 from twisted.application.internet import TCPServer, SSLServer, UNIXServer
 from twisted.application.service import Service, MultiService, IServiceMaker
@@ -92,6 +93,20 @@ from calendarserver.webcal.resource import WebCalendarResource
 
 log = Logger()
 
+
+class CalDAVStatisticsProtocol (Protocol): 
+
+    def connectionMade(self): 
+        stats = self.factory.logger.observer.getGlobalHits() 
+        self.transport.write("%s\r\n" % (stats,)) 
+        self.transport.loseConnection() 
+
+class CalDAVStatisticsServer (Factory): 
+
+    protocol = CalDAVStatisticsProtocol 
+
+    def __init__(self, logObserver): 
+        self.logger = logObserver 
 
 class CalDAVService (MultiService):
     def __init__(self, logObserver):
@@ -874,7 +889,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if sslPort[0] == 0:
             sslPort = None
 
-        # If the load balancer isn"t enabled, or if we only have one process
+        # If the load balancer isn't enabled, or if we only have one process
         # We listen directly on the interfaces.
 
         if (
@@ -1046,6 +1061,9 @@ class CalDAVServiceMaker (LoggingMixIn):
             ]
             monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
 
+        stats = CalDAVStatisticsServer(logger) 
+        statsService = UNIXServer(config.GlobalStatsSocket, stats) 
+        statsService.setServiceParent(s)
 
         return s
 

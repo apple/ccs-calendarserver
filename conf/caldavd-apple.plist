@@ -104,6 +104,11 @@
     <key>MaximumAttachmentSize</key>
     <integer>1048576</integer><!-- 1Mb -->
 
+    <!-- Maximum number of unique attendees per entire event -->
+    <!-- 0 for no limit -->
+    <key>MaxAttendeesPerInstance</key>
+    <integer>100</integer>
+
 
     <!--
         Directory service
@@ -259,6 +264,27 @@
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
+
+	<!-- Global server stats --> 
+	<key>GlobalStatsSocket</key> 
+	<string>/var/run/caldavd-stats.sock</string> 
+
+	<!-- 
+		To log every five minutes and keep stats for the last hour: 
+
+			GlobalStatsLoggingPeriod : 60 
+			GlobalStatsLoggingFrequency : 12 
+
+		Set GlobalStatsLoggingFrequency to 0 to disable the stats 
+	--> 
+
+	<!-- Global server stats logging period --> 
+	<key>GlobalStatsLoggingPeriod</key> 
+	<integer>60</integer> 
+
+	<!-- Global server stats logging frequency --> 
+ 	<key>GlobalStatsLoggingFrequency</key> 
+	<integer>12</integer> 
 
     <!-- Server statistics file -->
     <key>ServerStatsFile</key>

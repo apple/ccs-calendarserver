@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,6 +87,16 @@ class StatsOptions(SubCommand):
 
 registerCommand(StatsOptions)
 
+class StatsWatchOptions(SubCommand): 
+    name = 'statswatch' 
+    help = ('Watch the server hit stats.') 
+    action = 'twistedcaldav.admin.stats.StatsWatchAction' 
+
+    optParameters = [ 
+        ['refresh', 'r', None, 'Refresh stats every n seconds.'], 
+    ] 
+
+registerCommand(StatsWatchOptions)
 
 from twisted.python import filepath
 from twistedcaldav.config import config
