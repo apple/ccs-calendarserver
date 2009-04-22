@@ -129,8 +129,18 @@ class WikiDirectoryRecord(DirectoryRecord):
 
 @inlineCallbacks
 def getWikiACL(resource, request):
+    """
+    Ask the wiki server we're paired with what level of access the authnUser has.
 
-    from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+    Returns an ACL.
+
+    Wiki authentication is a bit tricky because the end-user accessing a group
+    calendar may not actually be enabled for calendaring.  Therefore in that
+    situation, the authzUser will have been replaced with the wiki principal
+    in locateChild( ), so that any changes the user makes will have the wiki
+    as the originator.  The authnUser will always be the end-user.
+    """
+    from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
     if (not hasattr(resource, "record") or
         resource.record.recordType != WikiDirectoryService.recordType_wikis):
@@ -144,9 +154,9 @@ def getWikiACL(resource, request):
     wikiID = resource.record.shortNames[0]
 
     try:
-        url = str(request.authzUser.children[0])
+        url = str(request.authnUser.children[0])
         principal = (yield request.locateResource(url))
-        if isinstance(principal, DirectoryCalendarPrincipalResource):
+        if isinstance(principal, DirectoryPrincipalResource):
             userID = principal.record.guid
     except:
         # TODO: better error handling
@@ -163,10 +173,21 @@ def getWikiACL(resource, request):
         log.info("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
             wikiID, access))
 
+        # The ACL we returns has ACEs for the end-user and the wiki principal
+        # in case authzUser is the wiki principal.
         if access == "read":
             request.wikiACL =   davxml.ACL(
                                     davxml.ACE(
                                         request.authnUser,
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Read()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    ),
+                                    davxml.ACE(
+                                        davxml.Principal(
+                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                                        ),
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
                                         ),
@@ -186,6 +207,24 @@ def getWikiACL(resource, request):
                                     ),
                                     davxml.ACE(
                                         request.authnUser,
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Write()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    ),
+                                    davxml.ACE(
+                                        davxml.Principal(
+                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                                        ),
+                                        davxml.Grant(
+                                            davxml.Privilege(davxml.Read()),
+                                        ),
+                                        TwistedACLInheritable(),
+                                    ),
+                                    davxml.ACE(
+                                        davxml.Principal(
+                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                                        ),
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Write()),
                                         ),
@@ -210,6 +249,7 @@ def getWikiACL(resource, request):
                     "You are not allowed to access this wiki"
                 )
             )
+
 
     except Fault, fault:
 

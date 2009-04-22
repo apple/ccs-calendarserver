@@ -37,7 +37,7 @@ from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache
 from twistedcaldav.static import CalendarHomeFile
-from twistedcaldav.directory.principal import DirectoryPrincipalResource
+from twistedcaldav.directory.principal import DirectoryPrincipalResource, DirectoryCalendarPrincipalResource
 
 log = Logger()
 
@@ -186,8 +186,37 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             responsecode.FORBIDDEN,
                             "The username (%s) corresponding to your sessionID was not found by calendar server." % (username,)
                         ))
-                    request.authnUser = request.authzUser = davxml.Principal(
-                        davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,)))
+                    for collection in self.principalCollections():
+                        principal = collection.principalForRecord(record)
+                        if principal is not None:
+                            break
+                    else:
+                        # Can't find principal
+                        raise HTTPError(StatusResponse(
+                            responsecode.FORBIDDEN,
+                            "The principal corresponding to your username (%s) was not found by calendar server." % (username,)
+                        ))
+
+                    request.authzUser = request.authnUser = davxml.Principal(
+                        davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
+                    )
+
+                    if not isinstance(principal, DirectoryCalendarPrincipalResource):
+                        # Not enabled for calendaring, so use the wiki principal as authzUser if the resource is within
+                        # a wiki.  Examining the request path to determine this:
+                        path = request.prepath
+                        if len(path) > 2 and path[0] in ("principals", "calendars"):
+                            wikiName = None
+                            if path[1] == "wikis":
+                                wikiName = path[2]
+                            elif path[1] == "__uids__" and path[2].startswith("wiki-"):
+                                wikiName = path[2][5:]
+                            if wikiName:
+                                log.debug("Using %s wiki as authzUser instead of %s" % (wikiName, username))
+                                request.authzUser = davxml.Principal(
+                                    davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
+                                )
+
                     child = (yield super(RootResource, self).locateChild(request, segments))
                     returnValue(child)
 
