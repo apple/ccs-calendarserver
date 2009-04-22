@@ -116,8 +116,8 @@ class StatsWatchAction(object):
             data = sock.recv(8192)
             if not data: break
             response += data
-            sock.close()
-            return response
+        sock.close()
+        return response
  
     def run(self):
         if self.config['refresh'] is not None:
@@ -137,9 +137,9 @@ class StatsWatchAction(object):
                 if interval % 60 is 0:
                     interval = interval / 60
                     units = "minute"
-                    print "Update interval: %d %s%s" % (interval, units, ("", "s")[interval > 1])
-                else:
-                    print "Recent stats are not updated."
+                print "Update interval: %d %s%s" % (interval, units, ("", "s")[interval > 1])
+            else:
+                print "Recent stats are not updated."
         else:
             # attempt to gauge the recent hits for the first line of output
             total_prev = (total - (plist['recentHits']['count'] / (since if since != 0 else 1) * self.refresh))
