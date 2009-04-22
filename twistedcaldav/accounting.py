@@ -77,7 +77,15 @@ def emitAccounting(category, principal, data):
     @param data: data to write.
     @type data: C{str}
     """    
-    if not accountingEnabled(category, principal):
+    if isinstance(principal, str):
+        principalLogPath = principal
+    elif accountingEnabled(category, principal):
+        principalLogPath = os.path.join(
+            principal.record.guid[0:2],
+            principal.record.guid[2:4],
+            principal.record.guid
+        )
+    else:
         return
 
     try:
@@ -87,9 +95,7 @@ def emitAccounting(category, principal, data):
         logRoot = config.AccountingLogRoot
         logDirectory = os.path.join(
             logRoot,
-            principal.record.guid[0:2],
-            principal.record.guid[2:4],
-            principal.record.guid,
+            principalLogPath,
             category
         )
         logFilename = os.path.join(logDirectory, datetime.datetime.now().isoformat())

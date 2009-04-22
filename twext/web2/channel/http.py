@@ -18,7 +18,10 @@ from random import randint
 
 from twisted.internet import protocol
 from twisted.python import log
-from twisted.web2.channel.http import HTTPFactory
+from twisted.web2.channel.http import HTTPFactory, HTTPChannelRequest,\
+    HTTPChannel
+from twistedcaldav import accounting
+import time
 
 __all__ = [
     "HTTP503LoggingFactory",
@@ -75,3 +78,82 @@ class HTTP503LoggingFactory (HTTPFactory):
             setattr(p, arg, value)
 
         return p
+
+class HTTPLoggingChannelRequest(HTTPChannelRequest):
+    
+    class TransportLoggingWrapper(object):
+        
+        def __init__(self, transport, logData):
+            
+            self.transport = transport
+            self.logData = logData
+            
+        def write(self, data):
+            if self.logData is not None and data:
+                self.logData.append(data)
+            self.transport.write(data)
+            
+        def writeSequence(self, seq):
+            if self.logData is not None and seq:
+                self.logData.append(''.join(seq))
+            self.transport.writeSequence(seq)
+
+        def __getattr__(self, attr):
+            return getattr(self.__dict__['transport'], attr)
+            
+    def __init__(self, channel, queued=0):
+        
+        self.logData = [] if accounting.accountingEnabledForCategory("HTTP") else None
+        super(HTTPLoggingChannelRequest, self).__init__(channel, queued)
+        if self.logData is not None:
+            self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData)
+    
+    def gotInitialLine(self, initialLine):
+        
+        if self.logData is not None:
+            self.startTime = time.time()
+            self.logData.append(">>>> Request starting at: %.3f\r\n\r\n" % (self.startTime,))
+            self.logData.append("%s\r\n" % (initialLine,))
+        super(HTTPLoggingChannelRequest, self).gotInitialLine(initialLine)
+
+    def lineReceived(self, line):
+        
+        if self.logData is not None:
+            # We don't want to log basic credentials
+            loggedLine = line
+            if line.lower().startswith("authorization:"):
+                bits = line[14:].strip().split(" ")
+                if bits[0].lower() == "basic" and len(bits) == 2:
+                    loggedLine = "%s %s %s" % (line[:14], bits[0], "X" * len(bits[1]))
+            self.logData.append("%s\r\n" % (loggedLine,))
+        super(HTTPLoggingChannelRequest, self).lineReceived(line)
+
+    def handleContentChunk(self, data):
+        
+        if self.logData is not None:
+            self.logData.append(data)
+        super(HTTPLoggingChannelRequest, self).handleContentChunk(data)
+        
+    def handleContentComplete(self):
+        
+        if self.logData is not None:
+            doneTime = time.time()
+            self.logData.append("\r\n\r\n>>>> Request complete at: %.3f (elapsed: %.1f ms)" % (doneTime, 1000 * (doneTime - self.startTime),))
+        super(HTTPLoggingChannelRequest, self).handleContentComplete()
+
+    def writeHeaders(self, code, headers):
+        if self.logData is not None:
+            doneTime = time.time()
+            self.logData.append("\r\n\r\n<<<< Response sending at: %.3f (elapsed: %.1f ms)\r\n\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
+        super(HTTPLoggingChannelRequest, self).writeHeaders(code, headers)
+
+    def finish(self):
+        
+        super(HTTPLoggingChannelRequest, self).finish()
+
+        if self.logData is not None:
+            doneTime = time.time()
+            self.logData.append("\r\n\r\n<<<< Response complete at: %.3f (elapsed: %.1f ms)\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
+            accounting.emitAccounting("HTTP", "all", "".join(self.logData))
+
+HTTPChannel.chanRequestFactory = HTTPLoggingChannelRequest

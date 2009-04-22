@@ -375,6 +375,8 @@
     <dict>
       <key>iTIP</key>
       <false/>
+      <key>HTTP</key>
+      <false/>
     </dict>
     <!-- Enable accounting for specific principals -->
     <key>AccountingPrincipals</key>
