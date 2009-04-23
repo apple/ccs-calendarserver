@@ -311,16 +311,12 @@ class ImplicitScheduler(object):
                             break
 
         # Get the ORGANIZER and verify it is the same for all components
-        organizers = self.calendar.getOrganizersByInstance()
-        self.organizer = None
-        for organizer, _ignore in organizers:
-            if self.organizer:
-                if organizer != self.organizer:
-                    # We have different ORGANIZERs in the same iCalendar object - this is an error
-                    log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
-            else:
-                self.organizer = organizer
+        try:
+            self.organizer = self.calendar.validOrganizerForScheduling()
+        except ValueError:
+            # We have different ORGANIZERs in the same iCalendar object - this is an error
+            log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
         
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance()

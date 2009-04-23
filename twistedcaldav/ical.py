@@ -1254,6 +1254,38 @@ class Component (object):
                     "Timezone %s is not referenced by any non-timezone component" % (timezone,)
                 )
 
+    def validOrganizerForScheduling(self):
+        """
+        Check that the ORGANIZER property is valid for scheduling 
+        """
+        
+        organizers = self.getOrganizersByInstance()
+        foundOrganizer = None
+        foundRid = None
+        missingRids = set()
+        for organizer, rid in organizers:
+            if organizer:
+                if foundOrganizer:
+                    if organizer != foundOrganizer:
+                        # We have different ORGANIZERs in the same iCalendar object - this is an error
+                        msg = "Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self,)
+                        log.debug(msg)
+                        raise ValueError(msg)
+                else:
+                    foundOrganizer = organizer
+                    foundRid = rid
+            else:
+                missingRids.add(rid)
+        
+        # If there are some components without an ORGANIZER we will fix the data
+        if foundOrganizer and missingRids:
+            log.debug("Fixing missing ORGANIZER properties")
+            organizerProperty = self.overriddenComponent(foundRid).getProperty("ORGANIZER")
+            for rid in missingRids:
+                self.overriddenComponent(rid).addProperty(organizerProperty)
+
+        return foundOrganizer
+
     def transformAllFromNative(self):
         self._vobject = self._vobject.transformFromNative()
         self._vobject.transformChildrenFromNative(False)
@@ -1370,8 +1402,7 @@ class Component (object):
                 # Should be just one ORGANIZER
                 org = self.propertyValue("ORGANIZER")
                 rid = self.getRecurrenceIDUTC()
-                if org:
-                    return ((org, rid),)
+                return ((org, rid),)
             except ValueError:
                 pass
 

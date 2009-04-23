@@ -264,7 +264,9 @@ DTSTART:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                ()
+                (
+                    (None, None),
+                )
             ),
             (
                 """BEGIN:VCALENDAR
