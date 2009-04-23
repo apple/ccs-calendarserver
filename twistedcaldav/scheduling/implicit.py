@@ -319,7 +319,7 @@ class ImplicitScheduler(object):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
         
         # Get the ATTENDEEs
-        self.attendeesByInstance = self.calendar.getAttendeesByInstance()
+        self.attendeesByInstance = self.calendar.getAttendeesByInstance(True)
         self.attendees = set()
         for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
@@ -707,7 +707,7 @@ class ImplicitScheduler(object):
                     self.oldcalendar = None
 
                 # Determine whether the current change is allowed
-                changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
+                changeAllowed, doITipReply, _ignore_changedRids, newCalendar = self.isAttendeeChangeInsignificant()
                 if changeAllowed:
                     self.return_calendar = self.calendar = newCalendar
 

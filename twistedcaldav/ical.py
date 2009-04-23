@@ -1431,7 +1431,7 @@ class Component (object):
 
     def getAttendees(self):
         """
-        Get the organizer value. Works on either a VCALENDAR or on a component.
+        Get the attendee value. Works on either a VCALENDAR or on a component.
         
         @param match: a C{list} of calendar user address strings to try and match.
         @return: a C{list} of the string values of the Attendee property, or None
@@ -1448,10 +1448,12 @@ class Component (object):
 
         return None
 
-    def getAttendeesByInstance(self):
+    def getAttendeesByInstance(self, makeUnique=False):
         """
-        Get the organizer value for each instance.
+        Get the attendee values for each instance. Optionally remove duplicates.
         
+        @param makeUnique: if C{True} remove duplicate ATTENDEEs in each component
+        @type makeUnique: C{bool}
         @return: a list of tuples of (organizer value, recurrence-id)
         """
         
@@ -1460,13 +1462,19 @@ class Component (object):
             result = ()
             for component in self.subcomponents():
                 if component.name() != "VTIMEZONE":
-                    result += component.getAttendeesByInstance()
+                    result += component.getAttendeesByInstance(makeUnique)
             return result
         else:
             result = ()
+            attendees = set()
             rid = self.getRecurrenceIDUTC()
-            for attendee in self.properties("ATTENDEE"):
-                result += ((attendee.value(), rid),)
+            for attendee in tuple(self.properties("ATTENDEE")):
+                cuaddr = attendee.value()
+                if makeUnique and cuaddr in attendees:
+                    self.removeProperty(attendee)
+                else:
+                    result += ((cuaddr, rid),)
+                    attendees.add(cuaddr)
             return result
 
     def getAttendeeProperty(self, match):
