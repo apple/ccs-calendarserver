@@ -50,6 +50,7 @@ from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
@@ -749,6 +750,32 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
     def principalUID(self):
         return self.record.uid
+
+
+    ##
+    # Extra resource info
+    ##
+
+    def setAutoSchedule(self, autoSchedule):
+        self._resource_info_index().setAutoSchedule(self.record.guid, autoSchedule)
+
+    def getAutoSchedule(self):
+        return self._resource_info_index().getAutoSchedule(self.record.guid)
+
+
+    def _resource_info_index(self):
+        """
+        Return the resource info SQL database for this calendar principal.
+
+        @return: the L{ResourceInfoDatabase} for the calendar principal.
+        """
+
+        # The db is located in the data root
+        self.pcollection = self.parent.parent
+        if not hasattr(self.pcollection, "resource_info_db"):
+            setattr(self.pcollection, "resource_info_db", ResourceInfoDatabase(config.DataRoot))
+        return self.pcollection.resource_info_db
+
 
     ##
     # Static

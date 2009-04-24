@@ -16,7 +16,7 @@
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.resource import ResourceInfoDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory

@@ -31,7 +31,7 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.log import Logger
-from twistedcaldav.resource import ResourceInfoDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 log = Logger()

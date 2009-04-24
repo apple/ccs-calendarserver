@@ -23,7 +23,7 @@ from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.resource import ResourceInfoDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.config import config
 
 xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
