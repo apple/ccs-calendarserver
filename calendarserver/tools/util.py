@@ -105,5 +105,5 @@ dummyDirectoryRecord = DirectoryRecord(
     lastName = "McDummerson",
     emailAddresses = (),
     calendarUserAddresses = (),
-    autoSchedule = False,
+    # autoSchedule = False,
 )

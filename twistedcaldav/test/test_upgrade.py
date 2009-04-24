@@ -16,6 +16,7 @@
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.resource import ResourceInfoDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
@@ -132,27 +133,6 @@ class ProxyDBUpgradeTests(TestCase):
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
 
-    def test_partialUpgrade(self):
-        """
-        Test the behavior of a partial upgrade (one where /principals exists but the proxy db does not) from old server to new.
-        """
-
-        self.setUpInitialStates()
-
-        config.DocumentRoot = self.olddocrootnodb
-        config.DataRoot = self.newdataroot
-        
-        # Check pre-conditions
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.isdir(os.path.join(config.DocumentRoot, "principals")))
-        self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals", CalendarUserProxyDatabase.dbOldFilename)))
-        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
-
-        upgradeData(config)
-        
-        # Check post-conditions
-        self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
-        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
 
     def test_noUpgrade(self):
         """
@@ -174,30 +154,6 @@ class ProxyDBUpgradeTests(TestCase):
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
 
-    def test_failedUpgrade(self):
-        """
-        Test the behavior of failed upgrade from old server to new where proxy DB exists in two locations.
-        """
-
-        self.setUpInitialStates()
-
-        config.DocumentRoot = self.olddocroot
-        config.DataRoot = self.existingdataroot
-        
-        # Check pre-conditions
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.isdir(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals", CalendarUserProxyDatabase.dbOldFilename)))
-        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
-
-        self.assertRaises(UpgradeError, upgradeData, config)
-        
-        # Check post-conditions
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.isdir(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals", CalendarUserProxyDatabase.dbOldFilename)))
-        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
-        
 
     def test_freeBusyUpgrade(self):
         """
@@ -379,7 +335,11 @@ class ProxyDBUpgradeTests(TestCase):
             },
             CalendarUserProxyDatabase.dbFilename :
             {
-                "@contents" : "",
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
             }
         }
 
@@ -479,7 +439,11 @@ class ProxyDBUpgradeTests(TestCase):
             },
             CalendarUserProxyDatabase.dbFilename :
             {
-                "@contents" : "",
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
             }
         }
 
@@ -595,7 +559,11 @@ class ProxyDBUpgradeTests(TestCase):
             },
             CalendarUserProxyDatabase.dbFilename :
             {
-                "@contents" : "",
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
             }
         }
 
@@ -712,7 +680,11 @@ class ProxyDBUpgradeTests(TestCase):
             },
             CalendarUserProxyDatabase.dbFilename :
             {
-                "@contents" : "",
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
             }
         }
 
@@ -799,7 +771,11 @@ class ProxyDBUpgradeTests(TestCase):
             },
             CalendarUserProxyDatabase.dbFilename :
             {
-                "@contents" : "",
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
             }
         }
 

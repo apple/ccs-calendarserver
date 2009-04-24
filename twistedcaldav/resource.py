@@ -27,6 +27,7 @@ __all__ = [
     "isPseudoCalendarCollectionResource",
 ]
 
+import os
 import urllib
 
 from zope.interface import implements
@@ -36,13 +37,12 @@ from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.http import ErrorResponse
+from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
+from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
 from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import joinURL, parentForURL, unimplemented,\
-    normalizeURL
+from twisted.web2.dav.util import joinURL, parentForURL, unimplemented, normalizeURL
 from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.iweb import IResponse
@@ -51,16 +51,18 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
 from twistedcaldav.ical import Component
-from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import allowedComponents
 from twistedcaldav.ical import Component as iComponent
+from twistedcaldav.ical import allowedComponents
+from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from urlparse import urlsplit
 
@@ -828,6 +830,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         (caldav_namespace, "calendar-user-type"       ),
         (calendarserver_namespace, "calendar-proxy-read-for"  ),
         (calendarserver_namespace, "calendar-proxy-write-for" ),
+        (calendarserver_namespace, "auto-schedule" ),
     )
 
     @classmethod
@@ -898,8 +901,22 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
 
+            elif name == "auto-schedule":
+                autoSchedule = (yield self.getAutoSchedule())
+                returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
+
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
+
+    def writeProperty(self, property, request):
+        assert isinstance(property, davxml.WebDAVElement), (
+            "%r is not a WebDAVElement instance" % (property,)
+        )
+
+        if property.qname() == (caldav_namespace, "auto-schedule"):
+            self.setAutoSchedule(autoSchedule)
+
+        return super(CalendarPrincipalResource, self).writeProperty(property, request)
 
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
@@ -989,6 +1006,39 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         """
         return None
 
+    def setAutoSchedule(self, autoSchedule):
+        self._resource_info_index().setAutoSchedule(self.record.guid, autoSchedule)
+
+    def getAutoSchedule(self):
+        return self._resource_info_index().getAutoSchedule(self.record.guid)
+
+    def _resource_info_index(self):
+        """
+        Return the resource info SQL database for this calendar principal.
+
+        @return: the L{ResourceInfoDatabase} for the calendar principal.
+        """
+
+        # The db is located in the data root
+        self.pcollection = self.parent.parent # MOR: doesn't feel right
+        if not hasattr(self.pcollection, "resource_info_db"):
+            setattr(self.pcollection, "resource_info_db", ResourceInfoDatabase(config.DataRoot))
+        return self.pcollection.resource_info_db
+
+    def _calendar_user_proxy_index(self):
+        """
+        Return the calendar user proxy SQL database for this calendar principal.
+
+        @return: the L{CalendarUserProxyDatabase} for the calendar principal.
+        """
+
+        # The db is located in the data root
+        self.pcollection = self.parent.parent # MOR: doesn't feel right
+        if not hasattr(self.pcollection, "calendar_user_proxy_db"):
+            setattr(self.pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(config.DataRoot))
+        return self.pcollection.calendar_user_proxy_db
+
+
 ##
 # Utilities
 ##
@@ -1008,3 +1058,146 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
+
+
+class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
+    """
+    A database to maintain resource (and location) information
+
+    SCHEMA:
+
+    Group Database:
+
+    ROW: GUID, AUTOSCHEDULE
+
+    """
+
+    dbType = "RESOURCEINFO"
+    dbFilename = "resourceinfo.sqlite"
+    dbOldFilename = db_prefix + "resourceinfo"
+    dbFormatVersion = "1"
+
+    class ResourceInfoDBMemcacher(Memcacher):
+
+        def setAutoSchedule(self, guid, autoSchedule):
+            return self.set("resourceinfo:%s" % (str(guid),), "1" if autoSchedule else "0")
+
+        @inlineCallbacks
+        def getAutoSchedule(self, guid):
+            result = (yield self.get("resourceinfo:%s" % (str(guid),)))
+            if result is not None:
+                autoSchedule = result == "1"
+            else:
+                autoSchedule = None
+            returnValue(autoSchedule)
+
+    def __init__(self, path):
+        path = os.path.join(path, ResourceInfoDatabase.dbFilename)
+        super(ResourceInfoDatabase, self).__init__(path, True)
+
+        self._memcacher = ResourceInfoDatabase.ResourceInfoDBMemcacher("resourceInfoDB")
+
+    @inlineCallbacks
+    def setAutoSchedule(self, guid, autoSchedule):
+        """
+        Set a resource/location's auto-Schedule boolean.
+
+        @param guid: the UID of the group principal to add.
+        @param autoSchedule: boolean
+        """
+        self.setAutoScheduleInDatabase(guid, autoSchedule)
+
+        # Update cache
+        _ignore = (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
+
+    def setAutoScheduleInDatabase(self, guid, autoSchedule):
+        """
+        A blocking call to set a resource/location's auto-Schedule boolean
+        value in the database.
+
+        @param guid: the UID of the group principal to add.
+        @param autoSchedule: boolean
+        """
+        # Remove what is there, then add it back.
+        self._delete_from_db(guid)
+        self._add_to_db(guid, autoSchedule)
+        self._db_commit()
+
+    @inlineCallbacks
+    def getAutoSchedule(self, guid):
+        """
+        Return the auto-Schedule state for the resource/location specified by guid
+        """
+
+        # Pull from cache
+        autoSchedule = (yield self._memcacher.getAutoSchedule(guid))
+        if autoSchedule is None:
+            # Not in memcache, check local db
+            autoSchedule = self._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
+            if autoSchedule is not None:
+                autoSchedule = autoSchedule == 1
+                result = (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
+            else:
+                # Not in local db
+                # Default to False
+                autoSchedule = False
+
+        returnValue(autoSchedule)
+
+    def _add_to_db(self, guid, autoSchedule):
+        """
+        Insert the specified entry into the database.
+
+        @param guid: the guid of the resource/location
+        @param autoSchedule: a boolean
+        """
+        self._db_execute(
+            """
+            insert into RESOURCEINFO (GUID, AUTOSCHEDULE)
+            values (:1, :2)
+            """, guid, 1 if autoSchedule else 0
+        )
+
+    def _delete_from_db(self, guid):
+        """
+        Deletes the specified entry from the database.
+
+        @param guid: the guid of the resource/location to delete
+        """
+        self._db_execute("delete from RESOURCEINFO where GUID = :1", guid)
+
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return ResourceInfoDatabase.dbFormatVersion
+
+    def _db_type(self):
+        """
+        @return: the collection type assigned to this index.
+        """
+        return ResourceInfoDatabase.dbType
+
+    def _db_init_data_tables(self, q):
+        """
+        Initialise the underlying database tables.
+        @param q:           a database cursor to use.
+        """
+
+        #
+        # RESOURCEINFO table
+        #
+        q.execute(
+            """
+            create table RESOURCEINFO (
+                GUID            text,
+                AUTOSCHEDULE    integer
+            )
+            """
+        )
+        q.execute(
+            """
+            create index RESOURCEGUIDS on RESOURCEINFO (GUID)
+            """
+        )
+

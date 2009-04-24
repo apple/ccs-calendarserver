@@ -94,12 +94,16 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
                 if childStructure.has_key("@contents"):
                     # This is a file
-                    with open(childPath) as child:
-                        contents = child.read()
-                        if contents != childStructure["@contents"]:
-                            print "Contents mismatch:", childPath
-                            print "Expected:\n%s\n\nActual:\n%s\n" % (childStructure["@contents"], contents)
-                            return False
+                    if childStructure["@contents"] is None:
+                        # We don't care about the contents
+                        pass
+                    else:
+                        with open(childPath) as child:
+                            contents = child.read()
+                            if contents != childStructure["@contents"]:
+                                print "Contents mismatch:", childPath
+                                print "Expected:\n%s\n\nActual:\n%s\n" % (childStructure["@contents"], contents)
+                                return False
 
                 else:
                     # This is a directory
@@ -126,6 +130,7 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
             if actual:
                 # There are unexpected children
+                print "Unexpected:", actual
                 return False
 
             return True

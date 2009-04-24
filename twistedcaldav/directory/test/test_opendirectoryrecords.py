@@ -692,56 +692,6 @@ else:
             self.verifyQuery(self.service.recordWithEmailAddress, "location05@example.com")
             self.verifyNoQuery(self.service.recordWithEmailAddress, "location05@example.com")
 
-        def test_resourceinfo(self):
-            good_plist = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.WhitePagesFramework</key>
-    <dict>
-        <key>AutoAcceptsInvitation</key>
-        <true/>
-        <key>Label</key>
-        <string>Location</string>
-        <key>CalendaringDelegate</key>
-        <string></string>
-        <key>ReadOnlyCalendaringDelegate</key>
-        <string></string>
-    </dict>
-</dict>
-</plist>
-"""
-
-            bad_plist = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.WhitePagesFramework</key>
-    <string>bogus</string>
-</dict>
-</plist>
-"""
-
-            invalid_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.WhitePagesFramework</key>
-    <string>R&D</string>
-</dict>
-</plist>
-"""
-
-            self.loadRecords({
-                DirectoryService.recordType_locations: [
-                    fakeODRecord("Location 01", resourceInfo=good_plist),
-                    fakeODRecord("Location 02", resourceInfo=bad_plist),
-                    fakeODRecord("Location 03", resourceInfo=invalid_xml),
-                ],
-            })
-
-            self.verifyRecords(DirectoryService.recordType_locations, ("location01",))
-            self.verifyDisabledRecords(DirectoryService.recordType_locations, (), ())
 
 
 def fakeODRecord(fullName, shortName=None, guid=None, email=None, members=None, resourceInfo=None):

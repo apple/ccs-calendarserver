@@ -319,7 +319,7 @@ class CachingDirectoryRecord(DirectoryRecord):
     def __init__(
         self, service, recordType, guid, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(), autoSchedule=False,
+        calendarUserAddresses=set(),
         enabledForCalendaring=None, uid=None,
     ):
         super(CachingDirectoryRecord, self).__init__(
@@ -333,7 +333,6 @@ class CachingDirectoryRecord(DirectoryRecord):
             lastName              = lastName,
             emailAddresses        = emailAddresses,
             calendarUserAddresses = calendarUserAddresses,
-            autoSchedule          = autoSchedule,
             enabledForCalendaring = enabledForCalendaring,
             uid                   = uid,
         )

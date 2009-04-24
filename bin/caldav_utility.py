@@ -18,6 +18,7 @@
 
 from __future__ import with_statement
 
+
 import sys
 
 if "PYTHONPATH" in globals():
@@ -37,52 +38,312 @@ else:
 
 # sys.path.insert(0, "/usr/share/caldavd/lib/python")
 
-import os
-import itertools
-from code import interact
-
+from calendarserver.provision.root import RootResource
 from getopt import getopt, GetoptError
-from os.path import dirname, abspath
-
 from twisted.internet import reactor
+from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import log
 from twisted.python.reflect import namedClass
 from twisted.web2.dav import davxml
-# from twisted.web2.http import Request
-
-from twistedcaldav import ical
 from twistedcaldav import caldavxml
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile, CalendarHomeFile, CalendarHomeProvisioningFile
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config, defaultConfigFile
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-
-from calendarserver.provision.root import RootResource
-
-
-from twistedcaldav import memcachepool
+from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
-from twisted.internet.address import IPv4Address
+from twistedcaldav.static import CalendarHomeProvisioningFile
+import itertools
+import os
 
-# This dictionary is a mapping of symbols that other modules might want
-# to use; it's populated by the @exportmethod decorator below.
-exportedSymbols = { }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def exportmethod(method):
-    """ Add the method to exportedSymbols """
-    global exportedSymbols
-    exportedSymbols[method.func_name] = method
-    return method
+def usage(e=None):
+    if e:
+        print e
+        print ""
 
-def getExports(**kw):
-    """ Return a copy of exportedSymbols, with kw included """
-    exports = exportedSymbols.copy()
-    exports.update(**kw)
-    return exports
+    name = os.path.basename(sys.argv[0])
+    print "usage: %s [options]" % (name,)
+    print ""
+    print "options:"
+    print "  -h --help: print this help and exit"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  --resource <prinicpal-path>: path of the resource to use"
+    print "  --read-property: namespace-qualified DAV property to read, e.g. 'DAV:#group-member-set'"
+    print "  --list-read-delegates: list delegates with read-only access to the current resource"
+    print "  --list-write-delegates: list delegates with read-write access to the current resource"
+    print "  --add-read-delegate <prinicpal-path>: add argument as a read-only delegate to the current resource"
+    print "  --add-write-delegate <prinicpal-path>: add argument as a read-write delegate to the current resource"
+    print "  --remove-delegate <prinicpal-path>: strip argument of delegate status for the current resource"
+    print "  --set-auto-schedule [true|false] : determines whether the current resource auto-accepts invitations"
+    print "  --get-auto-schedule : returns the current resource's auto-schedule state"
+
+    if e:
+        sys.exit(64)
+    else:
+        sys.exit(0)
+
+class UsageError (StandardError):
+    pass
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def main():
+    try:
+        (optargs, args) = getopt(
+            sys.argv[1:], "hf:r:s", [
+                "config=",
+                "help",
+                "resource=",
+                "read-property=",
+                "list-read-delegates",
+                "list-write-delegates",
+                "add-read-delegate=",
+                "add-write-delegate=",
+                "remove-delegate=",
+                "set-auto-schedule=",
+                "get-auto-schedule",
+            ],
+        )
+    except GetoptError, e:
+        usage(e)
+
+    if args:
+        usage("Too many arguments: %s" % (" ".join(args),))
+
+    logFileName = "/dev/stdout"
+    observer = log.FileLogObserver(open(logFileName, "a"))
+    log.addObserver(observer.emit)
+
+    # First pass through the args:
+
+    configFileName = None
+
+    for opt, arg in optargs:
+        if opt in ("-h", "--help"):
+            usage()
+
+        elif opt in ("-f", "--config"):
+            configFileName = arg
+
+    loadConfig(configFileName)
+    directory, root = setup()
+    root = ResourceWrapper(root)
+
+    reactor.callLater(0, run, directory, root, optargs)
+    reactor.run()
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+@inlineCallbacks
+def run(directory, root, optargs):
+
+    resource = None
+
+    for opt, arg in optargs:
+
+        if opt in ("-r", "--resource",):
+            resource = root.getChild(arg)
+            if resource is not None:
+                print "Found resource %s at %s" % (resource.resource, arg)
+            else:
+                abort("Could not find resource at %s" % (arg,))
+
+        elif opt in ("--read-property",):
+            if resource is None: abort("No current resource.")
+
+            try:
+                namespace, name = arg.split("#")
+            except Exception, e:
+                abort("Can't parse --propertyToRead: %s" % (arg,))
+
+            result = (yield resource.readProperty((namespace, name)))
+            print result.toxml()
+
+        elif opt in ("--list-write-delegates", "--list-read-delegates"):
+            if resource is None: abort("No current resource.")
+
+            permission = "write" if "write" in opt else "read"
+            print "Delegates (%s) for %s:" % (permission, resource.resource)
+            paths = (yield resource.getDelegates(permission))
+            for path in paths:
+                delegate = root.getChild(path)
+                print delegate.resource
+
+        elif opt in ("--add-write-delegate", "--add-read-delegate"):
+            if resource is None: abort("No current resource.")
+
+            delegate = root.getChild(arg)
+            if delegate is None:
+                abort("No delegate found for %s" % (arg,))
+
+            permission = "write" if "write" in opt else "read"
+            result = (yield resource.addDelegate(delegate, permission))
+
+        elif opt == "--remove-delegate":
+            if resource is None: abort("No current resource.")
+
+            delegate = root.getChild(arg)
+            if delegate is None:
+                abort("No delegate found for %s" % (arg,))
+
+            result = (yield resource.removeDelegate(delegate, "read"))
+            result = (yield resource.removeDelegate(delegate, "write"))
+
+        elif opt == "--set-auto-schedule":
+            if resource is None: abort("No current resource.")
+
+            result = (yield resource.setAutoSchedule(arg.lower() in ("true", "1")))
+
+        elif opt == "--get-auto-schedule":
+            if resource is None: abort("No current resource.")
+
+            result = (yield resource.getAutoSchedule())
+            print "Auto-Schedule: %s" % ("True" if result else "False",)
 
 
+    # reactor.callLater(0, reactor.stop)
+    reactor.stop()
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class ResourceWrapper(object):
+
+    def __init__(self, resource):
+        self.resource = resource
+
+    def readProperty(self, prop):
+        return self.resource.readProperty(prop, FakeRequest())
+
+    def writeProperty(self, prop):
+        return self.resource.writeProperty(prop, FakeRequest())
+
+    def getChild(self, path):
+        resource = self.resource
+        segments = path.strip("/").split("/")
+        for segment in segments:
+            resource = resource.getChild(segment)
+            if resource is None:
+                return None
+        return ResourceWrapper(resource)
+
+    @inlineCallbacks
+    def removeDelegate(self, delegate, permission):
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        newChildren = []
+        for child in prop.children:
+            if str(child) != delegate.url():
+                newChildren.append(child)
+
+        if len(prop.children) == len(newChildren):
+            # Nothing to do -- the delegate wasn't there
+            returnValue(False)
+
+        newProp = davxml.GroupMemberSet(*newChildren)
+        result = (yield subPrincipal.writeProperty(newProp))
+        returnValue(result)
+
+    @inlineCallbacks
+    def addDelegate(self, delegate, permission):
+
+        opposite = "read" if permission == "write" else "write"
+        result = (yield self.removeDelegate(delegate, opposite))
+
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        for child in prop.children:
+            if str(child) == delegate.url():
+                # delegate is already in the group
+                break
+        else:
+            # delegate is not already in the group
+            newChildren = list(prop.children)
+            newChildren.append(davxml.HRef(delegate.url()))
+            newProp = davxml.GroupMemberSet(*newChildren)
+            result = (yield subPrincipal.writeProperty(newProp))
+            returnValue(result)
+
+    @inlineCallbacks
+    def getDelegates(self, permission):
+
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        result = []
+        for child in prop.children:
+            result.append(str(child))
+        returnValue(result)
+
+    def setAutoSchedule(self, autoSchedule):
+        return self.resource.setAutoSchedule(autoSchedule)
+
+    def getAutoSchedule(self):
+        return self.resource.getAutoSchedule()
+
+    def url(self):
+        return self.resource.url()
+
+class FakeRequest(object):
+    pass
+
+def abort(msg, errno=1):
+    print "ERROR:", msg
+    print "Exiting"
+    reactor.stop()
+    sys.exit(errno)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def setup():
+
+    setLogLevelForNamespace(None, "warn")
+
+    directory = getDirectory()
+    if config.Memcached["ClientEnabled"]:
+        memcachepool.installPool(
+            IPv4Address(
+                'TCP',
+                config.Memcached["BindAddress"],
+                config.Memcached["Port"]
+            ),
+            config.Memcached["MaxClients"]
+        )
+    if config.Notifications["Enabled"]:
+        installNotificationClient(
+            config.Notifications["InternalNotificationHost"],
+            config.Notifications["InternalNotificationPort"],
+        )
+    principalCollection = directory.getPrincipalCollection()
+    root = RootResource(
+        config.DocumentRoot,
+        principalCollections=(principalCollection,),
+    )
+    root.putChild("principals", principalCollection)
+    calendarCollection = CalendarHomeProvisioningFile(
+        os.path.join(config.DocumentRoot, "calendars"),
+        directory, "/calendars/",
+    )
+    root.putChild("calendars", calendarCollection)
+
+    return (directory, root)
 
 def loadConfig(configFileName):
     if configFileName is None:
@@ -152,152 +413,10 @@ dummyDirectoryRecord = DirectoryRecord(
     shortNames = ("dummy",),
     fullName = "Dummy McDummerson",
     calendarUserAddresses = set(),
-    autoSchedule = False,
+    # autoSchedule = False,
 )
 
-def setup():
-
-    directory = getDirectory()
-    if config.Memcached["ClientEnabled"]:
-        memcachepool.installPool(
-            IPv4Address(
-                'TCP',
-                config.Memcached["BindAddress"],
-                config.Memcached["Port"]
-            ),
-            config.Memcached["MaxClients"]
-        )
-    if config.Notifications["Enabled"]:
-        installNotificationClient(
-            config.Notifications["InternalNotificationHost"],
-            config.Notifications["InternalNotificationPort"],
-        )
-    principalCollection = directory.getPrincipalCollection()
-    root = RootResource(
-        config.DocumentRoot,
-        principalCollections=(principalCollection,),
-    )
-    root.putChild("principals", principalCollection)
-    calendarCollection = CalendarHomeProvisioningFile(
-        os.path.join(config.DocumentRoot, "calendars"),
-        directory, "/calendars/",
-    )
-    root.putChild("calendars", calendarCollection)
-
-    return (directory, root)
-
-
-
-class UsageError (StandardError):
-    pass
-
-def usage(e=None):
-    if e:
-        print e
-        print ""
-
-    name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] [input_specifiers]" % (name,)
-    print ""
-    print "Change calendar user addresses"
-    print __doc__
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config: Specify caldavd.plist configuration path"
-    print ""
-    print "input specifiers:"
-    print "  -c --changes: add all calendar homes"
-    print "  --dry-run: Don't actually change the data"
-
-    if e:
-        sys.exit(64)
-    else:
-        sys.exit(0)
-
-def loadChanges(fileName):
-    addresses = {}
-    with open(fileName) as input:
-        count = 1
-        for line in input:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                try:
-                    oldAddr, newAddr = line.split()
-                    addresses[oldAddr] = newAddr
-                except Exception, e:
-                    print "Could not parse line %d: %s" % (count, line)
-                    sys.exit(2)
-            count += 1
-    return addresses
-
-
-
-
-class ResourceWrapper(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-@exportmethod
-def byPath(root, path):
-    resource = root
-    segments = path.strip("/").split("/")
-    for segment in segments:
-        resource = resource.getChild(segment)
-    return ResourceWrapper(resource)
-
-def main():
-    try:
-        (optargs, args) = getopt(
-            sys.argv[1:], "hf:", [
-                "config=",
-                "help",
-                "dry-run",
-            ],
-        )
-    except GetoptError, e:
-        usage(e)
-
-    configFileName = None
-    logFileName = "/dev/stdout"
-    modifyData = True
-    changesFile = None
-
-    directory = None
-    calendarHomePaths = set()
-    calendarHomes = set()
-
-    def checkExists(resource):
-        if not resource.exists():
-            sys.stderr.write("No such file: %s\n" % (resource.fp.path,))
-            sys.exit(1)
-
-    for opt, arg in optargs:
-        if opt in ("-h", "--help"):
-            usage()
-
-        elif opt in ("-f", "--config"):
-            configFileName = arg
-
-        elif opt in ("--dry-run",):
-            modifyData = False
-
-    if args:
-        usage("Too many arguments: %s" % (" ".join(args),))
-
-    observer = log.FileLogObserver(open(logFileName, "a"))
-    log.addObserver(observer.emit)
-
-    loadConfig(configFileName)
-
-    directory, root = setup()
-    exportedSymbols['root'] = root
-    exportedSymbols['directory'] = directory
-
-    banner = "\nWelcome to calendar server\n"
-    interact(banner, None, getExports(__name__="__console__", __doc__=None))
-
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 if __name__ == "__main__":
-
     main()

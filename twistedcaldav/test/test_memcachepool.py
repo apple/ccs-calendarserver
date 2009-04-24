@@ -40,6 +40,9 @@ class StubConnectionPool(object):
     """
     def __init__(self):
         self.calls = []
+        self.shutdown_deferred = None
+        self.shutdown_requested = False
+
 
 
     def clientFree(self, client):
@@ -99,6 +102,9 @@ class StubReactor(object):
         self.calls.append((args, kwargs))
         return StubConnector()
 
+
+    def addSystemEventTrigger(*args, **kwds):
+        pass
 
 
 class PooledMemCacheProtocolTests(TestCase):

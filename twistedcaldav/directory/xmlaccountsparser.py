@@ -28,8 +28,11 @@ import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
+from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.log import Logger
+from twistedcaldav.resource import ResourceInfoDatabase
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 log = Logger()
 
@@ -73,6 +76,7 @@ class XMLAccountsParser(object):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
     def __init__(self, xmlFile):
+
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
 
@@ -94,7 +98,43 @@ class XMLAccountsParser(object):
             self.log("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
-        
+        self._updateExternalDatabases()
+
+    def _updateExternalDatabases(self):
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+
+        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
+
+        for records in self.items.itervalues():
+            for principal in records.itervalues():
+
+                resourceInfoDatabase.setAutoScheduleInDatabase(principal.guid,
+                    principal.autoSchedule)
+
+                if principal.proxies:
+                    proxies = []
+                    for recordType, uid in principal.proxies:
+                        record = self.items[recordType].get(uid)
+                        if record is not None:
+                            proxies.append(record.guid)
+
+                    calendarUserProxyDatabase.setGroupMembersInDatabase(
+                        "%s#calendar-proxy-write" % (principal.guid,),
+                        proxies
+                    )
+
+                if principal.readOnlyProxies:
+                    readOnlyProxies = []
+                    for recordType, uid in principal.readOnlyProxies:
+                        record = self.items[recordType].get(uid)
+                        if record is not None:
+                            readOnlyProxies.append(record.guid)
+
+                    calendarUserProxyDatabase.setGroupMembersInDatabase(
+                        "%s#calendar-proxy-read" % (principal.guid,),
+                        readOnlyProxies
+                    )
+
     def _parseXML(self, node):
         """
         Parse the XML root node from the accounts configuration document.
@@ -280,9 +320,6 @@ class XMLAccountRecord (object):
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_AUTOSCHEDULE:
-                # Only Resources & Locations
-                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                    raise ValueError("<auto-schedule> element only allowed for Resources and Locations: %s" % (child_name,))
                 self.autoSchedule = True
             elif child_name == ELEMENT_DISABLECALENDAR:
                 # FIXME: Not sure I see why this restriction is needed. --wsanchez
@@ -291,14 +328,8 @@ class XMLAccountRecord (object):
                 #    raise ValueError("<disable-calendar> element only allowed for Users: %s" % (child_name,))
                 self.enabledForCalendaring = False
             elif child_name == ELEMENT_PROXIES:
-                # Only Resources & Locations
-                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                    raise ValueError("<proxies> element only allowed for Resources and Locations: %s" % (child_name,))
                 self._parseMembers(child, self.proxies)
             elif child_name == ELEMENT_READ_ONLY_PROXIES:
-                # Only Resources & Locations
-                if self.recordType not in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                    raise ValueError("<read-only-proxies> element only allowed for Resources and Locations: %s" % (child_name,))
                 self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))

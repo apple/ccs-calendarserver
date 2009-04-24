@@ -39,11 +39,6 @@ from twistedcaldav.cache import DisabledCacheNotifier
 
 import twistedcaldav.test.util
 
-directoryServices = (
-    BasicDirectoryService(digestRealm, basicUserFile, groupFile),
-    DigestDirectoryService(digestRealm, digestUserFile, groupFile),
-    XMLDirectoryService(xmlFile),
-)
 
 class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     """
@@ -52,9 +47,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
 
+        self.directoryServices = (
+            BasicDirectoryService(digestRealm, basicUserFile, groupFile),
+            DigestDirectoryService(digestRealm, digestUserFile, groupFile),
+            XMLDirectoryService(xmlFile),
+        )
+
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             name = directory.__class__.__name__
             url = "/" + name + "/"
 
@@ -78,7 +79,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         DirectoryPrincipalResource.principalURL(),
         """
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             #print "\n -> %s" % (directory.__class__.__name__,)
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
@@ -140,7 +141,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalProvisioningResource.principalForUser()
         """
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
             for user in directory.listRecords(DirectoryService.recordType_users):
@@ -152,7 +153,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalProvisioningResource.principalForAuthID()
         """
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
             for user in directory.listRecords(DirectoryService.recordType_users):
@@ -203,20 +204,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         self.failIf(provisioningResource.principalForCalendarUserAddress("urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5") is not None)
         self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/users/nocalendar/") is not None)
         self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/__uids__/543D28BA-F74F-4D5F-9243-B3E3A61171E5/") is not None)
-
-    def test_autoSchedule(self):
-        """
-        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
-        """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            principal = provisioningResource.principalForRecord(record)
-            self.failIf(principal is None)
-            if record.enabledForCalendaring:
-                self.assertEquals(record.autoSchedule, principal.autoSchedule())
-                if record.shortNames[0] == "gemini":
-                    self.assertTrue(principal.autoSchedule())
-                else:
-                    self.assertFalse(principal.autoSchedule())
 
     def test_enabledForCalendaring(self):
         """
@@ -302,24 +289,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             memberships = yield recordResource.groupMemberships()
             self.failUnless(set(record.groups()).issubset(set(r.record for r in memberships if hasattr(r, "record"))))
 
-    def test_proxies(self):
-        """
-        DirectoryPrincipalResource.proxies()
-        """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            if record.enabledForCalendaring:
-                self.failUnless(set(record.proxies()).issubset(set(r.record for r in recordResource.proxies())))
-                self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
-
-    def test_read_only_proxies(self):
-        """
-        DirectoryPrincipalResource.proxies()
-        """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            if record.enabledForCalendaring:
-                self.failUnless(set(record.readOnlyProxies()).issubset(set(r.record for r in recordResource.readOnlyProxies())))
-                self.assertEqual(record.hasEditableProxyMembership(), recordResource.hasEditableProxyMembership())
-
     def test_principalUID(self):
         """
         DirectoryPrincipalResource.principalUID()
@@ -356,7 +325,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
 
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             url = "/homes_" + directory.__class__.__name__ + "/"
             path = os.path.join(self.docroot, url[1:])
 
@@ -412,7 +381,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         Default access controls for principal provisioning resources.
         """
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             #print "\n -> %s" % (directory.__class__.__name__,)
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
@@ -472,7 +441,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             C{record} is the directory service record
             for each record in each directory in C{directoryServices}.
         """
-        for directory in directoryServices:
+        for directory in self.directoryServices:
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
             for recordType in directory.recordTypes():
                 for record in directory.listRecords(recordType):

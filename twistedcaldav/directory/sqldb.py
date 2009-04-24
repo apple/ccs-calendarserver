@@ -101,10 +101,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
             # Get calendar user addresses
             calendarUserAddresses = self.calendarUserAddresses(shortName)
             
-            # TODO: need this for Resources and Locations
-            autoSchedule = False
-                
-            yield shortName, guid, password, name, members, groups, calendarUserAddresses, autoSchedule
+            yield shortName, guid, password, name, members, groups, calendarUserAddresses
 
     def getRecord(self, recordType, shortName):
         # Get individual account record
@@ -129,10 +126,7 @@ class SQLDirectoryManager(AbstractSQLDatabase):
         # Get calendar user addresses
         calendarUserAddresses = self.calendarUserAddresses(shortName)
         
-        # TODO: need this for Resources and Locations
-        autoSchedule = False
-            
-        return shortName, guid, password, name, members, groups, calendarUserAddresses, autoSchedule
+        return shortName, guid, password, name, members, groups, calendarUserAddresses
             
     def members(self, shortName):
         members = set()
@@ -318,7 +312,6 @@ class SQLDirectoryService(DirectoryService):
                 members               = result[4],
                 groups                = result[5],
                 calendarUserAddresses = result[6],
-                autoSchedule          = result[7],
             )
 
     def recordWithShortName(self, recordType, shortName):
@@ -334,7 +327,6 @@ class SQLDirectoryService(DirectoryService):
                 members               = result[4],
                 groups                = result[5],
                 calendarUserAddresses = result[6],
-                autoSchedule          = result[7],
             )
 
         return None
@@ -343,7 +335,7 @@ class SQLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
-    def __init__(self, service, recordType, shortName, guid, password, name, members, groups, calendarUserAddresses, autoSchedule):
+    def __init__(self, service, recordType, shortName, guid, password, name, members, groups, calendarUserAddresses):
         super(SQLDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
@@ -351,7 +343,6 @@ class SQLDirectoryRecord(DirectoryRecord):
             shortNames            = (shortName,),
             fullName              = name,
             calendarUserAddresses = calendarUserAddresses,
-            autoSchedule          = autoSchedule,
         )
 
         self.password = password

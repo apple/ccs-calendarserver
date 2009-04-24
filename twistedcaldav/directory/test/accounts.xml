@@ -67,6 +67,7 @@ limitations under the License.
   </user>
   <user repeat="2">
     <uid>user%02d</uid>
+    <guid>user%02d</guid>
     <password>%02duser</password>
     <name>User %02d</name>
   </user>
@@ -81,6 +82,7 @@ limitations under the License.
   </group>
   <group>
     <uid>admin</uid>
+    <guid>admin</guid>
     <password>admin</password>
     <name>Administrators</name>
     <members>
@@ -89,6 +91,7 @@ limitations under the License.
   </group>
   <group>
     <uid>grunts</uid>
+    <guid>grunts</guid>
     <password>grunts</password>
     <name>We do all the work</name>
     <members>
@@ -99,6 +102,7 @@ limitations under the License.
   </group>
   <group>
     <uid>right_coast</uid>
+    <guid>right_coast</guid>
     <password>right_coast</password>
     <name>East Coast</name>
     <members>
@@ -107,6 +111,7 @@ limitations under the License.
   </group>
   <group>
     <uid>left_coast</uid>
+    <guid>left_coast</guid>
     <password>left_coast</password>
     <name>West Coast</name>
     <members>
@@ -117,6 +122,7 @@ limitations under the License.
   </group>
   <group>
     <uid>both_coasts</uid>
+    <guid>both_coasts</guid>
     <password>both_coasts</password>
     <name>Both Coasts</name>
     <members>
@@ -126,6 +132,7 @@ limitations under the License.
   </group>
   <group>
     <uid>recursive1_coasts</uid>
+    <guid>recursive1_coasts</guid>
     <password>recursive1_coasts</password>
     <name>Recursive1 Coasts</name>
     <members>
@@ -135,6 +142,7 @@ limitations under the License.
   </group>
   <group>
     <uid>recursive2_coasts</uid>
+    <guid>recursive2_coasts</guid>
     <password>recursive2_coasts</password>
     <name>Recursive2 Coasts</name>
     <members>
@@ -144,6 +152,7 @@ limitations under the License.
   </group>
   <group>
     <uid>non_calendar_group</uid>
+    <guid>non_calendar_group</guid>
     <password>non_calendar_group</password>
     <name>Non-calendar group</name>
     <members>
@@ -154,6 +163,7 @@ limitations under the License.
   </group>
   <location>
     <uid>mercury</uid>
+    <guid>mercury</guid>
     <password>mercury</password>
     <name>Mecury Seven</name>
     <email-address>mercury@example.com</email-address>
@@ -164,6 +174,7 @@ limitations under the License.
   </location>
   <location>
     <uid>gemini</uid>
+    <guid>gemini</guid>
     <password>gemini</password>
     <name>Gemini Twelve</name>
     <email-address>gemini@example.com</email-address>
@@ -175,6 +186,7 @@ limitations under the License.
   </location>
   <location>
     <uid>apollo</uid>
+    <guid>apollo</guid>
     <password>apollo</password>
     <name>Apollo Eleven</name>
     <email-address>apollo@example.com</email-address>
@@ -185,6 +197,7 @@ limitations under the License.
   </location>
   <location>
     <uid>orion</uid>
+    <guid>orion</guid>
     <password>orion</password>
     <name>Orion</name>
     <email-address>orion@example.com</email-address>
@@ -195,6 +208,7 @@ limitations under the License.
   </location>
   <resource>
     <uid>transporter</uid>
+    <guid>transporter</guid>
     <password>transporter</password>
     <name>Mass Transporter</name>
     <email-address>transporter@example.com</email-address>
@@ -202,6 +216,7 @@ limitations under the License.
   </resource>
   <resource>
     <uid>ftlcpu</uid>
+    <guid>ftlcpu</guid>
     <password>ftlcpu</password>
     <name>Faster-Than-Light Microprocessor</name>
     <email-address>ftlcpu@example.com</email-address>

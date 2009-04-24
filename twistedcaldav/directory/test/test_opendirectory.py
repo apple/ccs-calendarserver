@@ -72,11 +72,8 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 calendarUserAddresses = set(("mailtoguid@example.com",)),
-                autoSchedule          = False,
                 enabledForCalendaring = True,
                 memberGUIDs           = [],
-                proxyGUIDs            = (),
-                readOnlyProxyGUIDs    = (),
             )
 
             digestFields = {}

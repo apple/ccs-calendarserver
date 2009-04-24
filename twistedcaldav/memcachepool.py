@@ -67,6 +67,11 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
         """
         Notify the connectionPool that we've lost our connection.
         """
+
+        if self.connectionPool.shutdown_requested:
+            # The reactor is stopping; don't reconnect
+            return
+
         self.log_error("MemCache connection lost: %s" % (reason,))
         if self._protocolInstance is not None:
             self.connectionPool.clientBusy(self._protocolInstance)
@@ -89,7 +94,6 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
             self,
             connector,
             reason)
-
 
     def buildProtocol(self, addr):
         """
@@ -138,14 +142,30 @@ class MemCachePool(LoggingMixIn):
 
         if reactor is None:
             from twisted.internet import reactor
-
         self._reactor = reactor
+
+        self.shutdown_deferred = None
+        self.shutdown_requested = False
+        reactor.addSystemEventTrigger('before', 'shutdown', self._shutdownCallback)
 
         self._busyClients = set([])
         self._freeClients = set([])
         self._pendingConnects = 0
         self._commands = []
 
+    def _isIdle(self):
+        return (
+            len(self._busyClients) == 0 and
+            len(self._commands) == 0 and
+            self._pendingConnects == 0
+        )
+
+    def _shutdownCallback(self):
+        self.shutdown_requested = True
+        if self._isIdle():
+            return None
+        self.shutdown_deferred = Deferred()
+        return self.shutdown_deferred
 
     def _newClientConnection(self):
         """
@@ -165,6 +185,7 @@ class MemCachePool(LoggingMixIn):
             return client
 
         factory = self.clientFactory()
+        factory.noisy = False
 
         factory.connectionPool = self
 
@@ -222,6 +243,7 @@ class MemCachePool(LoggingMixIn):
 
         @return: A L{Deferred} that fires with the result of the given command.
         """
+
         if len(self._freeClients) > 0:
             client = self._freeClients.pop()
 
@@ -274,6 +296,7 @@ class MemCachePool(LoggingMixIn):
 
         @param client: An instance of C{self.clientFactory}
         """
+
         if client in self._freeClients:
             self._freeClients.remove(client)
 
@@ -293,6 +316,9 @@ class MemCachePool(LoggingMixIn):
             self._busyClients.remove(client)
 
         self._freeClients.add(client)
+
+        if self.shutdown_deferred and self._isIdle():
+            self.shutdown_deferred.callback(None)
 
         if len(self._commands) > 0:
             d, command, args, kwargs = self._commands.pop(0)

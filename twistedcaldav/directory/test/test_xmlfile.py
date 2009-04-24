@@ -17,10 +17,14 @@
 import os
 
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import inlineCallbacks
 
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from twistedcaldav.resource import ResourceInfoDatabase
+from twistedcaldav.config import config
 
 xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 
@@ -104,6 +108,7 @@ class XMLFile (
 <accounts realm="Test Realm">
   <user>
     <uid>admin</uid>
+    <guid>admin</guid>
     <password>nimda</password>
     <name>Super User</name>
   </user>
@@ -121,6 +126,7 @@ class XMLFile (
                 set(expectedRecords)
             )
 
+    @inlineCallbacks
     def test_okAutoSchedule(self):
         service = self.service()
 
@@ -130,6 +136,7 @@ class XMLFile (
 <accounts realm="Test Realm">
   <location>
     <uid>my office</uid>
+    <guid>myoffice</guid>
     <password>nimda</password>
     <name>Super User</name>
     <auto-schedule/>
@@ -147,30 +154,10 @@ class XMLFile (
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
-        self.assertTrue(service.recordWithShortName(DirectoryService.recordType_locations, "my office").autoSchedule)
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        self.assertTrue((yield resourceInfoDatabase.getAutoSchedule(service.recordWithShortName(DirectoryService.recordType_locations, "my office").guid)))
 
-    def test_badAutoSchedule(self):
-        service = self.service()
 
-        self.xmlFile().open("w").write(
-"""<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
-<accounts realm="Test Realm">
-  <user>
-    <uid>my office</uid>
-    <password>nimda</password>
-    <name>Super User</name>
-    <auto-schedule/>
-  </user>
-</accounts>
-"""
-        )
-        
-        def _findRecords():
-            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
-
-        self.assertRaises(ValueError, _findRecords)
-        
     def test_okDisableCalendar(self):
         service = self.service()
 
@@ -207,6 +194,7 @@ class XMLFile (
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
 
+    @inlineCallbacks
     def test_okProxies(self):
         service = self.service()
 
@@ -216,11 +204,13 @@ class XMLFile (
 <accounts realm="Test Realm">
   <user>
     <uid>test</uid>
+    <guid>test</guid>
     <password>nimda</password>
     <name>Test</name>
   </user>
   <location>
     <uid>my office</uid>
+    <guid>myoffice</guid>
     <password>nimda</password>
     <name>Super User</name>
     <auto-schedule/>
@@ -241,29 +231,9 @@ class XMLFile (
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
-        self.assertEqual(set([("users", "test",)],), service.recordWithShortName(DirectoryService.recordType_locations, "my office")._proxies)
-        self.assertEqual(set([("locations", "my office",)],), service.recordWithShortName(DirectoryService.recordType_users, "test")._proxyFor)
+        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
+        members = (yield calendarUserProxyDatabase.getMembers("myoffice#calendar-proxy-write"))
+        self.assertTrue("test" in members)
+        members = (yield calendarUserProxyDatabase.getMemberships("test"))
+        self.assertTrue("myoffice#calendar-proxy-write" in members)
 
-    def test_badProxies(self):
-        service = self.service()
-
-        self.xmlFile().open("w").write(
-"""<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
-<accounts realm="Test Realm">
-  <user>
-    <uid>my office</uid>
-    <password>nimda</password>
-    <name>Super User</name>
-    <proxies>
-        <member>12345-GUID-67890</member>
-    </proxies>
-  </user>
-</accounts>
-"""
-        )
-        
-        def _findRecords():
-            set(r.shortNames[0] for r in service.listRecords(DirectoryService.recordType_users))
-
-        self.assertRaises(ValueError, _findRecords)

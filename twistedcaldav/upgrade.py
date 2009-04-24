@@ -198,23 +198,19 @@ def upgrade_to_1(config):
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
 
-        # See if the old DB is present
-        oldDbPath = os.path.join(config.DocumentRoot, "principals",
-            CalendarUserProxyDatabase.dbOldFilename)
-        if not os.path.exists(oldDbPath):
-            # Nothing to be done
-            return
-
         # See if the new one is already present
         newDbPath = os.path.join(config.DataRoot,
             CalendarUserProxyDatabase.dbFilename)
         if os.path.exists(newDbPath):
-            # We have a problem - both the old and new ones exist. Stop the server
-            # from starting up and alert the admin to this condition
-            raise UpgradeError(
-                "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' because the new database already exists."
-                % (oldDbPath, newDbPath,)
-            )
+            # Nothing to be done, it's already in the new location
+            return
+
+        # See if the old DB is present
+        oldDbPath = os.path.join(config.DocumentRoot, "principals",
+            CalendarUserProxyDatabase.dbOldFilename)
+        if not os.path.exists(oldDbPath):
+            # Nothing to be moved
+            return
 
         # Now move the old one to the new location
         try:

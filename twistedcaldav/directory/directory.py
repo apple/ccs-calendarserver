@@ -269,7 +269,8 @@ class DirectoryRecord(LoggingMixIn):
     def __init__(
         self, service, recordType, guid, shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
+        calendarUserAddresses=set(),
+        enabledForCalendaring=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -309,7 +310,6 @@ class DirectoryRecord(LoggingMixIn):
         self.emailAddresses        = emailAddresses
         self.enabledForCalendaring = enabledForCalendaring
         self.calendarUserAddresses = calendarUserAddresses
-        self.autoSchedule          = autoSchedule
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -335,20 +335,8 @@ class DirectoryRecord(LoggingMixIn):
     def groups(self):
         return ()
 
-    def proxies(self):
-        return ()
-
-    def proxyFor(self):
-        return ()
-
-    def readOnlyProxies(self):
-        return ()
-
-    def readOnlyProxyFor(self):
-        return ()
-
     def hasEditableProxyMembership(self):
-        return self.recordType in (DirectoryService.recordType_users, DirectoryService.recordType_groups)
+        return True
 
     def verifyCredentials(self, credentials):
         return False

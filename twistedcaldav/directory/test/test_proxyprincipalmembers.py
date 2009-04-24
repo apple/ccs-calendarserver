@@ -28,7 +28,6 @@ from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 import twistedcaldav.test.util
 from twistedcaldav.config import config
 
-directoryService = XMLDirectoryService(xmlFile)
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
@@ -37,19 +36,21 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
+        self.directoryService = XMLDirectoryService(xmlFile)
+
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
-        name = directoryService.__class__.__name__
+        name = self.directoryService.__class__.__name__
         url = "/" + name + "/"
 
-        provisioningResource = DirectoryPrincipalProvisioningResource(url, directoryService)
+        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
 
         self.site.resource.putChild(name, provisioningResource)
 
-        self.principalRootResources[directoryService.__class__.__name__] = provisioningResource
+        self.principalRootResources[self.directoryService.__class__.__name__] = provisioningResource
 
     def _getPrincipalByShortName(self, type, name):
-        provisioningResource = self.principalRootResources[directoryService.__class__.__name__]
+        provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
         return provisioningResource.principalForShortName(type, name)
 
     def _groupMembersTest(self, recordType, recordName, subPrincipalName, expectedMembers):
@@ -252,7 +253,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 return self.members
 
 
-        user = self._getPrincipalByShortName(directoryService.recordType_users,
+        user = self._getPrincipalByShortName(self.directoryService.recordType_users,
                                            "cdaboo")
 
         proxyGroup = user.getChild("calendar-proxy-write")
@@ -281,7 +282,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             def changed(self):
                 self.changedCount += 1
 
-        user = self._getPrincipalByShortName(directoryService.recordType_users, "cdaboo")
+        user = self._getPrincipalByShortName(self.directoryService.recordType_users, "cdaboo")
 
         proxyGroup = user.getChild("calendar-proxy-write")
 
@@ -376,7 +377,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         db._memcacher.theTime = theTime
 
 
-        for doMembershipFirst in (True, False,):
+        for doMembershipFirst in (True, False):
             for proxyType in ("calendar-proxy-read", "calendar-proxy-write"):
 
                 principal = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
@@ -419,7 +420,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertEquals(len(members), 2)
 
                 # Remove the dreid user from the directory service
-                del directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+                del self.directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
 
                 @inlineCallbacks
                 def _membershipTest():
@@ -451,8 +452,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     self.assertEquals(len(members), 2)
 
                     # Restore removed user
-                    parser = XMLAccountsParser(directoryService.xmlFile)
-                    directoryService._parsedAccounts = parser.items
+                    parser = XMLAccountsParser(self.directoryService.xmlFile)
+                    self.directoryService._parsedAccounts = parser.items
 
                     # Trigger the proxy DB clean up, which will actually
                     # remove the deletion timer because the principal has been
@@ -464,7 +465,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     self.assertEquals(result, None)
 
                     # Remove the dreid user from the directory service
-                    del directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+                    del self.directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
 
                     # Trigger the proxy DB clean up, which won't actually
                     # remove anything because we haven't exceeded the timeout
@@ -493,8 +494,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     yield _membershipTest()
 
                 # Restore removed user
-                parser = XMLAccountsParser(directoryService.xmlFile)
-                directoryService._parsedAccounts = parser.items
+                parser = XMLAccountsParser(self.directoryService.xmlFile)
+                self.directoryService._parsedAccounts = parser.items
 
                 self._clearProxy(principal, proxyType)
                 self._clearProxy(fakePrincipal, proxyType)

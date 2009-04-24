@@ -575,8 +575,16 @@ class RecordType (davxml.WebDAVTextElement):
     """
     Exposes the type of a record
     """
+    namespace = calendarserver_namespace
     name = "record-type"
     protected = True
+
+class AutoSchedule (davxml.WebDAVTextElement):
+    """
+    Whether the principal automatically accepts invitations
+    """
+    namespace = calendarserver_namespace
+    name = "auto-schedule"
 
 ##
 # Extensions to davxml.ResourceType
