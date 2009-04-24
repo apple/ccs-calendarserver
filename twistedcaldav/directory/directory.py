@@ -335,9 +335,6 @@ class DirectoryRecord(LoggingMixIn):
     def groups(self):
         return ()
 
-    def hasEditableProxyMembership(self):
-        return True
-
     def verifyCredentials(self, credentials):
         return False
 
