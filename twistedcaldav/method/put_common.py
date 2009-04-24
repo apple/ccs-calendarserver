@@ -20,6 +20,7 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreCalendarObjectResource"]
 
+import hashlib
 import os
 import types
 import uuid
@@ -149,7 +150,7 @@ class StoreCalendarObjectResource(object):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
+                self.lock = MemcacheLock("ImplicitUIDLock", hashlib.md5(uid).hexdigest(), timeout=60.0)
             self.reserved = False
             self.index = index
             self.uid = uid
