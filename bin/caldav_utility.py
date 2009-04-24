@@ -17,9 +17,9 @@
 ##
 
 from __future__ import with_statement
-
-
 import sys
+
+#PYTHONPATH
 
 if "PYTHONPATH" in globals():
     sys.path.insert(0, PYTHONPATH)
@@ -36,7 +36,6 @@ else:
     if child.wait() == 0:
         sys.path[0:0] = path.split(":")
 
-# sys.path.insert(0, "/usr/share/caldavd/lib/python")
 
 from calendarserver.provision.root import RootResource
 from getopt import getopt, GetoptError
