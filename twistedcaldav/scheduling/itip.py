@@ -313,7 +313,7 @@ class iTipProcessing(object):
             attendees.add(attendee)
             partstat_changed = partstat_changed or partstat
             private_comment_changed = private_comment_changed or private_comment
-            if rids is not None and (partstat_changed or private_comment_changed):
+            if rids is not None and (partstat or private_comment):
                 rids.add(toString(rid))
 
         return True, (attendees, partstat_changed, private_comment_changed, rids)
