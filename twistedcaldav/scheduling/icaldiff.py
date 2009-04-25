@@ -305,7 +305,7 @@ class iCalDiff(object):
                     overridden = self.newCalendar.overriddenComponent(rid)
                     self.newCalendar.removeComponent(overridden)
                     if self.newMaster:
-                        self.newMaster.addProperty(Property("EXDATE", (rid,)))
+                        self.newMaster.addProperty(Property("EXDATE", [rid,]))
         
         # Derive a new component in the new calendar for each new one in set2
         for key in set2 - set1:

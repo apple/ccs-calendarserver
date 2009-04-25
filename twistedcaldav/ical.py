@@ -1714,7 +1714,7 @@ class Component (object):
             
         if not removed_master and master_component is not None:
             for exdate in exdates:
-                master_component.addProperty(Property("EXDATE", (exdate,)))
+                master_component.addProperty(Property("EXDATE", [exdate,]))
     
     def filterComponents(self, rids):
         
