@@ -145,7 +145,7 @@ def run(directory, root, optargs):
     for opt, arg in optargs:
 
         if opt in ("-r", "--resource",):
-            resource = root.getChild(arg)
+            resource = root.lookupResource(arg)
             if resource is not None:
                 print "Found resource %s at %s" % (resource.resource, arg)
             else:
@@ -175,7 +175,7 @@ def run(directory, root, optargs):
         elif opt in ("--add-write-delegate", "--add-read-delegate"):
             if resource is None: abort("No current resource.")
 
-            delegate = root.getChild(arg)
+            delegate = root.lookupResource(arg)
             if delegate is None:
                 abort("No delegate found for %s" % (arg,))
 
@@ -185,7 +185,7 @@ def run(directory, root, optargs):
         elif opt == "--remove-delegate":
             if resource is None: abort("No current resource.")
 
-            delegate = root.getChild(arg)
+            delegate = root.lookupResource(arg)
             if delegate is None:
                 abort("No delegate found for %s" % (arg,))
 
@@ -219,6 +219,10 @@ class ResourceWrapper(object):
 
     def writeProperty(self, prop):
         return self.resource.writeProperty(prop, FakeRequest())
+
+    def lookupResource(self, specifier):
+        # For now, support GUID lookup
+        return self.getChild("principals/__uids__/%s" % (specifier,))
 
     def getChild(self, path):
         resource = self.resource
