@@ -191,33 +191,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 
         return result
 
-    def _parseResourceInfo(self, plist, guid, recordType, shortname):
-        """
-        Parse OD ResourceInfo attribute and extract information that the server needs.
-
-        @param plist: the plist that is the attribute value.
-        @type plist: str
-        @param guid: the directory GUID of the record being parsed.
-        @type guid: str
-        @param shortname: the record shortname of the record being parsed.
-        @type shortname: str
-        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
-        """
-        try:
-            plist = readPlistFromString(plist)
-            wpframework = plist.get("com.apple.WhitePagesFramework", {})
-            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
-            proxy = wpframework.get("CalendaringDelegate", None)
-            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-        except (ExpatError, AttributeError), e:
-            self.log_error(
-                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
-                (recordType, shortname, guid, e, plist,)
-            )
-            raise ValueError("Invalid ResourceInfo")
-
-        return (autoaccept, proxy, read_only_proxy,)
-
     def recordTypes(self):
         return (
             self.recordType_users,
@@ -675,6 +648,72 @@ class OpenDirectoryService(CachingDirectoryService):
                 memberGUIDs           = memberGUIDs,
             )
             self.recordCacheForType(recordType).addRecord(record)
+
+    def _parseResourceInfo(self, plist, guid, recordType, shortname):
+        """
+        Parse OD ResourceInfo attribute and extract information that the server needs.
+
+        @param plist: the plist that is the attribute value.
+        @type plist: str
+        @param guid: the directory GUID of the record being parsed.
+        @type guid: str
+        @param shortname: the record shortname of the record being parsed.
+        @type shortname: str
+        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
+        """
+        try:
+            plist = readPlistFromString(plist)
+            wpframework = plist.get("com.apple.WhitePagesFramework", {})
+            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
+            proxy = wpframework.get("CalendaringDelegate", None)
+            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+        except (ExpatError, AttributeError), e:
+            self.log_error(
+                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
+                (recordType, shortname, guid, e, plist,)
+            )
+            raise ValueError("Invalid ResourceInfo")
+
+        return (autoaccept, proxy, read_only_proxy,)
+
+    def getResourceInfo(self):
+        """
+        Resource information including proxy assignments for resource and
+        locations, as well as auto-schedule settings, used to live in the
+        directory.  This method fetches old resource info for migration
+        purposes.
+        """
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDSNAttrResourceInfo,
+        ]
+
+        for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
+            try:
+                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                    self.directory,
+                    recordType,
+                    attrs,
+                ))
+                results = opendirectory.listAllRecordsWithAttributes_list(
+                    self.directory,
+                    recordType,
+                    attrs,
+                )
+            except opendirectory.ODError, ex:
+                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                raise
+
+            for (recordShortName, value) in results:
+                recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    try:
+                        autoSchedule, proxy, readOnlyProxy = self._parseResourceInfo(resourceInfo,
+                            recordGUID, recordType, recordShortName)
+                    except ValueError:
+                        continue
+                    yield recordGUID, autoSchedule, proxy, readOnlyProxy
 
 
 class OpenDirectoryRecord(CachingDirectoryRecord):

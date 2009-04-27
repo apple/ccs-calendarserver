@@ -16,6 +16,7 @@
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
@@ -787,6 +788,71 @@ class ProxyDBUpgradeTests(TestCase):
 
         self.assertRaises(UpgradeError, upgradeData, config)
         self.assertTrue(self.verifyHierarchy(root, after))
+
+    def test_migrateResourceInfo(self):
+        # Fake getResourceInfo( )
+
+        assignments = {
+            'guid1' : (False, None, None),
+            'guid2' : (True, 'guid1', None),
+            'guid3' : (False, 'guid1', 'guid2'),
+            'guid4' : (True, None, 'guid3'),
+        }
+
+        def _getResourceInfo(ignored):
+            results = []
+            for guid, info in assignments.iteritems():
+                results.append( (guid, info[0], info[1], info[2]) )
+            return results
+
+        self.setUpInitialStates()
+        # Override the normal getResourceInfo method with our own:
+        XMLDirectoryService.getResourceInfo = _getResourceInfo
+
+        before = { }
+        after = {
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+        root = self.createHierarchy(before)
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        calendarUserProxyDatabase = CalendarUserProxyDatabase(root)
+        resourceInfoDatabase = ResourceInfoDatabase(root)
+
+        for guid, info in assignments.iteritems():
+
+            proxyGroup = "%s#calendar-proxy-write" % (guid,)
+            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
+            if info[1]:
+                self.assertTrue(info[1] in result)
+            else:
+                self.assertTrue(not result)
+
+            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
+            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
+            if info[2]:
+                self.assertTrue(info[2] in result)
+            else:
+                self.assertTrue(not result)
+
+            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
+            autoSchedule = autoSchedule == 1
+            self.assertEquals(info[0], autoSchedule)
 
 
 

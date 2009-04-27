@@ -926,6 +926,46 @@ class OpenDirectoryService(DirectoryService):
 
         return results
 
+    def getResourceInfo(self):
+        """
+        Resource information including proxy assignments for resource and
+        locations, as well as auto-schedule settings, used to live in the
+        directory.  This method fetches old resource info for migration
+        purposes.
+        """
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDSNAttrResourceInfo,
+        ]
+
+        for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
+            try:
+                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                    self.directory,
+                    recordType,
+                    attrs,
+                ))
+                results = opendirectory.listAllRecordsWithAttributes_list(
+                    self.directory,
+                    recordType,
+                    attrs,
+                )
+            except opendirectory.ODError, ex:
+                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                raise
+
+            for (recordShortName, value) in results:
+                recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    try:
+                        autoSchedule, proxy, readOnlyProxy = self._parseResourceInfo(resourceInfo,
+                            recordGUID, recordType, recordShortName)
+                    except ValueError:
+                        continue
+                    yield recordGUID, autoSchedule, proxy, readOnlyProxy
+
+
 class OpenDirectoryRecord(DirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.

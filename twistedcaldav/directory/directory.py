@@ -251,6 +251,8 @@ class DirectoryService(LoggingMixIn):
 
         return succeed(yieldMatches(recordType))
 
+    def getResourceInfo(self):
+        return ()
 
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
@@ -363,7 +365,7 @@ class DirectoryError(RuntimeError):
 
 class DirectoryConfigurationError(DirectoryError):
     """
-    Invlid directory configuration.
+    Invalid directory configuration.
     """
 
 class UnknownRecordTypeError(DirectoryError):

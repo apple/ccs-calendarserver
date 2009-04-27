@@ -20,6 +20,7 @@ from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav import davxml
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
@@ -243,11 +244,34 @@ def upgrade_to_1(config):
         os.rename(oldHome, newHome)
 
 
+    def migrateResourceInfo(config, directory):
+        log.info("Fetching delegate assignments and auto-schedule settings from directory")
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
+        resourceInfo = directory.getResourceInfo()
+        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
+            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
+            if proxy:
+                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                    "%s#calendar-proxy-write" % (guid,),
+                    [proxy]
+                )
+            if readOnlyProxy:
+                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                    "%s#calendar-proxy-read" % (guid,),
+                    [readOnlyProxy]
+                )
+
+
 
     directory = getDirectory()
+
     docRoot = config.DocumentRoot
 
     uid, gid = getCalendarServerIDs(config)
+
+    if not os.path.exists(config.DataRoot):
+        makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
 
     if os.path.exists(docRoot):
 
@@ -343,6 +367,8 @@ def upgrade_to_1(config):
                                             % (count, total))
 
                 log.warn("Done processing calendar homes")
+
+    migrateResourceInfo(config, directory)
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")

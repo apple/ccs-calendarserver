@@ -160,6 +160,14 @@ class AggregateDirectoryService(DirectoryService):
         
         raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
 
+    def getResourceInfo(self):
+        results = []
+        for service in self._recordTypes.values():
+            for result in service.getResourceInfo():
+                if result:
+                    results.append(result)
+        return results
+
 class DuplicateRecordTypeError(DirectoryError):
     """
     Duplicate record type.
