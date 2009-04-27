@@ -186,8 +186,10 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         for childName in childNames:
             child = self.collection.getChild(childName)
-            propertyStore = child.deadProperties()
+            if child is None:
+                continue
 
+            propertyStore = child.deadProperties()
             props = {}
             for qname in propertyStore.list(cache=False):
                 props[qname] = propertyStore.get(qname, cache=False)
