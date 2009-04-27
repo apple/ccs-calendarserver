@@ -491,7 +491,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 False,
                 listRecordTypes,
                 attrs,
-             )
+            )
             self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
         except opendirectory.ODError, ex:
