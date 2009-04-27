@@ -474,37 +474,25 @@ class OpenDirectoryService(CachingDirectoryService):
         query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
         try:
-            results = opendirectory.queryRecordsWithAttributes(
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
-                "(%s=%s)" % (queryattr, query.value),
-                True, # caseless
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
                 listRecordTypes,
                 attrs,
-            )
-            self.log_debug("opendirectory.queryRecordsWithAttributes matched records: %s" % (len(results),))
-
-            #  Commented out because this method is not working for email addresses...
-            #  TODO: figure out why
-            #
-            # self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-            #     self.directory,
-            #     query.attribute,
-            #     query.value,
-            #     query.matchType,
-            #     False,
-            #     listRecordTypes,
-            #     attrs,
-            # ))
-            # results = opendirectory.queryRecordsWithAttribute_list(
-            #     self.directory,
-            #     query.attribute,
-            #     query.value,
-            #     query.matchType,
-            #     False,
-            #     listRecordTypes,
-            #     attrs,
-            #  )
-            # self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+            ))
+            results = opendirectory.queryRecordsWithAttribute_list(
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                listRecordTypes,
+                attrs,
+             )
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
         except opendirectory.ODError, ex:
             if ex.message[1] == -14140 or ex.message[1] == -14200:
@@ -535,7 +523,7 @@ class OpenDirectoryService(CachingDirectoryService):
             else:
                 return ()
             
-        for (recordShortName, value) in results.iteritems():
+        for (recordShortName, value) in results:
 
             # Now get useful record info.
             recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
