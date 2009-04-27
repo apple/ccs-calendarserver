@@ -449,12 +449,16 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs.append(dsattributes.kDSNAttrNestedGroups)
     
             elif recordType == DirectoryService.recordType_locations:
-                listRecordTypes.append(dsattributes.kDSStdRecordTypePlaces)
+                # Email addresses and locations don't mix
+                if indexType != self.INDEX_TYPE_EMAIL:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypePlaces)
                 # MOR: possibly can be removed
                 attrs.append(dsattributes.kDSNAttrResourceInfo)
             
             elif recordType == DirectoryService.recordType_resources:
-                listRecordTypes.append(dsattributes.kDSStdRecordTypeResources)
+                # Email addresses and resources don't mix
+                if indexType != self.INDEX_TYPE_EMAIL:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypeResources)
                 # MOR: possibly can be removed
                 attrs.append(dsattributes.kDSNAttrResourceInfo)
             
@@ -470,25 +474,38 @@ class OpenDirectoryService(CachingDirectoryService):
         query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
         try:
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+            results = opendirectory.queryRecordsWithAttributes(
                 self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
-                False,
-                listRecordTypes,
-                attrs,
-            ))
-            results = opendirectory.queryRecordsWithAttribute_list(
-                self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
-                False,
+                "(%s=%s)" % (queryattr, query.value),
+                True, # caseless
                 listRecordTypes,
                 attrs,
             )
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+            self.log_debug("opendirectory.queryRecordsWithAttributes matched records: %s" % (len(results),))
+
+            #  Commented out because this method is not working for email addresses...
+            #  TODO: figure out why
+            #
+            # self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+            #     self.directory,
+            #     query.attribute,
+            #     query.value,
+            #     query.matchType,
+            #     False,
+            #     listRecordTypes,
+            #     attrs,
+            # ))
+            # results = opendirectory.queryRecordsWithAttribute_list(
+            #     self.directory,
+            #     query.attribute,
+            #     query.value,
+            #     query.matchType,
+            #     False,
+            #     listRecordTypes,
+            #     attrs,
+            #  )
+            # self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+
         except opendirectory.ODError, ex:
             if ex.message[1] == -14140 or ex.message[1] == -14200:
                 # Unsupported attribute on record - don't fail
@@ -518,7 +535,7 @@ class OpenDirectoryService(CachingDirectoryService):
             else:
                 return ()
             
-        for (recordShortName, value) in results:
+        for (recordShortName, value) in results.iteritems():
 
             # Now get useful record info.
             recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
