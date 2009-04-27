@@ -2277,7 +2277,6 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
-                (),
             ),
             (
                 "#1.2 Simple component, one property change",
@@ -2303,8 +2302,7 @@ SUMMARY:Test1
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(),},
-                (),
+                {"":{"SUMMARY":set(),}},
             ),
             (
                 "#1.3 Simple component, one property change, one addition, one removal",
@@ -2332,8 +2330,7 @@ DESCRIPTION:Something to do.
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),},
-                (),
+                {"":{"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),}},
             ),
             (
                 "#1.4 Simple component, add attendee",
@@ -2366,8 +2363,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                (),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#1.5 Simple component, remove attendee",
@@ -2398,8 +2394,7 @@ ATTENDEE:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                (),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#1.6 Simple component, attendee PARTSTAT only",
@@ -2431,8 +2426,7 @@ ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                (),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#1.7 Simple component, attendee PARTSTAT and addition",
@@ -2465,8 +2459,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                (),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#1.8 Simple component, attendee RSVP only",
@@ -2498,8 +2491,7 @@ ATTENDEE;RSVP=TRUE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                (),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#1.9 Simple component, DTSTART/DTEND VALUE",
@@ -2531,8 +2523,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"DTEND":set(("VALUE",)), "DTSTART":set(("VALUE",)),},
-                (),
+                {"":{"DTEND":set(("VALUE",)), "DTSTART":set(("VALUE",)),}},
             ),
             (
                 "#1.10 Simple component, DTSTART/DTEND TZID",
@@ -2600,8 +2591,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"DTEND":set(("TZID",)), "DTSTART":set(("TZID",)),},
-                (),
+                {"":{"DTEND":set(("TZID",)), "DTSTART":set(("TZID",)),}},
             ),
         )
         
@@ -2639,7 +2629,6 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
-                (),
             ),
             (
                 "#2.2 Simple component, one property change",
@@ -2667,8 +2656,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(),},
-                ("",),
+                {"":{"SUMMARY":set(),}},
             ),
             (
                 "#2.3 Simple component, one property change, one addition, one removal",
@@ -2698,8 +2686,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),},
-                ("",),
+                {"":{"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),}},
             ),
             (
                 "#2.4 Simple component, add attendee",
@@ -2734,8 +2721,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                ("",),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#2.5 Simple component, remove attendee",
@@ -2768,8 +2754,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                ("",),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#2.6 Simple component, attendee PARTSTAT only",
@@ -2803,8 +2788,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                ("",),
+                {"":{"ATTENDEE":set(),}},
             ),
             (
                 "#2.7 Simple component, attendee PARTSTAT and addition",
@@ -2839,8 +2823,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"ATTENDEE":set(),},
-                ("",),
+                {"":{"ATTENDEE":set(),}},
             ),
         )
         
@@ -2898,7 +2881,6 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
-                (),
             ),
             (
                 "#3.2 Simple component, one property change in instance",
@@ -2946,8 +2928,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(),},
-                ("20080602T120000Z",),
+                {"20080602T120000Z":{"SUMMARY":set(),}},
             ),
             (
                 "#3.3 Simple component, one property change in master",
@@ -2995,8 +2976,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(),},
-                ("",),
+                {"":{"SUMMARY":set(),}},
             ),
             (
                 "#3.4 Simple component, one property change in master and instance",
@@ -3044,8 +3024,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(),},
-                ("", "20080602T120000Z",),
+                {"":{"SUMMARY":set(),}, "20080602T120000Z":{"SUMMARY":set(),}},
             ),
             (
                 "#3.5 Simple component, different property change in master and instance",
@@ -3094,8 +3073,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"SUMMARY":set(), "DESCRIPTION":set()},
-                ("", "20080602T120000Z",),
+                {"":{"SUMMARY":set()}, "20080602T120000Z":{"DESCRIPTION":set()}},
             ),
             (
                 "#3.6 Simple component, instance added no change",
@@ -3131,7 +3109,6 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
-                (),
             ),
             (
                 "#3.7 Simple component, instance added time change",
@@ -3166,8 +3143,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                {"DTSTART":set(), "DTEND":set(), },
-                ("20080602T120000Z",),
+                {"20080602T120000Z":{"DTSTART":set(), "DTEND":set(), }},
             ),
             (
                 "#3.8 Simple component, instance removed no change",
@@ -3203,7 +3179,6 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
-                (),
             ),
             (
                 "#3.9 Simple component, instance removed time change",
@@ -3238,18 +3213,14 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"DTSTART":set(), "DTEND":set(), },
-                ("20080602T120000Z",),
+                {"20080602T120000Z":{"DTSTART":set(), "DTEND":set(), }},
             ),
         )
         
-        for description, calendar1, calendar2, changes, rids in itertools.chain(data1, data2, data3,):
+        for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            expected_changes = changes
-            expected_rids = set(rids) if rids else None
-            got_changes, got_rids = differ.whatIsDifferent()
-            self.assertEqual(got_changes, expected_changes, msg="%s expected changes: '%s', got: '%s'" % (description, expected_changes, got_changes,))
-            self.assertEqual(got_rids, expected_rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, expected_rids, got_rids,))
+            got_rids = differ.whatIsDifferent()
+            self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
         
     def test_organizer_smart_merge(self):
         

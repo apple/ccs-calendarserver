@@ -3,7 +3,7 @@
 
 Calendar Server Extension                                       C. Daboo
                                                                    Apple
-                                                       February 28, 2009
+                                                          April 26, 2009
 
 
        Change Indicators for Processed CalDAV Scheduling Messages
@@ -25,17 +25,17 @@ Table of Contents
    4.  New features  . . . . . . . . . . . . . . . . . . . . . . . . . 3
      4.1.  CalDAV Changes  . . . . . . . . . . . . . . . . . . . . . . 3
        4.1.1.  Change Indicator WebDAV Property  . . . . . . . . . . . 3
-       4.1.2.  CS:schedule-changes XML element . . . . . . . . . . . . 5
-         4.1.2.1.  CS:dtstamp XML Element  . . . . . . . . . . . . . . 5
-         4.1.2.2.  CS:action XML Element . . . . . . . . . . . . . . . 5
-         4.1.2.3.  CS:changes XML Element  . . . . . . . . . . . . . . 6
-         4.1.2.4.  CS:recurrences XML Element  . . . . . . . . . . . . 7
-   5.  Security Considerations . . . . . . . . . . . . . . . . . . . . 7
-   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 7
-   7.  Normative References  . . . . . . . . . . . . . . . . . . . . . 7
-   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 8
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 8
-
+       4.1.2.  CS:schedule-changes XML element . . . . . . . . . . . . 6
+         4.1.2.1.  CS:dtstamp XML Element  . . . . . . . . . . . . . . 6
+         4.1.2.2.  CS:action XML Element . . . . . . . . . . . . . . . 6
+         4.1.2.3.  CS:recurrence XML Element . . . . . . . . . . . . . 7
+         4.1.2.4.  CS:changes XML Element  . . . . . . . . . . . . . . 8
+   5.  Security Considerations . . . . . . . . . . . . . . . . . . . . 8
+   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 8
+   7.  Normative References  . . . . . . . . . . . . . . . . . . . . . 8
+   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 9
+   Appendix B.  Change History . . . . . . . . . . . . . . . . . . . . 9
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 9
 
 
 
@@ -54,7 +54,7 @@ Table of Contents
 
 Daboo                                                           [Page 1]
 
-                   CalDAV Scheduling Change Indicators     February 2009
+                   CalDAV Scheduling Change Indicators        April 2009
 
 
 1.  Introduction
@@ -110,7 +110,7 @@ Daboo                                                           [Page 1]
 
 Daboo                                                           [Page 2]
 
-                   CalDAV Scheduling Change Indicators     February 2009
+                   CalDAV Scheduling Change Indicators        April 2009
 
 
    create an XML data value (as described next) and store that in the
@@ -166,7 +166,7 @@ Daboo                                                           [Page 2]
 
 Daboo                                                           [Page 3]
 
-                   CalDAV Scheduling Change Indicators     February 2009
+                   CalDAV Scheduling Change Indicators        April 2009
 
 
        <!ELEMENT schedule-changes
@@ -181,34 +181,19 @@ Daboo                                                           [Page 3]
        <!ELEMENT create EMPTY>
        <!-- New calendar object was created -->
 
-       <!ELEMENT update (changes, recurrences?)>
+       <!ELEMENT update (recurrence+)>
        <!-- Calendar object was changed -->
 
-       <!ELEMENT cancel (recurrences?)>
-       <!-- Calendar object or instances were cancelled -->
+       <!ELEMENT cancel (recurrence*)>
+       <!-- Calendar object was cancelled -->
 
-       <!ELEMENT reply (attendee, partstat?, private-comment?,
-                        recurrences?)>
+       <!ELEMENT reply (attendee, recurrence+)>
        <!-- Reply received from attendee -->
 
-       <!ELEMENT attendee CDATA>
-       <!-- ATTENDEE iCalendar property value -->
-
-       <!ELEMENT partstat EMPTY>
-       <!-- ATTENDEE PARTSTAT property parameter value changed -->
-
-       <!ELEMENT private-comment EMPTY>
-       <!-- X-CALENDARSERVER-PRIVATE-COMMENT property value
-            changed -->
-
-       <!ELEMENT changes changed-property*>
-       <!ATTLIST changed-property name PCDATA>
-
-       <!ELEMENT changed-property changed-parameter*>
-       <!ATTLIST changed-parameter name PCDATA>
-
-       <!ELEMENT recurrences (master?, recurrenceid*)>
-       <!-- Which instances were affected by the change -->
+       <!ELEMENT recurrence
+           ((master | recurrenceid), changes)>
+       <!-- Which instances were affected by the change,
+            and details on the per-instance changes -->
 
        <!ELEMENT master EMPTY>
        <!-- The "master" instance was affected -->
@@ -216,34 +201,105 @@ Daboo                                                           [Page 3]
        <!ELEMENT recurrenceid CDATA>
        <!-- RECURRENCE-ID value for the affected instance -->
 
+       <!ELEMENT changes changed-property*>
+       <!-- Detailed changes in the iCalendar data -->
+
+       <!ELEMENT changed-property changed-parameter*>
+       <!ATTLIST changed-property name PCDATA>
+       <!-- An iCalendar property changed -->
+
+       <!ELEMENT changed-parameter EMPTY>
+       <!ATTLIST changed-parameter name PCDATA>
+       <!-- An iCalendar property parameter changed -->
+
+       <!ELEMENT attendee CDATA>
+       <!-- ATTENDEE iCalendar property value -->
+
+
 
 
 
 
 Daboo                                                           [Page 4]
 
-                   CalDAV Scheduling Change Indicators     February 2009
+                   CalDAV Scheduling Change Indicators        April 2009
 
 
-   Example:
+   Example:  This example indicates that a new calendar component was
+      created.
 
    <CS:schedule-changes
         xmlns:CS="http://calendarserver.org/ns/">
      <CS:dtstamp>20080818T223423Z</CS:dtstamp>
-     <CS:action><CS:create/></CS:action>
+     <CS:action>
+       <CS:create/>
+     </CS:action>
    </CS:schedule-changes>
 
-   Example:
+   Example:  This example indicates that a non-recurring component, or
+      the master component in a recurring component, was changed and
+      that the change was to the "SUMMARY" iCalendar property.
 
    <CS:schedule-changes
         xmlns:CS="http://calendarserver.org/ns/">
      <CS:dtstamp>20080818T223423Z</CS:dtstamp>
      <CS:action>
        <CS:update>
-         <CS:changes>
-           <CS:changed-property name="SUMMARY"/>
-         </CS:changes>
-         <CS:recurrences/>
+         <CS:recurrence>
+           <CS:master/>
+           <CS:changes>
+             <CS:changed-property name="SUMMARY"/>
+           </CS:changes>
+         <CS:recurrence/>
+       </CS:update>
+     </CS:action>
+   </CS:schedule-changes>
+
+   Example:  This example indicates that two recurrence instances were
+      cancelled from a recurring component.
+
+   <CS:schedule-changes
+        xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>20080818T223423Z</CS:dtstamp>
+     <CS:action>
+       <CS:cancel>
+         <CS:recurrence>
+           <CS:recurrence-id>20090101T010000Z</CS:recurrence-id>
+         <CS:recurrence/>
+         <CS:recurrence>
+           <CS:recurrence-id>20090102T010000Z</CS:recurrence-id>
+         <CS:recurrence/>
+       </CS:update>
+     </CS:action>
+   </CS:schedule-changes>
+
+
+
+
+Daboo                                                           [Page 5]
+
+                   CalDAV Scheduling Change Indicators        April 2009
+
+
+   Example:  This example indicates that the Attendee with calendar user
+      address "mailto:cyrus@example.com" replied to the Organizer and
+      changed their "PARTSTAT" iCalendar property parameter on one
+      recurrence instance.
+
+   <CS:schedule-changes
+        xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>20080818T223423Z</CS:dtstamp>
+     <CS:action>
+       <CS:reply>
+         <CS:attendee>mailto:cyrus@example.com</CS:attendee>
+         <CS:recurrence>
+           <CS:recurrence-id>20090101T010000Z</CS:recurrence-id>
+           <CS:changes>
+             <CS:changed-property name="ATTENDEE">
+               <CS:changed-parameter name="PARTSTAT"/>
+             </CS:changed-property>
+           </CS:changes>
+         <CS:recurrence/>
        </CS:update>
      </CS:action>
    </CS:schedule-changes>
@@ -252,12 +308,12 @@ Daboo                                                           [Page 4]
 
    The CS:schedule-changes XML element is used to indicate what changes
    were made when the server automatically processed a scheduling
-   message.  There are four child elements that can appear, and each is
+   message.  There are two child elements that can appear, and each is
    described next.
 
 4.1.2.1.  CS:dtstamp XML Element
 
-   This elements contains a text value in the form of an iCalendar Date-
+   This element contains a text value in the form of an iCalendar Date-
    Time value in UTC.  This value is the time at which the automatic
    processing took place.
 
@@ -276,9 +332,9 @@ Daboo                                                           [Page 4]
 
 
 
-Daboo                                                           [Page 5]
+Daboo                                                           [Page 6]
 
-                   CalDAV Scheduling Change Indicators     February 2009
+                   CalDAV Scheduling Change Indicators        April 2009
 
 
    +-----------+-------------------------------------------------------+
@@ -288,63 +344,30 @@ Daboo                                                           [Page 5]
    | CS:create | A new calendar object was created in the default      |
    |           | calendar of the recipient.                            |
    |           |                                                       |
-   | CS:update | An update to an existing calendar object occurred.    |
-   |           | The CS:changes and CS:recurrences child elements      |
-   |           | indicate what the changes were and which instances    |
-   |           | were affected.  If the calendar object is not         |
-   |           | recurring, CS:recurrences MUST NOT be present.  If    |
-   |           | all or any individual instances of a recurring        |
-   |           | calendar object were affected, then CS:recurrences    |
-   |           | MUST be present and indicate which instances were     |
-   |           | affected.                                             |
+   | CS:update | An update to an existing calendar object occurred.  A |
+   |           | CS:recurrence element is included for each recurrence |
+   |           | instance changed.  Each CS:recurrence element         |
+   |           | indicates the specific instance that was changes as   |
+   |           | well as details on which properties or parameters     |
+   |           | changed.                                              |
    |           |                                                       |
    | CS:cancel | A cancellation scheduling message was processed.  If  |
    |           | the calendar object is not recurring or all instances |
-   |           | are being removed, then CS:recurrences MUST NOT be    |
-   |           | present.  If any individual instances of a recurring  |
-   |           | calendar object were affected, then CS:recurrences    |
-   |           | MUST be present and indicate which instances were     |
-   |           | affected.                                             |
+   |           | are being removed, then there MUST NOT be any         |
+   |           | CS:recurrence element present.  If any individual     |
+   |           | instances of a recurring calendar object were         |
+   |           | affected, then a CS:recurrence element MUST be        |
+   |           | present and indicate which instances were affected.   |
    |           |                                                       |
    | CS:reply  | An Attendee's reply was processed.  The CS:attendee,  |
-   |           | CS:partstat and CS:private-comment elements indicate  |
-   |           | which Attendee replied, whether their "PARTSTAT"      |
-   |           | changed, and whether any private comment was changed. |
-   |           | The CS:partstat and CS:private-comment child elements |
-   |           | MUST only be present if the relevant properties or    |
-   |           | parameters were changed.  If the calendar object is   |
-   |           | not recurring, CS:recurrences MUST NOT be present.    |
-   |           | If all or any individual instances of a recurring     |
-   |           | calendar object were affected, then CS:recurrences    |
-   |           | MUST be present and indicate which instances were     |
-   |           | affected..                                            |
+   |           | element indicates which Attendee replied.  The        |
+   |           | CS:recurrence element indicates which recurrence      |
+   |           | instance was changed and whether the change was to    |
+   |           | the Attendee's PARTSTAT parameter or                  |
+   |           | X-CALENDARSERVER-PRIVATE-COMMENT property.            |
    +-----------+-------------------------------------------------------+
 
-4.1.2.3.  CS:changes XML Element
-
-   This element indicates the key changes that took place.  The child
-   element CS:changed-property lists all the properties in all instances
-   that changed, with the name attribute on each element indicating
-   which iCalendar property changed.  There MUST only be one CD:changed-
-   property element for a specific name attribute value, i.e. if
-   multiple properties of the same name changed, only one CS:changed-
-   property will appear.
-
-
-
-Daboo                                                           [Page 6]
-
-                   CalDAV Scheduling Change Indicators     February 2009
-
-
-   For each CD:changed-property element, if any parameters were changed
-   on the corresponding properties, then those should be includes as
-   child elements CD:changed-parameter, with the name attribute on those
-   elements containing the name of the parameter changed.  As with CS:
-   changed-proeprties, there MUST only be one CS:changed-parameter
-   element for each iCalendar parameter that changed.
-
-4.1.2.4.  CS:recurrences XML Element
+4.1.2.3.  CS:recurrence XML Element
 
    This element indicates which instances were affected by a change:
 
@@ -352,13 +375,51 @@ Daboo                                                           [Page 6]
    | Child Element   | Description                                     |
    +-----------------+-------------------------------------------------+
    | CS:master       | The "master" component defining the recurrence  |
-   |                 | pattern was changed.                            |
+   |                 | pattern was changed, or a non-recurring         |
+   |                 | component was changed.                          |
    |                 |                                                 |
    | CS:recurrenceid | The instance with the specified "RECURRENCE-ID" |
    |                 | value was changed.                              |
+   |                 |                                                 |
+   | CS:changes      | Detailed changes - see next section.  This      |
+   |                 | element is not present when processing a        |
+   |                 | "CANCEL".                                       |
    +-----------------+-------------------------------------------------+
 
-   If no child elements were specified, then all instances were changed.
+
+
+Daboo                                                           [Page 7]
+
+                   CalDAV Scheduling Change Indicators        April 2009
+
+
+4.1.2.4.  CS:changes XML Element
+
+   This element indicates the key changes that took place.
+
+   +---------------------+---------------------------------------------+
+   | Child Element       | Description                                 |
+   +---------------------+---------------------------------------------+
+   | CS:changed-property | Indicates which iCalendar property changed. |
+   |                     | The "name" attribute on the XML element is  |
+   |                     | the name of the iCalendar property that     |
+   |                     | changed.  There MUST only be one            |
+   |                     | CS:changed-property element for a specific  |
+   |                     | name attribute value, i.e. if multiple      |
+   |                     | properties of the same name changed, only   |
+   |                     | one CS:changed-property will appear.  For   |
+   |                     | each CS:changed-property element, if any    |
+   |                     | property parameters were changed on the     |
+   |                     | corresponding properties, then those should |
+   |                     | be included as CS:changed-parameter child   |
+   |                     | elements, with the "name" attribute on      |
+   |                     | those elements containing the name of the   |
+   |                     | iCalendar property parameter changed.  As   |
+   |                     | with CS:changed-property, there MUST only   |
+   |                     | be one CS:changed-parameter element for     |
+   |                     | each iCalendar property parameter that      |
+   |                     | changed.                                    |
+   +---------------------+---------------------------------------------+
 
 
 5.  Security Considerations
@@ -381,17 +442,16 @@ Daboo                                                           [Page 6]
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
 
+
+
+Daboo                                                           [Page 8]
+
+                   CalDAV Scheduling Change Indicators        April 2009
+
+
    [RFC2445]  Dawson, F. and Stenerson, D., "Internet Calendaring and
               Scheduling Core Object Specification (iCalendar)",
               RFC 2445, November 1998.
-
-
-
-
-Daboo                                                           [Page 7]
-
-                   CalDAV Scheduling Change Indicators     February 2009
-
 
    [RFC2446]  Silverberg, S., Mansour, S., Dawson, F., and R. Hopson,
               "iCalendar Transport-Independent Interoperability Protocol
@@ -412,6 +472,19 @@ Appendix A.  Acknowledgments
    calendar server and client teams.
 
 
+Appendix B.  Change History
+
+   Changes in -03
+
+   1.  Re-worked XML schema to allow for per-instance changes to be
+       indicated.
+
+   Changes in -02
+
+   1.  CS:changes element changed to use CS:changed-property child
+       elements for more detailed information.
+
+
 Author's Address
 
    Cyrus Daboo
@@ -427,22 +500,5 @@ Author's Address
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo                                                           [Page 8]
+Daboo                                                           [Page 9]
 

@@ -496,7 +496,7 @@ class ImplicitScheduler(object):
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
         if not no_change:
-            _ignore_props, rids = differ.whatIsDifferent()
+            rids = set(differ.whatIsDifferent().keys())
         else:
             # Special case of RSVP added to attendees and no other change
             rsvps = set()

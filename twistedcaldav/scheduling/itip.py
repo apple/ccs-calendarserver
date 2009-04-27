@@ -91,7 +91,7 @@ class iTipProcessing(object):
         
         # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from twistedcaldav.scheduling.icaldiff import iCalDiff
-        props_changed, rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
+        rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
 
         # Different behavior depending on whether a master component is present or not
         current_master = calendar.masterComponent()
@@ -135,7 +135,7 @@ class iTipProcessing(object):
                             iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, new_component)
             
             # Replace the entire object
-            return new_calendar, props_changed, rids
+            return new_calendar, rids
 
         else:
             # Need existing tzids
@@ -155,7 +155,7 @@ class iTipProcessing(object):
                         iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
 
             # Write back the modified object
-            return calendar, props_changed, rids
+            return calendar, rids
 
     @staticmethod
     def processCancel(itip_message, calendar, autoprocessing=False):
@@ -274,16 +274,12 @@ class iTipProcessing(object):
         old_master = calendar.masterComponent()
         new_master = itip_message.masterComponent()
         attendees = set()
-        partstat_changed = False
-        private_comment_changed = False
-        rids = set() if old_master.isRecurring() else None
+        rids = set()
         if new_master:
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
             attendees.add(attendee)
-            partstat_changed = partstat_changed or partstat
-            private_comment_changed = private_comment_changed or private_comment
-            if rids is not None and (partstat_changed or private_comment_changed):
-                rids.add("")
+            if partstat or private_comment:
+                rids.add(("", partstat, private_comment,))
 
         # Now do all overridden ones (sort by RECURRENCE-ID)
         sortedComponents = []
@@ -311,12 +307,11 @@ class iTipProcessing(object):
 
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
             attendees.add(attendee)
-            partstat_changed = partstat_changed or partstat
-            private_comment_changed = private_comment_changed or private_comment
             if rids is not None and (partstat or private_comment):
-                rids.add(toString(rid))
+                rids.add((toString(rid), partstat, private_comment,))
 
-        return True, (attendees, partstat_changed, private_comment_changed, rids)
+        assert len(attendees) == 1, "ATTENDEE property in a REPLY must be the same in all components\n%s" % (str(itip_message),)
+        return True, (attendees.pop(), rids)
 
     @staticmethod
     def updateAttendeeData(from_component, to_component):

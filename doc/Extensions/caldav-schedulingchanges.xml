@@ -17,7 +17,7 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 <?rfc private="Calendar Server Extension"?>
-<rfc ipr="none" docName='caldav-schedulingchanges-02'>
+<rfc ipr="none" docName='caldav-schedulingchanges-03'>
     <front>
         <title abbrev="CalDAV Scheduling Change Indicators">Change Indicators for Processed CalDAV Scheduling Messages</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
@@ -109,34 +109,19 @@
     <!ELEMENT create EMPTY>
     <!-- New calendar object was created -->
 
-    <!ELEMENT update (changes, recurrences?)>
+    <!ELEMENT update (recurrence+)>
     <!-- Calendar object was changed -->
 
-    <!ELEMENT cancel (recurrences?)>
-    <!-- Calendar object or instances were cancelled -->
+    <!ELEMENT cancel (recurrence*)>
+    <!-- Calendar object was cancelled -->
 
-    <!ELEMENT reply (attendee, partstat?, private-comment?,
-                     recurrences?)>
+    <!ELEMENT reply (attendee, recurrence+)>
     <!-- Reply received from attendee -->
 
-    <!ELEMENT attendee CDATA>
-    <!-- ATTENDEE iCalendar property value -->
-
-    <!ELEMENT partstat EMPTY>
-    <!-- ATTENDEE PARTSTAT property parameter value changed -->
-
-    <!ELEMENT private-comment EMPTY>
-    <!-- X-CALENDARSERVER-PRIVATE-COMMENT property value
-         changed -->
-
-    <!ELEMENT changes changed-property*>
-    <!ATTLIST changed-property name PCDATA>
-
-    <!ELEMENT changed-property changed-parameter*>
-    <!ATTLIST changed-parameter name PCDATA>
-
-    <!ELEMENT recurrences (master?, recurrenceid*)>
-    <!-- Which instances were affected by the change -->
+    <!ELEMENT recurrence
+        ((master | recurrenceid), changes)>
+    <!-- Which instances were affected by the change,
+         and details on the per-instance changes -->
 
     <!ELEMENT master EMPTY>
     <!-- The "master" instance was affected -->
@@ -144,21 +129,39 @@
     <!ELEMENT recurrenceid CDATA>
     <!-- RECURRENCE-ID value for the affected instance -->
 
+    <!ELEMENT changes changed-property*>
+    <!-- Detailed changes in the iCalendar data -->
+
+    <!ELEMENT changed-property changed-parameter*>
+    <!ATTLIST changed-property name PCDATA>
+    <!-- An iCalendar property changed -->
+
+    <!ELEMENT changed-parameter EMPTY>
+    <!ATTLIST changed-parameter name PCDATA>
+    <!-- An iCalendar property parameter changed -->
+
+    <!ELEMENT attendee CDATA>
+    <!-- ATTENDEE iCalendar property value -->
+
                    ]]></artwork>
                             </figure>
                         </t>
                         <t hangText="Example:">
+                           This example indicates that a new calendar component was created.
                             <figure>
                                 <artwork><![CDATA[
 <CS:schedule-changes
      xmlns:CS="http://calendarserver.org/ns/">
   <CS:dtstamp>20080818T223423Z</CS:dtstamp>
-  <CS:action><CS:create/></CS:action>
+  <CS:action>
+    <CS:create/>
+  </CS:action>
 </CS:schedule-changes>
                    ]]></artwork>
                             </figure>
                         </t>
                         <t hangText="Example:">
+                          This example indicates that a non-recurring component, or the master component in a recurring component, was changed and that the change was to the "SUMMARY" iCalendar property.
                             <figure>
                                 <artwork><![CDATA[
 <CS:schedule-changes
@@ -166,10 +169,57 @@
   <CS:dtstamp>20080818T223423Z</CS:dtstamp>
   <CS:action>
     <CS:update>
-      <CS:changes>
-        <CS:changed-property name="SUMMARY"/>
-      </CS:changes>
-      <CS:recurrences/>
+      <CS:recurrence>
+        <CS:master/>
+        <CS:changes>
+          <CS:changed-property name="SUMMARY"/>
+        </CS:changes>
+      <CS:recurrence/>
+    </CS:update>
+  </CS:action>
+</CS:schedule-changes>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                          This example indicates that two recurrence instances were cancelled from a recurring component.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:schedule-changes
+     xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>20080818T223423Z</CS:dtstamp>
+  <CS:action>
+    <CS:cancel>
+      <CS:recurrence>
+        <CS:recurrence-id>20090101T010000Z</CS:recurrence-id>
+      <CS:recurrence/>
+      <CS:recurrence>
+        <CS:recurrence-id>20090102T010000Z</CS:recurrence-id>
+      <CS:recurrence/>
+    </CS:update>
+  </CS:action>
+</CS:schedule-changes>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                          This example indicates that the Attendee with calendar user address "mailto:cyrus@example.com" replied to the Organizer and changed their "PARTSTAT" iCalendar property parameter on one recurrence instance.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:schedule-changes
+     xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>20080818T223423Z</CS:dtstamp>
+  <CS:action>
+    <CS:reply>
+      <CS:attendee>mailto:cyrus@example.com</CS:attendee>
+      <CS:recurrence>
+        <CS:recurrence-id>20090101T010000Z</CS:recurrence-id>
+        <CS:changes>
+          <CS:changed-property name="ATTENDEE">
+            <CS:changed-parameter name="PARTSTAT"/>
+          </CS:changed-property>
+        </CS:changes>
+      <CS:recurrence/>
     </CS:update>
   </CS:action>
 </CS:schedule-changes>
@@ -181,9 +231,9 @@
                 </t>
                 </section>
                 <section title="CS:schedule-changes XML element">
-                  <t>The CS:schedule-changes XML element is used to indicate what changes were made when the server automatically processed a scheduling message. There are four child elements that can appear, and each is described next.</t>
+                  <t>The CS:schedule-changes XML element is used to indicate what changes were made when the server automatically processed a scheduling message. There are two child elements that can appear, and each is described next.</t>
                   <section title="CS:dtstamp XML Element">
-                    <t>This elements contains a text value in the form of an iCalendar Date-Time value in UTC. This value is the time at which the automatic processing took place.</t>
+                    <t>This element contains a text value in the form of an iCalendar Date-Time value in UTC. This value is the time at which the automatic processing took place.</t>
                   </section>
                   <section title="CS:action XML Element">
                     <t>This element indicates the nature of the changes that took place:</t>
@@ -198,41 +248,53 @@
                         <c>&nbsp;</c>
 
                         <c>CS:update</c>
-                        <c>An update to an existing calendar object occurred. The CS:changes and CS:recurrences child elements indicate what the changes were and which instances were affected. If the calendar object is not recurring, CS:recurrences MUST NOT be present. If all or any individual instances of a recurring calendar object were affected, then CS:recurrences MUST be present and indicate which instances were affected.</c>
+                        <c>An update to an existing calendar object occurred.
+                        A CS:recurrence element is included for each recurrence instance changed. Each CS:recurrence element indicates the specific instance that was changes as well as details on which properties or parameters changed.</c>
                         
                         <c>&nbsp;</c>
                         <c>&nbsp;</c>
                         
                         <c>CS:cancel</c>
-                        <c>A cancellation scheduling message was processed. If the calendar object is not recurring or all instances are being removed, then CS:recurrences MUST NOT be present. If any individual instances of a recurring calendar object were affected, then CS:recurrences MUST be present and indicate which instances were affected.</c>
+                        <c>A cancellation scheduling message was processed. If the calendar object is not recurring or all instances are being removed, then there MUST NOT be any CS:recurrence element present. If any individual instances of a recurring calendar object were affected, then a CS:recurrence element MUST be present and indicate which instances were affected.</c>
                         
                         <c>&nbsp;</c>
                         <c>&nbsp;</c>
                         
                         <c>CS:reply</c>
-                        <c>An Attendee's reply was processed. The CS:attendee, CS:partstat and CS:private-comment elements indicate which Attendee replied, whether their "PARTSTAT" changed, and whether any private comment was changed. The CS:partstat and CS:private-comment child elements MUST only be present if the relevant properties or parameters were changed. If the calendar object is not recurring, CS:recurrences MUST NOT be present. If all or any individual instances of a recurring calendar object were affected, then CS:recurrences MUST be present and indicate which instances were affected..</c>
+                        <c>An Attendee's reply was processed. The CS:attendee, element indicates which Attendee replied. The CS:recurrence element indicates which recurrence instance was changed and whether the change was to the Attendee's PARTSTAT parameter or X-CALENDARSERVER-PRIVATE-COMMENT property.</c>
                     </texttable>
                   </section>
-                  <section title="CS:changes XML Element">
-                    <t>This element indicates the key changes that took place. The child element CS:changed-property lists all the properties in all instances that changed, with the name attribute on each element indicating which iCalendar property changed. There MUST only be one CD:changed-property element for a specific name attribute value, i.e. if multiple properties of the same name changed, only one CS:changed-property will appear.</t>
-                    <t>For each CD:changed-property element, if any parameters were changed on the corresponding properties, then those should be includes as child elements CD:changed-parameter, with the name attribute on those elements containing the name of the parameter changed. As with CS:changed-proeprties, there MUST only be one CS:changed-parameter element for each iCalendar parameter that changed.</t>
-                  </section>
-                  <section title="CS:recurrences XML Element">
+                  <section title="CS:recurrence XML Element">
                     <t>This element indicates which instances were affected by a change:</t>
                     <texttable>
                         <ttcol>Child Element</ttcol>
                         <ttcol>Description</ttcol>
                         
                         <c>CS:master</c>
-                        <c>The "master" component defining the recurrence pattern was changed.</c>
+                        <c>The "master" component defining the recurrence pattern was changed, or a non-recurring component was changed.</c>
                         
                         <c>&nbsp;</c>
                         <c>&nbsp;</c>
 
                         <c>CS:recurrenceid</c>
                         <c>The instance with the specified "RECURRENCE-ID" value was changed.</c>
+                        
+                        <c>&nbsp;</c>
+                        <c>&nbsp;</c>
+
+                        <c>CS:changes</c>
+                        <c>Detailed changes - see next section. This element is not present when processing a "CANCEL".</c>
                     </texttable>
-                    <t>If no child elements were specified, then all instances were changed.</t>
+                  </section>
+                  <section title="CS:changes XML Element">
+                    <t>This element indicates the key changes that took place.</t>
+                    <texttable>
+                        <ttcol>Child Element</ttcol>
+                        <ttcol>Description</ttcol>
+                        
+                        <c>CS:changed-property</c>
+                        <c>Indicates which iCalendar property changed. The "name" attribute on the XML element is the name of the iCalendar property that changed. There MUST only be one CS:changed-property element for a specific name attribute value, i.e. if multiple properties of the same name changed, only one CS:changed-property will appear. For each CS:changed-property element, if any property parameters were changed on the corresponding properties, then those should be included as CS:changed-parameter child elements, with the "name" attribute on those elements containing the name of the iCalendar property parameter changed. As with CS:changed-property, there MUST only be one CS:changed-parameter element for each iCalendar property parameter that changed.</c>
+                    </texttable>
                   </section>
                 </section>
             </section>
@@ -265,14 +327,17 @@
                 This specification is the result of discussions between the Apple calendar server and client teams.
             </t>
         </section>
-        <!--
         <section title='Change History'>
-          <t>Changes since -00
+          <t>Changes in -03
             <list style='numbers'>
-              <t></t>
+              <t>Re-worked XML schema to allow for per-instance changes to be indicated.</t>
+            </list>
+          </t>
+          <t>Changes in -02
+            <list style='numbers'>
+              <t>CS:changes element changed to use CS:changed-property child elements for more detailed information.</t>
             </list>
           </t>
         </section>
-        -->
     </back>
 </rfc>

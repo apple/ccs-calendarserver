@@ -162,18 +162,24 @@ class ImplicitProcessor(object):
             recipient_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
             
             # Build the schedule-changes XML element
-            processed_attendees, partstat_changed, private_comment_changed, rids = processed
-            reply_details = (customxml.Attendee.fromString(tuple(processed_attendees)[0]),)
-            if partstat_changed:
-                reply_details += (customxml.PartStat(),)
-            if private_comment_changed:
-                reply_details += (customxml.PrivateComment(),)
-            if rids is not None:
-                recurrences = []
-                if "" in rids:
-                    recurrences.append(customxml.Master())
-                recurrences.extend([customxml.RecurrenceID.fromString(rid) for rid in rids if rid != ""])
-                reply_details += (customxml.Recurrences(*recurrences),)
+            attendeeReplying, rids = processed
+            partstatChanged = False
+            reply_details = (customxml.Attendee.fromString(attendeeReplying),)
+            
+            for rid, partstatChanged, privateCommentChanged in sorted(rids):
+                recurrence = []
+                if rid == "":
+                    recurrence.append(customxml.Master())
+                else:
+                    recurrence.append(customxml.RecurrenceID.fromString(rid))
+                changes = []
+                if partstatChanged:
+                    changes.append(customxml.ChangedProperty(customxml.ChangedParameter(name="PARTSTAT"), name="ATTENDEE" ))
+                    partstatChanged = True
+                if privateCommentChanged:
+                    changes.append(customxml.ChangedProperty(name="X-CALENDARSERVER-PRIVATE-COMMENT"))
+                recurrence.append(customxml.Changes(*changes))
+                reply_details += (customxml.Recurrence(*recurrence),)
 
             changes = customxml.ScheduleChanges(
                 customxml.DTStamp(),
@@ -183,8 +189,8 @@ class ImplicitProcessor(object):
             )
 
             # Only update other attendees when the partstat was changed by the reply
-            if partstat_changed:
-                self.updateAllAttendeesExceptSome(recipient_calendar_resource, processed_attendees)
+            if partstatChanged:
+                self.updateAllAttendeesExceptSome(recipient_calendar_resource, (attendeeReplying,))
 
             result = (True, False, changes,)
 
@@ -293,7 +299,7 @@ class ImplicitProcessor(object):
         else:
             # Processing update to existing event
             autoprocessed = (yield self.recipient.principal.getAutoSchedule())
-            new_calendar, props_changed, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
+            new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
             if new_calendar:
      
                 # Handle auto-reply behavior
@@ -308,18 +314,20 @@ class ImplicitProcessor(object):
                     reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
                 # Build the schedule-changes XML element
-                changes = []
-                if props_changed:
+                update_details = []
+                for rid, props_changed in sorted(rids.iteritems(), key=lambda x:x[0]):
+                    recurrence = []
+                    if rid == "":
+                        recurrence.append(customxml.Master())
+                    else:
+                        recurrence.append(customxml.RecurrenceID.fromString(rid))
+                    changes = []
                     for propName, paramNames in sorted(props_changed.iteritems(), key=lambda x:x[0]):
                         params = tuple([customxml.ChangedParameter(name=param) for param in paramNames])
                         changes.append(customxml.ChangedProperty(*params, **{"name":propName}))
-                update_details = (customxml.Changes(*changes),)
-                if rids is not None:
-                    recurrences = []
-                    if "" in rids:
-                        recurrences.append(customxml.Master())
-                    recurrences.extend([customxml.RecurrenceID.fromString(rid) for rid in rids if rid != ""])
-                    update_details += (customxml.Recurrences(*recurrences),)
+                    recurrence.append(customxml.Changes(*changes))
+                    update_details += (customxml.Recurrence(*recurrence),)
+
                 changes = customxml.ScheduleChanges(
                     customxml.DTStamp(),
                     customxml.Action(
@@ -378,14 +386,15 @@ class ImplicitProcessor(object):
                     yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar)
 
                     # Build the schedule-changes XML element
-                    actions = (customxml.Cancel(),)
                     if rids:
-                        actions += (customxml.Recurrences(
-                            *[customxml.RecurrenceID.fromString(rid) for rid in rids]
-                        ),)
+                        action = customxml.Cancel(
+                            *[customxml.Recurrence(customxml.RecurrenceID.fromString(rid)) for rid in sorted(rids)]
+                        )
+                    else:
+                        action = customxml.Cancel()
                     changes = customxml.ScheduleChanges(
                         customxml.DTStamp(),
-                        customxml.Action(*actions),
+                        customxml.Action(action),
                     )
                     result = (True, autoprocessed, changes)
             else:

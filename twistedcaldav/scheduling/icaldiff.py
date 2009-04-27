@@ -589,8 +589,7 @@ class iCalDiff(object):
                 map[(name, uid, rid,)] = component
             return map
         
-        props_changed = {}
-        rids = set()
+        rids = {}
 
         map1 = mapComponents(self.calendar1)
         set1 = set(map1.keys())
@@ -601,7 +600,7 @@ class iCalDiff(object):
         for key in (set1 & set2):
             component1 = map1[key]
             component2 = map2[key]
-            self._diffComponents(component1, component2, props_changed, rids)
+            self._diffComponents(component1, component2, rids)
         
         # Now verify that each additional component in set1 matches a derived component in set2
         for key in set1 - set2:
@@ -609,7 +608,7 @@ class iCalDiff(object):
             component2 = self.calendar2.deriveInstance(key[2])
             if component2 is None:
                 continue
-            self._diffComponents(component1, component2, props_changed, rids)
+            self._diffComponents(component1, component2, rids)
         
         # Now verify that each additional component in set1 matches a derived component in set2
         for key in set2 - set1:
@@ -617,11 +616,9 @@ class iCalDiff(object):
             if component1 is None:
                 continue
             component2 = map2[key]
-            self._diffComponents(component1, component2, props_changed, rids)
+            self._diffComponents(component1, component2, rids)
         
-        if not self.calendar1.isRecurring() and not self.calendar2.isRecurring() or not props_changed:
-            rids = None
-        return props_changed, rids
+        return rids
 
     def _attendeeDuplicateAndNormalize(self, calendar):
         calendar = calendar.duplicate()
@@ -632,7 +629,7 @@ class iCalDiff(object):
         iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
         return calendar
 
-    def _diffComponents(self, comp1, comp2, changed, rids):
+    def _diffComponents(self, comp1, comp2, rids):
         
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
         
@@ -648,6 +645,7 @@ class iCalDiff(object):
         comp2.transformAllToNative()
         addedChanges = False
         
+        propsChanged = {}
         for prop in propdiff:
             if prop.name() in (
                 "TRANSP",
@@ -658,7 +656,7 @@ class iCalDiff(object):
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
             ):
                 continue
-            changed.setdefault(prop.name(), set())
+            propsChanged.setdefault(prop.name(), set())
             addedChanges = True
             prop1s = tuple(comp1.properties(prop.name()))
             prop2s = tuple(comp2.properties(prop.name()))
@@ -666,14 +664,14 @@ class iCalDiff(object):
                 param1s = set(["%s=%s" % (name, value) for name, value in prop1s[0].params().iteritems()])
                 param2s = set(["%s=%s" % (name, value) for name, value in prop2s[0].params().iteritems()])
                 paramDiffs = param1s ^ param2s
-                changed[prop.name()].update([param.split("=")[0] for param in paramDiffs])
-            if "ORIGINAL-TZID" in changed[prop.name()]:
-                changed[prop.name()].remove("ORIGINAL-TZID")
-                changed[prop.name()].add("TZID")
+                propsChanged[prop.name()].update([param.split("=")[0] for param in paramDiffs])
+            if "ORIGINAL-TZID" in propsChanged[prop.name()]:
+                propsChanged[prop.name()].remove("ORIGINAL-TZID")
+                propsChanged[prop.name()].add("TZID")
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids.add(toString(rid) if rid is not None else "")
+            rids[toString(rid) if rid is not None else ""] = propsChanged
 
     def _logDiffError(self, title):
 

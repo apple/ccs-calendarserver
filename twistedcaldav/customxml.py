@@ -463,8 +463,7 @@ class Update (davxml.WebDAVElement):
     namespace = calendarserver_namespace
     name = "update"
     allowed_children = {
-        (calendarserver_namespace, "changes" )     : (1, 1),
-        (calendarserver_namespace, "recurrences" ) : (0, 1),
+        (calendarserver_namespace, "recurrence" ) : (1, None),
     }
 
 class Cancel (davxml.WebDAVElement):
@@ -474,7 +473,7 @@ class Cancel (davxml.WebDAVElement):
     namespace = calendarserver_namespace
     name = "cancel"
     allowed_children = {
-        (calendarserver_namespace, "recurrences" ) : (0, 1),
+        (calendarserver_namespace, "recurrence" ) : (0, 1),
     }
 
 class Reply (davxml.WebDAVElement):
@@ -485,30 +484,34 @@ class Reply (davxml.WebDAVElement):
     name = "reply"
     allowed_children = {
         (calendarserver_namespace, "attendee" )        : (1, 1),
-        (calendarserver_namespace, "partstat" )        : (0, 1),
-        (calendarserver_namespace, "private-comment" ) : (0, 1),
+        (calendarserver_namespace, "recurrence" )      : (1, None),
     }
 
-class Attendee (davxml.WebDAVTextElement):
+class Recurrence (davxml.WebDAVElement):
     """
-    An attendee calendar user address.
+    Changes to an event.
     """
     namespace = calendarserver_namespace
-    name = "attendee"
+    name = "recurrence"
+    allowed_children = {
+        (calendarserver_namespace, "master" )       : (0, 1),
+        (calendarserver_namespace, "recurrenceid" ) : (0, None),
+        (calendarserver_namespace, "changes" )      : (0, 1),
+    }
 
-class PartStat (davxml.WebDAVEmptyElement):
+class Master (davxml.WebDAVEmptyElement):
     """
-    An attendee partstat.
+    Master instance changed.
     """
     namespace = calendarserver_namespace
-    name = "partstat"
+    name = "master"
 
-class PrivateComment (davxml.WebDAVEmptyElement):
+class RecurrenceID (davxml.WebDAVTextElement):
     """
-    An attendee private comment.
+    A recurrence instance changed.
     """
     namespace = calendarserver_namespace
-    name = "private-comment"
+    name = "recurrenceid"
 
 class Changes (davxml.WebDAVElement):
     """
@@ -546,30 +549,12 @@ class ChangedParameter (davxml.WebDAVEmptyElement):
         "name" : True,
     }
 
-class Recurrences (davxml.WebDAVElement):
+class Attendee (davxml.WebDAVTextElement):
     """
-    Changes to an event.
-    """
-    namespace = calendarserver_namespace
-    name = "recurrences"
-    allowed_children = {
-        (calendarserver_namespace, "master" )       : (0, 1),
-        (calendarserver_namespace, "recurrenceid" ) : (0, None),
-    }
-
-class Master (davxml.WebDAVEmptyElement):
-    """
-    Master instance changed.
+    An attendee calendar user address.
     """
     namespace = calendarserver_namespace
-    name = "master"
-
-class RecurrenceID (davxml.WebDAVTextElement):
-    """
-    A recurrence instance changed.
-    """
-    namespace = calendarserver_namespace
-    name = "recurrenceid"
+    name = "attendee"
 
 class RecordType (davxml.WebDAVTextElement):
     """
