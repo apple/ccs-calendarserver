@@ -1073,7 +1073,7 @@ class MailHandler(LoggingMixIn):
             fromAddr, toAddr, StringIO(str(message)), deferred,
             contextFactory=contextFactory,
             requireAuthentication=False,
-            requireTransportSecurity=False)
+            requireTransportSecurity=settings["UseSSL"])
 
         reactor.connectTCP(settings['Server'], settings['Port'], factory)
         deferred.addCallback(_success, msgId, fromAddr, toAddr)
@@ -1497,10 +1497,10 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
 
     def serverGreeting(self, capabilities):
         self.log_debug("IMAP servergreeting")
-        login = self.login(self.factory.settings["Username"],
-            self.factory.settings["Password"])
-        login.addCallback(self.cbLoggedIn)
-        login.addErrback(self.ebLoginFailed)
+
+        return self.authenticate(self.factory.settings["Password"]
+            ).addCallback(self.cbLoggedIn
+            ).addErrback(self.ebLoginFailed)
 
     def ebLogError(self, error):
         self.log_error("IMAP Error: %s" % (error,))
@@ -1604,6 +1604,12 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.reactor = reactor
         self.noisy = False
 
+    def buildProtocol(self, addr):
+        p = protocol.ClientFactory.buildProtocol(self, addr)
+        p.registerAuthenticator(imap4.CramMD5ClientAuthenticator(self.settings["Username"]))
+        p.registerAuthenticator(imap4.LOGINAuthenticator(self.settings["Username"]))
+        p.registerAuthenticator(imap4.PLAINAuthenticator(self.settings["Username"]))
+        return p
 
     def handleMessage(self, message):
         self.log_debug("IMAP factory handle message")
