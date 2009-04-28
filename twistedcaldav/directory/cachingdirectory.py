@@ -106,7 +106,7 @@ class DictRecordTypeCache(RecordTypeCache):
                         try:
                             del self.recordsIndexedBy[indexType][item]
                         except KeyError:
-                            self.log_warn("Missing record index item; type: %s, item: %s" % (indexType, item))
+                            self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
                 else:
                     raise AssertionError("Data from record attribute must be str, list or tuple")
         
