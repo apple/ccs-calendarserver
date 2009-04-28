@@ -617,6 +617,9 @@ if ! type memcached >& /dev/null; then
     make install;
   fi;
 
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${libevent}/_root/lib";
+  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${libevent}/_root/lib";
+
   #
   # memcached
   #
