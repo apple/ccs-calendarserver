@@ -298,24 +298,15 @@ class OpenDirectoryService(CachingDirectoryService):
         },
         'firstName' : {
             'odField' : dsattributes.kDS1AttrFirstName,
-            'excludes' : set([
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
-            ]),
+            'excludes' : set(),
         },
         'lastName' : {
             'odField' : dsattributes.kDS1AttrLastName,
-            'excludes' : set([
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
-            ]),
+            'excludes' : set(),
         },
         'emailAddresses' : {
             'odField' : dsattributes.kDSNAttrEMailAddress,
-            'excludes' : set([
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
-            ]),
+            'excludes' : set(),
         },
         'recordName' : {
             'odField' : dsattributes.kDSNAttrRecordName,
