@@ -831,6 +831,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),
             "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+            "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
+            "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
         }
         if "KRB5_KTNAME" in os.environ:
             parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
