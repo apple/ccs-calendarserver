@@ -69,6 +69,7 @@ class DictRecordTypeCache(RecordTypeCache):
             CachingDirectoryService.INDEX_TYPE_GUID     : {},
             CachingDirectoryService.INDEX_TYPE_SHORTNAME: {},
             CachingDirectoryService.INDEX_TYPE_EMAIL    : {},
+            CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
 
     def addRecord(self, record):
@@ -126,11 +127,13 @@ class CachingDirectoryService(DirectoryService):
     INDEX_TYPE_GUID      = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
     INDEX_TYPE_EMAIL     = "email"
+    INDEX_TYPE_AUTHID    = "authid"
 
     indexTypeToRecordAttribute = {
         "guid"     : "guid",
         "shortname": "shortNames",
         "email"    : "emailAddresses",
+        "authid"   : "authIDs",
     }
 
     def __init__(
@@ -207,6 +210,7 @@ class CachingDirectoryService(DirectoryService):
             CachingDirectoryService.INDEX_TYPE_GUID,
             CachingDirectoryService.INDEX_TYPE_SHORTNAME,
             CachingDirectoryService.INDEX_TYPE_EMAIL,
+            CachingDirectoryService.INDEX_TYPE_AUTHID,
         )
 
     def recordCacheForType(self, recordType):
@@ -220,6 +224,9 @@ class CachingDirectoryService(DirectoryService):
 
     def recordWithEmailAddress(self, emailAddress):
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
+
+    def recordWithAuthID(self, authID):
+        return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
 
     def recordWithGUID(self, guid):
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_GUID, guid)
@@ -293,6 +300,10 @@ class CachingDirectoryService(DirectoryService):
                         self.memcacheSet(key, record)
                     for emailAddress in record.emailAddresses:
                         key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
+                        self.log_debug("Memcache: storing %s" % (key,))
+                        self.memcacheSet(key, record)
+                    for authID in record.authIDs:
+                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
                         self.log_debug("Memcache: storing %s" % (key,))
                         self.memcacheSet(key, record)
                     key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_GUID, record.guid)

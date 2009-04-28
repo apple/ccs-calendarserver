@@ -430,6 +430,7 @@ class OpenDirectoryService(CachingDirectoryService):
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrRecordName,
+            dsattributes.kDSNAttrAltSecurityIdentities,
             dsattributes.kDSNAttrRecordType,
             dsattributes.kDS1AttrDistinguishedName,
             dsattributes.kDS1AttrFirstName,

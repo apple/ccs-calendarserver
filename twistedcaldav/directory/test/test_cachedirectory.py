@@ -42,7 +42,8 @@ class TestDirectoryService (CachingDirectoryService):
                 cacheIt = False
                 if indexType in (
                     CachingDirectoryService.INDEX_TYPE_SHORTNAME,
-                    CachingDirectoryService.INDEX_TYPE_EMAIL
+                    CachingDirectoryService.INDEX_TYPE_EMAIL,
+                    CachingDirectoryService.INDEX_TYPE_AUTHID,
                 ):
                     if indexKey in record[indexType]:
                         cacheIt = True
@@ -56,6 +57,7 @@ class TestDirectoryService (CachingDirectoryService):
                         recordType            = recordType,
                         guid                  = record.get("guid"),
                         shortNames            = record.get("shortname"),
+                        authIDs               = record.get("authid"),
                         fullName              = record.get("fullName"),
                         firstName             = "",
                         lastName              = "",
@@ -107,6 +109,7 @@ class CachingDirectoryTest(TestCase):
             "guid": guid,
             "shortname": shortNames,
             "email": emails,
+            "authid": tuple(["Kerberos:%s" % email for email in emails])
         }
         
         if members:
@@ -214,5 +217,26 @@ class GUIDLookups(CachingDirectoryTest):
         self.service.queried = False
         self.assertTrue(self.service.recordWithEmailAddress(
             "user03@example.com"
+        ) is not None)
+        self.assertFalse(self.service.queried)
+
+    def test_cacheoneauthid(self):
+        self.dummyRecords()
+
+        self.assertTrue(self.service.recordWithAuthID(
+            "Kerberos:user03@example.com"
+        ) is not None)
+        self.assertTrue(self.service.queried)
+        self.verifyRecords(DirectoryService.recordType_users, set((
+            self.guidForShortName("user03"),
+        )))
+        self.verifyRecords(DirectoryService.recordType_groups, set())
+        self.verifyRecords(DirectoryService.recordType_resources, set())
+        self.verifyRecords(DirectoryService.recordType_locations, set())
+
+        # Make sure it really is cached and won't cause another query
+        self.service.queried = False
+        self.assertTrue(self.service.recordWithAuthID(
+            "Kerberos:user03@example.com"
         ) is not None)
         self.assertFalse(self.service.queried)
