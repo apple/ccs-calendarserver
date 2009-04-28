@@ -61,6 +61,8 @@ PEM-format server keys for use with SSL.
 .It /Library/CalendarServer/Documents
 The server's document root, which is the used as the backing store for
 the HTTP resources on the server.
+.It /Library/CalendarServer/Data
+Directory containing server data other than HTTP resources.
 .It /var/log/caldavd/access.log
 The server's access log file, in a format similar to Apache HTTPd's
 access log.
@@ -68,20 +70,16 @@ access log.
 The server's main log file.
 .It /var/run/caldavd.pid
 The server's process ID file.
-.It /var/run/caldavd/
-Directory containing server runtime files.
 .El
 .Sh SEE ALSO
 .Xr httpd 8
 .Sh STANDARDS
-.Nm
-is expected to comply with RFC 2445 (iCalendar), RFC 2518 (WebDAV),
-RFC 3744 (WebDAV ACL), draft-dusseault-caldav-12 (CalDAV), and
-draft-desruisseaux-caldav-sched-01 (CalDAV Scheduling).
+Darwin Calendar Server is intended to comply with RFC 2445
+(iCalendar), RFC 2446 (iTIP), RFC 2447 (iMIP), RFC 2612 (HTTP), RFC
+2617 (HTTP Authentication), RFC 4559 (SPNEGO), RFC 2518 (WebDAV), RFC
+3744 (WebDAV ACL), RFC 5397 (WebDAV Current Principal Extension), RFC
+4791 (CalDAV), and draft-desruisseaux-caldav-sched-06 (CalDAV
+Scheduling).
 .Sh HISTORY
 .Nm
 was first introduced as part of Darwin 9 and Mac OS 10.5.
-.Sh BUGS
-This version of
-.Nm
-is still in development and testing.
