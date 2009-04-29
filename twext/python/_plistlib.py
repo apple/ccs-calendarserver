@@ -26,7 +26,7 @@ UTF-8.
 The <data> plist type is supported through the Data class. This is a
 thin wrapper around a Python string.
 
-Generate Plist example:
+Generate Plist example::
 
     pl = dict(
         aString="Doodah",
@@ -47,7 +47,7 @@ Generate Plist example:
     pl[u'\xc5benraa'] = "That was a unicode key."
     writePlist(pl, fileName)
 
-Parse Plist example:
+Parse Plist example::
 
     pl = readPlist(pathOrFile)
     print pl["aKey"]

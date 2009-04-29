@@ -23,12 +23,12 @@ def purgeEvents(collection, purgeDate):
     Recursively purge all events older than purgeDate.
 
     for VTODO: 
-     * if completed
-       * purge if it's dueDate is older than purgeDate.
+     - if completed
+       - purge if it's dueDate is older than purgeDate.
 
     for V*:
-     * purge if endDate is older than purgeDate
-     """
+     - purge if endDate is older than purgeDate
+    """
 
     from twistedcaldav import ical
 

@@ -17,10 +17,10 @@
 """
 Statisitcs Types:
 
-    Overall Stats:
-        # of accounts
-        # of calendars
-        # of events
+   - Overall Stats:
+       - # of accounts
+       - # of calendars
+       - # of events
 
 """
 

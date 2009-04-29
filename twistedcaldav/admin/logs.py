@@ -14,12 +14,11 @@
 # limitations under the License.
 ##
 """
- Log Stats:
-  # Invitations sent per day/week/month
-  # bytes out (bytes in not provided in the current log format.)/
-  # requests
-  user agents
-
+Logging Statistics:
+  - # Invitations sent per day/week/month
+  - # bytes out (bytes in not provided in the current log format)
+  - # requests
+  - user agents
 """
 
 import datetime

@@ -457,8 +457,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     def quotaSize(self, request):
         """
         Get the size of this resource.
-        TODO: Take into account size of dead-properties. Does stat
-            include xattrs size?
+        TODO: Take into account size of dead-properties. Does stat include xattrs size?
 
         @return: an L{Deferred} with a C{int} result containing the size of the resource.
         """

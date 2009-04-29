@@ -16,14 +16,10 @@
 
 """
 Examples:
-
-  caladmin users
-
-  caladmin purge
-
-  caladmin backup
-
-  caladmin restore
+ - caladmin users
+ - caladmin purge
+ - caladmin backup
+ - caladmin restore
 """
 
 import sys, os

@@ -15,10 +15,10 @@
 ##
 """
     Account Stats: 
-        # of calendars
-        # of events
-        # storage used (including things that don't count against quota?)
-        Last login?
+        - # of calendars
+        - # of events
+        - # storage used (including things that don't count against quota?)
+        - Last login?
 """
 
 from twistedcaldav.admin import util
