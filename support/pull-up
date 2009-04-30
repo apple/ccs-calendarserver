@@ -16,7 +16,7 @@ for revision; do
     previous=$((${revision} - 1));
 
     echo "Pulling up r${revision}...";
-    svn merge "-r${previous}:${revision}" http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk;
+    svn merge "-r${previous}:${revision}" http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk;
 
     merged="${merged} r${revision}";
 done;
