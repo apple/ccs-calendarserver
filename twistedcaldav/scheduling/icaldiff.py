@@ -268,9 +268,10 @@ class iCalDiff(object):
                     master = component
             
             # Normalize each master by adding any STATUS:CANCELLED components as EXDATEs
-            exdates = set()
+            exdates = None
             if master:
                 # Get all EXDATEs in UTC
+                exdates = set()
                 for exdate in master.properties("EXDATE"):
                     exdates.update([normalizeToUTC(value) for value in exdate.value()])
                
@@ -288,7 +289,7 @@ class iCalDiff(object):
             component = map1[key]
             if component.propertyValue("STATUS") != "CANCELLED":
                 # Attendee may decline by EXDATE'ing an instance - we need to handle that
-                if rid in exdates2:
+                if exdates2 is None or rid in exdates2:
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
@@ -297,7 +298,7 @@ class iCalDiff(object):
                     log.debug("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
                     return False, False, (), None
             else: 
-                if rid not in exdates2:
+                if exdates2 is not None and rid not in exdates2:
                     log.debug("attendeeMerge: Missing EXDATE for cancelled components from first calendar: %s" % (key,))
                     return False, False, (), None
                 else:
@@ -315,7 +316,7 @@ class iCalDiff(object):
             _ignore_name, _ignore_uid, rid = key
             component2 = map2[key]
             if component2.propertyValue("STATUS") == "CANCELLED":
-                if rid not in exdates1:
+                if exdates1 is None or rid not in exdates1:
                     log.debug("attendeeMerge: Cancelled component not found in first calendar (or no EXDATE): %s" % (key,))
                     return False, False, (), None
                 else:
