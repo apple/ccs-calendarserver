@@ -308,7 +308,7 @@ else:
             self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user02").authIDs)
             self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user03").authIDs)
 
-        def test_duplicateEmail(self):
+        def test_duplicateCUAs(self):
             self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
@@ -320,9 +320,9 @@ else:
             self.verifyRecords(DirectoryService.recordType_users, ("user01", "user02", "user03"))
             self.verifyDisabledRecords(DirectoryService.recordType_users, (), ())
 
-            self.assertTrue (self.service.recordWithShortName(DirectoryService.recordType_users, "user01").emailAddresses)
-            self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user02").emailAddresses)
-            self.assertFalse(self.service.recordWithShortName(DirectoryService.recordType_users, "user03").emailAddresses)
+            self.assertTrue (self.service.recordWithShortName(DirectoryService.recordType_users, "user01").calendarUserAddresses)
+            self.assertFalse("mailto:shared@example.com" in self.service.recordWithShortName(DirectoryService.recordType_users, "user02").calendarUserAddresses)
+            self.assertFalse("mailto:shared@example.com" in self.service.recordWithShortName(DirectoryService.recordType_users, "user03").calendarUserAddresses)
 
         def test_duplicateRecords(self):
             self.loadRecords({
@@ -648,7 +648,7 @@ else:
             self.verifyQuery(self.service.recordWithAuthID, "Kerberos:location05@example.com")
             self.verifyNoQuery(self.service.recordWithAuthID, "Kerberos:location05@example.com")
 
-        def test_negativeCacheEmailAddress(self):
+        def test_negativeCacheCalendarUserAddress(self):
             self.loadRecords({
                 DirectoryService.recordType_users: [
                     fakeODRecord("User 01"),
@@ -676,21 +676,22 @@ else:
                 ],
             })
 
-            self.assertTrue(self.service.recordWithEmailAddress("user01@example.com"))
-            self.verifyQuery(self.service.recordWithEmailAddress, "user05@example.com")
-            self.verifyNoQuery(self.service.recordWithEmailAddress, "user05@example.com")
+            self.assertTrue(self.service.recordWithCalendarUserAddress("mailto:user01@example.com"))
+            self.verifyQuery(self.service.recordWithCalendarUserAddress, "mailto:user05@example.com")
+            self.verifyNoQuery(self.service.recordWithCalendarUserAddress, "mailto:user05@example.com")
 
-            self.assertTrue(self.service.recordWithEmailAddress("group01@example.com"))
-            self.verifyQuery(self.service.recordWithEmailAddress, "group05@example.com")
-            self.verifyNoQuery(self.service.recordWithEmailAddress, "group05@example.com")
+            # Groups don't have CUAs
+            # self.assertTrue(self.service.recordWithCalendarUserAddress("mailto:group01@example.com"))
+            # self.verifyQuery(self.service.recordWithCalendarUserAddress, "mailto:group05@example.com")
+            # self.verifyNoQuery(self.service.recordWithCalendarUserAddress, "mailto:group05@example.com")
 
-            self.assertTrue(self.service.recordWithEmailAddress("resource01@example.com"))
-            self.verifyQuery(self.service.recordWithEmailAddress, "resource05@example.com")
-            self.verifyNoQuery(self.service.recordWithEmailAddress, "resource05@example.com")
+            self.assertTrue(self.service.recordWithCalendarUserAddress("mailto:resource01@example.com"))
+            self.verifyQuery(self.service.recordWithCalendarUserAddress, "mailto:resource05@example.com")
+            self.verifyNoQuery(self.service.recordWithCalendarUserAddress, "mailto:resource05@example.com")
 
-            self.assertTrue(self.service.recordWithEmailAddress("location01@example.com"))
-            self.verifyQuery(self.service.recordWithEmailAddress, "location05@example.com")
-            self.verifyNoQuery(self.service.recordWithEmailAddress, "location05@example.com")
+            self.assertTrue(self.service.recordWithCalendarUserAddress("mailto:location01@example.com"))
+            self.verifyQuery(self.service.recordWithCalendarUserAddress, "mailto:location05@example.com")
+            self.verifyNoQuery(self.service.recordWithCalendarUserAddress, "mailto:location05@example.com")
 
 
 

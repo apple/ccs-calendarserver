@@ -42,7 +42,7 @@ class TestDirectoryService (CachingDirectoryService):
                 cacheIt = False
                 if indexType in (
                     CachingDirectoryService.INDEX_TYPE_SHORTNAME,
-                    CachingDirectoryService.INDEX_TYPE_EMAIL,
+                    CachingDirectoryService.INDEX_TYPE_CUA,
                     CachingDirectoryService.INDEX_TYPE_AUTHID,
                 ):
                     if indexKey in record[indexType]:
@@ -62,10 +62,11 @@ class TestDirectoryService (CachingDirectoryService):
                         firstName             = "",
                         lastName              = "",
                         emailAddresses        = record.get("email"),
-                        calendarUserAddresses = record.get("email"),
+                        calendarUserAddresses = record.get("cua"),
                         enabledForCalendaring = True,
                     ) 
-                    self.recordCacheForType(recordType).addRecord(cacheRecord)
+                    self.recordCacheForType(recordType).addRecord(cacheRecord,
+                        indexType, indexKey)
 
 class CachingDirectoryTest(TestCase):
     
@@ -109,6 +110,7 @@ class CachingDirectoryTest(TestCase):
             "guid": guid,
             "shortname": shortNames,
             "email": emails,
+            "cua": tuple(["mailto:%s" % email for email in emails]),
             "authid": tuple(["Kerberos:%s" % email for email in emails])
         }
         
@@ -202,8 +204,8 @@ class GUIDLookups(CachingDirectoryTest):
     def test_cacheoneemail(self):
         self.dummyRecords()
 
-        self.assertTrue(self.service.recordWithEmailAddress(
-            "user03@example.com"
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "mailto:user03@example.com"
         ) is not None)
         self.assertTrue(self.service.queried)
         self.verifyRecords(DirectoryService.recordType_users, set((
@@ -215,8 +217,8 @@ class GUIDLookups(CachingDirectoryTest):
 
         # Make sure it really is cached and won't cause another query
         self.service.queried = False
-        self.assertTrue(self.service.recordWithEmailAddress(
-            "user03@example.com"
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "mailto:user03@example.com"
         ) is not None)
         self.assertFalse(self.service.queried)
 

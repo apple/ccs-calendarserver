@@ -30,8 +30,10 @@ import types
 import memcacheclient
 import base64
 
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.config import config
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.log import LoggingMixIn
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 
 class RecordTypeCache(object):
@@ -44,19 +46,16 @@ class RecordTypeCache(object):
         self.directoryService = directoryService
         self.recordType = recordType
 
-    def addRecord(self, record):
+    def addRecord(self, record, indexType, indexKey, useMemcache=True):
         raise NotImplementedError()
     
     def removeRecord(self, record):
         raise NotImplementedError()
         
-    def replaceRecord(self, oldRecord, newRecord):
-        raise NotImplementedError()
-
     def findRecord(self, indexType, indexKey):
         raise NotImplementedError()
         
-class DictRecordTypeCache(RecordTypeCache):
+class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     """
     Cache implementation using a dict. Does not share the cache with other instances.
     """
@@ -68,28 +67,23 @@ class DictRecordTypeCache(RecordTypeCache):
         self.recordsIndexedBy = {
             CachingDirectoryService.INDEX_TYPE_GUID     : {},
             CachingDirectoryService.INDEX_TYPE_SHORTNAME: {},
-            CachingDirectoryService.INDEX_TYPE_EMAIL    : {},
+            CachingDirectoryService.INDEX_TYPE_CUA    : {},
             CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
 
-    def addRecord(self, record):
-        
+    def addRecord(self, record, indexType, indexKey, useMemcache=True):
+
+        useMemcache == useMemcache and config.Memcached.ClientEnabled
+
         self.records.add(record)
-        for indexType in self.directoryService.indexTypes():
-            try:
-                indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
-            except AttributeError:
-                continue
-            if isinstance(indexData, str):
-                indexData = (indexData,)
-            if type(indexData) in (types.ListType, types.TupleType, set):
-                for item in indexData:
-                    self.recordsIndexedBy[indexType][item] = record
-            elif indexData is None:
-                pass
-            else:
-                raise AssertionError("Data from record attribute must be str, list or tuple")
-    
+
+        self.recordsIndexedBy[indexType][indexKey] = record
+        if useMemcache:
+            key = "dir|%s|%s" % (indexType, indexKey)
+            self.log_debug("Memcache: storing %s" % (key,))
+            self.directoryService.memcacheSet(key, record)
+
+
     def removeRecord(self, record):
         
         if record in self.records:
@@ -110,10 +104,6 @@ class DictRecordTypeCache(RecordTypeCache):
                 else:
                     raise AssertionError("Data from record attribute must be str, list or tuple")
         
-    def replaceRecord(self, oldRecord, newRecord):
-        self.removeRecord(oldRecord)
-        self.addRecord(newRecord)
-
     def findRecord(self, indexType, indexKey):
         return self.recordsIndexedBy[indexType].get(indexKey)
 
@@ -126,13 +116,13 @@ class CachingDirectoryService(DirectoryService):
 
     INDEX_TYPE_GUID      = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
-    INDEX_TYPE_EMAIL     = "email"
+    INDEX_TYPE_CUA     = "cua"
     INDEX_TYPE_AUTHID    = "authid"
 
     indexTypeToRecordAttribute = {
         "guid"     : "guid",
         "shortname": "shortNames",
-        "email"    : "emailAddresses",
+        "cua"      : "calendarUserAddresses",
         "authid"   : "authIDs",
     }
 
@@ -209,7 +199,7 @@ class CachingDirectoryService(DirectoryService):
         return (
             CachingDirectoryService.INDEX_TYPE_GUID,
             CachingDirectoryService.INDEX_TYPE_SHORTNAME,
-            CachingDirectoryService.INDEX_TYPE_EMAIL,
+            CachingDirectoryService.INDEX_TYPE_CUA,
             CachingDirectoryService.INDEX_TYPE_AUTHID,
         )
 
@@ -222,8 +212,16 @@ class CachingDirectoryService(DirectoryService):
     def recordWithShortName(self, recordType, shortName):
         return self._lookupRecord((recordType,), CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
 
-    def recordWithEmailAddress(self, emailAddress):
-        return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
+    def recordWithCalendarUserAddress(self, address):
+        address = normalizeCUAddr(address)
+        record = None
+        if address.startswith("urn:uuid:"):
+            guid = address[9:]
+            record = self.recordWithGUID(guid)
+        elif address.startswith("mailto:"):
+            record = self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_CUA, address)
+
+        return record if record and record.enabledForCalendaring else None
 
     def recordWithAuthID(self, authID):
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
@@ -273,7 +271,7 @@ class CachingDirectoryService(DirectoryService):
                     self.log_debug("Memcache: miss %s" % (key,))
                 else:
                     self.log_debug("Memcache: hit %s" % (key,))
-                    self.recordCacheForType(record.recordType).addRecord(record)
+                    self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
                     return record
 
                 # Check negative memcache
@@ -291,24 +289,6 @@ class CachingDirectoryService(DirectoryService):
             record = lookup()
             if record:
                 self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
-
-                if config.Memcached.ClientEnabled:
-                    # share with others via memcache
-                    for shortName in record.shortNames:
-                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
-                        self.log_debug("Memcache: storing %s" % (key,))
-                        self.memcacheSet(key, record)
-                    for emailAddress in record.emailAddresses:
-                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_EMAIL, emailAddress)
-                        self.log_debug("Memcache: storing %s" % (key,))
-                        self.memcacheSet(key, record)
-                    for authID in record.authIDs:
-                        key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
-                        self.log_debug("Memcache: storing %s" % (key,))
-                        self.memcacheSet(key, record)
-                    key = "dir|%s|%s" % (CachingDirectoryService.INDEX_TYPE_GUID, record.guid)
-                    self.log_debug("Memcache: storing %s" % (key,))
-                    self.memcacheSet(key, record)
                 return record
 
 
