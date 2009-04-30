@@ -294,27 +294,49 @@ class OpenDirectoryService(CachingDirectoryService):
     _ODFields = {
         'fullName' : {
             'odField' : dsattributes.kDS1AttrDistinguishedName,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+                dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
         },
         'firstName' : {
             'odField' : dsattributes.kDS1AttrFirstName,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+            ]),
         },
         'lastName' : {
             'odField' : dsattributes.kDS1AttrLastName,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+            ]),
         },
         'emailAddresses' : {
             'odField' : dsattributes.kDSNAttrEMailAddress,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+                dsattributes.kDSStdRecordTypeGroups,
+            ]),
         },
         'recordName' : {
             'odField' : dsattributes.kDSNAttrRecordName,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+                dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
         },
         'guid' : {
             'odField' : dsattributes.kDS1AttrGeneratedUID,
-            'excludes' : set(),
+            'appliesTo' : set([
+                dsattributes.kDSStdRecordTypeUsers,
+                dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypePlaces,
+                dsattributes.kDSStdRecordTypeResources,
+            ]),
         },
     }
 
@@ -330,6 +352,7 @@ class OpenDirectoryService(CachingDirectoryService):
     }
 
     _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
+
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 
@@ -349,68 +372,59 @@ class OpenDirectoryService(CachingDirectoryService):
                 except KeyError:
                     pass
 
+        def multiQuery(directory, queries, attrs, operand):
+            results = {}
+
+            for query, recordTypes in queries.iteritems():
+                if not query:
+                    continue
+
+                expressions = []
+                for ODField, value, caseless, matchType in query:
+                    if matchType == "starts-with":
+                        comparison = dsattributes.eDSStartsWith
+                    elif matchType == "contains":
+                        comparison = dsattributes.eDSContains
+                    else:
+                        comparison = dsattributes.eDSExact
+                    expressions.append(dsquery.match(ODField, value, comparison))
+
+                complexExpression = dsquery.expression(operand, expressions).generate()
+
+                self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
+                    (recordTypes, operand, caseless, complexExpression))
+
+                results.update(
+                    opendirectory.queryRecordsWithAttributes(
+                        directory,
+                        complexExpression,
+                        caseless,
+                        recordTypes,
+                        attrs,
+                    )
+                )
+
+            return results
+
 
         operand = (dsquery.expression.OR if operand == "or"
             else dsquery.expression.AND)
 
-        excluded = set()
-        for field, value, caseless, matchType in fields:
-            if field in self._ODFields:
-                ODField = self._ODFields[field]['odField']
-                excluded = excluded | self._ODFields[field]['excludes']
-
         if recordType is None:
             # The client is looking for records in any of the four types
             recordTypes = set(self._toODRecordTypes.values())
-
-            # Certain query combinations yield invalid results.  In particular,
-            # any time you query on EMailAddress and are specifying Places
-            # and/or Resources in the requested types, you will get all
-            # Places/Resources returned.  So here we will filter out known
-            # invalid combinations:
-            excludeFields = False
-            recordTypes = list(recordTypes - excluded)
-
         else:
-            # The client is after only one recordType, so let's tailor the
-            # query to not include any fields OD has trouble with:
-            excludeFields = True
+            # The client is after only one recordType
             recordTypes = [self._toODRecordTypes[recordType]]
 
-        expressions = []
-        for field, value, caseless, matchType in fields:
-            if field in self._ODFields:
-
-                if (excludeFields and
-                    self._toODRecordTypes[recordType] in self._ODFields[field]['excludes']):
-                    # This is a field we're excluding because it behaves badly
-                    # for the record type result we're looking for.  Skip it.
-                    continue
-
-                ODField = self._ODFields[field]['odField']
-                if matchType == "starts-with":
-                    comparison = dsattributes.eDSStartsWith
-                elif matchType == "contains":
-                    comparison = dsattributes.eDSContains
-                else:
-                    comparison = dsattributes.eDSExact
-                expressions.append(dsquery.match(ODField, value, comparison))
-
-        if not recordTypes or not expressions:
-            # If we've excluded all types or all expressions, short circuit.
-            self.log_info("Empty query, skipping call to OD")
-            return []
-
-        self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
-            (recordTypes, operand, caseless, fields))
+        queries = buildQueries(recordTypes, fields, self._ODFields)
 
         deferred = deferToThread(
-            opendirectory.queryRecordsWithAttributes,
+            multiQuery,
             self.directory,
-            dsquery.expression(operand, expressions).generate(),
-            caseless,
-            recordTypes,
-            [ dsattributes.kDS1AttrGeneratedUID ]
+            queries,
+            [ dsattributes.kDS1AttrGeneratedUID ],
+            operand
         )
         deferred.addCallback(collectResults)
         return deferred
@@ -711,6 +725,29 @@ class OpenDirectoryService(CachingDirectoryService):
                     except ValueError:
                         continue
                     yield recordGUID, autoSchedule, proxy, readOnlyProxy
+
+
+def buildQueries(recordTypes, fields, mapping):
+    """
+    Determine how many queries need to be performed in order to work around opendirectory
+    quirks, where searching on fields that don't apply to a given recordType returns incorrect
+    results (either none, or all records).
+    """
+
+    fieldLists = {}
+    for recordType in recordTypes:
+        fieldLists[recordType] = []
+        for field, value, caseless, matchType in fields:
+            if field in mapping:
+                if recordType in mapping[field]['appliesTo']:
+                    ODField = mapping[field]['odField']
+                    fieldLists[recordType].append((ODField, value, caseless, matchType))
+
+    queries = {}
+    for recordType, fieldList in fieldLists.iteritems():
+        key = tuple(fieldList)
+        queries.setdefault(key, []).append(recordType)
+    return queries
 
 
 class OpenDirectoryRecord(CachingDirectoryRecord):
