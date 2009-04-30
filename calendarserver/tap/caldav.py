@@ -21,6 +21,7 @@ __all__ = [
 ]
 
 import os
+import socket
 import stat
 import sys
 
@@ -650,13 +651,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         self.log_info("Setting up service")
 
-        # Make sure no old socket files are lying around.
-        if (os.path.exists(config.ControlSocket)):
-            # See if the file represents an active socket.  If not, delete it.
-            if (not stat.S_ISSOCK(os.stat(config.ControlSocket).st_mode)):
-                self.log_warn("Deleting stale socket file: %s" % config.ControlSocket)
-                os.remove(config.ControlSocket)
-        
         if config.ProcessType == "Slave":
             if (
                 config.MultiProcess.ProcessCount > 1 and
@@ -682,8 +676,11 @@ class CalDAVServiceMaker (LoggingMixIn):
             logObserver = AMPCommonAccessLoggingObserver(mode, id)
 
         elif config.ProcessType == "Single":
-            realRoot = logWrapper
+            # Make sure no old socket files are lying around.
+            self.deleteStaleSocketFiles()
 
+            realRoot = logWrapper
+            
             logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile,
             )
@@ -805,11 +802,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         processLocalizationFiles(config.Localization)
 
         # Make sure no old socket files are lying around.
-        if (os.path.exists(config.ControlSocket)):
-            # See if the file represents an active socket.  If not, delete it.
-            if (not stat.S_ISSOCK(os.stat(config.ControlSocket).st_mode)):
-                self.log_warn("Deleting stale socket file: %s" % config.ControlSocket)
-                os.remove(config.ControlSocket)
+        self.deleteStaleSocketFiles()
         
         # The logger service must come before the monitor service, otherwise
         # we won't know which logging port to pass to the slaves' command lines
@@ -1088,6 +1081,34 @@ class CalDAVServiceMaker (LoggingMixIn):
         )
 
         return service
+
+    def deleteStaleSocketFiles(self):
+        
+        # Check all socket files we use.
+        for checkSocket in [config.ControlSocket, config.GlobalStatsSocket, config.PythonDirector.ControlSocket] :
+    
+            # See if the file exists.
+            if (os.path.exists(checkSocket)):
+                # See if the file represents a socket.  If not, delete it.
+                if (not stat.S_ISSOCK(os.stat(checkSocket).st_mode)):
+                    self.log_warn("Deleting stale socket file (not a socket): %s" % checkSocket)
+                    os.remove(checkSocket)
+                else:
+                    # It looks like a socket.  See if it's accepting connections.
+                    tmpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    numConnectFailures = 0
+                    testPorts = [config.HTTPPort, config.SSLPort]
+                    for testPort in testPorts :
+                        try:
+                            tmpSocket.connect(("127.0.0.1", testPort))
+                            tmpSocket.shutdown(2)
+                        except:
+                            numConnectFailures = numConnectFailures+1
+                    # If the file didn't connect on any expected ports,
+                    # consider it stale and remove it.
+                    if numConnectFailures == len(testPorts):
+                        self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
+                        os.remove(checkSocket)
 
 class TwistdSlaveProcess(object):
     prefix = "caldav"
