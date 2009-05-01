@@ -1,0 +1,180 @@
+Index: twisted/python/util.py
+===================================================================
+--- twisted/python/util.py	(revision 19773)
++++ twisted/python/util.py	(working copy)
+@@ -561,83 +561,107 @@
+     L2.sort()
+     return [e[2] for e in L2]
+ 
++
++# The python implementation of initgroups below, which iterates all groups,
++# doesn't scale, so use the libc version if available:
++
+ try:
+-    import pwd, grp
+-    from os import setgroups, getgroups
+-    
+-    def _setgroups_until_success(l):
+-        while(1):
+-            # NASTY NASTY HACK (but glibc does it so it must be okay):
+-            # In case sysconfig didn't give the right answer, find the limit
+-            # on max groups by just looping, trying to set fewer and fewer
+-            # groups each time until it succeeds.
++    from ctypes import *
++    import ctypes.util
++    hasCtypes = True
++except ImportError:
++    hasCtypes = False
++
++if sys.platform == "darwin" and hasCtypes:
++    import pwd
++
++    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
++
++    def initgroups(uid, primaryGid):
++        c_gid = c_int(primaryGid)
++        username = pwd.getpwuid(uid)[0]
++        c_username = c_char_p(username)
++        return libc.initgroups(c_username, c_gid)
++
++else:
++    # Original twisted implementation
++    try:
++        import pwd, grp
++        from os import setgroups, getgroups
++        
++        def _setgroups_until_success(l):
++            while(1):
++                # NASTY NASTY HACK (but glibc does it so it must be okay):
++                # In case sysconfig didn't give the right answer, find the limit
++                # on max groups by just looping, trying to set fewer and fewer
++                # groups each time until it succeeds.
++                try:
++                    setgroups(l)
++                except ValueError:
++                    # This exception comes from python itself restricting
++                    # number of groups allowed.
++                    if len(l) > 1:
++                        del l[-1]
++                    else:
++                        raise
++                except OSError, e:
++                    if e.errno == errno.EINVAL and len(l) > 1:
++                        # This comes from the OS saying too many groups
++                        del l[-1]
++                    else:
++                        raise
++                else:
++                    # Success, yay!
++                    return
++                
++        def initgroups(uid, primaryGid):
++            """Initializes the group access list.
++
++            This is done by reading the group database /etc/group and using all
++            groups of which C{uid} is a member.  The additional group
++            C{primaryGid} is also added to the list.
++
++            If the given user is a member of more than C{NGROUPS}, arbitrary
++            groups will be silently discarded to bring the number below that
++            limit.
++            """       
+             try:
+-                setgroups(l)
+-            except ValueError:
+-                # This exception comes from python itself restricting
+-                # number of groups allowed.
+-                if len(l) > 1:
+-                    del l[-1]
+-                else:
+-                    raise
++                # Try to get the maximum number of groups
++                max_groups = os.sysconf("SC_NGROUPS_MAX")
++            except:
++                # No predefined limit
++                max_groups = 0
++            
++            username = pwd.getpwuid(uid)[0]
++            l = []
++            if primaryGid is not None:
++                l.append(primaryGid)
++            for groupname, password, gid, userlist in grp.getgrall():
++                if username in userlist:
++                    l.append(gid)
++                    if len(l) == max_groups:
++                        break # No more groups, ignore any more
++            try:
++                _setgroups_until_success(l)
+             except OSError, e:
+-                if e.errno == errno.EINVAL and len(l) > 1:
+-                    # This comes from the OS saying too many groups
+-                    del l[-1]
++                # We might be able to remove this code now that we
++                # don't try to setgid/setuid even when not asked to.
++                if e.errno == errno.EPERM:
++                    for g in getgroups():
++                        if g not in l:
++                            raise
+                 else:
+                     raise
+-            else:
+-                # Success, yay!
+-                return
+-            
+-    def initgroups(uid, primaryGid):
+-        """Initializes the group access list.
++                                        
+ 
+-        This is done by reading the group database /etc/group and using all
+-        groups of which C{uid} is a member.  The additional group
+-        C{primaryGid} is also added to the list.
++    except:
++        def initgroups(uid, primaryGid):
++            """Do nothing.
+ 
+-        If the given user is a member of more than C{NGROUPS}, arbitrary
+-        groups will be silently discarded to bring the number below that
+-        limit.
+-        """       
+-        try:
+-            # Try to get the maximum number of groups
+-            max_groups = os.sysconf("SC_NGROUPS_MAX")
+-        except:
+-            # No predefined limit
+-            max_groups = 0
+-        
+-        username = pwd.getpwuid(uid)[0]
+-        l = []
+-        if primaryGid is not None:
+-            l.append(primaryGid)
+-        for groupname, password, gid, userlist in grp.getgrall():
+-            if username in userlist:
+-                l.append(gid)
+-                if len(l) == max_groups:
+-                    break # No more groups, ignore any more
+-        try:
+-            _setgroups_until_success(l)
+-        except OSError, e:
+-            # We might be able to remove this code now that we
+-            # don't try to setgid/setuid even when not asked to.
+-            if e.errno == errno.EPERM:
+-                for g in getgroups():
+-                    if g not in l:
+-                        raise
+-            else:
+-                raise
+-                                    
++            Underlying platform support require to manipulate groups is missing.
++            """
+ 
+-except:
+-    def initgroups(uid, primaryGid):
+-        """Do nothing.
+ 
+-        Underlying platform support require to manipulate groups is missing.
+-        """
+-
+-
+ def switchUID(uid, gid, euid=False):
+     if euid:
+         setuid = os.seteuid
