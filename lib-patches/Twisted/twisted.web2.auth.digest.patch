@@ -1,48 +1,14 @@
 Index: twisted/web2/auth/digest.py
 ===================================================================
---- twisted/web2/auth/digest.py	(revision 19773)
+--- twisted/web2/auth/digest.py	(revision 26741)
 +++ twisted/web2/auth/digest.py	(working copy)
-@@ -8,19 +8,28 @@
- import time
- 
- from twisted.cred import credentials, error
-+from twisted.internet.defer import succeed
- from zope.interface import implements, Interface
- 
- from twisted.web2.auth.interfaces import ICredentialFactory
-+from twisted.web2.http_headers import tokenize
-+from twisted.web2.http_headers import Token
-+from twisted.web2.http_headers import split
-+from twisted.web2.http_headers import parseKeyValue
- 
--import md5, sha
-+try:
-+    from hashlib import md5, sha1
-+except ImportError:
-+    from md5 import new as md5
-+    from sha import new as sha1
- import random, sys
- 
- # The digest math
- 
- algorithms = {
--    'md5': md5.new,
--    'md5-sess': md5.new,
--    'sha': sha.new,
-+    'md5': md5,
-+    'md5-sess': md5,
-+    'sha': sha1,
- }
- 
- # DigestCalcHA1
-@@ -153,7 +162,18 @@
-             calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
+@@ -158,6 +158,17 @@
              algo, nonce, nc, cnonce, qop, self.method, uri, None
          )
-+        
+ 
 +        if expected == response:
 +            return True
- 
++
 +        # IE7 sends cnonce and nc values, but auth fails if they are used.
 +        # So try again without them...
 +        # They can be omitted for backwards compatibility [RFC 2069].
@@ -54,82 +20,3 @@ Index: twisted/web2/auth/digest.py
          return expected == response
  
      def checkHash(self, digestHash):
-@@ -228,9 +248,9 @@
-         # Now, what we do is encode the nonce, client ip and a timestamp
-         # in the opaque value with a suitable digest
-         key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
--        digest = md5.new(key + self.privateKey).hexdigest()
-+        digest = md5(key + self.privateKey).hexdigest()
-         ekey = key.encode('base64')
--        return "%s-%s" % (digest, ekey.strip('\n'))
-+        return "%s-%s" % (digest, ekey.replace('\n', ''))
- 
-     def verifyOpaque(self, opaque, nonce, clientip):
-         """
-@@ -274,7 +294,7 @@
-                 'Invalid response, incompatible opaque/nonce too old')
- 
-         # Verify the digest
--        digest = md5.new(key + self.privateKey).hexdigest()
-+        digest = md5(key + self.privateKey).hexdigest()
-         if digest != opaqueParts[0]:
-             raise error.LoginFailed('Invalid response, invalid opaque value')
- 
-@@ -293,11 +313,12 @@
-         c = self.generateNonce()
-         o = self.generateOpaque(c, peer.host)
- 
--        return {'nonce': c,
--                'opaque': o,
--                'qop': 'auth',
--                'algorithm': self.algorithm,
--                'realm': self.realm}
-+        return succeed({'nonce': c,
-+            'opaque': o,
-+            'qop': 'auth',
-+            'algorithm': self.algorithm,
-+            'realm': self.realm,
-+        })
- 
-     def decode(self, response, request):
-         """
-@@ -315,18 +336,18 @@
-         @raise: L{error.LoginFailed} if the response does not contain a
-             username, a nonce, an opaque, or if the opaque is invalid.
-         """
--        def unq(s):
--            if s[0] == s[-1] == '"':
--                return s[1:-1]
--            return s
-         response = ' '.join(response.splitlines())
--        parts = response.split(',')
--
--        auth = {}
--
--        for (k, v) in [p.split('=', 1) for p in parts]:
--            auth[k.strip()] = unq(v.strip())
--
-+        
-+        try:
-+            parts = split(tokenize((response,), foldCase=False), Token(","))
-+    
-+            auth = {}
-+    
-+            for (k, v) in [parseKeyValue(p) for p in parts]:
-+                auth[k.strip()] = v.strip()
-+        except ValueError:
-+            raise error.LoginFailed('Invalid response.')
-+            
-         username = auth.get('username')
-         if not username:
-             raise error.LoginFailed('Invalid response, no username given.')
-@@ -342,7 +363,7 @@
-                              auth.get('nonce'),
-                              request.remoteAddr.host):
- 
--            return DigestedCredentials(username,
-+            return succeed(DigestedCredentials(username,
-                                        request.method,
-                                        self.realm,
--                                       auth)
-+                                       auth))

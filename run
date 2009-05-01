@@ -104,7 +104,7 @@ while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
     'R')       reactor="-R ${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
-    'S')       profile="-p ${OPTARG}"; ;;
+    'S')       profile="--profiler cprofile -p ${OPTARG}"; ;;
     'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
     's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
     'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
@@ -655,8 +655,8 @@ case "${USER}" in
     proto="svn";
     ;;
 esac;
-svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-acl-1608-4";
-svn_get "Twisted" "${twisted}" "${svn_uri}" 19773;
+svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4";
+svn_get "Twisted" "${twisted}" "${svn_uri}" 26741;
 
 # No py_build step, since we tend to do edit Twisted, we want the sources in
 # PYTHONPATH, not a build directory.
