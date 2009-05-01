@@ -229,6 +229,20 @@ Index: twisted/web2/dav/element/base.py
  class WebDAVOneShotElement (WebDAVElement):
      """
      Element with exactly one WebDAVEmptyElement child and no attributes.
+@@ -346,11 +472,11 @@
+ 
+         if clazz not in WebDAVOneShotElement.__singletons:
+             WebDAVOneShotElement.__singletons[clazz] = {
+-                child: WebDAVElement.__new__(clazz, children)
++                child: WebDAVElement.__new__(clazz)
+             }
+         elif child not in WebDAVOneShotElement.__singletons[clazz]:
+             WebDAVOneShotElement.__singletons[clazz][child] = (
+-                WebDAVElement.__new__(clazz, children)
++                WebDAVElement.__new__(clazz)
+             )
+ 
+         return WebDAVOneShotElement.__singletons[clazz][child]
 @@ -364,6 +490,18 @@
          PCDATAElement: (0, None),
      }
