@@ -1,0 +1,83 @@
+Index: twisted/web2/dav/auth.py
+===================================================================
+--- twisted/web2/dav/auth.py	(revision 19773)
++++ twisted/web2/dav/auth.py	(working copy)
+@@ -5,7 +5,13 @@
+ from twisted.web2.dav import davxml
+ from twisted.web2.dav.davxml import twisted_private_namespace
+ 
+-__all__ = ["PrincipalCredentials", "AuthenticationWrapper"]
++__all__ = [
++    "IPrincipal",
++    "DavRealm",
++    "IPrincipalCredentials",
++    "PrincipalCredentials",
++    "AuthenticationWrapper",
++]
+ 
+ class AuthenticationWrapper(WrapperResource):
+     def __init__(self, resource, portal, credentialFactories, loginInterfaces):
+@@ -40,7 +46,7 @@
+ 
+     def requestAvatar(self, avatarId, mind, *interfaces):
+         if IPrincipal in interfaces:
+-            return IPrincipal, davxml.Principal(davxml.HRef(avatarId))
++            return IPrincipal, davxml.Principal(davxml.HRef(avatarId[0])), davxml.Principal(davxml.HRef(avatarId[1]))
+         
+         raise NotImplementedError("Only IPrincipal interface is supported")
+ 
+@@ -52,33 +58,44 @@
+ class PrincipalCredentials(object):
+     implements(IPrincipalCredentials)
+ 
+-    def __init__(self, principal, principalURI, credentials):
+-        self.principal = principal
+-        self.principalURI = principalURI
++    def __init__(self, authnPrincipal, authzPrincipal, credentials):
++        """
++        Initialize with both authentication and authorization values. Note that in most cases theses will be the same
++        since HTTP auth makes no distinction between the two - but we may be layering some addition auth on top of this
++        (.e.g.. proxy auth, cookies, forms etc) that make result in authentication and authorization being different.
++
++        @param authnPrincipal: L{IDAVPrincipalResource} for the authenticated principal.
++        @param authnURI: C{str} containing the URI of the authenticated principal.
++        @param authzPrincipal: L{IDAVPrincipalResource} for the authorized principal.
++        @param authzURI: C{str} containing the URI of the authorized principal.
++        @param credentials: L{ICredentials} for the authentication credentials.
++        """
++        self.authnPrincipal = authnPrincipal
++        self.authzPrincipal = authzPrincipal
+         self.credentials = credentials
+ 
+     def checkPassword(self, password):
+         return self.credentials.checkPassword(password)
+ 
+ 
+-class TwistedPropertyChecker:
++class TwistedPropertyChecker(object):
+     implements(checkers.ICredentialsChecker)
+ 
+     credentialInterfaces = (IPrincipalCredentials,)
+ 
+-    def _cbPasswordMatch(self, matched, principalURI):
++    def _cbPasswordMatch(self, matched, principalURIs):
+         if matched:
+-            return principalURI
++            # We return both URIs
++            return principalURIs
+         else:
+-            raise error.UnauthorizedLogin(
+-                "Bad credentials for: %s" % (principalURI,))
++            raise error.UnauthorizedLogin("Bad credentials for: %s" % (principalURIs[0],))
+ 
+     def requestAvatarId(self, credentials):
+         pcreds = IPrincipalCredentials(credentials)
+-        pswd = str(pcreds.principal.readDeadProperty(TwistedPasswordProperty))
++        pswd = str(pcreds.authnPrincipal.readDeadProperty(TwistedPasswordProperty))
+ 
+         d = defer.maybeDeferred(credentials.checkPassword, pswd)
+-        d.addCallback(self._cbPasswordMatch, pcreds.principalURI)
++        d.addCallback(self._cbPasswordMatch, (pcreds.authnPrincipal.principalURL(), pcreds.authzPrincipal.principalURL()))
+         return d
+ 
+ ##

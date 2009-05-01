@@ -1,0 +1,267 @@
+Index: twisted/web2/dav/element/base.py
+===================================================================
+--- twisted/web2/dav/element/base.py	(revision 19773)
++++ twisted/web2/dav/element/base.py	(working copy)
+@@ -45,7 +45,7 @@
+ ]
+ 
+ import string
+-import StringIO
++import cStringIO as StringIO
+ import xml.dom.minidom
+ 
+ import datetime
+@@ -90,6 +90,35 @@
+             raise NotImplementedError("WebDAVElement subclass %s is not implemented."
+                                       % (self.__class__.__name__,))
+ 
++        my_children = []
++
++        allowPCDATA = self.allowed_children.has_key(PCDATAElement)
++
++        for child in children:
++            if child is None:
++                continue
++
++            if isinstance(child, (str, unicode)):
++                child = PCDATAElement(child)
++
++            if isinstance(child, PCDATAElement) and not allowPCDATA:
++                continue
++
++            my_children.append(child)
++
++        self.children = tuple(my_children)
++
++        self.attributes = attributes
++
++    def validate(self):
++
++        children = self.children
++        attributes = self.attributes
++
++        if self.allowed_children is None:
++            raise NotImplementedError("WebDAVElement subclass %s is not implemented."
++                                      % (self.__class__.__name__,))
++
+         #
+         # Validate that children are of acceptable types
+         #
+@@ -102,13 +131,10 @@
+         my_children = []
+ 
+         for child in children:
+-            if child is None:
+-                continue
+ 
+-            if isinstance(child, (str, unicode)):
+-                child = PCDATAElement(child)
+-
+             assert isinstance(child, (WebDAVElement, PCDATAElement)), "Not an element: %r" % (child,)
++            
++            child.validate()
+ 
+             for allowed, (min, max) in allowed_children.items():
+                 if type(allowed) == type and isinstance(child, allowed):
+@@ -145,24 +171,26 @@
+ 
+         if self.allowed_attributes:
+             for name in attributes:
+-                if name in self.allowed_attributes:
+-                    my_attributes[name] = attributes[name]
+-                else:
+-                    log.msg("Attribute %s is unexpected and therefore ignored in %s element"
+-                            % (name, self.sname()))
++                if name not in self.allowed_attributes:
++                    log.msg("Attribute %s is unexpected in %s element" % (name, self.sname()))
++                my_attributes[name] = attributes[name]
+     
+             for name, required in self.allowed_attributes.items():
+                 if required and name not in my_attributes:
+                     raise ValueError("Attribute %s is required in %s element"
+                                      % (name, self.sname()))
+ 
+-        elif not isinstance(self, WebDAVUnknownElement):
+-            if attributes:
+-                log.msg("Attributes %s are unexpected and therefore ignored in %s element"
++        else:
++            if not isinstance(self, WebDAVUnknownElement) and attributes:
++                log.msg("Attributes %s are unexpected in %s element"
+                         % (attributes.keys(), self.sname()))
++            my_attributes.update(attributes)
+ 
+         self.attributes = my_attributes
+ 
++    def emptyCopy(self):
++        return self.__class__()
++
+     def __str__(self):
+         return self.sname()
+ 
+@@ -190,14 +218,93 @@
+         return child in self.children
+ 
+     def writeXML(self, output):
+-        document = xml.dom.minidom.Document()
+-        self.addToDOM(document, None)
+-        PrintXML(document, stream=output)
++        # FIXME: Now have a 'fast' write implementation as well as previous PyXML-based one.
++        # For now the fast one is the default and we will test to see if its good enough.
++        
++        usePyXML = False
++        if usePyXML:
++            document = xml.dom.minidom.Document()
++            self.addToDOM(document, None)
++            PrintXML(document, stream=output)
++        else:
++            output.write("<?xml version='1.0' encoding='UTF-8'?>\r\n")
++            self.writeToStream(output, "", 0, True)
++            output.write("\r\n")
++    
++    def writeToStream(self, output, ns, level, pretty):
++        """
++        Fast XML output.
+ 
++        @param output: C{stream} to write to.
++        @param ns: C{str} containing the namespace of the enclosing element.
++        @param level: C{int} containing the element nesting level (starts at 0).
++        @param pretty: C{bool} whether to use 'pretty' formatted output or not.
++        """
++        
++        # Do pretty indent
++        if pretty and level:
++            output.write("  " * level)
++        
++        # Check for empty element (one with either no children or a single PCDATA that is itself empty)
++        if (len(self.children) == 0 or
++            (len(self.children) == 1 and isinstance(self.children[0], PCDATAElement) and len(str(self.children[0])) == 0)):
++
++            # Write out any attributes or the namespace if difference from enclosing element.
++            if self.attributes or (ns != self.namespace):
++                output.write("<%s" % (self.name,))
++                for name, value in self.attributes.iteritems():
++                    self.writeAttributeToStream(output, name, value)
++                if ns != self.namespace:
++                    output.write(" xmlns='%s'" % (self.namespace,))
++                output.write("/>")
++            else:
++                output.write("<%s/>" % (self.name,))
++        else:
++            # Write out any attributes or the namespace if difference from enclosing element.
++            if self.attributes or (ns != self.namespace):
++                output.write("<%s" % (self.name,))
++                for name, value in self.attributes.iteritems():
++                    self.writeAttributeToStream(output, name, value)
++                if ns != self.namespace:
++                    output.write(" xmlns='%s'" % (self.namespace,))
++                    ns = self.namespace
++                output.write(">")
++            else:
++                output.write("<%s>" % (self.name,))
++                
++            # Determine nature of children when doing pretty print: we do
++            # not want to insert CRLFs or any other whitespace in PCDATA.
++            hasPCDATA = False
++            for child in self.children:
++                if isinstance(child, PCDATAElement):
++                    hasPCDATA = True
++                    break
++            
++            # Write out the children.
++            if pretty and not hasPCDATA:
++                output.write("\r\n")
++            for child in self.children:
++                child.writeToStream(output, ns, level+1, pretty)
++                
++            # Close the element.
++            if pretty and not hasPCDATA and level:
++                output.write("  " * level)
++            output.write("</%s>" % (self.name,))
++
++        if pretty and level:
++            output.write("\r\n")
++
++    def writeAttributeToStream(self, output, name, value):
++        
++        # Quote any single quotes. We do not need to be any smarter than this.
++        value = value.replace("'", "&apos;")
++
++        output.write(" %s='%s'" % (name, value,))  
++      
+     def toxml(self):
+         output = StringIO.StringIO()
+         self.writeXML(output)
+-        return output.getvalue()
++        return str(output.getvalue())
+ 
+     def element(self, document):
+         element = document.createElementNS(self.namespace, self.name)
+@@ -285,6 +392,9 @@
+ 
+         self.data = data
+ 
++    def validate(self):
++        pass
++
+     def __str__(self):
+         return str(self.data)
+ 
+@@ -324,6 +434,22 @@
+             log.err("Invalid PCDATA: %r" % (self.data,))
+             raise
+ 
++    def writeToStream(self, output, ns, level, pretty):
++        # Do escaping/CDATA behavior
++        if "\r" in self.data or "\n" in self.data:
++            # Do CDATA
++            cdata = "<![CDATA[%s]]>" % (self.data.replace("]]>", "]]&gt;"),)
++        else:
++            cdata = self.data
++            if "&" in cdata:
++                cdata = cdata.replace("&", "&amp;")
++            if "<" in cdata:
++                cdata = cdata.replace("<", "&lt;")
++            if ">" in cdata:
++                cdata = cdata.replace(">", "&gt;")
++
++        output.write(cdata)
++
+ class WebDAVOneShotElement (WebDAVElement):
+     """
+     Element with exactly one WebDAVEmptyElement child and no attributes.
+@@ -364,6 +490,18 @@
+         PCDATAElement: (0, None),
+     }
+ 
++    def qname(self):
++        return (self.namespace, self.name)
++
++    def sname(self):
++        return "{%s}%s" % (self.namespace, self.name)
++
++    def emptyCopy(self):
++        copied = self.__class__()
++        copied.name = self.name
++        copied.namespace = self.namespace
++        return copied
++
+ class WebDAVEmptyElement (WebDAVElement):
+     """
+     WebDAV element with no contents.
+@@ -388,6 +526,7 @@
+     """
+     WebDAV element containing PCDATA.
+     """
++    @classmethod
+     def fromString(clazz, string):
+         if string is None:
+             return clazz()
+@@ -396,8 +535,6 @@
+         else:
+             return clazz(PCDATAElement(str(string)))
+ 
+-    fromString = classmethod(fromString)
+-
+     allowed_children = { PCDATAElement: (0, None) }
+ 
+     def __str__(self):

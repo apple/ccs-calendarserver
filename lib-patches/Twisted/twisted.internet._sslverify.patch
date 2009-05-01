@@ -1,0 +1,35 @@
+Index: twisted/internet/_sslverify.py
+===================================================================
+--- twisted/internet/_sslverify.py	(revision 19773)
++++ twisted/internet/_sslverify.py	(working copy)
+@@ -1,7 +1,11 @@
+ # -*- test-case-name: twisted.test.test_sslverify -*-
+ # Copyright 2005 Divmod, Inc.  See LICENSE file for details
+ 
+-import itertools, md5
++import itertools
++try:
++    from hashlib import md5
++except ImportError:
++    from md5 import new as md5
+ from OpenSSL import SSL, crypto
+ 
+ from twisted.python import reflect, util
+@@ -666,7 +670,7 @@
+         MD5 hex digest of signature on an empty certificate request with this
+         key.
+         """
+-        return md5.md5(self._emptyReq).hexdigest()
++        return md5(self._emptyReq).hexdigest()
+ 
+ 
+     def inspect(self):
+@@ -942,7 +946,7 @@
+             ctx.set_options(self._OP_ALL)
+ 
+         if self.enableSessions:
+-            sessionName = md5.md5("%s-%d" % (reflect.qual(self.__class__), _sessionCounter())).hexdigest()
++            sessionName = md5("%s-%d" % (reflect.qual(self.__class__), _sessionCounter())).hexdigest()
+             ctx.set_session_id(sessionName)
+ 
+         return ctx

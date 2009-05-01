@@ -1,0 +1,28 @@
+Index: twisted/mail/pop3client.py
+===================================================================
+--- twisted/mail/pop3client.py	(revision 19773)
++++ twisted/mail/pop3client.py	(working copy)
+@@ -11,8 +11,13 @@
+ API Stability: Unstable
+ """
+ 
+-import re, md5
++import re
+ 
++try:
++    from hashlib import md5
++except ImportError:
++    from md5 import new as md5
++
+ from twisted.python import log
+ from twisted.internet import defer
+ from twisted.protocols import basic
+@@ -486,7 +491,7 @@
+     def _apop(self, username, password, challenge):
+         # Internal helper.  Computes and sends an APOP response.  Returns
+         # a Deferred that fires when the server responds to the response.
+-        digest = md5.new(challenge + password).hexdigest()
++        digest = md5(challenge + password).hexdigest()
+         return self.apop(username, digest)
+ 
+     def apop(self, username, digest):

@@ -1,0 +1,13 @@
+Index: twisted/test/test_tcp.py
+===================================================================
+--- twisted/test/test_tcp.py	(revision 19773)
++++ twisted/test/test_tcp.py	(working copy)
+@@ -1294,6 +1294,8 @@
+             self.client.transport.loseConnection()
+             log.flushErrors(RuntimeError)
+         return d.addCallback(check)
++
++    testReadNotificationRaises.todo = "self.f.protocol is None"
+     
+     def testWriteNotificationRaises(self):
+         self.client.writeConnectionLost = self.aBug

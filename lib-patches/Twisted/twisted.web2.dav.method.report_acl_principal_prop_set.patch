@@ -1,0 +1,22 @@
+Index: twisted/web2/dav/method/report_acl_principal_prop_set.py
+===================================================================
+--- twisted/web2/dav/method/report_acl_principal_prop_set.py	(revision 19773)
++++ twisted/web2/dav/method/report_acl_principal_prop_set.py	(working copy)
+@@ -103,7 +103,7 @@
+             # Check size of results is within limit
+             matchcount += 1
+             if matchcount > max_number_of_matches:
+-                raise NumberOfMatchesWithinLimits
++                raise NumberOfMatchesWithinLimits(max_number_of_matches)
+ 
+             resource = waitForDeferred(request.locateResource(str(principal)))
+             yield resource
+@@ -144,7 +144,7 @@
+         log.err("Too many matching components")
+         raise HTTPError(ErrorResponse(
+             responsecode.FORBIDDEN,
+-            (dav_namespace, "number-of-matches-within-limits")
++            davxml.NumberOfMatchesWithinLimits()
+         ))
+ 
+     yield MultiStatusResponse(responses)

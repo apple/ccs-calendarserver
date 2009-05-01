@@ -1,0 +1,28 @@
+Index: twisted/python/filepath.py
+===================================================================
+--- twisted/python/filepath.py	(revision 19773)
++++ twisted/python/filepath.py	(working copy)
+@@ -9,9 +9,13 @@
+ import os
+ import errno
+ import random
+-import sha
+ import base64
+ 
++try:
++    from hashlib import sha1
++except ImportError:
++    from sha import new as sha1
++
+ from os.path import isabs, exists, normpath, abspath, splitext
+ from os.path import basename, dirname
+ from os.path import join as joinpath
+@@ -109,7 +113,7 @@
+     """
+     Create a pseudorandom, 16-character string for use in secure filenames.
+     """
+-    return armor(sha.new(randomBytes(64)).digest())[:16]
++    return armor(sha1(randomBytes(64)).digest())[:16]
+ 
+ class _PathHelper:
+     """

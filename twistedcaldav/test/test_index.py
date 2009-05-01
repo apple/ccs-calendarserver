@@ -19,8 +19,7 @@ from twistedcaldav.index import Index
 import twistedcaldav.test.util
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 from twistedcaldav.index import ReservationError, MemcachedUIDReserver
-from twisted.internet import reactor
-from twisted.internet.task import deferLater
+from twisted.web2.test.test_http import deferLater
 
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """
@@ -81,7 +80,7 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         d.addCallback(lambda _: self.db.reserveUID(uid))
         d.addCallback(lambda _: self.db.isReservedUID(uid))
         d.addCallback(self.assertTrue)
-        d.addCallback(lambda _: deferLater(reactor, 2, lambda: None))
+        d.addCallback(lambda _: deferLater(2))
         d.addCallback(lambda _: self.db.isReservedUID(uid))
         d.addCallback(self.assertFalse)
         d.addBoth(_finally)

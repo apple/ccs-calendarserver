@@ -1,0 +1,41 @@
+Index: twisted/web2/dav/http.py
+===================================================================
+--- twisted/web2/dav/http.py	(revision 19773)
++++ twisted/web2/dav/http.py	(working copy)
+@@ -28,10 +28,13 @@
+ 
+ __all__ = [
+     "ErrorResponse",
++    "NeedPrivilegesResponse",
+     "MultiStatusResponse",
+     "ResponseQueue",
+     "PropertyStatusResponseQueue",
+     "statusForFailure",
++    "errorForFailure",
++    "messageForFailure",
+ ]
+ 
+ import errno
+@@ -69,10 +72,9 @@
+         """
+         if type(error) is tuple:
+             xml_namespace, xml_name = error
+-            class EmptyError (davxml.WebDAVEmptyElement):
+-                namespace = xml_namespace
+-                name      = xml_name
+-            error = EmptyError()
++            error = davxml.WebDAVUnknownElement()
++            error.namespace = xml_namespace
++            error.name = xml_name
+ 
+         output = davxml.Error(error).toxml()
+ 
+@@ -227,7 +229,7 @@
+ 
+         if len(property.children) > 0:
+             # Re-instantiate as empty element.
+-            property = property.__class__()
++            property = property.emptyCopy()
+ 
+         if code > 400: # Error codes only
+             log.err("Error during %s for %s: %s" % (self.method, property, message))

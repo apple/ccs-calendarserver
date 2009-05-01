@@ -1,0 +1,205 @@
+Index: twisted/web2/auth/wrapper.py
+===================================================================
+--- twisted/web2/auth/wrapper.py	(revision 19773)
++++ twisted/web2/auth/wrapper.py	(working copy)
+@@ -5,32 +5,45 @@
+ """
+ from zope.interface import implements, directlyProvides
+ from twisted.cred import error, credentials
+-from twisted.python import failure
+ from twisted.web2 import responsecode
+ from twisted.web2 import http
+ from twisted.web2 import iweb
+ from twisted.web2.auth.interfaces import IAuthenticatedRequest
++from twisted.internet.defer import inlineCallbacks, returnValue
+ 
+ class UnauthorizedResponse(http.StatusResponse):
+     """A specialized response class for generating www-authenticate headers
+     from the given L{CredentialFactory} instances
+     """
+ 
+-    def __init__(self, factories, remoteAddr=None):
++    @staticmethod
++    def makeResponse(factories, remoteAddr=None):
++        
++        response = UnauthorizedResponse()
++        d = response.generateHeaders(factories, remoteAddr)
++        d.addCallback(lambda _:response)
++        return d
++
++    def __init__(self):
++
++        super(UnauthorizedResponse, self).__init__(
++            responsecode.UNAUTHORIZED,
++            "You are not authorized to access this resource."
++    )
++
++    @inlineCallbacks
++    def generateHeaders(self, factories, remoteAddr=None):
+         """
+         @param factories: A L{dict} of {'scheme': ICredentialFactory}
+ 
+         @param remoteAddr: An L{IAddress} for the connecting client.
+         """
+ 
+-        super(UnauthorizedResponse, self).__init__(
+-            responsecode.UNAUTHORIZED,
+-            "You are not authorized to access this resource.")
+-
+         authHeaders = []
+         for factory in factories.itervalues():
+-            authHeaders.append((factory.scheme,
+-                                factory.getChallenge(remoteAddr)))
++            scheme = factory.scheme
++            challenge = (yield factory.getChallenge(remoteAddr))
++            authHeaders.append((scheme, challenge,))
+ 
+         self.headers.setHeader('www-authenticate', authHeaders)
+ 
+@@ -71,8 +84,6 @@
+ 
+     def _loginSucceeded(self, avatar, request):
+         """
+-        Callback for successful login.
+-
+         @param avatar: A tuple of the form (interface, avatar) as
+             returned by your realm.
+ 
+@@ -85,6 +96,7 @@
+ 
+         directlyProvides(request, IAuthenticatedRequest)
+ 
++        @inlineCallbacks
+         def _addAuthenticateHeaders(request, response):
+             """
+             A response filter that adds www-authenticate headers
+@@ -93,14 +105,16 @@
+             """
+             if response.code == responsecode.UNAUTHORIZED:
+                 if not response.headers.hasHeader('www-authenticate'):
+-                    newResp = UnauthorizedResponse(self.credentialFactories,
+-                                                   request.remoteAddr)
++                    newResp = (yield UnauthorizedResponse.makeResponse(
++                        self.credentialFactories,
++                        request.remoteAddr
++                    ))
+ 
+                     response.headers.setHeader(
+                         'www-authenticate',
+                         newResp.headers.getHeader('www-authenticate'))
+ 
+-            return response
++            returnValue(response)
+ 
+         _addAuthenticateHeaders.handleErrors = True
+ 
+@@ -108,27 +122,22 @@
+ 
+         return self.wrappedResource
+ 
+-    def _loginFailed(self, result, request):
++    @inlineCallbacks
++    def _loginFailed(self, request):
+         """
+-        Errback for failed login.
+-
+-        @param result: L{Failure} returned by portal.login
+-
+         @param request: L{IRequest} that encapsulates this auth
+             attempt.
+ 
+-        @return: A L{Failure} containing an L{HTTPError} containing the
+-            L{UnauthorizedResponse} if C{result} is an L{UnauthorizedLogin}
+-            or L{UnhandledCredentials} error
++        @raise: always rais HTTPError
+         """
+-        result.trap(error.UnauthorizedLogin, error.UnhandledCredentials)
+ 
+-        return failure.Failure(
+-            http.HTTPError(
+-                UnauthorizedResponse(
+-                self.credentialFactories,
+-                request.remoteAddr)))
++        response = (yield UnauthorizedResponse.makeResponse(
++            self.credentialFactories,
++            request.remoteAddr
++        ))
++        raise http.HTTPError(response)
+ 
++    @inlineCallbacks
+     def login(self, factory, response, request):
+         """
+         @param factory: An L{ICredentialFactory} that understands the given
+@@ -142,50 +151,48 @@
+             or a failure containing an L{UnauthorizedResponse}
+         """
+         try:
+-            creds = factory.decode(response, request)
++            creds = (yield factory.decode(response, request))
+         except error.LoginFailed:
+-            raise http.HTTPError(UnauthorizedResponse(
+-                                    self.credentialFactories,
+-                                    request.remoteAddr))
++            yield self._loginFailed(request)
+ 
++        try:
++            avatar = (yield self.portal.login(creds, None, *self.interfaces))
++        except (error.UnauthorizedLogin, error.UnhandledCredentials):
++            yield self._loginFailed(request)
++        resource = self._loginSucceeded(avatar, request)
++        returnValue(resource)
+ 
+-        return self.portal.login(creds, None, *self.interfaces
+-                                ).addCallbacks(self._loginSucceeded,
+-                                               self._loginFailed,
+-                                               (request,), None,
+-                                               (request,), None)
+-
++    @inlineCallbacks
+     def authenticate(self, request):
+         """
+-        Attempt to authenticate the givin request
++        Attempt to authenticate the giving request
+ 
+         @param request: An L{IRequest} to be authenticated.
+         """
+         authHeader = request.headers.getHeader('authorization')
+ 
+         if authHeader is None:
+-            return self.portal.login(credentials.Anonymous(),
+-                                     None,
+-                                     *self.interfaces
+-                                     ).addCallbacks(self._loginSucceeded,
+-                                                    self._loginFailed,
+-                                                    (request,), None,
+-                                                    (request,), None)
++            try:
++                avatar = (yield self.portal.login(credentials.Anonymous(), None, *self.interfaces))
++            except:
++                yield self._loginFailed(request)
++            resource = self._loginSucceeded(avatar, request)
++            returnValue(resource)
+ 
+         elif authHeader[0] not in self.credentialFactories:
+-            raise http.HTTPError(UnauthorizedResponse(
+-                                    self.credentialFactories,
+-                                    request.remoteAddr))
++            yield self._loginFailed(request)
+         else:
+-            return self.login(self.credentialFactories[authHeader[0]],
+-                              authHeader[1], request)
++            result = (yield self.login(self.credentialFactories[authHeader[0]], authHeader[1], request))
++            returnValue(result)
+ 
+     def locateChild(self, request, seg):
+         """
+         Authenticate the request then return the C{self.wrappedResource}
+         and the unmodified segments.
+         """
+-        return self.authenticate(request), seg
++        d = self.authenticate(request)
++        d.addCallback(lambda result:(result, seg,))
++        return d
+ 
+     def renderHTTP(self, request):
+         """

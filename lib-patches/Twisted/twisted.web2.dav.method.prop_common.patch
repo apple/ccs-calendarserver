@@ -1,0 +1,36 @@
+Index: twisted/web2/dav/method/prop_common.py
+===================================================================
+--- twisted/web2/dav/method/prop_common.py	(revision 19773)
++++ twisted/web2/dav/method/prop_common.py	(working copy)
+@@ -23,19 +23,21 @@
+         properties_by_status = waitForDeferred(propertiesForResource(request, propertyreq, resource))
+         yield properties_by_status
+         properties_by_status = properties_by_status.getResult()
+-        
++
++        propstats = []
++
+         for status in properties_by_status:
+             properties = properties_by_status[status]
+             if properties:
+-                responses.append(
+-                    davxml.PropertyStatusResponse(
+-                        href,
+-                        davxml.PropertyStatus(
+-                            davxml.PropertyContainer(*properties),
+-                            davxml.Status.fromResponseCode(status)
+-                        )
+-                    )
+-                )
++                xml_status = davxml.Status.fromResponseCode(status)
++                xml_container = davxml.PropertyContainer(*properties)
++                xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
++
++                propstats.append(xml_propstat)
++
++        if propstats:
++            responses.append(davxml.PropertyStatusResponse(href, *propstats))
++
+     else:
+         responses.append(
+             davxml.StatusResponse(

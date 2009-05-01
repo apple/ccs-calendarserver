@@ -1,0 +1,32 @@
+Index: twisted/persisted/sob.py
+===================================================================
+--- twisted/persisted/sob.py	(revision 19773)
++++ twisted/persisted/sob.py	(working copy)
+@@ -10,8 +10,12 @@
+ Maintainer: U{Moshe Zadka<mailto:moshez@twistedmatrix.com>}
+ """
+ 
+-import os, md5, sys
++import os, sys
+ try:
++    from hashlib import md5
++except ImportError:
++    from md5 import new as md5
++try:
+     import cPickle as pickle
+ except ImportError:
+     import pickle
+@@ -32,11 +36,11 @@
+     leftover = len(data) % cipher.block_size
+     if leftover:
+         data += ' '*(cipher.block_size - leftover)
+-    return cipher.new(md5.new(passphrase).digest()[:16]).encrypt(data)
++    return cipher.new(md5(passphrase).digest()[:16]).encrypt(data)
+ 
+ def _decrypt(passphrase, data):
+     from Crypto.Cipher import AES
+-    return AES.new(md5.new(passphrase).digest()[:16]).decrypt(data)
++    return AES.new(md5(passphrase).digest()[:16]).decrypt(data)
+ 
+ 
+ class IPersistable(Interface):

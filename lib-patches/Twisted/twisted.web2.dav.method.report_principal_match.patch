@@ -1,0 +1,150 @@
+Index: twisted/web2/dav/method/report_principal_match.py
+===================================================================
+--- twisted/web2/dav/method/report_principal_match.py	(revision 19773)
++++ twisted/web2/dav/method/report_principal_match.py	(working copy)
+@@ -89,40 +89,64 @@
+         responses = []
+         matchcount = 0
+ 
+-        selfPrincipal = self.currentPrincipal(request).children[0]
++        selfPrincipalURL = self.currentPrincipal(request).children[0]
+ 
+-        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+-        # the child resource loop and supply those to the checkPrivileges on each child.
+-        filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
+-        yield filteredaces
+-        filteredaces = filteredaces.getResult()
+-    
+-        children = []
+-        d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
+-                                              privileges=(davxml.Read(),), inherited_aces=filteredaces))
+-        yield d
+-        d.getResult()
+-
+         if lookForPrincipals:
+ 
+-            for child, uri in children:
+-                if isPrincipalResource(child) and child.principalMatch(selfPrincipal):
+-                    # Check size of results is within limit
+-                    matchcount += 1
+-                    if matchcount > max_number_of_matches:
+-                        raise NumberOfMatchesWithinLimits
++            # Find the set of principals that represent "self".
++            
++            # First add "self"
++            principal = waitForDeferred(request.locateResource(str(selfPrincipalURL)))
++            yield principal
++            principal = principal.getResult()
++            selfItems = [principal,]
++            
++            # Get group memberships for "self" and add each of those
++            d = waitForDeferred(principal.groupMemberships())
++            yield d
++            memberships = d.getResult()
++            selfItems.extend(memberships)
++            
++            # Now add each principal found to the response provided the principal resource is a child of
++            # the current resource.
++            for principal in selfItems:
++                # Get all the URIs that point to the principal resource
++                # FIXME: making the assumption that the principalURL() is the URL of the resource we found
++                principal_uris = [principal.principalURL()]
++                principal_uris.extend(principal.alternateURIs())
++                
++                # Compare each one to the request URI and return at most one that matches
++                for uri in principal_uris:
++                    if uri.startswith(request.uri):
++                        # Check size of results is within limit
++                        matchcount += 1
++                        if matchcount > max_number_of_matches:
++                            raise NumberOfMatchesWithinLimits(max_number_of_matches)
++        
++                        d = waitForDeferred(prop_common.responseForHref(
++                            request,
++                            responses,
++                            davxml.HRef.fromString(uri),
++                            principal,
++                            propertiesForResource,
++                            propElement
++                        ))
++                        yield d
++                        d.getResult()
++                        break
++        else:
++            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
++            # the child resource loop and supply those to the checkPrivileges on each child.
++            filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
++            yield filteredaces
++            filteredaces = filteredaces.getResult()
++        
++            children = []
++            d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
++                                                  privileges=(davxml.Read(),), inherited_aces=filteredaces))
++            yield d
++            d.getResult()
+ 
+-                    d = waitForDeferred(prop_common.responseForHref(
+-                        request,
+-                        responses,
+-                        davxml.HRef.fromString(uri),
+-                        child,
+-                        propertiesForResource,
+-                        propElement
+-                    ))
+-                    yield d
+-                    d.getResult()
+-        else:
+             for child, uri in children:
+                 # Try to read the requested property from this resource
+                 try:
+@@ -137,22 +161,26 @@
+                         yield principal
+                         principal = principal.getResult()
+ 
+-                        if principal and isPrincipalResource(principal) and principal.principalMatch(selfPrincipal):
+-                            # Check size of results is within limit
+-                            matchcount += 1
+-                            if matchcount > max_number_of_matches:
+-                                raise NumberOfMatchesWithinLimits
+-
+-                            d = waitForDeferred(prop_common.responseForHref(
+-                                request,
+-                                responses,
+-                                davxml.HRef.fromString(uri),
+-                                child,
+-                                propertiesForResource,
+-                                propElement
+-                            ))
++                        if principal and isPrincipalResource(principal):
++                            d = waitForDeferred(principal.principalMatch(selfPrincipalURL))
+                             yield d
+-                            d.getResult()
++                            matched = d.getResult()
++                            if matched:
++                                # Check size of results is within limit
++                                matchcount += 1
++                                if matchcount > max_number_of_matches:
++                                    raise NumberOfMatchesWithinLimits(max_number_of_matches)
++    
++                                d = waitForDeferred(prop_common.responseForHref(
++                                    request,
++                                    responses,
++                                    davxml.HRef.fromString(uri),
++                                    child,
++                                    propertiesForResource,
++                                    propElement
++                                ))
++                                yield d
++                                d.getResult()
+                 except HTTPError:
+                     # Just ignore a failure to access the property. We treat this like a property that does not exist
+                     # or does not match the principal.
+@@ -162,7 +190,7 @@
+         log.err("Too many matching components in principal-match report")
+         raise HTTPError(ErrorResponse(
+             responsecode.FORBIDDEN,
+-            (dav_namespace, "number-of-matches-within-limits")
++            davxml.NumberOfMatchesWithinLimits()
+         ))
+ 
+     yield MultiStatusResponse(responses)

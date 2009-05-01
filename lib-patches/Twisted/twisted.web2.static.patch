@@ -1,0 +1,33 @@
+Index: twisted/web2/static.py
+===================================================================
+--- twisted/web2/static.py	(revision 19773)
++++ twisted/web2/static.py	(working copy)
+@@ -9,7 +9,6 @@
+ # System Imports
+ import os, time, stat
+ import tempfile
+-import md5
+ 
+ # Sibling Imports
+ from twisted.web2 import http_headers, resource
+@@ -200,7 +199,10 @@
+         super(File, self).__init__()
+ 
+         self.putChildren = {}
+-        self.fp = filepath.FilePath(path)
++        if isinstance(path, filepath.FilePath):
++            self.fp = path
++        else:
++            self.fp = filepath.FilePath(path)
+         # Remove the dots from the path to split
+         self.defaultType = defaultType
+         self.ignoredExts = list(ignoredExts)
+@@ -383,7 +385,7 @@
+             return responsecode.NOT_FOUND
+ 
+         if self.fp.isdir():
+-            if req.uri[-1] != "/":
++            if req.path[-1] != "/":
+                 # Redirect to include trailing '/' in URI
+                 return http.RedirectResponse(req.unparseURL(path=req.path+'/'))
+             else:

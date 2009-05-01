@@ -1,0 +1,81 @@
+Index: twisted/web2/dav/element/parser.py
+===================================================================
+--- twisted/web2/dav/element/parser.py	(revision 19773)
++++ twisted/web2/dav/element/parser.py	(working copy)
+@@ -37,7 +37,7 @@
+     "WebDAVDocument",
+ ]
+ 
+-import StringIO
++import cStringIO as StringIO
+ import xml.dom.minidom
+ import xml.sax
+ 
+@@ -106,6 +106,12 @@
+             "children"   : [],
+         }]
+ 
++        # Keep a cache of the subclasses we create for unknown XML
++        # elements, so that we don't create multiple classes for the
++        # same element; it's fairly typical for elements to appear
++        # multiple times in a document.
++        self.unknownElementClasses = {}
++
+     def endDocument(self):
+         top = self.stack[-1]
+ 
+@@ -115,6 +121,7 @@
+         assert len(top["children"]) is 1, "Must have exactly one root element, got %d" % len(top["children"])
+ 
+         self.dom = WebDAVDocument(top["children"][0])
++        del(self.unknownElementClasses)
+ 
+     def startElementNS(self, name, qname, attributes):
+         attributes_dict = {}
+@@ -125,13 +132,17 @@
+ 
+         tag_namespace, tag_name = name
+ 
+-        if (name not in elements_by_tag_name):
+-            class UnknownElement (WebDAVUnknownElement):
+-                namespace = tag_namespace
+-                name      = tag_name
+-            element_class = UnknownElement
++        if name in elements_by_tag_name:
++            element_class = elements_by_tag_name[name]
++        elif name in self.unknownElementClasses:
++            element_class = self.unknownElementClasses[name]
+         else:
+-            element_class = elements_by_tag_name[name]
++            def element_class(*args, **kwargs):
++                element = WebDAVUnknownElement(*args, **kwargs)
++                element.namespace = tag_namespace
++                element.name      = tag_name
++                return element
++            self.unknownElementClasses[name] = element_class
+ 
+         self.stack.append({
+             "name"       : name,
+@@ -158,7 +169,12 @@
+         self.stack[-1]["children"].append(element)
+ 
+     def characters(self, content):
+-        self.stack[-1]["children"].append(PCDATAElement(content))
++        # Coalesce adjacent PCDATAElements
++        pcdata = PCDATAElement(content)
++        if len(self.stack[-1]["children"]) and isinstance(self.stack[-1]["children"][-1], PCDATAElement):
++            self.stack[-1]["children"][-1] = self.stack[-1]["children"][-1] + pcdata
++        else:
++            self.stack[-1]["children"].append(pcdata)
+ 
+     def ignorableWhitespace(self, whitespace):
+         self.characters(self, whitespace)
+@@ -194,6 +210,8 @@
+             except xml.sax.SAXParseException, e:
+                 raise ValueError(e)
+ 
++            #handler.dom.root_element.validate()
++
+             return handler.dom
+ 
+         return parse

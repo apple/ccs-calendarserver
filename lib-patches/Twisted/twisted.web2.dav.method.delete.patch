@@ -1,0 +1,34 @@
+Index: twisted/web2/dav/method/delete.py
+===================================================================
+--- twisted/web2/dav/method/delete.py	(revision 19773)
++++ twisted/web2/dav/method/delete.py	(working copy)
+@@ -58,8 +58,28 @@
+     yield x
+     x.getResult()
+ 
++    # Do quota checks before we start deleting things
++    myquota = waitForDeferred(self.quota(request))
++    yield myquota
++    myquota = myquota.getResult()
++    if myquota is not None:
++        old_size = waitForDeferred(self.quotaSize(request))
++        yield old_size
++        old_size = old_size.getResult()
++    else:
++        old_size = 0
++
++    # Do delete
+     x = waitForDeferred(delete(request.uri, self.fp, depth))
+     yield x
+-    yield x.getResult()
++    result = x.getResult()
+ 
++    # Adjust quota
++    if myquota is not None:
++        d = waitForDeferred(self.quotaSizeAdjust(request, -old_size))
++        yield d
++        d.getResult()
++    
++    yield result
++
+ http_DELETE = deferredGenerator(http_DELETE)

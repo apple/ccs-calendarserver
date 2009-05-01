@@ -1,0 +1,12 @@
+Index: twisted/web2/dav/__init__.py
+===================================================================
+--- twisted/web2/dav/__init__.py	(revision 19773)
++++ twisted/web2/dav/__init__.py	(working copy)
+@@ -45,6 +45,7 @@
+     "noneprops",
+     "resource",
+     "static",
++    "stream",
+     "util",
+     "xattrprops",
+ ]

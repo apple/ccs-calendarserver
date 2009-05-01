@@ -1,0 +1,108 @@
+Index: twisted/web2/dav/test/test_acl.py
+===================================================================
+--- twisted/web2/dav/test/test_acl.py	(revision 19773)
++++ twisted/web2/dav/test/test_acl.py	(working copy)
+@@ -30,6 +30,7 @@
+ from twisted.web2.auth import basic
+ from twisted.web2.stream import MemoryStream
+ from twisted.web2.dav import davxml
++from twisted.web2.dav.resource import DAVPrincipalCollectionResource
+ from twisted.web2.dav.util import davXMLFromStream
+ from twisted.web2.dav.auth import TwistedPasswordProperty, IPrincipal, DavRealm, TwistedPropertyChecker, AuthenticationWrapper
+ 
+@@ -38,6 +39,25 @@
+ from twisted.web2.dav.test.util import Site, serialize
+ from twisted.web2.dav.test.test_resource import TestResource, TestDAVPrincipalResource
+ 
++class TestPrincipalsCollection(DAVPrincipalCollectionResource, TestResource):
++    def __init__(self, url, children):
++        DAVPrincipalCollectionResource.__init__(self, url)
++        TestResource.__init__(self, url, children, principalCollections=(self,))
++    
++    def principalForUser(self, user):
++        return self.principalForShortName('users', user)
++
++    def principalForAuthID(self, creds):
++        return self.principalForShortName('users', creds.username)
++
++    def principalForShortName(self, type, shortName):
++        typeResource = self.children.get(type, None)
++        user = None
++        if typeResource:
++            user = typeResource.children.get(shortName, None)
++
++        return user
++
+ class ACL(twisted.web2.dav.test.util.TestCase):
+     """
+     RFC 3744 (WebDAV ACL) tests.
+@@ -46,8 +66,18 @@
+         if not hasattr(self, "docroot"):
+             self.docroot = self.mktemp()
+             os.mkdir(self.docroot)
+-            rootresource = self.resource_class(self.docroot)
+ 
++            userResource = TestDAVPrincipalResource("/principals/users/user01")
++            userResource.writeDeadProperty(TwistedPasswordProperty("user01"))
++
++            principalCollection = TestPrincipalsCollection(
++                "/principals/", 
++                children={"users": TestPrincipalsCollection(
++                        "/principals/users/",
++                        children={"user01": userResource})})
++
++            rootResource = self.resource_class(self.docroot, principalCollections=(principalCollection,))
++
+             portal = Portal(DavRealm())
+             portal.registerChecker(TwistedPropertyChecker())
+ 
+@@ -56,26 +86,14 @@
+             loginInterfaces = (IPrincipal,)
+ 
+             self.site = Site(AuthenticationWrapper(
+-                rootresource, 
++                rootResource, 
+                 portal,
+                 credentialFactories,
+                 loginInterfaces
+             ))
+ 
+-            rootresource.setAccessControlList(self.grant(davxml.All()))
++            rootResource.setAccessControlList(self.grant(davxml.All()))
+ 
+-            userresource = TestDAVPrincipalResource("/principals/user01")
+-            userresource.writeDeadProperty(TwistedPasswordProperty.fromString("user01"))
+-
+-            rootresource.putChild(
+-                "principals",
+-                TestResource("/principals", {"user01": userresource})
+-            )
+-
+-            rootresource.writeDeadProperty(
+-                davxml.PrincipalCollectionSet(davxml.HRef("/principals/"))
+-            )
+-
+         for name, acl in (
+             ("none"       , self.grant()),
+             ("read"       , self.grant(davxml.Read())),
+@@ -361,9 +379,7 @@
+                 if method == "GET":
+                     ok = responsecode.OK
+                 elif method == "REPORT":
+-                    # BAD_REQUEST in the allowed case, because we're not actually
+-                    # including the required XML in the request body.
+-                    ok = responsecode.BAD_REQUEST
++                    ok = responsecode.MULTI_STATUS
+                 else:
+                     raise AssertionError("We shouldn't be here.  (method = %r)" % (method,))
+ 
+@@ -377,6 +393,9 @@
+                     path = os.path.join(self.docroot, name)
+ 
+                     request = SimpleRequest(self.site, method, "/" + name)
++                    if method == "REPORT":
++                        request.stream = MemoryStream(davxml.PrincipalPropertySearch().toxml())
++
+                     _add_auth_header(request)
+ 
+                     def test(response, code=code, path=path):
