@@ -831,7 +831,6 @@ class OpenDirectoryService(DirectoryService):
                 "Added %d (%d enabled) records to %s OD record cache; expires in %d seconds"
                 % (len(self._records[recordType]["guids"]), enabled_count, recordType, cacheTimeout)
             )
-            print self._records[recordType]
 
     def _queryDirectory(self, recordType, lookup=None):
         attrs = [
