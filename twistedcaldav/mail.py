@@ -1505,7 +1505,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
         self.log_error("IMAP Error: %s" % (error,))
 
     def ebAuthenticateFailed(self, reason):
-        self.log_error("IMAP authenticate failed for %s, trying login" %
+        self.log_info("IMAP authenticate failed for %s, trying login" %
             (self.factory.settings["Username"],))
         return self.login(self.factory.settings["Username"],
             self.factory.settings["Password"]
