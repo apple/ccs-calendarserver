@@ -415,14 +415,16 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 method = "http_" + method
                 original = getattr(similar, method)
 
+                @inlineCallbacks
                 def override(request, original=original):
-                    # Call original method
-                    response = original(request)
+
+                    # Call original method (which is deferred)
+                    response = (yield original(request))
 
                     # Wipe the cache
                     similar.deadProperties().flushCache()
 
-                    return response
+                    returnValue(response)
 
                 setattr(similar, method, override)
 
