@@ -50,6 +50,10 @@ import os
 import re
 import types
 from twistedcaldav.config import config
+from twistedcaldav.log import Logger
+
+log = Logger()
+
 
 try:
     import cPickle as pickle
@@ -95,6 +99,11 @@ class MemcacheError(_Error):
 class NotFoundError(MemcacheError):
     """
     NOT_FOUND error
+    """
+
+class TokenMismatchError(MemcacheError):
+    """
+    Check-and-set token mismatch
     """
 
 try:
@@ -311,6 +320,7 @@ class Client(local):
                 #print "(using server %s)" % server,
                 return server, key
             serverhash = serverHashFunction(str(serverhash) + str(i))
+        log.error("Memcacheclient _get_server( ) failed to connect")
         return None, None
 
     def disconnect_all(self):
@@ -714,15 +724,28 @@ class Client(local):
         if not store_info: return(0)
 
         if token is not None:
+            cmd = "cas"
             fullcmd = "cas %s %d %d %d %s\r\n%s" % (key, store_info[0], time, store_info[1], token, store_info[2])
         else:
             fullcmd = "%s %s %d %d %d\r\n%s" % (cmd, key, store_info[0], time, store_info[1], store_info[2])
         try:
             server.send_cmd(fullcmd)
             result = server.expect("STORED")
+
+            if (result == "STORED"):
+                return True
+
             if (result == "NOT_FOUND"):
                 raise NotFoundError(key)
-            return (result == "STORED")
+
+            if token and result == "EXISTS":
+                log.error("Memcacheclient check-and-set failed")
+                raise TokenMismatchError(key)
+
+            log.error("Memcacheclient %s command failed with result (%s)" %
+                (cmd, result))
+
+            return False
 
         except socket.error, msg:
             if type(msg) is types.TupleType: msg = msg[1]
@@ -1152,12 +1175,14 @@ class _Host:
         return 0
 
     def mark_dead(self, reason):
+        log.error("Memcacheclient socket marked dead (%s)" % (reason,))
         self.debuglog("MemCache: %s: %s.  Marking dead." % (self, reason))
         self.deaduntil = time.time() + _Host._DEAD_RETRY
         self.close_socket()
 
     def _get_socket(self):
         if self._check_dead():
+            log.error("Memcacheclient _get_socket() found dead socket")
             return None
         if self.socket:
             return self.socket
@@ -1166,10 +1191,14 @@ class _Host:
         try:
             s.connect(self.address)
         except socket.timeout, msg:
+            log.error("Memcacheclient _get_socket() connection timed out (%s)" %
+                (msg,))
             self.mark_dead("connect: %s" % msg)
             return None
         except socket.error, msg:
             if type(msg) is types.TupleType: msg = msg[1]
+            log.error("Memcacheclient _get_socket() connection error (%s)" %
+                (msg,))
             self.mark_dead("connect: %s" % msg[1])
             return None
         self.socket = s

@@ -32,7 +32,7 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError
+from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError, TokenMismatchError
 
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
@@ -209,7 +209,13 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         client = self.memcacheClient()
         if client is not None:
-            result = client.set(key, childCache, time=self.cacheTimeout, token=token)
+            try:
+                result = client.set(key, childCache, time=self.cacheTimeout, token=token)
+            except TokenMismatchError:
+                # The value in memcache has changed since we last fetched it,
+                log.error("memcacheprops setProperty( ) TokenMismatchError")
+                result = False
+
             if not result:
                 delattr(self, "_propertyCache")
                 raise MemcacheError("Unable to set property %s on %s"
@@ -239,7 +245,13 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         client = self.memcacheClient()
         if client is not None:
-            result = client.set(key, childCache, time=self.cacheTimeout, token=token)
+            try:
+                result = client.set(key, childCache, time=self.cacheTimeout, token=token)
+            except TokenMismatchError:
+                # The value in memcache has changed since we last fetched it
+                log.error("memcacheprops deleteProperty( ) TokenMismatchError")
+                result = False
+
             if not result:
                 delattr(self, "_propertyCache")
                 raise MemcacheError("Unable to delete property {%s}%s on %s"
