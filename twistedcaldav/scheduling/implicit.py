@@ -496,7 +496,20 @@ class ImplicitScheduler(object):
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
         if not no_change:
-            rids = set(differ.whatIsDifferent().keys())
+            # ORGANIZER change is absolutely not allowed!
+            diffs = differ.whatIsDifferent()
+            rids = set()
+            checkOrganizerValue = False
+            for rid, props in diffs.iteritems():
+                if "ORGANIZER" in props:
+                    checkOrganizerValue = True
+                rids.add(rid)
+            if checkOrganizerValue:
+                oldOrganizer = self.oldcalendar.getOrganizer()
+                newOrganizer = self.calendar.getOrganizer()
+                if oldOrganizer != newOrganizer:
+                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
         else:
             # Special case of RSVP added to attendees and no other change
             rsvps = set()
@@ -697,14 +710,20 @@ class ImplicitScheduler(object):
                 yield self.scheduleCancelWithOrganizer()
         
         else:
+            # Make sure ORGANIZER is not changed
+            if self.resource.exists():
+                self.oldcalendar = self.resource.iCalendar()
+                oldOrganizer = self.oldcalendar.getOrganizer()
+                newOrganizer = self.calendar.getOrganizer()
+                if oldOrganizer != newOrganizer:
+                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+            else:
+                self.oldcalendar = None
+            
             # Get the ORGANIZER's current copy of the calendar object
             yield self.getOrganizersCopy()
             if self.organizer_calendar:
-
-                if self.resource.exists():
-                    self.oldcalendar = self.resource.iCalendar()
-                else:
-                    self.oldcalendar = None
 
                 # Determine whether the current change is allowed
                 changeAllowed, doITipReply, _ignore_changedRids, newCalendar = self.isAttendeeChangeInsignificant()
