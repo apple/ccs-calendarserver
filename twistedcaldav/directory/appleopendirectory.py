@@ -42,6 +42,7 @@ from twisted.web2.auth.digest import DigestedCredentials
 
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 class OpenDirectoryService(DirectoryService):
     """
@@ -280,8 +281,16 @@ class OpenDirectoryService(DirectoryService):
                 self._storage(recordType)["disabled names"].add(shortName)
             return record
 
-    def recordWithEmailAddress(self, emailAddress):
-        return self._recordWithAttribute("emails", "disabled emails", "email", emailAddress)
+    def recordWithCalendarUserAddress(self, address):
+        address = normalizeCUAddr(address)
+        record = None
+        if address.startswith("urn:uuid:"):
+            guid = address[9:]
+            record = self.recordWithGUID(guid)
+        elif address.startswith("mailto:"):
+            record = self._recordWithAttribute("cuas", "disabled cuas", "cua", address)
+
+        return record if record and record.enabledForCalendaring else None
 
     def recordWithGUID(self, guid):
         return self._recordWithAttribute("guids", "disabled guids", "guid", guid)
@@ -510,13 +519,13 @@ class OpenDirectoryService(DirectoryService):
             records = {}
             guids   = {}
             authIDs = {}
-            emails  = {}
+            cuas  = {}
 
             disabledNames   = set()
             disabledGUIDs   = set()
             disabledAuthIDs = set()
-            disabledEmails  = set()
-            
+            disabledCUAs    = set()
+
             if recordType == self.recordType_groups:
                 groupsForGUID = {}
             elif recordType in (self.recordType_resources, self.recordType_locations):
@@ -528,13 +537,13 @@ class OpenDirectoryService(DirectoryService):
             records = storage["records"]
             guids   = storage["guids"]
             authIDs = storage["authIDs"]
-            emails  = storage["emails"]
+            cuas    = storage["cuas"]
 
             disabledNames   = storage["disabled names"]
             disabledGUIDs   = storage["disabled guids"]
             disabledAuthIDs = storage["disabled authIDs"]
-            disabledEmails  = storage["disabled emails"]
-            
+            disabledCUAs    = storage["disabled cuas"]
+
             if recordType == self.recordType_groups:
                 groupsForGUID = storage["groupsForGUID"]
             elif recordType in (self.recordType_resources, self.recordType_locations):
@@ -657,7 +666,7 @@ class OpenDirectoryService(DirectoryService):
                 disabledGUIDs.add(guid)
                 disabledNames.update(record.shortNames)
                 disabledAuthIDs.update(record.authIDs)
-                disabledEmails.update(record.emailAddresses)
+                disabledCUAs.update(record.calendarUserAddresses)
 
                 if guid in guids:
                     try:
@@ -674,9 +683,9 @@ class OpenDirectoryService(DirectoryService):
                         del authIDs[authID]
                     except KeyError:
                         pass
-                for email in record.emailAddresses:
+                for cua in record.calendarUserAddresses:
                     try:
-                        del emails[email]
+                        del cuas[cua]
                     except KeyError:
                         pass
 
@@ -747,28 +756,31 @@ class OpenDirectoryService(DirectoryService):
                             else:
                                 authIDs[authID] = record
         
-                    # Index non-duplicate emails
-                    def disableEmail(emailAddress, record):
-                        self.log_warn("Email address %s disabled due to conflict for record: %s"
-                                      % (emailAddress, record))
+                    # Index non-duplicate CUAs
+                    def disableCUA(cua, record):
+                        self.log_warn("CUA %s disabled due to conflict for record: %s"
+                                      % (cua, record))
         
-                        record.emailAddresses.remove(emailAddress)
-                        disabledEmails.add(emailAddress)
+                        record.calendarUserAddresses.remove(cua)
+                        disabledCUAs.add(cua)
         
-                        if emailAddress in emails:
-                            del emails[emailAddress]
+                        if cua in cuas:
+                            del cuas[cua]
+
+                        if cua in records:
+                            del records[cua]
         
-                    for email in frozenset(recordEmailAddresses):
-                        if email in disabledEmails:
-                            disableEmail(email, record)
+                    for cua in frozenset(calendarUserAddresses):
+                        if cua in disabledCUAs:
+                            disableCUA(cua, record)
                         else:
                             # Check for duplicates
-                            existing_record = emails.get(email)
+                            existing_record = cuas.get(cua)
                             if existing_record is not None:
-                                disableEmail(email, record)
-                                disableEmail(email, existing_record)
+                                disableCUA(cua, record)
+                                disableCUA(cua, existing_record)
                             else:
-                                emails[email] = record
+                                cuas[cua] = record
 
         if lookup is None:
             #
@@ -779,11 +791,11 @@ class OpenDirectoryService(DirectoryService):
                 "records"          : records,
                 "guids"            : guids,
                 "authIDs"          : authIDs,
-                "emails"           : emails,
+                "cuas"             : cuas,
                 "disabled names"   : disabledNames,
                 "disabled guids"   : disabledGUIDs,
                 "disabled authIDs" : disabledAuthIDs,
-                "disabled emails"  : disabledEmails,
+                "disabled cuas"    : disabledCUAs,
             }
 
             # Add group indexing if needed
@@ -819,6 +831,7 @@ class OpenDirectoryService(DirectoryService):
                 "Added %d (%d enabled) records to %s OD record cache; expires in %d seconds"
                 % (len(self._records[recordType]["guids"]), enabled_count, recordType, cacheTimeout)
             )
+            print self._records[recordType]
 
     def _queryDirectory(self, recordType, lookup=None):
         attrs = [
@@ -891,14 +904,27 @@ class OpenDirectoryService(DirectoryService):
 
         query = None
         if lookup is not None:
-            queryattr = {
-                "shortName" : dsattributes.kDSNAttrRecordName,
-                "guid"      : dsattributes.kDS1AttrGeneratedUID,
-                "authID"    : dsattributes.kDSNAttrAltSecurityIdentities,
-                "email"     : dsattributes.kDSNAttrEMailAddress,
-            }.get(lookup[0])
-            assert queryattr is not None, "Invalid type for record faulting query"
-            query = dsquery.match(queryattr, lookup[1], dsattributes.eDSExact)
+            indexType, indexKey = lookup
+            origIndexKey = indexKey
+
+            if indexType == "cua":
+                # The directory doesn't contain CUAs, so we need to convert
+                # the CUA to the appropriate field name and value:
+                queryattr, indexKey = cuAddressConverter(indexKey)
+                # queryattr will be one of:
+                # guid, emailAddresses, or recordName
+                # ...which will need to be mapped to DS
+                queryattr = self._ODFields[queryattr]['odField']
+
+            else:
+                queryattr = {
+                    "shortName" : dsattributes.kDSNAttrRecordName,
+                    "guid"      : dsattributes.kDS1AttrGeneratedUID,
+                    "authID"    : dsattributes.kDSNAttrAltSecurityIdentities,
+                }.get(indexType)
+                assert queryattr is not None, "Invalid type for record faulting query"
+
+            query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
         try:
             if query:

@@ -76,8 +76,8 @@ class XMLDirectoryService(CachingDirectoryService):
                     matched = indexKey == xmlPrincipal.guid
                 elif indexType == self.INDEX_TYPE_SHORTNAME:
                     matched = indexKey in xmlPrincipal.shortNames
-                elif indexType == self.INDEX_TYPE_EMAIL:
-                    matched = indexKey in xmlPrincipal.emailAddresses
+                elif indexType == self.INDEX_TYPE_CUA:
+                    matched = indexKey in xmlPrincipal.calendarUserAddresses
                 
                 if matched:
                     record = XMLDirectoryRecord(

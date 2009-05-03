@@ -44,6 +44,7 @@ from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
+from twistedcaldav.directory.principal import cuAddressConverter
 
 class OpenDirectoryService(CachingDirectoryService):
     """
@@ -444,6 +445,26 @@ class OpenDirectoryService(CachingDirectoryService):
             dsattributes.kDSNAttrMetaNodeLocation,
         ]
 
+        origIndexKey = indexKey
+        if indexType == self.INDEX_TYPE_CUA:
+            # The directory doesn't contain CUAs, so we need to convert
+            # the CUA to the appropriate field name and value:
+            queryattr, indexKey = cuAddressConverter(indexKey)
+            # queryattr will be one of:
+            # guid, emailAddresses, or recordName
+            # ...which will need to be mapped to DS
+            queryattr = self._ODFields[queryattr]['odField']
+
+        else:
+            queryattr = {
+                self.INDEX_TYPE_SHORTNAME : dsattributes.kDSNAttrRecordName,
+                self.INDEX_TYPE_GUID      : dsattributes.kDS1AttrGeneratedUID,
+            }.get(indexType)
+            assert queryattr is not None, "Invalid type for record faulting query"
+
+        query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
+
+
         listRecordTypes = []
         for recordType in recordTypes:
             if recordType == DirectoryService.recordType_users:
@@ -455,15 +476,13 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs.append(dsattributes.kDSNAttrNestedGroups)
     
             elif recordType == DirectoryService.recordType_locations:
-                # Email addresses and locations don't mix
-                if indexType != self.INDEX_TYPE_EMAIL:
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
                     listRecordTypes.append(dsattributes.kDSStdRecordTypePlaces)
                 # MOR: possibly can be removed
                 attrs.append(dsattributes.kDSNAttrResourceInfo)
             
             elif recordType == DirectoryService.recordType_resources:
-                # Email addresses and resources don't mix
-                if indexType != self.INDEX_TYPE_EMAIL:
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
                     listRecordTypes.append(dsattributes.kDSStdRecordTypeResources)
                 # MOR: possibly can be removed
                 attrs.append(dsattributes.kDSNAttrResourceInfo)
@@ -471,13 +490,6 @@ class OpenDirectoryService(CachingDirectoryService):
             else:
                 raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType))
 
-        queryattr = {
-            self.INDEX_TYPE_SHORTNAME : dsattributes.kDSNAttrRecordName,
-            self.INDEX_TYPE_GUID      : dsattributes.kDS1AttrGeneratedUID,
-            self.INDEX_TYPE_EMAIL     : dsattributes.kDSNAttrEMailAddress,
-        }.get(indexType)
-        assert queryattr is not None, "Invalid type for record faulting query"
-        query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
         try:
             self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
@@ -508,8 +520,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
-        enabled_count = 0
-
         def _uniqueTupleFromAttribute(attribute):
             if attribute:
                 if isinstance(attribute, str):
@@ -528,7 +538,10 @@ class OpenDirectoryService(CachingDirectoryService):
                     return set([item.lower() if lower else item for item in attribute])
             else:
                 return ()
-            
+
+        enabledRecords = []
+        disabledRecords = []
+
         for (recordShortName, value) in results:
 
             # Now get useful record info.
@@ -607,7 +620,6 @@ class OpenDirectoryService(CachingDirectoryService):
                     enabledForCalendaring = True
 
             if enabledForCalendaring:
-                enabled_count += 1
                 calendarUserAddresses = self._calendarUserAddresses(recordType, value)
             else:
                 # Some records we want to keep even though they are not enabled for calendaring.
@@ -658,7 +670,20 @@ class OpenDirectoryService(CachingDirectoryService):
                 enabledForCalendaring = enabledForCalendaring,
                 memberGUIDs           = memberGUIDs,
             )
-            self.recordCacheForType(recordType).addRecord(record)
+            if enabledForCalendaring:
+                enabledRecords.append(record)
+            else:
+                disabledRecords.append(record)
+
+        record = None
+        if len(enabledRecords) == 1:
+            record = enabledRecords[0]
+        elif len(enabledRecords) == 0 and len(disabledRecords) == 1:
+            record = disabledRecords[0]
+
+        if record:
+            self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
+            self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
     def _parseResourceInfo(self, plist, guid, recordType, shortname):
         """
