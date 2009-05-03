@@ -103,17 +103,17 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
             
     def __init__(self, channel, queued=0):
         
-        self.logData = [] if accounting.accountingEnabledForCategory("HTTP") else None
+        self.logData = ([], [],) if accounting.accountingEnabledForCategory("HTTP") else None
         super(HTTPLoggingChannelRequest, self).__init__(channel, queued)
         if self.logData is not None:
-            self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData)
+            self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData[1])
     
     def gotInitialLine(self, initialLine):
         
         if self.logData is not None:
             self.startTime = time.time()
-            self.logData.append(">>>> Request starting at: %.3f\r\n\r\n" % (self.startTime,))
-            self.logData.append("%s\r\n" % (initialLine,))
+            self.logData[0].append(">>>> Request starting at: %.3f\r\n\r\n" % (self.startTime,))
+            self.logData[0].append("%s\r\n" % (initialLine,))
         super(HTTPLoggingChannelRequest, self).gotInitialLine(initialLine)
 
     def lineReceived(self, line):
@@ -125,26 +125,26 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
                 bits = line[14:].strip().split(" ")
                 if bits[0].lower() == "basic" and len(bits) == 2:
                     loggedLine = "%s %s %s" % (line[:14], bits[0], "X" * len(bits[1]))
-            self.logData.append("%s\r\n" % (loggedLine,))
+            self.logData[0].append("%s\r\n" % (loggedLine,))
         super(HTTPLoggingChannelRequest, self).lineReceived(line)
 
     def handleContentChunk(self, data):
         
         if self.logData is not None:
-            self.logData.append(data)
+            self.logData[0].append(data)
         super(HTTPLoggingChannelRequest, self).handleContentChunk(data)
         
     def handleContentComplete(self):
         
         if self.logData is not None:
             doneTime = time.time()
-            self.logData.append("\r\n\r\n>>>> Request complete at: %.3f (elapsed: %.1f ms)" % (doneTime, 1000 * (doneTime - self.startTime),))
+            self.logData[0].append("\r\n\r\n>>>> Request complete at: %.3f (elapsed: %.1f ms)" % (doneTime, 1000 * (doneTime - self.startTime),))
         super(HTTPLoggingChannelRequest, self).handleContentComplete()
 
     def writeHeaders(self, code, headers):
         if self.logData is not None:
             doneTime = time.time()
-            self.logData.append("\r\n\r\n<<<< Response sending at: %.3f (elapsed: %.1f ms)\r\n\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
+            self.logData[1].append("\r\n\r\n<<<< Response sending at: %.3f (elapsed: %.1f ms)\r\n\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
         super(HTTPLoggingChannelRequest, self).writeHeaders(code, headers)
 
     def finish(self):
@@ -153,7 +153,7 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
 
         if self.logData is not None:
             doneTime = time.time()
-            self.logData.append("\r\n\r\n<<<< Response complete at: %.3f (elapsed: %.1f ms)\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
-            accounting.emitAccounting("HTTP", "all", "".join(self.logData))
+            self.logData[1].append("\r\n\r\n<<<< Response complete at: %.3f (elapsed: %.1f ms)\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
+            accounting.emitAccounting("HTTP", "all", "".join(self.logData[0]) + "".join(self.logData[1]))
 
 HTTPChannel.chanRequestFactory = HTTPLoggingChannelRequest
