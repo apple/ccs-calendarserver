@@ -486,6 +486,76 @@ class CalDAVServiceMaker (LoggingMixIn):
             )
 
         #
+        # Configure the Site and Wrappers
+        #
+        credentialFactories = []
+
+        portal = Portal(auth.DavRealm())
+
+        portal.registerChecker(directory)
+
+        realm = directory.realmName or ""
+
+        self.log_info("Configuring authentication for realm: %s" % (realm,))
+
+        for scheme, schemeConfig in config.Authentication.iteritems():
+            scheme = scheme.lower()
+
+            credFactory = None
+
+            if schemeConfig["Enabled"]:
+                self.log_info("Setting up scheme: %s" % (scheme,))
+
+                if scheme == "kerberos":
+                    if not NegotiateCredentialFactory:
+                        self.log_info("Kerberos support not available")
+                        continue
+
+                    try:
+                        principal = schemeConfig["ServicePrincipal"]
+                        if not principal:
+                            credFactory = NegotiateCredentialFactory(
+                                type="http",
+                                hostname=config.ServerHostName,
+                            )
+                        else:
+                            credFactory = NegotiateCredentialFactory(
+                                principal=principal,
+                            )
+                    except ValueError:
+                        self.log_info("Could not start Kerberos")
+                        continue
+
+                elif scheme == "digest":
+                    credFactory = QopDigestCredentialFactory(
+                        schemeConfig["Algorithm"],
+                        schemeConfig["Qop"],
+                        realm,
+                    )
+
+                elif scheme == "basic":
+                    credFactory = BasicCredentialFactory(realm)
+
+                elif scheme == "wiki":
+                    pass
+
+                else:
+                    self.log_error("Unknown scheme: %s" % (scheme,))
+
+            if credFactory:
+                credentialFactories.append(credFactory)
+
+
+        # Set up a digest credential factory for use on the /inbox iMIP
+        # injection resource
+        schemeConfig = config.Authentication.Digest
+        digestCredentialFactory = QopDigestCredentialFactory(
+            schemeConfig["Algorithm"],
+            schemeConfig["Qop"],
+            realm,
+        )
+
+        #
         # Setup Resource hierarchy
         #
         self.log_info("Setting up document root at: %s"
@@ -554,8 +624,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             self.log_info("Setting up iMIP inbox resource: %r"
                           % (self.imipResourceClass,))
 
-            imipInbox = self.imipResourceClass(root)
-            root.putChild("inbox", imipInbox)
+            # This resource uses the digestCredentialFactory no matter
+            # what the overall server authentication settings are.
+            root.putChild("inbox",
+                auth.AuthenticationWrapper(
+                    self.imipResourceClass(root),
+                    portal,
+                    (digestCredentialFactory,),
+                    (auth.IPrincipal,),
+                )
+            )
 
         #
         # WebCal
@@ -575,62 +653,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Setting up Timezone Cache")
         TimezoneCache.create()
 
-        #
-        # Configure the Site and Wrappers
-        #
-        credentialFactories = []
 
-        portal = Portal(auth.DavRealm())
-
-        portal.registerChecker(directory)
-
-        realm = directory.realmName or ""
-
-        self.log_info("Configuring authentication for realm: %s" % (realm,))
-
-        for scheme, schemeConfig in config.Authentication.iteritems():
-            scheme = scheme.lower()
-
-            credFactory = None
-
-            if schemeConfig["Enabled"]:
-                self.log_info("Setting up scheme: %s" % (scheme,))
-
-                if scheme == "kerberos":
-                    if not NegotiateCredentialFactory:
-                        self.log_info("Kerberos support not available")
-                        continue
-
-                    try:
-                        principal = schemeConfig["ServicePrincipal"]
-                        if not principal:
-                            credFactory = NegotiateCredentialFactory(
-                                type="http",
-                                hostname=config.ServerHostName,
-                            )
-                        else:
-                            credFactory = NegotiateCredentialFactory(
-                                principal=principal,
-                            )
-                    except ValueError:
-                        self.log_info("Could not start Kerberos")
-                        continue
-
-                elif scheme == "digest":
-                    credFactory = QopDigestCredentialFactory(
-                        schemeConfig["Algorithm"],
-                        schemeConfig["Qop"],
-                        realm,
-                    )
-
-                elif scheme == "basic":
-                    credFactory = BasicCredentialFactory(realm)
-
-                else:
-                    self.log_error("Unknown scheme: %s" % (scheme,))
-
-            if credFactory:
-                credentialFactories.append(credFactory)
 
         self.log_info("Configuring authentication wrapper")
 
