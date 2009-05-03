@@ -70,9 +70,9 @@ def main():
             log("Service '%s' was previously %s" %
                 (LAUNCHD_KEY, "disabled" if disabled else "enabled"))
         except ServiceStateError, e:
-            log("ERROR: Couldn't determine previous state of service '%s': %s" %
+            log("Couldn't determine previous state of service '%s': %s" %
                 (LAUNCHD_KEY, e))
-            sys.exit(1)
+            sys.exit(0)
 
         command = "stop" if disabled else "start"
         try:
