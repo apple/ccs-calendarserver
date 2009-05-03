@@ -198,31 +198,57 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return cache
 
-    def setProperty(self, child, property):
+    def setProperty(self, child, property, delete=False):
         propertyCache, key, childCache, token = self.childCache(child)
 
-        if childCache.get(property.qname(), None) == property:
-            # No changes
-            return
-
-        childCache[property.qname()] = property
+        if delete:
+            qname = property
+            if childCache.has_key(qname):
+                del childCache[qname]
+        else:
+            qname = property.qname()
+            childCache[qname] = property
 
         client = self.memcacheClient()
+
         if client is not None:
-            try:
-                result = client.set(key, childCache, time=self.cacheTimeout, token=token)
-            except TokenMismatchError:
-                # The value in memcache has changed since we last fetched it,
-                log.error("memcacheprops setProperty( ) TokenMismatchError")
-                result = False
+            retries = 10
+            while retries:
+                try:
+                    if client.set(key, childCache, time=self.cacheTimeout,
+                        token=token):
+                        # Success
+                        break
 
-            if not result:
+                except TokenMismatchError:
+                    # The value in memcache has changed since we last
+                    # fetched it
+                    log.debug("memcacheprops setProperty TokenMismatchError; retrying...")
+
+                finally:
+                    # Re-fetch the properties for this child
+                    loaded = self._loadCache(childNames=(child.fp.basename(),))
+                    propertyCache.update(loaded.iteritems())
+
+                retries -= 1
+
+                propertyCache, key, childCache, token = self.childCache(child)
+
+                if delete:
+                    if childCache.has_key(qname):
+                        del childCache[qname]
+                else:
+                    childCache[qname] = property
+
+            else:
+                log.error("memcacheprops setProperty had too many failures")
                 delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to set property %s on %s"
-                                    % (property.sname(), child))
+                raise MemcacheError("Unable to %s property {%s}%s on %s"
+                    % ("delete" if delete else "set",
+                    qname[0], qname[1], child))
 
-            loaded = self._loadCache(childNames=(child.fp.basename(),))
-            propertyCache.update(loaded.iteritems())
+    def deleteProperty(self, child, qname):
+        return self.setProperty(child, qname, delete=True)
 
     def flushCache(self, child):
         path = child.fp.path
@@ -237,28 +263,6 @@ class MemcachePropertyCollection (LoggingMixIn):
             result = client.delete(key)
             if not result:
                 raise MemcacheError("Unable to flush cache on %s" % (child,))
-
-    def deleteProperty(self, child, qname):
-        propertyCache, key, childCache, token = self.childCache(child)
-
-        del childCache[qname]
-
-        client = self.memcacheClient()
-        if client is not None:
-            try:
-                result = client.set(key, childCache, time=self.cacheTimeout, token=token)
-            except TokenMismatchError:
-                # The value in memcache has changed since we last fetched it
-                log.error("memcacheprops deleteProperty( ) TokenMismatchError")
-                result = False
-
-            if not result:
-                delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to delete property {%s}%s on %s"
-                                    % (qname[0], qname[1], child))
-
-            loaded = self._loadCache(childNames=(child.fp.basename(),))
-            propertyCache.update(loaded.iteritems())
 
     def propertyStoreForChild(self, child, childPropertyStore):
         return self.ChildPropertyStore(self, child, childPropertyStore)
