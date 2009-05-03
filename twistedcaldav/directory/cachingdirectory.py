@@ -46,7 +46,8 @@ class RecordTypeCache(object):
         self.directoryService = directoryService
         self.recordType = recordType
 
-    def addRecord(self, record, indexType, indexKey, useMemcache=True):
+    def addRecord(self, record, indexType, indexKey, useMemcache=True,
+        neverExpire=False):
         raise NotImplementedError()
     
     def removeRecord(self, record):
@@ -71,9 +72,13 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
 
-    def addRecord(self, record, indexType, indexKey, useMemcache=True):
+    def addRecord(self, record, indexType, indexKey, useMemcache=True,
+        neverExpire=False):
 
         useMemcache == useMemcache and config.Memcached.ClientEnabled
+
+        if neverExpire:
+            record.neverExpire()
 
         self.records.add(record)
 
@@ -116,7 +121,7 @@ class CachingDirectoryService(DirectoryService):
 
     INDEX_TYPE_GUID      = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
-    INDEX_TYPE_CUA     = "cua"
+    INDEX_TYPE_CUA       = "cua"
     INDEX_TYPE_AUTHID    = "authid"
 
     indexTypeToRecordAttribute = {
@@ -138,6 +143,7 @@ class CachingDirectoryService(DirectoryService):
         self.cacheTimeout = cacheTimeout * 60
 
         self._initCaches(cacheClass)
+
         super(CachingDirectoryService, self).__init__()
 
     def _getMemcacheClient(self, refresh=False):
@@ -240,7 +246,10 @@ class CachingDirectoryService(DirectoryService):
             for recordType in recordTypes:
                 record = self.recordCacheForType(recordType).findRecord(indexType, indexKey)
                 if record:
-                    if (time.time() - record.cachedTime > self.cacheTimeout):
+                    if (
+                        record.cachedTime != 0 and
+                        time.time() - record.cachedTime > self.cacheTimeout
+                    ):
                         self.recordCacheForType(recordType).removeRecord(record)
                         return None
                     else:
@@ -329,6 +338,9 @@ class CachingDirectoryRecord(DirectoryRecord):
         )
         
         self.cachedTime = time.time()
+
+    def neverExpire(self):
+        self.cachedTime = 0
 
 class DirectoryMemcacheError(DirectoryError):
     """
