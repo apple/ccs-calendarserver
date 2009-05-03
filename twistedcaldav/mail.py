@@ -1497,13 +1497,20 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
 
     def serverGreeting(self, capabilities):
         self.log_debug("IMAP servergreeting")
-
         return self.authenticate(self.factory.settings["Password"]
             ).addCallback(self.cbLoggedIn
-            ).addErrback(self.ebLoginFailed)
+            ).addErrback(self.ebAuthenticateFailed)
 
     def ebLogError(self, error):
         self.log_error("IMAP Error: %s" % (error,))
+
+    def ebAuthenticateFailed(self, reason):
+        self.log_error("IMAP authenticate failed for %s, trying login" %
+            (self.factory.settings["Username"],))
+        return self.login(self.factory.settings["Username"],
+            self.factory.settings["Password"]
+            ).addCallback(self.cbLoggedIn
+            ).addErrback(self.ebLoginFailed)
 
     def ebLoginFailed(self, reason):
         self.log_error("IMAP login failed for %s" %
