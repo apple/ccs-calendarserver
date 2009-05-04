@@ -1078,7 +1078,7 @@ class TestClient(Client):
             if self.data.has_key(key):
                 stored_val, stored_token = self.data[key]
                 if token != stored_token:
-                    return False
+                    raise TokenMismatchError(key)
 
         self.data[key] = (serialized, str(self.token))
         self.token += 1

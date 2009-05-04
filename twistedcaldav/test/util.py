@@ -158,6 +158,15 @@ class InMemoryPropertyStore(object):
     def set(self, property):
         self._properties[property.qname()] = property
 
+    def delete(self, qname):
+        try:
+            del self._properties[qname]
+        except KeyError:
+            pass
+
+
+    def list(self):
+        return self._properties.iterkeys()
 
 
 class StubCacheChangeNotifier(object):

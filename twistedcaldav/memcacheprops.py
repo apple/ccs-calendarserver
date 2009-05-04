@@ -59,6 +59,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         if not hasattr(MemcachePropertyCollection, "_memcacheClient"):
 
             log.info("Instantiating memcache connection for MemcachePropertyCollection")
+
             MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient(["%s:%s" % (config.Memcached.BindAddress, config.Memcached.Port)],
                 debug=0,
                 pickleProtocol=2,
