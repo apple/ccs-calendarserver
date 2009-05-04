@@ -112,8 +112,6 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         if accounting.accountingEnabledForCategory("HTTP"):
             self.logData = LogData()
             self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData.response)
-        else:
-            None
 
     def gotInitialLine(self, initialLine):
         
