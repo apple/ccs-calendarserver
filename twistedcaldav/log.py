@@ -203,6 +203,7 @@ class Logger (object):
         """
         return cmpLogLevels(self.level(), level) <= 0
 
+    # FIXME: This doesn't belong here
     def logRequest(self, level, message, request, **kwargs):
         """
         Log an HTTP request.
@@ -245,6 +246,7 @@ class Logger (object):
         else:
             return succeed(None)
     
+    # FIXME: This doesn't belong here
     def logResponse(self, level, message, response, **kwargs):
         """
         Log an HTTP request.
