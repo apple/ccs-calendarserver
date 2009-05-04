@@ -112,9 +112,10 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         if accounting.accountingEnabledForCategory("HTTP"):
             self.logData = LogData()
             self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData.response)
+        else:
+            self.logData = None
 
     def gotInitialLine(self, initialLine):
-        
         if self.logData is not None:
             self.startTime = time.time()
             self.logData.request.append(">>>> Request starting at: %.3f\r\n\r\n" % (self.startTime,))
