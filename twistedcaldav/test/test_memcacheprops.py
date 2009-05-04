@@ -26,7 +26,6 @@ Test memcacheprops.
 
 import os
 
-from twisted.internet.defer import inlineCallbacks
 from twisted.web2.http import HTTPError
 
 from twistedcaldav.config import config
@@ -106,7 +105,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
     def getColl(self):
         return StubCollection("calendars", ["a", "b", "c"])
 
-    # @inlineCallbacks
     def test_setget(self):
 
         child1 = self.getColl().getChild("a")
