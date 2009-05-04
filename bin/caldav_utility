@@ -39,6 +39,7 @@ else:
 
 from calendarserver.provision.root import RootResource
 from getopt import getopt, GetoptError
+import operator
 from twisted.internet import reactor
 from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -71,6 +72,7 @@ def usage(e=None):
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  --resource <prinicpal-path>: path of the resource to use"
+    print "  --search <search-string>: search for matching resources"
     print "  --read-property: namespace-qualified DAV property to read, e.g. 'DAV:#group-member-set'"
     print "  --list-read-delegates: list delegates with read-only access to the current resource"
     print "  --list-write-delegates: list delegates with read-write access to the current resource"
@@ -93,10 +95,11 @@ class UsageError (StandardError):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:r:s", [
+            sys.argv[1:], "hf:r:s:", [
                 "config=",
                 "help",
                 "resource=",
+                "search=",
                 "read-property=",
                 "list-read-delegates",
                 "list-write-delegates",
@@ -140,6 +143,8 @@ def main():
 @inlineCallbacks
 def run(directory, root, optargs):
 
+    print ""
+
     resource = None
 
     for opt, arg in optargs:
@@ -150,6 +155,33 @@ def run(directory, root, optargs):
                 print "Found resource %s at %s" % (resource.resource, arg)
             else:
                 abort("Could not find resource at %s" % (arg,))
+
+        elif opt in ("-s", "--search",):
+            fields = []
+            for fieldName in ("fullName", "firstName", "lastName",
+                "emailAddresses"):
+                fields.append((fieldName, arg, True, "contains"))
+
+            records = list((yield directory.recordsMatchingFields(fields)))
+            if records:
+                records.sort(key=operator.attrgetter('fullName'))
+                print "%d matches found:" % (len(records),)
+                for record in records:
+                    print "\n%s (%s)" % (record.fullName,
+                        { "users"     : "User",
+                          "groups"    : "Group",
+                          "locations" : "Place",
+                          "resources" : "Resource",
+                        }.get(record.recordType),
+                    )
+                    print record.guid
+                    print "   Record names: %s" % (", ".join(record.shortNames),)
+                    if record.authIDs:
+                        print "   Auth IDs: %s" % (", ".join(record.authIDs),)
+                    if record.emailAddresses:
+                        print "   Emails: %s" % (", ".join(record.emailAddresses),)
+            else:
+                print "No matches found"
 
         elif opt in ("--read-property",):
             if resource is None: abort("No current resource.")
@@ -203,6 +235,7 @@ def run(directory, root, optargs):
             result = (yield resource.getAutoSchedule())
             print "Auto-Schedule: %s" % ("True" if result else "False",)
 
+    print ""
 
     # reactor.callLater(0, reactor.stop)
     reactor.stop()

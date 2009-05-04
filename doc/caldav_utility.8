@@ -24,6 +24,7 @@
 .Nm
 .Op Fl -config Ar config_file
 .Op Fl -resource Ar guid
+.Op Fl -search Ar search-term
 .Op Fl -read-property Ar dav_property
 .Op Fl -list-read-delegates
 .Op Fl -list-write-delegates
@@ -50,6 +51,8 @@ Displays usage information
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .It Fl -resource Ar guid
 Specifies the resource the following operations should be applied to.
+.It Fl s, -search Ar search_term
+Search for records matching search_term.
 .It Fl -read-property Ar dav_property
 Prints the value of the dav_property on the current resource.  The format of
 the dav_property is "namespace#property".  Examples:
