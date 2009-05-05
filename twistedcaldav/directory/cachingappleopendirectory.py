@@ -98,21 +98,6 @@ class OpenDirectoryService(CachingDirectoryService):
         self._records = {}
         self._delayedCalls = set()
 
-
-        # Special handling of the local user used for iMIP injection:
-        # Faulting by GUID doesn't work for local users, so we need to
-        # force the iMIP user into our GUID index and set the record
-        # to never expire.
-        if config.Scheduling.iMIP.Enabled:
-            imipUserName = config.Scheduling.iMIP.Username
-            if imipUserName:
-                imipRecord = self.recordWithShortName(self.recordType_users,
-                    imipUserName)
-                if imipRecord:
-                    self.recordCacheForType(self.recordType_users).addRecord(
-                        imipRecord, self.INDEX_TYPE_GUID, imipRecord.guid,
-                        neverExpire=True)
-
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
             return super(DirectoryRecord, self).__eq__(other)
