@@ -82,11 +82,18 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
 
         self.records.add(record)
 
-        self.recordsIndexedBy[indexType][indexKey] = record
-        if useMemcache:
-            key = "dir|%s|%s" % (indexType, indexKey)
-            self.log_debug("Memcache: storing %s" % (key,))
-            self.directoryService.memcacheSet(key, record)
+        # Also index/cache on guid
+        indexTypes = [(indexType, indexKey)]
+        if indexType != CachingDirectoryService.INDEX_TYPE_GUID:
+            indexTypes.append((CachingDirectoryService.INDEX_TYPE_GUID,
+                record.guid))
+
+        for indexType, indexKey in indexTypes:
+            self.recordsIndexedBy[indexType][indexKey] = record
+            if useMemcache:
+                key = "dir|%s|%s" % (indexType, indexKey)
+                self.log_debug("Memcache: storing %s" % (key,))
+                self.directoryService.memcacheSet(key, record)
 
 
     def removeRecord(self, record):
