@@ -133,7 +133,7 @@ def migrateConfiguration(options):
             oldPath = os.path.join(oldConfigDir, name)
             newPath = os.path.join(newConfigDir, name)
 
-            if os.path.islink(oldPath):
+            if os.path.islink(oldPath) and not os.path.exists(newPath):
                 # Recreate the symlink if it won't overwrite an existing file
                 link = os.readlink(oldPath)
                 os.symlink(link, newPath)
