@@ -21,6 +21,7 @@ from twisted.web2.dav import davxml
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.log import Logger
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
@@ -270,6 +271,14 @@ def upgrade_to_1(config):
         if os.path.exists(dbPath):
             os.chown(dbPath, uid, gid)
 
+    def createMailTokensDatabase(config, uid, gid):
+        # Cause the tokens db to be created on disk so we can set the
+        # permissions on it now
+        MailGatewayTokensDatabase(config.DataRoot).lookupByToken("")
+
+        dbPath = os.path.join(config.DataRoot, MailGatewayTokensDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            os.chown(dbPath, uid, gid)
 
 
     directory = getDirectory()
@@ -377,6 +386,7 @@ def upgrade_to_1(config):
                 log.warn("Done processing calendar homes")
 
     migrateResourceInfo(config, directory, uid, gid)
+    createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")

@@ -1057,10 +1057,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             notificationsArgv = [
                 sys.executable,
                 config.Twisted.twistd,
+            ]
+            if config.UserName:
+                notificationsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                notificationsArgv.extend(("-g", config.GroupName))
+            notificationsArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
                 "-n", "caldav_notifier",
                 "-f", options["config"],
-            ]
+            ))
             monitor.addProcess("notifications", notificationsArgv,
                 env=parentEnv)
 
@@ -1073,10 +1079,17 @@ class CalDAVServiceMaker (LoggingMixIn):
             mailGatewayArgv = [
                 sys.executable,
                 config.Twisted.twistd,
+            ]
+            if config.UserName:
+                mailGatewayArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                mailGatewayArgv.extend(("-g", config.GroupName))
+            mailGatewayArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
                 "-n", "caldav_mailgateway",
                 "-f", options["config"],
-            ]
+            ))
+
             monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
 
         stats = CalDAVStatisticsServer(logger) 
