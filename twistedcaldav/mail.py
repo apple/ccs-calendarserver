@@ -39,6 +39,7 @@ from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
+from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav import ical, caldavxml
 from twistedcaldav.config import config, defaultConfig, defaultConfigFile
 from twistedcaldav.ical import Property
@@ -183,6 +184,7 @@ class IMIPInboxResource(CalDAVFile):
         CalDAVFile.__init__(self, NotFilePath(isfile=True), principalCollections=parent.principalCollections())
 
         self.parent = parent
+
 
     def accessControlList(self, request, inheritance=True,
         expanding=False, inherited_aces=None):
