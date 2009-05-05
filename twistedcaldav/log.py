@@ -133,7 +133,7 @@ def clearLogLevels():
     Clears all log levels to the default.
     """
     logLevelsByNamespace.clear()
-    logLevelsByNamespace[None] = "info"
+    logLevelsByNamespace[None] = "info"  # Default log level
 
 logLevelsByNamespace = {}
 clearLogLevels()
@@ -317,11 +317,16 @@ for level in logLevels:
     def log_emit(self, message, level=level, **kwargs):
         self.emit(level, message, **kwargs)
 
+    def will_emit(self, level=level):
+        return self.willLogAtLevel(level)
+
     log_emit.__doc__ = doc
 
     setattr(Logger, level, log_emit)
+    setattr(Logger, level + "_enabled", property(will_emit))
 
     del log_emit
+    del will_emit
 
     #
     # Attach methods to LoggingMixIn
@@ -329,11 +334,17 @@ for level in logLevels:
     def log_emit(self, message, level=level, **kwargs):
         self.logger.emit(level, message, **kwargs)
 
-    log_emit.__doc__ = doc
+    def will_emit(self=log_emit, level=level):
+        return self.logger.willLogAtLevel(level)
 
-    setattr(LoggingMixIn, "log_%s" % (level,), log_emit)
+    log_emit.__doc__ = doc
+    log_emit.enabled = will_emit
+
+    setattr(LoggingMixIn, "log_" + level, log_emit)
+    setattr(LoggingMixIn, "log_" + level + "_enabled", property(will_emit))
 
     del log_emit
+    del will_emit
 
 del level
 

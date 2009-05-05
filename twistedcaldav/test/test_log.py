@@ -65,26 +65,41 @@ class Logging (TestCase):
         object = LoggingEnabledObject()
         self.assertEquals(object.logger.namespace, "twistedcaldav.test.test_log.LoggingEnabledObject")
 
-    def test_basic(self):
+    def test_basic_Logger(self):
         """
-        Test that log levels and messages are emitted correctly.
-        Tests both Logger and LoggingMixIn.
+        Test that log levels and messages are emitted correctly for
+        Logger.
         """
-        object = LoggingEnabledObject()
-
         for level in logLevels:
             message = "This is a %s message" % (level,)
 
             log = TestLogger()
-            object.logger = log
+            method = getattr(log, level)
+            method(message, junk=message)
 
-            for method in (getattr(log, level), getattr(object, "log_" + level)):
-                method(message, junk=message)
+            # Ensure that test_emit got called with expected arguments
+            self.assertEquals(log.emitted["level"], level)
+            self.assertEquals(log.emitted["message"], message)
+            self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
-                # Ensure that test_emit got called with expected arguments
-                self.assertEquals(log.emitted["level"], level)
-                self.assertEquals(log.emitted["message"], message)
-                self.assertEquals(log.emitted["kwargs"]["junk"], message)
+    def test_basic_LoggingMixIn(self):
+        """
+        Test that log levels and messages are emitted correctly for
+        LoggingMixIn.
+        """
+        for level in logLevels:
+            message = "This is a %s message" % (level,)
+
+            object = LoggingEnabledObject()
+            object.logger = TestLogger()
+
+            method = getattr(object, "log_" + level)
+            method(message, junk=message)
+
+            # Ensure that test_emit got called with expected arguments
+            self.assertEquals(object.logger.emitted["level"], level)
+            self.assertEquals(object.logger.emitted["message"], message)
+            self.assertEquals(object.logger.emitted["kwargs"]["junk"], message)
 
     def test_defaultLogLevel(self):
         """
@@ -122,3 +137,45 @@ class Logging (TestCase):
         self.assertEquals(logLevelForNamespace("twisted.web2.dav"            ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twisted.web2.dav.test"       ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twisted.web2.dav.test1.test2"), defaultLogLevel)
+
+    def test_willLogAtLevel(self):
+        """
+        willLogAtLevel()
+        """
+        clearLogLevels()
+
+        log = Logger()
+
+        for level in logLevels:
+            if cmpLogLevels(level, log.level()) < 0:
+                self.assertFalse(log.willLogAtLevel(level))
+            else:
+                self.assertTrue(log.willLogAtLevel(level))
+
+    def test_logMethodTruthiness_Logger(self):
+        """
+        Logger's log level functions/methods have true/false
+        value based on whether they will log.
+        """
+        log = Logger()
+
+        for level in logLevels:
+            enabled = getattr(log, level + "_enabled")
+            if enabled:
+                self.assertTrue(log.willLogAtLevel(level))
+            else:
+                self.assertFalse(log.willLogAtLevel(level))
+
+    def test_logMethodTruthiness_LoggingMixIn(self):
+        """
+        LoggingMixIn's log level functions/methods have true/false
+        value based on whether they will log.
+        """
+        object = LoggingEnabledObject()
+
+        for level in logLevels:
+            enabled = getattr(object, "log_" + level + "_enabled")
+            if enabled:
+                self.assertTrue(object.logger.willLogAtLevel(level))
+            else:
+                self.assertFalse(object.logger.willLogAtLevel(level))
