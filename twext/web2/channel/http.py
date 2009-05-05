@@ -110,7 +110,7 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         super(HTTPLoggingChannelRequest, self).__init__(channel, queued)
 
         if accounting.accountingEnabledForCategory("HTTP"):
-            self.logData = LogData()
+            self.logData = HTTPLoggingChannelRequest.LogData()
             self.transport = HTTPLoggingChannelRequest.TransportLoggingWrapper(self.transport, self.logData.response)
         else:
             self.logData = None
