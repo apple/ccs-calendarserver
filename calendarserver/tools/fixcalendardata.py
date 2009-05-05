@@ -15,14 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from plistlib import readPlist
-import time
 
+from plistlib import readPlist
+import re
 import datetime
 import getopt
 import hashlib
 import os
 import sys
+import time
 import xattr
 
 PLIST_FILE = "/etc/caldavd/caldavd.plist"
@@ -41,6 +42,7 @@ def usage(e=None):
     print "usage: %s [options]" % (name,)
     print ""
     print "Fix double-quote/escape bugs in iCalendar data."
+    print "Fix incorrect use of TZID in iCalendar data."
     print ""
     print "options:"
     print "  -h --help: print this help and exit"
@@ -82,12 +84,12 @@ def parsePlist(plistPath):
 def scanData(basePath, scanFile, doFix):
     
     uidsPath = os.path.join(basePath, "calendars", "__uids__")
-    for i in range(256):
-        level1Path = os.path.join(uidsPath, "%02X" % (i,))
-        if os.path.exists(level1Path):
-            for j in range(256):
-                level2Path = os.path.join(level1Path, "%02X" % (j,))
-                if os.path.exists(level2Path):
+    for item1 in os.listdir(uidsPath):
+        if len(item1) == 2:
+            level1Path = os.path.join(uidsPath, item1)
+            for item2 in os.listdir(level1Path):
+                if len(item2) == 2:
+                    level2Path = os.path.join(level1Path, item2)
                     for item in os.listdir(level2Path):
                         calendarHome = os.path.join(level2Path, item)
                         if os.path.isdir(calendarHome):
@@ -136,7 +138,7 @@ def scanCalendar(basePath, calendarPath, scanFile, doFix):
 
         # See whether there is a \" that needs fixing.
         # NB Have to handle the case of a folded line... 
-        if icsData.find('\\"') != -1 or icsData.find('\\\r\n "') != -1 or icsData.find('\r\n \r\n "') != -1:
+        if testICSData_DoubleQuotes(icsData) or testICSData_TZIDs(icsData):
             if doFix:
                 if fixPath(icsPath, icsData):
                     didFix = True
@@ -149,6 +151,19 @@ def scanCalendar(basePath, calendarPath, scanFile, doFix):
     # Change CTag on calendar collection if any resource was written
     if didFix:
         updateCtag(calendarPath)
+
+def testICSData_DoubleQuotes(icsData):
+
+    # See whether there is a \" that needs fixing.
+    # NB Have to handle the case of a folded line... 
+    return icsData.find('\\"') != -1 or icsData.find('\\\r\n "') != -1 or icsData.find('\r\n \r\n "') != -1
+
+tzidRESearch = re.compile("(.*)TZID=[^;:]+;(VALUE=DATE.*)")
+tzidREReplace = re.compile("(.*)TZID=[^;:]+;(VALUE=DATE.*)", flags=re.S)
+
+def testICSData_TZIDs(icsData):
+    
+    return tzidRESearch.search(icsData) != None
 
 def fixData(basePath, scanPath):
     
@@ -216,6 +231,14 @@ def fixPath(icsPath, icsData=None):
         else:
             icsData = newIcsData
     
+    # Fix the TZID problem
+    while True:
+        icsMatch = tzidREReplace.search(icsData)
+        if icsMatch is not None:
+            icsData = icsMatch.expand("\\1\\2")
+        else:
+            break
+
     try:
         f = None
         f = open(icsPath, "w")
