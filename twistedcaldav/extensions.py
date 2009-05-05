@@ -763,7 +763,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         if self.fp.isdir():
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(request.path, safe=':/')+'/'))
+                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
             else:
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:

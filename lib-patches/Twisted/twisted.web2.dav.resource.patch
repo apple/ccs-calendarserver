@@ -1084,7 +1084,7 @@ Index: twisted/web2/dav/resource.py
 -        if self.isCollection() and request.uri[-1:] != "/":
 -            return RedirectResponse(request.uri + "/")
 +        if self.isCollection() and request.path[-1:] != "/":
-+            return RedirectResponse(request.unparseURL(path=urllib.quote(request.path, safe=':/')+'/'))
++            return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
  
          def setHeaders(response):
              response = IResponse(response)
