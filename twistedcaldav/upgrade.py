@@ -244,7 +244,7 @@ def upgrade_to_1(config):
         os.rename(oldHome, newHome)
 
 
-    def migrateResourceInfo(config, directory):
+    def migrateResourceInfo(config, directory, uid, gid):
         log.info("Fetching delegate assignments and auto-schedule settings from directory")
         resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
         calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
@@ -261,6 +261,14 @@ def upgrade_to_1(config):
                     "%s#calendar-proxy-read" % (guid,),
                     [readOnlyProxy]
                 )
+
+        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            os.chown(dbPath, uid, gid)
+
+        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            os.chown(dbPath, uid, gid)
 
 
 
@@ -368,7 +376,7 @@ def upgrade_to_1(config):
 
                 log.warn("Done processing calendar homes")
 
-    migrateResourceInfo(config, directory)
+    migrateResourceInfo(config, directory, uid, gid)
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
