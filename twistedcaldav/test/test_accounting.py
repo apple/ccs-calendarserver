@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
 # limitations under the License.
 ##
 
+from twext.web2.channel.http import HTTPLoggingChannelRequest
+from twisted.web2 import http_headers
+from twisted.web2.channel.http import HTTPChannel
 from twistedcaldav.accounting import emitAccounting
 from twistedcaldav.config import config
 import twistedcaldav.test.util
@@ -21,11 +24,11 @@ import twistedcaldav.test.util
 import os
 import stat
 
-class Accounting (twistedcaldav.test.util.TestCase):
+class AccountingITIP (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
         
-        super(Accounting, self).setUp()
+        super(AccountingITIP, self).setUp()
         config.AccountingCategories.iTIP = True
         config.AccountingPrincipals = ["*",]
         config.AccountingLogRoot = self.mkdtemp("accounting")[0]
@@ -61,3 +64,46 @@ class Accounting (twistedcaldav.test.util.TestCase):
         open(config.AccountingLogRoot, "w").close()
         
         emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
+
+class AccountingHTTP (twistedcaldav.test.util.TestCase):
+
+    def setUp(self):
+        
+        super(AccountingHTTP, self).setUp()
+        config.AccountingCategories.HTTP = True
+        config.AccountingPrincipals = ["*",]
+        config.AccountingLogRoot = self.mkdtemp("accounting")[0]
+
+    def test_channel_request(self):
+        """
+        Test permissions when creating accounting
+        """
+        
+        # Make channel request object
+        channelRequest = HTTPLoggingChannelRequest(HTTPChannel())
+        self.assertTrue(channelRequest != None)
+
+    def test_logging(self):
+        """
+        Test permissions when creating accounting
+        """
+        
+        class FakeRequest(object):
+            
+            def handleContentChunk(self, data):
+                pass
+            def handleContentComplete(self):
+                pass
+
+        # Make log root a file
+        channelRequest = HTTPLoggingChannelRequest(HTTPChannel(), queued=1)
+        channelRequest.request = FakeRequest()
+
+        channelRequest.gotInitialLine("GET / HTTP/1.1")
+        channelRequest.lineReceived("Host:localhost")
+        channelRequest.lineReceived("Content-Length:5")
+        channelRequest.handleContentChunk("Bogus")
+        channelRequest.handleContentComplete()
+        channelRequest.writeHeaders(200, http_headers.Headers({"Content-Type":http_headers.MimeType('text', 'plain'),"Content-Length":"4"}))
+        channelRequest.transport.write("Data")
+        channelRequest.finish()
