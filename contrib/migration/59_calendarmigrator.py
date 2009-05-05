@@ -24,6 +24,7 @@ import datetime
 import optparse
 import os
 import plistlib
+import shutil
 import subprocess
 import sys
 
@@ -32,6 +33,7 @@ LOG = "/Library/Logs/Migration/calendarmigrator.log"
 SERVICE_NAME = "calendar"
 LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
 LAUNCHD_PREFS_DIR = "System/Library/LaunchDaemons"
+CALDAVD_CONFIG_DIR = "etc/caldavd"
 SERVERADMIN = "/usr/sbin/serveradmin"
 
 def main():
@@ -56,7 +58,8 @@ def main():
 
     optionParser.add_option('--targetRoot', type='string',
         metavar='DIR',
-        help='path to the root of the new system (IGNORED)')
+        help='path to the root of the new system',
+        default='/')
 
     optionParser.add_option('--language', choices=('en', 'fr', 'de', 'ja'),
         metavar='[en|fr|de|ja]',
@@ -65,40 +68,83 @@ def main():
     (options, args) = optionParser.parse_args()
 
     if options.sourceRoot:
-        try:
-            disabled = isServiceDisabled(options.sourceRoot, LAUNCHD_KEY)
-            log("Service '%s' was previously %s" %
-                (LAUNCHD_KEY, "disabled" if disabled else "enabled"))
-        except ServiceStateError, e:
-            log("Couldn't determine previous state of service '%s': %s" %
-                (LAUNCHD_KEY, e))
-            sys.exit(0)
 
-        command = "stop" if disabled else "start"
-        try:
-            processArgs = [SERVERADMIN, command, SERVICE_NAME]
-            log("Invoking %s" % (processArgs,))
-            serveradmin = subprocess.Popen(
-                args=processArgs,
-                stdout=subprocess.PIPE,
-            )
-            output, error = serveradmin.communicate()
-
-            expectedState = "STOPPED" if disabled else "RUNNING"
-            if '%s:state = "%s"' % (SERVICE_NAME, expectedState) in output:
-                log("Service %s is now %s" % (SERVICE_NAME, expectedState))
-            else:
-                log("ERROR: serveradmin returned %s" % (output,))
-                sys.exit(1)
-
-        except Exception, e:
-            log("ERROR: Failed to run %s: %s" %
-                (SERVERADMIN, e))
-            sys.exit(1)
+        if os.path.exists(options.sourceRoot):
+            migrateRunState(options)
+            migrateConfiguration(options)
 
     else:
         log("ERROR: --sourceRoot must be specified")
         sys.exit(1)
+
+
+def migrateRunState(options):
+    """
+    Try to determine whether server was running in previous system, then
+    user serveradmin to start/stop the server in the new system.
+    """
+
+    try:
+        disabled = isServiceDisabled(options.sourceRoot, LAUNCHD_KEY)
+        log("Service '%s' was previously %s" %
+            (LAUNCHD_KEY, "disabled" if disabled else "enabled"))
+    except ServiceStateError, e:
+        log("Couldn't determine previous state of service '%s': %s" %
+            (LAUNCHD_KEY, e))
+        return
+
+    command = "stop" if disabled else "start"
+    try:
+        processArgs = [SERVERADMIN, command, SERVICE_NAME]
+        log("Invoking %s" % (processArgs,))
+        serveradmin = subprocess.Popen(
+            args=processArgs,
+            stdout=subprocess.PIPE,
+        )
+        output, error = serveradmin.communicate()
+
+        expectedState = "STOPPED" if disabled else "RUNNING"
+        if '%s:state = "%s"' % (SERVICE_NAME, expectedState) in output:
+            log("Service %s is now %s" % (SERVICE_NAME, expectedState))
+        else:
+            log("ERROR: serveradmin returned %s" % (output,))
+
+    except Exception, e:
+        log("ERROR: Failed to run %s: %s" %
+            (SERVERADMIN, e))
+
+
+def migrateConfiguration(options):
+    """
+    Copy files/directories/symlinks from previous system's /etc/caldavd
+
+    Skips anything ending in ".default".
+    Regular files overwrite copies in new system.
+    Directories and symlinks only copied over if they don't overwrite anything.
+    """
+
+    oldConfigDir = os.path.join(options.sourceRoot, CALDAVD_CONFIG_DIR)
+    newConfigDir = os.path.join(options.targetRoot, CALDAVD_CONFIG_DIR)
+
+    for name in os.listdir(oldConfigDir):
+
+        if not name.endswith(".default"):
+
+            oldPath = os.path.join(oldConfigDir, name)
+            newPath = os.path.join(newConfigDir, name)
+
+            if os.path.islink(oldPath):
+                # Recreate the symlink if it won't overwrite an existing file
+                link = os.readlink(oldPath)
+                os.symlink(link, newPath)
+
+            elif os.path.isfile(oldPath):
+                # Copy the file over, overwriting copy in newConfigDir
+                shutil.copy2(oldPath, newConfigDir)
+
+            elif os.path.isdir(oldPath) and not os.path.exists(newPath):
+                # Copy the dir over, but only if new one doesn't exist
+                shutil.copytree(oldPath, newPath, symlinks=True)
 
 
 def isServiceDisabled(source, service):
