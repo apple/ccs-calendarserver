@@ -95,7 +95,7 @@ class XMLAccountsParser(object):
         # Verify that top-level element is correct
         accounts_node = doc._get_documentElement()
         if accounts_node._get_localName() != ELEMENT_ACCOUNTS:
-            self.log("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
+            log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
         self._updateExternalDatabases()
