@@ -759,8 +759,21 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def setAutoSchedule(self, autoSchedule):
         self._resource_info_index().setAutoSchedule(self.record.guid, autoSchedule)
 
+    @inlineCallbacks
     def getAutoSchedule(self):
-        return self._resource_info_index().getAutoSchedule(self.record.guid)
+        value = (yield self._resource_info_index().getAutoSchedule(self.record.guid))
+        if value is None:
+            # No value has been explicitly set yet.  If this is a user/group
+            # the default should be False.  If resource/location, True.
+            if self.record.recordType in (DirectoryService.recordType_locations,
+                DirectoryService.recordType_resources):
+                yield self.setAutoSchedule(True)
+                returnValue(True)
+            else:
+                yield self.setAutoSchedule(False)
+                returnValue(False)
+        else:
+            returnValue(value)
 
 
     def _resource_info_index(self):

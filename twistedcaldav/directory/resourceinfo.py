@@ -105,11 +105,6 @@ class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
             if autoSchedule is not None:
                 autoSchedule = autoSchedule == 1
                 result = (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
-            else:
-                # Not in local db
-                # Default to False
-                autoSchedule = False
-
         returnValue(autoSchedule)
 
     def _add_to_db(self, guid, autoSchedule):
