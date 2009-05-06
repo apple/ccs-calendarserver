@@ -274,7 +274,7 @@ class ImplicitProcessor(object):
                 log.error("No default calendar for recipient: '%s'." % (self.recipient.cuaddr,))
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             autoprocessed = (yield self.recipient.principal.getAutoSchedule())
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
             name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"

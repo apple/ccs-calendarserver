@@ -24,6 +24,7 @@ from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, parse_date, parse_datetime,\
     parse_date_or_datetime, parse_duration, Property
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
 from vobject.icalendar import utc
@@ -1532,14 +1533,62 @@ END:VCALENDAR
                     datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
                 )
             ),
+            (
+                "Recurring with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()),
+                )
+            ),
+            (
+                "Recurring with invalid override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T010000Z
+DTSTART:20071115T000000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                None
+            ),
         )
         
         for description, original, results in data:
             component = Component.fromString(original)
-            instances = component.expandTimeRanges(datetime.date(2100, 1, 1))
-            self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
-            for instance in instances:
-                self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
+            if results is None:
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, datetime.date(2100, 1, 1))
+            else:
+                instances = component.expandTimeRanges(datetime.date(2100, 1, 1))
+                self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
+                for instance in instances:
+                    self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
        
     def test_has_property_in_any_component(self):
         

@@ -57,7 +57,8 @@ from twistedcaldav.fileops import putWithXAttrs
 from twistedcaldav.fileops import copyWithXAttrs
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
-from twistedcaldav.instance import TooManyInstancesError
+from twistedcaldav.instance import TooManyInstancesError,\
+    InvalidOverriddenInstanceError
 from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
@@ -1082,4 +1083,12 @@ class StoreCalendarObjectResource(object):
             if self.rollback:
                 self.rollback.Rollback()
 
-            raise err
+            if isinstance(err, InvalidOverriddenInstanceError):
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            elif isinstance(err, TooManyInstancesError):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                        NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed)))
+                    ))
+            else:
+                raise err
