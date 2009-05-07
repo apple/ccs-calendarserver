@@ -110,3 +110,18 @@ class MemcacherTestCase(TestCase):
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
 
+    def test_keynormalization(self):
+
+        for processType in ("Single", "Combined",):
+            config.ProcessType = processType
+
+            cacher = Memcacher("testing")
+            
+            self.assertTrue(len(cacher._normalizeKey("A" * 100)) <= 250)
+            self.assertTrue(len(cacher._normalizeKey("A" * 512)) <= 250)
+            
+            key = cacher._normalizeKey(" \n\t\r" * 20)
+            self.assertTrue(" " not in key)
+            self.assertTrue("\n" not in key)
+            self.assertTrue("\t" not in key)
+            self.assertTrue("\r" not in key)

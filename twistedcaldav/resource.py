@@ -27,7 +27,6 @@ __all__ = [
     "isPseudoCalendarCollectionResource",
 ]
 
-import os
 import urllib
 
 from zope.interface import implements
@@ -61,8 +60,6 @@ from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from urlparse import urlsplit
 
