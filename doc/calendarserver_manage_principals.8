@@ -15,10 +15,10 @@
 .\"
 .\" The following requests are required for all man pages.
 .Dd April 24, 2009
-.Dt CALDAV_UTILITY 8
+.Dt CALENDARSERVER_MANAGE_PRINCIPALS 8
 .Os
 .Sh NAME
-.Nm caldav_utility
+.Nm calendarserver_manage_principals
 .Nd Darwin Calendar Server Resource Utility
 .Sh SYNOPSIS
 .Nm
@@ -87,11 +87,14 @@ option again.
 .Sh EXAMPLES
 .Bl -tag -width flag
 .It Assign two read-write delegates and display the list of read-write delegates:
-caldav_utility --resource 44234B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 98248B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 39838B00-5266-11DD-B22C-A07C87F02F6B --list-write-delegates
+.Nm
+--resource 44234B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 98248B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 39838B00-5266-11DD-B22C-A07C87F02F6B --list-write-delegates
 .It Turn on auto-scheduling for a resource, and confirm the setting:
-caldav_utility --resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule True --get-auto-schedule
+.Nm
+--resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule True --get-auto-schedule
 .It Turn off auto-scheduling for multiple resources:
-caldav_utility --resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False --resource 98344B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False
+.Nm
+--resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False --resource 98344B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False
 .El
 .Sh FILES
 .Bl -tag -width flag

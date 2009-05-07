@@ -105,7 +105,11 @@ dist = setup(
                            "images/*/*.jpg",
                          ],
                        },
-    scripts          = [ "bin/caldavd", "bin/caladmin", "bin/caldav_export", "bin/caldav_utility" ],
+    scripts          = [
+                         "bin/caldavd",
+                         "bin/calendarserver_export",
+                         "bin/calendarserver_manage_principals"
+                       ],
     data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
     ext_modules      = extensions,
     py_modules       = ["kqreactor", "memcacheclient"],
