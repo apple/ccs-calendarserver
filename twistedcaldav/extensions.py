@@ -407,8 +407,11 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         for props, match, caseless, matchType in propertySearches:
             nonDirectoryProps = []
             for prop in props:
-                fieldName, match = principalCollection.propertyToField(
-                    prop, match)
+                try:
+                    fieldName, match = principalCollection.propertyToField(
+                        prop, match)
+                except ValueError, e:
+                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
                 if fieldName:
                     fields.append((fieldName, match, caseless, matchType))
                 else:
