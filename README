@@ -41,8 +41,9 @@ Some of the directory services which are supported by the calendar
 server include:
 
  * XMLDirectoryService: this service is configurable via an XML file
-   that contains principal information.  The file 'conf/accounts.xml'
-   provides an example principals configuration.
+   that contains principal information.  The file
+   'conf/auth/accounts.xml' provides an example principals
+   configuration.
 
  * OpenDirectoryService: this service uses OpenDirectory (which in
    turn uses LDAP, Active Directory, etc.) to obtain principal
@@ -58,7 +59,7 @@ server include:
    principals.
 
 The 'caldavd-test.plist' configuration uses XMLDirectoryService by
-default, set up to use 'conf/accounts-test.xml'.
+default, set up to use 'conf/auth/accounts-test.xml'.
 
 This file contains a user principal, named "admin", with password
 "admin", which is set up with administrative permissions on the server.
