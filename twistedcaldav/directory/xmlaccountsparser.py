@@ -296,8 +296,8 @@ class XMLAccountRecord (object):
                     guid = child.firstChild.data.encode("utf-8")
                     try:
                         UUID(guid)
-                    except:
-                        log.error("Invalid GUID in accounts XML: %r" % (guid,))
+                    except ValueError, e:
+                        log.error("Invalid GUID (%s) in accounts XML: %r" % (e, guid))
                     self.guid = guid
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
