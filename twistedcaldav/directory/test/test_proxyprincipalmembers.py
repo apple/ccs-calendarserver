@@ -420,10 +420,20 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertEquals(len(members), 2)
 
                 # Remove the dreid user from the directory service
-                del self.directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+
+                delRec = self.directoryService.recordWithShortName(
+                    DirectoryService.recordType_users, "dreid")
+                for cache in self.directoryService._recordCaches.itervalues():
+                   cache.removeRecord(delRec)
+                del self.directoryService._accounts()[
+                    DirectoryService.recordType_users]["dreid"]
+
+
+                cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 * 2
 
                 @inlineCallbacks
                 def _membershipTest():
+
                     uids = [p.principalUID() for p in (yield testPrincipal.groupMemberships())]
                     self.assertTrue("5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1#%s" % (proxyType,) not in uids)
 
@@ -454,6 +464,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     # Restore removed user
                     parser = XMLAccountsParser(self.directoryService.xmlFile)
                     self.directoryService._parsedAccounts = parser.items
+                    self.directoryService.recordWithShortName(
+                        DirectoryService.recordType_users, "dreid")
 
                     # Trigger the proxy DB clean up, which will actually
                     # remove the deletion timer because the principal has been
@@ -465,13 +477,17 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     self.assertEquals(result, None)
 
                     # Remove the dreid user from the directory service
-                    del self.directoryService._accounts()[DirectoryService.recordType_users]["dreid"]
+                    delRec = self.directoryService.recordWithShortName(
+                        DirectoryService.recordType_users, "dreid")
+                    for cache in self.directoryService._recordCaches.itervalues():
+                       cache.removeRecord(delRec)
+                    del self.directoryService._accounts()[
+                        DirectoryService.recordType_users]["dreid"]
 
                     # Trigger the proxy DB clean up, which won't actually
                     # remove anything because we haven't exceeded the timeout
                     yield proxyGroup.groupMembers()
 
-                    cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 * 2
                     # Advance beyond the timeout
                     theTime += cacheTimeout
                     db._memcacher.theTime = theTime

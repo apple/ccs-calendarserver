@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.cachingappleopendirectory import buildQueries, OpenDirectoryService
+from twistedcaldav.directory.appleopendirectory import buildQueries, OpenDirectoryService
 import dsattributes
 
 class BuildQueryTests(TestCase):
