@@ -42,10 +42,8 @@ from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService
 
+from calendarserver.tools.util import UsageError
 from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
-
-class UsageError (StandardError):
-    pass
 
 def usage(e=None):
     if e:

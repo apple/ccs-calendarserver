@@ -1,0 +1,356 @@
+#!/usr/bin/env python
+
+##
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+import sys
+import os
+import itertools
+import operator
+from getopt import getopt, GetoptError
+
+from twisted.python import log
+from twisted.python.reflect import namedClass
+from twisted.internet import reactor
+from twisted.internet.address import IPv4Address
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.web2.dav import davxml
+
+from twistedcaldav import caldavxml
+from twistedcaldav import memcachepool
+from twistedcaldav.config import config, defaultConfigFile
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.log import setLogLevelForNamespace
+from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.static import CalendarHomeProvisioningFile
+
+from calendarserver.tools.util import UsageError
+from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
+from calendarserver.provision.root import RootResource
+
+def usage(e=None):
+    if e:
+        print e
+        print ""
+
+    name = os.path.basename(sys.argv[0])
+    print "usage: %s [options]" % (name,)
+    print ""
+    print "options:"
+    print "  -h --help: print this help and exit"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  --resource <prinicpal-path>: path of the resource to use"
+    print "  --search <search-string>: search for matching resources"
+    print "  --read-property: namespace-qualified DAV property to read, e.g. 'DAV:#group-member-set'"
+    print "  --list-read-delegates: list delegates with read-only access to the current resource"
+    print "  --list-write-delegates: list delegates with read-write access to the current resource"
+    print "  --add-read-delegate <prinicpal-path>: add argument as a read-only delegate to the current resource"
+    print "  --add-write-delegate <prinicpal-path>: add argument as a read-write delegate to the current resource"
+    print "  --remove-delegate <prinicpal-path>: strip argument of delegate status for the current resource"
+    print "  --set-auto-schedule [true|false] : determines whether the current resource auto-accepts invitations"
+    print "  --get-auto-schedule : returns the current resource's auto-schedule state"
+
+    if e:
+        sys.exit(64)
+    else:
+        sys.exit(0)
+
+def main():
+    try:
+        (optargs, args) = getopt(
+            sys.argv[1:], "hf:r:s:", [
+                "config=",
+                "help",
+                "resource=",
+                "search=",
+                "read-property=",
+                "list-read-delegates",
+                "list-write-delegates",
+                "add-read-delegate=",
+                "add-write-delegate=",
+                "remove-delegate=",
+                "set-auto-schedule=",
+                "get-auto-schedule",
+            ],
+        )
+    except GetoptError, e:
+        usage(e)
+
+    if args:
+        usage("Too many arguments: %s" % (" ".join(args),))
+
+    logFileName = "/dev/stdout"
+    observer = log.FileLogObserver(open(logFileName, "a"))
+    log.addObserver(observer.emit)
+
+    # First pass through the args:
+
+    configFileName = None
+
+    for opt, arg in optargs:
+        if opt in ("-h", "--help"):
+            usage()
+
+        elif opt in ("-f", "--config"):
+            configFileName = arg
+
+    loadConfig(configFileName)
+    directory, root = setup()
+    root = ResourceWrapper(root)
+
+    reactor.callLater(0, run, directory, root, optargs)
+    reactor.run()
+
+@inlineCallbacks
+def run(directory, root, optargs):
+
+    print ""
+
+    resource = None
+
+    for opt, arg in optargs:
+
+        if opt in ("-r", "--resource",):
+            resource = root.lookupResource(arg)
+            if resource is not None:
+                print "Found resource %s at %s" % (resource.resource, arg)
+            else:
+                abort("Could not find resource at %s" % (arg,))
+
+        elif opt in ("-s", "--search",):
+            fields = []
+            for fieldName in ("fullName", "firstName", "lastName",
+                "emailAddresses"):
+                fields.append((fieldName, arg, True, "contains"))
+
+            records = list((yield directory.recordsMatchingFields(fields)))
+            if records:
+                records.sort(key=operator.attrgetter('fullName'))
+                print "%d matches found:" % (len(records),)
+                for record in records:
+                    print "\n%s (%s)" % (record.fullName,
+                        { "users"     : "User",
+                          "groups"    : "Group",
+                          "locations" : "Place",
+                          "resources" : "Resource",
+                        }.get(record.recordType),
+                    )
+                    print record.guid
+                    print "   Record names: %s" % (", ".join(record.shortNames),)
+                    if record.authIDs:
+                        print "   Auth IDs: %s" % (", ".join(record.authIDs),)
+                    if record.emailAddresses:
+                        print "   Emails: %s" % (", ".join(record.emailAddresses),)
+            else:
+                print "No matches found"
+
+        elif opt in ("--read-property",):
+            if resource is None: abort("No current resource.")
+
+            try:
+                namespace, name = arg.split("#")
+            except Exception, e:
+                abort("Can't parse --propertyToRead: %s" % (arg,))
+
+            result = (yield resource.readProperty((namespace, name)))
+            print result.toxml()
+
+        elif opt in ("--list-write-delegates", "--list-read-delegates"):
+            if resource is None: abort("No current resource.")
+
+            permission = "write" if "write" in opt else "read"
+            print "Delegates (%s) for %s:" % (permission, resource.resource)
+            paths = (yield resource.getDelegates(permission))
+            for path in paths:
+                delegate = root.getChild(path)
+                print delegate.resource
+
+        elif opt in ("--add-write-delegate", "--add-read-delegate"):
+            if resource is None: abort("No current resource.")
+
+            delegate = root.lookupResource(arg)
+            if delegate is None:
+                abort("No delegate found for %s" % (arg,))
+
+            permission = "write" if "write" in opt else "read"
+            result = (yield resource.addDelegate(delegate, permission))
+
+        elif opt == "--remove-delegate":
+            if resource is None: abort("No current resource.")
+
+            delegate = root.lookupResource(arg)
+            if delegate is None:
+                abort("No delegate found for %s" % (arg,))
+
+            result = (yield resource.removeDelegate(delegate, "read"))
+            result = (yield resource.removeDelegate(delegate, "write"))
+
+        elif opt == "--set-auto-schedule":
+            if resource is None: abort("No current resource.")
+
+            result = (yield resource.setAutoSchedule(arg.lower() in ("true", "1")))
+
+        elif opt == "--get-auto-schedule":
+            if resource is None: abort("No current resource.")
+
+            result = (yield resource.getAutoSchedule())
+            print "Auto-Schedule: %s" % ("True" if result else "False",)
+
+    print ""
+
+    # reactor.callLater(0, reactor.stop)
+    reactor.stop()
+
+class ResourceWrapper(object):
+
+    def __init__(self, resource):
+        self.resource = resource
+
+    def readProperty(self, prop):
+        return self.resource.readProperty(prop, FakeRequest())
+
+    def writeProperty(self, prop):
+        return self.resource.writeProperty(prop, FakeRequest())
+
+    def lookupResource(self, specifier):
+        # For now, support GUID lookup
+        return self.getChild("principals/__uids__/%s" % (specifier,))
+
+    def getChild(self, path):
+        resource = self.resource
+        segments = path.strip("/").split("/")
+        for segment in segments:
+            resource = resource.getChild(segment)
+            if resource is None:
+                return None
+        return ResourceWrapper(resource)
+
+    @inlineCallbacks
+    def removeDelegate(self, delegate, permission):
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        newChildren = []
+        for child in prop.children:
+            if str(child) != delegate.url():
+                newChildren.append(child)
+
+        if len(prop.children) == len(newChildren):
+            # Nothing to do -- the delegate wasn't there
+            returnValue(False)
+
+        newProp = davxml.GroupMemberSet(*newChildren)
+        result = (yield subPrincipal.writeProperty(newProp))
+        returnValue(result)
+
+    @inlineCallbacks
+    def addDelegate(self, delegate, permission):
+
+        opposite = "read" if permission == "write" else "write"
+        result = (yield self.removeDelegate(delegate, opposite))
+
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        for child in prop.children:
+            if str(child) == delegate.url():
+                # delegate is already in the group
+                break
+        else:
+            # delegate is not already in the group
+            newChildren = list(prop.children)
+            newChildren.append(davxml.HRef(delegate.url()))
+            newProp = davxml.GroupMemberSet(*newChildren)
+            result = (yield subPrincipal.writeProperty(newProp))
+            returnValue(result)
+
+    @inlineCallbacks
+    def getDelegates(self, permission):
+
+        subPrincipalName = "calendar-proxy-%s" % (permission,)
+        subPrincipal = self.getChild(subPrincipalName)
+        if subPrincipal is None:
+            abort("No proxy subprincipal found for %s" % (self.resource,))
+
+        namespace, name = davxml.dav_namespace, "group-member-set"
+        prop = (yield subPrincipal.readProperty((namespace, name)))
+        result = []
+        for child in prop.children:
+            result.append(str(child))
+        returnValue(result)
+
+    def setAutoSchedule(self, autoSchedule):
+        return self.resource.setAutoSchedule(autoSchedule)
+
+    def getAutoSchedule(self):
+        return self.resource.getAutoSchedule()
+
+    def url(self):
+        return self.resource.url()
+
+class FakeRequest(object):
+    pass
+
+def abort(msg, errno=1):
+    print "ERROR:", msg
+    print "Exiting"
+    reactor.stop()
+    sys.exit(errno)
+
+def setup():
+    setLogLevelForNamespace(None, "warn")
+
+    directory = getDirectory()
+    if config.Memcached["ClientEnabled"]:
+        memcachepool.installPool(
+            IPv4Address(
+                'TCP',
+                config.Memcached["BindAddress"],
+                config.Memcached["Port"]
+            ),
+            config.Memcached["MaxClients"]
+        )
+    if config.Notifications["Enabled"]:
+        installNotificationClient(
+            config.Notifications["InternalNotificationHost"],
+            config.Notifications["InternalNotificationPort"],
+        )
+    principalCollection = directory.getPrincipalCollection()
+    root = RootResource(
+        config.DocumentRoot,
+        principalCollections=(principalCollection,),
+    )
+    root.putChild("principals", principalCollection)
+    calendarCollection = CalendarHomeProvisioningFile(
+        os.path.join(config.DocumentRoot, "calendars"),
+        directory, "/calendars/",
+    )
+    root.putChild("calendars", calendarCollection)
+
+    return (directory, root)
+
+if __name__ == "__main__":
+    main()

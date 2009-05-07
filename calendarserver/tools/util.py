@@ -18,6 +18,7 @@ __all__ = [
     "loadConfig",
     "getDirectory",
     "dummyDirectoryRecord",
+    "UsageError",
 ]
 
 import sys
@@ -99,11 +100,10 @@ dummyDirectoryRecord = DirectoryRecord(
     recordType = "dummy",
     guid = "8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
     shortNames = ("dummy",),
-    authIDs = set(),
     fullName = "Dummy McDummerson",
     firstName = "Dummy",
     lastName = "McDummerson",
-    emailAddresses = (),
-    calendarUserAddresses = (),
-    # autoSchedule = False,
 )
+
+class UsageError (StandardError):
+    pass
