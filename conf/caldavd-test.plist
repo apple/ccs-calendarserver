@@ -134,7 +134,7 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.cachingappleopendirectory.OpenDirectoryService</string>
+      <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
       
       <key>params</key>
       <dict>
