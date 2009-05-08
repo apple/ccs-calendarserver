@@ -2744,3 +2744,149 @@ END:VEVENT
                 derived = ical.deriveInstance(rid)
                 derived = str(derived).replace("\r", "") if derived else None
                 self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
+
+    def test_truncate_recurrence(self):
+        
+        data = (
+            (
+                "1.1 - no recurrence",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+            ),
+            (
+                "1.2 - no truncation - count",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+            ),
+            (
+                "1.3 - no truncation - until",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=WEEKLY;UNTIL=20071128T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+            ),
+            (
+                "1.4 - truncation - count",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=WEEKLY;COUNT=2000
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:COUNT=400;FREQ=WEEKLY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.5 - truncation - until",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY;UNTIL=20471128T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.6 - no truncation - unbounded yearly",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=WEEKLY;UNTIL=20071128T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+            ),
+            (
+                "1.7 - truncation - unbounded daily",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+        
+        for title, original, result in data:
+            ical1 = Component.fromString(original)
+            changed = ical1.truncateRecurrence(400)
+            ical1.normalizeAll()
+            ical1 = str(ical1)
+            if result is not None:
+                if not changed:
+                    self.fail("Truncation did not happen when expected: %s" % (title,))
+                else:
+                    ical2 = Component.fromString(result)
+                    ical2 = str(ical2)
+    
+                    diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
+                    self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
+            elif changed:
+                self.fail("Truncation happened when not expected: %s" % (title,))
