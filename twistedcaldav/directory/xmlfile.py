@@ -86,7 +86,8 @@ class XMLDirectoryService(CachingDirectoryService):
                         shortNames    = tuple(xmlPrincipal.shortNames),
                         xmlPrincipal  = xmlPrincipal,
                     )
-                    self.recordCacheForType(recordType).addRecord(record)
+                    self.recordCacheForType(recordType).addRecord(record,
+                        indexType, indexKey)
             
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
