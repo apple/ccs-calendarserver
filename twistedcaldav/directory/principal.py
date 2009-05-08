@@ -528,7 +528,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         ])
 
     def __str__(self):
-        return "(%s) %s" % (self.record.recordType, self.record.shortNames[0])
+        return "(%s)%s" % (self.record.recordType, self.record.shortNames[0])
 
     @inlineCallbacks
     def readProperty(self, property, request):
