@@ -293,7 +293,7 @@ class iCalDiff(object):
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
-                        changedRids.append(rid)
+                        changedRids.append(toString(rid) if rid else "")
                 else:
                     log.debug("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
                     return False, False, (), None
@@ -356,7 +356,7 @@ class iCalDiff(object):
                 return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(rid)
+                changedRids.append(toString(rid) if rid else "")
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -367,7 +367,7 @@ class iCalDiff(object):
                     self.newCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(decline)
+                        changedRids.append(toString(decline) if decline else "")
                 else:
                     log.debug("Unable to override and instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
