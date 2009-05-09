@@ -21,13 +21,17 @@ import os
 import itertools
 import operator
 from getopt import getopt, GetoptError
+from uuid import UUID
 
 from twisted.python import log
 from twisted.python.reflect import namedClass
 from twisted.internet import reactor
+from twisted.internet.defer import Deferred
 from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2.dav import davxml
+
+from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav import caldavxml
 from twistedcaldav import memcachepool
@@ -39,7 +43,7 @@ from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
-from calendarserver.tools.util import UsageError
+from calendarserver.tools.util import UsageError, booleanArgument
 from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
 from calendarserver.provision.root import RootResource
 
@@ -49,21 +53,30 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options]" % (name,)
+    print "usage: %s [options] actions principal [principal ...]" % (name,)
+    print ""
+    print "  Performs the given actions against the giving principals."
+    print ""
+    print "  Principals are identified by one of the following:"
+    print "    Type and shortname (eg.: users:wsanchez)"
+   #print "    A principal path (eg.: /principals/users/wsanchez/)"
+    print "    A GUID (eg.: E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79)"
     print ""
     print "options:"
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  --resource <prinicpal-path>: path of the resource to use"
-    print "  --search <search-string>: search for matching resources"
-    print "  --read-property: namespace-qualified DAV property to read, e.g. 'DAV:#group-member-set'"
-    print "  --list-read-delegates: list delegates with read-only access to the current resource"
-    print "  --list-write-delegates: list delegates with read-write access to the current resource"
-    print "  --add-read-delegate <prinicpal-path>: add argument as a read-only delegate to the current resource"
-    print "  --add-write-delegate <prinicpal-path>: add argument as a read-write delegate to the current resource"
-    print "  --remove-delegate <prinicpal-path>: strip argument of delegate status for the current resource"
-    print "  --set-auto-schedule [true|false] : determines whether the current resource auto-accepts invitations"
-    print "  --get-auto-schedule : returns the current resource's auto-schedule state"
+    print ""
+    print "actions:"
+   #print "  --search <search-string>: search for matching resources"
+    print "  -P, --read-property: read DAV property to read (eg.: {DAV:}group-member-set)"
+    print "  --list-read-proxies: list proxies with read-only access"
+    print "  --list-write-proxies: list proxies with read-write access"
+    print "  --list-proxies: list all proxies"
+    print "  --add-read-proxy=principal: add a read-only proxy"
+    print "  --add-write-proxy=principal: add a read-write proxy"
+    print "  --remove-proxy=principal: remove a proxy"
+    print "  --set-auto-schedule={true|false}: set auto-accept state"
+    print "  --get-auto-schedule: read auto-schedule state"
 
     if e:
         sys.exit(64)
@@ -73,17 +86,17 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:r:s:", [
-                "config=",
+            sys.argv[1:], "hf:P:", [
                 "help",
-                "resource=",
-                "search=",
+                "config=",
+               #"search=",
                 "read-property=",
-                "list-read-delegates",
-                "list-write-delegates",
-                "add-read-delegate=",
-                "add-write-delegate=",
-                "remove-delegate=",
+                "list-read-proxies",
+                "list-write-proxies",
+                "list-proxies",
+                "add-read-proxy=",
+                "add-write-proxy=",
+                "remove-proxy=",
                 "set-auto-schedule=",
                 "get-auto-schedule",
             ],
@@ -91,16 +104,14 @@ def main():
     except GetoptError, e:
         usage(e)
 
-    if args:
-        usage("Too many arguments: %s" % (" ".join(args),))
+    if not args:
+        usage("No principals specified.")
 
-    logFileName = "/dev/stdout"
-    observer = log.FileLogObserver(open(logFileName, "a"))
-    log.addObserver(observer.emit)
-
-    # First pass through the args:
-
+    #
+    # Get configuration
+    #
     configFileName = None
+    actions = []
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -109,15 +120,306 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
-    loadConfig(configFileName)
-    directory, root = setup()
-    root = ResourceWrapper(root)
+        elif opt in ("-P", "--read-property"):
+            try:
+                qname = sname2qname(arg)
+            except ValueError, e:
+                abort(e)
+            actions.append((action_readProperty, qname))
 
-    reactor.callLater(0, run, directory, root, optargs)
+        elif opt in ("", "--list-read-proxies"):
+            actions.append((action_listProxies, "read"))
+
+        elif opt in ("", "--list-write-proxies"):
+            actions.append((action_listProxies, "write"))
+
+        elif opt in ("-L", "--list-proxies"):
+            actions.append((action_listProxies, "read", "write"))
+
+        elif opt in ("--add-read-proxy", "--add-write-proxy"):
+            if "read" in opt:
+                proxyType = "read"
+            elif "write" in opt:
+                proxyType = "write"
+            else:
+                raise AssertionError("Unknown proxy type")
+
+            try:
+                principalForPrincipalID(arg, checkOnly=True)
+            except ValueError, e:
+                abort(e)
+
+            actions.append((action_addProxy, proxyType, arg))
+
+        elif opt in ("", "--remove-proxy"):
+            try:
+                principalForPrincipalID(arg, checkOnly=True)
+            except ValueError, e:
+                abort(e)
+
+            actions.append((action_removeProxy, arg))
+
+        elif opt in ("", "--set-auto-schedule"):
+            try:
+                autoSchedule = booleanArgument(arg)
+            except ValueError, e:
+                abort(e)
+
+            actions.append((action_setAutoSchedule, autoSchedule))
+
+        elif opt in ("", "--get-auto-schedule"):
+            actions.append((action_getAutoSchedule,))
+
+        else:
+            raise NotImplementedError(opt)
+
+    #
+    # Get configuration
+    #
+    try:
+        loadConfig(configFileName)
+    except ConfigurationError, e:
+        abort(e)
+
+    #
+    # Do a quick sanity check that arguments look like principal
+    # identifiers.
+    #
+    for arg in args:
+        try:
+            principalForPrincipalID(arg, checkOnly=True)
+        except ValueError, e:
+            abort(e)
+
+    #
+    # Send logging output to stdout
+    #
+    setLogLevelForNamespace(None, "warn")
+    logFileName = "/dev/stdout"
+    observer = log.FileLogObserver(open(logFileName, "a"))
+    log.addObserver(observer.emit)
+
+    #
+    # Start the reactor
+    #
+    reactor.callLater(0, run, args, actions)
     reactor.run()
 
 @inlineCallbacks
-def run(directory, root, optargs):
+def run(principalIDs, actions):
+    try:
+        #
+        # Connect to memcached, notifications
+        #
+        if config.Memcached.ClientEnabled:
+            memcachepool.installPool(
+                IPv4Address(
+                    "TCP",
+                    config.Memcached.BindAddress,
+                    config.Memcached.Port,
+                ),
+                config.Memcached.MaxClients
+            )
+        if config.Notifications.Enabled:
+            installNotificationClient(
+                config.Notifications.InternalNotificationHost,
+                config.Notifications.InternalNotificationPort,
+            )
+
+        #
+        # Wire up the resource hierarchy
+        #
+        principalCollection = config.directory.getPrincipalCollection()
+        root = RootResource(
+            config.DocumentRoot,
+            principalCollections=(principalCollection,),
+        )
+        root.putChild("principals", principalCollection)
+        calendarCollection = CalendarHomeProvisioningFile(
+            os.path.join(config.DocumentRoot, "calendars"),
+            config.directory, "/calendars/",
+        )
+        root.putChild("calendars", calendarCollection)
+
+        #
+        # Wrap root resource
+        #
+        # FIXME: not a fan -wsanchez
+        #root = ResourceWrapper(root)
+
+        for principalID in principalIDs:
+            # Resolve the given principal IDs to principals
+            try:
+                principal = principalForPrincipalID(principalID)
+            except ValueError:
+                principal = None
+
+            if principal is None:
+                sys.stderr.write("Invalid principal ID: %s\n" % (principalID,))
+                continue
+
+            # Performs requested actions
+            for action in actions:
+                (yield action[0](principal, *action[1:]))
+                print ""
+
+    finally:
+        #
+        # Stop the reactor
+        #
+        reactor.stop()
+
+def principalForPrincipalID(principalID, checkOnly=False):
+    if principalID.startswith("/"):
+        raise ValueError("Can't resolve paths yet")
+
+        if checkOnly:
+            return None
+
+    if principalID.startswith("("):
+        try:
+            i = principalID.index(")")
+
+            if checkOnly:
+                return None
+
+            recordType = principalID[1:i]
+            shortName = principalID[i+1:]
+
+            if not recordType or not shortName or "(" in recordType:
+                raise ValueError()
+
+            return config.directory.principalCollection.principalForShortName(recordType, shortName)
+
+        except ValueError:
+            pass
+
+    if ":" in principalID:
+        if checkOnly:
+            return None
+
+        recordType, shortName = principalID.split(":", 1)
+
+        return config.directory.principalCollection.principalForShortName(recordType, shortName)
+
+    try:
+        guid = UUID(principalID)
+
+        if checkOnly:
+            return None
+
+        return config.directory.principalCollection.principalForUID(guid)
+    except ValueError:
+        pass
+
+    raise ValueError("Invalid principal identifier: %s" % (principalID,))
+
+def proxySubprincipal(principal, proxyType):
+    return principal.getChild("calendar-proxy-" + proxyType)
+
+@inlineCallbacks
+def action_readProperty(resource, qname):
+    property = (yield resource.readProperty(qname, None))
+    print "%r on %s:" % (qname2sname(qname), resource)
+    print ""
+    print property.toxml()
+
+@inlineCallbacks
+def action_listProxies(principal, *proxyTypes):
+    for proxyType in proxyTypes:
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            print "No %s proxies for %s" % (proxyType, principal)
+            continue
+
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+        if membersProperty.children:
+            print "%s proxies for %s:" % (
+                {"read": "Read-only", "write": "Read/write"}[proxyType],
+                principal,
+            )
+            for member in membersProperty.children:
+                print " *", member
+        else:
+            print "No %s proxies for %s" % (proxyType, principal)
+
+@inlineCallbacks
+def action_addProxy(principal, proxyType, *proxyIDs):
+    for proxyID in proxyIDs:
+        proxyPrincipal = principalForPrincipalID(proxyID)
+        proxyURL = proxyPrincipal.url()
+
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
+            continue
+
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+        for memberURL in membersProperty.children:
+            if str(memberURL) == proxyURL:
+                print "%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+                break
+        else:
+            memberURLs = list(membersProperty.children)
+            memberURLs.append(davxml.HRef(proxyURL))
+            membersProperty = davxml.GroupMemberSet(*memberURLs)
+            (yield subPrincipal.writeProperty(membersProperty, None))
+            print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+
+        proxyTypes = ["read", "write"]
+        proxyTypes.remove(proxyType)
+
+        (yield action_removeProxy(principal, proxyID, proxyTypes=proxyTypes))
+
+@inlineCallbacks
+def action_removeProxy(principal, *proxyIDs, **kwargs):
+    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
+
+    for proxyID in proxyIDs:
+        for proxyType in proxyTypes:
+            proxyPrincipal = principalForPrincipalID(proxyID)
+            proxyURL = proxyPrincipal.url()
+
+            subPrincipal = proxySubprincipal(principal, proxyType)
+            if subPrincipal is None:
+                sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
+                continue
+
+            membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+            memberURLs = [
+                m for m in membersProperty.children
+                if str(m) != proxyURL
+            ]
+
+            if len(memberURLs) == len(membersProperty.children):
+                # No change
+                continue
+
+            membersProperty = davxml.GroupMemberSet(*memberURLs)
+            (yield subPrincipal.writeProperty(membersProperty, None))
+            print "Removed %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+
+@inlineCallbacks
+def action_setAutoSchedule(principal, autoSchedule):
+    print "Setting auto-schedule to %s for %s" % (
+        { True: "true", False: "false" }[autoSchedule],
+        principal,
+    )
+    (yield principal.setAutoSchedule(autoSchedule))
+
+@inlineCallbacks
+def action_getAutoSchedule(principal):
+    autoSchedule = (yield principal.getAutoSchedule())
+    print "Autoschedule for %s is %s" % (
+        principal,
+        { True: "true", False: "false" }[autoSchedule],
+    )
+
+@inlineCallbacks
+def _run(directory, root, optargs, principalIDs):
 
     print ""
 
@@ -125,20 +427,13 @@ def run(directory, root, optargs):
 
     for opt, arg in optargs:
 
-        if opt in ("-r", "--resource",):
-            resource = root.lookupResource(arg)
-            if resource is not None:
-                print "Found resource %s at %s" % (resource.resource, arg)
-            else:
-                abort("Could not find resource at %s" % (arg,))
-
-        elif opt in ("-s", "--search",):
+        if opt in ("-s", "--search",):
             fields = []
             for fieldName in ("fullName", "firstName", "lastName",
                 "emailAddresses"):
                 fields.append((fieldName, arg, True, "contains"))
 
-            records = list((yield directory.recordsMatchingFields(fields)))
+            records = list((yield config.directory.recordsMatchingFields(fields)))
             if records:
                 records.sort(key=operator.attrgetter('fullName'))
                 print "%d matches found:" % (len(records),)
@@ -159,198 +454,18 @@ def run(directory, root, optargs):
             else:
                 print "No matches found"
 
-        elif opt in ("--read-property",):
-            if resource is None: abort("No current resource.")
-
-            try:
-                namespace, name = arg.split("#")
-            except Exception, e:
-                abort("Can't parse --propertyToRead: %s" % (arg,))
-
-            result = (yield resource.readProperty((namespace, name)))
-            print result.toxml()
-
-        elif opt in ("--list-write-delegates", "--list-read-delegates"):
-            if resource is None: abort("No current resource.")
-
-            permission = "write" if "write" in opt else "read"
-            print "Delegates (%s) for %s:" % (permission, resource.resource)
-            paths = (yield resource.getDelegates(permission))
-            for path in paths:
-                delegate = root.getChild(path)
-                print delegate.resource
-
-        elif opt in ("--add-write-delegate", "--add-read-delegate"):
-            if resource is None: abort("No current resource.")
-
-            delegate = root.lookupResource(arg)
-            if delegate is None:
-                abort("No delegate found for %s" % (arg,))
-
-            permission = "write" if "write" in opt else "read"
-            result = (yield resource.addDelegate(delegate, permission))
-
-        elif opt == "--remove-delegate":
-            if resource is None: abort("No current resource.")
-
-            delegate = root.lookupResource(arg)
-            if delegate is None:
-                abort("No delegate found for %s" % (arg,))
-
-            result = (yield resource.removeDelegate(delegate, "read"))
-            result = (yield resource.removeDelegate(delegate, "write"))
-
-        elif opt == "--set-auto-schedule":
-            if resource is None: abort("No current resource.")
-
-            result = (yield resource.setAutoSchedule(arg.lower() in ("true", "1")))
-
-        elif opt == "--get-auto-schedule":
-            if resource is None: abort("No current resource.")
-
-            result = (yield resource.getAutoSchedule())
-            print "Auto-Schedule: %s" % ("True" if result else "False",)
-
     print ""
 
     # reactor.callLater(0, reactor.stop)
     reactor.stop()
 
-class ResourceWrapper(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def readProperty(self, prop):
-        return self.resource.readProperty(prop, FakeRequest())
-
-    def writeProperty(self, prop):
-        return self.resource.writeProperty(prop, FakeRequest())
-
-    def lookupResource(self, specifier):
-        # For now, support GUID lookup
-        return self.getChild("principals/__uids__/%s" % (specifier,))
-
-    def getChild(self, path):
-        resource = self.resource
-        segments = path.strip("/").split("/")
-        for segment in segments:
-            resource = resource.getChild(segment)
-            if resource is None:
-                return None
-        return ResourceWrapper(resource)
-
-    @inlineCallbacks
-    def removeDelegate(self, delegate, permission):
-        subPrincipalName = "calendar-proxy-%s" % (permission,)
-        subPrincipal = self.getChild(subPrincipalName)
-        if subPrincipal is None:
-            abort("No proxy subprincipal found for %s" % (self.resource,))
-
-        namespace, name = davxml.dav_namespace, "group-member-set"
-        prop = (yield subPrincipal.readProperty((namespace, name)))
-        newChildren = []
-        for child in prop.children:
-            if str(child) != delegate.url():
-                newChildren.append(child)
-
-        if len(prop.children) == len(newChildren):
-            # Nothing to do -- the delegate wasn't there
-            returnValue(False)
-
-        newProp = davxml.GroupMemberSet(*newChildren)
-        result = (yield subPrincipal.writeProperty(newProp))
-        returnValue(result)
-
-    @inlineCallbacks
-    def addDelegate(self, delegate, permission):
-
-        opposite = "read" if permission == "write" else "write"
-        result = (yield self.removeDelegate(delegate, opposite))
-
-        subPrincipalName = "calendar-proxy-%s" % (permission,)
-        subPrincipal = self.getChild(subPrincipalName)
-        if subPrincipal is None:
-            abort("No proxy subprincipal found for %s" % (self.resource,))
-
-        namespace, name = davxml.dav_namespace, "group-member-set"
-        prop = (yield subPrincipal.readProperty((namespace, name)))
-        for child in prop.children:
-            if str(child) == delegate.url():
-                # delegate is already in the group
-                break
-        else:
-            # delegate is not already in the group
-            newChildren = list(prop.children)
-            newChildren.append(davxml.HRef(delegate.url()))
-            newProp = davxml.GroupMemberSet(*newChildren)
-            result = (yield subPrincipal.writeProperty(newProp))
-            returnValue(result)
-
-    @inlineCallbacks
-    def getDelegates(self, permission):
-
-        subPrincipalName = "calendar-proxy-%s" % (permission,)
-        subPrincipal = self.getChild(subPrincipalName)
-        if subPrincipal is None:
-            abort("No proxy subprincipal found for %s" % (self.resource,))
-
-        namespace, name = davxml.dav_namespace, "group-member-set"
-        prop = (yield subPrincipal.readProperty((namespace, name)))
-        result = []
-        for child in prop.children:
-            result.append(str(child))
-        returnValue(result)
-
-    def setAutoSchedule(self, autoSchedule):
-        return self.resource.setAutoSchedule(autoSchedule)
-
-    def getAutoSchedule(self):
-        return self.resource.getAutoSchedule()
-
-    def url(self):
-        return self.resource.url()
-
-class FakeRequest(object):
-    pass
-
-def abort(msg, errno=1):
-    print "ERROR:", msg
-    print "Exiting"
-    reactor.stop()
-    sys.exit(errno)
-
-def setup():
-    setLogLevelForNamespace(None, "warn")
-
-    directory = getDirectory()
-    if config.Memcached["ClientEnabled"]:
-        memcachepool.installPool(
-            IPv4Address(
-                'TCP',
-                config.Memcached["BindAddress"],
-                config.Memcached["Port"]
-            ),
-            config.Memcached["MaxClients"]
-        )
-    if config.Notifications["Enabled"]:
-        installNotificationClient(
-            config.Notifications["InternalNotificationHost"],
-            config.Notifications["InternalNotificationPort"],
-        )
-    principalCollection = directory.getPrincipalCollection()
-    root = RootResource(
-        config.DocumentRoot,
-        principalCollections=(principalCollection,),
-    )
-    root.putChild("principals", principalCollection)
-    calendarCollection = CalendarHomeProvisioningFile(
-        os.path.join(config.DocumentRoot, "calendars"),
-        directory, "/calendars/",
-    )
-    root.putChild("calendars", calendarCollection)
-
-    return (directory, root)
+def abort(msg, status=1):
+    sys.stdout.write("%s\n" % (msg,))
+    try:
+        reactor.stop()
+    except RuntimeError:
+        pass
+    sys.exit(status)
 
 if __name__ == "__main__":
     main()

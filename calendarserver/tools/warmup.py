@@ -32,6 +32,7 @@ import sqlite3
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService
@@ -126,20 +127,23 @@ def main():
         usage("Too many arguments: %s" % (" ".join(args),))
 
     if records or allRecords:
-        config = loadConfig(configFileName)
-        directory = getDirectory()
+        try:
+            config = loadConfig(configFileName)
+        except ConfigurationError, e:
+            sys.stdout.write("%s\n" % (e,))
+            sys.exit(1)
 
         for record in records:
             recordType, shortName = record
-            calendarHome = directory.calendarHomeForShortName(recordType, shortName)
+            calendarHome = config.directory.calendarHomeForShortName(recordType, shortName)
             if not calendarHome:
                 sys.stderr.write("No calendar home found for record: (%s)%s\n" % (recordType, shortName))
                 sys.exit(1)
             calendarHomes.add(calendarHome)
 
         if allRecords:
-            for record in directory.allRecords():
-                calendarHome = directory.calendarHomeForRecord(record)
+            for record in config.directory.allRecords():
+                calendarHome = config.directory.calendarHomeForRecord(record)
                 if not calendarHome:
                     pass
                 else:

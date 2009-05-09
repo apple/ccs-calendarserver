@@ -19,6 +19,7 @@ __all__ = [
     "getDirectory",
     "dummyDirectoryRecord",
     "UsageError",
+    "booleanArgument",
 ]
 
 import sys
@@ -26,7 +27,7 @@ import os
 
 from twisted.python.reflect import namedClass
 
-from twistedcaldav.config import config, defaultConfigFile
+from twistedcaldav.config import config, defaultConfigFile, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
 def loadConfig(configFileName):
@@ -34,10 +35,10 @@ def loadConfig(configFileName):
         configFileName = defaultConfigFile
 
     if not os.path.isfile(configFileName):
-        sys.stderr.write("No config file: %s\n" % (configFileName,))
-        sys.exit(1)
+        raise ConfigurationError("No config file: %s" % (configFileName,))
 
     config.loadConfig(configFileName)
+    config.directory = getDirectory()
 
     return config
 
@@ -107,3 +108,11 @@ dummyDirectoryRecord = DirectoryRecord(
 
 class UsageError (StandardError):
     pass
+
+def booleanArgument(arg):
+    if   arg in ("true",  "yes", "yup",  "uh-huh", "1", "t", "y"):
+        return True
+    elif arg in ("false", "no",  "nope", "nuh-uh", "0", "f", "n"):
+        return False
+    else:
+        raise ValueError("Not a boolean: %s" % (arg,))
