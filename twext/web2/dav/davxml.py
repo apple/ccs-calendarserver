@@ -47,8 +47,7 @@ def sname2qname(sname):
     namespace = sname[1:i]
     name = sname [i+1:]
 
-    raiseIf("{" in namespace)
-    raiseIf(not name)
+    raiseIf("{" in namespace or not name)
 
     return namespace, name
 
