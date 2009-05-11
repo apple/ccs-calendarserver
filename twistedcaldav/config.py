@@ -637,12 +637,14 @@ class Config (object):
     def loadConfig(self, configFile):
         self._configFile = configFile
 
-        if configFile and os.path.exists(configFile):
-            configDict = readPlist(configFile)
-            configDict = _cleanup(configDict)
-            self.update(ConfigDict(configDict))
-        elif configFile:
-            log.error("Configuration file does not exist or is inaccessible: %s" % (configFile,))
+        if configFile:
+            try:
+                configDict = readPlist(configFile)
+            except IOError, OSError:
+                log.error("Unable to open config file: %s" % (configFile,))
+            else:
+                configDict = _cleanup(configDict)
+                self.update(ConfigDict(configDict))
 
     @staticmethod
     def updateNotifications(self, items):
