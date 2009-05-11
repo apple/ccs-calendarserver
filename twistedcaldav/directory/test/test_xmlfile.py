@@ -121,6 +121,10 @@ class XMLFile (
             ( DirectoryService.recordType_locations , ()         ),
             ( DirectoryService.recordType_resources , ()         ),
         ):
+            # Fault records in
+            for name in expectedRecords:
+                service.recordWithShortName(recordType, name)
+
             self.assertEquals(
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
@@ -150,6 +154,10 @@ class XMLFile (
             ( DirectoryService.recordType_locations , ("my office",) ),
             ( DirectoryService.recordType_resources , ()             ),
         ):
+            # Fault records in
+            for name in expectedRecords:
+                service.recordWithShortName(recordType, name)
+
             self.assertEquals(
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
@@ -185,6 +193,10 @@ class XMLFile (
             ( DirectoryService.recordType_locations , ()                       ),
             ( DirectoryService.recordType_resources , ()                       ),
         ):
+            # Fault records in
+            for name in expectedRecords:
+                service.recordWithShortName(recordType, name)
+
             self.assertEquals(
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
@@ -227,6 +239,10 @@ class XMLFile (
             ( DirectoryService.recordType_locations , ("my office",) ),
             ( DirectoryService.recordType_resources , ()             ),
         ):
+            # Fault records in
+            for name in expectedRecords:
+                service.recordWithShortName(recordType, name)
+
             self.assertEquals(
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)

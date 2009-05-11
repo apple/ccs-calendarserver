@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 import sys
-from random import random
+import time
 from uuid import UUID
 
 from twext.python.plistlib import readPlistFromString
@@ -35,16 +35,18 @@ import opendirectory
 import dsattributes
 import dsquery
 
-from twisted.internet.reactor import callLater
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
+from twistedcaldav.config import config
 
+from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
+    CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.directory.principal import cuAddressConverter
 
-class OpenDirectoryService(DirectoryService):
+class OpenDirectoryService(CachingDirectoryService):
     """
     Open Directory implementation of L{IDirectoryService}.
     """
@@ -71,6 +73,9 @@ class OpenDirectoryService(DirectoryService):
                         This should only be set to C{False} when doing unit tests.
         @param cacheTimeout: C{int} number of minutes before cache is invalidated.
         """
+
+        super(OpenDirectoryService, self).__init__(cacheTimeout)
+
         try:
             directory = opendirectory.odInit(node)
         except opendirectory.ODError, e:
@@ -89,13 +94,9 @@ class OpenDirectoryService(DirectoryService):
         else:
             self.restrictToGUID = True
         self.restrictedGUIDs = None
-        self.cacheTimeout = cacheTimeout
+        self.restrictedTimestamp = 0
         self._records = {}
         self._delayedCalls = set()
-
-        if dosetup:
-            for recordType in self.recordTypes():
-                self.recordsForType(recordType)
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -191,33 +192,6 @@ class OpenDirectoryService(DirectoryService):
                 
         return result
 
-    def _parseResourceInfo(self, plist, guid, recordType, shortname):
-        """
-        Parse OD ResourceInfo attribute and extract information that the server needs.
-
-        @param plist: the plist that is the attribute value.
-        @type plist: str
-        @param guid: the directory GUID of the record being parsed.
-        @type guid: str
-        @param shortname: the record shortname of the record being parsed.
-        @type shortname: str
-        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
-        """
-        try:
-            plist = readPlistFromString(plist)
-            wpframework = plist.get("com.apple.WhitePagesFramework", {})
-            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
-            proxy = wpframework.get("CalendaringDelegate", None)
-            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-        except (ExpatError, AttributeError), e:
-            self.log_error(
-                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
-                (recordType, shortname, guid, e, plist,)
-            )
-            raise ValueError("Invalid ResourceInfo")
-
-        return (autoaccept, proxy, read_only_proxy,)
-
     def recordTypes(self):
         return (
             self.recordType_users,
@@ -226,133 +200,86 @@ class OpenDirectoryService(DirectoryService):
             self.recordType_resources,
         )
 
-    def _storage(self, recordType):
-        try:
-            storage = self._records[recordType]
-        except KeyError:
-            self.reloadCache(recordType)
-            storage = self._records[recordType]
-        else:
-            if storage["status"] == "stale":
-                storage["status"] = "loading"
-
-                def onError(f):
-                    storage["status"] = "stale" # Keep trying
-                    self.log_error(
-                        "Unable to load records of type %s from OpenDirectory due to unexpected error: %s"
-                        % (recordType, f)
-                    )
-
-                # Reload the restricted access group details if reloading user records
-                if recordType == self.recordType_users:
-                    self.restrictedGUIDs = None
-
-                d = deferToThread(self.reloadCache, recordType)
-                d.addErrback(onError)
-
-        return storage
-
-    def recordsForType(self, recordType):
-        """
-        @param recordType: a record type
-        @return: a dictionary containing all records for the given record
-        type.  Keys are short names and values are the corresponding
-        OpenDirectoryRecord for the given record type.
-        """
-        return self._storage(recordType)["records"]
-
-    def listRecords(self, recordType):
-        return self.recordsForType(recordType).itervalues()
-
-    def recordWithShortName(self, recordType, shortName):
-        try:
-            return self.recordsForType(recordType)[shortName]
-        except KeyError:
-            # Check negative cache
-            if shortName in self._storage(recordType)["disabled names"]:
-                return None
-
-            # Cache miss; try looking the record up, in case it is new
-            # FIXME: This is a blocking call (hopefully it's a fast one)
-            self.reloadCache(recordType, lookup=("shortName", shortName,))
-            record = self.recordsForType(recordType).get(shortName, None)
-            if record is None:
-                # Add to negative cache
-                self._storage(recordType)["disabled names"].add(shortName)
-            return record
-
-    def recordWithCalendarUserAddress(self, address):
-        address = normalizeCUAddr(address)
-        record = None
-        if address.startswith("urn:uuid:"):
-            guid = address[9:]
-            record = self.recordWithGUID(guid)
-        elif address.startswith("mailto:"):
-            record = self._recordWithAttribute("cuas", "disabled cuas", "cua", address)
-
-        return record if record and record.enabledForCalendaring else None
-
-    def recordWithGUID(self, guid):
-        return self._recordWithAttribute("guids", "disabled guids", "guid", guid)
-
-    recordWithUID = recordWithGUID
-
-    def recordWithAuthID(self, authID):
-        return self._recordWithAttribute("authIDs", "disabled authIDs", "authID", authID)
-
-    def _recordWithAttribute(self, cacheKey, disabledKey, lookupKey, value):
-        def lookup():
-            for recordType in self.recordTypes():
-                record = self._storage(recordType)[cacheKey].get(value, None)
-                if record:
-                    return record
-            else:
-                return None
-
-        record = lookup()
-
-        if record is None:
-            # Cache miss; try looking the record up, in case it is new
-            for recordType in self.recordTypes():
-                # Check negative cache
-                if value in self._storage(recordType)[disabledKey]:
-                    continue
-
-                try:
-                    self.reloadCache(recordType, lookup=(lookupKey, value,))
-                    record = lookup()
-                except opendirectory.ODError, e:
-                    if e.message[1] == -14140 or e.message[1] == -14200:
-                        # Unsupported attribute on record - don't fail
-                        record = None
-                    else:
-                        raise
-
-                if record is None:
-                    self._storage(recordType)[disabledKey].add(value)
-                else:
-                    self.log_info("Faulted record with %s %s into %s record cache"
-                                  % (lookupKey, value, recordType))
-                    break
-            else:
-                # Nothing found; add to negative cache
-                self.log_info("Unable to find any record with %s %s" % (lookupKey, value,))
-
-        return record
-
     def groupsForGUID(self, guid):
         
-        # Lookup in index
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+        ]
+
+        recordType = dsattributes.kDSStdRecordTypeGroups
+
+        guids = set()
+
+        query = dsquery.match(dsattributes.kDSNAttrGroupMembers, guid, dsattributes.eDSExact)
         try:
-            return self._storage(self.recordType_groups)["groupsForGUID"][guid]
-        except KeyError:
-            return ()
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                recordType,
+                attrs,
+            ))
+            results = opendirectory.queryRecordsWithAttribute_list(
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                recordType,
+                attrs,
+            )
+        except opendirectory.ODError, ex:
+            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            raise
+
+        for (_ignore_recordShortName, value) in results:
+
+            # Now get useful record info.
+            recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+            if recordGUID:
+                guids.add(recordGUID)
+
+        query = dsquery.match(dsattributes.kDSNAttrNestedGroups, guid, dsattributes.eDSExact)
+        try:
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                recordType,
+                attrs,
+            ))
+            results = opendirectory.queryRecordsWithAttribute_list(
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                recordType,
+                attrs,
+            )
+        except opendirectory.ODError, ex:
+            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            raise
+
+        for (_ignore_recordShortName, value) in results:
+
+            # Now get useful record info.
+            recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+            if recordGUID:
+                guids.add(recordGUID)
+
+        return guids
 
     def proxiesForGUID(self, recordType, guid):
         
         # Lookup in index
         try:
-            return self._storage(recordType)["proxiesForGUID"][guid]
+            # TODO:
+            return ()
         except KeyError:
             return ()
 
@@ -360,13 +287,10 @@ class OpenDirectoryService(DirectoryService):
         
         # Lookup in index
         try:
-            return self._storage(recordType)["readOnlyProxiesForGUID"][guid]
+            # TODO:
+            return ()
         except KeyError:
             return ()
-
-    def _indexGroup(self, group, guids, index):
-        for guid in guids:
-            index.setdefault(guid, set()).add(group)
 
     _ODFields = {
         'fullName' : {
@@ -507,51 +431,95 @@ class OpenDirectoryService(DirectoryService):
         return deferred
 
 
-    def reloadCache(self, recordType, lookup=None):
-        if lookup is not None:
-            self.log_info("Faulting record with %s %s into %s record cache" % (lookup[0], lookup[1], recordType))
-        else:
-            self.log_info("Reloading %s record cache" % (recordType,))
-
-        results = self._queryDirectory(recordType, lookup=lookup)
-
-        if lookup is None:
-            records = {}
-            guids   = {}
-            authIDs = {}
-            cuas  = {}
-
-            disabledNames   = set()
-            disabledGUIDs   = set()
-            disabledAuthIDs = set()
-            disabledCUAs    = set()
-
-            if recordType == self.recordType_groups:
-                groupsForGUID = {}
-            elif recordType in (self.recordType_resources, self.recordType_locations):
-                proxiesForGUID = {}
-                readOnlyProxiesForGUID = {}
-        else:
-            storage = self._records[recordType]
-
-            records = storage["records"]
-            guids   = storage["guids"]
-            authIDs = storage["authIDs"]
-            cuas    = storage["cuas"]
-
-            disabledNames   = storage["disabled names"]
-            disabledGUIDs   = storage["disabled guids"]
-            disabledAuthIDs = storage["disabled authIDs"]
-            disabledCUAs    = storage["disabled cuas"]
-
-            if recordType == self.recordType_groups:
-                groupsForGUID = storage["groupsForGUID"]
-            elif recordType in (self.recordType_resources, self.recordType_locations):
-                proxiesForGUID = storage["proxiesForGUID"]
-                readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
-
-        enabled_count = 0
+    def queryDirectory(self, recordTypes, indexType, indexKey):
         
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDSNAttrRecordName,
+            dsattributes.kDSNAttrAltSecurityIdentities,
+            dsattributes.kDSNAttrRecordType,
+            dsattributes.kDS1AttrDistinguishedName,
+            dsattributes.kDS1AttrFirstName,
+            dsattributes.kDS1AttrLastName,
+            dsattributes.kDSNAttrEMailAddress,
+            dsattributes.kDSNAttrMetaNodeLocation,
+        ]
+
+        origIndexKey = indexKey
+        if indexType == self.INDEX_TYPE_CUA:
+            # The directory doesn't contain CUAs, so we need to convert
+            # the CUA to the appropriate field name and value:
+            queryattr, indexKey = cuAddressConverter(indexKey)
+            # queryattr will be one of:
+            # guid, emailAddresses, or recordName
+            # ...which will need to be mapped to DS
+            queryattr = self._ODFields[queryattr]['odField']
+
+        else:
+            queryattr = {
+                self.INDEX_TYPE_SHORTNAME : dsattributes.kDSNAttrRecordName,
+                self.INDEX_TYPE_GUID      : dsattributes.kDS1AttrGeneratedUID,
+            }.get(indexType)
+            assert queryattr is not None, "Invalid type for record faulting query"
+
+        query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
+
+
+        listRecordTypes = []
+        for recordType in recordTypes:
+            if recordType == DirectoryService.recordType_users:
+                listRecordTypes.append(dsattributes.kDSStdRecordTypeUsers)
+    
+            elif recordType == DirectoryService.recordType_groups:
+                listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
+                attrs.append(dsattributes.kDSNAttrGroupMembers)
+                attrs.append(dsattributes.kDSNAttrNestedGroups)
+    
+            elif recordType == DirectoryService.recordType_locations:
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypePlaces)
+                # MOR: possibly can be removed
+                attrs.append(dsattributes.kDSNAttrResourceInfo)
+            
+            elif recordType == DirectoryService.recordType_resources:
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypeResources)
+                # MOR: possibly can be removed
+                attrs.append(dsattributes.kDSNAttrResourceInfo)
+            
+            else:
+                raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType))
+
+
+        try:
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                listRecordTypes,
+                attrs,
+            ))
+            results = opendirectory.queryRecordsWithAttribute_list(
+                self.directory,
+                query.attribute,
+                query.value,
+                query.matchType,
+                False,
+                listRecordTypes,
+                attrs,
+            )
+            self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+
+        except opendirectory.ODError, ex:
+            if ex.message[1] == -14140 or ex.message[1] == -14200:
+                # Unsupported attribute on record - don't fail
+                return
+            else:
+                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                raise
+
         def _uniqueTupleFromAttribute(attribute):
             if attribute:
                 if isinstance(attribute, str):
@@ -561,7 +529,7 @@ class OpenDirectoryService(DirectoryService):
                     return tuple([(s.add(x), x)[1] for x in attribute if x not in s])
             else:
                 return ()
-            
+
         def _setFromAttribute(attribute, lower=False):
             if attribute:
                 if isinstance(attribute, str):
@@ -570,18 +538,31 @@ class OpenDirectoryService(DirectoryService):
                     return set([item.lower() if lower else item for item in attribute])
             else:
                 return ()
-            
+
+        enabledRecords = []
+        disabledRecords = []
+
         for (recordShortName, value) in results:
 
             # Now get useful record info.
             recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
             recordShortNames     = _uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordType           = value.get(dsattributes.kDSNAttrRecordType)
+            if isinstance(recordType, list):
+                recordType = recordType[0]
             recordAuthIDs        = _setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
             recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
             recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
             recordLastName       = value.get(dsattributes.kDS1AttrLastName)
             recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
+
+            if not recordType:
+                self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
+                    % (recordShortName, recordNodeName))
+                continue
+
+            recordType = self._fromODRecordTypes[recordType]
 
             if not recordGUID:
                 self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
@@ -597,13 +578,48 @@ class OpenDirectoryService(DirectoryService):
             if recordType == self.recordType_groups:
                 enabledForCalendaring = False
             else:
-                if self.restrictEnabledRecords and self.restrictedGUIDs is not None:
+                if (
+                    self.restrictEnabledRecords and
+                    config.Scheduling.iMIP.Username != recordShortName
+                ):
+                    if time.time() - self.restrictedTimestamp > self.cacheTimeout:
+                        attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
+                        valueToMatch = self.restrictToGroup
+                        self.log_debug("Doing restricted group membership check")
+                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                            self.directory,
+                            attributeToMatch,
+                            valueToMatch,
+                            dsattributes.eDSExact,
+                            False,
+                            dsattributes.kDSStdRecordTypeGroups,
+                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                        ))
+                        results = opendirectory.queryRecordsWithAttribute_list(
+                            self.directory,
+                            attributeToMatch,
+                            valueToMatch,
+                            dsattributes.eDSExact,
+                            False,
+                            dsattributes.kDSStdRecordTypeGroups,
+                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                        )
+
+                        if len(results) == 1:
+                            members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
+                            nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
+                        else:
+                            members = []
+                            nestedGroups = []
+                        self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
+                        self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
+                        self.restrictedTimestamp = time.time()
+
                     enabledForCalendaring = recordGUID in self.restrictedGUIDs
                 else:
                     enabledForCalendaring = True
 
             if enabledForCalendaring:
-                enabled_count += 1
                 calendarUserAddresses = self._calendarUserAddresses(recordType, value)
             else:
                 # Some records we want to keep even though they are not enabled for calendaring.
@@ -654,313 +670,47 @@ class OpenDirectoryService(DirectoryService):
                 enabledForCalendaring = enabledForCalendaring,
                 memberGUIDs           = memberGUIDs,
             )
-
-            def disableGUID(guid, record):
-                """
-                Disable the record by removing it from all indexes.
-                """
-
-                self.log_warn("GUID %s disabled due to conflict for record: %s"
-                              % (guid, record))
-
-                disabledGUIDs.add(guid)
-                disabledNames.update(record.shortNames)
-                disabledAuthIDs.update(record.authIDs)
-                disabledCUAs.update(record.calendarUserAddresses)
-
-                if guid in guids:
-                    try:
-                        del guids[guid]
-                    except KeyError:
-                        pass
-                for shortName in record.shortNames:
-                    try:
-                        del records[shortName]
-                    except KeyError:
-                        pass
-                for authID in record.authIDs:
-                    try:
-                        del authIDs[authID]
-                    except KeyError:
-                        pass
-                for cua in record.calendarUserAddresses:
-                    try:
-                        del cuas[cua]
-                    except KeyError:
-                        pass
-
-            if record.guid in disabledGUIDs:
-                disableGUID(record.guid, record)
+            if enabledForCalendaring:
+                enabledRecords.append(record)
             else:
-                # Check for duplicates
-                existing_record = guids.get(record.guid)
-                if existing_record is not None:
-                    if existing_record.shortNames != record.shortNames:
-                        disableGUID(record.guid, record)
-                        disableGUID(record.guid, existing_record)
-                        if existing_record.enabledForCalendaring:
-                            enabled_count -= 1
-                else:
-                    guids[record.guid] = record
-                    self.log_debug("Added record %s to OD record cache" % (record,))
-                    if record.enabledForCalendaring:
-                        enabled_count += 1
-        
-                    # Do group indexing if needed
-                    if recordType == self.recordType_groups:
-                        self._indexGroup(record, record._memberGUIDs, groupsForGUID)
+                disabledRecords.append(record)
 
-                    # Index non-duplicate shortNames
-                    def disableName(shortName, record):
-                        self.log_warn("Short name %s disabled due to conflict for record: %s"
-                                      % (shortName, record))
-        
-                        record.shortNames = tuple([item for item in record.shortNames if item != shortName])
-                        disabledNames.add(shortName)
-        
-                        if shortName in records:
-                            del records[shortName]
-        
-                    for shortName in tuple(record.shortNames):
-                        if shortName in disabledNames:
-                            disableName(shortName, record)
-                        else:
-                            # Check for duplicates
-                            existing_record = records.get(shortName)
-                            if existing_record is not None and existing_record != record:
-                                disableName(shortName, record)
-                                disableName(shortName, existing_record)
-                            else:
-                                records[shortName] = record
-        
-                    # Index non-duplicate authIDs
-                    def disableAuthIDs(authID, record):
-                        self.log_warn("Auth ID %s disabled due to conflict for record: %s"
-                                      % (authID, record))
-        
-                        record.authIDs.remove(authID)
-                        disabledAuthIDs.add(authID)
-        
-                        if authID in authIDs:
-                            del authIDs[authID]
-        
-                    for authID in frozenset(recordAuthIDs):
-                        if authID in disabledAuthIDs:
-                            disableAuthIDs(authID, record)
-                        else:
-                            # Check for duplicates
-                            existing_record = authIDs.get(authID)
-                            if existing_record is not None:
-                                disableAuthIDs(authID, record)
-                                disableAuthIDs(authID, existing_record)
-                            else:
-                                authIDs[authID] = record
-        
-                    # Index non-duplicate CUAs
-                    def disableCUA(cua, record):
-                        self.log_warn("CUA %s disabled due to conflict for record: %s"
-                                      % (cua, record))
-        
-                        record.calendarUserAddresses.remove(cua)
-                        disabledCUAs.add(cua)
-        
-                        if cua in cuas:
-                            del cuas[cua]
+        record = None
+        if len(enabledRecords) == 1:
+            record = enabledRecords[0]
+        elif len(enabledRecords) == 0 and len(disabledRecords) == 1:
+            record = disabledRecords[0]
 
-                        if cua in records:
-                            del records[cua]
-        
-                    for cua in frozenset(calendarUserAddresses):
-                        if cua in disabledCUAs:
-                            disableCUA(cua, record)
-                        else:
-                            # Check for duplicates
-                            existing_record = cuas.get(cua)
-                            if existing_record is not None:
-                                disableCUA(cua, record)
-                                disableCUA(cua, existing_record)
-                            else:
-                                cuas[cua] = record
+        if record:
+            self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
+            self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
-        if lookup is None:
-            #
-            # Replace the entire cache
-            #
-            storage = {
-                "status"           : "new",
-                "records"          : records,
-                "guids"            : guids,
-                "authIDs"          : authIDs,
-                "cuas"             : cuas,
-                "disabled names"   : disabledNames,
-                "disabled guids"   : disabledGUIDs,
-                "disabled authIDs" : disabledAuthIDs,
-                "disabled cuas"    : disabledCUAs,
-            }
+    def _parseResourceInfo(self, plist, guid, recordType, shortname):
+        """
+        Parse OD ResourceInfo attribute and extract information that the server needs.
 
-            # Add group indexing if needed
-            if recordType == self.recordType_groups:
-                storage["groupsForGUID"] = groupsForGUID
-
-            # Add proxy indexing if needed
-            elif recordType in (self.recordType_resources, self.recordType_locations):
-                storage["proxiesForGUID"] = proxiesForGUID
-                storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
-
-            def rot():
-                storage["status"] = "stale"
-                removals = set()
-                for call in self._delayedCalls:
-                    if not call.active():
-                        removals.add(call)
-                for item in removals:
-                    self._delayedCalls.remove(item)
-
-            #
-            # Add jitter/fuzz factor to avoid stampede for large OD query
-            # Max out the jitter at 60 minutes
-            #
-            cacheTimeout = min(self.cacheTimeout, 60) * 60
-            cacheTimeout = (cacheTimeout * random()) - (cacheTimeout / 2)
-            cacheTimeout += self.cacheTimeout * 60
-            self._delayedCalls.add(callLater(cacheTimeout, rot))
-
-            self._records[recordType] = storage
-
-            self.log_info(
-                "Added %d (%d enabled) records to %s OD record cache; expires in %d seconds"
-                % (len(self._records[recordType]["guids"]), enabled_count, recordType, cacheTimeout)
-            )
-
-    def _queryDirectory(self, recordType, lookup=None):
-        attrs = [
-            dsattributes.kDS1AttrGeneratedUID,
-            dsattributes.kDSNAttrRecordName,
-            dsattributes.kDSNAttrAltSecurityIdentities,
-            dsattributes.kDS1AttrDistinguishedName,
-            dsattributes.kDS1AttrFirstName,
-            dsattributes.kDS1AttrLastName,
-            dsattributes.kDSNAttrEMailAddress,
-            dsattributes.kDSNAttrMetaNodeLocation,
-        ]
-
-        if recordType == self.recordType_users:
-            listRecordType = dsattributes.kDSStdRecordTypeUsers
-
-        elif recordType == self.recordType_groups:
-            listRecordType = dsattributes.kDSStdRecordTypeGroups
-            attrs.append(dsattributes.kDSNAttrGroupMembers)
-            attrs.append(dsattributes.kDSNAttrNestedGroups)
-
-        elif recordType == self.recordType_locations:
-            listRecordType = dsattributes.kDSStdRecordTypePlaces
-            attrs.append(dsattributes.kDSNAttrResourceInfo)
-        
-        elif recordType == self.recordType_resources:
-            listRecordType = dsattributes.kDSStdRecordTypeResources
-            attrs.append(dsattributes.kDSNAttrResourceInfo)
-        
-        else:
-            raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType))
-
-        # If restricting enabled records, then make sure the restricted group member
-        # details are loaded. Do nested group expansion and include the nested groups
-        # as enabled records too.
-        if self.restrictEnabledRecords and self.restrictedGUIDs is None:
-
-            attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName 
-            valueToMatch = self.restrictToGroup
-
-            self.log_debug("Doing restricted group membership check")
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                self.directory,
-                attributeToMatch,
-                valueToMatch,
-                dsattributes.eDSExact,
-                False,
-                dsattributes.kDSStdRecordTypeGroups,
-                [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-            ))
-            results = opendirectory.queryRecordsWithAttribute_list(
-                self.directory,
-                attributeToMatch,
-                valueToMatch,
-                dsattributes.eDSExact,
-                False,
-                dsattributes.kDSStdRecordTypeGroups,
-                [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-            )
-    
-            if len(results) == 1:
-                members      = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
-                nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
-            else:
-                members = []
-                nestedGroups = []
-
-            self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-            self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
-
-        query = None
-        if lookup is not None:
-            indexType, indexKey = lookup
-            origIndexKey = indexKey
-
-            if indexType == "cua":
-                # The directory doesn't contain CUAs, so we need to convert
-                # the CUA to the appropriate field name and value:
-                queryattr, indexKey = cuAddressConverter(indexKey)
-                # queryattr will be one of:
-                # guid, emailAddresses, or recordName
-                # ...which will need to be mapped to DS
-                queryattr = self._ODFields[queryattr]['odField']
-
-            else:
-                queryattr = {
-                    "shortName" : dsattributes.kDSNAttrRecordName,
-                    "guid"      : dsattributes.kDS1AttrGeneratedUID,
-                    "authID"    : dsattributes.kDSNAttrAltSecurityIdentities,
-                }.get(indexType)
-                assert queryattr is not None, "Invalid type for record faulting query"
-
-            query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
-
+        @param plist: the plist that is the attribute value.
+        @type plist: str
+        @param guid: the directory GUID of the record being parsed.
+        @type guid: str
+        @param shortname: the record shortname of the record being parsed.
+        @type shortname: str
+        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
+        """
         try:
-            if query:
-                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                    self.directory,
-                    query.attribute,
-                    query.value,
-                    query.matchType,
-                    False,
-                    listRecordType,
-                    attrs,
-                ))
-                results = opendirectory.queryRecordsWithAttribute_list(
-                    self.directory,
-                    query.attribute,
-                    query.value,
-                    query.matchType,
-                    False,
-                    listRecordType,
-                    attrs,
-                )
-            else:
-                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
-                    self.directory,
-                    listRecordType,
-                    attrs,
-                ))
-                results = opendirectory.listAllRecordsWithAttributes_list(
-                    self.directory,
-                    listRecordType,
-                    attrs,
-                )
-        except opendirectory.ODError, ex:
-            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
-            raise
+            plist = readPlistFromString(plist)
+            wpframework = plist.get("com.apple.WhitePagesFramework", {})
+            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
+            proxy = wpframework.get("CalendaringDelegate", None)
+            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+        except (ExpatError, AttributeError), e:
+            self.log_error(
+                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
+                (recordType, shortname, guid, e, plist,)
+            )
+            raise ValueError("Invalid ResourceInfo")
 
-        return results
+        return (autoaccept, proxy, read_only_proxy,)
 
     def getResourceInfo(self):
         """
@@ -1025,14 +775,15 @@ def buildQueries(recordTypes, fields, mapping):
     return queries
 
 
-class OpenDirectoryRecord(DirectoryRecord):
+class OpenDirectoryRecord(CachingDirectoryRecord):
     """
     Open Directory implementation of L{IDirectoryRecord}.
     """
     def __init__(
-        self, service, recordType, guid, nodeName, shortNames, authIDs, fullName,
-        firstName, lastName, emailAddresses,
-        calendarUserAddresses, enabledForCalendaring,
+        self, service, recordType, guid, nodeName, shortNames, authIDs,
+        fullName, firstName, lastName, emailAddresses,
+        calendarUserAddresses,
+        enabledForCalendaring,
         memberGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
@@ -1050,6 +801,8 @@ class OpenDirectoryRecord(DirectoryRecord):
         )
         self.nodeName = nodeName
         self._memberGUIDs = tuple(memberGUIDs)
+        
+        self._groupMembershipGUIDs = None
 
     def __repr__(self):
         if self.service.realmName == self.nodeName:
@@ -1077,7 +830,13 @@ class OpenDirectoryRecord(DirectoryRecord):
                 yield userRecord
 
     def groups(self):
-        return self.service.groupsForGUID(self.guid)
+        if self._groupMembershipGUIDs is None:
+            self._groupMembershipGUIDs = self.service.groupsForGUID(self.guid)
+
+        for guid in self._groupMembershipGUIDs:
+            record = self.service.recordWithGUID(guid)
+            if record:
+                yield record
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

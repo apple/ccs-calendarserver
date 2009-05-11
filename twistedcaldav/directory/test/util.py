@@ -65,42 +65,6 @@ class DirectoryTestCase (TestCase):
 
         self.assertEquals(set(self.service().recordTypes()), self.recordTypes)
 
-    def test_listRecords_user(self):
-        """
-        IDirectoryService.listRecords(DirectoryService.recordType_users)
-        """
-        if not self.users:
-            raise SkipTest("No users")
-
-        self.assertEquals(self.recordNames(DirectoryService.recordType_users), set(self.users.keys()))
-
-    def test_listRecords_group(self):
-        """
-        IDirectoryService.listRecords(DirectoryService.recordType_groups)
-        """
-        if not self.groups:
-            raise SkipTest("No groups")
-
-        self.assertEquals(self.recordNames(DirectoryService.recordType_groups), set(self.groups.keys()))
-
-    def test_listRecords_locations(self):
-        """
-        IDirectoryService.listRecords("locations")
-        """
-        if not self.resources:
-            raise SkipTest("No locations")
-
-        self.assertEquals(self.recordNames(DirectoryService.recordType_locations), set(self.locations.keys()))
-
-    def test_listRecords_resources(self):
-        """
-        IDirectoryService.listRecords("resources")
-        """
-        if not self.resources:
-            raise SkipTest("No resources")
-
-        self.assertEquals(self.recordNames(DirectoryService.recordType_resources), set(self.resources.keys()))
-
     def test_recordWithShortName(self):
         """
         IDirectoryService.recordWithShortName()
@@ -253,6 +217,45 @@ class DirectoryTestCase (TestCase):
             return service.recordTypePrefix
         else:
             return ""
+
+class NonCachingTestCase (DirectoryTestCase):
+
+    def test_listRecords_user(self):
+        """
+        IDirectoryService.listRecords(DirectoryService.recordType_users)
+        """
+        if not self.users:
+            raise SkipTest("No users")
+
+        self.assertEquals(self.recordNames(DirectoryService.recordType_users), set(self.users.keys()))
+
+    def test_listRecords_group(self):
+        """
+        IDirectoryService.listRecords(DirectoryService.recordType_groups)
+        """
+        if not self.groups:
+            raise SkipTest("No groups")
+
+        self.assertEquals(self.recordNames(DirectoryService.recordType_groups), set(self.groups.keys()))
+
+    def test_listRecords_locations(self):
+        """
+        IDirectoryService.listRecords("locations")
+        """
+        if not self.resources:
+            raise SkipTest("No locations")
+
+        self.assertEquals(self.recordNames(DirectoryService.recordType_locations), set(self.locations.keys()))
+
+    def test_listRecords_resources(self):
+        """
+        IDirectoryService.listRecords("resources")
+        """
+        if not self.resources:
+            raise SkipTest("No resources")
+
+        self.assertEquals(self.recordNames(DirectoryService.recordType_resources), set(self.resources.keys()))
+
 
 class BasicTestCase (DirectoryTestCase):
     """

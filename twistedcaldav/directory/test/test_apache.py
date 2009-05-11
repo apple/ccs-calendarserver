@@ -97,7 +97,8 @@ class Apache (object):
         self.userFile().open("w").write(self.userEntry[1])
         self.assertEquals(self.recordNames(DirectoryService.recordType_users), set((self.userEntry[0],)))
 
-class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase):
+class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase,
+    twistedcaldav.directory.test.util.NonCachingTestCase):
     """
     Test Apache-Compatible UserFile/GroupFile directory implementation.
     """
@@ -106,7 +107,8 @@ class Basic (Apache, twistedcaldav.directory.test.util.BasicTestCase):
     userFileName = basicUserFile
     userEntry = ("wsanchez", "wsanchez:Cytm0Bwm7CPJs\n")
 
-class Digest (Apache, twistedcaldav.directory.test.util.DigestTestCase):
+class Digest (Apache, twistedcaldav.directory.test.util.DigestTestCase,
+    twistedcaldav.directory.test.util.NonCachingTestCase):
     """
     Test Apache-Compatible DigestFile/GroupFile directory implementation.
     """

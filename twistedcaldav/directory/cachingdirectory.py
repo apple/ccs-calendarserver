@@ -97,7 +97,6 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
 
 
     def removeRecord(self, record):
-        
         if record in self.records:
             self.records.remove(record)
             for indexType in self.directoryService.indexTypes():
@@ -245,13 +244,24 @@ class CachingDirectoryService(DirectoryService):
     recordWithUID = recordWithGUID
 
     def _lookupRecord(self, recordTypes, indexType, indexKey, cacheOnMiss=True):
-        
+
         if recordTypes is None:
             recordTypes = self.recordTypes()
+        else:
+            # Only use recordTypes this service supports:
+            supportedRecordTypes = self.recordTypes()
+            typesToQuery = []
+            for recordType in recordTypes:
+                if recordType in supportedRecordTypes:
+                    typesToQuery.append(recordType)
+            if not typesToQuery:
+                return None
+            recordTypes = typesToQuery
 
         def lookup():
             for recordType in recordTypes:
                 record = self.recordCacheForType(recordType).findRecord(indexType, indexKey)
+
                 if record:
                     if (
                         record.cachedTime != 0 and
