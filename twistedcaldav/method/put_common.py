@@ -668,6 +668,20 @@ class StoreCalendarObjectResource(object):
             copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
             log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
 
+    def truncateRecurrence(self):
+        
+        if config.MaxInstancesForRRULE != 0:
+            try:
+                result = self.calendar.truncateRecurrence(config.MaxInstancesForRRULE)
+            except (ValueError, TypeError), ex:
+                log.err("Cannot truncate calendar resource: %s" % (ex,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            if result:
+                self.calendardata = str(self.calendar)
+                return result
+        else:
+            return False
+
     def preservePrivateComments(self):
         # Check for private comments on the old resource and the new resource and re-insert
         # ones that are lost.
@@ -940,6 +954,9 @@ class StoreCalendarObjectResource(object):
             # Get current quota state.
             yield self.checkQuota()
     
+            # Handle RRULE truncation
+            rruleChanged = self.truncateRecurrence()
+
             # Preserve private comments
             new_has_private_comments = self.preservePrivateComments()
     
@@ -978,7 +995,7 @@ class StoreCalendarObjectResource(object):
             response = (yield self.doStore(data_changed))
             
             # Must not set ETag in response if data changed
-            if did_implicit_action:
+            if did_implicit_action or rruleChanged:
                 def _removeEtag(request, response):
                     response.headers.removeHeader('etag')
                     return response

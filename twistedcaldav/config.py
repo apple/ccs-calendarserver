@@ -116,6 +116,7 @@ defaultConfig = {
     "UserQuota"               : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize"   :   1048576, # Attachment size limit (in bytes)
     "MaxAttendeesPerInstance" :       100, # Maximum number of unique attendees
+    "MaxInstancesForRRULE"    :       400, # Maximum number of instances for an RRULE
     "WebCalendarRoot"         : "/usr/share/collaboration",
 
     "Aliases": {},

@@ -36,7 +36,7 @@ from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
 
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
-    normalizeStartEndDuration, toString, normalizeForIndex
+    normalizeStartEndDuration, toString, normalizeForIndex, differenceDateTime
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
@@ -728,6 +728,10 @@ class Component (object):
         self.transformAllToNative()
         return self._vobject.getrruleset(addRDate)
 
+    def setRRuleSet(self, rruleset):
+        #self.transformAllToNative()
+        return self._vobject.setrruleset(rruleset)
+
     def getEffectiveStartEnd(self):
         # Get the start/end range needed for instance comparisons
 
@@ -810,6 +814,59 @@ class Component (object):
         
         return results
     
+    def truncateRecurrence(self, maximumCount):
+        """
+        Truncate RRULEs etc to make sure there are no more than the given number
+        of instances.
+ 
+        @param maximumCount: the maximum number of instances to allow
+        @type maximumCount: C{int}
+        @return: a C{bool} indicating whether a change was made or not
+        """
+
+        changed = False
+        master = self.masterComponent()
+        if master and master.isRecurring():
+            rrules = master.getRRuleSet()
+            if rrules:
+                for rrule in rrules._rrule:
+                    if rrule._count is not None:
+                        # Make sure COUNT is less than the limit
+                        if rrule._count > maximumCount:
+                            rrule._count = maximumCount
+                            changed = True
+                    elif rrule._until is not None:
+                        # Need to figure out how to determine number of instances
+                        # with this UNTIL and truncate if needed
+                        start = master.getStartDateUTC()
+                        diff = differenceDateTime(start, rrule._until)
+                        diff = diff.days * 24 * 60 * 60 + diff.seconds
+                        
+                        period = {
+                            0: 365 * 24 * 60 * 60,
+                            1:  30 * 24 * 60 * 60,
+                            2:   7 * 24 * 60 * 60,
+                            3:   1 * 24 * 60 * 60,
+                            4:   60 * 60,
+                            5:   60,
+                            6:   1
+                        }[rrule._freq] * rrule._interval
+                        
+                        if diff / period > maximumCount:
+                            rrule._until = None
+                            rrule._count = maximumCount
+                            changed = True
+                    else:
+                        # For frequencies other than yearly we will truncate at our limit
+                        if rrule._freq != 0:
+                            rrule._count = maximumCount
+                            changed = True
+                
+                if changed:
+                    master.setRRuleSet(rrules)
+
+        return changed
+
     def expand(self, start, end, timezone=None):
         """
         Expand the components into a set of new components, one for each
