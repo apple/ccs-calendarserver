@@ -470,5 +470,14 @@
     <true/>
 
 
+    <!--
+        Miscellaneous items
+      -->
+
+    <!-- Web-based administration -->
+    <key>EnableWebAdmin</key>
+    <true/>
+
+
   </dict>
 </plist>

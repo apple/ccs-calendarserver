@@ -494,6 +494,10 @@
     <key>EnableSACLs</key>
     <true/>
 
+    <!-- Web-based administration -->
+    <key>EnableWebAdmin</key>
+    <true/>
+
 
   </dict>
 </plist>

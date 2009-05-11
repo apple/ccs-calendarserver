@@ -241,7 +241,12 @@ defaultConfig = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
-    
+
+    #
+    # Web-based administration
+    #
+    "EnableWebAdmin"          : True,
+
     #
     # Scheduling related options
     #

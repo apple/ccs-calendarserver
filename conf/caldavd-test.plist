@@ -655,6 +655,10 @@
     <key>EnableSACLs</key>
     <false/>
 
+    <!-- Web-based administration -->
+    <key>EnableWebAdmin</key>
+    <true/>
+
     <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
     <key>ResponseCompression</key>
     <false/>
