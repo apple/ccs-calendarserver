@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,19 @@ from twisted.internet.defer import succeed
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
+import hashlib
 import cPickle
+import string
 
 class Memcacher(LoggingMixIn, CachePoolUserMixIn):
+
+    MEMCACHE_KEY_LIMIT   = 250      # the memcached key length limit
+    NAMESPACE_MAX_LENGTH = 32       # max size of namespace we will allow
+    HASH_LENGTH          = 32       # length of hash we will generate
+    TRUNCATED_KEY_LENGTH = MEMCACHE_KEY_LIMIT - NAMESPACE_MAX_LENGTH - HASH_LENGTH - 2  # 2 accounts for delimiters
+
+    # Translation table: all ctrls (0x00 - 0x1F) and space and 0x7F mapped to _
+    keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_"*33 + "_")
 
     class memoryCacher():
         """
@@ -92,6 +102,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             nullCacher will be used for the multi-instance case when memcached is not configured.
         @type no_invalidation: C{bool}
         """
+        
+        assert len(namespace) <= Memcacher.NAMESPACE_MAX_LENGTH, "Memcacher namespace must be less than or equal to %s characters long" % (Memcacher.NAMESPACE_MAX_LENGTH,)
         self._memcacheProtocol = None
         self._namespace = namespace
         self._pickle = pickle
@@ -118,6 +130,16 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         return self._memcacheProtocol
 
 
+    def _normalizeKey(self, key):
+        
+        if isinstance(key, unicode):
+            key = key.encode("utf-8")
+        assert isinstance(key, str), "Key must be a str."
+
+        hash = hashlib.md5(key).hexdigest()
+        key = key[:Memcacher.TRUNCATED_KEY_LENGTH]
+        return "%s-%s" % (key.translate(Memcacher.keyNormalizeTranslateTable), hash,)
+
     def add(self, key, value, expire_time=0):
         
         proto = self._getMemcacheProtocol()
@@ -126,7 +148,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Adding Cache Token for %r" % (key,))
-        return proto.add('%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
+        return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expire_time)
 
     def set(self, key, value, expire_time=0):
         
@@ -136,7 +158,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Setting Cache Token for %r" % (key,))
-        return proto.set('%s:%s' % (self._namespace, key), my_value, expireTime=expire_time)
+        return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expire_time)
 
     def get(self, key):
         def _gotit(result):
@@ -146,11 +168,11 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return value
 
         self.log_debug("Getting Cache Token for %r" % (key,))
-        d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, key))
+        d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)))
         d.addCallback(_gotit)
         return d
 
 
     def delete(self, key):
         self.log_debug("Deleting Cache Token for %r" % (key,))
-        return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, key))
+        return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))

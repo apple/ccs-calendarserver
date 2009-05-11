@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ from twistedcaldav.memcacher import Memcacher
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue,\
     succeed
 from twisted.internet import reactor
-import hashlib
 import time
 
 class MemcacheLock(Memcacher):
@@ -39,10 +38,7 @@ class MemcacheLock(Memcacher):
         """
 
         super(MemcacheLock, self).__init__(namespace)
-        if isinstance(locktoken, unicode):
-            locktoken = locktoken.encode("utf-8")
-        assert isinstance(locktoken, str), "Lock token must be a str."
-        self._locktoken = hashlib.md5(locktoken).hexdigest()
+        self._locktoken = locktoken
         self._timeout = timeout
         self._retry_interval = retry_interval
         self._expire_time = expire_time
