@@ -35,7 +35,7 @@ from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav import caldavxml
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, defaultConfigFile
+from twistedcaldav.config import config, defaultConfigFile, ConfigurationError
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
