@@ -65,10 +65,16 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         """
         Returns an IDirectoryService.
         """
-        apacheService = BasicDirectoryService(digestRealm, basicUserFile, groupFile)
+        apacheService = BasicDirectoryService(
+            {
+                'realmName' : digestRealm,
+                'userFile' : basicUserFile,
+                'groupFile' : groupFile,
+            }
+        )
         apacheService.recordTypePrefix = apache_prefix
 
-        xmlService = XMLDirectoryService(xmlFile)
+        xmlService = XMLDirectoryService({'xmlFile' : xmlFile})
         xmlService.recordTypePrefix = xml_prefix
 
         return AggregateDirectoryService((apacheService, xmlService))

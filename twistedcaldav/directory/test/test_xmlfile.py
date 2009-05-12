@@ -97,7 +97,7 @@ class XMLFile (
     Test XML file based directory implementation.
     """
     def service(self):
-        return XMLDirectoryService(self.xmlFile(), alwaysStat=True)
+        return XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
 
     def test_changedXML(self):
         service = self.service()

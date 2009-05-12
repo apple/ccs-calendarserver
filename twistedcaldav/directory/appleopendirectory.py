@@ -38,7 +38,7 @@ import dsquery
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
-from twistedcaldav.config import config
+from twistedcaldav.config import config, ConfigurationError
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
@@ -55,38 +55,44 @@ class OpenDirectoryService(CachingDirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(
-        self,
-        node="/Search",
-        restrictEnabledRecords=False,
-        restrictToGroup="",
-        dosetup=True,
-        cacheTimeout=30
-    ):
+
+    def __init__(self, params, dosetup=True):
         """
-        @param node: an OpenDirectory node name to bind to.
-        @param restrictEnabledRecords: C{True} if a group in the directory is to be used to determine
-            which calendar users are enabled.
-        @param restrictToGroup: C{str} guid or name of group used to restrict enabled users.
+        @param params: a dictionary containing the following keys:
+            node: an OpenDirectory node name to bind to.
+            restrictEnabledRecords: C{True} if a group in the
+              directory is to be used to determine which calendar
+              users are enabled.
+            restrictToGroup: C{str} guid or name of group used to
+              restrict enabled users.
+            cacheTimeout: C{int} number of minutes before cache is invalidated.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
                         This should only be set to C{False} when doing unit tests.
-        @param cacheTimeout: C{int} number of minutes before cache is invalidated.
         """
 
-        super(OpenDirectoryService, self).__init__(cacheTimeout)
+        defaults = {
+            'node' : '/Search',
+            'restrictEnabledRecords' : False,
+            'restrictToGroup' : '',
+            'cacheTimeout' : 30,
+        }
+        ignored = ('requireComputerRecord',)
+        params = self.getParams(params, defaults, ignored)
+
+        super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
 
         try:
-            directory = opendirectory.odInit(node)
+            directory = opendirectory.odInit(params['node'])
         except opendirectory.ODError, e:
-            self.log_error("Open Directory (node=%s) Initialization error: %s" % (node, e))
+            self.log_error("Open Directory (node=%s) Initialization error: %s" % (params['node'], e))
             raise
 
-        self.realmName = node
+        self.realmName = params['node']
         self.directory = directory
-        self.node = node
-        self.restrictEnabledRecords = restrictEnabledRecords
-        self.restrictToGroup = restrictToGroup
+        self.node = params['node']
+        self.restrictEnabledRecords = params['restrictEnabledRecords']
+        self.restrictToGroup = params['restrictToGroup']
         try:
             UUID(self.restrictToGroup)
         except:

@@ -135,7 +135,7 @@ else:
         )
 
         def test_plists(self):
-            service = OpenDirectoryService(node="/Search", dosetup=False)
+            service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
             
             for item in ODResourceInfoParse.test_bool:
                 if item[4] is None:

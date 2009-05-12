@@ -220,5 +220,5 @@ def getDirectory(config):
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
 
-    return MyDirectoryService(**config.DirectoryService["params"])
+    return MyDirectoryService(config.DirectoryService["params"])
 

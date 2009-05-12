@@ -73,7 +73,7 @@ serviceDefaultParams = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/caldavd/accounts.xml",
     },
-    "twistedcaldav.directory.cachingappleopendirectory.OpenDirectoryService": {
+    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
         "restrictEnabledRecords": False,
         "restrictToGroup": "",

@@ -38,19 +38,29 @@ class AbstractDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r %r>" % (self.__class__.__name__, self.realmName, self.userFile, self.groupFile)
 
-    def __init__(self, realmName="", userFile=None, groupFile=None):
+    def __init__(self, params):
+        defaults = {
+            'realmName' : '',
+            'userFile' : None,
+            'groupFile' : None,
+        }
+        ignored = None
+        params = self.getParams(params, defaults, ignored)
+
         super(AbstractDirectoryService, self).__init__()
 
+        userFile = params["userFile"]
         if not userFile:
             raise DirectoryConfigurationError("Invalid Apache user file name: %r" % (userFile,))
 
         if userFile and type(userFile) is str:
             userFile = FilePath(userFile)
 
+        groupFile = params["groupFile"]
         if groupFile and type(groupFile) is str:
             groupFile = FilePath(groupFile)
 
-        self.realmName = realmName
+        self.realmName = params["realmName"]
         self.userFile = userFile
         self.groupFile = groupFile
 

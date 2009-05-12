@@ -430,7 +430,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Configuring directory service of type: %s"
                       % (config.DirectoryService.type,))
 
-        baseDirectory = directoryClass(**config.DirectoryService.params)
+        baseDirectory = directoryClass(config.DirectoryService.params)
 
         directories.append(baseDirectory)
 

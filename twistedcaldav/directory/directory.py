@@ -250,6 +250,32 @@ class DirectoryService(LoggingMixIn):
     def getResourceInfo(self):
         return ()
 
+
+    def getParams(self, params, defaults, ignore=None):
+        """ Checks configuration parameters for unexpected/ignored keys, and
+            applies default values. """
+
+        keys = set(params.keys())
+
+        result = {}
+        for key in defaults.iterkeys():
+            if key in params:
+                result[key] = params[key]
+                keys.remove(key)
+            else:
+                result[key] = defaults[key]
+
+        if ignore:
+            for key in ignore:
+                if key in params:
+                    self.log_warn("Ignoring obsolete directory service parameter: %s" % (key,))
+                    keys.remove(key)
+
+        if keys:
+            raise DirectoryConfigurationError("Invalid directory service parameter(s): %s" % (", ".join(list(keys)),))
+        return result
+
+
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 

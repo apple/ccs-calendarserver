@@ -45,9 +45,17 @@ class XMLDirectoryService(CachingDirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
 
-    def __init__(self, xmlFile, alwaysStat=False):
+    def __init__(self, params, alwaysStat=False):
+
+        defaults = {
+            'xmlFile' : None,
+        }
+        ignored = None
+        params = self.getParams(params, defaults, ignored)
+
         super(XMLDirectoryService, self).__init__()
 
+        xmlFile = params.get("xmlFile")
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
 
