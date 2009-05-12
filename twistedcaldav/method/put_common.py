@@ -1005,7 +1005,7 @@ class StoreCalendarObjectResource(object):
 
             # Check for scheduling object resource and write property
             if is_scheduling_resource:
-                self.destination.writeDeadProperty(TwistedSchedulingObjectResource())
+                self.destination.writeDeadProperty(TwistedSchedulingObjectResource.fromString("true"))
 
                 # Need to figure out when to change the schedule tag:
                 #
@@ -1049,7 +1049,7 @@ class StoreCalendarObjectResource(object):
                 else:
                     self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
             else:
-                self.destination.removeDeadProperty(TwistedSchedulingObjectResource)                
+                self.destination.writeDeadProperty(TwistedSchedulingObjectResource.fromString("false"))                
                 self.destination.removeDeadProperty(ScheduleTag)                
                 self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
 

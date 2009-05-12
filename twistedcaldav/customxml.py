@@ -64,7 +64,7 @@ class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
-class TwistedSchedulingObjectResource (davxml.WebDAVEmptyElement):
+class TwistedSchedulingObjectResource (davxml.WebDAVTextElement):
     """
     Indicates that the resource is a scheduling object resource.    
     """

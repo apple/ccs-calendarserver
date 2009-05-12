@@ -68,7 +68,7 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        existing_type = "schedule" if existing_resource and resource.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+        existing_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         if existing_type == "calendar":
@@ -105,8 +105,8 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = destresource.hasDeadProperty(TwistedSchedulingObjectResource()) if dest_exists else False
-        src_is_implicit = srcresource.hasDeadProperty(TwistedSchedulingObjectResource()) or new_type == "schedule"
+        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -135,9 +135,8 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_exists = destresource.exists()
-        dest_is_implicit = destresource.hasDeadProperty(TwistedSchedulingObjectResource()) if dest_exists else False
-        src_is_implicit = srcresource.hasDeadProperty(TwistedSchedulingObjectResource()) or new_type == "schedule"
+        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -165,11 +164,38 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        resource_type = "schedule" if resource.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+        resource_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
+    def checkSchedulingObjectResource(self, resource):
+        
+        if resource and resource.exists():
+            try:
+                implicit = resource.readDeadProperty(TwistedSchedulingObjectResource)
+            except HTTPError:
+                implicit = None
+            if implicit is not None:
+                return implicit != "false"
+            else:
+                calendar = resource.iCalendar()
+                # Get the ORGANIZER and verify it is the same for all components
+                try:
+                    organizer = calendar.validOrganizerForScheduling()
+                except ValueError:
+                    # We have different ORGANIZERs in the same iCalendar object - this is an error
+                    return False
+                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
+                resource.writeDeadProperty(TwistedSchedulingObjectResource("true" if organizerPrincipal != None else "false"))
+                log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
+                    calendar.resourceUID(),
+                    "true" if organizerPrincipal != None else "false",
+                ))
+                return organizerPrincipal != None
+
+        return False
+        
     @inlineCallbacks
     def checkImplicitState(self):
         # Get some useful information from the calendar
@@ -357,7 +383,7 @@ class ImplicitScheduler(object):
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:
                     returnValue(True)
-                matched_type = "schedule" if child and child.hasDeadProperty(TwistedSchedulingObjectResource()) else "calendar"
+                matched_type = "schedule" if self.checkSchedulingObjectResource(child) else "calendar"
                 if (
                     collection_uri != check_parent_uri and
                     (type == "schedule" or matched_type == "schedule")
