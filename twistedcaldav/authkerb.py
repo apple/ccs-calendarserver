@@ -42,6 +42,7 @@ import kerberos
 
 from twisted.cred import checkers, credentials, error
 from twisted.internet.defer import succeed
+from twisted.web2 import responsecode
 from twisted.web2.auth.interfaces import ICredentialFactory
 from twisted.web2.dav.auth import IPrincipalCredentials
 
@@ -262,7 +263,8 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         wwwauth = '%s %s' % (self.scheme, response)
 
         def responseFilterAddWWWAuthenticate(request, response): #@UnusedVariable
-            response.headers.addRawHeader('www-authenticate', wwwauth)
+            if response.code != responsecode.UNAUTHORIZED:
+                response.headers.addRawHeader('www-authenticate', wwwauth)
             return response
 
         responseFilterAddWWWAuthenticate.handleErrors = True
