@@ -304,6 +304,9 @@ class iTipProcessing(object):
                 match_component = calendar.deriveInstance(rid)
                 if match_component:
                     calendar.addComponent(match_component)
+                else:
+                    log.error("Ignoring instance: %s in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
+                    continue
 
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
             attendees.add(attendee)
@@ -571,13 +574,16 @@ class iTipGenerator(object):
             return None
 
     @staticmethod
-    def generateAttendeeReply(original, attendee, force_decline=False):
+    def generateAttendeeReply(original, attendee, changedRids=None, force_decline=False):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REPLY"))
-        
+
+        # Now filter out components except the ones specified
+        itip.filterComponents(changedRids)
+
         # Force update to DTSTAMP everywhere
         itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
 
@@ -592,6 +598,7 @@ class iTipGenerator(object):
             "UID",
             "RECURRENCE-ID",
             "SEQUENCE",
+            "STATUS",
             "DTSTAMP",
             "DTSTART",
             "DTEND",

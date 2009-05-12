@@ -18,7 +18,6 @@ from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 import twistedcaldav.test.util
 from difflib import unified_diff
-from twistedcaldav.dateops import toString
 
 import itertools
 
@@ -552,7 +551,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, (None,), """BEGIN:VCALENDAR
+                (True, True, ("",), """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -1122,7 +1121,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple([toString(i) if i else None for i in diffResult[2]]),
+                tuple(diffResult[2]),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -1568,7 +1567,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple([toString(i) if i else None for i in diffResult[2]]),
+                tuple(diffResult[2]),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -1910,7 +1909,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple([toString(i) if i else None for i in diffResult[2]]),
+                tuple(diffResult[2]),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -2248,7 +2247,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple([toString(i) if i else None for i in diffResult[2]]),
+                tuple(diffResult[2]),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -2499,7 +2498,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple([toString(i) if i else None for i in diffResult[2]]),
+                tuple(diffResult[2]),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))

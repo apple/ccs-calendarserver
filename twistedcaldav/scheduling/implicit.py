@@ -726,7 +726,7 @@ class ImplicitScheduler(object):
             if self.organizer_calendar:
 
                 # Determine whether the current change is allowed
-                changeAllowed, doITipReply, _ignore_changedRids, newCalendar = self.isAttendeeChangeInsignificant()
+                changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
                 if changeAllowed:
                     self.return_calendar = self.calendar = newCalendar
 
@@ -759,10 +759,10 @@ class ImplicitScheduler(object):
                 # to make any change they like as we cannot verify what is reasonable. In reality
                 # we ought to be comparing the Attendee changes against the attendee's own copy
                 # and restrict changes based on that when the organizer's copy is not available.
-                pass
+                changedRids = None
 
             log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
-            yield self.scheduleWithOrganizer()
+            yield self.scheduleWithOrganizer(changedRids)
 
     @inlineCallbacks
     def getOrganizersCopy(self):
@@ -811,16 +811,16 @@ class ImplicitScheduler(object):
         differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
         return differ.attendeeMerge(self.attendee)
 
-    def scheduleWithOrganizer(self):
+    def scheduleWithOrganizer(self, changedRids=None):
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee)
+        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
 
         # Send scheduling message
         return self.sendToOrganizer("REPLY", itipmsg)
 
     def scheduleCancelWithOrganizer(self):
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, True)
+        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
 
         # Send scheduling message
         return self.sendToOrganizer("CANCEL", itipmsg)
