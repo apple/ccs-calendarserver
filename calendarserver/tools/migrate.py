@@ -29,7 +29,9 @@ import os
 import sys
 from getopt import getopt, GetoptError
 
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.upgrade import upgradeData
+
 from calendarserver.tools.util import loadConfig
 
 def usage(e=None):
@@ -75,7 +77,11 @@ def main():
     if args:
         usage("Too many arguments: %s" % (" ".join(args),))
 
-    config = loadConfig(configFileName)
+    try:
+        config = loadConfig(configFileName)
+    except ConfigurationError, e:
+        sys.stdout.write("%s\n" % (e,))
+        sys.exit(1)
 
     profiling = False
 

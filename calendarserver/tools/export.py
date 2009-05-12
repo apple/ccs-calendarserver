@@ -36,16 +36,15 @@ import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.ical import Component as iComponent, Property as iProperty
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService
 
+from calendarserver.tools.util import UsageError
 from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
-
-class UsageError (StandardError):
-    pass
 
 def usage(e=None):
     if e:
@@ -78,9 +77,9 @@ def main():
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:o:c:H:r:u:", [
+                "help",
                 "config=",
                 "output=",
-                "help",
                 "collection=", "home=", "record=", "user=",
             ],
         )
@@ -146,12 +145,15 @@ def main():
         usage("Too many arguments: %s" % (" ".join(args),))
 
     if records:
-        config = loadConfig(configFileName)
-        directory = getDirectory()
+        try:
+            config = loadConfig(configFileName)
+        except ConfigurationError, e:
+            sys.stdout.write("%s\n" % (e,))
+            sys.exit(1)
 
     for record in records:
         recordType, shortName = record
-        calendarHome = directory.calendarHomeForShortName(recordType, shortName)
+        calendarHome = config.directory.calendarHomeForShortName(recordType, shortName)
         if not calendarHome:
             sys.stderr.write("No calendar home found for record: (%s)%s\n" % (recordType, shortName))
             sys.exit(1)

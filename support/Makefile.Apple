@@ -77,18 +77,18 @@ install:: build
 	          $(PY_INSTALL_FLAGS)                                                      \
 	          --install-scripts="$(USRSBINDIR)"                                        \
 	          --install-data="$(ETCDIR)"
-	$(_v) cd $(BuildDirectory)/PyKerberos            && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyOpenDirectory       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pydirector-1.0.0      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyXML-0.8.4           && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyOpenDirectory  && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/pydirector-1.0.0 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/vobject          && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/mail/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py    install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py   install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/words/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
-	$(_v) echo "Removing plugins:"
+	@echo "Removing plugins:"
 	$(_v) find "$(DSTROOT)$(PY_HOME)/lib/python/twisted/plugins/" -type f ! -name 'caldav.*' ! -name 'twisted_reactors.*' ! -name 'twisted_trial.*' ! -name '__init__.*' ! -name 'kqueuereactor.*' -print -exec rm '{}' ';'
 	$(_v) rm -fr "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zsh"
 	$(_v) rm -f  "$(DSTROOT)$(PY_HOME)/lib/python/twisted/python/zshcomp.py"
@@ -100,25 +100,29 @@ install:: build
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
 install::
+	@echo "Installing manual pages..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8" "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldav_export.8" "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caladmin.8" "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldav_utility.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                          "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"            "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8" "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
+	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)"
 	$(_v) $(INSTALL_DIRECTORY) -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
+	@echo "Installing migration config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/59_calendarmigrator.py" "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
 	$(_v) chmod ugo+x "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
+	@echo "Installing backup config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(ETCDIR)/server_backup/"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/conf/85-calendarServer.plist" "$(DSTROOT)$(ETCDIR)/server_backup/"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/bin/calendarServer_restore" "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
 
 install::
+	@echo "Installing CalDAVTester package..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools"
 	$(_v) $(INSTALL_FILE) "$(Sources)/CalDAVTester.tgz" "$(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz"
 
