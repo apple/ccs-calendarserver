@@ -396,7 +396,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.reload()
 
                 # If combined service send signal to all caldavd children
-                if config.ProcessType == "Combined":
+                if hasattr(service, "processMonitor"):
                     service.processMonitor.signalAll(signal.SIGHUP, "caldav")
 
                 # FIXME: There is no memcachepool.getCachePool
