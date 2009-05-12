@@ -459,6 +459,7 @@ class OpenDirectoryService(CachingDirectoryService):
             queryattr = {
                 self.INDEX_TYPE_SHORTNAME : dsattributes.kDSNAttrRecordName,
                 self.INDEX_TYPE_GUID      : dsattributes.kDS1AttrGeneratedUID,
+                self.INDEX_TYPE_AUTHID    : dsattributes.kDSNAttrAltSecurityIdentities,
             }.get(indexType)
             assert queryattr is not None, "Invalid type for record faulting query"
 
