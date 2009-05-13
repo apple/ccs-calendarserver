@@ -43,6 +43,12 @@ from twisted.web2.dav.resource import TwistedACLInheritable
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
+    def __init__(self, path, root, directory, principalCollections=()):
+        self.root = root
+        self.directory = directory
+        super(WebAdminResource, self).__init__(path,
+            principalCollections=principalCollections)
+
     # Only allow administrators to access
     def defaultAccessControlList(self):
         return davxml.ACL(*config.AdminACEs)
@@ -402,8 +408,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     def render(self, request):
 
         # Prepare the ResourceWrapper, which will be used to get and modify resource info.
-        directory, root = setup(config)
-        resourceWrapper = ResourceWrapper(root)
+        resourceWrapper = ResourceWrapper(self.root)
         
         # The response-generation will be deferred.
         def _defer(htmlContent):
@@ -418,6 +423,6 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return response
 
         # Generate the HTML and return the response when it's ready.
-        htmlContent = self.htmlContent(resourceWrapper, directory, request)
+        htmlContent = self.htmlContent(resourceWrapper, self.directory, request)
         htmlContent.addCallback(_defer)
         return htmlContent

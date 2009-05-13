@@ -656,6 +656,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             self.log_info("Setting up WebAdmin resource")
             webAdmin = self.webAdminResourceClass(
                 config.WebCalendarRoot,
+                root,
+                directory,
                 principalCollections=(principalCollection,),
             )
             root.putChild("admin", webAdmin)
