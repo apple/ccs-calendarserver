@@ -59,7 +59,7 @@ class RootTests(TestCase):
         RootResource.CheckSACL = FakeCheckSACL(sacls={
                 'calendar': ['dreid']})
 
-        directory = XMLDirectoryService(xmlFile)
+        directory = XMLDirectoryService({'xmlFile' : xmlFile})
 
         principals = DirectoryPrincipalProvisioningResource('/principals/', directory)
 

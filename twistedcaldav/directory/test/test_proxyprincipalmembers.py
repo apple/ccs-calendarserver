@@ -36,7 +36,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
-        self.directoryService = XMLDirectoryService(xmlFile)
+        self.directoryService = XMLDirectoryService({'xmlFile' : xmlFile})
 
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}

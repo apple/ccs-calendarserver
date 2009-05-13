@@ -50,7 +50,7 @@ else:
 
         def setUp(self):
             super(OpenDirectory, self).setUp()
-            self._service = OpenDirectoryService(node="/Search", dosetup=False)
+            self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
 
         def tearDown(self):
             for call in self._service._delayedCalls:

@@ -48,9 +48,25 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         super(ProvisionedPrincipals, self).setUp()
 
         self.directoryServices = (
-            BasicDirectoryService(digestRealm, basicUserFile, groupFile),
-            DigestDirectoryService(digestRealm, digestUserFile, groupFile),
-            XMLDirectoryService(xmlFile),
+            BasicDirectoryService(
+                {
+                    'realmName' : digestRealm,
+                    'userFile' : basicUserFile,
+                    'groupFile' : groupFile,
+                }
+            ),
+            DigestDirectoryService(
+                {
+                    'realmName' : digestRealm,
+                    'userFile' : digestUserFile,
+                    'groupFile' : groupFile,
+                }
+            ),
+            XMLDirectoryService(
+                {
+                    'xmlFile' : xmlFile,
+                }
+            ),
         )
 
         # Set up a principals hierarchy for each service we're testing with

@@ -41,7 +41,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         fd = open(self.xmlfile, "w")
         fd.write(open(xmlFile.path, "r").read())
         fd.close()
-        self.directoryService = XMLDirectoryService(self.xmlfile)
+        self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlfile})
         
         # Set up a principals hierarchy for each service we're testing with
         name = "principals"
