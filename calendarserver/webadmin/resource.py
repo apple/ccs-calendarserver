@@ -28,7 +28,7 @@ import os
 import urllib
 import urlparse
 
-from calendarserver.webadmin.helper import setup, search, ResourceWrapper
+from calendarserver.webadmin.helper import search, ResourceWrapper
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
