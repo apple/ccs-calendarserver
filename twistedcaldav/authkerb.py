@@ -58,10 +58,10 @@ class KerberosCredentialFactoryBase(LoggingMixIn):
     def __init__(self, principal=None, type=None, hostname=None):
         """
         
-        @param principal:  full Kerberos principal (e.g., 'http/server.example.com@EXAMPLE.COM'). If C{None}
+        @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
-        @param type:       service type for Kerberos (e.g., 'http'). Must be C{None} if principal used.
+        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
         @type type:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
@@ -79,6 +79,10 @@ class KerberosCredentialFactoryBase(LoggingMixIn):
                 self.log_error("getServerPrincipalDetails: %s" % (ex[0],))
                 raise ValueError('Authentication System Failure: %s' % (ex[0],))
 
+        self.service, self.realm = self._splitPrincipal(principal)
+
+    def _splitPrincipal(self, principal):
+
         try:
             splits = principal.split("/")
             servicetype = splits[0]
@@ -89,9 +93,11 @@ class KerberosCredentialFactoryBase(LoggingMixIn):
             self.log_error("Invalid Kerberos principal: %s" % (principal,))
             raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
                 
-        self.service = "%s@%s" % (servicetype, service,)
-        self.realm = realm
-
+        service = "%s@%s" % (servicetype, service,)
+        realm = realm
+        
+        return (service, realm,)
+        
 class BasicKerberosCredentials(credentials.UsernamePassword):
     """
     A set of user/password credentials that checks itself against Kerberos.
@@ -128,10 +134,10 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
     def __init__(self, principal=None, type=None, hostname=None):
         """
         
-        @param principal:  full Kerberos principal (e.g., 'http/server.example.com@EXAMPLE.COM'). If C{None}
+        @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
-        @param type:       service type for Kerberos (e.g., 'http'). Must be C{None} if principal used.
+        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
         @type type:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
@@ -199,10 +205,10 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
     def __init__(self, principal=None, type=None, hostname=None):
         """
         
-        @param principal:  full Kerberos principal (e.g., 'http/server.example.com@EXAMPLE.COM'). If C{None}
+        @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
-        @param type:       service type for Kerberos (e.g., 'http'). Must be C{None} if principal used.
+        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
         @type type:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
@@ -215,9 +221,10 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
     def decode(self, base64data, request):
         
-        # Init GSSAPI first
+        # Init GSSAPI first - we won't specify the service now as we need to accept a target
+        # name that is case-insenstive as some clients will use "http" instead of "HTTP"
         try:
-            _ignore_result, context = kerberos.authGSSServerInit(self.service);
+            _ignore_result, context = kerberos.authGSSServerInit("");
         except kerberos.GSSError, ex:
             self.log_error("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],))
             raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
@@ -233,6 +240,18 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
             self.log_error("authGSSServerStep: %s" % (ex[0],))
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: %s' % (ex[0],))
+
+        targetname = kerberos.authGSSServerTargetName(context)
+        try:
+            service, _ignore_realm = self._splitPrincipal(targetname)
+        except ValueError:
+            self.log_error("authGSSServerTargetName invalid target name: '%s'" % (targetname,))
+            kerberos.authGSSServerClean(context)
+            raise error.UnauthorizedLogin('Bad credentials: bad target name %s' % (targetname,))
+        if service.lower() != self.service.lower():
+            self.log_error("authGSSServerTargetName mismatch got: '%s' wanted: '%s'" % (service, self.service))
+            kerberos.authGSSServerClean(context)
+            raise error.UnauthorizedLogin('Bad credentials: wrong target name %s' % (targetname,))
 
         response = kerberos.authGSSServerResponse(context)
         principal = kerberos.authGSSServerUserName(context)

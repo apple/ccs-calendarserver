@@ -30,11 +30,11 @@ which we are not guaranteed to have for the test.
 class KerberosTests(twistedcaldav.test.util.TestCase):
 
     def test_BasicKerberosCredentials(self):
-        authkerb.BasicKerberosCredentials("test", "test", "http/example.com@EXAMPLE.COM", "EXAMPLE.COM")
+        authkerb.BasicKerberosCredentials("test", "test", "HTTP/example.com@EXAMPLE.COM", "EXAMPLE.COM")
 
     @inlineCallbacks
     def test_BasicKerberosCredentialFactory(self):
-        factory = authkerb.BasicKerberosCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
+        factory = authkerb.BasicKerberosCredentialFactory(principal="HTTP/server.example.com@EXAMPLE.COM")
 
         challenge = (yield factory.getChallenge("peer"))
         expected_challenge = {'realm': "EXAMPLE.COM"}
@@ -45,7 +45,7 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
         self.assertRaises(
             ValueError,
             authkerb.BasicKerberosCredentialFactory,
-            principal="http/server.example.com/EXAMPLE.COM"
+            principal="HTTP/server.example.com/EXAMPLE.COM"
         )
 
     def test_NegotiateCredentials(self):
@@ -53,7 +53,7 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
 
     @inlineCallbacks
     def test_NegotiateCredentialFactory(self):
-        factory = authkerb.NegotiateCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
+        factory = authkerb.NegotiateCredentialFactory(principal="HTTP/server.example.com@EXAMPLE.COM")
 
         challenge = (yield factory.getChallenge("peer"))
         expected_challenge = {}
@@ -71,13 +71,13 @@ class KerberosTests(twistedcaldav.test.util.TestCase):
             self.fail(msg="NegotiateCredentialFactory decode did not fail")
 
     def test_NegotiateCredentialFactoryDifferentRealm(self):
-        factory = authkerb.NegotiateCredentialFactory(principal="http/server.example.com@EXAMPLE.COM")
+        factory = authkerb.NegotiateCredentialFactory(principal="HTTP/server.example.com@EXAMPLE.COM")
         self.assertEquals(factory.realm, "EXAMPLE.COM")
-        self.assertEquals(factory.service, "http@SERVER.EXAMPLE.COM")
+        self.assertEquals(factory.service, "HTTP@SERVER.EXAMPLE.COM")
 
     def test_NegotiateCredentialFactoryInvalidPrincipal(self):
         self.assertRaises(
             ValueError,
             authkerb.NegotiateCredentialFactory,
-            principal="http/server.example.com/EXAMPLE.COM"
+            principal="HTTP/server.example.com/EXAMPLE.COM"
         )
