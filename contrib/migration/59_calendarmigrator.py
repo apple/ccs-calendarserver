@@ -33,7 +33,7 @@ LOG = "/Library/Logs/Migration/calendarmigrator.log"
 SERVICE_NAME = "calendar"
 LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
 LAUNCHD_PREFS_DIR = "System/Library/LaunchDaemons"
-CALDAVD_CONFIG_DIR = "etc/caldavd"
+CALDAVD_CONFIG_DIR = "private/etc/caldavd"
 SERVERADMIN = "/usr/sbin/serveradmin"
 
 def main():
@@ -125,6 +125,7 @@ def migrateConfiguration(options):
 
     oldConfigDir = os.path.join(options.sourceRoot, CALDAVD_CONFIG_DIR)
     newConfigDir = os.path.join(options.targetRoot, CALDAVD_CONFIG_DIR)
+    log("Copying configuration files from %s to %s" % (oldConfigDir, newConfigDir))
 
     for name in os.listdir(oldConfigDir):
 
@@ -136,14 +137,17 @@ def migrateConfiguration(options):
             if os.path.islink(oldPath) and not os.path.exists(newPath):
                 # Recreate the symlink if it won't overwrite an existing file
                 link = os.readlink(oldPath)
+                log("Symlinking %s to %s" % (newPath, link))
                 os.symlink(link, newPath)
 
             elif os.path.isfile(oldPath):
                 # Copy the file over, overwriting copy in newConfigDir
+                log("Copying file %s to %s" % (oldPath, newConfigDir))
                 shutil.copy2(oldPath, newConfigDir)
 
             elif os.path.isdir(oldPath) and not os.path.exists(newPath):
                 # Copy the dir over, but only if new one doesn't exist
+                log("Copying directory %s to %s" % (oldPath, newPath))
                 shutil.copytree(oldPath, newPath, symlinks=True)
 
 
@@ -185,7 +189,7 @@ class ServiceStateError(Exception):
 
 def log(msg):
     try:
-        with open(LOG, 'w') as output:
+        with open(LOG, 'a') as output:
             timestamp = datetime.datetime.now().strftime("%b %d %H:%M:%S")
             output.write("%s %s\n" % (timestamp, msg))
     except IOError:
