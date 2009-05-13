@@ -275,13 +275,43 @@ class iCalDiff(object):
                 for exdate in master.properties("EXDATE"):
                     exdates.update([normalizeToUTC(value) for value in exdate.value()])
                
-            return exdates, map
+            return exdates, map, master
         
-        exdates1, map1 = mapComponents(self.calendar1)
+        exdates1, map1, master1 = mapComponents(self.calendar1)
         set1 = set(map1.keys())
-        exdates2, map2 = mapComponents(self.calendar2)
+        exdates2, map2, master2 = mapComponents(self.calendar2)
         set2 = set(map2.keys())
 
+        # Handle case where iCal breaks events without a master component
+        if master2 is not None and master1 is None:
+            master2Start = master2.getStartDateUTC()
+            key2 = (master2.name(), master2.propertyValue("UID"), master2Start)
+            if key2 not in set1:
+                # The DTSTART in the fake master does not match a RECURRENCE-ID in the real data.
+                # We have to do a brute force search for the component that matches based on DTSTART
+                for component1 in self.calendar1.subcomponents():
+                    if component1.name() == "VTIMEZONE":
+                        continue
+                    if master2Start == component1.getStartDateUTC():
+                        break
+                else:
+                    # Nothing matches - this has to be treated as an error
+                    log.debug("attendeeMerge: Unable to match fake master component: %s" % (key2,))
+                    return False, False, (), None
+            else:
+                component1 = self.calendar1.overriddenComponent(master2Start)
+            
+            # Take the recurrence ID from component1 and fix map2/set2
+            key2 = (master2.name(), master2.propertyValue("UID"), None)
+            component2 = map2[key2]
+            del map2[key2]
+            
+            rid1 = component1.getRecurrenceIDUTC()
+            newkey2 = (master2.name(), master2.propertyValue("UID"), rid1)
+            map2[newkey2] = component2
+            set2.remove(key2)
+            set2.add(newkey2)
+    
         # All the components in calendar1 must be in calendar2 unless they are CANCELLED
         result = set1 - set2
         for key in result:
