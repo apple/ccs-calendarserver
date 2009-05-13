@@ -27,6 +27,7 @@ import os
 
 from twisted.python.reflect import namedClass
 
+import socket
 from twistedcaldav.config import config, defaultConfigFile, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
@@ -116,3 +117,24 @@ def booleanArgument(arg):
         return False
     else:
         raise ValueError("Not a boolean: %s" % (arg,))
+
+
+
+
+
+def autoDisableMemcached(config):
+    """
+    If memcached is not running, set config.Memcached.ClientEnabled to False
+    """
+
+    if not config.Memcached.ClientEnabled:
+        return
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        s.connect((config.Memcached.BindAddress, config.Memcached.Port))
+        s.close()
+
+    except socket.error:
+        config.Memcached.ClientEnabled = False

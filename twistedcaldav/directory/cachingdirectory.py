@@ -75,8 +75,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
 
-        useMemcache == useMemcache and config.Memcached.ClientEnabled
-
+        useMemcache = useMemcache and config.Memcached.ClientEnabled
         if neverExpire:
             record.neverExpire()
 

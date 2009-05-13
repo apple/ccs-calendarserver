@@ -43,7 +43,7 @@ from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
-from calendarserver.tools.util import UsageError, booleanArgument
+from calendarserver.tools.util import UsageError, booleanArgument, autoDisableMemcached
 from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
 from calendarserver.provision.root import RootResource
 
@@ -178,6 +178,7 @@ def main():
     #
     try:
         loadConfig(configFileName)
+        autoDisableMemcached(config)
     except ConfigurationError, e:
         abort(e)
 
