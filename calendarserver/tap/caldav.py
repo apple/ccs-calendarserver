@@ -515,7 +515,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                         principal = schemeConfig["ServicePrincipal"]
                         if not principal:
                             credFactory = NegotiateCredentialFactory(
-                                type="http",
+                                type="HTTP",
                                 hostname=config.ServerHostName,
                             )
                         else:
