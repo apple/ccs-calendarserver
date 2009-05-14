@@ -1276,10 +1276,15 @@ class Component (object):
                     got_override = True
                             
                 # Check that if an override is present then the master is recurring
-                if got_override and got_master and not master_recurring:
-                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
-                    log.debug(msg)
-                    raise ValueError(msg)
+                # Leopard iCal sometimes does this for overridden instances that an Attendee receisves and
+                # it creates a "fake" (invalid) master. We are going to skip this test here. Instead implicit
+                # scheduling with verify the validity of the components and raise if they don't make sense.
+                # If no scheduling is happening then we allow this - that may cause other clients to choke.
+                # If it does we will have to re-instate this check but only after we have checked for implicit.
+#                if got_override and got_master and not master_recurring:
+#                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
+#                    log.debug(msg)
+#                    raise ValueError(msg)
                 
                 # Check for duplicate RECURRENCE-IDs        
                 if rid in component_rids:

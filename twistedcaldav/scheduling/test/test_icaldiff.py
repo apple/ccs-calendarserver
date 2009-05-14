@@ -2629,6 +2629,200 @@ END:VCALENDAR
                 "mailto:user2@example.com",
                 (False, False, (), None,)
             ),
+            (
+                "#2.1 Two overridden components, partstat change - ok",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+RECURRENCE-ID:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+RECURRENCE-ID:20080602T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ('20080601T120000Z','20080602T120000Z',), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#2.2 Two overridden components DTSTART different, partstat change - ok",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T140000Z
+DTEND:20080601T150000Z
+RECURRENCE-ID:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+RECURRENCE-ID:20080602T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T140000Z
+DTEND:20080601T150000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ('20080601T120000Z','20080602T120000Z',), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T140000Z
+DTEND:20080601T150000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+            (
+                "#2.3 Two overridden components DTSTART different, partstat change - bad DTSTART",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T140000Z
+DTEND:20080601T150000Z
+RECURRENCE-ID:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+RECURRENCE-ID:20080602T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T150000Z
+DTEND:20080601T160000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (False, False, (), None,)
+            ),
         )
 
         for description, calendar1, calendar2, attendee, result in data:
@@ -2637,7 +2831,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
