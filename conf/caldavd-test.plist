@@ -343,7 +343,7 @@
 
     <!-- Global server stats --> 
     <key>GlobalStatsSocket</key> 
-    <string>/var/run/caldavd-stats.sock</string> 
+    <string>logs/caldavd-stats.sock</string> 
 
     <!-- Global server stats logging period --> 
     <key>GlobalStatsLoggingPeriod</key> 
