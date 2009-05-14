@@ -687,6 +687,10 @@ class OpenDirectoryService(CachingDirectoryService):
             record = enabledRecords[0]
         elif len(enabledRecords) == 0 and len(disabledRecords) == 1:
             record = disabledRecords[0]
+        elif indexType == self.INDEX_TYPE_GUID and len(enabledRecords) > 1:
+            self.log_error("Duplicate records found for GUID %s:" % (indexKey,))
+            for record in enabledRecords:
+                self.log_error("Duplicate: %s" % (", ".join(record.shortNames)))
 
         if record:
             self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
