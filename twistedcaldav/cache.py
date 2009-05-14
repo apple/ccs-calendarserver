@@ -29,6 +29,7 @@ from twisted.web2.stream import MemoryStream
 
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
+from twistedcaldav.config import config
 
 
 class DisabledCacheNotifier(object):
@@ -78,7 +79,7 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
-            self._newCacheToken())
+            self._newCacheToken(), expireTime=config.ResponseCacheTimeout*60)
 
 
 class BaseResponseCache(LoggingMixIn):
@@ -282,7 +283,8 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                   responseBody)))
 
             self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
-            return self.getCachePool().set(key, cacheEntry).addCallback(
+            return self.getCachePool().set(key, cacheEntry,
+                expireTime=config.ResponseCacheTimeout*60).addCallback(
                 lambda _: response)
 
         def _cacheResponse((key, responseBody)):

@@ -424,6 +424,8 @@ defaultConfig = {
     },
 
     "EnableKeepAlive": True,
+
+    "ResponseCacheTimeout": 30, # Minutes
 }
 
 class Config (object):
