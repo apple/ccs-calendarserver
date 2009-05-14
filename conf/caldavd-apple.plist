@@ -270,26 +270,9 @@
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
 
-	<!-- Global server stats --> 
-	<key>GlobalStatsSocket</key> 
-	<string>/var/run/caldavd-stats.sock</string> 
-
-	<!-- 
-		To log every five minutes and keep stats for the last hour: 
-
-			GlobalStatsLoggingPeriod : 60 
-			GlobalStatsLoggingFrequency : 12 
-
-		Set GlobalStatsLoggingFrequency to 0 to disable the stats 
-	--> 
-
-	<!-- Global server stats logging period --> 
-	<key>GlobalStatsLoggingPeriod</key> 
-	<integer>60</integer> 
-
-	<!-- Global server stats logging frequency --> 
- 	<key>GlobalStatsLoggingFrequency</key> 
-	<integer>12</integer> 
+    <!-- Global server stats --> 
+    <key>GlobalStatsSocket</key> 
+    <string>/var/run/caldavd-stats.sock</string> 
 
     <!-- Server statistics file -->
     <key>ServerStatsFile</key>
