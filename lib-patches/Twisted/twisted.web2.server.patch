@@ -82,8 +82,8 @@ Index: twisted/web2/server.py
 +
 +        elif self.method == "POST":
 +            if self.headers.hasHeader("User-Agent") and self.headers.getHeader("User-Agent").lower().find(" msie ") > 0:
-+                if self.headers.hasHeader("StupidIESentAPostButWants"):
-+                    intendedMethod = self.headers.getRawHeaders("StupidIESentAPostButWants")[0];
++                if self.headers.hasHeader("X-HTTP-Method-Override"):
++                    intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0];
 +                    if intendedMethod.upper() == "REPORT" or intendedMethod.upper() == "MKCALENDAR":
 +                        self.method = intendedMethod
 +                    else:
