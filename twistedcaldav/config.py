@@ -645,7 +645,7 @@ class Config (object):
         if configFile:
             try:
                 configDict = readPlist(configFile)
-            except IOError, OSError:
+            except (IOError, OSError):
                 log.error("Unable to open config file: %s" % (configFile,))
             else:
                 configDict = _cleanup(configDict)
