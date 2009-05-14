@@ -68,32 +68,23 @@ Index: twisted/web2/server.py
          d.addCallback(lambda res, req: res.renderHTTP(req), self)
          d.addCallback(self._cbFinishRender)
          d.addErrback(self._processingFailed)
-@@ -274,12 +298,23 @@
-         """Do any request processing that doesn't follow the normal
-         resource lookup procedure. "OPTIONS *" is handled here, for
-         example. This would also be the place to do any CONNECT
--        processing."""
-+        processing.  We also handle the REPORT IE hack here."""
-         
-         if self.method == "OPTIONS" and self.uri == "*":
+@@ -280,6 +304,15 @@
              response = http.Response(responsecode.OK)
              response.headers.setHeader('allow', ('GET', 'HEAD', 'OPTIONS', 'TRACE'))
              return response
 +
 +        elif self.method == "POST":
-+            if self.headers.hasHeader("User-Agent") and self.headers.getHeader("User-Agent").lower().find(" msie ") > 0:
-+                if self.headers.hasHeader("X-HTTP-Method-Override"):
-+                    intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0];
-+                    if intendedMethod.upper() == "REPORT" or intendedMethod.upper() == "MKCALENDAR":
-+                        self.method = intendedMethod
-+                    else:
-+                        log.msg("Error preprocessing:", isErr=1)
-+                        log.err("IE sent a POST but requested a %s, and we don't allow that.  Only REPORT and MKCALENDAR can be requested." % intendedMethod)
++            # Allow other methods to tunnel through using POST and a request header.
++            # See http://code.google.com/apis/gdata/docs/2.0/basics.html
++            if self.headers.hasHeader("X-HTTP-Method-Override"):
++                intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0];
++                if intendedMethod:
++                    self.method = intendedMethod
 +        
          # This is where CONNECT would go if we wanted it
          return None
      
-@@ -321,7 +356,6 @@
+@@ -321,7 +354,6 @@
          if newpath is StopTraversal:
              # We need to rethink how to do this.
              #if newres is res:
@@ -101,7 +92,7 @@ Index: twisted/web2/server.py
                  return res
              #else:
              #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
-@@ -337,7 +371,6 @@
+@@ -337,7 +369,6 @@
                  self.prepath.append(self.postpath.pop(0))
  
          child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
@@ -109,7 +100,7 @@ Index: twisted/web2/server.py
  
          return child
  
-@@ -347,6 +380,7 @@
+@@ -347,6 +378,7 @@
          """
          Remember the URL of a visited resource.
          """
@@ -117,7 +108,7 @@ Index: twisted/web2/server.py
          self._urlsByResource[resource] = url
          return resource
  
-@@ -386,7 +420,8 @@
+@@ -386,7 +418,8 @@
              The contained response will have a status code of
              L{responsecode.BAD_REQUEST}.
          """
@@ -127,7 +118,7 @@ Index: twisted/web2/server.py
  
          #
          # Parse the URL
-@@ -407,9 +442,13 @@
+@@ -407,9 +440,13 @@
                  "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
              ))
  
@@ -143,7 +134,7 @@ Index: twisted/web2/server.py
  
          def notFound(f):
              f.trap(http.HTTPError)
-@@ -417,7 +456,7 @@
+@@ -417,7 +454,7 @@
                  return f
              return None
  
