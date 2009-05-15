@@ -124,7 +124,15 @@ def migrateConfiguration(options):
     """
 
     oldConfigDir = os.path.join(options.sourceRoot, CALDAVD_CONFIG_DIR)
+    if not os.path.exists(oldConfigDir):
+        log("Old configuration directory does not exist: %s" % (oldConfigDir,))
+        return
+
     newConfigDir = os.path.join(options.targetRoot, CALDAVD_CONFIG_DIR)
+    if not os.path.exists(newConfigDir):
+        log("New configuration directory does not exist: %s" % (newConfigDir,))
+        return
+
     log("Copying configuration files from %s to %s" % (oldConfigDir, newConfigDir))
 
     for name in os.listdir(oldConfigDir):
