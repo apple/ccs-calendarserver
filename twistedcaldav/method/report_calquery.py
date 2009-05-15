@@ -22,11 +22,13 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
 import urllib
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import PCDATAElement
-from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twisted.web2.dav.http import MultiStatusResponse
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
@@ -71,8 +73,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     query_timezone = None
     query_tz = calendar_query.timezone
     if query_tz is not None and not query_tz.valid():
-        log.err("CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+        msg = "CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,)
+        log.err(msg)
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
     if query_tz:
         filter.settimezone(query_tz)
         query_timezone = tuple(calendar_query.timezone.calendar().subcomponents())[0]

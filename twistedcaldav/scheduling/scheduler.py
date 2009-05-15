@@ -14,13 +14,15 @@
 # limitations under the License.
 ##
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.python.failure import Failure
 
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse, errorForFailure, messageForFailure, statusForFailure
+from twisted.web2.dav.http import errorForFailure, messageForFailure, statusForFailure
 from twisted.web2.http import HTTPError, Response, StatusResponse
 from twisted.web2.http_headers import MimeType
 
@@ -229,7 +231,7 @@ class Scheduler(object):
         except:
             # FIXME: Bare except
             log.err("Error while handling %s: %s" % (self.method, Failure(),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
 
     def checkAuthorization(self):
         raise NotImplementedError
@@ -255,17 +257,17 @@ class Scheduler(object):
             self.calendar.validCalendarForCalDAV()
         except ValueError, e:
             log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Calendar component is not valid"))
     
         # Must have a METHOD
         if not self.calendar.isValidMethod():
             log.err("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Must have valid METHOD property"))
         
         # Verify iTIP behavior
         if not self.calendar.isValidITIP():
             log.err("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Must have a calendar component that satisfies iTIP requirements"))
 
         # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
         if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
@@ -279,12 +281,12 @@ class Scheduler(object):
                 vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
                 if len(vfreebusies) != 1:
                     log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="iTIP data is not valid for a VFREEBUSY request"))
                 dtstart = vfreebusies[0].getStartDateUTC()
                 dtend = vfreebusies[0].getEndDateUTC()
                 if dtstart is None or dtend is None:
                     log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start/end not valid"))
                 self.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
                 self.timeRange.start = dtstart
                 self.timeRange.end = dtend
@@ -576,7 +578,7 @@ class CalDAVScheduler(Scheduler):
             
         else:
             log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Unknown iTIP METHOD for security checks"))
 
     def finalChecks(self):
         """
@@ -778,8 +780,9 @@ class IScheduleScheduler(Scheduler):
             yield self.checkAttendeeAsOriginator()
             
         else:
-            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            msg = "Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),)
+            log.err(msg)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
 
 class IMIPScheduler(Scheduler):
 

@@ -20,11 +20,13 @@ CalDAV MKCALENDAR method.
 
 __all__ = ["http_MKCALENDAR"]
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
+from twisted.web2.dav.http import MultiStatusResponse, PropertyStatusResponseQueue
 from twisted.web2.dav.util import davXMLFromStream
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError, StatusResponse

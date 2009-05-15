@@ -24,6 +24,8 @@ import os
 import types
 import uuid
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import returnValue
@@ -34,7 +36,6 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedGETContentMD5
 from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
@@ -319,13 +320,13 @@ class StoreCalendarObjectResource(object):
                             self.calendar = Component.fromString(self.calendar)
                     except ValueError, e:
                         log.err(str(e))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
                         
                 # Valid calendar data check
                 result, message = self.validCalendarDataCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=message))
                     
                 # Valid calendar data for CalDAV check
                 result, message = self.validCalDAVDataCheck()
@@ -674,8 +675,9 @@ class StoreCalendarObjectResource(object):
             try:
                 result = self.calendar.truncateRecurrence(config.MaxInstancesForRRULE)
             except (ValueError, TypeError), ex:
-                log.err("Cannot truncate calendar resource: %s" % (ex,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                msg = "Cannot truncate calendar resource: %s" % (ex,)
+                log.err(msg)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
             if result:
                 self.calendardata = str(self.calendar)
                 return result
@@ -899,8 +901,9 @@ class StoreCalendarObjectResource(object):
                 NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
             ))
         except (ValueError, TypeError), ex:
-            log.err("Cannot index calendar resource: %s" % (ex,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+            msg = "Cannot index calendar resource: %s" % (ex,)
+            log.err(msg)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
 
         content_type = self.request.headers.getHeader("content-type")
         if content_type is not None:
@@ -969,8 +972,9 @@ class StoreCalendarObjectResource(object):
             
                     returnValue(StatusResponse(responsecode.CREATED, "Resource created but immediately deleted by the server."))
                 else:
-                    log.err("Invalid return status code from ImplicitScheduler: %s" % (implicit_result,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                    msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+                    log.err(msg)
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
             else:
                 is_scheduling_resource, data_changed, did_implicit_action = implicit_result
 
@@ -1101,7 +1105,7 @@ class StoreCalendarObjectResource(object):
                 self.rollback.Rollback()
 
             if isinstance(err, InvalidOverriddenInstanceError):
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Invalid overridden instance"))
             elif isinstance(err, TooManyInstancesError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,

@@ -39,13 +39,14 @@ import os
 import errno
 from urlparse import urlsplit
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode, http, http_headers
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import mkcollection, rmdir
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.dav.resource import AccessDeniedError

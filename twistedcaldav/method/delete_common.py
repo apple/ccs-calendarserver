@@ -21,11 +21,12 @@ CalDAV DELETE behaviors.
 
 __all__ = ["DeleteResource"]
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse,\
-    ErrorResponse
+from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
