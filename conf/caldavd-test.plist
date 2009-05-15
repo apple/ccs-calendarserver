@@ -685,6 +685,10 @@
       </array>
     </dict>
 
+    <!-- Response Caching -->
+    <key>ResponseCacheTimeout</key>
+    <integer>30</integer> <!-- in minutes -->
+
 
     <!--
         Twisted
@@ -720,6 +724,7 @@
       <key>Language</key>
       <string>English</string>
     </dict>
+
 
   </dict>
 </plist>
