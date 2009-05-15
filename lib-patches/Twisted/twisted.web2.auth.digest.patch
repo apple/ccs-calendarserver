@@ -35,7 +35,7 @@ Index: twisted/web2/auth/digest.py
  }
  
  # DigestCalcHA1
-@@ -153,9 +162,44 @@
+@@ -153,9 +162,42 @@
              calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
              algo, nonce, nc, cnonce, qop, self.method, uri, None
          )
@@ -55,33 +55,31 @@ Index: twisted/web2/auth/digest.py
 +            if expected == response:
 +                return True
  
-+        # And yet another IE hack...
-+        # IE refuses to send Authorization headers with REPORT requests.
-+        # So instead we're sending a POST, then telling the server it's a REPORT.
-+        # When this happens, the client created the response with POST and the server
-+        # compares it against a response made with REPORT, which of course won't match.
++        # We allow other methods to tunnel through using POST and a request header.
++        # (See http://code.google.com/apis/gdata/docs/2.0/basics.html)
++        # In that case, the client will have created the response with a method of POST,
++        # but the server compares that to a response make with a different method.
 +        # So we try again telling the server to use POST instead.
-+        if self.method == "REPORT":
++        expected = calcResponse(
++            calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
++            algo, nonce, nc, cnonce, qop, "POST", uri, None
++        )
++        if expected == response:
++            return True
++        if nc is not None or cnonce is not None:
 +            expected = calcResponse(
 +                calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
-+                algo, nonce, nc, cnonce, qop, "POST", uri, None
++                algo, nonce, None, None, qop, "POST", uri, None
 +            )
 +            if expected == response:
 +                return True
-+            if nc is not None or cnonce is not None:
-+                expected = calcResponse(
-+                    calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
-+                    algo, nonce, None, None, qop, "POST", uri, None
-+                )
-+                if expected == response:
-+                    return True
 +
 +        return False
 +
      def checkHash(self, digestHash):
          response = self.fields.get('response')
          uri = self.fields.get('uri')
-@@ -228,9 +272,9 @@
+@@ -228,9 +270,9 @@
          # Now, what we do is encode the nonce, client ip and a timestamp
          # in the opaque value with a suitable digest
          key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
@@ -93,7 +91,7 @@ Index: twisted/web2/auth/digest.py
  
      def verifyOpaque(self, opaque, nonce, clientip):
          """
-@@ -274,7 +318,7 @@
+@@ -274,7 +316,7 @@
                  'Invalid response, incompatible opaque/nonce too old')
  
          # Verify the digest
@@ -102,7 +100,7 @@ Index: twisted/web2/auth/digest.py
          if digest != opaqueParts[0]:
              raise error.LoginFailed('Invalid response, invalid opaque value')
  
-@@ -293,11 +337,12 @@
+@@ -293,11 +335,12 @@
          c = self.generateNonce()
          o = self.generateOpaque(c, peer.host)
  
@@ -120,7 +118,7 @@ Index: twisted/web2/auth/digest.py
  
      def decode(self, response, request):
          """
-@@ -315,18 +360,18 @@
+@@ -315,18 +358,18 @@
          @raise: L{error.LoginFailed} if the response does not contain a
              username, a nonce, an opaque, or if the opaque is invalid.
          """
@@ -150,7 +148,7 @@ Index: twisted/web2/auth/digest.py
          username = auth.get('username')
          if not username:
              raise error.LoginFailed('Invalid response, no username given.')
-@@ -342,7 +387,7 @@
+@@ -342,7 +385,7 @@
                               auth.get('nonce'),
                               request.remoteAddr.host):
  
