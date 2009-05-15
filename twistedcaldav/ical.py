@@ -1848,7 +1848,7 @@ class Component (object):
         Remove all X- properties except the specified ones
         """
 
-        if do_subcomponents:
+        if do_subcomponents and self.name() == "VCALENDAR":
             for component in self.subcomponents():
                 component.removeXProperties(keep_properties, remove_x_parameters, do_subcomponents=False)
         else:
@@ -1868,12 +1868,13 @@ class Component (object):
         Remove all specified property parameters
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
-
-        for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
-            props = component.properties(property)
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.removePropertyParameters(property, params)
+        else:
+            props = self.properties(property)
             for prop in props:
                 for param in params:
                     try:
@@ -1886,12 +1887,13 @@ class Component (object):
         Remove all specified property parameters
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
-
-        for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
-            props = component.properties(property)
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.removePropertyParametersByValue(property, paramvalues)
+        else:
+            props = self.properties(property)
             for prop in props:
                 for param, value in paramvalues:
                     try:
@@ -2006,33 +2008,38 @@ class Component (object):
         to do comparisons between two ical objects.
         """
         
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
-
-        for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
-                continue
-            for prop in tuple(component.properties(propname)):
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.normalizePropertyValueLists(propname)
+        else:
+            for prop in tuple(self.properties(propname)):
                 if type(prop.value()) is list and len(prop.value()) > 1:
-                    component.removeProperty(prop)
+                    self.removeProperty(prop)
                     for value in prop.value():
-                        component.addProperty(Property(propname, [value,]))
+                        self.addProperty(Property(propname, [value,]))
 
     def normalizeAttachments(self):
         """
         Remove any ATTACH properties that relate to a dropbox.
         """
         
-        # Do to all sub-components
-        for component in self.subcomponents():
-            dropboxPrefix = component.propertyValue("X-APPLE-DROPBOX")
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() == "VTIMEZONE":
+                    continue
+                component.normalizeAttachments()
+        else:
+            dropboxPrefix = self.propertyValue("X-APPLE-DROPBOX")
             if dropboxPrefix is None:
-                continue
-            for attachment in tuple(component.properties("ATTACH")):
+                return
+            for attachment in tuple(self.properties("ATTACH")):
                 valueType = attachment.paramValue("VALUE")
                 if valueType in (None, "URI"):
                     dataValue = attachment.value()
                     if dataValue.find(dropboxPrefix) != -1:
-                        component.removeProperty(attachment)
+                        self.removeProperty(attachment)
 
     def normalizeCalendarUserAddresses(self, lookupFunction):
         """
