@@ -316,11 +316,12 @@ class Scheduler(object):
             if accountingEnabled("iTIP", self.organizer.principal):
                 emitAccounting(
                     "iTIP", self.organizer.principal,
-                    "Originator: %s\nRecipients:\n%sServer Instance:%s\n\n%s"
+                    "Originator: %s\nRecipients:\n%sServer Instance:%s\nMethod:%s\n\n%s"
                     % (
                         str(self.originator),
                         str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
                         str(self.request.serverInstance),
+                        str(self.method),
                         str(self.calendar)
                     )
                 )
