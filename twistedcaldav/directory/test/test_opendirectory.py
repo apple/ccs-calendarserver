@@ -77,6 +77,6 @@ else:
             )
 
             digestFields = {}
-            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields)
+            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertFalse(record.verifyCredentials(digested))
