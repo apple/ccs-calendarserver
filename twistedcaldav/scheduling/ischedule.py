@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, DeferredList
 from twisted.internet.protocol import ClientCreator
 
@@ -22,7 +24,6 @@ from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.client.http import HTTPClientProtocol
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import davXMLFromStream
 from twisted.web2.http import HTTPError
 from twisted.web2.http_headers import Headers

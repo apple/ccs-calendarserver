@@ -21,7 +21,15 @@ Extensions to twisted.web2.dav.davxml
 __all__ = [
     "sname2qname",
     "qname2sname",
+    "ErrorResponse",
 ]
+
+from twisted.web2.http import Response
+from twisted.web2.dav.http import ErrorResponse as SuperErrorResponse
+from twisted.web2.dav.davxml import twisted_dav_namespace, WebDAVTextElement
+from twisted.web2.dav.davxml import WebDAVUnknownElement, Error
+from twisted.web2.http_headers import MimeType
+
 
 def sname2qname(sname):
     """
@@ -59,3 +67,56 @@ def qname2sname(qname):
         return "{%s}%s" % qname
     except TypeError:
         raise ValueError("Invalid qname: %r" % (qname,))
+
+
+
+
+
+class ErrorDescription(WebDAVTextElement):
+    """
+    The human-readable description of a failed precondition
+    """
+    namespace = twisted_dav_namespace
+    name = "error-description"
+    protected = True
+
+
+class ErrorResponse(SuperErrorResponse):
+    """
+    A L{Response} object which contains a status code and a L{davxml.Error}
+    element.
+    Renders itself as a DAV:error XML document.
+    """
+    error = None
+
+    def __init__(self, code, error, description=None):
+        """
+        @param code: a response code.
+        @param error: an L{davxml.WebDAVElement} identifying the error, or a
+            tuple C{(namespace, name)} with which to create an empty element
+            denoting the error.  (The latter is useful in the case of
+            preconditions ans postconditions, not all of which have defined
+            XML element classes.)
+        @param description: an optional string that, if present, will get
+            wrapped in a (twisted_dav_namespace, error-description) element.
+        """
+        if type(error) is tuple:
+            xml_namespace, xml_name = error
+            error = WebDAVUnknownElement()
+            error.namespace = xml_namespace
+            error.name = xml_name
+
+        if description:
+            output = Error(error, ErrorDescription(description)).toxml()
+        else:
+            output = Error(error).toxml()
+
+        Response.__init__(self, code=code, stream=output)
+
+        self.headers.setHeader("content-type", MimeType("text", "xml"))
+
+        self.error = error
+
+    def __repr__(self):
+        return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
+

@@ -22,7 +22,7 @@ __all__ = ["http_PUT"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
-from twisted.web2.dav.http import ErrorResponse
+from twext.web2.dav.davxml import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
 
@@ -55,7 +55,7 @@ def http_PUT(self, request):
             # We must have some data at this point
             if calendardata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="No calendar data"))
 
             storer = StoreCalendarObjectResource(
                 request = request,

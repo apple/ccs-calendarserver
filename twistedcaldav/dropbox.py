@@ -24,9 +24,9 @@ __all__ = [
     "DropBoxChildResource",
 ]
 
+from twext.web2.dav.davxml import ErrorResponse
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
 
 from twistedcaldav.customxml import calendarserver_namespace

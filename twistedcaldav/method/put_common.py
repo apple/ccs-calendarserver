@@ -24,6 +24,8 @@ import os
 import types
 import uuid
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import returnValue
@@ -34,7 +36,6 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.element.base import PCDATAElement
 from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.resource import TwistedGETContentMD5
 from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL

@@ -22,10 +22,12 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
 
 from urllib import unquote
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twisted.web2.dav.http import MultiStatusResponse
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse

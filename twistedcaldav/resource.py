@@ -31,13 +31,14 @@ import urllib
 
 from zope.interface import implements
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.davxml import dav_namespace
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
 from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
 from twisted.web2.dav.resource import TwistedACLInheritable

@@ -14,10 +14,11 @@
 # limitations under the License.
 ##
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import HTTPError

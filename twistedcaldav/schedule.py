@@ -24,10 +24,11 @@ __all__ = [
     "IScheduleInboxResource",
 ]
 
+from twext.web2.dav.davxml import ErrorResponse
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import joinURL, normalizeURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response
