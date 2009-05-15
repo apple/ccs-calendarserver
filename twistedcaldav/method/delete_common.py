@@ -215,6 +215,8 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
+        # Change CTag
+        yield delresource.updateCTag()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
         
         if isinstance(more_responses, MultiStatusResponse):
