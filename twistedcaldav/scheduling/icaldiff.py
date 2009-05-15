@@ -604,10 +604,6 @@ class iCalDiff(object):
         and PARTSTAT parameters that are different.
         """
 
-        # Do straight comparison without alarms
-        self.calendar1 = self._attendeeDuplicateAndNormalize(self.calendar1)
-        self.calendar2 = self._attendeeDuplicateAndNormalize(self.calendar2)
-
         # First get uid/rid map of components
         def mapComponents(calendar):
             map = {}
@@ -651,14 +647,14 @@ class iCalDiff(object):
         
         return rids
 
-    def _attendeeDuplicateAndNormalize(self, calendar):
-        calendar = calendar.duplicate()
-        calendar.normalizePropertyValueLists("EXDATE")
-        calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
-        calendar.normalizeAll()
-        calendar.normalizeAttachments()
-        iTipGenerator.prepareSchedulingMessage(calendar, reply=True)
-        return calendar
+    def _attendeeDuplicateAndNormalize(self, comp):
+        comp = comp.duplicate()
+        comp.normalizePropertyValueLists("EXDATE")
+        comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+        comp.normalizeAll()
+        comp.normalizeAttachments()
+        iTipGenerator.prepareSchedulingMessage(comp, reply=True)
+        return comp
 
     def _diffComponents(self, comp1, comp2, rids):
         
@@ -668,6 +664,10 @@ class iCalDiff(object):
             log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
             return
         
+        # Duplicate then normalize for comparison
+        comp1 = self._attendeeDuplicateAndNormalize(comp1)
+        comp2 = self._attendeeDuplicateAndNormalize(comp2)
+
         # Diff all the properties
         comp1.transformAllFromNative()
         comp2.transformAllFromNative()

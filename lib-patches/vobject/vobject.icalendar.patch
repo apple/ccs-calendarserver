@@ -21,6 +21,15 @@ Index: vobject/icalendar.py
  
                          rule._until = until
                      
+@@ -473,7 +485,7 @@
+             untilSerialize = lambda x: dateTimeToString(x, True)
+ 
+         for name in DATESANDRULES:
+-            if hasattr(self.contents, name):
++            if name in self.contents:
+                 del self.contents[name]
+             setlist = getattr(rruleset, '_' + name)
+             if name in DATENAMES:
 @@ -1661,9 +1673,10 @@
                  else:
                      current.append(char)
