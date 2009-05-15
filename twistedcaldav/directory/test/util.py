@@ -338,6 +338,7 @@ class DigestTestCase (DirectoryTestCase):
                         "cnonce": "phlegm",
                         "nc": None,
                     },
+                    None,
                 )
 
                 if good:

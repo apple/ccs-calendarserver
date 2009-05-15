@@ -35,26 +35,65 @@ Index: twisted/web2/auth/digest.py
  }
  
  # DigestCalcHA1
-@@ -153,7 +162,18 @@
+@@ -134,11 +143,12 @@
+     implements(credentials.IUsernameHashedPassword,
+                IUsernameDigestHash)
+ 
+-    def __init__(self, username, method, realm, fields):
++    def __init__(self, username, method, realm, fields, originalMethod):
+         self.username = username
+         self.method = method
+         self.realm = realm
+         self.fields = fields
++        self.originalMethod = originalMethod
+ 
+     def checkPassword(self, password):
+         response = self.fields.get('response')
+@@ -149,12 +159,29 @@
+         algo = self.fields.get('algorithm', 'md5').lower()
+         qop = self.fields.get('qop', 'auth')
+ 
++        if self.originalMethod:
++            method = self.originalMethod
++        else:
++            method = self.method
++
+         expected = calcResponse(
              calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
-             algo, nonce, nc, cnonce, qop, self.method, uri, None
+-            algo, nonce, nc, cnonce, qop, self.method, uri, None
++            algo, nonce, nc, cnonce, qop, method, uri, None
          )
 +        
 +        if expected == response:
 +            return True
  
+-        return expected == response
 +        # IE7 sends cnonce and nc values, but auth fails if they are used.
 +        # So try again without them...
 +        # They can be omitted for backwards compatibility [RFC 2069].
-+        expected = calcResponse(
-+            calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
-+            algo, nonce, None, None, qop, self.method, uri, None
-+        )
-+
-         return expected == response
++        if nc is not None or cnonce is not None:
++            expected = calcResponse(
++                calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
++                algo, nonce, None, None, qop, method, uri, None
++            )
++            if expected == response:
++                return True
  
      def checkHash(self, digestHash):
-@@ -228,9 +248,9 @@
+         response = self.fields.get('response')
+@@ -165,6 +192,11 @@
+         algo = self.fields.get('algorithm', 'md5').lower()
+         qop = self.fields.get('qop', 'auth')
+ 
++        if self.originalMethod:
++            method = self.originalMethod
++        else:
++            method = self.method
++
+         expected = calcResponse(
+             calcHA1(algo, None, None, None, nonce, cnonce, preHA1=digestHash),
+             algo, nonce, nc, cnonce, qop, self.method, uri, None
+@@ -228,9 +260,9 @@
          # Now, what we do is encode the nonce, client ip and a timestamp
          # in the opaque value with a suitable digest
          key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
@@ -66,7 +105,7 @@ Index: twisted/web2/auth/digest.py
  
      def verifyOpaque(self, opaque, nonce, clientip):
          """
-@@ -274,7 +294,7 @@
+@@ -274,7 +306,7 @@
                  'Invalid response, incompatible opaque/nonce too old')
  
          # Verify the digest
@@ -75,7 +114,7 @@ Index: twisted/web2/auth/digest.py
          if digest != opaqueParts[0]:
              raise error.LoginFailed('Invalid response, invalid opaque value')
  
-@@ -293,11 +313,12 @@
+@@ -293,11 +325,12 @@
          c = self.generateNonce()
          o = self.generateOpaque(c, peer.host)
  
@@ -93,7 +132,7 @@ Index: twisted/web2/auth/digest.py
  
      def decode(self, response, request):
          """
-@@ -315,18 +336,18 @@
+@@ -315,18 +348,18 @@
          @raise: L{error.LoginFailed} if the response does not contain a
              username, a nonce, an opaque, or if the opaque is invalid.
          """
@@ -123,7 +162,7 @@ Index: twisted/web2/auth/digest.py
          username = auth.get('username')
          if not username:
              raise error.LoginFailed('Invalid response, no username given.')
-@@ -342,7 +363,7 @@
+@@ -342,7 +375,8 @@
                               auth.get('nonce'),
                               request.remoteAddr.host):
  
@@ -132,4 +171,5 @@ Index: twisted/web2/auth/digest.py
                                         request.method,
                                         self.realm,
 -                                       auth)
-+                                       auth))
++                                       auth,
++                                       request.originalMethod if hasattr(request, "originalMethod") else None))
