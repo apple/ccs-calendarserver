@@ -39,7 +39,6 @@ def loadConfig(configFileName):
         raise ConfigurationError("No config file: %s" % (configFileName,))
 
     config.loadConfig(configFileName)
-    config.directory = getDirectory()
 
     return config
 

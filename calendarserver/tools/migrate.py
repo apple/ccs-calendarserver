@@ -32,7 +32,7 @@ from getopt import getopt, GetoptError
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.upgrade import upgradeData
 
-from calendarserver.tools.util import loadConfig
+from calendarserver.tools.util import loadConfig, getDirectory
 
 def usage(e=None):
     if e:
@@ -79,6 +79,7 @@ def main():
 
     try:
         config = loadConfig(configFileName)
+        config.directory = getDirectory()
     except ConfigurationError, e:
         sys.stdout.write("%s\n" % (e,))
         sys.exit(1)
