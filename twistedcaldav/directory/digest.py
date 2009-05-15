@@ -231,7 +231,8 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             credentials = DigestedCredentials(username,
                                        request.method,
                                        self.realm,
-                                       auth)
+                                       auth,
+                                       request.originalMethod if hasattr(request, "originalMethod") else None)
             if not self.qop and credentials.fields.has_key('qop'):
                 del credentials.fields['qop']
             returnValue(credentials)
