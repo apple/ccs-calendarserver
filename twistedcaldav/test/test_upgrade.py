@@ -18,6 +18,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
@@ -338,6 +339,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
             ResourceInfoDatabase.dbFilename :
             {
                 "@contents" : None,
@@ -439,6 +444,10 @@ class ProxyDBUpgradeTests(TestCase):
                 },
             },
             CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
             {
                 "@contents" : None,
             },
@@ -559,6 +568,10 @@ class ProxyDBUpgradeTests(TestCase):
                 },
             },
             CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
             {
                 "@contents" : None,
             },
@@ -683,6 +696,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
             ResourceInfoDatabase.dbFilename :
             {
                 "@contents" : None,
@@ -774,6 +791,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
             ResourceInfoDatabase.dbFilename :
             {
                 "@contents" : None,
@@ -816,6 +837,10 @@ class ProxyDBUpgradeTests(TestCase):
                 "@contents" : "1",
             },
             CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
             {
                 "@contents" : None,
             },
