@@ -44,7 +44,7 @@ from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService
 
 from calendarserver.tools.util import UsageError
-from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
+from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord, autoDisableMemcached
 
 def usage(e=None):
     if e:
@@ -147,6 +147,8 @@ def main():
     if records:
         try:
             config = loadConfig(configFileName)
+            config.directory = getDirectory()
+            autoDisableMemcached(config)
         except ConfigurationError, e:
             sys.stdout.write("%s\n" % (e,))
             sys.exit(1)

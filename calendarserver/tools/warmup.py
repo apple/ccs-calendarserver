@@ -129,6 +129,7 @@ def main():
     if records or allRecords:
         try:
             config = loadConfig(configFileName)
+            config.directory = getDirectory()
         except ConfigurationError, e:
             sys.stdout.write("%s\n" % (e,))
             sys.exit(1)

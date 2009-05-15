@@ -22,9 +22,13 @@ import itertools
 import operator
 from getopt import getopt, GetoptError
 from uuid import UUID
+from pwd import getpwnam
+from grp import getgrnam
+
 
 from twisted.python import log
 from twisted.python.reflect import namedClass
+from twisted.python.util import switchUID
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from twisted.internet.address import IPv4Address
@@ -84,6 +88,16 @@ def usage(e=None):
         sys.exit(0)
 
 def main():
+
+    #
+    # Send logging output to stdout
+    #
+    logFileName = "/dev/stdout"
+    observer = log.FileLogObserver(open(logFileName, "a"))
+    log.addObserver(observer.emit)
+
+
+
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:P:", [
@@ -178,6 +192,15 @@ def main():
     #
     try:
         loadConfig(configFileName)
+        setLogLevelForNamespace(None, "warn")
+
+        # Shed privileges
+        if config.UserName and config.GroupName:
+            uid = getpwnam(config.UserName).pw_uid
+            gid = getgrnam(config.GroupName).gr_gid
+            switchUID(uid, uid, gid)
+
+        config.directory = getDirectory()
         autoDisableMemcached(config)
     except ConfigurationError, e:
         abort(e)
@@ -191,14 +214,6 @@ def main():
             principalForPrincipalID(arg, checkOnly=True)
         except ValueError, e:
             abort(e)
-
-    #
-    # Send logging output to stdout
-    #
-    setLogLevelForNamespace(None, "warn")
-    logFileName = "/dev/stdout"
-    observer = log.FileLogObserver(open(logFileName, "a"))
-    log.addObserver(observer.emit)
 
     #
     # Start the reactor
