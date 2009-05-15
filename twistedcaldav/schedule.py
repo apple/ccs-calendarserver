@@ -148,7 +148,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if not property.valid():
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
-                    (caldav_namespace, "valid-calendar-data")
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid property"
                 ))
 
         elif property.qname() == (caldav_namespace, "calendar-free-busy-set"):
