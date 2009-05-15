@@ -461,10 +461,6 @@
     <key>EnableWebAdmin</key>
     <true/>
 
-    <!-- Response Caching -->
-    <key>ResponseCacheTimeout</key>
-    <integer>30</integer> <!-- in minutes -->
-
 
   </dict>
 </plist>
