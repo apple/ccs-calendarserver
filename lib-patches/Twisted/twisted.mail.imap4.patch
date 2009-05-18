@@ -25,7 +25,7 @@ Index: twisted/mail/imap4.py
                      for f in fetched.get('FLAGS', []):
                          sum.append(f)
                      flags.setdefault(mId, []).extend(sum)
-+            elif L.find('BYE LOGOUT') != -1:
++            elif L.find('BYE') != -1:
 +                pass
              else:
                  log.msg('Unhandled unsolicited response: ' + repr(L))
