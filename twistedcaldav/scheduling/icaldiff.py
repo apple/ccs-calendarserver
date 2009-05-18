@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeToUTC, toString,\
     normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
@@ -243,6 +244,12 @@ class iCalDiff(object):
         """
         
         self.attendee = normalizeCUAddr(attendee)
+
+        if config.MaxInstancesForRRULE != 0:
+            try:
+                self.calendar1.truncateRecurrence(config.MaxInstancesForRRULE)
+            except (ValueError, TypeError), ex:
+                log.err("Cannot truncate calendar resource: %s" % (ex,))
 
         self.newCalendar = self.calendar1.duplicate()
         self.newMaster = self.newCalendar.masterComponent()
