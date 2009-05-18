@@ -420,11 +420,14 @@ def action_removeProxy(principal, *proxyIDs, **kwargs):
 
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
-    print "Setting auto-schedule to %s for %s" % (
-        { True: "true", False: "false" }[autoSchedule],
-        principal,
-    )
-    (yield principal.setAutoSchedule(autoSchedule))
+    if autoSchedule and principal.record.recordType in ("users", "groups"):
+        print "Enabling auto-schedule for %s is not allowed." % (principal,)
+    else:
+        print "Setting auto-schedule to %s for %s" % (
+            { True: "true", False: "false" }[autoSchedule],
+            principal,
+        )
+        (yield principal.setAutoSchedule(autoSchedule))
 
 @inlineCallbacks
 def action_getAutoSchedule(principal):
