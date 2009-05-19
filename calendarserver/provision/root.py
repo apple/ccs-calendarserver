@@ -174,11 +174,11 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 token = None
 
             if token is not None and token != "unauthenticated":
-                log.info("Wiki sessionID cookie value: %s" % (token,))
+                log.debug("Wiki sessionID cookie value: %s" % (token,))
                 proxy = Proxy(wikiConfig["URL"])
                 try:
                     username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
-                    log.info("Wiki lookup returned user: %s" % (username,))
+                    log.debug("Wiki lookup returned user: %s" % (username,))
                     directory = request.site.resource.getDirectory()
                     record = directory.recordWithShortName("users", username)
                     if record is None:
@@ -221,7 +221,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     returnValue(child)
 
                 except Exception, e:
-                    log.info("Wiki lookup returned ERROR: %s" % (e,))
+                    log.warn("Wiki lookup returned ERROR: %s" % (e,))
                     raise HTTPError(StatusResponse(
                         responsecode.FORBIDDEN,
                         "Your sessionID was rejected by the authenticating wiki server."

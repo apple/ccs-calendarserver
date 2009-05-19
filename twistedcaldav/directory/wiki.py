@@ -165,12 +165,12 @@ def getWikiACL(resource, request):
     proxy = Proxy(wikiConfig["URL"])
     try:
 
-        log.info("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
+        log.debug("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
             wikiID))
         access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
             userID, wikiID))
 
-        log.info("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
+        log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
             wikiID, access))
 
         # The ACL we returns has ACEs for the end-user and the wiki principal
@@ -253,7 +253,7 @@ def getWikiACL(resource, request):
 
     except Fault, fault:
 
-        log.info("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
+        log.debug("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
             wikiID, fault))
 
         if fault.faultCode == 2: # non-existent user
