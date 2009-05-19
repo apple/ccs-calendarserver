@@ -535,7 +535,7 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
                 self._memcacher.setDeletionTimer(principalUID, delay=delay)
                 returnValue(None)
 
-        self.log_debug("Removing missing proxy principal for '%s'" %
+        self.log_warn("Removing missing proxy principal for '%s'" %
             (principalUID,))
 
         for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
