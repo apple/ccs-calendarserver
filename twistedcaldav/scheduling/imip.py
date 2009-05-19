@@ -27,6 +27,7 @@ from twisted.web import client
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.log import Logger
+from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
@@ -98,6 +99,13 @@ class ScheduleViaIMip(DeliveryService):
         }
         factory = client.HTTPClientFactory(url, method='POST', headers=headers,
             postdata=caldata, agent="CalDAV server")
+
+        if config.Scheduling.iMIP.Username:
+            factory.username = config.Scheduling.iMIP.Username
+            factory.password = config.Scheduling.iMIP.Password
+
+        factory.noisy = False
+        factory.protocol = AuthorizedHTTPGetter
         reactor.connectTCP(mailGatewayServer, mailGatewayPort, factory)
         return factory.deferred
 

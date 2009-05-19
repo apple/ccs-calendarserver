@@ -75,7 +75,7 @@ from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
-from twistedcaldav.mail import IMIPInboxResource
+from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import upgradeData
 from twistedcaldav.pdmonster import PDClientAddressWrapper
@@ -339,7 +339,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     principalResourceClass       = DirectoryPrincipalProvisioningResource
     calendarResourceClass        = CalendarHomeProvisioningFile
     iScheduleResourceClass       = IScheduleInboxFile
-    imipResourceClass            = IMIPInboxResource
+    imipResourceClass            = IMIPReplyInboxResource
     timezoneServiceResourceClass = TimezoneServiceFile
     webCalendarResourceClass     = WebCalendarResource
     webAdminResourceClass        = WebAdminResource

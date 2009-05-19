@@ -20,36 +20,46 @@ Mail Gateway for Calendar Server
 """
 from __future__ import with_statement
 
+from calendarserver.provision.root import RootResource
+
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from twisted.application import internet, service
+from twisted.cred.portal import Portal
 from twisted.internet import protocol, defer, ssl, reactor
+from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
-from twisted.python.usage import Options, UsageError
 from twisted.python import failure
-from twisted.web import resource, server, client
-from twisted.web2 import responsecode
+from twisted.python.reflect import namedClass
+from twisted.python.usage import Options, UsageError
+from twisted.web import client
+from twisted.web2 import resource, server, responsecode
+from twisted.web2.channel.http import HTTPFactory
+from twisted.web2.dav import auth
 from twisted.web2.dav import davxml
 from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
-from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav import ical, caldavxml
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config, defaultConfig, defaultConfigFile
-from twistedcaldav.ical import Property
-from twistedcaldav.log import Logger, LoggingMixIn
+from twistedcaldav.directory.digest import QopDigestCredentialFactory
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.scheduling.scheduler import IMIPScheduler
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
-from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.ical import Property
 from twistedcaldav.localization import translationTo
+from twistedcaldav.log import Logger, LoggingMixIn
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.scheduling.scheduler import IMIPScheduler
+from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
+from twistedcaldav.util import AuthorizedHTTPGetter
 
 from zope.interface import implements
 
@@ -57,8 +67,6 @@ import datetime
 import email.utils
 import os
 import uuid
-from hashlib import md5, sha1
-import base64
 
 try:
     from cStringIO import StringIO
@@ -251,22 +259,6 @@ class IMIPInboxResource(CalDAVFile):
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
 
-    @inlineCallbacks
-    def http_POST(self, request):
-        """
-        The IMIP delivery POST method.
-        """
-
-        # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
-
-        # Inject using the IMIPScheduler.
-        scheduler = IMIPScheduler(request, self)
-
-        # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
-        returnValue(result.response())
-
     ##
     # File
     ##
@@ -299,228 +291,52 @@ class IMIPInboxResource(CalDAVFile):
         return succeed(deliverSchedulePrivilegeSet)
 
 
+class IMIPReplyInboxResource(IMIPInboxResource):
+
+    @inlineCallbacks
+    def http_POST(self, request):
+        """
+        The IMIP reply POST method (inbound)
+        """
+
+        # Check authentication and access controls
+        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
+
+        # Inject using the IMIPScheduler.
+        scheduler = IMIPScheduler(request, self)
+
+        # Do the POST processing treating this as a non-local schedule
+        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+        returnValue(result.response())
 
 
-algorithms = {
-    'md5': md5,
-    'md5-sess': md5,
-    'sha': sha1,
-}
+class IMIPInvitationInboxResource(IMIPInboxResource):
 
-# DigestCalcHA1
-def calcHA1(
-    pszAlg,
-    pszUserName,
-    pszRealm,
-    pszPassword,
-    pszNonce,
-    pszCNonce,
-    preHA1=None
-):
-    """
-    @param pszAlg: The name of the algorithm to use to calculate the digest.
-        Currently supported are md5 md5-sess and sha.
+    def __init__(self, parent, mailer):
+        super(IMIPInvitationInboxResource, self).__init__(parent)
+        self.mailer = mailer
 
-    @param pszUserName: The username
-    @param pszRealm: The realm
-    @param pszPassword: The password
-    @param pszNonce: The nonce
-    @param pszCNonce: The cnonce
+    @inlineCallbacks
+    def http_POST(self, request):
+        """
+        The IMIP invitation POST method (outbound)
+        """
 
-    @param preHA1: If available this is a str containing a previously
-       calculated HA1 as a hex string. If this is given then the values for
-       pszUserName, pszRealm, and pszPassword are ignored.
-    """
+        # Check authentication and access controls
+        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
 
-    if (preHA1 and (pszUserName or pszRealm or pszPassword)):
-        raise TypeError(("preHA1 is incompatible with the pszUserName, "
-                         "pszRealm, and pszPassword arguments"))
+        # Compute token, add to db, generate email and send it
+        calendar = (yield ical.Component.fromIStream(request.stream))
+        originator = request.headers.getRawHeaders("originator")[0]
+        recipient = request.headers.getRawHeaders("recipient")[0]
+        language = config.Localization.Language
 
-    if preHA1 is None:
-        # We need to calculate the HA1 from the username:realm:password
-        m = algorithms[pszAlg]()
-        m.update(pszUserName)
-        m.update(":")
-        m.update(pszRealm)
-        m.update(":")
-        m.update(pszPassword)
-        HA1 = m.digest()
-    else:
-        # We were given a username:realm:password
-        HA1 = preHA1.decode('hex')
+        if not (yield self.mailer.outbound(originator,
+            recipient, calendar, language=language)):
+            returnValue(Response(code=responsecode.BAD_REQUEST))
 
-    if pszAlg == "md5-sess":
-        m = algorithms[pszAlg]()
-        m.update(HA1)
-        m.update(":")
-        m.update(pszNonce)
-        m.update(":")
-        m.update(pszCNonce)
-        HA1 = m.digest()
+        returnValue(Response(code=responsecode.OK))
 
-    return HA1.encode('hex')
-
-# DigestCalcResponse
-def calcResponse(
-    HA1,
-    algo,
-    pszNonce,
-    pszNonceCount,
-    pszCNonce,
-    pszQop,
-    pszMethod,
-    pszDigestUri,
-    pszHEntity,
-):
-    m = algorithms[algo]()
-    m.update(pszMethod)
-    m.update(":")
-    m.update(pszDigestUri)
-    if pszQop == "auth-int":
-        m.update(":")
-        m.update(pszHEntity)
-    HA2 = m.digest().encode('hex')
-
-    m = algorithms[algo]()
-    m.update(HA1)
-    m.update(":")
-    m.update(pszNonce)
-    m.update(":")
-    if pszNonceCount and pszCNonce and pszQop:
-        m.update(pszNonceCount)
-        m.update(":")
-        m.update(pszCNonce)
-        m.update(":")
-        m.update(pszQop)
-        m.update(":")
-    m.update(HA2)
-    respHash = m.digest().encode('hex')
-    return respHash
-
-class Unauthorized(Exception):
-    pass
-
-class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
-
-    def handleStatus_401(self):
-
-        self.quietLoss = 1
-        self.transport.loseConnection()
-
-        if not hasattr(self.factory, "username"):
-            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; authentication required for calendar server")))
-            return self.factory.deferred
-
-        if hasattr(self.factory, "retried"):
-            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; could not authenticate user %s with calendar server" % (self.factory.username,))))
-            return self.factory.deferred
-
-        self.factory.retried = True
-
-        # self.log_debug("Got a 401 trying to inject [%s]" % (self.headers,))
-        details = {}
-        basicAvailable = digestAvailable = False
-        wwwauth = self.headers.get("www-authenticate")
-        for item in wwwauth:
-            if item.startswith("basic "):
-                basicAvailable = True
-            if item.startswith("digest "):
-                digestAvailable = True
-                wwwauth = item[7:]
-                def unq(s):
-                    if s[0] == s[-1] == '"':
-                        return s[1:-1]
-                    return s
-                parts = wwwauth.split(',')
-                for (k, v) in [p.split('=', 1) for p in parts]:
-                    details[k.strip()] = unq(v.strip())
-
-        user = self.factory.username
-        pswd = self.factory.password
-
-        if digestAvailable and details:
-            digest = calcResponse(
-                calcHA1(
-                    details.get('algorithm'),
-                    user,
-                    details.get('realm'),
-                    pswd,
-                    details.get('nonce'),
-                    details.get('cnonce')
-                ),
-                details.get('algorithm'),
-                details.get('nonce'),
-                details.get('nc'),
-                details.get('cnonce'),
-                details.get('qop'),
-                self.factory.method,
-                self.factory.url,
-                None
-            )
-
-            if details.get('qop'):
-                response = (
-                    'Digest username="%s", realm="%s", nonce="%s", uri="%s", '
-                    'response=%s, algorithm=%s, cnonce="%s", qop=%s, nc=%s' %
-                    (
-                        user,
-                        details.get('realm'),
-                        details.get('nonce'),
-                        self.factory.url,
-                        digest,
-                        details.get('algorithm'),
-                        details.get('cnonce'),
-                        details.get('qop'),
-                        details.get('nc'),
-                    )
-                )
-            else:
-                response = (
-                    'Digest username="%s", realm="%s", nonce="%s", uri="%s", '
-                    'response=%s, algorithm=%s' %
-                    (
-                        user,
-                        details.get('realm'),
-                        details.get('nonce'),
-                        self.factory.url,
-                        digest,
-                        details.get('algorithm'),
-                    )
-                )
-
-            self.factory.headers['Authorization'] = response
-
-            if self.factory.scheme == 'https':
-                reactor.connectSSL(self.factory.host, self.factory.port,
-                    self.factory, ssl.ClientContextFactory())
-            else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
-                    self.factory)
-            # self.log_debug("Retrying with digest after 401")
-
-            return self.factory.deferred
-
-        elif basicAvailable:
-            basicauth = "%s:%s" % (user, pswd)
-            basicauth = "Basic " + base64.encodestring( basicauth )
-            basicauth = basicauth.replace( "\n", "" )
-
-            self.factory.headers['Authorization'] = basicauth
-
-            if self.factory.scheme == 'https':
-                reactor.connectSSL(self.factory.host, self.factory.port,
-                    self.factory, ssl.ClientContextFactory())
-            else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
-                    self.factory)
-            # self.log_debug("Retrying with basic after 401")
-
-            return self.factory.deferred
-
-
-        else:
-            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; calendar server returned 401 and doesn't support basic or digest")))
-            return self.factory.deferred
 
 
 def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
@@ -726,6 +542,16 @@ class MailGatewayServiceMaker(LoggingMixIn):
 
     def makeService(self, options):
 
+        if config.Memcached.ClientEnabled:
+            memcachepool.installPool(
+                IPv4Address(
+                    "TCP",
+                    config.Memcached.BindAddress,
+                    config.Memcached.Port,
+                ),
+                config.Memcached.MaxClients,
+            )
+
         multiService = service.MultiService()
 
         settings = config.Scheduling['iMIP']
@@ -747,7 +573,10 @@ class MailGatewayServiceMaker(LoggingMixIn):
 
             client.setServiceParent(multiService)
 
+
+            # Set up /inbox -- server POSTs to it to send out iMIP invites
             IScheduleService(settings, mailer).setServiceParent(multiService)
+
         else:
             self.log_info("Mail Gateway Service not enabled")
 
@@ -762,11 +591,42 @@ class IScheduleService(service.Service, LoggingMixIn):
     def __init__(self, settings, mailer):
         self.settings = settings
         self.mailer = mailer
-        root = resource.Resource()
-        root.putChild('', self.HomePage())
-        root.putChild('inbox', self.IScheduleInbox(mailer))
-        self.site = server.Site(root)
-        self.server = internet.TCPServer(settings['MailGatewayPort'], self.site)
+
+        directoryClass = namedClass(config.DirectoryService.type)
+        directory = directoryClass(config.DirectoryService.params)
+
+        principalCollection = DirectoryPrincipalProvisioningResource(
+            "/principals/",
+            directory,
+        )
+
+        root = RootResource(
+            config.DocumentRoot,
+            principalCollections=(principalCollection,),
+        )
+
+        # Authenticated /inbox
+        credentialFactories = []
+        portal = Portal(auth.DavRealm())
+        portal.registerChecker(directory)
+        realm = directory.realmName or ""
+        schemeConfig = config.Authentication.Digest
+        digestCredentialFactory = QopDigestCredentialFactory(
+            schemeConfig["Algorithm"],
+            schemeConfig["Qop"],
+            realm,
+        )
+        root.putChild('inbox',
+            auth.AuthenticationWrapper(
+                IMIPInvitationInboxResource(root, mailer),
+                portal,
+                (digestCredentialFactory,),
+                (auth.IPrincipal,),
+            )
+        )
+        self.factory = HTTPFactory(server.Site(root))
+        self.server = internet.TCPServer(settings['MailGatewayPort'],
+            self.factory)
 
     def startService(self):
         self.server.startService()
@@ -775,44 +635,7 @@ class IScheduleService(service.Service, LoggingMixIn):
         self.server.stopService()
 
 
-    class HomePage(resource.Resource):
-        def render(self, request):
-            return """
-            <html>
-            <head><title>ISchedule - IMIP Gateway</title></head>
-            <body>ISchedule - IMIP Gateway</body>
-            </html>
-            """
 
-    class IScheduleInbox(resource.Resource):
-
-        def __init__(self, mailer):
-            resource.Resource.__init__(self)
-            self.mailer = mailer
-
-        def render_GET(self, request):
-            return """
-            <html>
-            <head><title>ISchedule Inbox</title></head>
-            <body>ISchedule Inbox</body>
-            </html>
-            """
-
-        def render_POST(self, request):
-            # Compute token, add to db, generate email and send it
-            calendar = ical.Component.fromString(request.content.read())
-            headers = request.getAllHeaders()
-            language = config.Localization.Language
-            self.mailer.outbound(headers['originator'], headers['recipient'],
-                calendar, language=language)
-
-            # TODO: what to return?
-            return """
-            <html>
-            <head><title>ISchedule Inbox</title></head>
-            <body>ISchedule Inbox</body>
-            </html>
-            """
 
 class MailHandler(LoggingMixIn):
 
@@ -1059,10 +882,12 @@ class MailHandler(LoggingMixIn):
         def _success(result, msgId, fromAddr, toAddr):
             self.log_info("Mail gateway sent message %s from %s to %s" %
                 (msgId, fromAddr, toAddr))
+            return True
 
         def _failure(failure, msgId, fromAddr, toAddr):
             self.log_error("Mail gateway failed to send message %s from %s to %s (Reason: %s)" %
                 (msgId, fromAddr, toAddr, failure.getErrorMessage()))
+            return False
 
         deferred = defer.Deferred()
 
@@ -1080,6 +905,7 @@ class MailHandler(LoggingMixIn):
         reactor.connectTCP(settings['Server'], settings['Port'], factory)
         deferred.addCallback(_success, msgId, fromAddr, toAddr)
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
+        return deferred
 
 
     def getIconPath(self, details, canceled, language='en'):
@@ -1507,7 +1333,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
         self.log_error("IMAP Error: %s" % (error,))
 
     def ebAuthenticateFailed(self, reason):
-        self.log_info("IMAP authenticate failed for %s, trying login" %
+        self.log_debug("IMAP authenticate failed for %s, trying login" %
             (self.factory.settings["Username"],))
         return self.login(self.factory.settings["Username"],
             self.factory.settings["Password"]
