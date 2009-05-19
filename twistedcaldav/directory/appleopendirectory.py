@@ -693,6 +693,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_error("Duplicate: %s" % (", ".join(record.shortNames)))
 
         if record:
+            if isinstance(origIndexKey, unicode):
+                origIndexKey = origIndexKey.encode("utf-8")
             self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
 
             # Fetch the set of groups this record is a member of so we can
