@@ -49,6 +49,7 @@ from twistedcaldav.query import calendarquery
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav import caldavxml
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
@@ -486,7 +487,11 @@ class CalendarIndex (AbstractCalendarIndex):
             if expand > (datetime.date.today() + maximum_future_expansion_duration):
                 raise IndexedSearchException
 
-        instances = calendar.expandTimeRanges(expand)
+        try:
+            instances = calendar.expandTimeRanges(expand)
+        except InvalidOverriddenInstanceError, e:
+            log.err("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
+            raise
 
         self._delete_from_db(name, uid)
 
