@@ -70,8 +70,8 @@ def main():
     if options.sourceRoot:
 
         if os.path.exists(options.sourceRoot):
-            migrateRunState(options)
             migrateConfiguration(options)
+            migrateRunState(options)
 
     else:
         log("ERROR: --sourceRoot must be specified")
