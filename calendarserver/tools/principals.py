@@ -200,6 +200,8 @@ def main():
             gid = getgrnam(config.GroupName).gr_gid
             switchUID(uid, uid, gid)
 
+        os.umask(config.umask)
+
         config.directory = getDirectory()
         autoDisableMemcached(config)
     except ConfigurationError, e:
