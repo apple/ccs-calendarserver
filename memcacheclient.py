@@ -739,7 +739,7 @@ class Client(local):
                 raise NotFoundError(key)
 
             if token and result == "EXISTS":
-                log.error("Memcacheclient check-and-set failed")
+                log.debug("Memcacheclient check-and-set failed")
                 raise TokenMismatchError(key)
 
             log.error("Memcacheclient %s command failed with result (%s)" %
