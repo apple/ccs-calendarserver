@@ -484,7 +484,7 @@ class ImplicitScheduler(object):
             self.oldcalendar = self.resource.iCalendar()
             
             # Significant change
-            no_change, self.changed_rids, rsvps = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, rsvps, recurrence_reschedule = self.isOrganizerChangeInsignificant()
             if no_change:
                 if rsvps:
                     log.debug("Implicit - organizer '%s' is re-inviting UID: '%s', attendees: %s" % (self.organizer, self.uid, ", ".join(rsvps)))
@@ -497,7 +497,8 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
     
                 # Check for removed attendees
-                self.findRemovedAttendees()
+                if not recurrence_reschedule:
+                    self.findRemovedAttendees()
 
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
@@ -520,6 +521,7 @@ class ImplicitScheduler(object):
         
         rids = None
         rsvps = None
+        recurrence_reschedule = False
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
         if not no_change:
@@ -531,6 +533,12 @@ class ImplicitScheduler(object):
                 if "ORGANIZER" in props:
                     checkOrganizerValue = True
                 rids.add(rid)
+                
+                # Check to see whether a change to R-ID's happened
+                if rid == "":
+                    if "RRULE" in props or "DTSTART" in props and self.calendar.masterComponent().hasProperty("RRULE"):
+                        recurrence_reschedule = True
+
             if checkOrganizerValue:
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
@@ -547,7 +555,7 @@ class ImplicitScheduler(object):
                 except KeyError:
                     pass
 
-        return no_change, rids, rsvps
+        return no_change, rids, rsvps, recurrence_reschedule
     
     def findRemovedAttendees(self):
         """
