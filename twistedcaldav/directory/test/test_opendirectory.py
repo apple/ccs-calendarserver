@@ -23,6 +23,7 @@ else:
     import twistedcaldav.directory.test.util
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
+    import dsattributes
 
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):
@@ -80,3 +81,56 @@ else:
             digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertFalse(record.verifyCredentials(digested))
+
+
+        def test_queryDirectorySingleGUID(self):
+            """ Test for lookup on existing and non-existing GUIDs """
+
+            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
+
+                data = [
+                    {
+                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                        dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
+                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                    },
+                ]
+                results = []
+                for entry in data:
+                    if entry[attr] == value:
+                        results.append(("", entry))
+                return results
+
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
+            self.assertTrue(self.service().recordWithGUID("1234567890"))
+            self.assertFalse(self.service().recordWithGUID("987654321"))
+
+
+        def test_queryDirectoryDuplicateGUIDs(self):
+            """ Test for lookup on duplicate GUIDs, ensuring they don't get
+                faulted in """
+
+            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
+
+                data = [
+                    {
+                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                        dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
+                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                    },
+                    {
+                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                        dsattributes.kDSNAttrRecordName : ["user2", "User 2"],
+                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                    },
+                ]
+                results = []
+                for entry in data:
+                    if entry[attr] == value:
+                        results.append(("", entry))
+                return results
+
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
+            self.assertFalse(self.service().recordWithGUID("1234567890"))

@@ -437,7 +437,8 @@ class OpenDirectoryService(CachingDirectoryService):
         return deferred
 
 
-    def queryDirectory(self, recordTypes, indexType, indexKey):
+    def queryDirectory(self, recordTypes, indexType, indexKey,
+        lookupMethod=opendirectory.queryRecordsWithAttribute_list):
         
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
@@ -508,7 +509,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 listRecordTypes,
                 attrs,
             ))
-            results = opendirectory.queryRecordsWithAttribute_list(
+            results = lookupMethod(
                 self.directory,
                 query.attribute,
                 query.value,
@@ -602,7 +603,7 @@ class OpenDirectoryService(CachingDirectoryService):
                             dsattributes.kDSStdRecordTypeGroups,
                             [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
                         ))
-                        results = opendirectory.queryRecordsWithAttribute_list(
+                        results = lookupMethod(
                             self.directory,
                             attributeToMatch,
                             valueToMatch,
@@ -689,8 +690,8 @@ class OpenDirectoryService(CachingDirectoryService):
             record = disabledRecords[0]
         elif indexType == self.INDEX_TYPE_GUID and len(enabledRecords) > 1:
             self.log_error("Duplicate records found for GUID %s:" % (indexKey,))
-            for record in enabledRecords:
-                self.log_error("Duplicate: %s" % (", ".join(record.shortNames)))
+            for duplicateRecord in enabledRecords:
+                self.log_error("Duplicate: %s" % (", ".join(duplicateRecord.shortNames)))
 
         if record:
             if isinstance(origIndexKey, unicode):
