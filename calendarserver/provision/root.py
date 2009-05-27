@@ -118,7 +118,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         # with an empty string.
         if authzUser == davxml.Principal(davxml.Unauthenticated()):
             if RootResource.CheckSACL("", self.saclService) != 0:
-                log.msg("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
+                log.info("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
                 response = (yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr
@@ -147,7 +147,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         username = principal.record.shortNames[0]
 
         if RootResource.CheckSACL(username, self.saclService) != 0:
-            log.msg("User %r is not enabled with the %r SACL" % (username, self.saclService,))
+            log.info("User %r is not enabled with the %r SACL" % (username, self.saclService,))
             raise HTTPError(responsecode.FORBIDDEN)
 
         # Mark SACLs as having been checked so we can avoid doing it multiple times
@@ -220,6 +220,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     child = (yield super(RootResource, self).locateChild(request, segments))
                     returnValue(child)
 
+                # FIXME: should catch something more specific than Exception
                 except Exception, e:
                     log.warn("Wiki lookup returned ERROR: %s" % (e,))
                     raise HTTPError(StatusResponse(
