@@ -133,7 +133,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 self.logDateString(time.time()),
             )
             if config.MoreAccessLogData:
-                format_str += ' [%d %d]'
+                format_str += ' [%s %s]'
                 format_data += (
                     overloaded.transport.server.port,
                     overloaded.outstandingRequests,
