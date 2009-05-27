@@ -118,7 +118,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 (time.time() - request.initTime) * 1000,
             )
             if config.MoreAccessLogData:
-                format_str += ' [%d %d]'
+                format_str += ' [%s %s]'
                 format_data += (
                     request.serverInstance,
                     request.chanRequest.channel.factory.outstandingRequests,
