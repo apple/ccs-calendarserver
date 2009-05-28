@@ -149,14 +149,71 @@ def migrateConfiguration(options):
                 os.symlink(link, newPath)
 
             elif os.path.isfile(oldPath):
-                # Copy the file over, overwriting copy in newConfigDir
-                log("Copying file %s to %s" % (oldPath, newConfigDir))
-                shutil.copy2(oldPath, newConfigDir)
+
+                if name == "caldavd.plist":
+                    # Migrate certain settings from the old plist to new:
+                    log("Parsing %s" % (oldPath,))
+                    oldPlist = plistlib.readPlist(oldPath)
+                    if os.path.exists(newPath):
+                        log("Parsing %s" % (newPath,))
+                        newPlist = plistlib.readPlist(newPath)
+                        log("Removing %s" % (newPath,))
+                        os.remove(newPath)
+                    else:
+                        newPlist = { }
+                    log("Processing %s" % (oldPath,))
+                    mergePlist(oldPlist, newPlist)
+                    log("Writing %s" % (newPath,))
+                    plistlib.writePlist(newPlist, newPath)
+
+                else:
+                    # Copy the file over, overwriting copy in newConfigDir
+                    log("Copying file %s to %s" % (oldPath, newConfigDir))
+                    shutil.copy2(oldPath, newConfigDir)
+
 
             elif os.path.isdir(oldPath) and not os.path.exists(newPath):
                 # Copy the dir over, but only if new one doesn't exist
                 log("Copying directory %s to %s" % (oldPath, newPath))
                 shutil.copytree(oldPath, newPath, symlinks=True)
+
+def mergePlist(oldPlist, newPlist):
+
+    # The following CalendarServer v1.x keys are ignored:
+    # EnableNotifications, Verbose
+
+    # These keys are copied verbatim:
+    for key in (
+        "AccessLogFile", "AdminPrincipals", "BindAddresses", "BindHTTPPorts",
+        "BindSSLPorts", "ControlSocket", "DocumentRoot", "EnableDropBox",
+        "EnableProxyPrincipals", "EnableSACLs", "ErrorLogFile", "GroupName",
+        "HTTPPort", "MaximumAttachmentSize", "MultiProcess", "PIDFile",
+        "ProcessType", "ResponseCompression", "RotateAccessLog",
+        "SSLAuthorityChain", "SSLCertificate", "SSLPort", "SSLPrivateKey",
+        "ServerHostName", "ServerStatsFile", "SudoersFile", "UserName",
+        "UserQuota",
+    ):
+        if key in oldPlist:
+            newPlist[key] = oldPlist[key]
+
+    # "Wiki" is a new authentication in v2.x; copy all "Authentication" sub-keys    # over, and "Wiki" will be picked up from the new plist:
+    if "Authentication" in oldPlist:
+        for key in oldPlist["Authentication"]:
+            newPlist["Authentication"][key] = oldPlist["Authentication"][key]
+
+    # Strip out any unknown params from the DirectoryService:
+    if "DirectoryService" in oldPlist:
+        newPlist["DirectoryService"] = oldPlist["DirectoryService"]
+        for key in newPlist["DirectoryService"]["params"].keys():
+            if key not in (
+                "node", "restrictEnabledRecords", "restrictToGroup",
+                "cacheTimeout", "xmlFile"
+            ):
+                del newPlist["DirectoryService"]["params"][key]
+
+    # Place DataRoot as a sibling of DocumentRoot:
+    parent = os.path.dirname(newPlist["DocumentRoot"].rstrip("/"))
+    newPlist["DataRoot"] = os.path.join(parent, "Data")
 
 
 def isServiceDisabled(source, service):
