@@ -35,6 +35,7 @@ import time
 
 from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred
+from twisted.cred.error import UnauthorizedLogin
 from twisted.web2 import responsecode
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -148,7 +149,11 @@ class SudoSACLMixin (object):
 
                 pcreds = PrincipalCredentials(authnPrincipal, authzPrincipal, creds)
 
-                result = (yield request.portal.login(pcreds, None, *request.loginInterfaces))
+                try:
+                    result = (yield request.portal.login(pcreds, None, *request.loginInterfaces))
+                except UnauthorizedLogin:
+                    raise HTTPError((yield UnauthorizedResponse.makeResponse(
+                                request.credentialFactories, request.remoteAddr)))
                 request.authnUser = result[1]
                 request.authzUser = result[2]
                 returnValue((request.authnUser, request.authzUser,))

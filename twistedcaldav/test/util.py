@@ -117,6 +117,7 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
                             try:
                                 if xattr.getxattr(childPath, attr) != value:
                                     print "Xattr mismatch:", childPath, attr
+                                    print (xattr.getxattr(childPath, attr), " != ", value)
                                     return False
                             except:
                                 return False

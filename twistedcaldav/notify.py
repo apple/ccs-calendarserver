@@ -720,7 +720,8 @@ class XMPPNotifier(LoggingMixIn):
             return
 
         try:
-            iq = IQ(self.xmlStream, type='get')
+            # XXX This codepath is not unit tested
+            iq = IQ(self.xmlStream, 'get')
             child = iq.addElement('pubsub',
                 defaultUri=self.pubsubNS+"#owner")
             child = child.addElement('configure')
@@ -755,7 +756,7 @@ class XMPPNotifier(LoggingMixIn):
                     formElement = configureElement.firstChildElement()
                     if formElement['type'] == 'form':
                         # We've found the form; start building a response
-                        filledIq = IQ(self.xmlStream, type='set')
+                        filledIq = IQ(self.xmlStream, 'set')
                         filledPubSub = filledIq.addElement('pubsub',
                             defaultUri=self.pubsubNS+"#owner")
                         filledConfigure = filledPubSub.addElement('configure')
@@ -784,7 +785,8 @@ class XMPPNotifier(LoggingMixIn):
                                         valueElement.addContent(value)
                                         # filledForm.addChild(field)
                         if configMatches:
-                            cancelIq = IQ(self.xmlStream, type='set')
+                            # XXX This codepath is not unit tested
+                            cancelIq = IQ(self.xmlStream, 'set')
                             cancelPubSub = cancelIq.addElement('pubsub',
                                 defaultUri=self.pubsubNS+"#owner")
                             cancelConfig = cancelPubSub.addElement('configure')
@@ -892,7 +894,7 @@ class XMPPNotifier(LoggingMixIn):
     def requestRoster(self):
         if self.doRoster:
             self.roster = {}
-            rosterIq = IQ(self.xmlStream, type='get')
+            rosterIq = IQ(self.xmlStream, 'get')
             rosterIq.addElement("query", "jabber:iq:roster")
             d = rosterIq.send()
             d.addCallback(self.handleRoster)
@@ -950,7 +952,8 @@ class XMPPNotifier(LoggingMixIn):
             self.xmlStream.send(response)
 
             # remove from roster as well
-            removal = IQ(self.xmlStream, type='set')
+            # XXX This codepath is not unit tested
+            removal = IQ(self.xmlStream, 'set')
             query = removal.addElement("query", "jabber:iq:roster")
             query.addElement("item")
             query.item["jid"] = iq["from"]
