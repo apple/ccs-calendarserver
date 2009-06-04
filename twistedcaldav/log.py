@@ -209,7 +209,6 @@ class Logger (object):
             log.msg(
                 # FIXME: This formatting should be done by the log observer(s)
                 "[%s#%s] %s" % (self.namespace, level, message),
-                isError = (cmpLogLevels(level, "error") >= 0),
                 level = level,
                 logLevel = pythonLogLevelForLevel(level),
                 namespace = self.namespace,
