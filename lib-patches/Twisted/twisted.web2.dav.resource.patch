@@ -1,13 +1,13 @@
 Index: twisted/web2/dav/resource.py
 ===================================================================
---- twisted/web2/dav/resource.py	(revision 26741)
+--- twisted/web2/dav/resource.py	(revision 26899)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -1888,7 +1888,7 @@
+@@ -1880,7 +1880,7 @@
          # If this is a collection and the URI doesn't end in "/", redirect.
          #
          if self.isCollection() and request.path[-1:] != "/":
 -            return RedirectResponse(request.unparseURL(path=request.path+'/'))
-+            return RedirectResponse(request.unparseURL(path=urllib.quote(request.path, safe=':/')+'/'))
++            return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
  
          def setHeaders(response):
              response = IResponse(response)
