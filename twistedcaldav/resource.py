@@ -38,6 +38,7 @@ from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
+from twisted.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
 from twisted.web2.dav.davxml import dav_namespace
 from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
 from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
@@ -1004,6 +1005,34 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         Quota root only ever set on calendar homes.
         """
         return None
+
+
+class AuthenticationWrapper(SuperAuthenticationWrapper):
+
+    """ AuthenticationWrapper implementation which allows overriding
+        credentialFactories on a per-resource-path basis """
+
+    def __init__(self, resource, portal, credentialFactories, loginInterfaces,
+        overrides=None):
+
+        super(AuthenticationWrapper, self).__init__(resource, portal,
+            credentialFactories, loginInterfaces)
+
+        self.overrides = {}
+        if overrides:
+            for path, factories in overrides.iteritems():
+                self.overrides[path] = dict([(factory.scheme, factory)
+                    for factory in factories])
+
+    def hook(self, req):
+        """ Uses the default credentialFactories unless the request is for
+            one of the overridden paths """
+
+        super(AuthenticationWrapper, self).hook(req)
+
+        factories = self.overrides.get(req.path.rstrip("/"),
+            self.credentialFactories)
+        req.credentialFactories = factories
 
 
 ##

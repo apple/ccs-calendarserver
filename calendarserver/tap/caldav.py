@@ -65,7 +65,7 @@ from twistedcaldav.accesslog import AMPLoggingFactory
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.config import config, defaultConfig, defaultConfigFile
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -626,16 +626,9 @@ class CalDAVServiceMaker (LoggingMixIn):
             self.log_info("Setting up iMIP inbox resource: %r"
                           % (self.imipResourceClass,))
 
-            # This resource uses the digestCredentialFactory no matter
-            # what the overall server authentication settings are.
-            root.putChild("inbox",
-                auth.AuthenticationWrapper(
-                    self.imipResourceClass(root),
-                    portal,
-                    (digestCredentialFactory,),
-                    (auth.IPrincipal,),
-                )
-            )
+            # The authenticationWrapper below will be configured to always
+            # allow digest auth on /inbox
+            root.putChild("inbox", self.imipResourceClass(root))
 
         #
         # WebCal
@@ -672,11 +665,14 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         self.log_info("Configuring authentication wrapper")
 
-        authWrapper = auth.AuthenticationWrapper(
+        authWrapper = AuthenticationWrapper(
             root,
             portal,
             credentialFactories,
             (auth.IPrincipal,),
+            overrides = {
+                "/inbox" : (digestCredentialFactory,),
+            }
         )
 
         logWrapper = DirectoryLogWrapperResource(
