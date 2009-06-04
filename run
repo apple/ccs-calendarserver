@@ -656,7 +656,7 @@ case "${USER}" in
     ;;
 esac;
 svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4";
-svn_get "Twisted" "${twisted}" "${svn_uri}" 26899;
+svn_get "Twisted" "${twisted}" "${svn_uri}" 26969;
 
 # No py_build step, since we tend to do edit Twisted, we want the sources in
 # PYTHONPATH, not a build directory.
