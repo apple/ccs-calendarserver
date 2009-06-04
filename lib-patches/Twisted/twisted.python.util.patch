@@ -1,6 +1,6 @@
 Index: twisted/python/util.py
 ===================================================================
---- twisted/python/util.py	(revision 26741)
+--- twisted/python/util.py	(revision 26899)
 +++ twisted/python/util.py	(working copy)
 @@ -569,9 +569,30 @@
      L2.sort()
