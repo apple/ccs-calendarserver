@@ -1,0 +1,21 @@
+Index: twisted/web2/server.py
+===================================================================
+--- twisted/web2/server.py	(revision 26899)
++++ twisted/web2/server.py	(working copy)
+@@ -332,6 +332,16 @@
+             response = http.Response(responsecode.OK)
+             response.headers.setHeader('allow', ('GET', 'HEAD', 'OPTIONS', 'TRACE'))
+             return response
++
++        elif self.method == "POST":
++            # Allow other methods to tunnel through using POST and a request header.
++            # See http://code.google.com/apis/gdata/docs/2.0/basics.html
++            if self.headers.hasHeader("X-HTTP-Method-Override"):
++                intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0];
++                if intendedMethod:
++                    self.originalMethod = self.method
++                    self.method = intendedMethod
++
+         # This is where CONNECT would go if we wanted it
+         return None
+ 

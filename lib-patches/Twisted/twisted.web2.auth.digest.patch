@@ -1,22 +1,73 @@
 Index: twisted/web2/auth/digest.py
 ===================================================================
---- twisted/web2/auth/digest.py	(revision 26741)
+--- twisted/web2/auth/digest.py	(revision 26899)
 +++ twisted/web2/auth/digest.py	(working copy)
-@@ -158,6 +158,17 @@
-             algo, nonce, nc, cnonce, qop, self.method, uri, None
+@@ -138,11 +138,15 @@
+     implements(credentials.IUsernameHashedPassword,
+                IUsernameDigestHash)
+ 
+-    def __init__(self, username, method, realm, fields):
++    def __init__(self, username, method, realm, fields, originalMethod=None):
+         self.username = username
+         self.method = method
+         self.realm = realm
+         self.fields = fields
++        if originalMethod:
++            self.originalMethod = originalMethod
++        else:
++            self.originalMethod = method
+ 
+     def checkPassword(self, password):
+         response = self.fields.get('response')
+@@ -155,11 +159,23 @@
+ 
+         expected = calcResponse(
+             calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
+-            algo, nonce, nc, cnonce, qop, self.method, uri, None
++            algo, nonce, nc, cnonce, qop, self.originalMethod, uri, None
          )
  
+-        return expected == response
 +        if expected == response:
 +            return True
-+
+ 
 +        # IE7 sends cnonce and nc values, but auth fails if they are used.
 +        # So try again without them...
 +        # They can be omitted for backwards compatibility [RFC 2069].
-+        expected = calcResponse(
-+            calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
-+            algo, nonce, None, None, qop, self.method, uri, None
-+        )
++        if nc is not None or cnonce is not None:
++            expected = calcResponse(
++                calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
++                algo, nonce, None, None, qop, self.originalMethod, uri, None
++            )
++            if expected == response:
++                return True
 +
-         return expected == response
- 
      def checkHash(self, digestHash):
+         response = self.fields.get('response')
+         uri = self.fields.get('uri')
+@@ -171,7 +187,7 @@
+ 
+         expected = calcResponse(
+             calcHA1(algo, None, None, None, nonce, cnonce, preHA1=digestHash),
+-            algo, nonce, nc, cnonce, qop, self.method, uri, None
++            algo, nonce, nc, cnonce, qop, self.originalMethod, uri, None
+         )
+ 
+         return expected == response
+@@ -348,7 +364,13 @@
+                              auth.get('nonce'),
+                              request.remoteAddr.host):
+ 
++            if hasattr(request, "originalMethod"):
++                originalMethod = request.originalMethod
++            else:
++                originalMethod = None
++
+             return succeed(DigestedCredentials(username,
+-                                       request.method,
+-                                       self.realm,
+-                                       auth))
++                                               request.method,
++                                               self.realm,
++                                               auth,
++                                               originalMethod))

@@ -228,13 +228,20 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         # Now verify the nonce/cnonce values for this client
         result = (yield self._validate(auth, request))
         if result:
+            if hasattr(request, "originalMethod"):
+                originalMethod = request.originalMethod
+            else:
+                originalMethod = None
+
             credentials = DigestedCredentials(username,
-                                       request.method,
-                                       self.realm,
-                                       auth,
-                                       request.originalMethod if hasattr(request, "originalMethod") else None)
+                                              request.method,
+                                              self.realm,
+                                              auth,
+                                              originalMethod)
+
             if not self.qop and credentials.fields.has_key('qop'):
                 del credentials.fields['qop']
+
             returnValue(credentials)
         else:
             raise error.LoginFailed('Invalid nonce/cnonce values')
