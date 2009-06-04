@@ -43,16 +43,6 @@ class Logging (TestCase):
         self.assertEquals(cmpLogLevels("debug", "debug"),  0)
         self.assertEquals(cmpLogLevels("warn" , "debug"),  1)
 
-    def test_lowestLogLevel(self):
-        self.assertEquals(lowestLogLevel(*logLevels), "debug")
-        self.assertEquals(lowestLogLevel(*reversed(logLevels)), "debug")
-        self.assertEquals(lowestLogLevel("warn", "info"), "info")
-
-    def test_highestLogLevel(self):
-        self.assertEquals(highestLogLevel(*logLevels), "error")
-        self.assertEquals(highestLogLevel(*reversed(logLevels)), "error")
-        self.assertEquals(highestLogLevel("warn", "info"), "warn")
-
     def test_pythonLogLevel(self):
         self.assertEquals(pythonLogLevelForLevel("debug"), logging.DEBUG)
         self.assertEquals(pythonLogLevelForLevel("info"), logging.INFO)

@@ -46,8 +46,6 @@ in the second example, it would be C{some.module.Foo}.
 __all__ = [
     "logLevels",
     "cmpLogLevels",
-    "lowestLogLevel",
-    "highestLogLevel",
     "pythonLogLevelForLevel",
     "logLevelForNamespace",
     "setLogLevelForNamespace",
@@ -89,12 +87,6 @@ def cmpLogLevels(a, b):
         positive integer if C{a > b}.
     """
     return cmp(logLevelIndexes[a], logLevelIndexes[b])
-
-def lowestLogLevel(*levels):
-    return sorted(levels, cmpLogLevels)[0]
-
-def highestLogLevel(*levels):
-    return sorted(levels, cmpLogLevels, reverse=True)[0]
 
 ##
 # Mappings to Python's logging module
