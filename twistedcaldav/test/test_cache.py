@@ -116,6 +116,8 @@ class MemCacheChangeNotifierTests(TestCase):
 
 
     def tearDown(self):
+        for call in self.memcache._timeouts.itervalues():
+            call.cancel()
         MemcacheChangeNotifier._memcacheProtocol = None
 
 
@@ -360,6 +362,10 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
              self.expected_response[2]))))
 
         self.memcacheStub = memcacheStub
+
+    def tearDown(self):
+        for call in self.memcacheStub._timeouts.itervalues():
+            call.cancel()
 
     def test_givenURIsForKeys(self):
         expected_response = (200, Headers({}), "Foobarbaz")

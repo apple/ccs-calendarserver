@@ -29,6 +29,8 @@ import memcacheclient
 
 import twisted.web2.dav.test.util
 
+from twisted.internet.base import DelayedCall
+DelayedCall.debug = True
 
 class TestCase(twisted.web2.dav.test.util.TestCase):
     resource_class = CalDAVFile
@@ -208,8 +210,6 @@ class InMemoryMemcacheProtocol(object):
             if key in self._timeouts:
                 self._timeouts[key].cancel()
 
-            from twisted.internet.base import DelayedCall
-            DelayedCall.debug = True
 
             self._timeouts[key] = self._reactor.callLater(
                 expireTime,
