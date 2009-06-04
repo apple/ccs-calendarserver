@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+import logging
+
 from twistedcaldav.log import *
 from twistedcaldav.test.util import TestCase
 
@@ -50,6 +52,14 @@ class Logging (TestCase):
         self.assertEquals(highestLogLevel(*logLevels), "error")
         self.assertEquals(highestLogLevel(*reversed(logLevels)), "error")
         self.assertEquals(highestLogLevel("warn", "info"), "warn")
+
+    def test_pythonLogLevel(self):
+        self.assertEquals(pythonLogLevelForLevel("debug"), logging.DEBUG)
+        self.assertEquals(pythonLogLevelForLevel("info"), logging.INFO)
+        self.assertEquals(pythonLogLevelForLevel("warn"), logging.WARNING)
+        self.assertEquals(pythonLogLevelForLevel("error"), logging.ERROR)
+        #self.assertEquals(pythonLogLevelForLevel("critical"), logging.CRITICAL)
+        self.assertRaises(InvalidLogLevelError, pythonLogLevelForLevel, "-not-a-log-level-")
 
     def test_namespace_default(self):
         """

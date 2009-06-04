@@ -48,6 +48,7 @@ __all__ = [
     "cmpLogLevels",
     "lowestLogLevel",
     "highestLogLevel",
+    "pythonLogLevelForLevel",
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
@@ -58,6 +59,7 @@ __all__ = [
 ]
 
 import inspect
+import logging
 
 from twisted.python import log
 
@@ -79,6 +81,13 @@ logLevels = (
 logLevelIndexes = dict(zip(logLevels, xrange(0, len(logLevels))))
 
 def cmpLogLevels(a, b):
+    """
+    Compare two log levels.
+    @param a: a log level
+    @param b: a log level
+    @return: a negative integer if C{a < b}, C{0} if C{a == b}, or a
+        positive integer if C{a > b}.
+    """
     return cmp(logLevelIndexes[a], logLevelIndexes[b])
 
 def lowestLogLevel(*levels):
@@ -86,6 +95,38 @@ def lowestLogLevel(*levels):
 
 def highestLogLevel(*levels):
     return sorted(levels, cmpLogLevels, reverse=True)[0]
+
+##
+# Mappings to Python's logging module
+##
+
+pythonLogLevelMapping = {
+    "debug"   : logging.DEBUG,
+    "info"    : logging.INFO,
+    "warn"    : logging.WARNING,
+    "error"   : logging.ERROR,
+   #"critical": logging.CRITICAL,
+}
+
+def pythonLogLevelForLevel(level):
+    """
+    @param: a log level
+    @return: a L{logging} module log level
+    """
+    if level in pythonLogLevelMapping:
+        return pythonLogLevelMapping[level]
+
+    raise InvalidLogLevelError(level)
+
+#    #
+#    # In case we add log levels that don't map to pythong logging levels:
+#    #
+#    for l in logLevels:
+#        print "Trying %s: %s, %s" % (l, l in pythonLogLevelMapping, cmpLogLevels(level, l) <= 0)
+#        if l in pythonLogLevelMapping and cmpLogLevels(level, l) <= 0:
+#            return pythonLogLevelMapping[l]
+#
+#    return logging.CRITICAL
 
 ##
 # Tools for managing log levels
@@ -178,6 +219,7 @@ class Logger (object):
                 "[%s#%s] %s" % (self.namespace, level, message),
                 isError = (cmpLogLevels(level, "error") >= 0),
                 level = level,
+                logLevel = pythonLogLevelForLevel(level),
                 namespace = self.namespace,
                 **kwargs
             )
