@@ -204,12 +204,14 @@ class Logger (object):
         """
         assert level in logLevels, "Unknown log level: %r" % (level,)
 
+        logLevel = pythonLogLevelForLevel(level)
+
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
             return
 
-        kwargs["logLevel"] = pythonLogLevelForLevel(level)
         kwargs["level"] = level
+        kwargs["logLevel"] = logLevel
         kwargs["namespace"] = self.namespace
 
         log.msg(
@@ -350,11 +352,11 @@ for level in logLevels:
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message, level=level, **kwargs):
-        self.emit(level, message, **kwargs)
+    def log_emit(self, message, __level__=level, **kwargs):
+        self.emit(__level__, message, **kwargs)
 
-    def will_emit(self, level=level):
-        return self.willLogAtLevel(level)
+    def will_emit(self, __level__=level):
+        return self.willLogAtLevel(__level__)
 
     log_emit.__doc__ = doc
 
@@ -367,11 +369,11 @@ for level in logLevels:
     #
     # Attach methods to LoggingMixIn
     #
-    def log_emit(self, message, level=level, **kwargs):
-        self.logger.emit(level, message, **kwargs)
+    def log_emit(self, message, __level__=level, **kwargs):
+        self.logger.emit(__level__, message, **kwargs)
 
-    def will_emit(self=log_emit, level=level):
-        return self.logger.willLogAtLevel(level)
+    def will_emit(self=log_emit, __level__=level):
+        return self.logger.willLogAtLevel(__level__)
 
     log_emit.__doc__ = doc
     log_emit.enabled = will_emit

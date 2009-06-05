@@ -47,6 +47,14 @@ class LoggingEnabledObject (LoggingMixIn):
     pass
 
 class Logging (TestCase):
+    def setUp(self):
+        super(Logging, self).setUp()
+        clearLogLevels()
+
+    def tearDown(self):
+        super(Logging, self).tearDown()
+        clearLogLevels()
+
     def test_cmpLogLevels(self):
         self.assertEquals(cmpLogLevels("info" , "error"), -1)
         self.assertEquals(cmpLogLevels("debug", "debug"),  0)
@@ -132,15 +140,12 @@ class Logging (TestCase):
         """
         Default log level is used.
         """
-        clearLogLevels()
         self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
 
     def test_logLevel(self):
         """
         Setting and retrieving log levels.
         """
-        clearLogLevels()
-
         setLogLevelForNamespace("twisted.web2", "debug")
         setLogLevelForNamespace("twisted.web2.dav", "error")
 
@@ -169,8 +174,6 @@ class Logging (TestCase):
         """
         willLogAtLevel()
         """
-        clearLogLevels()
-
         log = Logger()
 
         for level in logLevels:
