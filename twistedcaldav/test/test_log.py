@@ -16,6 +16,8 @@
 
 import logging
 
+from twisted.python import log as twistedLogging
+
 from twistedcaldav.log import *
 from twistedcaldav.test.util import TestCase
 
@@ -26,7 +28,14 @@ class TestLogger (Logger):
         super(TestLogger, self).__init__(namespace)
 
     def emit(self, level, message, **kwargs):
+        def observer(eventDict):
+            self.eventDict = eventDict
+
+        twistedLogging.addObserver(observer)
+
         super(TestLogger, self).emit(level, message, **kwargs)
+
+        twistedLogging.removeObserver(observer)
 
         self.emitted = {
             "level"  : level,
@@ -82,6 +91,15 @@ class Logging (TestCase):
             self.assertEquals(log.emitted["message"], message)
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
+            if log.willLogAtLevel(level):
+                self.assertEquals(log.eventDict["level"], level)
+                self.assertEquals(log.eventDict["logLevel"], pythonLogLevelForLevel(level))
+                # FIXME: this checks the end of message because we do formatting in emit()
+                self.assertEquals(log.eventDict["message"][0][-len(message):], message)
+                self.assertEquals(log.eventDict["junk"], message)
+            else:
+                self.assertFalse(hasattr(log, "eventDict"))
+
     def test_basic_LoggingMixIn(self):
         """
         Test that log levels and messages are emitted correctly for
@@ -100,6 +118,15 @@ class Logging (TestCase):
             self.assertEquals(object.logger.emitted["level"], level)
             self.assertEquals(object.logger.emitted["message"], message)
             self.assertEquals(object.logger.emitted["kwargs"]["junk"], message)
+
+            if object.logger.willLogAtLevel(level):
+                self.assertEquals(object.logger.eventDict["level"], level)
+                self.assertEquals(object.logger.eventDict["logLevel"], pythonLogLevelForLevel(level))
+                # FIXME: this checks the end of message because we do formatting in emit()
+                self.assertEquals(object.logger.eventDict["message"][0][-len(message):], message)
+                self.assertEquals(object.logger.eventDict["junk"], message)
+            else:
+                self.assertFalse(hasattr(object.logger, "eventDict"))
 
     def test_defaultLogLevel(self):
         """
