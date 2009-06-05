@@ -136,6 +136,16 @@ class Logging (TestCase):
             else:
                 self.assertFalse(hasattr(object.logger, "eventDict"))
 
+    def test_conflicting_kwargs(self):
+        """
+        Make sure that conflicting kwargs don't pass through.
+        """
+        log = TestLogger()
+
+        log.error("*", logLevel="*", namespace="boogers")
+        self.assertEquals(log.eventDict["logLevel"], logging.ERROR)
+        self.assertEquals(log.eventDict["namespace"], log.namespace)
+
     def test_defaultLogLevel(self):
         """
         Default log level is used.
