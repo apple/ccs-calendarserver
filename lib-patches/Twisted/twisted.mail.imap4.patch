@@ -1,0 +1,13 @@
+Index: twisted/mail/imap4.py
+===================================================================
+--- twisted/mail/imap4.py	(revision 26969)
++++ twisted/mail/imap4.py	(working copy)
+@@ -4159,7 +4159,7 @@
+         return "PLAIN"
+ 
+     def challengeResponse(self, secret, chal):
+-        return '%s\0%s\0' % (self.user, secret)
++        return '\0%s\0%s' % (self.user, secret)
+ 
+ 
+ class MailboxException(IMAP4Exception): pass
