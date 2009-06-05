@@ -175,7 +175,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
         self.globalHitHistory.append({'time':int(time.time()), 'hits':self.globalHitCount}) 
         del self.globalHitHistory[0] 
-        log.debug("rotateGlobalHitHistoryStats: %s" % (self.globalHitHistory,), logLevel=logging.DEBUG) 
+        log.debug("rotateGlobalHitHistoryStats: %s" % (self.globalHitHistory,))
         if config.GlobalStatsLoggingFrequency is not 0: 
             self.reactor.callLater(
                 config.GlobalStatsLoggingPeriod * 60 / config.GlobalStatsLoggingFrequency, 

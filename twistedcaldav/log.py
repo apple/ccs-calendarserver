@@ -205,15 +205,18 @@ class Logger (object):
         assert level in logLevels, "Unknown log level: %r" % (level,)
 
         # FIXME: Filtering should be done by the log observer(s)
-        if self.willLogAtLevel(level):
-            log.msg(
-                # FIXME: This formatting should be done by the log observer(s)
-                "[%s#%s] %s" % (self.namespace, level, message),
-                level = level,
-                logLevel = pythonLogLevelForLevel(level),
-                namespace = self.namespace,
-                **kwargs
-            )
+        if not self.willLogAtLevel(level):
+            return
+
+        kwargs["logLevel"] = pythonLogLevelForLevel(level)
+        kwargs["level"] = level
+        kwargs["namespace"] = self.namespace
+
+        log.msg(
+            # FIXME: This formatting should be done by the log observer(s)
+            "[%s#%s] %s" % (self.namespace, level, message),
+            **kwargs
+        )
 
     def level(self):
         """
