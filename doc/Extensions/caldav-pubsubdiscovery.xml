@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
+<!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc3920 PUBLIC '' 'bibxml/reference.RFC.3920.xml'>
+<!ENTITY rfc4622 PUBLIC '' 'bibxml/reference.RFC.4622.xml'>
+<!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY rfc4918 PUBLIC '' 'bibxml/reference.RFC.4918.xml'>
+]> 
+<?rfc toc="yes"?>
+<?rfc tocdepth="4"?>
+<?rfc strict="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<?rfc private="Calendar Server Extension"?>
+<rfc ipr="none" docName='caldav-pubsubdiscovery-01'>
+    <front>
+        <title abbrev="CalDAV PubSub Discovery">Discovery of CalDAV Push-Notification Settings</title>
+        <author initials="M." surname="Sagen" fullname="Morgen Sagen">
+            <organization abbrev="Apple">
+                Apple Inc.
+            </organization>
+            <address>
+                <postal>
+                    <street>1 Infinite Loop</street>
+                    <city>Cupertino</city>
+                    <region>CA</region>
+                    <code>95014</code> 
+                    <country>USA</country>
+                </postal>
+                <email>sagen@apple.com</email>
+                <uri>http://www.apple.com/</uri>
+            </address>
+        </author>
+        <date/>
+        <abstract>
+            <t>
+                This specification defines three new WebDAV properties that allow clients to discover push-notification subscription information, eliminating the need for polling.
+            </t>
+        </abstract>
+    </front>
+    <middle>
+        <section title='Introduction'>
+            <t>
+            The <xref target="RFC4791">CalDAV</xref> standard defines a way to access calendar data stored on a server.  Clients typically poll the server for changes, which leads to unnecessary traffic and delays in propagating calendar updates.  Having clients instead subscribe to calendar change notifications would allow near real time propagation of updates and potentially reduce the number of requests.
+            </t>
+            <t>
+			<xref target="RFC3920">XMPP</xref>, the Extensible Messaging and Presence Protocol, allows close to real time exchange of structured information.  The XEP-0060 specification defines an XMPP protocol extension for publish-subscribe ("pubsub") functionality, allowing clients to subscribe to "topics" or "nodes" and receive notifications whenever another client publishes to those nodes.
+			</t>
+			<t>
+			A push-notification-capable CalDAV server can create and advertise a pubsub node for each calendar home collection and publish to those nodes whenever any resource within a calendar home is modified.  A calendar client interested in receiving updates can subscribe using XMPP/pubsub to one or more of these nodes.  Upon receiving a notification, the client then queries the CalDAV server to determine which resources have changed.
+            </t>
+            <t>
+            This specification defines three new WebDAV properties on calendar home collections:  1) the XMPP server the client should connect to, 2) the pubsub node corresponding to the calendar home, and 3) a pubsub "heartbeat" node which the CalDAV server publishes to at regular intervals so clients know that push notifications are functioning properly.
+            </t>
+        </section>
+        <section title='Conventions Used in This Document'>
+            <t>
+                The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <xref target='RFC2119' />. 
+            </t>
+            <t>
+                When XML element types in the namespaces "DAV:" and "urn:ietf:params:xml:ns:caldav" are referenced in this document outside of the context of an XML fragment, the string "DAV:" and "CALDAV:" will be prefixed to the element type names respectively. 
+            </t>
+            <t>
+                The namespace "http://calendarserver.org/ns/" is used for XML elements defined in this specification.  When XML element types in this namespace are referenced in this document outside of the context of an XML fragment, the string "CS:" will be prefixed to the element type names respectively. 
+            </t>
+        </section>
+        
+        <section title='New Properties'>
+            <section title="XMPP Server Property">
+                <t>
+<?rfc compact="no" ?>
+                    <list style="hanging">
+                        <t hangText="Name:">xmpp-server</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Provides the hostname of the XMPP server a client should connect to for subscribing to notifications.</t>
+                        <t hangText="Protected:">This property MUST be protected and SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                        <t hangText="COPY/MOVE behavior:">This property value SHOULD be kept during a MOVE operation, but is normally re-initialized when a resource is created with a COPY. It should not be set in a COPY.</t>
+                        <t hangText="Description:">This property MUST be defined on a calendar home collection.  Its value is the hostname of the XMPP server the CalDAV server is using to publish change notifications to.  Clients wanting to receive notifications must make an XMPP connection to the host specified in this property.</t>
+                        <t hangText="Definition:">
+                            <figure>
+                                <artwork><![CDATA[
+<!ELEMENT xmpp-server (#PCDATA) >
+]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                           This example indicates that the CalDAV server is using host notifications.example.com for sending push notifications.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:xmpp-server
+     xmlns:CS="http://calendarserver.org/ns/">
+     notifications.example.com
+</CS:xmpp-server>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+					</list>
+				</t>
+			</section>
+
+            <section title="XMPP URI Property">
+                <t>
+<?rfc compact="no" ?>
+                    <list style="hanging">
+                        <t hangText="Name:">xmpp-uri</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Provides the URI of the pubsub node to subscribe to in order to receive a notification whenever a resource within this calendar home has changed.</t>
+                        <t hangText="Protected:">This property MUST be protected and SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                        <t hangText="COPY/MOVE behavior:">This property value SHOULD be kept during a MOVE operation, but is normally re-initialized when a resource is created with a COPY. It should not be set in a COPY.</t>
+                        <t hangText="Description:">This property MUST be defined on a calendar home collection.  Its value is the <xref target="RFC4622">XMPP URI</xref> of the pubsub node the CalDAV server will publish to whenever any change is made within the calendar home collection.  Clients wanting to receive notifications for this calendar home must subscribe to this node.</t>
+                        <t hangText="Definition:">
+                            <figure>
+                                <artwork><![CDATA[
+<!ELEMENT xmpp-uri (#PCDATA) >
+]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+							This example describes an XMPP URI which is comprised of the CalDAV server's hostname and port, so that multiple CalDAV servers can share the same notification server.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:xmpp-uri
+     xmlns:CS="http://calendarserver.org/ns/">
+     xmpp:pubsub.notifications.example.com?pubsub;
+      node=/Public/CalDAV/notifications.example.com/443/
+      calendars/users/sagen/
+</CS:xmpp-uri>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+					</list>
+				</t>
+			</section>
+
+            <section title="XMPP Heartbeat Property">
+                <t>
+<?rfc compact="no" ?>
+                    <list style="hanging">
+                        <t hangText="Name:">xmpp-heartbeat</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Provides the URI of the heartbeat pubsub node and the frequency at which it is published.</t>
+                        <t hangText="Protected:">This property MUST be protected and SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                        <t hangText="COPY/MOVE behavior:">This property value SHOULD be kept during a MOVE operation, but is normally re-initialized when a resource is created with a COPY. It should not be set in a COPY.</t>
+                        <t hangText="Description:">This property MAY be defined on a calendar home collection.  If it's not defined, then the server does not support heartbeats for this calendar home.  Its value is comprised of two elements: the <xref target="RFC4622">XMPP URI</xref> of the heartbeat pubsub node the CalDAV server will publish to periodically, and the frequency (in minutes) at which this heartbeat is published.  Clients may monitor updates to this heartbeat node to determine whether the push notification system is functioning.  If no update is received for this node for a period exceeding xmpp-heartbeat-minutes, the client can assume that notifications are not working and may fall back to polling.</t>
+                        <t hangText="Definition:">
+                            <figure>
+                                <artwork><![CDATA[
+<!ELEMENT xmpp-hearbeat CS:xmpp-heartbeat-uri,
+                        CS:xmpp-heartbeat-minutes>
+
+<!ELEMENT xmpp-hearbeat-uri (#PCDATA) >
+
+<!ELEMENT xmpp-hearbeat-minutes (#PCDATA) >
+
+]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                            <figure>
+                                <artwork><![CDATA[
+<CS:xmpp-heartbeat>
+  <CS:xmpp-heartbeat-uri>
+     xmlns:CS="http://calendarserver.org/ns/">
+     xmpp:pubsub.notifications.example.com?pubsub;
+      node=/Public/CalDAV/notifications.example.com/443/
+  </CS:xmpp-heartbeat-uri>
+  <CS:xmpp-heartbeat-minutes>30</CS:xmpp-heartbeat-minutes>
+</CS:xmpp-heartbeat>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+					</list>
+				</t>
+			</section>
+        </section>
+
+    </middle>
+    <back>
+        <references title='Normative References'>
+            &rfc2119;
+            &rfc3920;
+            &rfc4622;
+            &rfc4791;
+            &rfc4918;
+        </references>
+    </back>
+</rfc>
