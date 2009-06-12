@@ -66,7 +66,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             loginfo = eventDict['loginfo']
             firstLine = '%s %s HTTP/%s' %(
                 request.method,
-                request.uri,
+                request.uri.replace('"', '%22'),
                 '.'.join([str(x) for x in request.clientproto]))
     
             # Try to determine authentication and authorization identifiers
