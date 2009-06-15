@@ -1,6 +1,6 @@
 Index: twisted/web2/server.py
 ===================================================================
---- twisted/web2/server.py	(revision 26899)
+--- twisted/web2/server.py	(revision 26969)
 +++ twisted/web2/server.py	(working copy)
 @@ -332,6 +332,16 @@
              response = http.Response(responsecode.OK)
