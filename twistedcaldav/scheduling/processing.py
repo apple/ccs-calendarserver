@@ -458,7 +458,7 @@ class ImplicitProcessor(object):
             has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
             if has_prop:
                 tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
-                tzinfo = tz.gettzinfo()
+                tzinfo = tz.calendar().gettzinfo()
             else:
                 tzinfo = utc
 
