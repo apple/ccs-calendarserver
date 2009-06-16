@@ -414,12 +414,20 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # shows up in a given principal's calendars, rather than
         # tracking the activities of a specific user.
         #
-        if accountingEnabled("iTIP", organizerPrincipal):
-            emitAccounting(
-                "iTIP", organizerPrincipal,
-                "Originator: %s\nRecipients: %s\n\n%s"
-                % (originator, ", ".join(recipients), str(calendar))
-            )
+        if freebusy:
+            if accountingEnabled("iTIP-VFREEBUSY", organizerPrincipal):
+                emitAccounting(
+                    "iTIP-VFREEBUSY", organizerPrincipal,
+                    "Originator: %s\nRecipients: %s\n\n%s"
+                    % (originator, ", ".join(recipients), str(calendar))
+                )
+        else:
+            if accountingEnabled("iTIP", organizerPrincipal):
+                emitAccounting(
+                    "iTIP", organizerPrincipal,
+                    "Originator: %s\nRecipients: %s\n\n%s"
+                    % (originator, ", ".join(recipients), str(calendar))
+                )
 
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)

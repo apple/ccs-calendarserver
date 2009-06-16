@@ -555,7 +555,9 @@ def writeReply(request, principal, replycal, ainbox):
     # Get the Inbox of the ORGANIZER
     organizer = replycal.getOrganizer()
     assert organizer is not None
-    inboxURL = ainbox.principalForCalendarUserAddress(organizer).scheduleInboxURL()
+    organizerPrincipal = ainbox.principalForCalendarUserAddress(organizer)
+    assert organizerPrincipal is not None
+    inboxURL = organizerPrincipal.scheduleInboxURL()
     assert inboxURL
     
     # Determine whether current principal has CALDAV:schedule right on that Inbox
@@ -570,9 +572,9 @@ def writeReply(request, principal, replycal, ainbox):
     # Now deposit the new calendar into the inbox
     result = yield writeResource(request, inboxURL, inbox, None, replycal)
 
-    if accountingEnabled("iTIP", principal):
+    if accountingEnabled("iTIP", organizerPrincipal):
         emitAccounting(
-            "iTIP", principal,
+            "iTIP", organizerPrincipal,
             "Originator: %s\nRecipients: %s\n\n%s"
             % (principal.principalURL(), str(organizer), str(replycal))
         )
