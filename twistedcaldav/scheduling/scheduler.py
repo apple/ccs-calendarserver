@@ -315,9 +315,10 @@ class Scheduler(object):
         # tracking the activities of a specific user.
         #
         if isinstance(self.organizer, LocalCalendarUser):
-            if accountingEnabled("iTIP", self.organizer.principal):
+            accountingType = "iTIP-VFREEBUSY" if self.calendar.mainType() == "VFREEBUSY" else "iTIP"
+            if accountingEnabled(accountingType, self.organizer.principal):
                 emitAccounting(
-                    "iTIP", self.organizer.principal,
+                    accountingType, self.organizer.principal,
                     "Originator: %s\nRecipients:\n%sServer Instance:%s\nMethod:%s\n\n%s"
                     % (
                         str(self.originator),
