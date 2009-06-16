@@ -1138,7 +1138,7 @@ class OpenDirectoryRecord(DirectoryRecord):
                     self.shortNames[0],
                     challenge,
                     response,
-                    credentials.method
+                    credentials.originalMethod if credentials.originalMethod else credentials.method
                 ):
                     try:
                         cache = self.digestcache
@@ -1156,7 +1156,7 @@ class OpenDirectoryRecord(DirectoryRecord):
     Challenge: %s
     Response:  %s
     Method:    %s
-""" % (self.nodeName, self.shortNames[0], challenge, response, credentials.method))
+""" % (self.nodeName, self.shortNames[0], challenge, response, credentials.originalMethod if credentials.originalMethod else credentials.method))
 
             except opendirectory.ODError, e:
                 self.log_error(
