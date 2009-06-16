@@ -885,6 +885,8 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             # picky about exactly what it receives.
             #
             try:
+                if "algorithm" not in credentials.fields:
+                    credentials.fields["algorithm"] = "md5"
                 challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
                 response = (
                     'Digest username="%(username)s", '

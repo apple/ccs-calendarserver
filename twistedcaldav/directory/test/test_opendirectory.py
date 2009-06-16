@@ -82,6 +82,51 @@ else:
 
             self.assertFalse(record.verifyCredentials(digested))
 
+        def test_validODDigest(self):
+            record = OpenDirectoryRecord(
+                service               = self.service(),
+                recordType            = DirectoryService.recordType_users,
+                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
+                nodeName              = "/LDAPv2/127.0.0.1",
+                shortNames            = ("user",),
+                authIDs               = set(),
+                fullName              = "Some user",
+                firstName             = "Some",
+                lastName              = "User",
+                emailAddresses        = set(("someuser@example.com",)),
+                calendarUserAddresses = set(("mailtoguid@example.com",)),
+                enabledForCalendaring = True,
+                memberGUIDs           = [],
+            )
+
+            digestFields = {
+                "username":"user",
+                "realm":"/Search",
+                "nonce":"ABC",
+                "uri":"/",
+                "response":"123",
+                "algorithm":"md5",
+            }
+
+            response = (
+                'Digest username="%(username)s", '
+                'realm="%(realm)s", '
+                'nonce="%(nonce)s", '
+                'uri="%(uri)s", '
+                'response="%(response)s",'
+                'algorithm=%(algorithm)s'
+            ) % digestFields
+
+            record.digestcache = {}
+            record.digestcache["/"] = response
+            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
+
+            self.assertTrue(record.verifyCredentials(digested))
+
+            # This should be defaulted
+            del digestFields["algorithm"]
+
+            self.assertTrue(record.verifyCredentials(digested))
 
         def test_queryDirectorySingleGUID(self):
             """ Test for lookup on existing and non-existing GUIDs """
