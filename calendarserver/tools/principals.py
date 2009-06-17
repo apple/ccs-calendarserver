@@ -72,7 +72,7 @@ def usage(e=None):
     print ""
     print "actions:"
    #print "  --search <search-string>: search for matching resources"
-    print "  -P, --read-property: read DAV property to read (eg.: {DAV:}group-member-set)"
+    print "  -P, --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
     print "  --list-read-proxies: list proxies with read-only access"
     print "  --list-write-proxies: list proxies with read-write access"
     print "  --list-proxies: list all proxies"
