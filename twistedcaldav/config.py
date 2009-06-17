@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,15 @@
 # limitations under the License.
 ##
 
+__all__ = [
+    "defaultConfigFile",
+    "defaultConfig",
+    "ConfigDict",
+    "Config",
+    "ConfigurationError",
+    "config",
+]
+
 import os
 import copy
 import re
@@ -26,6 +35,33 @@ from twistedcaldav.log import Logger
 from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError
 
 log = Logger()
+
+class ConfigDict (dict):
+    def __init__(self, mapping=None):
+        if mapping is not None:
+            for key, value in mapping.iteritems():
+                self[key] = value
+
+    def __repr__(self):
+        return "*" + dict.__repr__(self)
+
+    def __setitem__(self, key, value):
+        if isinstance(value, dict) and not isinstance(value, self.__class__):
+            dict.__setitem__(self, key, self.__class__(value))
+        else:
+            dict.__setitem__(self, key, value)
+
+    def __setattr__(self, attr, value):
+        if attr[0] == "_":
+            dict.__setattr__(self, attr, value)
+        else:
+            self[attr] = value
+
+    def __getattr__(self, attr):
+        if attr in self:
+            return self[attr]
+        else:
+            return dict.__getattr__(self, attr)
 
 defaultConfigFile = "/etc/caldavd/caldavd.plist"
 
@@ -41,6 +77,8 @@ serviceDefaultParams = {
 }
 
 defaultConfig = {
+    # Note: Don't use None values below; that confuses the command-line parser.
+
     #
     # Public network address information
     #
@@ -53,8 +91,6 @@ defaultConfig = {
     "ServerHostName": "localhost", # Network host name.
     "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
     "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
-
-    # Note: we'd use None above, but that confuses the command-line parser.
 
     #
     # Network address configuration information
@@ -117,7 +153,7 @@ defaultConfig = {
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "ServicePrincipal": ''
+            "ServicePrincipal": ""
         },
     },
 
@@ -129,21 +165,22 @@ defaultConfig = {
     "ServerStatsFile": "/var/run/caldavd/stats.plist",
     "PIDFile"        : "/var/run/caldavd.pid",
     "RotateAccessLog"   : False,
-    "MoreAccessLogData" : False,
+    "MoreAccessLogData" : True,
     "DefaultLogLevel"   : "",
     "LogLevels"         : {},
+
     "AccountingCategories": {
         "iTIP": False,
     },
     "AccountingPrincipals": [],
-    "AccountingLogRoot": "/var/log/caldavd/accounting",
+    "AccountingLogRoot"   : "/var/log/caldavd/accounting",
 
     #
     # SSL/TLS
     #
-    "SSLCertificate": "/etc/certificates/Default.crt", # Public key
-    "SSLPrivateKey": "/etc/certificates/Default.key",  # Private key
-    "SSLAuthorityChain": "",                           # Certificate Authority Chain
+    "SSLCertificate"     : "",  # Public key
+    "SSLPrivateKey"      : "",  # Private key
+    "SSLAuthorityChain"  : "",  # Certificate Authority Chain
     "SSLPassPhraseDialog": "/etc/apache2/getsslpassphrase",
 
     #
@@ -179,24 +216,24 @@ defaultConfig = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
-    "EnableAutoAcceptTrigger" : False, # Manually trigger auto-accept behavior
 
     #
     # Notifications
     #
     "Notifications" : {
         "Enabled": False,
-        "CoalesceSeconds" : 10,
+        "CoalesceSeconds" : 3,
         "InternalNotificationHost" : "localhost",
         "InternalNotificationPort" : 62309,
+        "BindAddress" : "127.0.0.1",
 
-        "Services" : [
-            {
+        "Services" : {
+            "SimpleLineNotifier" : {
                 "Service" : "twistedcaldav.notify.SimpleLineNotifierService",
                 "Enabled" : False,
                 "Port" : 62308,
             },
-            {
+            "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,
                 "Host" : "", # "xmpp.host.name"
@@ -204,11 +241,38 @@ defaultConfig = {
                 "JID" : "", # "jid@xmpp.host.name/resource"
                 "Password" : "",
                 "ServiceAddress" : "", # "pubsub.xmpp.host.name"
+                "NodeConfiguration" : {
+                    "pubsub#deliver_payloads" : "1",
+                    "pubsub#persist_items" : "1",
+                },
                 "KeepAliveSeconds" : 120,
-                "TestJID": "",
+                "HeartbeatMinutes" : 30,
+                "AllowedJIDs": [],
             },
-        ]
+        }
     },
+
+    #
+    # Performance tuning
+    #
+
+    # Set the maximum number of outstanding requests to this server.
+    "MaxRequests": 600,
+
+    "ListenBacklog": 50,
+    "IdleConnectionTimeOut": 15,
+    "UIDReservationTimeOut": 30 * 60,
+
+
+    #
+    # Localization
+    #
+    "Localization" : {
+        "TranslationsDirectory" : "/usr/share/caldavd/share/translations",
+        "LocalesDirectory" : "/usr/share/caldavd/share/locales",
+        "Language" : "English",
+    },
+
 
     #
     # Implementation details
@@ -234,21 +298,16 @@ defaultConfig = {
     "umask": 0027,
 
     # A unix socket used for communication between the child and master
-    # processes.
+    # processes. If blank, then an AF_INET socket is used instead.
     "ControlSocket": "/var/run/caldavd.sock",
+
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
     "ResponseCompression": True,
 
-    # The retry-after value (in seconds) to return with a 503 error                          
+    # The retry-after value (in seconds) to return with a 503 error
     "HTTPRetryAfter": 180,
-
-    # Set the maximum number of outstanding requests to this server.
-    "MaxRequests": 600,
-
-    # Configure the number of seconds that Propfinds should be cached for.
-    "ResponseCacheSize": 1000,
 
     # Profiling options
     "Profiling": {
@@ -256,12 +315,10 @@ defaultConfig = {
         "BaseDirectory": "/tmp/stats",
     },
 
-    "ListenBacklog": 50,
-
     "Memcached": {
         "MaxClients": 5,
-        "ClientEnabled": False,
-        "ServerEnabled": False,
+        "ClientEnabled": True,
+        "ServerEnabled": True,
         "BindAddress": "127.0.0.1",
         "Port": 11211,
         "memcached": "memcached", # Find in PATH
@@ -270,17 +327,23 @@ defaultConfig = {
     },
 
     "EnableKeepAlive": True,
-    "IdleConnectionTimeOut": 15,
-    "UIDReservationTimeOut": 30 * 60
+
+    "ResponseCacheTimeout": 30, # Minutes
 }
 
-
 class Config (object):
+    """
+    @DynamicAttrs
+    """
     def __init__(self, defaults):
+        if not isinstance(defaults, ConfigDict):
+            defaults = ConfigDict(defaults)
+
         self.setDefaults(defaults)
-        self._data = copy.deepcopy(self._defaults)
+        self._data = copy.deepcopy(defaults)
         self._configFile = None
         self._hooks = [
+            self.updateHostName,
             self.updateDirectoryService,
             self.updateACLs,
             self.updateRejectClients,
@@ -296,11 +359,23 @@ class Config (object):
         self._hooks.append(hook)
 
     def update(self, items):
+        if not isinstance(items, ConfigDict):
+            items = ConfigDict(items)
+
         #
         # Call hooks
         #
         for hook in self._hooks:
             hook(self, items)
+
+    @staticmethod
+    def updateHostName(self, items):
+        if not self.ServerHostName:
+            from socket import getfqdn
+            hostname = getfqdn()
+            if not hostname:
+                hostname = "localhost"
+            self.ServerHostName = hostname
 
     @staticmethod
     def updateDirectoryService(self, items):
@@ -309,27 +384,28 @@ class Config (object):
         #
         dsType = items.get("DirectoryService", {}).get("type", None)
         if dsType is None:
-            dsType = self._data["DirectoryService"]["type"]
+            dsType = self._data.DirectoryService.type
         else:
-            if dsType == self._data["DirectoryService"]["type"]:
-                oldParams = self._data["DirectoryService"]["params"]
-                newParams = items["DirectoryService"].get("params", {})
+            if dsType == self._data.DirectoryService.type:
+                oldParams = self._data.DirectoryService.params
+                newParams = items.DirectoryService.get("params", {})
                 _mergeData(oldParams, newParams)
             else:
                 if dsType in serviceDefaultParams:
-                    self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+                    self._data.DirectoryService.params = copy.deepcopy(serviceDefaultParams[dsType])
                 else:
-                    self._data["DirectoryService"]["params"] = {}
+                    self._data.DirectoryService.params = {}
 
         for param in items.get("DirectoryService", {}).get("params", {}):
-            if param not in serviceDefaultParams[dsType]:
-                raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
+            if dsType in serviceDefaultParams and param not in serviceDefaultParams[dsType]:
+                log.warn("Parameter %s is not supported by service %s" % (param, dsType))
 
         _mergeData(self._data, items)
 
-        for param in tuple(self._data["DirectoryService"]["params"]):
-            if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
-                del self._data["DirectoryService"]["params"][param]
+        if self._data.DirectoryService.type in serviceDefaultParams:
+            for param in tuple(self._data.DirectoryService.params):
+                if param not in serviceDefaultParams[self._data.DirectoryService.type]:
+                    del self._data.DirectoryService.params[param]
 
     @staticmethod
     def updateACLs(self, items):
@@ -431,7 +507,7 @@ class Config (object):
             if "DefaultLogLevel" in self._data:
                 level = self._data["DefaultLogLevel"]
                 if not level:
-                    level = "info"
+                    level = "warn"
                 setLogLevelForNamespace(None, level)
 
             if "LogLevels" in self._data:
@@ -446,6 +522,8 @@ class Config (object):
         self.update(items)
 
     def setDefaults(self, defaults):
+        if not isinstance(defaults, ConfigDict):
+            defaults = ConfigDict(defaults)
         self._defaults = copy.deepcopy(defaults)
 
     def __setattr__(self, attr, value):
@@ -468,32 +546,48 @@ class Config (object):
     def loadConfig(self, configFile):
         self._configFile = configFile
 
-        if configFile and os.path.exists(configFile):
-            configDict = readPlist(configFile)
-            configDict = _cleanup(configDict)
-            self.update(configDict)
-        elif configFile:
-            log.error("Configuration file does not exist or is inaccessible: %s" % (configFile,))
+        if configFile:
+            try:
+                configDict = readPlist(configFile)
+            except (IOError, OSError):
+                log.error("Unable to open config file: %s" % (configFile,))
+            else:
+                configDict = _cleanup(configDict)
+                self.update(ConfigDict(configDict))
 
     @staticmethod
     def updateNotifications(self, items):
         #
         # Notifications
         #
-        for service in self.Notifications["Services"]:
+        for key, service in self.Notifications["Services"].iteritems():
             if service["Enabled"]:
                 self.Notifications["Enabled"] = True
                 break
         else:
             self.Notifications["Enabled"] = False
 
-        for service in self.Notifications["Services"]:
+        for key, service in self.Notifications["Services"].iteritems():
             if (
                 service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
                 service["Enabled"]
             ):
+                # Get password from keychain.  If not there, fall back to what
+                # is in the plist.
+                try:
+                    password = getPasswordFromKeychain(service["JID"])
+                    service["Password"] = password
+                    log.info("XMPP password successfully retreived from keychain")
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    log.error("XMPP password not found in keychain")
+
+                # Check for empty fields
                 for key, value in service.iteritems():
-                    if not value and key not in ("TestJID"):
+                    if not value and key not in ("AllowedJIDs", "HeartbeatMinutes", "Password"):
                         raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                                  % (key, value))
 
@@ -502,7 +596,7 @@ def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
         if isinstance(value, (dict,)):
             if key in oldData:
-                assert isinstance(oldData[key], (dict,))
+                assert isinstance(oldData[key], ConfigDict), "%r in %r is not a ConfigDict" % (oldData[key], oldData)
             else:
                 oldData[key] = {}
             _mergeData(oldData[key], value)
@@ -518,6 +612,11 @@ def _cleanup(configDict):
 
     def deprecated(oldKey, newKey):
         log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+        if oldKey in configDict and newKey in configDict:
+            raise ConfigurationError(
+                "Both %r and %r options are specified; use the %r option only."
+                % (oldKey, newKey, newKey)
+            )
 
     def renamed(oldKey, newKey):
         deprecated(oldKey, newKey)

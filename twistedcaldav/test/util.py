@@ -14,7 +14,10 @@
 # limitations under the License.
 ##
 
+from __future__ import with_statement
+
 import os
+import xattr
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
@@ -22,9 +25,12 @@ from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 from twistedcaldav.static import CalDAVFile
+import memcacheclient
 
 import twisted.web2.dav.test.util
 
+from twisted.internet.base import DelayedCall
+DelayedCall.debug = True
 
 class TestCase(twisted.web2.dav.test.util.TestCase):
     resource_class = CalDAVFile
@@ -35,6 +41,104 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
         dataroot = self.mktemp()
         os.mkdir(dataroot)
         config.DataRoot = dataroot
+        config.Memcached.ClientEnabled = False
+        config.Memcached.ServerEnabled = False
+        memcacheclient.ClientFactory.allowTestCache = True
+
+    def createHierarchy(self, structure):
+        root = self.mktemp()
+        os.mkdir(root)
+
+        def createChildren(parent, subStructure):
+            for childName, childStructure in subStructure.iteritems():
+
+                if childName.startswith("@"):
+                    continue
+
+                childPath = os.path.join(parent, childName)
+                if childStructure.has_key("@contents"):
+                    # This is a file
+                    with open(childPath, "w") as child:
+                        child.write(childStructure["@contents"])
+
+                else:
+                    # This is a directory
+                    os.mkdir(childPath)
+                    createChildren(childPath, childStructure)
+
+                if childStructure.has_key("@xattrs"):
+                    xattrs = childStructure["@xattrs"]
+                    for attr, value in xattrs.iteritems():
+                        xattr.setxattr(childPath, attr, value)
+
+        createChildren(root, structure)
+        return root
+
+    def verifyHierarchy(self, root, structure):
+
+        def verifyChildren(parent, subStructure):
+
+            actual = set([child for child in os.listdir(parent)])
+
+            for childName, childStructure in subStructure.iteritems():
+
+                if childName.startswith("@"):
+                    continue
+
+                if childName in actual:
+                    actual.remove(childName)
+
+                childPath = os.path.join(parent, childName)
+
+                if not os.path.exists(childPath):
+                    print "Missing:", childPath
+                    return False
+
+                if childStructure.has_key("@contents"):
+                    # This is a file
+                    if childStructure["@contents"] is None:
+                        # We don't care about the contents
+                        pass
+                    else:
+                        with open(childPath) as child:
+                            contents = child.read()
+                            if contents != childStructure["@contents"]:
+                                print "Contents mismatch:", childPath
+                                print "Expected:\n%s\n\nActual:\n%s\n" % (childStructure["@contents"], contents)
+                                return False
+
+                else:
+                    # This is a directory
+                    if not verifyChildren(childPath, childStructure):
+                        return False
+
+                if childStructure.has_key("@xattrs"):
+                    xattrs = childStructure["@xattrs"]
+                    for attr, value in xattrs.iteritems():
+                        if isinstance(value, str):
+                            try:
+                                if xattr.getxattr(childPath, attr) != value:
+                                    print "Xattr mismatch:", childPath, attr
+                                    print (xattr.getxattr(childPath, attr), " != ", value)
+                                    return False
+                            except:
+                                return False
+                        else: # method
+                            if not value(xattr.getxattr(childPath, attr)):
+                                return False
+
+                    for attr, value in xattr.xattr(childPath).iteritems():
+                        if attr not in xattrs:
+                            return False
+
+            if actual:
+                # There are unexpected children
+                print "Unexpected:", actual
+                return False
+
+            return True
+
+        return verifyChildren(root, structure)
 
 
 class InMemoryPropertyStore(object):
@@ -57,6 +161,15 @@ class InMemoryPropertyStore(object):
     def set(self, property):
         self._properties[property.qname()] = property
 
+    def delete(self, qname):
+        try:
+            del self._properties[qname]
+        except KeyError:
+            pass
+
+
+    def list(self):
+        return self._properties.iterkeys()
 
 
 class StubCacheChangeNotifier(object):
@@ -97,8 +210,6 @@ class InMemoryMemcacheProtocol(object):
             if key in self._timeouts:
                 self._timeouts[key].cancel()
 
-            from twisted.internet.base import DelayedCall
-            DelayedCall.debug = True
 
             self._timeouts[key] = self._reactor.callLater(
                 expireTime,
@@ -113,7 +224,7 @@ class InMemoryMemcacheProtocol(object):
 
             return succeed(True)
 
-        except Exception, err:
+        except Exception:
             return fail(Failure())
 
 
