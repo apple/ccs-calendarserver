@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -14,96 +14,116 @@
 .\" limitations under the License.
 .\"
 .\" The following requests are required for all man pages.
-.Dd April 24, 2009
+.Dd June 17, 2009
 .Dt CALENDARSERVER_MANAGE_PRINCIPALS 8
 .Os
 .Sh NAME
 .Nm calendarserver_manage_principals
-.Nd Darwin Calendar Server Resource Utility
+.Nd Darwin Calendar Server principal management utility
 .Sh SYNOPSIS
 .Nm
-.Op Fl -config Ar config_file
-.Op Fl -resource Ar guid
-.Op Fl -search Ar search-term
-.Op Fl -read-property Ar dav_property
-.Op Fl -list-read-delegates
-.Op Fl -list-write-delegates
-.Op Fl -add-read-delegate Ar guid
-.Op Fl -add-write-delegate Ar guid
-.Op Fl -remove-delegate Ar guid
-.Op Fl -set-auto-schedule Ar True|False
+.Op Fl -config Ar file
+.Op Fl -read-property Ar property
+.Op Fl -list-read-proxies
+.Op Fl -list-write-proxies
+.Op Fl -list-proxies
+.Op Fl -add-read-proxy Ar principal
+.Op Fl -add-write-proxy Ar principal
+.Op Fl -remove-proxy Ar principal
+.Op Fl -set-auto-schedule Ar true|false
 .Op Fl -get-auto-schedule
+.Ar principal
+.Op principal ...
 .Sh DESCRIPTION
 .Nm
-is a tool for manipulating delegate assignments for resources and
-locations, as well as specifying whether they auto-accept scheduling
-invitations.  It must be run as root on a host with a running
-calendar server.  On the command line you first select a resource
-to use (via the
-.Fl -resource
-argument), and follow that with one or
-more commands.
+is a tool for accessing and manipulating information regarding
+principals on a Darwin Calendar Server.  Principals represent any form
+of actor that can access the server, such as users, groups, locations
+and resources.
+.Pp
+.Nm
+should be run as a user with the same priviledges as the Calendar
+Server itself, as it needs to read and write data that belongs to the
+server.
+.Nm
+takes a list of principals as arguments and then performs the
+requested actions on each of the given principals.
+.Pp
+A principal may be specified as the principal's GUID. Alternatively,
+it may be specified in the form
+.Ar recordType:shortName ,
+where
+.Ar recordType
+is a
+directory record type (eg. 
+.Ar users ,
+.Ar groups ,
+.Ar locations ,
+.Ar resources )
+and
+.Ar shortName
+is the principal's short name.
+.Pp
+Actions to perform are specified via the options below.  Multiple
+actions may be given, and will be performed in the order given on
+each principal specified.
 .Sh OPTIONS
 .Bl -tag -width flag
 .It Fl h, -help
 Displays usage information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
-.It Fl -resource Ar guid
-Specifies the resource the following operations should be applied to.
-.It Fl s, -search Ar search_term
-Search for records matching search_term.
-.It Fl -read-property Ar dav_property
-Prints the value of the dav_property on the current resource.  The format of
-the dav_property is "namespace#property".  Examples:
-"DAV:#alternate-URI-set" or "http://calendarserver.org/ns/#record-type".
-.It Fl -list-read-delegates
-Prints the list of principals that have read-only delegate access for the current resource.
-.It Fl -list-write-delegates
-Prints the list of principals that have read-write delegate access for the current resource.
-.It Fl -add-read-delegate Ar guid
-Adds a principal to the group of principals which have read-only delegate access for the current resource.  Adding a principal as a read-only delegate removes read-write access, if read-write access had previously been granted.
-.It Fl -add-write-delegate Ar guid
-Adds a principal to the group of principals which have read-write delegate access for the current resource.
-.It Fl -remove-delegate Ar guid
-Strips a principal of delegate access for the current resource.
-.It Fl -set-auto-schedule Ar True|False
-Setting auto-schedule to True will cause the current resource to automatically
-accept any scheduling invitations.  A False value means it's up to one of the
-read-write delegates for the resource to accept/decline invitations.
-.It Fl -get-auto-schedule
-Prints the current auto-schedule state of the current resource.
-.El
-.Sh USAGE
-.Nm
-processes the command line options in order, allowing you to chain multiple
-operations.  Each time you specify the
-.Fl -resource
-option, that resource becomes the "current" one.  From then on, each subsequent
-option applies to the current resource, until you
-specify the
-.Fl -resource
-option again.
-.Sh EXAMPLES
+.Sh ACTIONS
 .Bl -tag -width flag
-.It Assign two read-write delegates and display the list of read-write delegates:
-.Nm
---resource 44234B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 98248B00-5266-11DD-B22C-A07C87F02F6B --add-write-delegate 39838B00-5266-11DD-B22C-A07C87F02F6B --list-write-delegates
-.It Turn on auto-scheduling for a resource, and confirm the setting:
-.Nm
---resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule True --get-auto-schedule
-.It Turn off auto-scheduling for multiple resources:
-.Nm
---resource 44234B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False --resource 98344B00-5266-11DD-B22C-A07C87F02F6B --set-auto-schedule False
+.It Fl -read-property Ar property
+Read the given WebDAV property on the principal resource.
+.Ar property
+must be a fully qualified XML element name in the form
+.Ar {namespace}name ,
+for example:
+.Ar {DAV:}displayname .
+.It Fl -list-read-proxies
+List the read proxies.
+.It Fl -list-write-proxies
+List the write proxies.
+.It Fl -list-proxies
+List all proxies.
+.It Fl -add-read-proxy Ar principal
+Add the given
+.Ar principal
+as a read proxy.
+.It Fl -add-write-proxy Ar principal
+Add the given
+.Ar principal
+as a write proxy.
+.It Fl -remove-proxy Ar principal
+Remove the given
+.Ar principal
+as a proxy.
+.It Fl -set-auto-schedule Ar true|false
+Enable or disable automatic scheduling.
+.It Fl -get-auto-schedule
+Get the automatic scheduling state.
+.El
+.Sh EXAMPLES
+.Ex
+Add Alice and Bob as read proxies for Joe and display the list of Joe's proxies:
+.Pp
+.Dl "calendarserver_manage_principals --add-read-proxy users:alice --add-read-proxy users:bob --list-proxies users:joe"
+.Pp
+Add a group of room admins as write proxy for a couple of rooms:
+.Pp
+.Dl "calendarserver_manage_principals --add-write-proxy groups:room-admins locations:bigroom locations:littleroom"
+.Pp
+Turn on auto-scheduling for a resource, and confirm the setting:
+.Pp
+.Dl "calendarserver_manage_principals --set-auto-schedule true --get-auto-schedule resources:projector"
+.Pp
 .El
 .Sh FILES
 .Bl -tag -width flag
 .It /etc/caldavd/caldavd.plist
 The Calendar Server configuration file.
-.It /Library/CalendarServer/Data/calendaruserproxy.sqlite
-The server's proxy database, used to keep track of which principals have read-only and read-write delegate access to other principals/resources.
-.It /Library/CalendarServer/Data/resourceinfo.sqlite
-The server's resource info database, used to store additional resource information such as auto-schedule settings.
 .El
 .Sh SEE ALSO
 .Xr caldavd 8
