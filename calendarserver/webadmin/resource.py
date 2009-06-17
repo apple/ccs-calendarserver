@@ -28,7 +28,7 @@ import os
 import urllib
 import urlparse
 
-from calendarserver.webadmin.helper import search, ResourceWrapper
+from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal, action_removeProxyPrincipal
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
@@ -119,7 +119,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                  "</html>" )
               
     @inlineCallbacks
-    def htmlContent(self, resourceWrapper, directory, request):
+    def htmlContent(self, directory, request):
 
         def queryValue(arg):
             query = cgi.parse_qs(urlparse.urlparse(request.uri).query, True)
@@ -134,14 +134,14 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return matches
 
         # Read request parameters.
-        resourceGuid = queryValue("resourceGuid")
+        resourceId = queryValue("resourceId")
         resourceSearch = queryValue("resourceSearch")
         davPropertyName = queryValue("davPropertyName")
         autoSchedule = queryValue("autoSchedule")
-        delegateSearch = queryValue("delegateSearch")
-        makeReadDelegates = queryValues("mkReadDelegate|")
-        makeWriteDelegates = queryValues("mkWriteDelegate|")
-        removeDelegates = queryValues("rmDelegate|")
+        proxySearch = queryValue("proxySearch")
+        makeReadProxies = queryValues("mkReadProxy|")
+        makeWriteProxies = queryValues("mkWriteProxy|")
+        removeProxies = queryValues("rmProxy|")
 
         # Begin the content
         content = ("%(header)s\n"
@@ -150,30 +150,30 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                                      "search": (yield self.searchContent(directory, resourceSearch)) })
 
         # Add details if a resource has been selected.
-        if resourceGuid is not None and resourceGuid != "":
+        if resourceId:
         
-            resource = resourceWrapper.lookupResource(resourceGuid)
+            principal = self.getResourceById(request, resourceId)
     
             # Update the auto-schedule value if specified.
             if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
-                result = (yield resource.setAutoSchedule(autoSchedule == "true"))
+                if principal.record.recordType != "users" and principal.record.recordType != "groups":
+                    result = (yield principal.setAutoSchedule(autoSchedule == "true"))
 
-            # Update the delegates if specified.
-            for delegateGuid in removeDelegates:
-                delegate = resourceWrapper.lookupResource(delegateGuid)
-                result = (yield resource.removeDelegate(delegate, "read"))
-                result = (yield resource.removeDelegate(delegate, "write"))
+            # Update the proxies if specified.
+            for proxyId in removeProxies:
+                proxy = self.getResourceById(request, proxyId)
+                (yield action_removeProxyPrincipal(principal, proxy, proxyTypes=["read", "write"]))
 
-            for delegateGuid in makeReadDelegates:
-                delegate = resourceWrapper.lookupResource(delegateGuid)
-                result = (yield resource.addDelegate(delegate, "read"))
+            for proxyId in makeReadProxies:
+                proxy = self.getResourceById(request, proxyId)
+                (yield action_addProxyPrincipal(principal, "read", proxy))
 
-            for delegateGuid in makeWriteDelegates:
-                delegate = resourceWrapper.lookupResource(delegateGuid)
-                result = (yield resource.addDelegate(delegate, "write"))
+            for proxyId in makeWriteProxies:
+                proxy = self.getResourceById(request, proxyId)
+                (yield action_addProxyPrincipal(principal, "write", proxy))
                 
             # Add the detailed content
-            content += (yield self.detailContent(resourceWrapper, directory, resource, resourceGuid, davPropertyName, delegateSearch))
+            content += (yield self.detailContent(directory, request, principal, resourceId, davPropertyName, proxySearch))
 
         # Add the footer
         content += self.footer()
@@ -195,13 +195,13 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         resultHtml = ""
         if resourceSearch is not None and resourceSearch != "":
 
-            records = (yield search(directory, resourceSearch))
+            records = (yield self.search(resourceSearch))
             if records:
                 records.sort(key=operator.attrgetter('fullName'))
                 resultHtml = """
 <table cellspacing=\"0\" cellpadding=\"3\" border=\"1\" style=\"margin-top:2px\">
   <tr class=\"odd\">
-    <th>GUID</th>
+    <th>ID</th>
     <th>Full Name</th>
     <th>Type</th>
     <th>Short Names</th>
@@ -212,16 +212,17 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                 for _i in range(0, len(records)):
                     resultHtml += """
   <tr class=\"%(rowClass)s\">
-    <td><a href=\"/admin/?resourceGuid=%(guid)s\">%(guid)s</a></td>
+    <td><a href=\"/admin/?resourceId=%(type)s:%(shortName)s\">select</a></td>
     <td>%(name)s</td>
-    <td>%(type)s</td>
+    <td>%(typeStr)s</td>
     <td>%(shortNames)s</td>
     <td>%(authIds)s</td>
     <td>%(emails)s</td>
   </tr>""" % { "rowClass": "even" if _i%2 == 0 else "odd",
-               "guid": urllib.quote(records[_i].guid),
+               "type": records[_i].recordType,
+               "shortName": records[_i].shortNames[0],
                "name": records[_i].fullName,
-               "type": { "users"     : "User",
+               "typeStr": { "users"     : "User",
                          "groups"    : "Group",
                          "locations" : "Place",
                          "resources" : "Resource",
@@ -238,7 +239,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         returnValue(result)
 
     @inlineCallbacks
-    def detailContent(self, resourceWrapper, directory, resource, resourceGuid, davPropertyName, delegateSearch):
+    def detailContent(self, directory, request, resource, resourceId, davPropertyName, proxySearch):
 
         ###
         # Resource title
@@ -246,7 +247,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         headerHtml = """
 <div style=\"margin-top:15px; background-color: #777; border-bottom:1px #ffffff dotted\"></div>
 <div style=\"background-color: #777; padding-top:2px; border-bottom:1px #ffffff dotted\"></div>
-<h3>Resource Details: %(resourceTitle)s</h3>""" % { "resourceTitle": resource.resource }
+<h3>Resource Details: %(resourceTitle)s</h3>""" % { "resourceTitle": resource }
 
         ###
         # DAV properties
@@ -255,20 +256,20 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 <div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>
 <form id=\"frm_davProperty\" name=\"davPropertyForm\" action=\"/admin/\" style=\"margin-top:15px; margin-bottom:0; padding-bottom:0\">
   Show a DAV property value:
-  <input type=\"hidden\" id=\"hdn_resourceGuid\" name=\"resourceGuid\" value=\"%(resourceGuid)s\" />
+  <input type=\"hidden\" id=\"hdn_resourceId\" name=\"resourceId\" value=\"%(resourceId)s\" />
   <input type=\"text\" id=\"txt_davPropertyName\" name=\"davPropertyName\" value=\"%(davPropertyName)s\" size=\"40\" />
   <input type=\"submit\" value=\"Get Value\" />
 </form>
-""" % { "resourceGuid": urllib.quote(resourceGuid),
+""" % { "resourceId": resourceId,
         "davPropertyName": davPropertyName if davPropertyName is not None and davPropertyName != "" else "DAV:#" }
         
-        if davPropertyName is not None and davPropertyName != "":
+        if davPropertyName:
             try:
                 namespace, name = davPropertyName.split("#")
             except Exception, e:
                 propertyHtml += "<div>Unable to parse property to read: <b>%s</b></div>" % davPropertyName
 
-            result = (yield resource.readProperty((namespace, name)))
+            result = (yield resource.readProperty((namespace, name), None))
             propertyHtml += "<div style=\"margin-top:7px\">Value of property <b>%(name)s</b>:</div><pre style=\"margin-top:5px; padding-top:0\">%(value)s</pre>" % { 
                 "name": davPropertyName, 
                 "value": cgi.escape(result.toxml())
@@ -277,11 +278,13 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         ###
         # Auto-schedule
         ###
-        autoSchedule = (yield resource.getAutoSchedule())
-        autoScheduleHtml = """
+        autoScheduleHtml = ""
+        if resource.record.recordType != "users" and resource.record.recordType != "groups":
+            autoSchedule = (yield resource.getAutoSchedule())
+            autoScheduleHtml = """
 <div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>
 <form id=\"frm_autoSchedule\" name=\"autoScheduleForm\" action=\"/admin/\" style=\"margin-top:15px\">
-  <input type=\"hidden\" id=\"hdn_resourceGuid\" name=\"resourceGuid\" value=\"%(resourceGuid)s\" />
+  <input type=\"hidden\" id=\"hdn_resourceId\" name=\"resourceId\" value=\"%(resourceId)s\" />
   <div style=\"margin-top:7px\">
     Auto-Schedule
     <select id=\"sel_autoSchedule\" name=\"autoSchedule\">
@@ -290,126 +293,134 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     </select>
     <input type=\"submit\" value=\"Change\" />
   </div>
-</form>\n""" % { "resourceGuid": urllib.quote(resourceGuid),
+</form>\n""" % { "resourceId": resourceId,
                "trueSelected": " selected=\"selected\"" if autoSchedule else "",
                "falseSelected": "" if autoSchedule else " selected=\"selected\"" }
 
         ###
-        # Current delegates
+        # Current proxies
         ###
-        currentDelegatesHtml = "\n<div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>"
+        currentProxiesHtml = "\n<div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>"
+        
+        (readSubPrincipal, writeSubPrincipal) = (proxySubprincipal(resource, "read"), proxySubprincipal(resource, "write"))
+        if readSubPrincipal or writeSubPrincipal:
+            (readMembers, writeMembers) = ((yield readSubPrincipal.readProperty(davxml.GroupMemberSet, None)), (yield writeSubPrincipal.readProperty(davxml.GroupMemberSet, None)))
 
-        (readDelegates, writeDelegates) = ((yield resource.getDelegates("read")), (yield resource.getDelegates("write")))
-        if len(readDelegates) > 0 or len(writeDelegates) > 0:
-            currentDelegatesHtml += """
-<form id=\"frm_delegates\" name=\"delegatesForm\" action=\"/admin/\" style=\"margin-top:15px\">
-  <input type=\"hidden\" id=\"hdn_resourceGuid\" name=\"resourceGuid\" value=\"%(resourceGuid)s\" />
+            if readMembers.children or writeMembers.children:
+                currentProxiesHtml += """
+<form id=\"frm_proxies\" name=\"proxiesForm\" action=\"/admin/\" style=\"margin-top:15px\">
+  <input type=\"hidden\" id=\"hdn_resourceId\" name=\"resourceId\" value=\"%(resourceId)s\" />
   <table cellspacing=\"0\" cellpadding=\"3\" border=\"1\">
     <tr class=\"odd\">
-      <th colspan=\"2\">Read-Only Delegates</th>
-      <th colspan=\"2\">Read-Write Delegates</th>
-    </tr>
-""" % { "resourceTitle": resource.resource,
-        "resourceGuid": urllib.quote(resourceGuid) }
+      <th colspan=\"2\">Read-Only Proxies</th>
+      <th colspan=\"2\">Read-Write Proxies</th>
+    </tr>\n""" % { "resourceTitle": resource,
+                   "resourceId": resourceId }
 
-            for _i in range(0, max(len(readDelegates), len(writeDelegates))):
-                currentDelegatesHtml += "    <tr class=\"%(rowClass)s\">" % { "rowClass": "even" if _i%2 == 0 else "odd" }
-                if (_i < len(readDelegates)) :
-                    currentDelegatesHtml += """
-      <td>%(delegate)s</td>
+                for _i in range(0, max(len(readMembers.children), len(writeMembers.children))):
+                    currentProxiesHtml += "    <tr class=\"%(rowClass)s\">" % { "rowClass": "even" if _i%2 == 0 else "odd" }
+                    if (_i < len(readMembers.children)) :
+                        proxyResource = (yield self.getResourceById(request, str(readMembers.children[_i])))
+                        currentProxiesHtml += """
+      <td>%(proxy)s</td>
       <td>
-        <input type=\"submit\" name=\"mkWriteDelegate|%(delegatePath)s\" value=\"Make Read-Write\" />
-        <input type=\"submit\" name=\"rmDelegate|%(delegatePath)s\" value=\"Remove Delegate\" />
-      </td>""" % { "delegatePath": readDelegates[_i][21:-1], # GUID only, not full path
-                   "delegate" : resourceWrapper.getChild(readDelegates[_i]).resource }
-                else :
-                    currentDelegatesHtml += "\n      <td colspan=\"2\"></td>"
-                if (_i < len(writeDelegates)) :
-                    currentDelegatesHtml += """
-      <td>%(delegate)s</td>
+        <input type=\"submit\" name=\"mkWriteProxy|%(type)s:%(shortName)s\" value=\"Make Read-Write\" />
+        <input type=\"submit\" name=\"rmProxy|%(type)s:%(shortName)s\" value=\"Remove Proxy\" />
+      </td>""" % { "proxy": proxyResource,
+                   "type": proxyResource.record.recordType,
+                   "shortName": proxyResource.record.shortNames[0]
+                 }
+                    else :
+                        currentProxiesHtml += "\n      <td colspan=\"2\"></td>"
+                    if (_i < len(writeMembers.children)) :
+                        proxyResource = (yield self.getResourceById(request, str(writeMembers.children[_i])))
+                        currentProxiesHtml += """
+      <td>%(proxy)s</td>
       <td>
-        <input type=\"submit\" name=\"mkReadDelegate|%(delegatePath)s\" value=\"Make Read-Only\" />
-        <input type=\"submit\" name=\"rmDelegate|%(delegatePath)s\" value=\"Remove Delegate\" />
-      </td>""" % { "delegatePath": writeDelegates[_i][21:-1], # GUID only, not full path
-                   "delegate" : resourceWrapper.getChild(writeDelegates[_i]).resource }
-                else :
-                    currentDelegatesHtml += "\n      <td colspan=\"2\"></td>"
-                currentDelegatesHtml += "\n    </tr>\n"
-
-            currentDelegatesHtml += "  </table>\n</form>\n"
+        <input type=\"submit\" name=\"mkReadProxy|%(type)s:%(shortName)s\" value=\"Make Read-Only\" />
+        <input type=\"submit\" name=\"rmProxy|%(type)s:%(shortName)s\" value=\"Remove Proxy\" />
+      </td>""" % { "proxy": proxyResource,
+                   "type": proxyResource.record.recordType,
+                   "shortName": proxyResource.record.shortNames[0]
+                 }
+                    else :
+                        currentProxiesHtml += "\n      <td colspan=\"2\"></td>"
+                    currentProxiesHtml += "\n    </tr>\n"
+    
+                currentProxiesHtml += "  </table>\n</form>\n"
+            else:
+                currentProxiesHtml += "<div style=\"margin-top:15px\">This resource has no proxies.</div>\n"
         else:
-            currentDelegatesHtml += "<div style=\"margin-top:15px\">This resource has no delegates.</div>\n"
+            currentProxiesHtml += "<div style=\"margin-top:15px\">This resource has no proxies.</div>\n"
 
         ###
-        # Search for new delegates
+        # Search for new proxies
         ###
-        delegateSearchHtml = """
+        proxySearchHtml = """
 <div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>
-<form id=\"frm_delegateSearch\" name=\"delegateSearchForm\" action=\"/admin/\" style=\"margin-top:15px; margin-bottom:0; padding-bottom:0\">
-  Search to add new delegates:
-  <input type=\"hidden\" id=\"hdn_resourceGuid\" name=\"resourceGuid\" value=\"%(resourceGuid)s\" />
-  <input type=\"text\" id=\"txt_delegateSearch\" name=\"delegateSearch\" value=\"%(delegateSearch)s\" size=\"40\" />
+<form id=\"frm_proxySearch\" name=\"proxySearchForm\" action=\"/admin/\" style=\"margin-top:15px; margin-bottom:0; padding-bottom:0\">
+  Search to add proxies:
+  <input type=\"hidden\" id=\"hdn_resourceId\" name=\"resourceId\" value=\"%(resourceId)s\" />
+  <input type=\"text\" id=\"txt_proxySearch\" name=\"proxySearch\" value=\"%(proxySearch)s\" size=\"40\" />
   <input type=\"submit\" value=\"Search\" />
 </form>
-""" % { "resourceGuid": urllib.quote(resourceGuid),
-        "delegateSearch": delegateSearch }
+""" % { "resourceId": resourceId,
+        "proxySearch": proxySearch }
 
         # Perform the search if a parameter was specified.
-        if delegateSearch is not None and delegateSearch != "":
-            records = (yield search(directory, delegateSearch))
+        if proxySearch:
+            records = (yield self.search(proxySearch))
             if records:
                 records.sort(key=operator.attrgetter('fullName'))
 
-                delegateSearchHtml += """
-<form id=\"frm_delegateAdd\" name=\"delegateAddForm\" action=\"/admin/\" style=\"margin-top:2px; padding-top:0\">
-  <input type=\"hidden\" id=\"hdn_resourceGuid\" name=\"resourceGuid\" value=\"%(resourceGuid)s\" />
+                proxySearchHtml += """
+<form id=\"frm_proxyAdd\" name=\"proxyAddForm\" action=\"/admin/\" style=\"margin-top:2px; padding-top:0\">
+  <input type=\"hidden\" id=\"hdn_resourceId\" name=\"resourceId\" value=\"%(resourceId)s\" />
   <table cellspacing=\"0\" cellpadding=\"3\" border=\"1\">
     <tr class=\"odd\">
       <th>Full Name</th>
       <th>Type</th>
       <th>Short Names</th>
       <th>Email Addresses</th>
-      <th>Add Delegate</th>
-    </tr>""" % { "resourceGuid": urllib.quote(resourceGuid) }
+      <th></th>
+    </tr>""" % { "resourceId": resourceId }
 
                 for _i in range(0, len(records)):
-                    delegateSearchHtml += """
+                    proxySearchHtml += """
     <tr class=\"%(rowClass)s\">
       <td>%(name)s</td>
-      <td>%(type)s</td>
+      <td>%(typeStr)s</td>
       <td>%(shortNames)s</td>
       <td>%(emails)s</td>
       <td>
-        <input type=\"submit\" name=\"mkReadDelegate|%(delegateGuid)s\" value=\"Make Read-Only Delegate\" />
-        <input type=\"submit\" name=\"mkWriteDelegate|%(delegateGuid)s\" value=\"Make Read-Write Delegate\" />
+        <input type=\"submit\" name=\"mkReadProxy|%(type)s:%(shortName)s\" value=\"Make Read-Only Proxy\" />
+        <input type=\"submit\" name=\"mkWriteProxy|%(type)s:%(shortName)s\" value=\"Make Read-Write Proxy\" />
       </td>
     </tr>""" % { "rowClass": "even" if _i%2 == 0 else "odd",
-               "delegateGuid": urllib.quote(records[_i].guid),
-               "name": records[_i].fullName,
-               "type": { "users"     : "User",
-                         "groups"    : "Group",
-                         "locations" : "Place",
-                         "resources" : "Resource",
-                       }.get(records[_i].recordType),
-               "shortNames": str(", ".join(records[_i].shortNames),),
-               "emails": str(", ".join(records[_i].emailAddresses),)
+                 "type": records[_i].recordType,
+                 "shortName": records[_i].shortNames[0],
+                 "name": records[_i].fullName,
+                 "typeStr": { "users"     : "User",
+                           "groups"    : "Group",
+                           "locations" : "Place",
+                           "resources" : "Resource",
+                           }.get(records[_i].recordType),
+                 "shortNames": str(", ".join(records[_i].shortNames),),
+                 "emails": str(", ".join(records[_i].emailAddresses),)
              }
-                delegateSearchHtml += "  </table>\n</form>\n"
+                proxySearchHtml += "\n  </table>\n</form>\n"
             else:
-                delegateSearchHtml += "<div style=\"margin-top:4px\">No matches found for delegate resource <b>%(delegateSearch)s</b>.</div>\n" % { "delegateSearch": delegateSearch }
+                proxySearchHtml += "<div style=\"margin-top:4px\">No matches found for proxy resource <b>%(proxySearch)s</b>.</div>\n" % { "proxySearch": proxySearch }
         
         ###
         # Put it all together
         ###
-        detailHtml = "%s%s%s%s%s" % (headerHtml, propertyHtml, autoScheduleHtml, currentDelegatesHtml, delegateSearchHtml)
+        detailHtml = "%s%s%s%s%s" % (headerHtml, propertyHtml, autoScheduleHtml, currentProxiesHtml, proxySearchHtml)
 
         returnValue(detailHtml)
 
     def render(self, request):
 
-        # Prepare the ResourceWrapper, which will be used to get and modify resource info.
-        resourceWrapper = ResourceWrapper(self.root)
-        
         # The response-generation will be deferred.
         def _defer(htmlContent):
             response = Response()
@@ -423,6 +434,21 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return response
 
         # Generate the HTML and return the response when it's ready.
-        htmlContent = self.htmlContent(resourceWrapper, self.directory, request)
+        htmlContent = self.htmlContent(self.directory, request)
         htmlContent.addCallback(_defer)
         return htmlContent
+
+    def getResourceById(self, request, resourceId):
+        if resourceId.startswith("/"):
+            return request.locateResource(resourceId)
+        else:
+            return principalForPrincipalID(resourceId, directory=self.directory)
+
+    @inlineCallbacks
+    def search(self, searchStr):
+        fields = []
+        for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
+            fields.append((fieldName, searchStr, True, "contains"))
+        
+        records = list((yield self.directory.recordsMatchingFields(fields)))
+        returnValue(records)

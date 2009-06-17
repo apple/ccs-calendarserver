@@ -287,7 +287,14 @@ def run(principalIDs, actions):
         #
         reactor.stop()
 
-def principalForPrincipalID(principalID, checkOnly=False):
+def principalForPrincipalID(principalID, checkOnly=False, directory=None):
+    
+    # Allow a directory parameter to be passed in, but default to config.directory
+    # But config.directory isn't set right away, so only use it when we're doing more 
+    # than checking.
+    if not checkOnly and not directory:
+        directory = config.directory
+
     if principalID.startswith("/"):
         raise ValueError("Can't resolve paths yet")
 
@@ -307,7 +314,7 @@ def principalForPrincipalID(principalID, checkOnly=False):
             if not recordType or not shortName or "(" in recordType:
                 raise ValueError()
 
-            return config.directory.principalCollection.principalForShortName(recordType, shortName)
+            return directory.principalCollection.principalForShortName(recordType, shortName)
 
         except ValueError:
             pass
@@ -318,7 +325,7 @@ def principalForPrincipalID(principalID, checkOnly=False):
 
         recordType, shortName = principalID.split(":", 1)
 
-        return config.directory.principalCollection.principalForShortName(recordType, shortName)
+        return directory.principalCollection.principalForShortName(recordType, shortName)
 
     try:
         guid = UUID(principalID)
@@ -326,7 +333,7 @@ def principalForPrincipalID(principalID, checkOnly=False):
         if checkOnly:
             return None
 
-        return config.directory.principalCollection.principalForUID(guid)
+        return directory.principalCollection.principalForUID(guid)
     except ValueError:
         pass
 
@@ -366,6 +373,45 @@ def action_listProxies(principal, *proxyTypes):
 def action_addProxy(principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
+        (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
+
+@inlineCallbacks
+def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
+    proxyURL = proxyPrincipal.url()
+
+    subPrincipal = proxySubprincipal(principal, proxyType)
+    if subPrincipal is None:
+        sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
+        return
+
+    membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+    for memberURL in membersProperty.children:
+        if str(memberURL) == proxyURL:
+            print "%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+            break
+    else:
+        memberURLs = list(membersProperty.children)
+        memberURLs.append(davxml.HRef(proxyURL))
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+        print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+
+    proxyTypes = ["read", "write"]
+    proxyTypes.remove(proxyType)
+
+    (yield action_removeProxyPrincipal(principal, proxyPrincipal, proxyTypes=proxyTypes))
+
+@inlineCallbacks
+def action_removeProxy(principal, *proxyIDs, **kwargs):
+    for proxyID in proxyIDs:
+        proxyPrincipal = principalForPrincipalID(proxyID)
+        (yield action_removeProxyPrincipal(principal, proxyPrincipal, kwargs))
+
+@inlineCallbacks
+def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
+    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
+    for proxyType in proxyTypes:
         proxyURL = proxyPrincipal.url()
 
         subPrincipal = proxySubprincipal(principal, proxyType)
@@ -375,50 +421,18 @@ def action_addProxy(principal, proxyType, *proxyIDs):
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
-        for memberURL in membersProperty.children:
-            if str(memberURL) == proxyURL:
-                print "%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
-                break
-        else:
-            memberURLs = list(membersProperty.children)
-            memberURLs.append(davxml.HRef(proxyURL))
-            membersProperty = davxml.GroupMemberSet(*memberURLs)
-            (yield subPrincipal.writeProperty(membersProperty, None))
-            print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+        memberURLs = [
+            m for m in membersProperty.children
+            if str(m) != proxyURL
+        ]
 
-        proxyTypes = ["read", "write"]
-        proxyTypes.remove(proxyType)
+        if len(memberURLs) == len(membersProperty.children):
+            # No change
+            continue
 
-        (yield action_removeProxy(principal, proxyID, proxyTypes=proxyTypes))
-
-@inlineCallbacks
-def action_removeProxy(principal, *proxyIDs, **kwargs):
-    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
-
-    for proxyID in proxyIDs:
-        for proxyType in proxyTypes:
-            proxyPrincipal = principalForPrincipalID(proxyID)
-            proxyURL = proxyPrincipal.url()
-
-            subPrincipal = proxySubprincipal(principal, proxyType)
-            if subPrincipal is None:
-                sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
-                continue
-
-            membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-
-            memberURLs = [
-                m for m in membersProperty.children
-                if str(m) != proxyURL
-            ]
-
-            if len(memberURLs) == len(membersProperty.children):
-                # No change
-                continue
-
-            membersProperty = davxml.GroupMemberSet(*memberURLs)
-            (yield subPrincipal.writeProperty(membersProperty, None))
-            print "Removed %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+        print "Removed %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
 
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
