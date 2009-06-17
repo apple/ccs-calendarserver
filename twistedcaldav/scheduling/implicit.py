@@ -45,8 +45,6 @@ log = Logger()
 # TODO:
 #
 # Handle the case where a PUT removes the ORGANIZER property. That should be equivalent to cancelling the entire meeting.
-# Support SCHEDULE-AGENT property
-# Support SCHEDULE-STATUS property
 # Support Schedule-Reply header
 #
 
@@ -346,7 +344,7 @@ class ImplicitScheduler(object):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
         
         # Get the ATTENDEEs
-        self.attendeesByInstance = self.calendar.getAttendeesByInstance(True)
+        self.attendeesByInstance = self.calendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
         self.attendees = set()
         for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
@@ -574,7 +572,7 @@ class ImplicitScheduler(object):
         
         # TODO: the later three will be ignored for now.
 
-        oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance()
+        oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(onlyScheduleAgentServer=True)
         
         mappedOld = set(oldAttendeesByInstance)
         mappedNew = set(self.attendeesByInstance)
@@ -617,7 +615,7 @@ class ImplicitScheduler(object):
                     if (new_attendee, None) not in mappedNew or rid in addedexdates:
                         self.cancelledAttendees.add(item)
 
-        master_attendees = self.oldcalendar.masterComponent().getAttendeesByInstance()
+        master_attendees = self.oldcalendar.masterComponent().getAttendeesByInstance(onlyScheduleAgentServer=True)
         for attendee, _ignore in master_attendees:
             for exdate in addedexdates:
                 # Don't remove the master attendee's when an EXDATE is added for a removed overridden component
@@ -842,7 +840,7 @@ class ImplicitScheduler(object):
         oldcalendar = self.oldcalendar
         if oldcalendar is None:
             oldcalendar = self.organizer_calendar
-            oldcalendar.attendeesView((self.attendee,))
+            oldcalendar.attendeesView((self.attendee,), onlyScheduleAgentServer=True)
         differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
         return differ.attendeeMerge(self.attendee)
 

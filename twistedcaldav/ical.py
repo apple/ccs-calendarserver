@@ -96,12 +96,12 @@ normalizeProps = {
     "TZOFFSETTO":   (None, {"VALUE": "UTC-OFFSET"}),
     "TZURL":        (None, {"VALUE": "URI"}),
     "ATTENDEE":     (None, {
-        "VALUE": "CAL-ADDRESS",
-        "CUTYPE": "INDIVIDUAL",
-        "ROLE": "REQ-PARTICIPANT",
-        "PARTSTAT": "NEEDS-ACTION",
-        "RSVP": "FALSE",
-        
+        "VALUE":          "CAL-ADDRESS",
+        "CUTYPE":         "INDIVIDUAL",
+        "ROLE":           "REQ-PARTICIPANT",
+        "PARTSTAT":       "NEEDS-ACTION",
+        "RSVP":           "FALSE",
+        "SCHEDULE-AGENT": "SERVER",
     }),
     "CONTACT":      (None, {"VALUE": "TEXT"}),
     "ORGANIZER":    (None, {"VALUE": "CAL-ADDRESS"}),
@@ -1510,12 +1510,14 @@ class Component (object):
 
         return None
 
-    def getAttendeesByInstance(self, makeUnique=False):
+    def getAttendeesByInstance(self, makeUnique=False, onlyScheduleAgentServer=False):
         """
         Get the attendee values for each instance. Optionally remove duplicates.
         
         @param makeUnique: if C{True} remove duplicate ATTENDEEs in each component
         @type makeUnique: C{bool}
+        @param onlyScheduleAgentServer: if C{True} only return ATETNDEEs with SCHEDULE-AGENT=SERVER set
+        @type onlyScheduleAgentServer: C{bool}
         @return: a list of tuples of (organizer value, recurrence-id)
         """
         
@@ -1524,13 +1526,19 @@ class Component (object):
             result = ()
             for component in self.subcomponents():
                 if component.name() != "VTIMEZONE":
-                    result += component.getAttendeesByInstance(makeUnique)
+                    result += component.getAttendeesByInstance(makeUnique, onlyScheduleAgentServer)
             return result
         else:
             result = ()
             attendees = set()
             rid = self.getRecurrenceIDUTC()
             for attendee in tuple(self.properties("ATTENDEE")):
+                
+                if onlyScheduleAgentServer:
+                    if "SCHEDULE-AGENT" in attendee.params():
+                        if attendee.paramValue("SCHEDULE-AGENT") != "SERVER":
+                            continue
+
                 cuaddr = attendee.value()
                 if makeUnique and cuaddr in attendees:
                     self.removeProperty(attendee)
@@ -1739,7 +1747,7 @@ class Component (object):
                     for prop in matched.properties(propname):
                         self.addProperty(prop)
             
-    def attendeesView(self, attendees):
+    def attendeesView(self, attendees, onlyScheduleAgentServer=False):
         """
         Filter out any components that all attendees are not present in. Use EXDATEs
         on the master to account for changes.
@@ -1756,9 +1764,15 @@ class Component (object):
                 continue
             found_all_attendees = True
             for attendee in attendees:
-                if component.getAttendeeProperty((attendee,)) is None:
+                foundAttendee = component.getAttendeeProperty((attendee,))
+                if foundAttendee is None:
                     found_all_attendees = False
                     break
+                if onlyScheduleAgentServer:
+                    if "SCHEDULE-AGENT" in foundAttendee.params():
+                        if foundAttendee.paramValue("SCHEDULE-AGENT") != "SERVER":
+                            found_all_attendees = False
+                            break
             if not found_all_attendees:
                 remove_components.append(component)
             if component.getRecurrenceIDUTC() is None:

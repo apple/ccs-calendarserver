@@ -388,6 +388,7 @@ DTSTART:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 ()
             ),
             (
@@ -401,6 +402,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     ("mailto:user2@example.com", None),
                 )
@@ -417,6 +419,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     ("mailto:user2@example.com", None),
                     ("mailto:user3@example.com", None),
@@ -437,22 +440,65 @@ UID:12345-67890
 RECURRENCE-ID:20081114T000000Z
 DTSTART:20071114T010000Z
 ORGANIZER:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ATTENDEE;SCHEDULE-AGENT=NONE:mailto:user2@example.com
+ATTENDEE;SCHEDULE-AGENT=CLIENT:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     ("mailto:user2@example.com", None),
                     ("mailto:user2@example.com", datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc())),
                     ("mailto:user3@example.com", datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc()))
                 )
             ),
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user1@example.com
+ATTENDEE;SCHEDULE-AGENT=NONE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                (
+                    ("mailto:user3@example.com", None),
+                )
+            ),
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ORGANIZER:mailto:user1@example.com
+ATTENDEE;SCHEDULE-AGENT=SERVER:mailto:user2@example.com
+RRULE:FREQ=YEARLY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20071114T010000Z
+ORGANIZER:mailto:user1@example.com
+ATTENDEE;SCHEDULE-AGENT=NONE:mailto:user2@example.com
+ATTENDEE;SCHEDULE-AGENT=CLIENT:mailto:user3@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                (
+                    ("mailto:user2@example.com", None),
+                )
+            ),
         )
         
-        for caldata, result in data:
+        for caldata, checkScheduleAgent, result in data:
             component = Component.fromString(caldata)
-            self.assertEqual(component.getAttendeesByInstance(), result)
+            self.assertEqual(component.getAttendeesByInstance(onlyScheduleAgentServer=checkScheduleAgent), result)
 
     def test_set_parameter_value(self):
         data = (
@@ -675,6 +721,7 @@ DTSTART:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -698,6 +745,7 @@ DTSTART:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -719,6 +767,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -746,6 +795,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -775,6 +825,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -818,6 +869,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -846,6 +898,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -882,6 +935,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -910,6 +964,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -945,6 +1000,7 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -952,11 +1008,156 @@ END:VCALENDAR
 """,
                 ("mailto:user3@example.com",)
             ),
+
+                    # Simple component, no Attendees - no filtering
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                ()
+            ),
+
+            # Simple component, no Attendees - filtering
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+END:VCALENDAR
+""",
+                ("mailto:user01@example.com",)
+            ),
+
+            # Simple component, with one attendee - filtering match
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("mailto:user2@example.com",)
+            ),
+
+            # Simple component, with one attendee - filtering match
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE;SCHEDULE-AGENT=SERVER:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE;SCHEDULE-AGENT=SERVER:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                ("mailto:user2@example.com",)
+            ),
+
+            # Simple component, with one attendee - filtering match - no schedule-agent match
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE;SCHEDULE-AGENT=CLIENT:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+END:VCALENDAR
+""",
+                ("mailto:user2@example.com",)
+            ),
+
+            # Simple component, with one attendee - filtering match - no schedule-agent match
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTART:20071114T000000Z
+ATTENDEE;SCHEDULE-AGENT=NONE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+END:VCALENDAR
+""",
+                ("mailto:user2@example.com",)
+            ),
+
         )
         
-        for original, filtered, attendees in data:
+        for original, checkScheduleAgent, filtered, attendees in data:
             component = Component.fromString(original)
-            component.attendeesView(attendees)
+            component.attendeesView(attendees, onlyScheduleAgentServer=checkScheduleAgent)
             self.assertEqual(filtered, str(component).replace("\r", ""))
 
     def test_all_but_one_attendee(self):

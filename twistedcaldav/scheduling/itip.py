@@ -560,7 +560,7 @@ class iTipGenerator(object):
         itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
 
         # Now filter out components that do not contain every attendee
-        itip.attendeesView(attendees)
+        itip.attendeesView(attendees, onlyScheduleAgentServer=True)
         
         # Now filter out components except the ones specified
         if itip.filterComponents(filter_rids):
@@ -649,7 +649,7 @@ class iTipGenerator(object):
         
         # Property Parameters
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
-        itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+        itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
 
 class iTIPRequestStatus(object):
     """

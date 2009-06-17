@@ -70,7 +70,7 @@ class iCalDiff(object):
                 "LAST-MODIFIED",
             ))
             calendar.removeXProperties()
-            calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+            calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS",))
             calendar.normalizeAll()
             return calendar
         
