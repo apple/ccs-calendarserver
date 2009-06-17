@@ -118,9 +118,6 @@ def main():
     except GetoptError, e:
         usage(e)
 
-    if not args:
-        usage("No principals specified.")
-
     #
     # Get configuration
     #
@@ -186,6 +183,9 @@ def main():
 
         else:
             raise NotImplementedError(opt)
+
+    if not args:
+        usage("No principals specified.")
 
     #
     # Get configuration
