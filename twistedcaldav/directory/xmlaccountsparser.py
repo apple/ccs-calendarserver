@@ -293,12 +293,9 @@ class XMLAccountRecord (object):
                     self.shortNames.append(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_GUID:
                 if child.firstChild is not None:
-                    guid = child.firstChild.data.encode("utf-8")
-                    try:
-                        UUID(guid)
-                    except ValueError, e:
-                        log.error("Invalid GUID (%s) in accounts XML: %r" % (e, guid))
-                    self.guid = guid
+                    self.guid = child.firstChild.data.encode("utf-8")
+                    if len(self.guid) < 4:
+                        self.guid += "?" * (4 - len(self.guid))
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
