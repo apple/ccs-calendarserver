@@ -661,7 +661,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     def iCalendarAddressDoNormalization(self, ical):
         """
         Normalize calendar user addresses in the supplied iCalendar object into their
-        urn:uuid form where possible. Also reset CN= property and add X-CALENDARSERVER-EMAIL property.
+        urn:uuid form where possible. Also reset CN= property and add EMAIL property.
 
         @param ical: calendar object to normalize.
         @type ical: L{Component}

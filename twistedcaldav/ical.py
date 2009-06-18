@@ -2089,10 +2089,9 @@ class Component (object):
                     except KeyError:
                         pass
 
-                # Re-write the X-CALENDARSERVER-EMAIL if its value no longer
+                # Re-write the EMAIL if its value no longer
                 # matches
-                oldemail = prop.params().get("X-CALENDARSERVER-EMAIL",
-                    (None,))[0]
+                oldemail = prop.params().get("EMAIL", (None,))[0]
                 if oldemail:
                     oldemail = "mailto:%s" % (oldemail,)
                 if oldemail is None or oldemail not in cuaddrs:
@@ -2107,10 +2106,10 @@ class Component (object):
                             email = None
 
                     if email:
-                        prop.params()["X-CALENDARSERVER-EMAIL"] = [email,]
+                        prop.params()["EMAIL"] = [email,]
                     else:
                         try:
-                            del prop.params()["X-CALENDARSERVER-EMAIL"]
+                            del prop.params()["EMAIL"]
                         except KeyError:
                             pass
 
