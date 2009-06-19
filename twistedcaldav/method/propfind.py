@@ -187,6 +187,11 @@ def http_PROPFIND(self, request):
     
         xml_responses.append(xml_response)
             
+
+    if not hasattr(request, "extendedLogItems"):
+        request.extendedLogItems = {}
+    request.extendedLogItems["responses"] = len(xml_responses)
+
     #
     # Return response
     #

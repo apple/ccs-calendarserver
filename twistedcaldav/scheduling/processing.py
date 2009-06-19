@@ -190,7 +190,7 @@ class ImplicitProcessor(object):
 
             # Only update other attendees when the partstat was changed by the reply
             if partstatChanged:
-                self.updateAllAttendeesExceptSome(recipient_calendar_resource, (attendeeReplying,))
+                yield self.updateAllAttendeesExceptSome(recipient_calendar_resource, (attendeeReplying,))
 
             result = (True, False, changes,)
 
@@ -200,6 +200,7 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
+    @inlineCallbacks
     def updateAllAttendeesExceptSome(self, resource, attendees):
         """
         Send an update out to all attendees except the specified ones, to refresh the others due to a change
@@ -211,7 +212,7 @@ class ImplicitProcessor(object):
         
         from twistedcaldav.scheduling.implicit import ImplicitScheduler
         scheduler = ImplicitScheduler()
-        scheduler.refreshAllAttendeesExceptSome(self.request, resource, self.recipient_calendar, attendees)
+        yield scheduler.refreshAllAttendeesExceptSome(self.request, resource, self.recipient_calendar, attendees)
 
     @inlineCallbacks
     def doImplicitAttendee(self):

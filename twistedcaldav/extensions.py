@@ -683,6 +683,12 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
         (calendarserver_namespace, "record-type"),
     )
 
+    def renderHTTP(self, request):
+        log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+        return super(DAVPrincipalResource, self).renderHTTP(request)
+
+    http_REPORT = http_REPORT
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:

@@ -290,7 +290,10 @@ class ImplicitScheduler(object):
         finally:
             delattr(self.request, "doing_attendee_refresh")
 
-        returnValue(result)
+        if result:
+            if not hasattr(self.request, "extendedLogItems"):
+                self.request.extendedLogItems = {}
+            self.request.extendedLogItems["itip.refreshes"] = result
 
     @inlineCallbacks
     def sendAttendeeReply(self, request, resource, calendar, attendee):
@@ -634,11 +637,15 @@ class ImplicitScheduler(object):
     def scheduleWithAttendees(self):
         
         # First process cancelled attendees
-        yield self.processCancels()
+        total = (yield self.processCancels())
         
         # Process regular requests next
         if self.action in ("create", "modify",):
-            yield self.processRequests()
+            total += (yield self.processRequests())
+
+        if not hasattr(self.request, "extendedLogItems"):
+            self.request.extendedLogItems = {}
+        self.request.extendedLogItems["itip.requests"] = total
 
     @inlineCallbacks
     def processCancels(self):
@@ -650,7 +657,8 @@ class ImplicitScheduler(object):
         aggregated = {}
         for attendee, rid in self.cancelledAttendees:
             aggregated.setdefault(attendee, []).append(rid)
-            
+        
+        count = 0
         for attendee, rids in aggregated.iteritems():
             
             # Don't send message back to the ORGANIZER
@@ -677,6 +685,10 @@ class ImplicitScheduler(object):
             response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
             self.handleSchedulingResponse(response, True)
             
+            count += 1
+            
+        returnValue(count)
+            
     @inlineCallbacks
     def processRequests(self):
         
@@ -684,6 +696,7 @@ class ImplicitScheduler(object):
         # being requested, but for now we will do one scheduling message per attendee.
 
         # Do one per attendee
+        count = 0
         for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
@@ -709,6 +722,10 @@ class ImplicitScheduler(object):
                 log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
                 response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
                 self.handleSchedulingResponse(response, True)
+                
+                count += 1
+                
+        returnValue(count)
 
     def handleSchedulingResponse(self, response, is_organizer):
         
@@ -846,6 +863,10 @@ class ImplicitScheduler(object):
 
     def scheduleWithOrganizer(self, changedRids=None):
 
+        if not hasattr(self.request, "extendedLogItems"):
+            self.request.extendedLogItems = {}
+        self.request.extendedLogItems["itip.reply"] = "reply"
+    
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
 
         # Send scheduling message
@@ -853,6 +874,10 @@ class ImplicitScheduler(object):
 
     def scheduleCancelWithOrganizer(self):
 
+        if not hasattr(self.request, "extendedLogItems"):
+            self.request.extendedLogItems = {}
+        self.request.extendedLogItems["itip.reply"] = "cancel"
+    
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
 
         # Send scheduling message

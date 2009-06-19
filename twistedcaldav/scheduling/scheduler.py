@@ -91,6 +91,10 @@ class Scheduler(object):
         else:
             yield self.loadFromRequestData()
 
+        if not hasattr(self.request, "extendedLogItems"):
+            self.request.extendedLogItems = {}
+        self.request.extendedLogItems["recipients"] = len(self.recipients)
+    
         # Do some extra authorization checks
         self.checkAuthorization()
 

@@ -108,7 +108,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             # attribute to the request, so we can provide a little
             # more detail here.
             #
-            if hasattr(request, "submethod"):
+            if config.EnableExtendedAccessLog and hasattr(request, "submethod"):
                 method = "%s(%s)" % (request.method, request.submethod)
             else:
                 method = request.method
@@ -125,7 +125,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 formats = [
                     format,
                     # Performance monitoring extensions
-                    'i=%(serverInstance)d t=%(timeSpent).1fms or=%(outstandingRequests)d',
+                    'i=%(serverInstance)s t=%(timeSpent).1f or=%(outstandingRequests)s',
                 ]
                 if hasattr(request, "extendedLogItems"):
                     for k, v in request.extendedLogItems.iteritems():
@@ -133,7 +133,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         if " " in v:
                             v = '"%s"' % (v,)
                         formats.append("%s=%s" % (k, v))
-                    format = " ".join(formats)
+                format = " ".join(formats)
 
             formatArgs = {
                 "host"                : request.remoteAddr.host,
@@ -159,7 +159,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 overloaded.transport.hostname,
                 self.logDateString(time.time()),
             )
-            if config.MoreAccessLogData:
+            if config.EnableExtendedAccessLog:
                 format_str += " [%s %s]"
                 format_data += (
                     overloaded.transport.server.port,
