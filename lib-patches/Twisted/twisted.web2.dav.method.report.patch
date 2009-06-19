@@ -1,0 +1,34 @@
+Index: twisted/web2/dav/method/report.py
+===================================================================
+--- twisted/web2/dav/method/report.py	(revision 26969)
++++ twisted/web2/dav/method/report.py	(working copy)
+@@ -94,8 +94,9 @@
+     namespace = doc.root_element.namespace
+     name = doc.root_element.name
+ 
++    ok = string.ascii_letters + string.digits + "_"
++
+     def to_method(s):
+-        ok = string.ascii_letters + string.digits + "_"
+         out = []
+         for c in s:
+             if c in ok:
+@@ -105,10 +106,17 @@
+         return "report_" + "".join(out)
+ 
+     if namespace:
+-        method_name = to_method(namespace + "_" + name)
++        method_name = to_method("_".join((namespace, name)))
++
++        if namespace == davxml.dav_namespace:
++            request.submethod = "DAV:" + name
++        else:
++            request.submethod = "{%s}%s" % (namespace, name)
+     else:
+         method_name = to_method(name)
+ 
++        request.submethod = name
++
+     try:
+         method = getattr(self, method_name)
+         

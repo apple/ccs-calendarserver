@@ -69,11 +69,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
-            firstLine = '%s %s HTTP/%s' %(
-                request.method,
-                request.uri.replace('"', '%22'),
-                '.'.join([str(x) for x in request.clientproto]))
-    
+
             # Try to determine authentication and authorization identifiers
             uid = "-"
             if hasattr(request, "authnUser"):
@@ -103,27 +99,50 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         uid = '"%s as %s"' % (uidn, uidz,)
                     else:
                         uid = uidn
-    
-            format_str = '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]'
-            format_data = (
-                request.remoteAddr.host,
-                uid,
-                self.logDateString(
-                    response.headers.getHeader('date', 0)),
-                firstLine,
-                response.code,
-                loginfo.bytesSent,
-                request.headers.getHeader('referer', '-'),
-                request.headers.getHeader('user-agent', '-'),
-                (time.time() - request.initTime) * 1000,
+
+            if hasattr(request, "submethod"):
+                method = "%s(%s)" % (request.method, request.submethod)
+            else:
+                method = request.method
+
+            # Standard Apache access log fields
+            format = (
+                '%(host)s - %(uid)s [%(date)s]'
+                ' "%(method)s %(uri)s HTTP/%(protocolVersion)s"'
+                ' %(statusCode)s %(bytesSent)d'
+                ' "%(referer)s" "%(userAgent)s"'
             )
-            if config.MoreAccessLogData:
-                format_str += ' [%s %s]'
-                format_data += (
-                    request.serverInstance,
-                    request.chanRequest.channel.factory.outstandingRequests,
-                )
-            self.logMessage(format_str % format_data)
+
+            if config.EnableExtendedAccessLog:
+                formats = [
+                    format,
+                    # Performance monitoring extensions
+                    'i=%(serverInstance)d t=%(timeSpent).1fms or=%(outstandingRequests)d',
+                ]
+                if hasattr(request, "extendedLogItems"):
+                    for k, v in request.extendedLogItems.iteritems():
+                        v = str(v)
+                        if " " in v:
+                            v = '"%s"' % (v,)
+                        formats.append("%s=%s" % (k, v.replace('"', "%22")))
+                    format = " ".join(formats)
+
+            formatArgs = {
+                "host"                : request.remoteAddr.host,
+                "uid"                 : uid,
+                "date"                : self.logDateString(response.headers.getHeader('date', 0)),
+                "method"              : method,
+                "uri"                 : request.uri.replace('"', "%22"),
+                "protocolVersion"     : ".".join(str(x) for x in request.clientproto),
+                "statusCode"          : response.code,
+                "bytesSent"           : loginfo.bytesSent,
+                "referer"             : request.headers.getHeader("referer", "-"),
+                "userAgent"           : request.headers.getHeader("user-agent", "-"),
+                "serverInstance"      : request.serverInstance,
+                "timeSpent"           : (time.time() - request.initTime) * 1000,
+                "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
+            }
+            self.logMessage(format % formatArgs)
 
         elif "overloaded" in eventDict:
             overloaded = eventDict.get("overloaded")
