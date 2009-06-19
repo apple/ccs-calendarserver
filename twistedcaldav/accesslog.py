@@ -61,14 +61,14 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
 
     def emit(self, eventDict):
 
-        if eventDict.get('interface') is iweb.IRequest:
+        if eventDict.get("interface") is iweb.IRequest:
             
             if config.GlobalStatsLoggingFrequency is not 0: 
                 self.logGlobalHit()
 
-            request = eventDict['request']
-            response = eventDict['response']
-            loginfo = eventDict['loginfo']
+            request = eventDict["request"]
+            response = eventDict["response"]
+            loginfo = eventDict["loginfo"]
 
             # Try to determine authentication and authorization identifiers
             uid = "-"
@@ -100,6 +100,14 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     else:
                         uid = uidn
 
+            #
+            # For some methods which basically allow you to tunnel a
+            # custom request (eg. REPORT, POST), the method name
+            # itself doesn't tell you much about what action is being
+            # requested.  This allows a method to tack a submethod
+            # attribute to the request, so we can provide a little
+            # more detail here.
+            #
             if hasattr(request, "submethod"):
                 method = "%s(%s)" % (request.method, request.submethod)
             else:
@@ -121,16 +129,16 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 ]
                 if hasattr(request, "extendedLogItems"):
                     for k, v in request.extendedLogItems.iteritems():
-                        v = str(v)
+                        v = str(v).replace('"', "%22")
                         if " " in v:
                             v = '"%s"' % (v,)
-                        formats.append("%s=%s" % (k, v.replace('"', "%22")))
+                        formats.append("%s=%s" % (k, v))
                     format = " ".join(formats)
 
             formatArgs = {
                 "host"                : request.remoteAddr.host,
                 "uid"                 : uid,
-                "date"                : self.logDateString(response.headers.getHeader('date', 0)),
+                "date"                : self.logDateString(response.headers.getHeader("date", 0)),
                 "method"              : method,
                 "uri"                 : request.uri.replace('"', "%22"),
                 "protocolVersion"     : ".".join(str(x) for x in request.clientproto),
@@ -152,7 +160,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 self.logDateString(time.time()),
             )
             if config.MoreAccessLogData:
-                format_str += ' [%s %s]'
+                format_str += " [%s %s]"
                 format_data += (
                     overloaded.transport.server.port,
                     overloaded.outstandingRequests,
@@ -161,7 +169,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """
-    Class to do 'apache' style access logging to a rotating log file. The log
+    Class to do "apache" style access logging to a rotating log file. The log
     file is rotated after midnight each day.
     """
 
@@ -170,7 +178,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.globalHitCount = 0 
         self.globalHitHistory = [] 
         for i in range(0, config.GlobalStatsLoggingFrequency + 1): 
-            self.globalHitHistory.append({'time':int(time.time()), 'hits':0})
+            self.globalHitHistory.append({"time":int(time.time()), "hits":0})
 
     def logMessage(self, message, allowrotate=True):
         """
@@ -184,7 +192,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if self.shouldRotate() and allowrotate:
             self.flush()
             self.rotate()
-        self.f.write(message + '\n')
+        self.f.write(message + "\n")
 
     def rotateGlobalHitHistoryStats(self): 
         """ 
@@ -192,7 +200,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         the last element; pop the first (oldest) element and reschedule the task. 
         """ 
 
-        self.globalHitHistory.append({'time':int(time.time()), 'hits':self.globalHitCount}) 
+        self.globalHitHistory.append({"time":int(time.time()), "hits":self.globalHitCount}) 
         del self.globalHitHistory[0] 
         log.debug("rotateGlobalHitHistoryStats: %s" % (self.globalHitHistory,))
         if config.GlobalStatsLoggingFrequency is not 0: 
@@ -203,7 +211,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
     def start(self):
         """
-        Start logging. Open the log file and log an 'open' message.
+        Start logging. Open the log file and log an "open" message.
         """
 
         super(RotatingFileAccessLoggingObserver, self).start()
@@ -217,7 +225,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
     def stop(self):
         """
-        Stop logging. Close the log file and log an 'open' message.
+        Stop logging. Close the log file and log an "open" message.
         """
 
         self.logMessage("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
@@ -229,7 +237,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         Open the log file.
         """
 
-        self.f = open(self.logpath, 'a', 1)
+        self.f = open(self.logpath, "a", 1)
         self.lastDate = self.toDate(os.stat(self.logpath)[8])
 
     def _close(self):
@@ -274,10 +282,10 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         """
 
         try:
-            return '_'.join(map(str, tupledate))
+            return "_".join(map(str, tupledate))
         except:
             # try taking a float unixtime
-            return '_'.join(map(str, self.toDate(tupledate)))
+            return "_".join(map(str, self.toDate(tupledate)))
 
     def rotate(self):
         """
@@ -320,14 +328,14 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         stats += "</dict></dict></plist>" 
         return stats % (
             self.globalHitCount,
-            self.globalHitCount - self.globalHitHistory[0]['hits'], 
-            self.globalHitHistory[0]['time'],
+            self.globalHitCount - self.globalHitHistory[0]["hits"], 
+            self.globalHitHistory[0]["time"],
             config.GlobalStatsLoggingPeriod,
             config.GlobalStatsLoggingFrequency
         ) 
 
 class LogMessage(amp.Command):
-    arguments = [('message', amp.String())]
+    arguments = [("message", amp.String())]
 
 class LogGlobalHit(amp.Command): 
     arguments = [] 
