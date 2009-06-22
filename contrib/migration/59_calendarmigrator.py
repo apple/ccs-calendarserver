@@ -34,7 +34,6 @@ SERVICE_NAME = "calendar"
 LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
 LAUNCHD_PREFS_DIR = "System/Library/LaunchDaemons"
 CALDAVD_CONFIG_DIR = "private/etc/caldavd"
-SERVERADMIN = "/usr/sbin/serveradmin"
 
 def main():
 
@@ -81,7 +80,7 @@ def main():
 def migrateRunState(options):
     """
     Try to determine whether server was running in previous system, then
-    user serveradmin to start/stop the server in the new system.
+    modify the launchd settings in the new system.
     """
 
     try:
@@ -93,25 +92,7 @@ def migrateRunState(options):
             (LAUNCHD_KEY, e))
         return
 
-    command = "stop" if disabled else "start"
-    try:
-        processArgs = [SERVERADMIN, command, SERVICE_NAME]
-        log("Invoking %s" % (processArgs,))
-        serveradmin = subprocess.Popen(
-            args=processArgs,
-            stdout=subprocess.PIPE,
-        )
-        output, error = serveradmin.communicate()
-
-        expectedState = "STOPPED" if disabled else "RUNNING"
-        if '%s:state = "%s"' % (SERVICE_NAME, expectedState) in output:
-            log("Service %s is now %s" % (SERVICE_NAME, expectedState))
-        else:
-            log("ERROR: serveradmin returned %s" % (output,))
-
-    except Exception, e:
-        log("ERROR: Failed to run %s: %s" %
-            (SERVERADMIN, e))
+    setServiceStateDisabled(options.targetRoot, LAUNCHD_KEY, disabled)
 
 
 def migrateConfiguration(options):
@@ -244,6 +225,24 @@ def isServiceDisabled(source, service):
 
     raise ServiceStateError("Neither %s nor %s exist" %
         (overridesPath, prefsPath))
+
+
+def setServiceStateDisabled(target, service, disabled):
+    """
+    Modifies launchd settings for a service
+
+    @param target: System root
+    @param service: launchd key representing service
+    @param disabled: boolean
+    """
+
+    overridesPath = os.path.join(target, LAUNCHD_OVERRIDES)
+    if os.path.isfile(overridesPath):
+        overrides = plistlib.readPlist(overridesPath)
+        if not overrides.has_key(service):
+            overrides[service] = { }
+        overrides[service]['Disabled'] = disabled
+        plistlib.writePlist(overrides, overridesPath)
 
 
 class ServiceStateError(Exception):
