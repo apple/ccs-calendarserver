@@ -867,7 +867,10 @@ class Client(local):
                     #  Bo Yang reports that this can sometimes be None
                     if rkey is not None:
                         val = self._recv_value(server, flags, rlen)
-                        retvals[prefixed_to_orig_key[rkey]] = val   # un-prefix returned key.
+                        try:
+                            retvals[prefixed_to_orig_key[rkey]] = val   # un-prefix returned key.
+                        except KeyError:
+                            pass
                     line = server.readline()
             except (_Error, socket.error), msg:
                 if type(msg) is types.TupleType: msg = msg[1]
@@ -907,7 +910,10 @@ class Client(local):
                     #  Bo Yang reports that this can sometimes be None
                     if rkey is not None:
                         val = self._recv_value(server, flags, rlen)
-                        retvals[prefixed_to_orig_key[rkey]] = (val, cas_token)   # un-prefix returned key.
+                        try:
+                            retvals[prefixed_to_orig_key[rkey]] = (val, cas_token)   # un-prefix returned key.
+                        except KeyError:
+                            pass
                     line = server.readline()
             except (_Error, socket.error), msg:
                 if type(msg) is types.TupleType: msg = msg[1]
