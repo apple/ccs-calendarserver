@@ -62,12 +62,13 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False),),
             ),
             (
                 "#1.2 Simple component, accepted",
@@ -102,12 +103,13 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False),),
             ),
             (
                 "#1.3 Simple component, no change",
@@ -142,12 +144,13 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (),
             ),
             (
                 "#2.1 Recurring component, change master/override",
@@ -198,7 +201,7 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 RRULE:FREQ=MONTHLY
@@ -208,12 +211,13 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080801T123000Z
 DTEND:20080801T133000Z
-ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False), ("20080801T120000Z", True, False),),
             ),
             (
                 "#2.2 Recurring component, change master only",
@@ -258,7 +262,7 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 RRULE:FREQ=MONTHLY
@@ -274,6 +278,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False),),
             ),
             (
                 "#2.3 Recurring component, change override only",
@@ -329,12 +334,13 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080801T123000Z
 DTEND:20080801T133000Z
-ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("20080801T120000Z", True, False),),
             ),
             (
                 "#3.1 Recurring component, change master/override, new override",
@@ -391,7 +397,7 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 RRULE:FREQ=MONTHLY
@@ -401,7 +407,7 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080801T123000Z
 DTEND:20080801T133000Z
-ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
@@ -410,12 +416,13 @@ UID:12345-67890
 RECURRENCE-ID:20080901T120000Z
 DTSTART:20080901T120000Z
 DTEND:20080901T130000Z
-ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False), ("20080801T120000Z", True, False), ("20080901T120000Z", True, False),),
             ),
             (
                 "#3.2 Recurring component, change master, new override",
@@ -466,7 +473,7 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 RRULE:FREQ=MONTHLY
@@ -485,12 +492,13 @@ UID:12345-67890
 RECURRENCE-ID:20080901T120000Z
 DTSTART:20080901T120000Z
 DTEND:20080901T130000Z
-ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("", True, False), ("20080901T120000Z", True, False),),
             ),
             (
                 "#3.3 Recurring component, change override, new override",
@@ -552,7 +560,7 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080801T123000Z
 DTEND:20080801T133000Z
-ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
@@ -561,19 +569,260 @@ UID:12345-67890
 RECURRENCE-ID:20080901T120000Z
 DTSTART:20080901T120000Z
 DTEND:20080901T130000Z
-ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS="2.0;Success":mailto:user1@example.com
+ATTENDEE;PARTSTAT=TENTATIVE;SCHEDULE-STATUS=2.0:mailto:user1@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                True, "mailto:user1@example.com", (("20080801T120000Z", True, False), ("20080901T120000Z", True, False),),
+            ),
+            (
+                "#4.1 Recurring component, invalid override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+RRULE:FREQ=MONTHLY
+EXDATE:20080801T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080801T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+EXDATE:20080801T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=MONTHLY
+END:VEVENT
+END:VCALENDAR
+""",
+                False, "", (),
+            ),
+            (
+                "#5.1 Invalid iTIP",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                False, "", (),
+            ),
+            (
+                "#5.2 Recurring component, different attendees in components",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+RRULE:FREQ=MONTHLY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080801T120000Z
+DTSTART:20080801T123000Z
+DTEND:20080801T133000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080801T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=MONTHLY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080801T120000Z
+DTSTART:20080801T123000Z
+DTEND:20080801T133000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                False, "", (),
+            ),
+            (
+                "#6.1 REQUEST-STATUS",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+REQUEST-STATUS:2.0;Success
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True, "mailto:user1@example.com", (("", True, False),),
+            ),
+            (
+                "#6.2 Multiple REQUEST-STATUS",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+REQUEST-STATUS:2.1;Success but fallback taken on one or more property values
+REQUEST-STATUS:2.2;Success, invalid property ignored
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS="2.1,2.2":mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True, "mailto:user1@example.com", (("", True, False),),
             ),
         )
 
-        for description, calendar_txt, itipmsg_txt, result in data:
+        for description, calendar_txt, itipmsg_txt, result, success, attendee, rids in data:
             calendar = Component.fromString(calendar_txt)
             itipmsg = Component.fromString(itipmsg_txt)
-            iTipProcessing.processReply(itipmsg, calendar)
+            reply_success, reply_processed = iTipProcessing.processReply(itipmsg, calendar)
 #            if not description.startswith("#3.1"):
 #                continue
 #            print description
@@ -584,6 +833,29 @@ END:VCALENDAR
                 str(result).replace("\n ", ""),
                 msg=description
             )
+            self.assertEqual(
+                reply_success,
+                success,
+                msg=description
+            )
+            if success:
+                reply_attendee, reply_rids, = reply_processed
+                self.assertEqual(
+                    reply_attendee,
+                    attendee,
+                    msg=description
+                )
+                self.assertEqual(
+                    tuple(sorted(list(reply_rids), key=lambda x:x[0])),
+                    rids,
+                    msg=description
+                )
+            else:
+                self.assertEqual(
+                    reply_processed,
+                    None,
+                    msg=description
+                )
 
 class iTIPGenerator (twistedcaldav.test.util.TestCase):
     """

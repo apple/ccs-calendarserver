@@ -523,14 +523,14 @@ BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
-ATTENDEE;SCHEDULE-STATUS="2.0;OK":mailto:user02@example.com
+ATTENDEE;SCHEDULE-STATUS=2.0:mailto:user02@example.com
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
                     "SCHEDULE-STATUS",
-                    "2.0;OK",
+                    "2.0",
                     "ATTENDEE",
                     "mailto:user02@example.com",
                 ),
@@ -544,7 +544,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
-ATTENDEE;SCHEDULE-STATUS="5.0;BAD":mailto:user02@example.com
+ATTENDEE;SCHEDULE-STATUS=5.0:mailto:user02@example.com
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
@@ -556,14 +556,14 @@ BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
-ATTENDEE;SCHEDULE-STATUS="2.0;OK":mailto:user02@example.com
+ATTENDEE;SCHEDULE-STATUS=2.0:mailto:user02@example.com
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
                     "SCHEDULE-STATUS",
-                    "2.0;OK",
+                    "2.0",
                     "ATTENDEE",
                     "mailto:user02@example.com",
                 ),
@@ -590,13 +590,13 @@ UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
-ORGANIZER;SCHEDULE-STATUS="2.0;OK":mailto:user01@example.com
+ORGANIZER;SCHEDULE-STATUS=2.0:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
                     "SCHEDULE-STATUS",
-                    "2.0;OK",
+                    "2.0",
                     "ORGANIZER",
                     "mailto:user01@example.com",
                 ),
@@ -611,7 +611,7 @@ UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
-ORGANIZER;SCHEDULE-STATUS="5.0;BAD":mailto:user01@example.com
+ORGANIZER;SCHEDULE-STATUS=5.0:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -623,13 +623,13 @@ UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
-ORGANIZER;SCHEDULE-STATUS="2.0;OK":mailto:user01@example.com
+ORGANIZER;SCHEDULE-STATUS=2.0:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
                     "SCHEDULE-STATUS",
-                    "2.0;OK",
+                    "2.0",
                     "ORGANIZER",
                     "mailto:user01@example.com",
                 ),

@@ -277,9 +277,10 @@ class iTipProcessing(object):
         rids = set()
         if new_master:
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
-            attendees.add(attendee)
-            if partstat or private_comment:
-                rids.add(("", partstat, private_comment,))
+            if attendee:
+                attendees.add(attendee)
+                if partstat or private_comment:
+                    rids.add(("", partstat, private_comment,))
 
         # Now do all overridden ones (sort by RECURRENCE-ID)
         sortedComponents = []
@@ -309,12 +310,20 @@ class iTipProcessing(object):
                     continue
 
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
-            attendees.add(attendee)
-            if rids is not None and (partstat or private_comment):
-                rids.add((toString(rid), partstat, private_comment,))
+            if attendee:
+                attendees.add(attendee)
+                if rids is not None and (partstat or private_comment):
+                    rids.add((toString(rid), partstat, private_comment,))
 
-        assert len(attendees) == 1, "ATTENDEE property in a REPLY must be the same in all components\n%s" % (str(itip_message),)
-        return True, (attendees.pop(), rids)
+        # Check for an invalid instance by itself
+        len_attendees = len(attendees)
+        if len_attendees == 0:
+            return False, None
+        elif len_attendees == 1:
+            return True, (attendees.pop(), rids)
+        else:
+            log.error("ATTENDEE property in a REPLY must be the same in all components\n%s" % (str(itip_message),))
+            return False, None
 
     @staticmethod
     def updateAttendeeData(from_component, to_component):
@@ -334,15 +343,17 @@ class iTipProcessing(object):
 
         # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
         reqstatus = tuple(from_component.properties("REQUEST-STATUS"))
-        assert len(reqstatus) <= 1, "There must be zero or REQUEST-STATUS properties in a REPLY\n%s" % (str(from_component),)
         if reqstatus:
-            reqstatus = ";".join(reqstatus[0].value()[0:2])
+            reqstatus = ",".join(status.value()[0] for status in reqstatus)
         else:
-            reqstatus = iTIPRequestStatus.SUCCESS
+            reqstatus = "2.0"
 
         # Get attendee in from_component - there MUST be only one
         attendees = tuple(from_component.properties("ATTENDEE"))
-        assert len(attendees) == 1, "There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),)
+        if len(attendees) != 1:
+            log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),))
+            return None, False, False
+
         attendee = attendees[0]
         partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
         
@@ -372,7 +383,9 @@ class iTipProcessing(object):
                 private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
                 for comment in private_comments:
                     params = comment.params()["X-CALENDARSERVER-ATTENDEE-REF"]
-                    assert len(params) == 1, "Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT"
+                    if len(params) != 1:
+                        log.error("Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT")
+                        params = (None,)
                     param = params[0]
                     if param == attendee.value():
                         private_comment = comment
@@ -656,9 +669,13 @@ class iTIPRequestStatus(object):
     String constants for various iTIP status codes we use.
     """
     
-    MESSAGE_PENDING         = "1.0;Scheduling message send is pending"
-    MESSAGE_SENT            = "1.1;Scheduling message has been sent"
-    MESSAGE_DELIVERED       = "1.2;Scheduling message has been delivered"
+    MESSAGE_PENDING_CODE    = "1.0"
+    MESSAGE_SENT_CODE       = "1.1"
+    MESSAGE_DELIVERED_CODE  = "1.2"
+
+    MESSAGE_PENDING         = MESSAGE_PENDING_CODE + ";Scheduling message send is pending"
+    MESSAGE_SENT            = MESSAGE_SENT_CODE + ";Scheduling message has been sent"
+    MESSAGE_DELIVERED       = MESSAGE_DELIVERED_CODE + ";Scheduling message has been delivered"
     
     SUCCESS                 = "2.0;Success"
 

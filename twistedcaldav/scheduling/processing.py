@@ -564,7 +564,7 @@ class ImplicitProcessor(object):
             
         # Fake a SCHEDULE-STATUS on the ORGANIZER property
         if made_changes:
-            calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED, "ORGANIZER", None)
+            calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED_CODE, "ORGANIZER", None)
         
         returnValue((made_changes, partstat,))
 

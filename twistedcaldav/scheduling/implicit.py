@@ -740,7 +740,7 @@ class ImplicitScheduler(object):
             # Now apply to each ATTENDEE/ORGANIZER in the original data
             self.calendar.setParameterToValueForPropertyWithValue(
                 "SCHEDULE-STATUS",
-                status,
+                status.split(";")[0],
                 "ATTENDEE" if is_organizer else "ORGANIZER",
                 recipient)
 
