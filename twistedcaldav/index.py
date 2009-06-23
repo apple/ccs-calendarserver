@@ -204,7 +204,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         return uid
 
-    def addResource(self, name, calendar, fast=False):
+    def addResource(self, name, calendar, fast=False, reCreate=False):
         """
         Adding or updating an existing resource.
         To check for an update we attempt to get an existing UID
@@ -218,7 +218,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         oldUID = self.resourceUIDForName(name)
         if oldUID is not None:
             self._delete_from_db(name, oldUID)
-        self._add_to_db(name, calendar)
+        self._add_to_db(name, calendar, reCreate=reCreate)
         if not fast:
             self._db_commit()
 
@@ -341,7 +341,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         return schema_version
 
-    def _add_to_db(self, name, calendar, cursor = None, expand_until=None):
+    def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -455,10 +455,10 @@ class CalendarIndex (AbstractCalendarIndex):
         with a longer expansion.
         """
         calendar = self.resource.getChild(name).iCalendar()
-        self._add_to_db(name, calendar, expand_until=expand_until)
+        self._add_to_db(name, calendar, expand_until=expand_until, reCreate=True)
         self._db_commit()
 
-    def _add_to_db(self, name, calendar, cursor = None, expand_until=None):
+    def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -488,7 +488,7 @@ class CalendarIndex (AbstractCalendarIndex):
                 raise IndexedSearchException
 
         try:
-            instances = calendar.expandTimeRanges(expand)
+            instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
         except InvalidOverriddenInstanceError, e:
             log.err("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
             raise
@@ -789,7 +789,7 @@ class Index (CalendarIndex):
                 log.err("Non-calendar resource: %s" % (name,))
             else:
                 #log.msg("Indexing resource: %s" % (name,))
-                self.addResource(name, calendar, True)
+                self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()
 
@@ -901,7 +901,7 @@ class IndexSchedule (CalendarIndex):
                 log.err("Non-calendar resource: %s" % (name,))
             else:
                 #log.msg("Indexing resource: %s" % (name,))
-                self.addResource(name, calendar, True)
+                self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()
 

@@ -96,11 +96,12 @@ class Instance(object):
     
 class InstanceList(object):
     
-    __slots__ = ["instances", "limit"]
+    __slots__ = ["instances", "limit", "ignoreInvalidInstances",]
     
-    def __init__(self):
+    def __init__(self, ignoreInvalidInstances=False):
         self.instances = {}
         self.limit = None
+        self.ignoreInvalidInstances = ignoreInvalidInstances
         
     def __iter__(self):
         # Return keys in sorted order via iterator
@@ -324,7 +325,10 @@ class InstanceList(object):
         # Make sure override RECURRENCE-ID is a valid instance of the master
         if got_master:
             if str(rid) not in self.instances:
-                raise InvalidOverriddenInstanceError(str(rid))
+                if self.ignoreInvalidInstances:
+                    return
+                else:
+                    raise InvalidOverriddenInstanceError(str(rid))
         
         self.addInstance(Instance(component, start, end, rid, True, range))
         

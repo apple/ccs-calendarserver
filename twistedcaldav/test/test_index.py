@@ -14,13 +14,18 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.index import Index
-
-import twistedcaldav.test.util
-from twistedcaldav.test.util import InMemoryMemcacheProtocol
-from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
+
+from twistedcaldav.ical import Component
+from twistedcaldav.index import Index
+from twistedcaldav.index import ReservationError, MemcachedUIDReserver
+from twistedcaldav.instance import InvalidOverriddenInstanceError
+from twistedcaldav.test.util import InMemoryMemcacheProtocol
+import twistedcaldav.test.util
+
+import datetime
+import os
 
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """
@@ -89,6 +94,162 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         return d
 
 
+    def test_index(self):
+        data = (
+            (
+                "#1.1 Simple component",
+                "1.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                True,
+            ),
+            (
+                "#2.1 Recurring component",
+                "2.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                True,
+            ),
+            (
+                "#2.2 Recurring component with override",
+                "2.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.2
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-2.2
+RECURRENCE-ID:20080608T120000Z
+DTSTART:20080608T120000Z
+DTEND:20080608T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                True,
+            ),
+            (
+                "#2.3 Recurring component with broken override - new",
+                "2.3",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.3
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-2.3
+RECURRENCE-ID:20080609T120000Z
+DTSTART:20080608T120000Z
+DTEND:20080608T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                False,
+            ),
+            (
+                "#2.4 Recurring component with broken override - existing",
+                "2.4",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.4
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-2.4
+RECURRENCE-ID:20080609T120000Z
+DTSTART:20080608T120000Z
+DTEND:20080608T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                True,
+            ),
+        )
+
+        for description, name, calendar_txt, reCreate, ok in data:
+            calendar = Component.fromString(calendar_txt)
+            if ok:
+                f = open(os.path.join(self.site.resource.fp.path, name), "w")
+                f.write(calendar_txt)
+                del f
+
+                self.db.addResource(name, calendar, reCreate=reCreate)
+                self.assertTrue(self.db.resourceExists(name), msg=description)
+            else:
+                self.assertRaises(InvalidOverriddenInstanceError, self.db.addResource, name, calendar)
+                self.assertFalse(self.db.resourceExists(name), msg=description)
+
+        self.db._db_recreate()
+        for description, name, calendar_txt, reCreate, ok in data:
+            if ok:
+                self.assertTrue(self.db.resourceExists(name), msg=description)
+            else:
+                self.assertFalse(self.db.resourceExists(name), msg=description)
+
+        self.db.testAndUpdateIndex(datetime.date(2020, 1, 1))
+        for description, name, calendar_txt, reCreate, ok in data:
+            if ok:
+                self.assertTrue(self.db.resourceExists(name), msg=description)
+            else:
+                self.assertFalse(self.db.resourceExists(name), msg=description)
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):

@@ -956,20 +956,21 @@ class Component (object):
         self.cachedInstances = self.expandTimeRanges(limit)
         return self.cachedInstances
 
-    def expandTimeRanges(self, limit):
+    def expandTimeRanges(self, limit, ignoreInvalidInstances=False):
         """
         Expand the set of recurrence instances for the components
         contained within this VCALENDAR component. We will assume
         that this component has already been validated as a CalDAV resource
         (i.e. only one type of component, all with the same UID)
         @param limit: datetime.date value representing the end of the expansion.
+        @param ignoreInvalidInstances: C{bool} whether to ignore instance errors.
         @return: a set of Instances for each recurrence in the set.
         """
         
         componentSet = self.subcomponents()
-        return self.expandSetTimeRanges(componentSet, limit)
+        return self.expandSetTimeRanges(componentSet, limit, ignoreInvalidInstances)
     
-    def expandSetTimeRanges(self, componentSet, limit):
+    def expandSetTimeRanges(self, componentSet, limit, ignoreInvalidInstances=False):
         """
         Expand the set of recurrence instances up to the specified date limit.
         What we do is first expand the master instance into the set of generate
@@ -983,7 +984,7 @@ class Component (object):
         """
         
         # Set of instances to return
-        instances = InstanceList()
+        instances = InstanceList(ignoreInvalidInstances=ignoreInvalidInstances)
         instances.expandTimeRanges(componentSet, limit)
         return instances
 

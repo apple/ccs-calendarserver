@@ -1656,6 +1656,7 @@ DURATION:P1H
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),)
             ),
             (
@@ -1671,6 +1672,7 @@ RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
                     datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
@@ -1690,6 +1692,7 @@ RDATE:20071116T010000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
                     datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
@@ -1710,6 +1713,7 @@ EXDATE:20071115T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
                     datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
@@ -1729,6 +1733,7 @@ EXDATE:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
                     datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
@@ -1753,6 +1758,7 @@ DURATION:P1H
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 (
                     datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
                     datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()),
@@ -1777,16 +1783,42 @@ DURATION:P1H
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
                 None
+            ),
+            (
+                "Recurring with invalid override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:P1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T010000Z
+DTSTART:20071115T000000Z
+DURATION:P1H
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+                (
+                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
+                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                )
             ),
         )
         
-        for description, original, results in data:
+        for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, datetime.date(2100, 1, 1))
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, datetime.date(2100, 1, 1), ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(datetime.date(2100, 1, 1))
+                instances = component.expandTimeRanges(datetime.date(2100, 1, 1), ignoreInvalidInstances)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 for instance in instances:
                     self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
