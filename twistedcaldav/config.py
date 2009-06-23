@@ -637,6 +637,7 @@ class Config (object):
         raise AttributeError(attr)
 
     def reload(self):
+        self._reloading = True
         log.info("Reloading configuration from file: %s" % (self._configFile,))
         self._data = copy.deepcopy(self._defaults)
         self.loadConfig(self._configFile)
@@ -658,6 +659,11 @@ class Config (object):
         #
         # Notifications
         #
+
+        # Reloading not supported -- requires process running as root
+        if getattr(self, "_reloading", False):
+            return
+
         for key, service in self.Notifications["Services"].iteritems():
             if service["Enabled"]:
                 self.Notifications["Enabled"] = True
@@ -694,6 +700,11 @@ class Config (object):
         #
         # Scheduling
         #
+
+        # Reloading not supported -- requires process running as root
+        if getattr(self, "_reloading", False):
+            return
+
         service = self.Scheduling["iMIP"]
 
         if service["Enabled"]:
