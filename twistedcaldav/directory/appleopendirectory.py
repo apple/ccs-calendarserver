@@ -15,7 +15,7 @@
 ##
 
 """
-Apple Open Directory directory service implementation.
+Apple OpenDirectory directory service implementation.
 """
 
 __all__ = [
@@ -48,7 +48,7 @@ from twistedcaldav.directory.principal import cuAddressConverter
 
 class OpenDirectoryService(CachingDirectoryService):
     """
-    Open Directory implementation of L{IDirectoryService}.
+    OpenDirectory implementation of L{IDirectoryService}.
     """
     baseGUID = "891F8321-ED02-424C-BA72-89C32F215C1E"
 
@@ -85,7 +85,7 @@ class OpenDirectoryService(CachingDirectoryService):
         try:
             directory = opendirectory.odInit(params['node'])
         except opendirectory.ODError, e:
-            self.log_error("Open Directory (node=%s) Initialization error: %s" % (params['node'], e))
+            self.log_error("OpenDirectory (node=%s) Initialization error: %s" % (params['node'], e))
             raise
 
         self.realmName = params['node']
@@ -237,7 +237,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs,
             )
         except opendirectory.ODError, ex:
-            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
         for (_ignore_recordShortName, value) in results:
@@ -268,7 +268,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs,
             )
         except opendirectory.ODError, ex:
-            self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
         for (_ignore_recordShortName, value) in results:
@@ -496,7 +496,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs.append(dsattributes.kDSNAttrResourceInfo)
             
             else:
-                raise UnknownRecordTypeError("Unknown Open Directory record type: %s" % (recordType))
+                raise UnknownRecordTypeError("Unknown OpenDirectory record type: %s" % (recordType))
 
 
         try:
@@ -525,7 +525,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 # Unsupported attribute on record - don't fail
                 return
             else:
-                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
         def _uniqueTupleFromAttribute(attribute):
@@ -757,7 +757,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     attrs,
                 )
             except opendirectory.ODError, ex:
-                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (recordShortName, value) in results:
@@ -786,7 +786,7 @@ class OpenDirectoryService(CachingDirectoryService):
             for node in nodes:
                 opendirectory.getNodeAttributes(self.directory, node, [dsattributes.kDSNAttrNodePath])
         except opendirectory.ODError:
-            self.log_warn("Open Directory Node %s not available" % (node,))
+            self.log_warn("OpenDirectory Node %s not available" % (node,))
             return False
 
         return True
@@ -818,7 +818,7 @@ def buildQueries(recordTypes, fields, mapping):
 
 class OpenDirectoryRecord(CachingDirectoryRecord):
     """
-    Open Directory implementation of L{IDirectoryRecord}.
+    OpenDirectory implementation of L{IDirectoryRecord}.
     """
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
@@ -895,14 +895,14 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     self.password = credentials.password
                     return True
             except opendirectory.ODError, e:
-                self.log_error("Open Directory (node=%s) error while performing basic authentication for user %s: %s"
+                self.log_error("OpenDirectory (node=%s) error while performing basic authentication for user %s: %s"
                             % (self.service.realmName, self.shortNames[0], e))
 
             return False
 
         elif isinstance(credentials, DigestedCredentials):
             #
-            # We need a special format for the "challenge" and "response" strings passed into open directory, as it is
+            # We need a special format for the "challenge" and "response" strings passed into OpenDirectory, as it is
             # picky about exactly what it receives.
             #
             try:
@@ -919,7 +919,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                 ) % credentials.fields
             except KeyError, e:
                 self.log_error(
-                    "Open Directory (node=%s) error while performing digest authentication for user %s: "
+                    "OpenDirectory (node=%s) error while performing digest authentication for user %s: "
                     "missing digest response field: %s in: %s"
                     % (self.service.realmName, self.shortNames[0], e, credentials.fields)
                 )
@@ -950,7 +950,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     return True
                 else:
                     self.log_debug(
-"""Open Directory digest authentication failed with:
+"""OpenDirectory digest authentication failed with:
     Nodename:  %s
     Username:  %s
     Challenge: %s
@@ -960,7 +960,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
             except opendirectory.ODError, e:
                 self.log_error(
-                    "Open Directory (node=%s) error while performing digest authentication for user %s: %s"
+                    "OpenDirectory (node=%s) error while performing digest authentication for user %s: %s"
                     % (self.service.realmName, self.shortNames[0], e)
                 )
                 return False
