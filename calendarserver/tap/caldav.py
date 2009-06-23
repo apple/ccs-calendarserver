@@ -24,6 +24,7 @@ import os
 import socket
 import stat
 import sys
+from time import sleep
 
 from tempfile import mkstemp
 from subprocess import Popen, PIPE
@@ -431,6 +432,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                       % (config.DirectoryService.type,))
 
         baseDirectory = directoryClass(config.DirectoryService.params)
+
+        # Wait for the directory to become available
+        while not baseDirectory.isAvailable():
+            sleep(5)
 
         directories.append(baseDirectory)
 

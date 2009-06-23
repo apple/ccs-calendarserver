@@ -24,6 +24,7 @@ __all__ = [
 
 import sys
 import os
+from time import sleep
 
 from twisted.python.reflect import namedClass
 
@@ -87,7 +88,12 @@ def getDirectory():
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
 
-    return MyDirectoryService(config.DirectoryService.params)
+    # Wait for directory service to become available
+    directory = MyDirectoryService(config.DirectoryService.params)
+    while not directory.isAvailable():
+        sleep(5)
+
+    return directory
 
 class DummyDirectoryService (DirectoryService):
     realmName = ""

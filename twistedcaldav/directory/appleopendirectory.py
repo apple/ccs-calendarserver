@@ -772,6 +772,27 @@ class OpenDirectoryService(CachingDirectoryService):
                     yield recordGUID, autoSchedule, proxy, readOnlyProxy
 
 
+    def isAvailable(self):
+        """
+        Returns True if all configured directory nodes are accessible, False otherwise
+        """
+
+        if self.node == "/Search":
+            nodes = opendirectory.listNodes(self.directory)
+        else:
+            nodes = [self.node]
+
+        try:
+            for node in nodes:
+                opendirectory.getNodeAttributes(self.directory, node, [dsattributes.kDSNAttrNodePath])
+        except opendirectory.ODError:
+            self.log_warn("Open Directory Node %s not available" % (node,))
+            return False
+
+        return True
+
+
+
 def buildQueries(recordTypes, fields, mapping):
     """
     Determine how many queries need to be performed in order to work around opendirectory

@@ -250,6 +250,8 @@ class DirectoryService(LoggingMixIn):
     def getResourceInfo(self):
         return ()
 
+    def isAvailable(self):
+        return True
 
     def getParams(self, params, defaults, ignore=None):
         """ Checks configuration parameters for unexpected/ignored keys, and
