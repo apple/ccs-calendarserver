@@ -2,6 +2,15 @@ Index: twisted/mail/imap4.py
 ===================================================================
 --- twisted/mail/imap4.py	(revision 26969)
 +++ twisted/mail/imap4.py	(working copy)
+@@ -333,7 +333,7 @@
+ 
+ 
+ class Command:
+-    _1_RESPONSES = ('CAPABILITY', 'FLAGS', 'LIST', 'LSUB', 'STATUS', 'SEARCH', 'NAMESPACE')
++    _1_RESPONSES = ('CAPABILITY', 'FLAGS', 'LIST', 'LSUB', 'STATUS', 'SEARCH', 'NAMESPACE', 'BYE')
+     _2_RESPONSES = ('EXISTS', 'EXPUNGE', 'FETCH', 'RECENT')
+     _OK_RESPONSES = ('UIDVALIDITY', 'UNSEEN', 'READ-WRITE', 'READ-ONLY', 'UIDNEXT', 'PERMANENTFLAGS')
+     defer = None
 @@ -4159,7 +4159,7 @@
          return "PLAIN"
  
