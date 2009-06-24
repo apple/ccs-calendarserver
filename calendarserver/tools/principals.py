@@ -195,7 +195,7 @@ def main():
         setLogLevelForNamespace(None, "warn")
 
         # Shed privileges
-        if config.UserName and config.GroupName:
+        if config.UserName and config.GroupName and os.getuid() == 0:
             uid = getpwnam(config.UserName).pw_uid
             gid = getgrnam(config.GroupName).gr_gid
             switchUID(uid, uid, gid)
