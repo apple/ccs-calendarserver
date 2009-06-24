@@ -1,0 +1,13 @@
+Index: twisted/web2/error.py
+===================================================================
+--- twisted/web2/error.py	(revision 26969)
++++ twisted/web2/error.py	(working copy)
+@@ -92,7 +92,7 @@
+             "<body><h1>%s</h1>%s</body></html>") % (
+         response.code, title, title, message)
+     
+-    response.headers.setHeader("content-type", http_headers.MimeType('text', 'html'))
++    response.headers.setHeader("content-type", http_headers.MimeType('text', 'html', {'charset':'utf-8'}))
+     response.stream = stream.MemoryStream(body)
+     
+     return response
