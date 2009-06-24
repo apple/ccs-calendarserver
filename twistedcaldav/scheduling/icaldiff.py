@@ -70,7 +70,7 @@ class iCalDiff(object):
                 "LAST-MODIFIED",
             ))
             calendar.removeXProperties()
-            calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS",))
+            calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             calendar.normalizeAll()
             return calendar
         
@@ -206,9 +206,9 @@ class iCalDiff(object):
 
         for new_attendee in new_comp.properties("ATTENDEE"):
             
-            # Whenever RSVP is explicitly set by the Organizer we assume the Organizer
+            # Whenever SCHEDULE-FORCE-SEND is explicitly set by the Organizer we assume the Organizer
             # is deliberately overwriting PARTSTAT
-            if new_attendee.params().get("RSVP", ["FALSE",])[0] == "TRUE":
+            if new_attendee.params().get("SCHEDULE-FORCE-SEND", ["",])[0] == "REQUEST":
                 continue
 
             # Transfer parameters from any old Attendees found
@@ -439,20 +439,12 @@ class iCalDiff(object):
         
         replyNeeded = False
 
-        # ATTENDEE/PARTSTAT/RSVP
+        # ATTENDEE/PARTSTAT
         serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
         clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
         if serverAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != clientAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]:
             serverAttendee.params()["PARTSTAT"] = clientAttendee.params().get("PARTSTAT", "NEEDS-ACTION")
             replyNeeded = True
-        if serverAttendee.params().get("RSVP", ("FALSE",))[0] != clientAttendee.params().get("RSVP", ("FALSE",))[0]:
-            if clientAttendee.params().get("RSVP", ("FALSE",))[0] == "FALSE":
-                try:
-                    del serverAttendee.params()["RSVP"]
-                except KeyError:
-                    pass
-            else:
-                serverAttendee.params()["RSVP"] = ["TRUE",]
 
         # Transfer these properties from the client data
         replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
@@ -596,10 +588,6 @@ class iCalDiff(object):
         attendee = component.getAttendeeProperty((self.attendee,))
         partstatChanged = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != "DECLINED"
         attendee.params()["PARTSTAT"] = ["DECLINED",]
-        try:
-            del attendee.params()["RSVP"]
-        except KeyError:
-            pass
         prop = component.getProperty("X-APPLE-NEEDS-REPLY")
         if prop:
             component.removeProperty(prop)

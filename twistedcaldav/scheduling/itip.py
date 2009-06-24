@@ -365,14 +365,6 @@ class iTipProcessing(object):
             existing_attendee.params()["SCHEDULE-STATUS"] = [reqstatus]
             partstat_changed = (oldpartstat != partstat)
             
-            if partstat == "NEEDS-ACTION":
-                existing_attendee.params()["RSVP"] = ["TRUE"]
-            else:
-                try:
-                    del existing_attendee.params()["RSVP"]
-                except KeyError:
-                    pass
-
             # Handle attendee comments
             if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
                 # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
@@ -661,8 +653,8 @@ class iTipGenerator(object):
         itip.removeXProperties(keep_properties=keep_properties)
         
         # Property Parameters
-        itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
-        itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+        itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
+        itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
 
 class iTIPRequestStatus(object):
     """

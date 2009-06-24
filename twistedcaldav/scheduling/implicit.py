@@ -262,7 +262,7 @@ class ImplicitScheduler(object):
         self.internal_request = True
         self.except_attendees = attendees
         self.changed_rids = None
-        self.rsvps = None
+        self.reinvites = None
 
         
         # Get some useful information from the calendar
@@ -274,14 +274,11 @@ class ImplicitScheduler(object):
         self.originatorPrincipal = self.organizerPrincipal
         self.originator = self.organizer
         
-        # Need to re-insert RSVP=TRUE for any NEEDS-ACTION
-
         # We want to suppress chatty iMIP messages when other attendees reply
         self.request.suppressRefresh = False
 
         for attendee in self.calendar.getAllAttendeeProperties():
             if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
-                attendee.params()["RSVP"] = ["TRUE",]
                 self.request.suppressRefresh = True
         
         self.request.doing_attendee_refresh = True
@@ -467,7 +464,7 @@ class ImplicitScheduler(object):
         self.oldcalendar = None
         self.changed_rids = None
         self.cancelledAttendees = ()
-        self.rsvps = None
+        self.reinvites = None
 
         # Check for a delete
         if self.action == "remove":
@@ -485,11 +482,11 @@ class ImplicitScheduler(object):
             self.oldcalendar = self.resource.iCalendar()
             
             # Significant change
-            no_change, self.changed_rids, rsvps, recurrence_reschedule = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
             if no_change:
-                if rsvps:
-                    log.debug("Implicit - organizer '%s' is re-inviting UID: '%s', attendees: %s" % (self.organizer, self.uid, ", ".join(rsvps)))
-                    self.rsvps = rsvps
+                if reinvites:
+                    log.debug("Implicit - organizer '%s' is re-inviting UID: '%s', attendees: %s" % (self.organizer, self.uid, ", ".join(reinvites)))
+                    self.reinvites = reinvites
                 else:
                     # Nothing to do
                     log.debug("Implicit - organizer '%s' is modifying UID: '%s' but change is not significant" % (self.organizer, self.uid))
@@ -504,24 +501,19 @@ class ImplicitScheduler(object):
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
             
-        # Always set RSVP=TRUE for any NEEDS-ACTION
-        for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
-                attendee.params()["RSVP"] = ["TRUE",]
-
         yield self.scheduleWithAttendees()
         
-        # Always clear RSVP=TRUE from all attendees after scheduling
+        # Always clear SCHEDULE-FORCE-SEND from all attendees after scheduling
         for attendee in self.calendar.getAllAttendeeProperties():
             try:
-                del attendee.params()["RSVP"]
+                del attendee.params()["SCHEDULE-FORCE-SEND"]
             except KeyError:
                 pass
 
     def isOrganizerChangeInsignificant(self):
         
         rids = None
-        rsvps = None
+        reinvites = None
         recurrence_reschedule = False
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
@@ -547,16 +539,16 @@ class ImplicitScheduler(object):
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
         else:
-            # Special case of RSVP added to attendees and no other change
-            rsvps = set()
+            # Special case of SCHEDULE-FORCE-SEND added to attendees and no other change
+            reinvites = set()
             for attendee in self.calendar.getAllAttendeeProperties():
                 try:
-                    if attendee.params()["RSVP"][0] == "TRUE":
-                        rsvps.add(attendee.value())
+                    if attendee.params()["SCHEDULE-FORCE-SEND"][0] == "REQUEST":
+                        reinvites.add(attendee.value())
                 except KeyError:
                     pass
 
-        return no_change, rids, rsvps, recurrence_reschedule
+        return no_change, rids, reinvites, recurrence_reschedule
     
     def findRemovedAttendees(self):
         """
@@ -707,8 +699,8 @@ class ImplicitScheduler(object):
             if attendee in self.except_attendees:
                 continue
 
-            # If RSVP only change, only send message to those Attendees
-            if self.rsvps and attendee in self.rsvps:
+            # If SCHEDULE-FORCE-SEND only change, only send message to those Attendees
+            if self.reinvites and attendee in self.reinvites:
                 continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
