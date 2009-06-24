@@ -406,7 +406,7 @@ def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
 def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
-        (yield action_removeProxyPrincipal(principal, proxyPrincipal, kwargs))
+        (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
 @inlineCallbacks
 def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
