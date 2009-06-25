@@ -26,7 +26,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
 from calendarserver.tools.util import getDirectory
-import xattr, os, zlib, hashlib, datetime, pwd, grp
+import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
@@ -218,7 +218,13 @@ def upgrade_to_1(config):
         try:
             if not os.path.exists(config.DataRoot):
                 makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
-            os.rename(oldDbPath, newDbPath)
+            try:
+                os.rename(oldDbPath, newDbPath)
+            except OSError:
+                # Can't rename, must copy/delete
+                shutil.copy2(oldDbPath, newDbPath)
+                os.remove(oldDbPath)
+
         except Exception, e:
             raise UpgradeError(
                 "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' due to %s."
