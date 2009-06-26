@@ -439,12 +439,20 @@ class iCalDiff(object):
         
         replyNeeded = False
 
-        # ATTENDEE/PARTSTAT
+        # ATTENDEE/PARTSTAT/RSVP
         serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
         clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
         if serverAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != clientAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]:
             serverAttendee.params()["PARTSTAT"] = clientAttendee.params().get("PARTSTAT", "NEEDS-ACTION")
             replyNeeded = True
+        if serverAttendee.params().get("RSVP", ("FALSE",))[0] != clientAttendee.params().get("RSVP", ("FALSE",))[0]:
+            if clientAttendee.params().get("RSVP", ("FALSE",))[0] == "FALSE":
+                try:
+                    del serverAttendee.params()["RSVP"]
+                except KeyError:
+                    pass
+            else:
+                serverAttendee.params()["RSVP"] = ["TRUE",]
 
         # Transfer these properties from the client data
         replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
