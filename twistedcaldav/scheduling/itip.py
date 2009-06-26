@@ -365,6 +365,13 @@ class iTipProcessing(object):
             existing_attendee.params()["SCHEDULE-STATUS"] = [reqstatus]
             partstat_changed = (oldpartstat != partstat)
             
+            # Always delete RSVP on PARTSTAT change
+            if partstat_changed:
+                try:
+                    del existing_attendee.params()["RSVP"]
+                except KeyError:
+                    pass
+
             # Handle attendee comments
             if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
                 # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
