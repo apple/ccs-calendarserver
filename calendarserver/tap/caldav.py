@@ -837,9 +837,6 @@ class CalDAVServiceMaker (LoggingMixIn):
     def makeService_Combined(self, options):
         s = MultiService()
 
-        # Process localization string files
-        processLocalizationFiles(config.Localization)
-
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
         
