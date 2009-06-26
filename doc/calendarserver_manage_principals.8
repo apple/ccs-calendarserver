@@ -73,6 +73,7 @@ each principal specified.
 Displays usage information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+.El
 .Sh ACTIONS
 .Bl -tag -width flag
 .It Fl -read-property Ar property
@@ -106,7 +107,6 @@ Enable or disable automatic scheduling.
 Get the automatic scheduling state.
 .El
 .Sh EXAMPLES
-.Ex
 Add Alice and Bob as read proxies for Joe and display the list of Joe's proxies:
 .Pp
 .Dl "calendarserver_manage_principals --add-read-proxy users:alice --add-read-proxy users:bob --list-proxies users:joe"
@@ -119,7 +119,6 @@ Turn on auto-scheduling for a resource, and confirm the setting:
 .Pp
 .Dl "calendarserver_manage_principals --set-auto-schedule true --get-auto-schedule resources:projector"
 .Pp
-.El
 .Sh FILES
 .Bl -tag -width flag
 .It /etc/caldavd/caldavd.plist
