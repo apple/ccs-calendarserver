@@ -216,6 +216,7 @@ class iCalDiff(object):
             old_attendee = old_attendees.get(value)
             if old_attendee:
                 self._transferParameter(old_attendee, new_attendee, "PARTSTAT")
+                self._transferParameter(old_attendee, new_attendee, "RSVP")
                 self._transferParameter(old_attendee, new_attendee, "SCHEDULE-STATUS")
     
     def _transferParameter(self, old_property, new_property, parameter):
