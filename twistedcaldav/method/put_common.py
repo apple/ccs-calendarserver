@@ -62,6 +62,7 @@ from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
 from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from twistedcaldav.method.delete_common import DeleteResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
@@ -971,6 +972,17 @@ class StoreCalendarObjectResource(object):
                         yield reservation.unreserve()
             
                     returnValue(StatusResponse(responsecode.CREATED, "Resource created but immediately deleted by the server."))
+
+                elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
+                    if reservation:
+                        yield reservation.unreserve()
+            
+                    # Now forcibly delete the event
+                    deleter = DeleteResource(self.request, self.destination, self.destination_uri, self.destinationparent, "0", internal_request=True)
+                    yield deleter.run()
+
+                    returnValue(StatusResponse(responsecode.OK, "Resource modified but immediately deleted by the server."))
+
                 else:
                     msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
                     log.err(msg)

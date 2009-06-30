@@ -54,6 +54,7 @@ class ImplicitScheduler(object):
     # Return Status codes
     STATUS_OK                       = 0
     STATUS_ORPHANED_CANCELLED_EVENT = 1
+    STATUS_ORPHANED_EVENT           = 2
 
     def __init__(self):
         
@@ -792,8 +793,9 @@ class ImplicitScheduler(object):
                     self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
                     returnValue(None)
                 else:
-                    log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy" % (self.attendee, self.uid,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                    log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
+                    self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
+                    returnValue(None)
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
                 log.debug("Attendee '%s' is not allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
