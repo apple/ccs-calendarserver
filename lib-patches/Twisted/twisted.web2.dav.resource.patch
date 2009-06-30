@@ -2,22 +2,95 @@ Index: twisted/web2/dav/resource.py
 ===================================================================
 --- twisted/web2/dav/resource.py	(revision 26969)
 +++ twisted/web2/dav/resource.py	(working copy)
-@@ -49,12 +49,13 @@
+@@ -49,12 +49,14 @@
  if not hasattr(__builtin__, "frozenset"):
      import sets.ImmutableSet as frozenset
  
 +import urllib
 +
  from zope.interface import implements
++from twisted.cred.error import LoginFailed, UnauthorizedLogin
  from twisted.python import log
  from twisted.python.failure import Failure
- from twisted.internet.defer import Deferred, maybeDeferred, succeed
+-from twisted.internet.defer import Deferred, maybeDeferred, succeed
++from twisted.internet.defer import Deferred, maybeDeferred, succeed, inlineCallbacks
  from twisted.internet.defer import waitForDeferred, deferredGenerator
 -from twisted.cred.error import LoginFailed, UnauthorizedLogin
  from twisted.internet import reactor
  from twisted.web2 import responsecode
  from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse
-@@ -1880,7 +1881,7 @@
+@@ -642,41 +644,43 @@
+     # Authentication
+     ##
+ 
++    @inlineCallbacks
+     def authorize(self, request, privileges, recurse=False):
+         """
+         See L{IDAVResource.authorize}.
+         """
+-        def onAuth(result):
+-            def onErrors(failure):
+-                failure.trap(AccessDeniedError)
+-                
+-                # If we were unauthorized to start with (no Authorization header from client) then
+-                # we should return an unauthorized response instead to force the client to login if it can
+-                if request.authnUser == davxml.Principal(davxml.Unauthenticated()):
+-                    d = UnauthorizedResponse.makeResponse(request.credentialFactories,
+-                                                                 request.remoteAddr)
+-                    def _fail(response):
+-                        return Failure(HTTPError(response))
+-                    return d.addCallback(_fail)
+-                else:
+-                    response = NeedPrivilegesResponse(request.uri,
+-                                                      failure.value.errors)
+-                #
+-                # We're not adding the headers here because this response
+-                # class is supposed to be a FORBIDDEN status code and
+-                # "Authorization will not help" according to RFC2616
+-                #
+-                raise HTTPError(response)
+ 
+-            d = self.checkPrivileges(request, privileges, recurse)
+-            d.addErrback(onErrors)
+-            return d
++        try:
++            yield self.authenticate(request)
++        except (UnauthorizedLogin, LoginFailed), e:
++            log.msg("Authentication failed: %s" % (e,))
++            response = (yield UnauthorizedResponse.makeResponse(
++                request.credentialFactories,
++                request.remoteAddr
++            ))
++            raise HTTPError(response)
+ 
+-        d = maybeDeferred(self.authenticate, request)
+-        d.addCallback(onAuth)
+-        return d
++        try:
++            yield self.checkPrivileges(request, privileges, recurse)
++        except AccessDeniedError, e:
++            # If we were unauthenticated to start with (no Authorization header from client) then
++            # we should return an unauthorized response instead to force the client to login if it can
++            if request.authnUser == davxml.Principal(davxml.Unauthenticated()):
++                response = (yield UnauthorizedResponse.makeResponse(
++                    request.credentialFactories,
++                    request.remoteAddr
++                ))
++            else:
++                response = NeedPrivilegesResponse(request.uri, e.errors)
++            #
++            # We're not adding the headers here because this response
++            # class is supposed to be a FORBIDDEN status code and
++            # "Authorization will not help" according to RFC2616
++            #
++            raise HTTPError(response)
+ 
+ 
++
+     def authenticate(self, request):
+         if not (
+             hasattr(request, 'portal') and 
+@@ -1880,7 +1884,7 @@
          # If this is a collection and the URI doesn't end in "/", redirect.
          #
          if self.isCollection() and request.path[-1:] != "/":
