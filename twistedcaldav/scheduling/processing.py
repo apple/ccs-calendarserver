@@ -659,6 +659,14 @@ class ImplicitProcessor(object):
             if attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
                 attendee.params()["PARTSTAT"] = [partstat]
                 madeChanges = True
+
+            # Always remove RSVP - this is only an attendee change so madeChanges
+            # does not need to be changed
+            try:
+                del attendee.params()["RSVP"]
+            except KeyError:
+                pass
+
         
         return madeChanges
 
