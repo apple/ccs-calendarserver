@@ -16,16 +16,19 @@
 
 from hashlib import md5
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twisted.web2.dav.util import joinURL
+from twisted.web2.http import HTTPError
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
+from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
 from vobject.icalendar import utc
 import datetime
 import time
@@ -78,7 +81,27 @@ class ImplicitProcessor(object):
         if self.isOrganizerReceivingMessage():
             result = (yield self.doImplicitOrganizer())
         elif self.isAttendeeReceivingMessage():
-            result = (yield self.doImplicitAttendee())
+            try:
+                result = (yield self.doImplicitAttendee())
+            except ImplicitProcessorException:
+                # These we always pass up
+                raise
+            except Exception, e:
+                # We attempt to recover from this. That involves trying to re-write the attendee data
+                # to match that of the organizer assuming we have the organizer's full data available, then
+                # we try the processing operation again.
+                log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised will try to fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
+                result = (yield self.doImplicitAttendeeEventFix(e))
+                if result:
+                    log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - restored organizer's copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    try:
+                        result = (yield self.doImplicitAttendee())
+                    except Exception, e:
+                        log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised after fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
+                        raise ImplicitProcessorException("5.1;Service unavailable")
+                else:
+                    log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - could not fix" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    raise ImplicitProcessorException("5.1;Service unavailable")
         else:
             log.error("METHOD:%s not supported for implicit scheduling." % (self.method,))
             raise ImplicitProcessorException("3.14;Unsupported capability")
@@ -105,31 +128,14 @@ class ImplicitProcessor(object):
         
         self.recipient_calendar = None
         self.recipient_calendar_collection = None
+        self.recipient_calendar_collection_uri = None
         self.recipient_calendar_name = None
-        if self.recipient.principal:
-            # Get Recipient's calendar-home
-            calendar_home = self.recipient.principal.calendarHome()
-            
-            # FIXME: because of the URL->resource request mapping thing, we have to force the request
-            # to recognize this resource
-            self.request._rememberResource(calendar_home, calendar_home.url())
-    
-            # Run a UID query against the UID
-
-            def queryCalendarCollection(collection, uri):
-                rname = collection.index().resourceNameForUID(self.uid)
-                if rname:
-                    self.recipient_calendar = collection.iCalendar(rname)
-                    self.recipient_calendar_name = rname
-                    self.recipient_calendar_collection = collection
-                    self.recipient_calendar_collection_uri = uri
-                    return succeed(False)
-                else:
-                    return succeed(True)
-            
-            # NB We are by-passing privilege checking here. That should be OK as the data found is not
-            # exposed to the user.
-            yield report_common.applyToCalendarCollections(calendar_home, self.request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+        calendar_resource, resource_name, calendar_collection, calendar_collection_uri = (yield getCalendarObjectForPrincipals(self.request, self.recipient.principal, self.uid))
+        if calendar_resource:
+            self.recipient_calendar = calendar_resource.iCalendar()
+            self.recipient_calendar_collection = calendar_collection
+            self.recipient_calendar_collection_uri = calendar_collection_uri
+            self.recipient_calendar_name = resource_name
     
     @inlineCallbacks
     def doImplicitOrganizer(self):
@@ -655,3 +661,37 @@ class ImplicitProcessor(object):
                 madeChanges = True
         
         return madeChanges
+
+    @inlineCallbacks
+    def doImplicitAttendeeEventFix(self, ex):
+
+        # Only certain types of exception should be handled - ones related to calendar data errors.
+        # All others should result in the scheduling response coming back as a 5.x code
+        
+        if type(ex) not in (InvalidOverriddenInstanceError, HTTPError):
+            raise ImplicitProcessorException("5.1;Service unavailable")
+
+        # Check to see whether the originator is hosted on this server
+        if not self.originator.principal:
+            raise ImplicitProcessorException("5.1;Service unavailable")
+
+        # Locate the originator's copy of the event
+        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.originator.principal, self.uid))
+        if not calendar_resource:
+            raise ImplicitProcessorException("5.1;Service unavailable")
+        originator_calendar = calendar_resource.iCalendar()
+
+        # Get attendee's view of that
+        originator_calendar.attendeesView((self.recipient.cuaddr,))
+
+        # Locate the attendee's copy of the event if it exists.
+        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForPrincipals(self.request, self.recipient.principal, self.uid))
+        
+        # We only need to fix data that already exists
+        if recipient_resource:
+            if originator_calendar.mainType() != None:
+                yield self.writeCalendarResource(recipient_collection_uri, recipient_collection, recipient_resource_name, originator_calendar)
+            else:
+                yield self.deleteCalendarResource(recipient_collection_uri, recipient_collection, recipient_resource_name)
+        
+        returnValue(True)
