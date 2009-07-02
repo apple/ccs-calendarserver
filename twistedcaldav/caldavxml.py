@@ -1803,20 +1803,6 @@ class ScheduleSend (CalDAVEmptyElement):
     """
     name = "schedule-send"
     
-class ScheduleProcessed (CalDAVEmptyElement):
-    """
-    Indicates that a scheduling message in an inbox has been processed
-    by the server.
-    """
-    name = "schedule-processed"
-
-class ScheduleUnprocessed (CalDAVEmptyElement):
-    """
-    Indicates that a scheduling message in an inbox has not been processed
-    by the server.
-    """
-    name = "schedule-unprocessed"
-
 class CalendarUserType (CalDAVTextElement):
     """
     The CALDAV:calendar-user-type property from section 9.2.4 of caldav-sched-05
