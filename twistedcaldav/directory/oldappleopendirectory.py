@@ -27,8 +27,6 @@ import sys
 from random import random
 from uuid import UUID
 
-from twext.python.plistlib import readPlistFromString
-
 from xml.parsers.expat import ExpatError
 
 import opendirectory
@@ -40,8 +38,11 @@ from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 
+from twext.python.plistlib import readPlistFromString
+
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
+from twistedcaldav.directory.principal import cuAddressConverter
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 class OpenDirectoryService(DirectoryService):
