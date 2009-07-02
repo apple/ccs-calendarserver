@@ -181,9 +181,6 @@ class ScheduleViaCalDAV(DeliveryService):
                 # Store CALDAV:recipient property
                 child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
             
-                # Store CALDAV:schedule-state property
-                child.writeDeadProperty(caldavxml.ScheduleState(caldavxml.ScheduleProcessed() if processed else caldavxml.ScheduleUnprocessed()))
-            
                 # Store CS:schedule-changes property if present
                 if changes:
                     child.writeDeadProperty(changes)
