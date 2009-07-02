@@ -58,6 +58,12 @@ from twisted.web2.http import Request, RedirectResponse
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.web2.channel.http import HTTP503LoggingFactory
 
+try:
+    from twistedcaldav.version import version
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
+    from version import version as getVersion
+    version = "%s (%s)" % getVersion()
 from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
 from twistedcaldav.accesslog import DirectoryLogWrapperResource
@@ -330,7 +336,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
-    description = "The Darwin Calendar Server"
+    description = "Darwin Calendar Server"
     options = CalDAVOptions
 
     #
@@ -346,7 +352,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     webAdminResourceClass        = WebAdminResource
 
     def makeService(self, options):
-
+        self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
