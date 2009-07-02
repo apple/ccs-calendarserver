@@ -23,7 +23,6 @@ __all__ = [
     "config",
 ]
 
-import os
 import copy
 import re
 

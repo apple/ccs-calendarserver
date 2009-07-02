@@ -38,7 +38,7 @@ import dsquery
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
-from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.config import config
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord

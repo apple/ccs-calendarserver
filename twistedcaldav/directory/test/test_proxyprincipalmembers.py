@@ -23,7 +23,6 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 import twistedcaldav.test.util
 from twistedcaldav.config import config

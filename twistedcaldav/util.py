@@ -21,7 +21,7 @@ from subprocess import Popen, PIPE, STDOUT
 
 from twisted.internet import ssl, reactor
 from twisted.web import client
-from twistedcaldav.log import Logger, LoggingMixIn
+from twistedcaldav.log import LoggingMixIn
 from twisted.python import failure
 from hashlib import md5, sha1
 import base64

@@ -34,11 +34,10 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
-from twisted.python import failure
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
-from twisted.web2 import resource, server, responsecode
+from twisted.web2 import server, responsecode
 from twisted.web2.channel.http import HTTPFactory
 from twisted.web2.dav import auth
 from twisted.web2.dav import davxml

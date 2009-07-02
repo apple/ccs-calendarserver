@@ -20,7 +20,7 @@ Extensions to twisted.python.log.
 
 from sys import stdout, stderr
 
-from twisted.python.log import addObserver
+from twisted.python.log import addObserver, removeObserver
 
 class StandardIOObserver (object):
     """

@@ -28,7 +28,6 @@ import os
 
 from twisted.web2.http import HTTPError
 
-from twistedcaldav.config import config
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase

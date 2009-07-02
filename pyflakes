@@ -14,6 +14,7 @@ fi;
 
 cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
   -e "/undefined name '_'/d"                                          \
+  -e "/undefined name 'CalDAVFile'/d"                                 \
   -e "/redefinition of unused/d"                                      \
   -e "/'from .* import \\*' used; unable to detect undefined names/d" \
   -e "/redefinition of function/d"                                    \

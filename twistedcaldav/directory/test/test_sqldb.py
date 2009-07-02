@@ -18,9 +18,9 @@ import os
 
 from twisted.python.filepath import FilePath
 
-import twistedcaldav.directory.test.util
-import twistedcaldav.directory.test.test_xmlfile
-from twistedcaldav.directory.sqldb import SQLDirectoryService
+#import twistedcaldav.directory.test.util
+#import twistedcaldav.directory.test.test_xmlfile
+#from twistedcaldav.directory.sqldb import SQLDirectoryService
 
 xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
 

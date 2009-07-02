@@ -24,8 +24,6 @@ __all__ = [
 
 import cgi
 import operator
-import os
-import urllib
 import urlparse
 
 from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal, action_removeProxyPrincipal
@@ -38,7 +36,6 @@ from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
 from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
 
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
