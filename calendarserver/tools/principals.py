@@ -18,37 +18,29 @@
 
 import sys
 import os
-import itertools
 import operator
 from getopt import getopt, GetoptError
 from uuid import UUID
 from pwd import getpwnam
 from grp import getgrnam
 
-
-from twisted.python import log
-from twisted.python.reflect import namedClass
 from twisted.python.util import switchUID
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 
+from twext.python.log import StandardIOObserver
 from twext.web2.dav.davxml import sname2qname, qname2sname
 
-from twistedcaldav import caldavxml
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, defaultConfigFile, ConfigurationError
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
-from calendarserver.tools.util import UsageError, booleanArgument, autoDisableMemcached
-from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
+from calendarserver.tools.util import booleanArgument, autoDisableMemcached
+from calendarserver.tools.util import loadConfig, getDirectory
 from calendarserver.provision.root import RootResource
 
 def usage(e=None):
@@ -88,15 +80,11 @@ def usage(e=None):
         sys.exit(0)
 
 def main():
-
     #
     # Send logging output to stdout
     #
-    logFileName = "/dev/stdout"
-    observer = log.FileLogObserver(open(logFileName, "a"))
-    log.addObserver(observer.emit)
-
-
+    observer = StandardIOObserver()
+    observer.start()
 
     try:
         (optargs, args) = getopt(
