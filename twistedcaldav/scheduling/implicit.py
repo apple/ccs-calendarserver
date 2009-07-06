@@ -503,6 +503,11 @@ class ImplicitScheduler(object):
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
             
+        # Always set RSVP=TRUE for any NEEDS-ACTION
+        for attendee in self.calendar.getAllAttendeeProperties():
+            if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
+                attendee.params()["RSVP"] = ["TRUE",]
+
         yield self.scheduleWithAttendees()
         
         # Always clear SCHEDULE-FORCE-SEND from all attendees after scheduling
