@@ -54,6 +54,15 @@ Index: twisted/web2/auth/digest.py
          )
  
          return expected == response
+@@ -234,7 +250,7 @@
+         key = "%s,%s,%s" % (nonce, clientip, str(int(self._getTime())))
+         digest = md5(key + self.privateKey).hexdigest()
+         ekey = key.encode('base64')
+-        return "%s-%s" % (digest, ekey.strip('\n'))
++        return "%s-%s" % (digest, ekey.replace('\n'))
+ 
+     def verifyOpaque(self, opaque, nonce, clientip):
+         """
 @@ -348,7 +364,13 @@
                               auth.get('nonce'),
                               request.remoteAddr.host):
