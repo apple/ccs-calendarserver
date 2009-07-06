@@ -55,6 +55,7 @@ __all__ = [
     "CalDAVScheduler",
     "IScheduleScheduler",
     "IMIPScheduler",
+    "DirectScheduler",
 ]
 
 
@@ -386,7 +387,7 @@ class Scheduler(object):
             # Now process iMIP recipients
             if imip_recipients:
                 yield self.generateIMIPSchedulingResponses(imip_recipients, responses, freebusy)
-    
+
         # Return with final response if we are done
         returnValue(responses)
     
@@ -788,6 +789,33 @@ class IScheduleScheduler(Scheduler):
             msg = "Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),)
             log.err(msg)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+
+
+class DirectScheduler(Scheduler):
+    """ An implicit scheduler meant for use by local processes which don't
+        need to go through all these checks. """
+
+    def checkAuthorization(self):
+        pass
+
+    def checkOrganizer(self):
+        pass
+
+    def checkOrganizerAsOriginator(self):
+        pass
+
+    def checkAttendeeAsOriginator(self):
+        pass
+
+    def securityChecks(self):
+        pass
+
+    def checkOriginator(self):
+        pass
+
+    def checkRecipients(self):
+        pass
+
 
 class IMIPScheduler(Scheduler):
 

@@ -282,6 +282,12 @@ class ProxyDBUpgradeTests(TestCase):
         }
 
         after = {
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
             ".calendarserver_version" :
             {
                 "@contents" : "1",
@@ -406,6 +412,12 @@ class ProxyDBUpgradeTests(TestCase):
         }
 
         after = {
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
             ".calendarserver_version" :
             {
                 "@contents" : "1",
@@ -525,6 +537,12 @@ class ProxyDBUpgradeTests(TestCase):
         }
 
         after = {
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
             ".calendarserver_version" :
             {
                 "@contents" : "1",
@@ -650,6 +668,12 @@ class ProxyDBUpgradeTests(TestCase):
         }
 
         after = {
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
             ".calendarserver_version" :
             {
                 "@contents" : "1",
@@ -761,6 +785,12 @@ class ProxyDBUpgradeTests(TestCase):
 
 
         after = {
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
             "calendars" :
             {
                 "__uids__" :

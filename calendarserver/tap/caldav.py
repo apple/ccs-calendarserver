@@ -39,6 +39,7 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
+from twisted.internet.defer import DeferredList, succeed, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -1111,6 +1112,24 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
 
+        self.log_info("Adding task service")
+        taskArgv = [
+            sys.executable,
+            config.Twisted.twistd,
+        ]
+        if config.UserName:
+            taskArgv.extend(("-u", config.UserName))
+        if config.GroupName:
+            taskArgv.extend(("-g", config.GroupName))
+        taskArgv.extend((
+            "--reactor=%s" % (config.Twisted.reactor,),
+            "-n", "caldav_task",
+            "-f", options["config"],
+        ))
+
+        monitor.addProcess("caldav_task", taskArgv, env=parentEnv)
+
+
         stats = CalDAVStatisticsServer(logger) 
         statsService = UNIXServer(config.GlobalStatsSocket, stats) 
         statsService.setServiceParent(s)
@@ -1164,6 +1183,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                     if numConnectFailures == len(testPorts):
                         self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
+
+
 
 class TwistdSlaveProcess(object):
     prefix = "caldav"
