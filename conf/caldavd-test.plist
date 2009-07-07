@@ -416,17 +416,21 @@ limitations under the License.
 
   <key>Notifications</key>
   <dict>
+    <!-- Time spent coalescing notifications before delivery -->
     <key>CoalesceSeconds</key>
-    <integer>10</integer>
+    <integer>3</integer>
+
     <key>InternalNotificationHost</key>
     <string>localhost</string>
+
     <key>InternalNotificationPort</key>
     <integer>62309</integer>
 
     <key>Services</key>
-    <array>
+    <dict>
+      <key>SimpleLineNotifier</key>
       <dict>
-        <!-- Simple notification service (for testing) -->
+        <!-- Simple line notification service (for testing) -->
         <key>Service</key>
         <string>twistedcaldav.notify.SimpleLineNotifierService</string>
         <key>Enabled</key>
@@ -435,6 +439,7 @@ limitations under the License.
         <integer>62308</integer>
       </dict>
 
+      <key>XMPPNotifier</key>
       <dict>
         <!-- XMPP notification service -->
         <key>Service</key>
@@ -458,15 +463,31 @@ limitations under the License.
         <key>ServiceAddress</key>
         <string>pubsub.xmpp.host.name</string>
 
+        <key>NodeConfiguration</key>
+        <dict>
+          <key>pubsub#deliver_payloads</key>
+          <string>1</string>
+          <key>pubsub#persist_items</key>
+          <string>1</string>
+        </dict>
+
         <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
         <key>KeepAliveSeconds</key>
         <integer>120</integer>
 
-        <!-- Sends messages to this account for debugging -->
-        <key>TestJID</key>
-        <string></string>
+        <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
+        <key>HeartbeatMinutes</key>
+        <integer>30</integer>
+
+        <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server (for debugging) -->
+        <key>AllowedJIDs</key>
+        <array>
+          <!--
+          <string>*.example.com</string>
+           -->
+        </array>
       </dict>
-    </array>
+    </dict>
   </dict>
 
 
