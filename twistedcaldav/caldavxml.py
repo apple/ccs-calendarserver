@@ -956,9 +956,9 @@ class Filter (CalDAVElement):
                     instances = None
                 else:
                     # Expand the instances up to infinity
-                    instances = component.expandTimeRanges(datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc))
+                    instances = component.expandTimeRanges(datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc), ignoreInvalidInstances=True)
             else:
-                instances = component.expandTimeRanges(maxend)
+                instances = component.expandTimeRanges(maxend, ignoreInvalidInstances=True)
         else:
             instances = None
         self.children[0].setInstances(instances)

@@ -416,7 +416,7 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """
     
     # Expand out the set of instances for the event with in the required range
-    instances = calendar.expandTimeRanges(timerange.end)
+    instances = calendar.expandTimeRanges(timerange.end, ignoreInvalidInstances=True)
     
     # Can only do timed events
     for key in instances:
@@ -566,7 +566,7 @@ def processAvailablePeriods(calendar, timerange):
             
     # Then we expand each uid set separately
     for componentSet in uidmap.itervalues():
-        instances = InstanceList()
+        instances = InstanceList(ignoreInvalidInstances=True)
         instances.expandTimeRanges(componentSet, timerange.end)
         
         # Now convert instances into period list

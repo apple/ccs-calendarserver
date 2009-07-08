@@ -446,7 +446,7 @@ class ImplicitProcessor(object):
         # First expand current one to get instances (only go 1 year into the future)
         default_future_expansion_duration = datetime.timedelta(days=356*1)
         expand_max = datetime.date.today() + default_future_expansion_duration
-        instances = calendar.expandTimeRanges(expand_max)
+        instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
         instance_states = dict([(instance, True) for instance in instances.instances.itervalues()])
         
         # Extract UID from primary component as we want to ignore this one if we match it
