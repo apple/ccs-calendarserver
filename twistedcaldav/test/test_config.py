@@ -17,8 +17,9 @@
 from twext.python.plistlib import writePlist
 
 from twistedcaldav.log import logLevelForNamespace
-from twistedcaldav.config import config, defaultConfig
+from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.static import CalDAVFile
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider
 from twistedcaldav.test.util import TestCase
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
@@ -51,30 +52,29 @@ def _testResponseCompression(testCase):
 class ConfigTests(TestCase):
     def setUp(self):
         TestCase.setUp(self)
-        config.update(defaultConfig)
+        config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
         self.testConfig = self.mktemp()
         open(self.testConfig, "w").write(testConfig)
 
     def tearDown(self):
-        config.setDefaults(defaultConfig)
-        config.loadConfig(None)
-        config.reload()
+        config.setDefaults(DEFAULT_CONFIG)
+        config.reset()
 
     def testDefaults(self):
-        for key, value in defaultConfig.iteritems():
+        for key, value in DEFAULT_CONFIG.iteritems():
             self.assertEquals(getattr(config, key), value)
 
     def testLoadConfig(self):
         self.assertEquals(config.ResponseCompression, True)
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         self.assertEquals(config.ResponseCompression, False)
 
     def testScoping(self):
         self.assertEquals(config.ResponseCompression, True)
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         self.assertEquals(config.ResponseCompression, False)
 
@@ -83,7 +83,7 @@ class ConfigTests(TestCase):
     def testReloading(self):
         self.assertEquals(config.HTTPPort, 0)
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         self.assertEquals(config.HTTPPort, 8008)
 
@@ -96,7 +96,7 @@ class ConfigTests(TestCase):
     def testUpdateAndReload(self):
         self.assertEquals(config.HTTPPort, 0)
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         self.assertEquals(config.HTTPPort, 8008)
 
@@ -191,7 +191,7 @@ class ConfigTests(TestCase):
     def testUpdateDefaults(self):
         self.assertEquals(config.SSLPort, 0)
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         config.updateDefaults({"SSLPort": 8009})
 
@@ -206,12 +206,12 @@ class ConfigTests(TestCase):
     def testMergeDefaults(self):
         config.updateDefaults({"MultiProcess": {}})
 
-        self.assertEquals(config._defaults["MultiProcess"]["LoadBalancer"]["Enabled"], True)
+        self.assertEquals(config._provider.getDefaults().MultiProcess.LoadBalancer.Enabled, True)
 
     def testSetDefaults(self):
         config.updateDefaults({"SSLPort": 8443})
 
-        config.setDefaults(defaultConfig)
+        config.setDefaults(DEFAULT_CONFIG)
 
         config.reload()
 
@@ -220,7 +220,7 @@ class ConfigTests(TestCase):
     def testCopiesDefaults(self):
         config.updateDefaults({"Foo": "bar"})
 
-        self.assertNotIn("Foo", defaultConfig)
+        self.assertNotIn("Foo", DEFAULT_CONFIG)
 
     def testComplianceClasses(self):
         resource = CalDAVFile("/")
@@ -238,7 +238,7 @@ class ConfigTests(TestCase):
         self.assertEquals(logLevelForNamespace(None), "warn")
         self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
 
-        config.loadConfig(self.testConfig)
+        config.load(self.testConfig)
 
         self.assertEquals(logLevelForNamespace(None), "info")
         self.assertEquals(logLevelForNamespace("some.namespace"), "debug")
@@ -248,3 +248,52 @@ class ConfigTests(TestCase):
 
         self.assertEquals(logLevelForNamespace(None), "warn")
         self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
+
+    def test_ConfigDict(self):
+        configDict = ConfigDict({
+            "a": "A",
+            "b": "B",
+            "c": "C",
+        })
+
+        # Test either syntax inbound
+        configDict["d"] = "D"
+        configDict.e = "E"
+
+        # Test either syntax outbound
+        for key in "abcde":
+            value = key.upper()
+
+            self.assertEquals(configDict[key], value)
+            self.assertEquals(configDict.get(key), value)
+            self.assertEquals(getattr(configDict, key), value)
+
+            self.assertIn(key, configDict)
+            self.assertTrue(hasattr(configDict, key))
+
+        self.assertEquals(configDict.a, "A")
+        self.assertEquals(configDict.d, "D")
+        self.assertEquals(configDict.e, "E")
+
+        # Test either syntax for delete
+        del configDict["d"]
+        delattr(configDict, "e")
+
+        # Test either syntax for absence
+        for key in "de":
+            self.assertNotIn(key, configDict)
+            self.assertFalse(hasattr(configDict, key))
+            self.assertRaises(KeyError, lambda: configDict[key])
+            self.assertRaises(AttributeError, getattr, configDict, key)
+
+        self.assertRaises(AttributeError, lambda: configDict.e)
+        self.assertRaises(AttributeError, lambda: configDict.f)
+
+        # Keys may not begin with "_" in dict syntax
+        def set():
+            configDict["_x"] = "X"
+        self.assertRaises(KeyError, set)
+
+        # But attr syntax is OK
+        configDict._x = "X"
+        self.assertEquals(configDict._x, "X")

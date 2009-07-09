@@ -27,7 +27,8 @@ from twisted.web2.log import LogWrapperResource
 
 from twext.python.plistlib import writePlist
 
-from twistedcaldav.config import config, ConfigDict, defaultConfig, _mergeData
+from twistedcaldav.config import config, ConfigDict, _mergeData
+from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
@@ -70,8 +71,7 @@ class CalDAVOptionsTest (TestCase):
         self.config.parent["nodaemon"] = False
 
     def tearDown(self):
-        config.loadConfig(None)
-        config.setDefaults(defaultConfig)
+        config.setDefaults(DEFAULT_CONFIG)
         config.reload()
 
     def test_overridesConfig(self):
@@ -124,7 +124,7 @@ class CalDAVOptionsTest (TestCase):
         Test that specifying a config file from the command line
         loads the global config with those values properly.
         """
-        myConfig = ConfigDict(defaultConfig)
+        myConfig = ConfigDict(DEFAULT_CONFIG)
 
         myConfig.Authentication.Basic.Enabled = False
         myConfig.MultiProcess.LoadBalancer.Enabled = False
@@ -177,7 +177,7 @@ class BaseServiceMakerTests(TestCase):
         self.options.parent["uid"] = None
         self.options.parent["nodaemon"] = None
 
-        self.config = ConfigDict(defaultConfig)
+        self.config = ConfigDict(DEFAULT_CONFIG)
 
         accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
@@ -206,9 +206,8 @@ class BaseServiceMakerTests(TestCase):
         self.writeConfig()
 
     def tearDown(self):
-        config.loadConfig(None)
-        config.setDefaults(defaultConfig)
-        config.reload()
+        config.setDefaults(DEFAULT_CONFIG)
+        config.reset()
 
     def writeConfig(self):
         """

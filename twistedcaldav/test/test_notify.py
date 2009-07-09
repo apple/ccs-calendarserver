@@ -18,8 +18,8 @@ from twisted.internet.task import Clock
 from twisted.words.protocols.jabber.client import IQ
 from twisted.words.protocols.jabber.error import StanzaError
 from twistedcaldav.notify import *
-from twistedcaldav import config as config_mod
 from twistedcaldav.config import Config
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider
 from twistedcaldav.test.util import TestCase
 
 
@@ -42,7 +42,7 @@ class NotificationClientUserTests(TestCase):
         notificationClient = getNotificationClient()
         self.assertNotEquals(notificationClient, None)
 
-        enabledConfig = Config(config_mod.defaultConfig)
+        enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
         enabledConfig.Notifications['Enabled'] = True
         clientNotifier = ClientNotifier(StubResource("a"),
             configOverride=enabledConfig)
@@ -342,12 +342,12 @@ class StubFailure(object):
 
 class XMPPNotifierTests(TestCase):
 
-    xmppEnabledConfig = Config(config_mod.defaultConfig)
+    xmppEnabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
     xmppEnabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
     xmppEnabledConfig.ServerHostName = "server.example.com"
     xmppEnabledConfig.HTTPPort = 80
 
-    xmppDisabledConfig = Config(config_mod.defaultConfig)
+    xmppDisabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
     xmppDisabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = False
 
     def setUp(self):
@@ -478,7 +478,7 @@ class XMPPNotifierTests(TestCase):
 
     def test_sendHeartbeat(self):
 
-        xmppConfig = Config(config_mod.defaultConfig)
+        xmppConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
         xmppConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
         xmppConfig.ServerHostName = "server.example.com"
         xmppConfig.HTTPPort = 80

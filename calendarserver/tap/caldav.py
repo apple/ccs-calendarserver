@@ -39,7 +39,6 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.defer import DeferredList, succeed, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -71,7 +70,8 @@ from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.accesslog import AMPLoggingFactory
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.config import config, defaultConfig, defaultConfigFile
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twistedcaldav.config import config
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -134,7 +134,7 @@ class CalDAVService (MultiService):
 
 class CalDAVOptions (Options, LoggingMixIn):
     optParameters = [[
-        "config", "f", defaultConfigFile, "Path to configuration file."
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
 
     zsh_actions = {"config" : "_files -g '*.plist'"}
@@ -204,7 +204,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         if "=" in option:
             path, value = option.split("=")
             self.setOverride(
-                defaultConfig,
+                DEFAULT_CONFIG,
                 path.split("/"),
                 value,
                 self.overrides
@@ -215,6 +215,10 @@ class CalDAVOptions (Options, LoggingMixIn):
     opt_o = opt_option
 
     def postOptions(self):
+        self.loadConfiguration()
+        self.checkConfiguration()
+            
+    def loadConfiguration(self):
         if not os.path.exists(self["config"]):
             self.log_info("Config file %s not found, using defaults"
                           % (self["config"],))
@@ -223,13 +227,14 @@ class CalDAVOptions (Options, LoggingMixIn):
                       % (self["config"],))
 
         try:
-            config.loadConfig(self["config"])
+            config.load(self["config"])
         except ConfigurationError, e:
             log.err("Invalid configuration: %s" % (e,))
             sys.exit(1)
 
         config.updateDefaults(self.overrides)
-
+        
+    def checkConfiguration(self):
         uid, gid = None, None
 
         if self.parent["uid"] or self.parent["gid"]:
@@ -351,6 +356,13 @@ class CalDAVServiceMaker (LoggingMixIn):
     timezoneServiceResourceClass = TimezoneServiceFile
     webCalendarResourceClass     = WebCalendarResource
     webAdminResourceClass        = WebAdminResource
+    
+    #
+    # Default tap names
+    #
+    mailGatewayTapName = "caldav_mailgateway"
+    notifierTapName = "caldav_notifier"
+
 
     def makeService(self, options):
         self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
@@ -401,7 +413,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 self.log_info("SIGHUP recieved at %s" % (location(frame),))
 
                 # Reload the config file
-                config.reload()
+                try:
+                    config.reload()
+                except ConfigurationError, e:
+                    self.log_error("Invalid configuration: {0}".format(e))
 
                 # If combined service send signal to all caldavd children
                 if hasattr(service, "processMonitor"):
@@ -745,11 +760,11 @@ class CalDAVServiceMaker (LoggingMixIn):
             vary = True,
         )
 
-        def updateChannel(config, items):
-            channel.maxRequests = config.MaxRequests
-            channel.retryAfter = config.HTTPRetryAfter
+        def updateChannel(configDict):
+            channel.maxRequests = configDict.MaxRequests
+            channel.retryAfter = configDict.HTTPRetryAfter
 
-        config.addHook(updateChannel)
+        config.addPostUpdateHook(updateChannel)
 
         if not config.BindAddresses:
             config.BindAddresses = [""]
@@ -1085,7 +1100,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 notificationsArgv.extend(("-g", config.GroupName))
             notificationsArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", "caldav_notifier",
+                "-n", self.notifierTapName,
                 "-f", options["config"],
             ))
             monitor.addProcess("notifications", notificationsArgv,
@@ -1107,7 +1122,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 mailGatewayArgv.extend(("-g", config.GroupName))
             mailGatewayArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", "caldav_mailgateway",
+                "-n", self.mailGatewayTapName,
                 "-f", options["config"],
             ))
 

@@ -47,7 +47,7 @@ from twisted.web2.http_headers import MimeType
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, defaultConfig, defaultConfigFile
+from twistedcaldav.config import config
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.util import NotFilePath
@@ -59,6 +59,9 @@ from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.util import AuthorizedHTTPGetter
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twistedcaldav.sql import AbstractSQLDatabase
+from twistedcaldav.localization import translationTo
 
 from zope.interface import implements
 
@@ -90,7 +93,7 @@ log = Logger()
 
 class MailGatewayOptions(Options):
     optParameters = [[
-        "config", "f", defaultConfigFile, "Path to configuration file."
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
 
     def __init__(self, *args, **kwargs):
@@ -158,7 +161,7 @@ class MailGatewayOptions(Options):
         if "=" in option:
             path, value = option.split('=')
             self._setOverride(
-                defaultConfig,
+                DEFAULT_CONFIG,
                 path.split('/'),
                 value,
                 self.overrides
@@ -169,7 +172,7 @@ class MailGatewayOptions(Options):
     opt_o = opt_option
 
     def postOptions(self):
-        config.loadConfig(self['config'])
+        config.load(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 

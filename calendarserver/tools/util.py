@@ -28,17 +28,18 @@ from time import sleep
 from twisted.python.reflect import namedClass
 
 import socket
-from twistedcaldav.config import config, defaultConfigFile, ConfigurationError
+from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 def loadConfig(configFileName):
     if configFileName is None:
-        configFileName = defaultConfigFile
+        configFileName = DEFAULT_CONFIG_FILE
 
     if not os.path.isfile(configFileName):
         raise ConfigurationError("No config file: %s" % (configFileName,))
 
-    config.loadConfig(configFileName)
+    config.load(configFileName)
 
     return config
 

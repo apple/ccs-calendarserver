@@ -49,8 +49,9 @@ from twisted.words.protocols.jabber.client import XMPPAuthenticator, IQAuthIniti
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.config import config, defaultConfig, defaultConfigFile
+from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav import memcachepool
 from zope.interface import Interface, implements
 from fnmatch import fnmatch
@@ -1199,7 +1200,7 @@ def getPubSubHeartbeatURI(pubSubConfiguration):
 
 class NotificationOptions(Options):
     optParameters = [[
-        "config", "f", defaultConfigFile, "Path to configuration file."
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
 
     def __init__(self, *args, **kwargs):
@@ -1267,7 +1268,7 @@ class NotificationOptions(Options):
         if "=" in option:
             path, value = option.split('=')
             self._setOverride(
-                defaultConfig,
+                DEFAULT_CONFIG,
                 path.split('/'),
                 value,
                 self.overrides
@@ -1278,7 +1279,7 @@ class NotificationOptions(Options):
     opt_o = opt_option
 
     def postOptions(self):
-        config.loadConfig(self['config'])
+        config.load(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 

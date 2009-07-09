@@ -25,14 +25,15 @@ from calendarserver.provision.root import RootResource
 from time import sleep
 from twisted.application.service import Service, IServiceMaker
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import DeferredList, succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web2.http_headers import Headers
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, defaultConfig, defaultConfigFile
+from twistedcaldav.config import config
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.ical import Component
 from twistedcaldav.log import Logger, LoggingMixIn
@@ -247,7 +248,7 @@ class CalDAVTaskService(Service):
 
 class CalDAVTaskOptions(Options):
     optParameters = [[
-        "config", "f", defaultConfigFile, "Path to configuration file."
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
 
     def __init__(self, *args, **kwargs):
@@ -315,7 +316,7 @@ class CalDAVTaskOptions(Options):
         if "=" in option:
             path, value = option.split('=')
             self._setOverride(
-                defaultConfig,
+                DEFAULT_CONFIG,
                 path.split('/'),
                 value,
                 self.overrides
@@ -326,7 +327,7 @@ class CalDAVTaskOptions(Options):
     opt_o = opt_option
 
     def postOptions(self):
-        config.loadConfig(self['config'])
+        config.load(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 
