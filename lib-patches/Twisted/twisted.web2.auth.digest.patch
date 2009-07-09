@@ -59,7 +59,7 @@ Index: twisted/web2/auth/digest.py
          digest = md5(key + self.privateKey).hexdigest()
          ekey = key.encode('base64')
 -        return "%s-%s" % (digest, ekey.strip('\n'))
-+        return "%s-%s" % (digest, ekey.replace('\n'))
++        return "%s-%s" % (digest, ekey.replace('\n', ''))
  
      def verifyOpaque(self, opaque, nonce, clientip):
          """
