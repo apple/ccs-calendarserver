@@ -1056,6 +1056,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.Memcached.memcached,
                 "-p", str(config.Memcached.Port),
                 "-l", config.Memcached.BindAddress,
+                "-U", "0",
             ]
 
             if config.Memcached.MaxMemory is not 0:
