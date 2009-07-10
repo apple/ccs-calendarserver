@@ -41,7 +41,7 @@ from twisted.web2.dav.stream import MD5StreamWrapper
 from twisted.web2.dav.util import joinURL, parentForURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http import StatusResponse
-from twisted.web2.http_headers import generateContentType
+from twisted.web2.http_headers import generateContentType, MimeType
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
@@ -907,10 +907,10 @@ class StoreCalendarObjectResource(object):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
 
         content_type = self.request.headers.getHeader("content-type")
-        if content_type is not None:
+        if not self.internal_request and content_type is not None:
             self.destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(content_type)))
         else:
-            self.destination.writeDeadProperty(davxml.GETContentType.fromString("text/calendar"))
+            self.destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "calendar", params={"charset":"utf-8"}))))
         return None
 
     def doRemoveDestinationIndex(self):
