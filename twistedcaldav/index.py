@@ -57,8 +57,16 @@ from twistedcaldav.memcachepool import CachePoolUserMixIn
 log = Logger()
 
 db_basename = db_prefix + "sqlite"
-schema_version = "6"
+schema_version = "7"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
+
+icalfbtype_to_indexfbtype = {
+    "FREE"            : 'F',
+    "BUSY"            : 'B',
+    "BUSY-UNAVAILABLE": 'U',
+    "BUSY-TENTATIVE"  : 'T',
+}
+indexfbtype_to_icalfbtype = dict([(v, k) for k,v in icalfbtype_to_indexfbtype.iteritems()])
 
 #
 # Duration into the future through which recurrences are expanded in the index
@@ -74,13 +82,13 @@ default_future_expansion_duration = datetime.timedelta(days=365*1)
 # does not affect search results beyond this period, but it may affect
 # performance of such a search.
 #
-# When a search is performed on a timespan that goes beyond that which is
+# When a search is performed on a time span that goes beyond that which is
 # expanded in the index, we have to open each resource which may have data in
 # that time period.  In order to avoid doing that multiple times, we want to
 # cache those results.  However, we don't necessarily want to cache all
-# occurances into some obscenely far-in-the-future date, so we cap the caching
+# occurrences into some obscenely far-in-the-future date, so we cap the caching
 # period.  Searches beyond this period will always be relatively expensive for
-# resources with occurances beyond this period.
+# resources with occurrences beyond this period.
 #
 maximum_future_expansion_duration = datetime.timedelta(days=365*5)
 
@@ -266,11 +274,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
-    def indexedSearch(self, filter):
+    def indexedSearch(self, filter, fbtype=False):
         """
         Finds resources matching the given qualifiers.
         @param filter: the L{Filter} for the calendar-query to execute.
-        @return: an interable iterable of tuples for each resource matching the
+        @return: an iterable of tuples for each resource matching the
             given C{qualifiers}. The tuples are C{(name, uid, type)}, where
             C{name} is the resource name, C{uid} is the resource UID, and
             C{type} is the resource iCalendar component type.x
@@ -302,7 +310,15 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         if qualifiers is None:
             rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
         else:
-            rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
+            if fbtype:
+                # For a free-busy time-range query we return all instances
+                rowiter = self._db_execute(
+                    "select RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE" + 
+                    qualifiers[0],
+                    *qualifiers[1]
+                )
+            else:
+                rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
 
         # Check result for missing resources
 
@@ -385,44 +401,41 @@ class CalendarIndex (AbstractCalendarIndex):
         #   UID: iCalendar UID (may or may not be unique)
         #   TYPE: iCalendar component type
         #   RECURRANCE_MAX: Highest date of recurrence expansion
+        #   ORGANIZER: cu-address of the Organizer of the event
         #
-        if uidunique:
-            q.execute(
-                """
-                create table RESOURCE (
-                    NAME           text unique,
-                    UID            text unique,
-                    TYPE           text,
-                    RECURRANCE_MAX date
-                )
-                """
+        q.execute(
+            """
+            create table RESOURCE (
+                NAME           text unique,
+                UID            text%s,
+                TYPE           text,
+                RECURRANCE_MAX date,
+                ORGANIZER      text
             )
-        else:
-            q.execute(
-                """
-                create table RESOURCE (
-                    NAME           text unique,
-                    UID            text,
-                    TYPE           text,
-                    RECURRANCE_MAX date
-                )
-                """
-            )
+            """ % (" unique" if uidunique else "",)
+        )
 
         #
-        # TIMESPAN table tracks (expanded) timespans for resources
+        # TIMESPAN table tracks (expanded) time spans for resources
         #   NAME: Related resource (RESOURCE foreign key)
         #   FLOAT: 'Y' if start/end are floating, 'N' otherwise
         #   START: Start date
         #   END: End date
+        #   FBTYPE: FBTYPE value:
+        #     '?' - unknown
+        #     'F' - free
+        #     'B' - busy
+        #     'U' - busy-unavailable
+        #     'T' - busy-tentative
         #
         q.execute(
             """
             create table TIMESPAN (
-                NAME  text,
-                FLOAT text(1),
-                START date,
-                END   date
+                NAME   text,
+                FLOAT  text(1),
+                START  date,
+                END    date,
+                FBTYPE text(1)
             )
             """
         )
@@ -441,6 +454,23 @@ class CalendarIndex (AbstractCalendarIndex):
                 )
                 """
             )
+
+    def _db_upgrade(self, old_version):
+        """
+        Upgrade the database tables.
+        """
+        
+        # When going to version 7 all we need to do is add a column to the time-range
+        if old_version < "7":
+            self._db_connection = sqlite.connect(self.dbpath, isolation_level=None)
+            q = self._db_connection.cursor()
+            q.execute("alter table RESOURCE add column ORGANIZER text default '?'")
+            q.execute("alter table TIMESPAN add column FBTYPE text(1) default '?'")
+            self._db_upgrade_schema(q)
+            self._db_close()
+            return self._db()
+        else:
+            return super(AbstractCalendarIndex, self)._db_upgrade(old_version)
 
     def notExpandedBeyond(self, minDate):
         """
@@ -470,6 +500,9 @@ class CalendarIndex (AbstractCalendarIndex):
             contents.
         """
         uid = calendar.resourceUID()
+        organizer = calendar.getOrganizer()
+        if not organizer:
+            organizer = ""
 
         # Decide how far to expand based on the component
         master = calendar.masterComponent()
@@ -502,9 +535,9 @@ class CalendarIndex (AbstractCalendarIndex):
             float = 'Y' if instance.start.tzinfo is None else 'N'
             self._db_execute(
                 """
-                insert into TIMESPAN (NAME, FLOAT, START, END)
-                values (:1, :2, :3, :4)
-                """, name, float, start, end
+                insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                values (:1, :2, :3, :4, :5)
+                """, name, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
             )
 
         # Special - for unbounded recurrence we insert a value for "infinity"
@@ -515,16 +548,16 @@ class CalendarIndex (AbstractCalendarIndex):
             float = 'N'
             self._db_execute(
                 """
-                insert into TIMESPAN (NAME, FLOAT, START, END)
-                values (:1, :2, :3, :4)
-                """, name, float, start, end
+                insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                values (:1, :2, :3, :4, :5)
+                """, name, float, start, end, '?'
             )
              
         self._db_execute(
             """
-            insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX)
-            values (:1, :2, :3, :4)
-            """, name, uid, calendar.resourceType(), instances.limit
+            insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
+            values (:1, :2, :3, :4, :5)
+            """, name, uid, calendar.resourceType(), instances.limit, organizer
         )
 
     def _delete_from_db(self, name, uid):
@@ -702,7 +735,7 @@ class Index (CalendarIndex):
     def __init__(self, resource):
         """
         @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
-            index. C{resource} must be a calendar collection (ie.
+            index. C{resource} must be a calendar collection (i.e.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
         assert resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
@@ -804,7 +837,7 @@ class IndexSchedule (CalendarIndex):
     def __init__(self, resource):
         """
         @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
-            index. C{resource} must be a calendar collection (ie.
+            index. C{resource} must be a calendar collection (i.e.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
         assert resource.isPseudoCalendarCollection() and not resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)

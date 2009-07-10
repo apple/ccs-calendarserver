@@ -747,6 +747,25 @@ class Component (object):
         else:
             return None, None
 
+    def getFBType(self):
+        
+        # Only VEVENTs block time
+        if self.name() not in ("VEVENT", ):
+            return "FREE"
+        
+        # If it is TRANSPARENT we always ignore it
+        if self.propertyValue("TRANSP") == "TRANSPARENT":
+            return "FREE"
+        
+        # Handle status
+        status = self.propertyValue("STATUS")
+        if status == "CANCELLED":
+            return "FREE"
+        elif status == "TENTATIVE":
+            return "BUSY-TENTATIVE"
+        else:
+            return "BUSY"
+
     def addProperty(self, property):
         """
         Adds a property to this component.
@@ -1277,11 +1296,11 @@ class Component (object):
                     got_override = True
                             
                 # Check that if an override is present then the master is recurring
-                # Leopard iCal sometimes does this for overridden instances that an Attendee receisves and
+                # Leopard iCal sometimes does this for overridden instances that an Attendee receives and
                 # it creates a "fake" (invalid) master. We are going to skip this test here. Instead implicit
                 # scheduling with verify the validity of the components and raise if they don't make sense.
                 # If no scheduling is happening then we allow this - that may cause other clients to choke.
-                # If it does we will have to re-instate this check but only after we have checked for implicit.
+                # If it does we will have to reinstate this check but only after we have checked for implicit.
 #                if got_override and got_master and not master_recurring:
 #                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
 #                    log.debug(msg)
@@ -1963,7 +1982,7 @@ class Component (object):
         Also normalize the RRULE value parts.
         
         Strictly speaking we should not need to do this as clients should not be messing with
-        these properties - i.e. they should roundtrip them. Unfortunately some do...
+        these properties - i.e. they should round trip them. Unfortunately some do...
         """
         
         # TODO: what about VJOURNAL and VTODO?
@@ -2201,7 +2220,7 @@ _regex_duration = None
 
 def tzexpand(tzdata, start, end):
     """
-    Expand a timezone to get onset/utc-offset observance tuples withinthe specified
+    Expand a timezone to get onset/utc-offset observance tuples within the specified
     time range.
 
     @param tzdata: the iCalendar data containing a VTIMEZONE.

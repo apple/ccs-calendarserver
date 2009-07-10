@@ -285,6 +285,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     
     returnValue(properties_by_status)
 
+fbtype_mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
+fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
+
 @inlineCallbacks
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                          excludeuid=None, organizer=None, same_calendar_user=False,
@@ -349,11 +352,18 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
     try:
-        resources = calresource.index().indexedSearch(filter)
+        resources = calresource.index().indexedSearch(filter, fbtype=True)
     except IndexedSearchException:
         resources = calresource.index().bruteForceSearch()
 
-    for name, uid, type in resources: #@UnusedVariable
+    # We care about separate instances for VEVENTs only
+    aggregated_resources = {}
+    for name, uid, type, test_organizer, float, start, end, fbtype in resources:
+        aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+
+    for key in aggregated_resources.iterkeys():
+
+        name, uid, type, test_organizer = key
 
         # Check privileges - must have at least CalDAV:read-free-busy
         child = (yield request.locateChildResource(calresource, name))
@@ -365,44 +375,91 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             except AccessDeniedError:
                 continue
 
-        calendar = calresource.iCalendar(name)
-        
-        # The calendar may come back as None if the resource is being changed, or was deleted
-        # between our initial index query and getting here. For now we will ignore this error, but in
-        # the longer term we need to implement some form of locking, perhaps.
-        if calendar is None:
-            log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
-            continue
-        
-        # Ignore ones of this UID
-        if excludeuid:
-            # See if we have a UID match
-            if (excludeuid == uid):
-                test_organizer = calendar.getOrganizer()
-                test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
-                test_uid = test_principal.principalUID() if test_principal else ""
-
-                # Check that ORGANIZER's match (security requirement)
-                if (organizer is None) or (organizer_uid == test_uid):
+        # Short-cut - if an fbtype exists we can use that
+        if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
+            
+            # Look at each instance
+            for float, start, end, fbtype in aggregated_resources[key]:
+                # Ignore free time or unknown
+                if fbtype in ('F', '?'):
                     continue
-                # Check for no ORGANIZER and check by same calendar user
-                elif (test_organizer is None) and same_calendar_user:
-                    continue
+                
+                # Ignore ones of this UID
+                if excludeuid:
+                    # See if we have a UID match
+                    if (excludeuid == uid):
+                        test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                        test_uid = test_principal.principalUID() if test_principal else ""
 
-        if filter.match(calendar, None):
-            # Check size of results is within limit
-            matchtotal += 1
-            if matchtotal > max_number_of_matches:
-                raise NumberOfMatchesWithinLimits(max_number_of_matches)
+                        # Check that ORGANIZER's match (security requirement)
+                        if (organizer is None) or (organizer_uid == test_uid):
+                            continue
+                        # Check for no ORGANIZER and check by same calendar user
+                        elif (test_uid == "") and same_calendar_user:
+                            continue
+                        
+                # Apply a timezone to any floating times
+                fbstart = datetime.datetime.strptime(start[:-6], "%Y-%m-%d %H:%M:%S")
+                if float == 'Y':
+                    fbstart = fbstart.replace(tzinfo=tzinfo)
+                else:
+                    fbstart = fbstart.replace(tzinfo=utc)
+                fbend =datetime.datetime.strptime(end[:-6], "%Y-%m-%d %H:%M:%S")
+                if float == 'Y':
+                    fbend = fbend.replace(tzinfo=tzinfo)
+                else:
+                    fbend = fbend.replace(tzinfo=utc)
+                
+                # Click instance to time range
+                clipped = clipPeriod((fbstart, fbend - fbstart), (timerange.start, timerange.end))
 
-            if calendar.mainType() == "VEVENT":
-                processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
-            elif calendar.mainType() == "VFREEBUSY":
-                processFreeBusyFreeBusy(calendar, fbinfo, timerange)
-            elif calendar.mainType() == "VAVAILABILITY":
-                processAvailabilityFreeBusy(calendar, fbinfo, timerange)
-            else:
-                assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+                # Double check for overlap
+                if clipped:
+                    fbinfo[fbtype_index_mapper.get(fbtype, 0)].append(clipped)
+                
+        else:
+            calendar = calresource.iCalendar(name)
+            
+            # The calendar may come back as None if the resource is being changed, or was deleted
+            # between our initial index query and getting here. For now we will ignore this error, but in
+            # the longer term we need to implement some form of locking, perhaps.
+            if calendar is None:
+                log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
+                continue
+            
+            # Ignore ones of this UID
+            if excludeuid:
+                # See if we have a UID match
+                if (excludeuid == uid):
+                    test_organizer = calendar.getOrganizer()
+                    test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                    test_uid = test_principal.principalUID() if test_principal else ""
+    
+                    # Check that ORGANIZER's match (security requirement)
+                    if (organizer is None) or (organizer_uid == test_uid):
+                        continue
+                    # Check for no ORGANIZER and check by same calendar user
+                    elif (test_organizer is None) and same_calendar_user:
+                        continue
+    
+            if filter.match(calendar, None):
+                # Check size of results is within limit
+                matchtotal += 1
+                if matchtotal > max_number_of_matches:
+                    raise NumberOfMatchesWithinLimits(max_number_of_matches)
+    
+                if calendar.mainType() == "VEVENT":
+                    processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
+                    
+                    # Lets also force an index rebuild for this resource so that next time we have the fbtype set
+                    calresource.index().addResource(name, calendar, reCreate=True)
+
+                elif calendar.mainType() == "VFREEBUSY":
+                    processFreeBusyFreeBusy(calendar, fbinfo, timerange)
+                elif calendar.mainType() == "VAVAILABILITY":
+                    processAvailabilityFreeBusy(calendar, fbinfo, timerange)
+                else:
+                    assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
     
     returnValue(matchtotal)
 
@@ -501,8 +558,7 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
                 # Clip period for this instance
                 clipped = clipPeriod(period, (timerange.start, timerange.end))
                 if clipped:
-                    mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
-                    fbinfo[mapper.get(fbtype, 0)].append(clipped)
+                    fbinfo[fbtype_mapper.get(fbtype, 0)].append(clipped)
 
 def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
     """
@@ -544,8 +600,7 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         if fbtype is None:
             fbtype = "BUSY-UNAVAILABLE"
 
-        mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
-        fbinfo[mapper.get(fbtype, 2)].extend(busyperiods)
+        fbinfo[fbtype_mapper.get(fbtype, 2)].extend(busyperiods)
             
 
 def processAvailablePeriods(calendar, timerange):
