@@ -345,6 +345,9 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+    <!-- Response Caching -->
+    <key>ResponseCacheTimeout</key>
+    <integer>240</integer> <!-- in minutes -->
 
 </dict>
 </plist>

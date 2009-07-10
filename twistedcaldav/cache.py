@@ -98,7 +98,7 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
-            self._newCacheToken())
+            self._newCacheToken(), expireTime=config.ResponseCacheTimeout*60)
 
 
 
@@ -304,7 +304,8 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                   responseBody)))
 
             self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
-            return self.getCachePool().set(key, cacheEntry).addCallback(
+            return self.getCachePool().set(key, cacheEntry,
+                expireTime=config.ResponseCacheTimeout*60).addCallback(
                 lambda _: response)
 
         def _cacheResponse((key, responseBody)):
