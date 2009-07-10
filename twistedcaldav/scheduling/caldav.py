@@ -164,7 +164,8 @@ class ScheduleViaCalDAV(DeliveryService):
                              destinationparent = recipient.inbox,
                              destinationcal = True,
                              calendar = self.scheduler.calendar,
-                             isiTIP = True
+                             isiTIP = True,
+                             internal_request = True,
                          ).run()
             except:
                 # FIXME: Bare except
