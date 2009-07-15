@@ -1,0 +1,55 @@
+Index: twisted/words/protocols/jabber/sasl_mechanisms.py
+===================================================================
+--- twisted/words/protocols/jabber/sasl_mechanisms.py	(revision 19773)
++++ twisted/words/protocols/jabber/sasl_mechanisms.py	(working copy)
+@@ -108,16 +108,42 @@
+         @return: challenge directives and their values.
+         @rtype: L{dict} of L{str} to L{str}.
+         """
+-        directive_list = challenge.split(',')
+-        directives = {}
+-        for directive in directive_list:
+-            name, value = directive.split('=')
+-            value = value.replace("'","")
+-            value = value.replace('"','')
+-            directives[name] = value
+-        return directives
++        s = challenge
++        paramDict = {}
++        cur = 0
++        remainingParams = True
++        while remainingParams:
++            # Parse a param. We can't just split on commas, because there can
++            # be some commas inside (quoted) param values, e.g.:
++            # qop="auth,auth-int"
+ 
++            middle = s.index("=", cur)
++            name = s[cur:middle].lstrip()
++            middle += 1
++            if s[middle] == '"':
++                middle += 1
++                end = s.index('"', middle)
++                value = s[middle:end]
++                cur = s.find(',', end) + 1
++                if cur == 0:
++                    remainingParams = False
++            else:
++                end = s.find(',', middle)
++                if end == -1:
++                    value = s[middle:].rstrip()
++                    remainingParams = False
++                else:
++                    value = s[middle:end].rstrip()
++                cur = end + 1
++            paramDict[name] = value
+ 
++        for param in ('qop', 'cipher'):
++            if param in paramDict:
++                paramDict[param] = paramDict[param].split(',')
++
++        return paramDict
++
++
+     def _unparse(self, directives):
+         """
+         Create message string from directives.
