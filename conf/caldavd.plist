@@ -308,16 +308,26 @@
 
           <!-- Jabber ID and password for the server -->
           <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
+          <string>jid@xmpp.host.name</string>
           <key>Password</key>
           <string>password_goes_here</string>
 
           <!-- PubSub service address -->
           <key>ServiceAddress</key>
           <string>pubsub.xmpp.host.name</string>
+
+          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
+          <key>KeepAliveSeconds</key>
+          <integer>120</integer>
+
+          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
+          <key>HeartbeatMinutes</key>
+          <integer>30</integer>
+
         </dict>
       </dict>
     </dict>
+
 
 
     <!--
