@@ -74,6 +74,9 @@ from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
+from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
+from twistedcaldav.notify import ClientNotifier, getNodeCacher
+
 
 log = Logger()
 
@@ -381,6 +384,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
         except:
             return fail(Failure())
 
+        if hasattr(self, 'clientNotifier'):
+            self.clientNotifier.notify(op="update")
+        else:
+            log.debug("%r does not have a clientNotifier but the CTag changed"
+                      % (self,))
+
         if hasattr(self, 'cacheNotifier'):
             return self.cacheNotifier.changed()
         else:
@@ -650,6 +659,8 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
 
     liveProperties = CalDAVFile.liveProperties + (
         (customxml.calendarserver_namespace, "xmpp-uri"),
+        (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+        (customxml.calendarserver_namespace, "xmpp-server"),
     )
 
     def __init__(self, path, parent, record):
@@ -657,6 +668,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         @param path: the path to the file which will back the resource.
         """
         self.cacheNotifier = self.cacheNotifierFactory(self)
+        self.clientNotifier = ClientNotifier(self)
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
@@ -675,6 +687,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
             child.cacheNotifier = self.cacheNotifier
+            child.clientNotifier = self.clientNotifier
             return child
 
         return self.createSimilarFile(self.fp.child(name).path)
@@ -685,6 +698,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
             similar.cacheNotifier = self.cacheNotifier
+            similar.clientNotifier = self.clientNotifier
             return similar
 
     def getChild(self, name):
@@ -701,13 +715,49 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             qname = property.qname()
 
+        def doneWaiting(result, propVal):
+            return propVal
+
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubXMPPURIProperty(
-                    getPubSubXMPPURI(self.url(), pubSubConfiguration)))
+                if getattr(self, "clientNotifier", None) is not None:
+                    url = self.url()
+                    nodeName = getPubSubPath(url, pubSubConfiguration)
+                    propVal = customxml.PubSubXMPPURIProperty(
+                        getPubSubXMPPURI(url, pubSubConfiguration))
+                    nodeCacher = getNodeCacher()
+                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    # In either case we're going to return the xmpp-uri value
+                    d.addCallback(doneWaiting, propVal)
+                    d.addErrback(doneWaiting, propVal)
+                    return d
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
+
+        elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(
+                    customxml.PubSubHeartbeatProperty(
+                        customxml.PubSubHeartbeatURIProperty(
+                            getPubSubHeartbeatURI(pubSubConfiguration)
+                        ),
+                        customxml.PubSubHeartbeatMinutesProperty(
+                            str(pubSubConfiguration['heartrate'])
+                        )
+                    )
+                )
+            else:
+                return succeed(customxml.PubSubHeartbeatURIProperty())
+
+        elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(customxml.PubSubXMPPServerProperty(
+                    pubSubConfiguration['xmpp-server']))
+            else:
+                return succeed(customxml.PubSubXMPPServerProperty())
 
         return super(CalendarHomeFile, self).readProperty(property, request)
 

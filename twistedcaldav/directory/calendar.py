@@ -274,12 +274,24 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             self.putChild(name, child)
 
     def provisionDefaultCalendars(self):
-        self.provision()
 
-        childName = "calendar"
-        childURL = joinURL(self.url(), childName)
-        child = self.provisionChild(childName)
-        assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
+        # Disable notifications during provisioning
+        if hasattr(self, "clientNotifier"):
+            self.clientNotifier.disableNotify()
+
+        try:
+            self.provision()
+
+            childName = "calendar"
+            childURL = joinURL(self.url(), childName)
+            child = self.provisionChild(childName)
+            assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
+        except:
+            # We want to make sure to re-enable notifications, so do so
+            # if there is an immediate exception above, or via errback, below
+            if hasattr(self, "clientNotifier"):
+                self.clientNotifier.enableNotify(None)
+            raise
 
         def setupChild(_):
             # Set calendar-free-busy-set on inbox
@@ -295,6 +307,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
         d = child.createCalendarCollection()
         d.addCallback(setupChild)
+        if hasattr(self, "clientNotifier"):
+            d.addCallback(self.clientNotifier.enableNotify)
+            d.addErrback(self.clientNotifier.enableNotify)
         return d
 
     def provisionChild(self, name):

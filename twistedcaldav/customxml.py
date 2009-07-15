@@ -277,6 +277,44 @@ class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-uri"
     protected = True
+    hidden = True
+
+class PubSubHeartbeatProperty (davxml.WebDAVElement):
+    """
+    A calendarhomefile property to indicate the pubsub XMPP URI to subscribe to
+    for server heartbeats.
+    """
+    namespace = calendarserver_namespace
+    name = "xmpp-heartbeat"
+    protected = True
+    hidden = True
+    allowed_children = {
+        (calendarserver_namespace, "xmpp-heartbeat-uri" )  : (1, 1),
+        (calendarserver_namespace, "xmpp-heartbeat-minutes" ) : (1, 1),
+    }
+
+class PubSubHeartbeatURIProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "xmpp-heartbeat-uri"
+    protected = True
+    hidden = True
+
+class PubSubHeartbeatMinutesProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "xmpp-heartbeat-minutes"
+    protected = True
+    hidden = True
+
+class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
+    """
+    A calendarhomefile property to indicate the pubsub XMPP hostname to
+    contact for notifications.
+    """
+    namespace = calendarserver_namespace
+    name = "xmpp-server"
+    protected = True
+    hidden = True
+
 
 
 

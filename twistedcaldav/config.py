@@ -572,19 +572,6 @@ class Config (object):
                 service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
                 service["Enabled"]
             ):
-                # Get password from keychain.  If not there, fall back to what
-                # is in the plist.
-                try:
-                    password = getPasswordFromKeychain(service["JID"])
-                    service["Password"] = password
-                    log.info("XMPP password successfully retreived from keychain")
-                except KeychainAccessError:
-                    # The system doesn't support keychain
-                    pass
-                except KeychainPasswordNotFound:
-                    # The password doesn't exist in the keychain.
-                    log.error("XMPP password not found in keychain")
-
                 # Check for empty fields
                 for key, value in service.iteritems():
                     if not value and key not in ("AllowedJIDs", "HeartbeatMinutes", "Password"):

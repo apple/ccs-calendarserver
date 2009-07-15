@@ -31,8 +31,6 @@ from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
 
-from twistedcaldav.notify import NotificationClientUserMixIn
-
 
 class DisabledCacheNotifier(object):
     def __init__(self, *args, **kwargs):
@@ -65,13 +63,7 @@ class URINotFoundException(Exception):
 
 
 
-#
-# FIXME: This should be a generic notifier class, not specific to
-# memcache, as evidenced by the addition of the sendNotification()
-# addition in changed() below.
-#
-class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
-    NotificationClientUserMixIn):
+class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
     def __init__(self, resource, cachePool=None):
         self._resource = resource
@@ -90,10 +82,6 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn,
         """
 
         url = self._resource.url()
-
-        if config.Notifications["Enabled"]:
-            self.log_debug("Notifications are enabled: %s" % (url,))
-            self.sendNotification(url)
 
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
