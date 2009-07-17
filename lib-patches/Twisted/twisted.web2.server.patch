@@ -2,6 +2,15 @@ Index: twisted/web2/server.py
 ===================================================================
 --- twisted/web2/server.py	(revision 26969)
 +++ twisted/web2/server.py	(working copy)
+@@ -26,7 +26,7 @@
+ from twisted.web2 import error
+ from twisted.web2.dav.util import joinURL
+ 
+-from twisted.web2 import version as web2_version
++from twisted.web2 import __version__ as web2_version
+ from twisted import __version__ as twisted_version
+ 
+ VERSION = "Twisted/%s TwistedWeb/%s" % (twisted_version, web2_version)
 @@ -332,6 +332,16 @@
              response = http.Response(responsecode.OK)
              response.headers.setHeader('allow', ('GET', 'HEAD', 'OPTIONS', 'TRACE'))
