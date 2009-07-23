@@ -24,7 +24,6 @@ __all__ = [
 ]
 
 import sys
-import time
 from uuid import UUID
 
 from twext.python.plistlib import readPlistFromString
@@ -38,7 +37,6 @@ import dsquery
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
-from twistedcaldav.config import config
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
@@ -60,11 +58,6 @@ class OpenDirectoryService(CachingDirectoryService):
         """
         @param params: a dictionary containing the following keys:
             node: an OpenDirectory node name to bind to.
-            restrictEnabledRecords: C{True} if a group in the
-              directory is to be used to determine which calendar
-              users are enabled.
-            restrictToGroup: C{str} guid or name of group used to
-              restrict enabled users.
             cacheTimeout: C{int} number of minutes before cache is invalidated.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
@@ -73,8 +66,6 @@ class OpenDirectoryService(CachingDirectoryService):
 
         defaults = {
             'node' : '/Search',
-            'restrictEnabledRecords' : False,
-            'restrictToGroup' : '',
             'cacheTimeout' : 30,
         }
         ignored = ('requireComputerRecord',)
@@ -91,16 +82,6 @@ class OpenDirectoryService(CachingDirectoryService):
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']
-        self.restrictEnabledRecords = params['restrictEnabledRecords']
-        self.restrictToGroup = params['restrictToGroup']
-        try:
-            UUID(self.restrictToGroup)
-        except:
-            self.restrictToGUID = False
-        else:
-            self.restrictToGUID = True
-        self.restrictedGUIDs = None
-        self.restrictedTimestamp = 0
         self._records = {}
         self._delayedCalls = set()
 
@@ -586,46 +567,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordType == self.recordType_groups:
                 enabledForCalendaring = False
             else:
-                if (
-                    self.restrictEnabledRecords and
-                    config.Scheduling.iMIP.Username != recordShortName
-                ):
-                    if time.time() - self.restrictedTimestamp > self.cacheTimeout:
-                        attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
-                        valueToMatch = self.restrictToGroup
-                        self.log_debug("Doing restricted group membership check")
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                            self.directory,
-                            attributeToMatch,
-                            valueToMatch,
-                            dsattributes.eDSExact,
-                            False,
-                            dsattributes.kDSStdRecordTypeGroups,
-                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-                        ))
-                        results = lookupMethod(
-                            self.directory,
-                            attributeToMatch,
-                            valueToMatch,
-                            dsattributes.eDSExact,
-                            False,
-                            dsattributes.kDSStdRecordTypeGroups,
-                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-                        )
-
-                        if len(results) == 1:
-                            members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
-                            nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
-                        else:
-                            members = []
-                            nestedGroups = []
-                        self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-                        self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
-                        self.restrictedTimestamp = time.time()
-
-                    enabledForCalendaring = recordGUID in self.restrictedGUIDs
-                else:
-                    enabledForCalendaring = True
+                enabledForCalendaring = True
 
             if enabledForCalendaring:
                 calendarUserAddresses = self._calendarUserAddresses(recordType, value)

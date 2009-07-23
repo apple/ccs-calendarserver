@@ -158,22 +158,15 @@ class ConfigTests(TestCase):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
         self.assertNotIn("xmlFile", config.DirectoryService.params)
         self.assertEquals(config.DirectoryService.params.node, "/Search")
-        self.assertEquals(config.DirectoryService.params.restrictEnabledRecords, False)
 
     def testDirectoryService_newParam(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
         self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
 
         config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
-        config.update({"DirectoryService": {"params": {
-            "restrictEnabledRecords": True,
-            "restrictToGroup": "12345",
-        }}})
 
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
         self.assertEquals(config.DirectoryService.params.node, "/Search")
-        self.assertEquals(config.DirectoryService.params.restrictEnabledRecords, True)
-        self.assertEquals(config.DirectoryService.params.restrictToGroup, "12345")
 
     def testDirectoryService_unknownType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")

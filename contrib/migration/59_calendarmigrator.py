@@ -187,7 +187,7 @@ def mergePlist(oldPlist, newPlist):
         newPlist["DirectoryService"] = oldPlist["DirectoryService"]
         for key in newPlist["DirectoryService"]["params"].keys():
             if key not in (
-                "node", "restrictEnabledRecords", "restrictToGroup",
+                "node",
                 "cacheTimeout", "xmlFile"
             ):
                 del newPlist["DirectoryService"]["params"][key]
