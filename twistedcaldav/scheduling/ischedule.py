@@ -166,7 +166,21 @@ class IScheduleRequest(object):
             )
 
     def _prepareData(self):
-        self.data = str(self.scheduler.calendar)
+        if self.scheduler.method == "PUT": 
+            def lookupFunction(cuaddr):
+                principal = self.scheduler.resource.principalForCalendarUserAddress(cuaddr)
+                if principal is None:
+                    return (None, None, None)
+                else:
+                    return (principal.record.fullName.decode("utf-8"),
+                        principal.record.guid,
+                        principal.record.calendarUserAddresses)
+
+            normalizedCalendar = self.scheduler.calendar.duplicate()
+            normalizedCalendar.normalizeCalendarUserAddresses(lookupFunction, toUUID=False)
+        else:
+            normalizedCalendar = self.scheduler.calendar
+        self.data = str(normalizedCalendar)
 
     def _parseResponse(self, xml):
 
