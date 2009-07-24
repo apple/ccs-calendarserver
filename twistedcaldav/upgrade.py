@@ -486,8 +486,9 @@ def updateFreeBusyHref(href, directory):
     shortName = pieces[3]
     record = directory.recordWithShortName(recordType, shortName)
     if record is None:
-        msg = "Can't update free-busy href; %s is not in the directory" % shortName
-        raise UpgradeError(msg)
+        # We will simply ignore this and not write out an fb-set entry
+        log.error("Can't update free-busy href; %s is not in the directory" % shortName)
+        return ""
 
     uid = record.uid
     newHref = "/calendars/__uids__/%s/%s/" % (uid, pieces[4])
@@ -522,7 +523,8 @@ def updateFreeBusySet(value, directory):
             fbset.add(href)
         else:
             didUpdate = True
-            fbset.add(newHref)
+            if newHref != "":
+                fbset.add(newHref)
 
     if didUpdate:
         property = caldavxml.CalendarFreeBusySet(*[davxml.HRef(href)

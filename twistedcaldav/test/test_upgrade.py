@@ -214,11 +214,14 @@ class ProxyDBUpgradeTests(TestCase):
 
 
         #
-        # Shortname not in directory, raise an UpgradeError
+        # Shortname not in directory, return empty string
         #
 
+        expected = "<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/nonexistent/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        self.assertRaises(UpgradeError, updateFreeBusySet, value, directory)
+        newValue = updateFreeBusySet(value, directory)
+        newValue = zlib.decompress(newValue)
+        self.assertEquals(newValue, expected)
 
 
     def test_calendarsUpgradeWithTypes(self):
