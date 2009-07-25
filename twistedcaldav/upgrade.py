@@ -343,6 +343,10 @@ def upgrade_to_1(config):
                         continue
 
                     oldHome = os.path.join(uidHomes, home)
+                    if not os.path.isdir(oldHome):
+                        # Skip non-directories
+                        continue
+
                     newHome = os.path.join(uidHomes, home[0:2], home[2:4], home)
                     moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
 
@@ -361,11 +365,16 @@ def upgrade_to_1(config):
                     for shortName in os.listdir(dirPath):
                         record = directory.recordWithShortName(recordType,
                             shortName)
+                        oldHome = os.path.join(dirPath, shortName)
                         if record is not None:
-                            oldHome = os.path.join(dirPath, shortName)
                             newHome = os.path.join(uidHomes, record.uid[0:2],
                                 record.uid[2:4], record.uid)
                             moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
+                        else:
+                            # an orphaned calendar home (principal no longer
+                            # exists in the directory)
+                            archive(config, oldHome, uid, gid)
+
                     os.rmdir(dirPath)
 
 
@@ -549,3 +558,31 @@ def makeDirsUserGroup(path, uid=-1, gid=-1):
             os.mkdir(path)
             os.chown(path, uid, gid)
 
+
+def archive(config, srcPath, uid, gid):
+    """
+    Move srcPath into dataroot/archived, giving the destination a unique
+    (sequentially numbered) name in the case of duplicates.
+    """
+
+    archiveDir = os.path.join(config.DataRoot, "archived")
+
+    if not os.path.exists(archiveDir):
+        os.mkdir(archiveDir)
+    os.chown(archiveDir, uid, gid)
+
+    baseName = os.path.basename(srcPath)
+    newName = baseName
+    count = 0
+    destPath = os.path.join(archiveDir, newName)
+    while os.path.exists(destPath):
+        count += 1
+        newName = "%s.%d" % (baseName, count)
+        destPath = os.path.join(archiveDir, newName)
+
+    try:
+        os.rename(srcPath, destPath)
+    except OSError:
+        # Can't rename, must copy/delete
+        shutil.copy2(srcPath, destPath)
+        os.remove(srcPath)

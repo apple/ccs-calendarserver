@@ -370,6 +370,294 @@ class ProxyDBUpgradeTests(TestCase):
         upgradeData(config)
         self.assertTrue(self.verifyHierarchy(root, after))
 
+
+
+    def test_calendarsUpgradeWithOrphans(self):
+        """
+        Verify that calendar homes in the /calendars/<type>/<shortname>/ form
+        whose records don't exist are moved into dataroot/archived/
+        """
+
+        self.setUpXMLDirectory()
+        directory = getDirectory()
+
+        before = {
+            "calendars" :
+            {
+                "users" :
+                {
+                    "unknownuser" :
+                    {
+                    },
+                },
+                "groups" :
+                {
+                    "unknowngroup" :
+                    {
+                    },
+                },
+            },
+            "principals" :
+            {
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                },
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        root = self.createHierarchy(before)
+
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        # Ensure that repeating the process doesn't change anything
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+
+    def test_calendarsUpgradeWithDuplicateOrphans(self):
+        """
+        Verify that calendar homes in the /calendars/<type>/<shortname>/ form
+        whose records don't exist are moved into dataroot/archived/
+        """
+
+        self.setUpXMLDirectory()
+        directory = getDirectory()
+
+        before = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+            },
+            "calendars" :
+            {
+                "users" :
+                {
+                    "unknownuser" :
+                    {
+                    },
+                },
+                "groups" :
+                {
+                    "unknowngroup" :
+                    {
+                    },
+                },
+            },
+            "principals" :
+            {
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+                "unknownuser.1" :
+                {
+                },
+                "unknowngroup.1" :
+                {
+                },
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                },
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        root = self.createHierarchy(before)
+
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        # Ensure that repeating the process doesn't change anything
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+
+
+    def test_calendarsUpgradeWithDSStore(self):
+        """
+        Verify that .DS_Store files don't hinder an upgrade
+        """
+
+        self.setUpXMLDirectory()
+        directory = getDirectory()
+
+        before = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" :
+                {
+                    ".DS_Store" :
+                    {
+                        "@contents" : "",
+                    },
+                },
+            },
+            "principals" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" :
+                {
+                    ".DS_Store" :
+                    {
+                        "@contents" : "",
+                    },
+                },
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        root = self.createHierarchy(before)
+
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        # Ensure that repeating the process doesn't change anything
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+
     def test_calendarsUpgradeWithUIDs(self):
         """
         Verify that calendar homes in the /calendars/__uids__/<guid>/ form
