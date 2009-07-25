@@ -309,6 +309,9 @@ class DirectoryRecord(LoggingMixIn):
         if uid is None:
             uid = guid
 
+        if fullName is None:
+            fullName = ""
+
         if enabledForCalendaring is None:
             if recordType == service.recordType_groups:
                 enabledForCalendaring = False

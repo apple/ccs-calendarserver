@@ -60,6 +60,24 @@ else:
         def service(self):
             return self._service
 
+        def test_fullNameNone(self):
+            record = OpenDirectoryRecord(
+                service               = self.service(),
+                recordType            = DirectoryService.recordType_users,
+                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA36C2",
+                nodeName              = "/LDAPv2/127.0.0.1",
+                shortNames            = ("user",),
+                authIDs               = set(),
+                fullName              = None,
+                firstName             = "Some",
+                lastName              = "User",
+                emailAddresses        = set(("someuser@example.com",)),
+                calendarUserAddresses = set(("mailtoguid@example.com",)),
+                enabledForCalendaring = True,
+                memberGUIDs           = [],
+            )
+            self.assertEquals(record.fullName, "")
+
         def test_invalidODDigest(self):
             record = OpenDirectoryRecord(
                 service               = self.service(),
