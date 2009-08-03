@@ -228,6 +228,9 @@ class ConfigTests(TestCase):
         """
         Logging module configures properly.
         """
+        config.setDefaults(DEFAULT_CONFIG)
+        config.reload()
+
         self.assertEquals(logLevelForNamespace(None), "warn")
         self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
 

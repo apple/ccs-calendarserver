@@ -43,6 +43,15 @@ class LocalCalendarUser(CalendarUser):
     def __str__(self):
         return "Local calendar user: %s" % (self.cuaddr,)
 
+class PartitionedCalendarUser(CalendarUser):
+    def __init__(self, cuaddr, principal):
+        self.cuaddr = cuaddr
+        self.principal = principal
+        self.serviceType = DeliveryService.serviceType_ischedule
+
+    def __str__(self):
+        return "Partitioned calendar user: %s" % (self.cuaddr,)
+
 class RemoteCalendarUser(CalendarUser):
     def __init__(self, cuaddr):
         self.cuaddr = cuaddr

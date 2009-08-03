@@ -61,6 +61,7 @@ from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import getWikiACL
+from twistedcaldav.partitions import partitions
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
@@ -184,7 +185,7 @@ class DirectoryProvisioningResource (
         raise NotImplementedError("Subclass must implement principalForUID()")
 
     def principalForRecord(self, record):
-        if record is None:
+        if record is None or not record.enabled:
             return None
         return self.principalForUID(record.uid)
 
@@ -326,7 +327,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         else:
             # Next try looking it up in the directory
             record = self.directory.recordWithCalendarUserAddress(address)
-            if record is not None:
+            if record is not None and record.enabled:
                 return self.principalForRecord(record)
 
         log.debug("No principal for calendar user address: %r" % (address,))
@@ -402,8 +403,9 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
             def _recordShortnameExpand():
                 for record in self.directory.listRecords(self.recordType):
-                    for shortName in record.shortNames:
-                        yield shortName
+                    if record.enabled:
+                        for shortName in record.shortNames:
+                            yield shortName
 
             return _recordShortnameExpand()
         else:
@@ -463,7 +465,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         record = self.directory.recordWithUID(primaryUID)
 
-        if record is None:
+        if record is None or not record.enabled:
             log.err("No principal found for UID: %s" % (name,))
             return None
 
@@ -751,6 +753,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def principalUID(self):
         return self.record.uid
 
+    def locallyHosted(self):
+        return self.record.locallyHosted()
+    
+    def hostedURL(self):
+        return self.record.hostedURL()
 
     ##
     # Extra resource info
@@ -888,11 +895,8 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return succeed(inbox)
 
     def calendarHomeURLs(self):
-        home = self.calendarHome()
-        if home is None:
-            return ()
-        else:
-            return (home.url(),)
+        homeURL = self._homeChildURL(None)
+        return (homeURL,) if homeURL else ()
 
     def scheduleInboxURL(self):
         return self._homeChildURL("inbox/")
@@ -911,7 +915,13 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         if home is None:
             return None
         else:
-            return joinURL(home.url(), name)
+            url = home.url()
+            if name:
+                url = joinURL(url, name)
+            if not self.locallyHosted():
+                url = joinURL(self.hostedURL(), url)
+                
+            return url
 
     def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack

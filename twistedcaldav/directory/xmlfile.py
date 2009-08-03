@@ -186,13 +186,15 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             service               = service,
             recordType            = recordType,
             guid                  = xmlPrincipal.guid,
+            enabled               = xmlPrincipal.enabled,
+            hostedAt              = xmlPrincipal.hostedAt,
             shortNames            = shortNames,
             fullName              = xmlPrincipal.fullName,
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,
             emailAddresses        = xmlPrincipal.emailAddresses,
-            calendarUserAddresses = xmlPrincipal.calendarUserAddresses,
             enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
+            calendarUserAddresses = xmlPrincipal.calendarUserAddresses,
         )
 
         self.password          = xmlPrincipal.password
@@ -208,9 +210,10 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
 
     def verifyCredentials(self, credentials):
-        if isinstance(credentials, UsernamePassword):
-            return credentials.password == self.password
-        if isinstance(credentials, DigestedCredentials):
-            return credentials.checkPassword(self.password)
+        if self.enabled:
+            if isinstance(credentials, UsernamePassword):
+                return credentials.password == self.password
+            if isinstance(credentials, DigestedCredentials):
+                return credentials.checkPassword(self.password)
 
         return super(XMLDirectoryRecord, self).verifyCredentials(credentials)

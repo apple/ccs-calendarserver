@@ -44,6 +44,7 @@ limitations under the License.
     <first-name>User</first-name>
     <last-name>%02d</last-name>
     <email-address>user%02d@example.com</email-address>
+    <enable-calendar>true</enable-calendar>
     <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">
@@ -53,6 +54,7 @@ limitations under the License.
     <name>Public %02d</name>
     <first-name>Public</first-name>
     <last-name>%02d</last-name>
+    <enable-calendar>true</enable-calendar>
     <cuaddr>mailto:public%02d@example.com</cuaddr>
   </user>
   <location repeat="10">
@@ -60,6 +62,7 @@ limitations under the License.
     <guid>location%02d</guid>
     <password>location%02d</password>
     <name>Room %02d</name>
+    <enable-calendar>true</enable-calendar>
     <auto-schedule/>
   </location>
   <resource repeat="10">
@@ -67,6 +70,7 @@ limitations under the License.
     <guid>resource%02d</guid>
     <password>resource%02d</password>
     <name>Resource %02d</name>
+    <enable-calendar>true</enable-calendar>
     <auto-schedule/>
     <proxies>
       <member type="users">user01</member>
@@ -119,10 +123,10 @@ limitations under the License.
     <uid>disabledgroup</uid>
     <guid>disabledgroup</guid>
     <password>disabledgroup</password>
+    <enable>false</enable>
     <name>Disabled Group</name>
     <members>
       <member type="users">user01</member>
     </members>
-    <disable-calendar/>
   </group>
 </accounts>

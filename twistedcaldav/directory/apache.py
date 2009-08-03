@@ -153,6 +153,7 @@ class AbstractDirectoryRecord(DirectoryRecord):
             service               = service,
             recordType            = recordType,
             guid                  = None,
+            enabled               = True,
             shortNames            = (shortName,),
         )
 

@@ -24,7 +24,7 @@ from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.client.http import HTTPClientProtocol
-from twisted.web2.dav.util import davXMLFromStream
+from twisted.web2.dav.util import davXMLFromStream, joinURL
 from twisted.web2.http import HTTPError
 from twisted.web2.http_headers import Headers
 from twisted.web2.http_headers import MimeType
@@ -36,9 +36,12 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.scheduling.ischeduleservers import IScheduleServers,\
+    IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String
+from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser,\
+    PartitionedCalendarUser
 
 import OpenSSL
 
@@ -76,8 +79,13 @@ class ScheduleViaISchedule(DeliveryService):
         groups = {}
         servermgr = IScheduleServers()
         for recipient in self.recipients:
-            # Map the recipient's domain to a server
-            server = servermgr.mapDomain(recipient.domain)
+            if isinstance(recipient, RemoteCalendarUser):
+                # Map the recipient's domain to a server
+                server = servermgr.mapDomain(recipient.domain)
+            elif isinstance(recipient, PartitionedCalendarUser):
+                server = self._getServerForPartitionedUser(recipient)
+            else:
+                assert False, "Incorrect calendar user address class"
             if not server:
                 # Cannot do server-to-server for this recipient.
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
@@ -108,6 +116,18 @@ class ScheduleViaISchedule(DeliveryService):
             deferreds.append(requestor.doRequest())
 
         return DeferredList(deferreds)
+
+    def _getServerForPartitionedUser(self, recipient):
+        
+        if not hasattr(self, "partitionedServers"):
+            self.partitionedServers = {}
+            
+        partition = recipient.principal.hostedURL()
+        if partition not in self.partitionedServers:
+            self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
+            self.partitionedServers[partition].unNormalizeAddresses = False
+        
+        return self.partitionedServers[partition]
 
 class IScheduleRequest(object):
     
@@ -166,7 +186,7 @@ class IScheduleRequest(object):
             )
 
     def _prepareData(self):
-        if self.scheduler.method == "PUT": 
+        if self.server.unNormalizeAddresses and self.scheduler.method == "PUT": 
             def lookupFunction(cuaddr):
                 principal = self.scheduler.resource.principalForCalendarUserAddress(cuaddr)
                 if principal is None:

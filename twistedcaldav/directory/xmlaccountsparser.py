@@ -44,21 +44,26 @@ ELEMENT_RESOURCE          = "resource"
 ELEMENT_SHORTNAME         = "uid"
 ELEMENT_GUID              = "guid"
 ELEMENT_PASSWORD          = "password"
+ELEMENT_ENABLE            = "enable"
+ELEMENT_HOSTEDAT          = "hosted-at"
 ELEMENT_NAME              = "name"
 ELEMENT_FIRST_NAME        = "first-name"
 ELEMENT_LAST_NAME         = "last-name"
 ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
+ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_CUADDR            = "cuaddr"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
-ELEMENT_DISABLECALENDAR   = "disable-calendar"
 ELEMENT_PROXIES           = "proxies"
 ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
 
 ATTRIBUTE_REALM           = "realm"
 ATTRIBUTE_REPEAT          = "repeat"
 ATTRIBUTE_RECORDTYPE      = "type"
+
+VALUE_TRUE                = "true"
+VALUE_FALSE               = "false"
 
 RECORD_TYPES = {
     ELEMENT_USER     : DirectoryService.recordType_users,
@@ -204,6 +209,8 @@ class XMLAccountRecord (object):
         self.shortNames = []
         self.guid = None
         self.password = None
+        self.enabled = True
+        self.hostedAt = ""
         self.fullName = None
         self.firstName = None
         self.lastName = None
@@ -212,10 +219,7 @@ class XMLAccountRecord (object):
         self.groups = set()
         self.calendarUserAddresses = set()
         self.autoSchedule = False
-        if recordType == DirectoryService.recordType_groups:
-            self.enabledForCalendaring = False
-        else:
-            self.enabledForCalendaring = True
+        self.enabledForCalendaring = False
         self.proxies = set()
         self.proxyFor = set()
         self.readOnlyProxies = set()
@@ -270,6 +274,8 @@ class XMLAccountRecord (object):
         result.shortNames = shortNames
         result.guid = guid
         result.password = password
+        result.enabled = self.enabled
+        result.hostedAt = self.hostedAt
         result.fullName = fullName
         result.firstName = firstName
         result.lastName = lastName
@@ -295,6 +301,12 @@ class XMLAccountRecord (object):
                     self.guid = child.firstChild.data.encode("utf-8")
                     if len(self.guid) < 4:
                         self.guid += "?" * (4 - len(self.guid))
+            elif child_name == ELEMENT_ENABLE:
+                if child.firstChild is not None:
+                    self.enabled = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
+            elif child_name == ELEMENT_HOSTEDAT:
+                if child.firstChild is not None:
+                    self.hostedAt = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
@@ -312,17 +324,15 @@ class XMLAccountRecord (object):
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
+            elif child_name == ELEMENT_ENABLECALENDAR:
+                if child.firstChild is not None:
+                    self.enabledForCalendaring = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
             elif child_name == ELEMENT_CUADDR:
                 if child.firstChild is not None:
                     self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_AUTOSCHEDULE:
-                self.autoSchedule = True
-            elif child_name == ELEMENT_DISABLECALENDAR:
-                # FIXME: Not sure I see why this restriction is needed. --wsanchez
-                ## Only Users or Groups
-                #if self.recordType != DirectoryService.recordType_users:
-                #    raise ValueError("<disable-calendar> element only allowed for Users: %s" % (child_name,))
-                self.enabledForCalendaring = False
+                if child.firstChild is not None:
+                    self.autoSchedule = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
             elif child_name == ELEMENT_PROXIES:
                 self._parseMembers(child, self.proxies)
             elif child_name == ELEMENT_READ_ONLY_PROXIES:

@@ -28,6 +28,7 @@ limitations under the License.
     <uid>test</uid>
     <password>test</password>
     <name>Test User</name>
+    <enable-calendar>true</enable-calendar>
     <cuaddr>mailto:testuser@example.com</cuaddr>
   </user>
   <group>
@@ -42,7 +43,8 @@ limitations under the License.
     <uid>mercury</uid>
     <password>mercury</password>
     <name>Mecury Conference Room, Building 1, 2nd Floor</name>
-    <auto-schedule/>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule>true</auto-schedule>
     <proxies>
       <member type="users">test</member>
     </proxies>

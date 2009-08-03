@@ -23,12 +23,14 @@ def getCalendarObjectForPrincipals(request, principal, uid):
     Get a copy of the event for a principal.
     """
     
-    result = {}
-    result["resource"] = None
-    result["resource_name"] = None
-    result["calendar_collection"] = None
-    result["calendar_collection_uri"] = None
-    if principal:
+    result = {
+        "resource": None,
+        "resource_name": None,
+        "calendar_collection": None,
+        "calendar_collection_uri": None,
+    }
+
+    if principal and principal.locallyHosted():
         # Get principal's calendar-home
         calendar_home = principal.calendarHome()
         

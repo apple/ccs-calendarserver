@@ -27,6 +27,7 @@ from twistedcaldav.config import (
     ConfigProvider, ConfigurationError, config, _mergeData, )
 from twistedcaldav.log import (
     Logger, clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError, )
+from twistedcaldav.partitions import partitions
 from twistedcaldav.util import (
     KeychainAccessError, KeychainPasswordNotFound, getPasswordFromKeychain, )
 
@@ -309,6 +310,13 @@ DEFAULT_CONFIG = {
     },
 
     #
+    # Partitioning
+    #
+    "EnablePartitions":    False,   # Partitioning enabled or not
+    "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
+    "PartitionConfigFile": "/etc/caldavd/partitions.plist", # File path for partition information
+
+    #
     # Performance tuning
     #
 
@@ -533,9 +541,8 @@ def _updateLogLevels(configDict):
     try:
         if "DefaultLogLevel" in configDict:
             level = configDict["DefaultLogLevel"]
-            if not level:
-                level = "warn"
-            setLogLevelForNamespace(None, level)
+            if level:
+                setLogLevelForNamespace(None, level)
 
         if "LogLevels" in configDict:
             for namespace in configDict["LogLevels"]:
@@ -628,7 +635,18 @@ def _updateScheduling(configDict):
                     # The password doesn't exist in the keychain.
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
-    
+
+def _updatePartitions(configDict):
+    #
+    # Partitions
+    #
+
+    if configDict.EnablePartitions:
+        partitions.setSelfPartition(configDict.ServerPartitionID)
+        partitions.readConfig(configDict.PartitionConfigFile)
+    else:
+        partitions.clear()
+
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
     )
@@ -641,6 +659,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
+    _updatePartitions,
     )
     
 def _cleanup(configDict, defaultDict):

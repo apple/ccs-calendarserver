@@ -193,7 +193,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
-            self.failIf(principal is None)
+            self.failIf(principal is None, msg=str(record))
             self.assertEquals(record, principal.record)
 
     def test_principalForCalendarUserAddress(self):

@@ -423,7 +423,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 delRec = self.directoryService.recordWithShortName(
                     DirectoryService.recordType_users, "dreid")
                 for cache in self.directoryService._recordCaches.itervalues():
-                   cache.removeRecord(delRec)
+                    cache.removeRecord(delRec)
                 del self.directoryService._accounts()[
                     DirectoryService.recordType_users]["dreid"]
 
@@ -479,7 +479,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     delRec = self.directoryService.recordWithShortName(
                         DirectoryService.recordType_users, "dreid")
                     for cache in self.directoryService._recordCaches.itervalues():
-                       cache.removeRecord(delRec)
+                        cache.removeRecord(delRec)
                     del self.directoryService._accounts()[
                         DirectoryService.recordType_users]["dreid"]
 

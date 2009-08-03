@@ -110,6 +110,7 @@ class XMLFile (
     <uid>admin</uid>
     <guid>admin</guid>
     <password>nimda</password>
+    <enable>true</enable>
     <name>Super User</name>
   </user>
 </accounts>
@@ -142,8 +143,10 @@ class XMLFile (
     <uid>my office</uid>
     <guid>myoffice</guid>
     <password>nimda</password>
+    <enable>true</enable>
     <name>Super User</name>
-    <auto-schedule/>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule>true</auto-schedule>
   </location>
 </accounts>
 """
@@ -176,13 +179,14 @@ class XMLFile (
   <group>
     <uid>enabled</uid>
     <password>enabled</password>
+    <enable>true</enable>
     <name>Enabled</name>
   </group>
   <group>
     <uid>disabled</uid>
     <password>disabled</password>
+    <enable>true</enable>
     <name>Disabled</name>
-    <disable-calendar/>
   </group>
 </accounts>
 """
@@ -218,14 +222,18 @@ class XMLFile (
     <uid>test</uid>
     <guid>test</guid>
     <password>nimda</password>
+    <enable>true</enable>
     <name>Test</name>
+    <enable-calendar>true</enable-calendar>
   </user>
   <location>
     <uid>my office</uid>
     <guid>myoffice</guid>
     <password>nimda</password>
+    <enable>true</enable>
     <name>Super User</name>
-    <auto-schedule/>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule>true</auto-schedule>
     <proxies>
         <member>test</member>
     </proxies>

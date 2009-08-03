@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+
 """
 Generic directory service classes.
 """
@@ -37,9 +38,11 @@ from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.internet.defer import succeed
 
+from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
+from twistedcaldav.partitions import partitions
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 class DirectoryService(LoggingMixIn):
@@ -282,21 +285,24 @@ class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s(%s)] %s(%s) %r>" % (
+        return "<%s[%s@%s(%s)] %s(%s) %r @ %s>" % (
             self.__class__.__name__,
             self.recordType,
             self.service.guid,
             self.service.realmName,
             self.guid,
             ",".join(self.shortNames),
-            self.fullName
+            self.fullName,
+            self.hostedAt,
         )
 
     def __init__(
-        self, service, recordType, guid, shortNames=(), authIDs=set(), fullName=None,
+        self, service, recordType, guid,
+        enabled=False, hostedAt="",
+        shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
+        enabledForCalendaring=False,
         calendarUserAddresses=set(),
-        enabledForCalendaring=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -308,12 +314,6 @@ class DirectoryRecord(LoggingMixIn):
 
         if uid is None:
             uid = guid
-
-        if enabledForCalendaring is None:
-            if recordType == service.recordType_groups:
-                enabledForCalendaring = False
-            else:
-                enabledForCalendaring = True
 
         if enabledForCalendaring and recordType == service.recordType_groups:
             raise AssertionError("Groups may not be enabled for calendaring")
@@ -328,6 +328,8 @@ class DirectoryRecord(LoggingMixIn):
         self.recordType            = recordType
         self.guid                  = guid
         self.uid                   = uid
+        self.enabled               = enabled
+        self.hostedAt              = hostedAt
         self.shortNames            = shortNames
         self.authIDs               = authIDs
         self.fullName              = fullName
@@ -350,7 +352,7 @@ class DirectoryRecord(LoggingMixIn):
     def __hash__(self):
         h = hash(self.__class__)
         for attr in ("service", "recordType", "shortNames", "guid",
-                     "enabledForCalendaring"):
+                     "enabled", "enabledForCalendaring"):
             h = (h + hash(getattr(self, attr))) & sys.maxint
 
         return h
@@ -381,6 +383,12 @@ class DirectoryRecord(LoggingMixIn):
             if val == cuType:
                 return key
         return None
+
+    def locallyHosted(self):
+        return not self.hostedAt or not config.EnablePartitions or self.hostedAt == config.ServerPartitionID
+    
+    def hostedURL(self):
+        return partitions.getPartitionURL(self.hostedAt)
 
 class DirectoryError(RuntimeError):
     """
