@@ -1,0 +1,13 @@
+=== modified file 'twisted/web2/dav/test/test_resource.py'
+--- twisted/web2/dav/test/test_resource.py	2009-05-07 20:35:07 +0000
++++ twisted/web2/dav/test/test_resource.py	2009-07-15 23:30:18 +0000
+@@ -376,7 +376,7 @@
+         return self.children is not None
+ 
+     def listChildren(self):
+-        return self.children.keys()
++        return succeed(self.children.keys())
+ 
+     def supportedPrivileges(self, request):
+         return succeed(davPrivilegeSet)
+

@@ -37,6 +37,8 @@ from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
 from twistedcaldav.config import ConfigurationError
+from twisted.internet.defer import gatherResults
+
 from twistedcaldav.ical import Component as iComponent, Property as iProperty
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource
@@ -153,6 +155,12 @@ def main():
             sys.stdout.write("%s\n" % (e,))
             sys.exit(1)
 
+    def _gotChildren(children):
+                for childName in children:
+                    child = calendarHome.getChild(childName)
+                    if isCalendarCollectionResource(child):
+                        collections.add(child)
+
     for record in records:
         recordType, shortName = record
         calendarHome = config.directory.calendarHomeForShortName(recordType, shortName)
@@ -161,63 +169,60 @@ def main():
             sys.exit(1)
         calendarHomes.add(calendarHome)
 
-    for calendarHome in calendarHomes:
-        for childName in calendarHome.listChildren():
-            child = calendarHome.getChild(childName)
-            if isCalendarCollectionResource(child):
-                collections.add(child)
+        d = gatherResults([calendarHome.listChildren().addCallback(_gotChildren) for calendarHome in calendarHomes])
+    def _finish(_):
+        try:
+            calendar = iComponent("VCALENDAR")
+            calendar.addProperty(iProperty("VERSION", "2.0"))
+            calendar.addProperty(iProperty("PRODID", iCalendarProductID))
 
-    try:
-        calendar = iComponent("VCALENDAR")
-        calendar.addProperty(iProperty("VERSION", "2.0"))
-        calendar.addProperty(iProperty("PRODID", iCalendarProductID))
+            uids  = set()
+            tzids = set()
 
-        uids  = set()
-        tzids = set()
+            for collection in collections:
+                for name, uid, type in collection.index().indexedSearch(None):
+                    child = collection.getChild(name)
+                    childData = child.iCalendarText()
 
-        for collection in collections:
-            for name, uid, type in collection.index().indexedSearch(None):
-                child = collection.getChild(name)
-                childData = child.iCalendarText()
+                    try:
+                        childCalendar = iComponent.fromString(childData)
+                    except ValueError:
+                        continue
+                    assert childCalendar.name() == "VCALENDAR"
 
+                    if uid in uids:
+                        sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
+                        continue
+                    else:
+                        uids.add(uid)
+
+                    for component in childCalendar.subcomponents():
+                        # Only insert VTIMEZONEs once
+                        if component.name() == "VTIMEZONE":
+                            tzid = component.propertyValue("TZID")
+                            if tzid in tzids:
+                                continue
+                            else:
+                                tzids.add(tzid)
+
+                        calendar.addComponent(component)
+
+            calendarData = str(calendar)
+
+            if outputFileName:
                 try:
-                    childCalendar = iComponent.fromString(childData)
-                except ValueError:
-                    continue
-                assert childCalendar.name() == "VCALENDAR"
+                    output = open(outputFileName, "w")
+                except IOError, e:
+                    sys.stderr.write("Unable to open output file for writing %s: %s\n" % (outputFileName, e))
+                    sys.exit(1)
+            else:
+                output = sys.stdout
 
-                if uid in uids:
-                    sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
-                    continue
-                else:
-                    uids.add(uid)
+            output.write(calendarData)
 
-                for component in childCalendar.subcomponents():
-                    # Only insert VTIMEZONEs once
-                    if component.name() == "VTIMEZONE":
-                        tzid = component.propertyValue("TZID")
-                        if tzid in tzids:
-                            continue
-                        else:
-                            tzids.add(tzid)
-
-                    calendar.addComponent(component)
-
-        calendarData = str(calendar)
-
-        if outputFileName:
-            try:
-                output = open(outputFileName, "w")
-            except IOError, e:
-                sys.stderr.write("Unable to open output file for writing %s: %s\n" % (outputFileName, e))
-                sys.exit(1)
-        else:
-            output = sys.stdout
-
-        output.write(calendarData)
-
-    except UsageError, e:
-        usage(e)
+        except UsageError, e:
+            usage(e)
+    return d.addCallback(_finish)
 
 if __name__ == "__main__":
     main()

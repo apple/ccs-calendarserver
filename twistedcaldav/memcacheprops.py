@@ -182,22 +182,24 @@ class MemcachePropertyCollection (LoggingMixIn):
         self.log_debug("Building cache for %s" % (self.collection,))
 
         cache = {}
-
+        ds = []
         for childName in childNames:
-            child = self.collection.getChild(childName)
-            if child is None:
-                continue
+            d = self.collection.getChild(childName)
+            def _gotChild(child):
+                if child is not None:
+                    propertyStore = child.deadProperties()
+                    props = {}
+                    for qname in propertyStore.list(cache=False):
+                        props[qname] = propertyStore.get(qname, cache=False)
 
-            propertyStore = child.deadProperties()
-            props = {}
-            for qname in propertyStore.list(cache=False):
-                props[qname] = propertyStore.get(qname, cache=False)
+                    cache[child.fp.path] = props
+            d.addCallback(_gotChild)
+            ds.append(d)
+        def _collectedChildren(_):
+            self._storeCache(cache)
+            return cache
+        return DeferredList(ds).addCallback(_collectedChildren)
 
-            cache[child.fp.path] = props
-
-        self._storeCache(cache)
-
-        return cache
 
     def setProperty(self, child, property, delete=False):
         propertyCache, key, childCache, token = self.childCache(child)

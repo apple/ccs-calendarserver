@@ -1,8 +1,7 @@
-Index: twisted/python/util.py
-===================================================================
---- twisted/python/util.py	(revision 26969)
-+++ twisted/python/util.py	(working copy)
-@@ -569,9 +569,29 @@
+=== modified file 'twisted/python/util.py'
+--- twisted/python/util.py	2009-03-30 13:33:33 +0000
++++ twisted/python/util.py	2009-07-15 23:30:18 +0000
+@@ -569,7 +569,27 @@
      L2.sort()
      return [e[2] for e in L2]
  
@@ -18,8 +17,8 @@ Index: twisted/python/util.py
 +if sys.platform == "darwin" and hasCtypes:
 +    import pwd
 +    libc = cdll.LoadLibrary(find_library("libc"))
-     def initgroups(uid, primaryGid):
-         """
++    def initgroups(uid, primaryGid):
++        """
 +        Call initgroups with ctypes.
 +        """
 +        c_gid = c_int(primaryGid)
@@ -28,8 +27,7 @@ Index: twisted/python/util.py
 +        return libc.initgroups(c_username, c_gid)
 +
 +elif pwd is None or grp is None or setgroups is None or getgroups is None:
-+    def initgroups(uid, primaryGid):
-+        """
+     def initgroups(uid, primaryGid):
+         """
          Do nothing.
- 
-         Underlying platform support require to manipulate groups is missing.
+

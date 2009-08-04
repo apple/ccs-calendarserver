@@ -1,7 +1,6 @@
-Index: twisted/web2/error.py
-===================================================================
---- twisted/web2/error.py	(revision 26969)
-+++ twisted/web2/error.py	(working copy)
+=== modified file 'twisted/web2/error.py'
+--- twisted/web2/error.py	2005-11-22 22:59:59 +0000
++++ twisted/web2/error.py	2009-07-15 23:30:18 +0000
 @@ -92,7 +92,7 @@
              "<body><h1>%s</h1>%s</body></html>") % (
          response.code, title, title, message)
@@ -11,3 +10,4 @@ Index: twisted/web2/error.py
      response.stream = stream.MemoryStream(body)
      
      return response
+

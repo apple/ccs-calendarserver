@@ -1,7 +1,6 @@
-Index: twisted/web2/auth/digest.py
-===================================================================
---- twisted/web2/auth/digest.py	(revision 26969)
-+++ twisted/web2/auth/digest.py	(working copy)
+=== modified file 'twisted/web2/auth/digest.py'
+--- twisted/web2/auth/digest.py	2009-04-20 17:38:06 +0000
++++ twisted/web2/auth/digest.py	2009-07-15 23:30:18 +0000
 @@ -138,11 +138,15 @@
      implements(credentials.IUsernameHashedPassword,
                 IUsernameDigestHash)
@@ -19,7 +18,7 @@ Index: twisted/web2/auth/digest.py
  
      def checkPassword(self, password):
          response = self.fields.get('response')
-@@ -155,11 +159,23 @@
+@@ -155,10 +159,22 @@
  
          expected = calcResponse(
              calcHA1(algo, self.username, self.realm, password, nonce, cnonce),
@@ -30,7 +29,7 @@ Index: twisted/web2/auth/digest.py
 -        return expected == response
 +        if expected == response:
 +            return True
- 
++
 +        # IE7 sends cnonce and nc values, but auth fails if they are used.
 +        # So try again without them...
 +        # They can be omitted for backwards compatibility [RFC 2069].
@@ -41,10 +40,9 @@ Index: twisted/web2/auth/digest.py
 +            )
 +            if expected == response:
 +                return True
-+
+ 
      def checkHash(self, digestHash):
          response = self.fields.get('response')
-         uri = self.fields.get('uri')
 @@ -171,7 +187,7 @@
  
          expected = calcResponse(
@@ -80,3 +78,4 @@ Index: twisted/web2/auth/digest.py
 +                                               self.realm,
 +                                               auth,
 +                                               originalMethod))
+

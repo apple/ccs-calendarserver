@@ -529,7 +529,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
 
         children = []
         basepath = request.urlForResource(self)
-        childnames = list(self.listChildren())
+        childnames = yield self.listChildren()
         for childname in childnames:
             if names and childname not in names:
                 continue
@@ -880,36 +880,38 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         ]
 
         even = Alternator()
-        for name in sorted(self.listChildren()):
-            child = self.getChild(name)
+        d = self.listChildren()
+        def _gotChildren(children):
+            for name in sorted(children):
+                child = self.getChild(name)
 
-            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
+                url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
 
-            # FIXME: gray out resources that are not readable
+                # FIXME: gray out resources that are not readable
+                output.append(
+                    """<tr class="%(even)s">"""
+                    """<td><a href="%(url)s">%(name)s</a></td>"""
+                    """<td align="right">%(size)s</td>"""
+                    """<td>%(lastModified)s</td>"""
+                    """<td>%(type)s</td>"""
+                    """</tr>"""
+                    % {
+                        "even": even.state() and "even" or "odd",
+                        "url": url,
+                        "name": cgi.escape(name),
+                        "size": size,
+                        "lastModified": lastModified,
+                        "type": contentType,
+                    }
+                )
+
             output.append(
-                """<tr class="%(even)s">"""
-                """<td><a href="%(url)s">%(name)s</a></td>"""
-                """<td align="right">%(size)s</td>"""
-                """<td>%(lastModified)s</td>"""
-                """<td>%(type)s</td>"""
-                """</tr>"""
-                % {
-                    "even": even.state() and "even" or "odd",
-                    "url": url,
-                    "name": cgi.escape(name),
-                    "size": size,
-                    "lastModified": lastModified,
-                    "type": contentType,
-                }
+                """</table></div>"""
+                """<div class="directory-listing">"""
+                """<h1>Properties</h1>"""
+                """<table>"""
+                """<tr><th>Name</th> <th>Value</th></tr>"""
             )
-
-        output.append(
-            """</table></div>"""
-            """<div class="directory-listing">"""
-            """<h1>Properties</h1>"""
-            """<table>"""
-            """<tr><th>Name</th> <th>Value</th></tr>"""
-        )
 
         def gotProperties(qnames):
             ds = []
@@ -986,9 +988,10 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             d = DeferredList(ds)
             d.addCallback(gotValues)
             return d
-
-        d = self.listProperties(request)
-        d.addCallback(gotProperties)
+        d.addCallback(
+            _gotChildren).addCallback(
+            lambda _: self.listProperties(request)).addCallback(
+            gotProperties)
         return d
 
     def getChildDirectoryEntry(self, child, name):
@@ -1116,6 +1119,7 @@ class CachingPropertyStore (LoggingMixIn):
         cache[property.qname()] = None
         self.propertyStore.set(property)
         cache[property.qname()] = property
+        return succeed(None)
 
     def contains(self, qname):
         #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))

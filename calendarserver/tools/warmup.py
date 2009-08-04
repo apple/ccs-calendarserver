@@ -33,6 +33,8 @@ from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
 from twistedcaldav.config import ConfigurationError
+from twisted.internet.defer import gatherResults
+
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile, CalendarHomeFile
 from twistedcaldav.directory.directory import DirectoryService
@@ -152,30 +154,37 @@ def main():
 
     calendarCollections = set()
 
+    def _gotChildren(children):
+        for childName in children:
+            child = calendarHome.getChild(childName)
+            if isPseudoCalendarCollectionResource(child):
+                calendarCollections.add(child)
+    ds = []
     for calendarHome in calendarHomes:
         #print calendarHome
         #sys.stdout.write("*")
         readProperties(calendarHome)
 
-        for childName in calendarHome.listChildren():
-            child = calendarHome.getChild(childName)
-            if isPseudoCalendarCollectionResource(child):
-                calendarCollections.add(child)
+        ds.append(calendarHome.listChildren().addCallback(_gotChildren))
+    d = gatherResults(ds)
 
-    for calendarCollection in calendarCollections:
-        try:
-            for name, uid, type in calendarCollection.index().indexedSearch(None):
-                child = calendarCollection.getChild(name)
+    def _finish(_):
+        for calendarCollection in calendarCollections:
+            try:
+                for name, uid, type in calendarCollection.index().indexedSearch(None):
+                    child = calendarCollection.getChild(name)
 
-                #sys.stdout.write("+")
-                childCalendar = child.iCalendarText()
+                    #sys.stdout.write("+")
+                    d = child.iCalendarText()
 
-                readProperties(child)
+                    readProperties(child)
 
-        except sqlite3.OperationalError:
-            # Outbox doesn't live on disk
-            if calendarCollection.fp.basename() != "outbox":
-                raise
+            except sqlite3.OperationalError:
+                # Outbox doesn't live on disk
+                if calendarCollection.fp.basename() != "outbox":
+                    raise
+
+    return d.addCallback(_finish)
 
 def readProperties(resource):
     #sys.stdout.write("-")

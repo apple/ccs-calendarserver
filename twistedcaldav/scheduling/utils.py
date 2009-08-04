@@ -37,9 +37,7 @@ def getCalendarObjectForPrincipals(request, principal, uid):
         request._rememberResource(calendar_home, calendar_home.url())
 
         # Run a UID query against the UID
-
-        def queryCalendarCollection(collection, uri):
-            rname = collection.index().resourceNameForUID(uid)
+        def queryCalendarCollection(rname, collection, uri):
             if rname:
                 result["resource"] = collection.getChild(rname)
                 result["resource_name"] = rname
@@ -48,9 +46,10 @@ def getCalendarObjectForPrincipals(request, principal, uid):
                 return succeed(False)
             else:
                 return succeed(True)
-        
+        def getResourceName(collection, uri):
+            return collection.index().resourceNameForUID(uid).addCallback(queryCalendarCollection, collection, uri)
         # NB We are by-passing privilege checking here. That should be OK as the data found is not
         # exposed to the user.
-        yield report_common.applyToCalendarCollections(calendar_home, request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+        yield report_common.applyToCalendarCollections(calendar_home, request, calendar_home.url(), "infinity", getResourceName, None)
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))

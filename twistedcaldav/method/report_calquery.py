@@ -173,11 +173,13 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 try:
                     # Get list of children that match the search and have read
                     # access
+                    results = yield calresource.index().indexedSearch(filter)
                     names = [name for name, ignore_uid, ignore_type
-                        in calresource.index().indexedSearch(filter)]
+                        in results]
                 except IndexedSearchException:
+                    results = calresource.index().bruteForceSearch()
                     names = [name for name, ignore_uid, ignore_type
-                        in calresource.index().bruteForceSearch()]
+                        in results]
                     index_query_ok = False
 
                 if not names:
@@ -200,7 +202,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     child_path_name = urllib.unquote(child_uri_name)
                     
                     if generate_calendar_data or not index_query_ok:
-                        calendar = calresource.iCalendar(child_path_name)
+                        calendar = yield calresource.iCalendar(child_path_name)
                         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
@@ -224,7 +226,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             # Check private events access status
             isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
 
-            calendar = calresource.iCalendar()
+            calendar = yield calresource.iCalendar()
             yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)
 
         returnValue(True)

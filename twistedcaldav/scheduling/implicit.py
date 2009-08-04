@@ -69,7 +69,8 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        existing_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
+        schedulingObject = yield self.checkSchedulingObjectResource(resource)
+        existing_type = "schedule" if schedulingObject else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         if existing_type == "calendar":
@@ -86,7 +87,7 @@ class ImplicitScheduler(object):
             # Also make sure that we return the new calendar being written rather than the old one
             # when the implicit action is executed
             self.return_calendar = calendar
-            self.calendar = resource.iCalendar()
+            self.calendar = yield resource.iCalendar()
             yield self.checkImplicitState()
         
         # Attendees are not allowed to overwrite one type with another
@@ -106,8 +107,9 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = yield self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = yield self.checkSchedulingObjectResource(srcresource)
+        src_is_implicit = src_is_implicit or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -136,8 +138,9 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = yield self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = yield self.checkSchedulingObjectResource(srcresource)
+        src_is_implicit = src_is_implicit or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -165,11 +168,13 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        resource_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
+        schedulingObject = yield self.checkSchedulingObjectResource(resource)
+        resource_type = "schedule" if schedulingObject else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
+    @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):
         
         if resource and resource.exists():
@@ -178,24 +183,24 @@ class ImplicitScheduler(object):
             except HTTPError:
                 implicit = None
             if implicit is not None:
-                return implicit != "false"
+                returnValue(implicit != "false")
             else:
-                calendar = resource.iCalendar()
+                calendar = yield resource.iCalendar()
                 # Get the ORGANIZER and verify it is the same for all components
                 try:
                     organizer = calendar.validOrganizerForScheduling()
                 except ValueError:
                     # We have different ORGANIZERs in the same iCalendar object - this is an error
-                    return False
+                    returnValue(False)
                 organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
                 resource.writeDeadProperty(TwistedSchedulingObjectResource("true" if organizerPrincipal != None else "false"))
                 log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
                     calendar.resourceUID(),
                     "true" if organizerPrincipal != None else "false",
                 ))
-                return organizerPrincipal != None
+                returnValue(organizerPrincipal != None)
 
-        return False
+        returnValue(False)
         
     @inlineCallbacks
     def checkImplicitState(self):
@@ -367,7 +372,7 @@ class ImplicitScheduler(object):
 
         # Get owner's calendar-home
         calendar_owner_principal = (yield self.resource.ownerPrincipal(self.request))
-        calendar_home = calendar_owner_principal.calendarHome()
+        calendar_home = yield calendar_owner_principal.calendarHome(self.request)
         
         check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
 
@@ -379,12 +384,13 @@ class ImplicitScheduler(object):
 
         @inlineCallbacks
         def queryCalendarCollection(collection, collection_uri):
-            rname = collection.index().resourceNameForUID(self.uid)
+            rname = yield collection.index().resourceNameForUID(self.uid)
             if rname:
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:
                     returnValue(True)
-                matched_type = "schedule" if self.checkSchedulingObjectResource(child) else "calendar"
+                schedulingObject = yield self.checkSchedulingObjectResource(child)
+                matched_type = "schedule" if schedulingObject else "calendar"
                 if (
                     collection_uri != check_parent_uri and
                     (type == "schedule" or matched_type == "schedule")
@@ -452,7 +458,7 @@ class ImplicitScheduler(object):
         """
         
         # Find outbox
-        outboxURL = principal.scheduleOutboxURL()
+        outboxURL = yield principal.scheduleOutboxURL(self.request)
         outbox = (yield self.request.locateResource(outboxURL))
         yield outbox.authorize(self.request, (caldavxml.ScheduleSend(),))
 
@@ -481,7 +487,7 @@ class ImplicitScheduler(object):
         elif self.action == "modify":
 
             # Read in existing data
-            self.oldcalendar = self.resource.iCalendar()
+            self.oldcalendar = yield self.resource.iCalendar()
             
             # Significant change
             no_change, self.changed_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()

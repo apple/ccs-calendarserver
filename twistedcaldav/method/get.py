@@ -20,7 +20,7 @@ CalDAV GET method.
 
 __all__ = ["http_GET"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response

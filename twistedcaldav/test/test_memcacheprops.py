@@ -27,6 +27,7 @@ Test memcacheprops.
 import os
 
 from twisted.web2.http import HTTPError
+from twisted.internet.defer import succeed
 
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.test.util import InMemoryPropertyStore
@@ -48,7 +49,7 @@ class StubCollection(object):
         return self.children.iterkeys()
 
     def getChild(self, childName):
-        return self.children[childName]
+        return succeed(self.children[childName])
 
     def propertyCollection(self):
         if not hasattr(self, "_propertyCollection"):

@@ -1,7 +1,6 @@
-Index: twisted/mail/imap4.py
-===================================================================
---- twisted/mail/imap4.py	(revision 26969)
-+++ twisted/mail/imap4.py	(working copy)
+=== modified file 'twisted/mail/imap4.py'
+--- twisted/mail/imap4.py	2009-03-23 11:02:59 +0000
++++ twisted/mail/imap4.py	2009-07-15 23:30:17 +0000
 @@ -333,7 +333,7 @@
  
  
@@ -20,3 +19,4 @@ Index: twisted/mail/imap4.py
  
  
  class MailboxException(IMAP4Exception): pass
+

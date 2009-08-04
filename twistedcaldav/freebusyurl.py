@@ -211,7 +211,7 @@ class FreeBusyURLResource (CalDAVResource):
                 break
 
         # Get inbox details
-        inboxURL = principal.scheduleInboxURL()
+        inboxURL = yield principal.scheduleInboxURL(request)
         if inboxURL is None:
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox URL for principal: %s" % (principal,)))
         try:
