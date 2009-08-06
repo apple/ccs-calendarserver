@@ -59,8 +59,6 @@ class AbstractADBAPIDatabase(object):
     def __init__(self, dbID, dbapiName, dbapiArgs, persistent, **kwargs):
         """
         
-        @param pool: the ADAPI ConnectionPool to use.
-        @type dbpath: L{ConnectionPool}
         @param persistent: C{True} if the data in the DB must be perserved during upgrades,
             C{False} if the DB data can be re-created from an external source.
         @type persistent: bool
@@ -140,7 +138,41 @@ class AbstractADBAPIDatabase(object):
         if not self.initialized:
             yield self.open()
 
-        result = (yield self._db_execute(sql, *query_params))
+        yield self._db_execute(sql, *query_params)
+
+    @inlineCallbacks
+    def executescript(self, script):
+        
+        if not self.initialized:
+            yield self.open()
+
+        yield self._db_execute_script(script)
+
+    @inlineCallbacks
+    def query(self, sql, *query_params):
+        
+        if not self.initialized:
+            yield self.open()
+
+        result = (yield self._db_all_values_for_sql(sql, *query_params))
+        returnValue(result)
+
+    @inlineCallbacks
+    def queryList(self, sql, *query_params):
+        
+        if not self.initialized:
+            yield self.open()
+
+        result = (yield self._db_values_for_sql(sql, *query_params))
+        returnValue(result)
+
+    @inlineCallbacks
+    def queryOne(self, sql, *query_params):
+        
+        if not self.initialized:
+            yield self.open()
+
+        result = (yield self._db_value_for_sql(sql, *query_params))
         returnValue(result)
 
     def _db_version(self):
@@ -191,7 +223,7 @@ class AbstractADBAPIDatabase(object):
         #
         yield self._db_execute(
             """
-            create table CALDAV (
+            create table if not exists CALDAV (
                 KEY text unique,
                 VALUE text unique
             )
@@ -199,13 +231,13 @@ class AbstractADBAPIDatabase(object):
         )
         yield self._db_execute(
             """
-            insert into CALDAV (KEY, VALUE)
+            insert or ignore into CALDAV (KEY, VALUE)
             values ('SCHEMA_VERSION', :1)
             """, (self._db_version(),)
         )
         yield self._db_execute(
             """
-            insert into CALDAV (KEY, VALUE)
+            insert or ignore into CALDAV (KEY, VALUE)
             values ('TYPE', :1)
             """, (self._db_type(),)
         )
@@ -273,12 +305,27 @@ class AbstractADBAPIDatabase(object):
         """
         Remove the stored schema version table.
         """
-        yield self._db_execute("drop table CALDAV")
+        yield self._db_execute("drop table if exists CALDAV")
+
+    @inlineCallbacks
+    def _db_all_values_for_sql(self, sql, *query_params):
+        """
+        Execute an SQL query and obtain the resulting values.
+        @param sql: the SQL query to execute.
+        @param query_params: parameters to C{sql}.
+        @return: an interable of values in the first column of each row
+            resulting from executing C{sql} with C{query_params}.
+        @raise AssertionError: if the query yields multiple columns.
+        """
+        
+        results = (yield self.pool.runQuery(sql, *query_params))
+        returnValue(tuple(results))
 
     @inlineCallbacks
     def _db_values_for_sql(self, sql, *query_params):
         """
         Execute an SQL query and obtain the resulting values.
+
         @param sql: the SQL query to execute.
         @param query_params: parameters to C{sql}.
         @return: an interable of values in the first column of each row
@@ -293,6 +340,7 @@ class AbstractADBAPIDatabase(object):
     def _db_value_for_sql(self, sql, *query_params):
         """
         Execute an SQL query and obtain a single value.
+
         @param sql: the SQL query to execute.
         @param query_params: parameters to C{sql}.
         @return: the value resulting from the executing C{sql} with
@@ -305,15 +353,14 @@ class AbstractADBAPIDatabase(object):
             value = row
         returnValue(value)
 
-    @inlineCallbacks
     def _db_execute(self, sql, *query_params):
         """
-        Execute an SQL query and obtain the resulting values.
+        Execute an SQL operation that returns None.
+
         @param sql: the SQL query to execute.
         @param query_params: parameters to C{sql}.
         @return: an iterable of tuples for each row resulting from executing
             C{sql} with C{query_params}.
         """
         
-        results = (yield self.pool.runQuery(sql, *query_params))
-        returnValue(results)
+        return self.pool.runOperation(sql, *query_params)

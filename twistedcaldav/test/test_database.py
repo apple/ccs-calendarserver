@@ -127,8 +127,10 @@ class Database (twistedcaldav.test.util.TestCase):
         """
         db = Database.TestDB(self.mktemp())
         yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", ("FOO", "BAR",))
-        items = (yield db.execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR"),])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR"),))
+        items = (yield db.queryList("SELECT * from TESTTYPE"))
+        self.assertEqual(items, ("FOO",))
 
     @inlineCallbacks
     def test_close(self):
@@ -153,15 +155,15 @@ class Database (twistedcaldav.test.util.TestCase):
         db = Database.TestDB(db_file)
         yield db.open()
         yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", ("FOO", "BAR",))
-        items = (yield db.execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR")])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR"),))
         db.close()
         db = None
 
         db = Database.TestDBRecreateUpgrade(db_file)
         yield self.inlineCallbackRaises(Database.TestDBRecreateUpgrade.RecreateDBException, db.open)
-        items = (yield db.execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, ())
 
     def test_version_upgrade_persistent(self):
         """
@@ -171,8 +173,8 @@ class Database (twistedcaldav.test.util.TestCase):
         db = Database.TestDB(db_file, persistent=True)
         yield db.open()
         yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
-        items = (yield db.execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR")])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR")))
         db.close()
         db = None
 
@@ -184,8 +186,8 @@ class Database (twistedcaldav.test.util.TestCase):
 
         db = Database.TestDB(db_file, persistent=True, autocommit=True)
         yield db.open()
-        items = (yield db.execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR")])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR")))
 
     def test_version_upgrade_persistent_add_index(self):
         """
@@ -195,12 +197,12 @@ class Database (twistedcaldav.test.util.TestCase):
         db = Database.TestDB(db_file, persistent=True, autocommit=True)
         yield db.open()
         yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
-        items = (yield db._db_execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR")])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR")))
         db.close()
         db = None
 
         db = Database.TestDBCreateIndexOnUpgrade(db_file, persistent=True, autocommit=True)
         yield db.open()
-        items = (yield db._db_execute("SELECT * from TESTTYPE"))
-        self.assertEqual(items, [("FOO", "BAR")])
+        items = (yield db.query("SELECT * from TESTTYPE"))
+        self.assertEqual(items, (("FOO", "BAR")))

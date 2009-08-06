@@ -79,7 +79,7 @@ class XMLAccountsParser(object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
-    def __init__(self, xmlFile):
+    def __init__(self, xmlFile, externalUpdate=True):
 
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
@@ -102,7 +102,8 @@ class XMLAccountsParser(object):
             log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
-        self._updateExternalDatabases()
+        if externalUpdate:
+            self._updateExternalDatabases()
 
     def _updateExternalDatabases(self):
         resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
@@ -343,6 +344,9 @@ class XMLAccountRecord (object):
         if self.enabledForCalendaring:
             for email in self.emailAddresses:
                 self.calendarUserAddresses.add("mailto:%s" % (email,))
+
+        if not self.shortNames:
+            self.shortNames.append(self.guid)
 
     def _parseMembers(self, node, addto):
         for child in node._get_childNodes():
