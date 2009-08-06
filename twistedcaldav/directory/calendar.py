@@ -27,7 +27,7 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, gatherResults
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
@@ -102,7 +102,7 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         return self.putChildren.get(name, None)
 
     def listChildren(self):
-        return succeed(self.directory.recordTypes())
+        return self.directory.recordTypes()
 
     def principalCollections(self):
         # FIXME: directory.principalCollection smells like a hack
@@ -117,7 +117,7 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
     def homeForDirectoryRecord(self, record):
         uidResource = self.getChild(uidsResourceName)
         if uidResource is None:
-            return succeed(None)
+            return None
         else:
             return uidResource.getChild(record.uid)
 
@@ -172,10 +172,10 @@ class DirectoryCalendarHomeTypeProvisioningResource (DirectoryCalendarProvisioni
                         for shortName in record.shortNames:
                             yield shortName
 
-            return succeed(_recordShortnameExpand())
+            return _recordShortnameExpand()
         else:
             # Not a listable collection
-            return fail(HTTPError(responsecode.FORBIDDEN))
+            raise HTTPError(responsecode.FORBIDDEN)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -227,7 +227,7 @@ class DirectoryCalendarHomeUIDProvisioningResource (DirectoryCalendarProvisionin
 
     def listChildren(self):
         # Not a listable collection
-        return fail(HTTPError(responsecode.FORBIDDEN))
+        raise HTTPError(responsecode.FORBIDDEN)
 
     ##
     # DAV
@@ -251,7 +251,6 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     """
     Calendar home collection resource.
     """
-
     def __init__(self, parent, record):
         """
         @param path: the path to the file which will back the resource.
@@ -264,13 +263,31 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         self.record = record
         self.parent = parent
 
+        # Cache children which must be of a specific type
+        childlist = (
+            ("inbox" , ScheduleInboxResource ),
+            ("outbox", ScheduleOutboxResource),
+        )
+        if config.EnableDropBox:
+            childlist += (
+                ("dropbox", DropBoxHomeResource),
+            )
+        if config.FreeBusyURL.Enabled:
+            childlist += (
+                ("freebusy", FreeBusyURLResource),
+            )
+        for name, cls in childlist:
+            child = self.provisionChild(name)
+            assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
+            self.putChild(name, child)
+
     def provisionDefaultCalendars(self):
 
         # Disable notifications during provisioning
         if hasattr(self, "clientNotifier"):
             self.clientNotifier.disableNotify()
 
-        def setupFreeBusy(_, child):
+        def setupFreeBusy(_):
             # Default calendar is initially opaque to freebusy
             child.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
 
@@ -290,17 +307,15 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             return self
 
         try:
-            d = self.provision()
+            self.provision()
 
             childName = "calendar"
             childURL = joinURL(self.url(), childName)
-            d.addCallback(lambda _: self.provisionChild(childName))
-            
-            def _makeChild(child):
-                assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
-                return child.createCalendarCollection().addCallback(setupFreeBusy, child)
+            child = self.provisionChild(childName)
+            assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
 
-            d.addCallback(_makeChild)
+            d = child.createCalendarCollection()
+            d.addCallback(setupFreeBusy)
         except:
             # We want to make sure to re-enable notifications, so do so
             # if there is an immediate exception above, or via errback, below

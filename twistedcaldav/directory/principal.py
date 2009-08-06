@@ -37,7 +37,7 @@ from urlparse import urlparse
 from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import succeed
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError
@@ -348,7 +348,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
             return self.putChildren.get(name, None)
 
     def listChildren(self):
-        return succeed(self.directory.recordTypes())
+        return self.directory.recordTypes()
 
     ##
     # ACL
@@ -405,10 +405,10 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
                     for shortName in record.shortNames:
                         yield shortName
 
-            return succeed(_recordShortnameExpand())
+            return _recordShortnameExpand()
         else:
             # Not a listable collection
-            return fail(HTTPError(responsecode.FORBIDDEN))
+            raise HTTPError(responsecode.FORBIDDEN)
 
     ##
     # ACL
@@ -479,7 +479,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
     def listChildren(self):
         # Not a listable collection
-        return fail(HTTPError(responsecode.FORBIDDEN))
+        raise HTTPError(responsecode.FORBIDDEN)
 
     ##
     # ACL
@@ -811,7 +811,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         return None
 
     def listChildren(self):
-        return succeed(())
+        return ()
 
 
 class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPrincipalResource):
@@ -838,13 +838,10 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         returnValue(result)
 
     def extraDirectoryBodyItems(self, request):
-        d = self.calendarHomeURLs()
-        def _gotURLs(homeURLs):
-            return "".join((
-                    """\nCalendar homes:\n"""          , format_list(format_link(u) for u in homeURLs),
-                    """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-                    ))
-        return d.addCallbacks(_gotURLs)
+        return "".join((
+            """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
+            """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
+        ))
 
     ##
     # CalDAV
@@ -880,22 +877,22 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return False
 
     def scheduleInbox(self, request):
-        d = self.calendarHome()
-        def _gotHome(home):
-            if home is None:
-                return None
-            return home.getChild("inbox")
+        home = self.calendarHome()
+        if home is None:
+            return succeed(None)
 
-        return d.addCallback(_gotHome)
+        inbox = home.getChild("inbox")
+        if inbox is None:
+            return succeed(None)
+
+        return succeed(inbox)
 
     def calendarHomeURLs(self):
-        d = self.calendarHome()
-        def _gotHome(home):
-            if home is None:
-                return ()
-            else:
-                return (home.url(),)
-        return d.addCallback(_gotHome)
+        home = self.calendarHome()
+        if home is None:
+            return ()
+        else:
+            return (home.url(),)
 
     def scheduleInboxURL(self):
         return self._homeChildURL("inbox/")
@@ -910,13 +907,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def _homeChildURL(self, name):
-        d = self.calendarHome()
-        def _gotHome(home):
-            if home is None:
-                return None
-            else:
-                return joinURL(home.url(), name)
-        return d.addCallback(_gotHome)
+        home = self.calendarHome()
+        if home is None:
+            return None
+        else:
+            return joinURL(home.url(), name)
 
     def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack
@@ -925,7 +920,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         if hasattr(service, "calendarHomesCollection"):
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record)
         else:
-            return succeed(None)
+            return None
 
 
     ##
@@ -943,9 +938,10 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
     def listChildren(self):
         if config.EnableProxyPrincipals:
-            return succeed(("calendar-proxy-read", "calendar-proxy-write"))
+            return ("calendar-proxy-read", "calendar-proxy-write")
         else:
-            return succeed(())
+            return ()
+
 ##
 # Utilities
 ##

@@ -1,6 +1,7 @@
-=== modified file 'twisted/web2/dav/resource.py'
---- twisted/web2/dav/resource.py	2009-05-07 20:35:07 +0000
-+++ twisted/web2/dav/resource.py	2009-07-15 23:30:18 +0000
+Index: twisted/web2/dav/resource.py
+===================================================================
+--- twisted/web2/dav/resource.py	(revision 26969)
++++ twisted/web2/dav/resource.py	(working copy)
 @@ -49,12 +49,14 @@
  if not hasattr(__builtin__, "frozenset"):
      import sets.ImmutableSet as frozenset
@@ -18,56 +19,7 @@
  from twisted.internet import reactor
  from twisted.web2 import responsecode
  from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse
-@@ -578,7 +580,6 @@
- 
-         completionDeferred = Deferred()
-         basepath = request.urlForResource(self)
--        children = list(self.listChildren())
- 
-         def checkPrivilegesError(failure):
-             failure.trap(AccessDeniedError)
-@@ -595,7 +596,7 @@
-             d.addCallback(lambda _: child)
-             return d
- 
--        def gotChild(child, childpath):
-+        def gotChild(child, childpath, children):
-             if child is None:
-                 callback(None, childpath + "/")
-             else:
-@@ -603,14 +604,15 @@
-                     callback(child, childpath + "/")
-                     if depth == "infinity":
-                         d = child.findChildren(depth, request, callback, privileges)
--                        d.addCallback(lambda x: reactor.callLater(0, getChild))
-+                        d.addCallback(lambda x: reactor.callLater(0, getChild, children))
-                         return d
-                 else:
-                     callback(child, childpath)
- 
--            reactor.callLater(0, getChild)
-+            reactor.callLater(0, getChild, children)
- 
--        def getChild():
-+        def getChild(children):
-+            children = list(children)
-             try:
-                 childname = children.pop()
-             except IndexError:
-@@ -619,10 +621,10 @@
-                 childpath = joinURL(basepath, childname)
-                 d = request.locateChildResource(self, childname)
-                 d.addCallback(checkPrivileges)
--                d.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
-+                d.addCallbacks(gotChild, checkPrivilegesError, (childpath, children))
-                 d.addErrback(completionDeferred.errback)
- 
--        getChild()
-+        self.listChildren().addCallback(getChild)
- 
-         return completionDeferred
- 
-@@ -642,39 +644,41 @@
+@@ -642,41 +644,43 @@
      # Authentication
      ##
  
@@ -97,15 +49,10 @@
 -                # "Authorization will not help" according to RFC2616
 -                #
 -                raise HTTPError(response)
--
+ 
 -            d = self.checkPrivileges(request, privileges, recurse)
 -            d.addErrback(onErrors)
 -            return d
--
--        d = maybeDeferred(self.authenticate, request)
--        d.addCallback(onAuth)
--        return d
-+
 +        try:
 +            yield self.authenticate(request)
 +        except (UnauthorizedLogin, LoginFailed), e:
@@ -115,7 +62,10 @@
 +                request.remoteAddr
 +            ))
 +            raise HTTPError(response)
-+
+ 
+-        d = maybeDeferred(self.authenticate, request)
+-        d.addCallback(onAuth)
+-        return d
 +        try:
 +            yield self.checkPrivileges(request, privileges, recurse)
 +        except AccessDeniedError, e:
@@ -134,10 +84,12 @@
 +            # "Authorization will not help" according to RFC2616
 +            #
 +            raise HTTPError(response)
+ 
+ 
 +
- 
- 
      def authenticate(self, request):
+         if not (
+             hasattr(request, 'portal') and 
 @@ -1880,7 +1884,7 @@
          # If this is a collection and the URI doesn't end in "/", redirect.
          #
@@ -147,4 +99,3 @@
  
          def setHeaders(response):
              response = IResponse(response)
-

@@ -253,9 +253,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 access = None
 
             if calendar:
-                propvalue = yield property.elementFromCalendarWithAccessRestrictions(calendar, access, timezone)
+                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access, timezone)
             else:
-                propvalue = yield property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
+                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
             if propvalue is None:
                 raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
             properties_by_status[responsecode.OK].append(propvalue)
@@ -352,9 +352,9 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
     try:
-        resources = yield calresource.index().indexedSearch(filter, fbtype=True)
+        resources = calresource.index().indexedSearch(filter, fbtype=True)
     except IndexedSearchException:
-        resources = yield calresource.index().bruteForceSearch()
+        resources = calresource.index().bruteForceSearch()
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
@@ -367,6 +367,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
 
         # Check privileges - must have at least CalDAV:read-free-busy
         child = (yield request.locateChildResource(calresource, name))
+
         # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
         if not servertoserver:
             try:
@@ -417,7 +418,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     fbinfo[fbtype_index_mapper.get(fbtype, 0)].append(clipped)
                 
         else:
-            calendar = yield ncalresource.iCalendar(name)
+            calendar = calresource.iCalendar(name)
             
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in

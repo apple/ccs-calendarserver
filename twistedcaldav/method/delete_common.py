@@ -143,7 +143,7 @@ class DeleteResource(object):
         lock = None
         if not self.internal_request:
             # Get data we need for implicit scheduling
-            calendar = yield delresource.iCalendar()
+            calendar = delresource.iCalendar()
             scheduler = ImplicitScheduler()
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
             if do_implicit_action:
@@ -205,9 +205,8 @@ class DeleteResource(object):
 
         errors = ResponseQueue(deluri, "DELETE", responsecode.NO_CONTENT)
 
-        children = yield delresource.listChildren()
+        for childname in delresource.listChildren():
 
-        for childname in children:
             childurl = joinURL(deluri, childname)
             child = (yield self.request.locateChildResource(delresource, childname))
 

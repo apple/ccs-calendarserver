@@ -15,7 +15,8 @@
 ##
 
 from twext.web2.dav.davxml import ErrorResponse
-from twisted.internet.defer import inlineCallbacks, returnValue, fail, succeed
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.python.failure import Failure
 
@@ -487,7 +488,7 @@ class CalDAVScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                inboxURL = yield principal.scheduleInboxURL()
+                inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
                     inbox = (yield self.request.locateResource(inboxURL))
 
@@ -508,7 +509,7 @@ class CalDAVScheduler(Scheduler):
         # Verify that the ORGANIZER's cu address maps to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = yield self.resource.principalForCalendarUserAddress(organizer)
+            organizerPrincipal = self.resource.principalForCalendarUserAddress(organizer)
             if organizerPrincipal:
                 outboxURL = organizerPrincipal.scheduleOutboxURL()
                 if outboxURL:
@@ -532,20 +533,16 @@ class CalDAVScheduler(Scheduler):
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
     def checkOrganizerAsOriginator(self):
-        def _checkoutboxurl(outboxuri):
-            if outboxuri != self.request.uri:
-                log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
-            return outboxuri
-                
+
         # Make sure that the ORGANIZER is local
         if not isinstance(self.organizer, LocalCalendarUser):
             log.err("ORGANIZER is not local to server in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
         # Make sure that the ORGANIZER's Outbox is the request URI
-        if self.doingPOST:
-            return self.organizer.principal.scheduleOutboxURL().addCallback(_checkoutboxurl) 
+        if self.doingPOST and self.organizer.principal.scheduleOutboxURL() != self.request.uri:
+            log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
 
     def checkAttendeeAsOriginator(self):
         """
@@ -559,23 +556,19 @@ class CalDAVScheduler(Scheduler):
         # Must have only one
         if len(attendees) != 1:
             log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
-            return fail(HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed"))))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
         attendee = attendees[0]
     
         # Attendee's Outbox MUST be the request URI
         attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
-        d = attendeePrincipal.scheduleOutboxURL(self.request)
-        def _gotOutboxURL(outboxURL):
-            if attendeePrincipal:
-                if self.doingPOST and outboxURL != self.request.uri:
-                    log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-            else:
-                log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
+        if attendeePrincipal:
+            if self.doingPOST and attendeePrincipal.scheduleOutboxURL() != self.request.uri:
+                log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+        else:
+            log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
     
-        return d.addCallback(_gotOutboxURL)
-
     def securityChecks(self):
         """
         Check that the originator has the appropriate rights to send this type of iTIP message.
@@ -583,18 +576,15 @@ class CalDAVScheduler(Scheduler):
     
         # Prevent spoofing of ORGANIZER with specific METHODs when local
         if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
-            return self.checkOrganizerAsOriginator()
+            self.checkOrganizerAsOriginator()
     
         # Prevent spoofing when doing reply-like METHODs
         elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
-            return self.checkAttendeeAsOriginator()
+            self.checkAttendeeAsOriginator()
             
         else:
             log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
-            return fail(HTTPError(ErrorResponse(
-                       responsecode.FORBIDDEN,
-                       (caldav_namespace, "valid-calendar-data"),
-                       description="Unknown iTIP METHOD for security checks")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Unknown iTIP METHOD for security checks"))
 
     def finalChecks(self):
         """
@@ -710,7 +700,7 @@ class IScheduleScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                inboxURL = yield principal.scheduleInboxURL()
+                inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
                     inbox = (yield self.request.locateResource(inboxURL))
 
@@ -897,7 +887,7 @@ class IMIPScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                inboxURL = yield principal.scheduleInboxURL()
+                inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
                     inbox = (yield self.request.locateResource(inboxURL))
 

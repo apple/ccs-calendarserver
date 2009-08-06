@@ -24,10 +24,11 @@
 """
 WebDAV PROPFIND method
 """
+
 __all__ = ["http_PROPFIND"]
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.http import HTTPError
 from twisted.web2 import responsecode
 from twisted.web2.http import StatusResponse

@@ -182,11 +182,9 @@ class SQL (twistedcaldav.test.util.TestCase):
         fd.close()
         fd = open(os.path.join(colpath, "test"), "w")
         fd.close()
-        d = self.site.resource.listChildren()
-        def _gotChildren(children):
-            self.assertTrue("test" in children)
-            self.assertFalse(db_prefix + "sqlite" in children)
-        return d.addCallback(_gotChildren)
+        children = self.site.resource.listChildren()
+        self.assertTrue("test" in children)
+        self.assertFalse(db_prefix + "sqlite" in children)
 
     def test_duplicate_create(self):
         dbname = self.mktemp()

@@ -116,7 +116,7 @@ class StoreCalendarObjectResource(object):
                         self.destination_created = False
                     if self.destination_index_deleted:
                         # Must read in calendar for destination being re-indexed
-                        self.storer.destination.iCalendar().addCallback(self.storer.doDestinationIndex)
+                        self.storer.doDestinationIndex(self.storer.destination.iCalendar())
                         self.destination_index_deleted = False
                         log.debug("Rollback: destination re-indexed %s" % (self.storer.destination.fp.path,))
                     if self.source_index_deleted:
@@ -313,7 +313,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
                 
                     # At this point we need the calendar data to do more tests
-                    self.calendar = yield self.source.iCalendar()
+                    self.calendar = self.source.iCalendar()
                 else:
                     try:
                         if type(self.calendar) in (types.StringType, types.UnicodeType,):
@@ -357,7 +357,7 @@ class StoreCalendarObjectResource(object):
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
-                self.calendar = yield self.source.iCalendar()
+                self.calendar = self.source.iCalendar()
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
@@ -368,7 +368,7 @@ class StoreCalendarObjectResource(object):
 
         elif self.sourcecal:
             self.source_index = self.sourceparent.index()
-            self.calendar = yield self.source.iCalendar()
+            self.calendar = self.source.iCalendar()
     
     @inlineCallbacks
     def validCopyMoveOperation(self):
@@ -573,7 +573,6 @@ class StoreCalendarObjectResource(object):
                 
         return succeed(None)
 
-    @inlineCallbacks
     def noUIDConflict(self, uid):
         """
         Check that the UID of the new calendar object conforms to the requirements of
@@ -596,7 +595,7 @@ class StoreCalendarObjectResource(object):
         # UID must be unique
         index = self.destinationparent.index()
         if not index.isAllowedUID(uid, oldname, self.destination.fp.basename()):
-            rname = yield index.resourceNameForUID(uid)
+            rname = index.resourceNameForUID(uid)
             # This can happen if two simultaneous PUTs occur with the same UID.
             # i.e. one PUT has reserved the UID but has not yet written the resource,
             # the other PUT tries to reserve and fails but no index entry exists yet.
@@ -614,7 +613,7 @@ class StoreCalendarObjectResource(object):
                     result = False
                     message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid)
         
-        returnValue((result, message, rname))
+        return result, message, rname
 
     @inlineCallbacks
     def checkQuota(self):
@@ -703,9 +702,11 @@ class StoreCalendarObjectResource(object):
             if old_has_private_comments and not new_has_private_comments:
                 # Transfer old comments to new calendar
                 log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
-                self.destination.iCalendar().addCallback(self.calendar.transferProperties,
-                                                         "X-CALENDARSERVER-PRIVATE-COMMENT",
-                                                         "X-CALENDARSERVER-ATTENDEE-COMMENT")
+                old_calendar = self.destination.iCalendar()
+                self.calendar.transferProperties(old_calendar, (
+                    "X-CALENDARSERVER-PRIVATE-COMMENT",
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ))
                 self.calendardata = None
         
         return new_has_private_comments
@@ -947,7 +948,7 @@ class StoreCalendarObjectResource(object):
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
                 # try to write the same calendar data to two different resource URIs.
                 if not self.isiTIP:
-                    result, message, rname = yield self.noUIDConflict(self.uid)
+                    result, message, rname = self.noUIDConflict(self.uid)
                     if not result:
                         log.err(message)
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,

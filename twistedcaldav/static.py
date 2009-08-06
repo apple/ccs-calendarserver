@@ -34,15 +34,14 @@ __all__ = [
     "TimezoneServiceFile",
 ]
 
-import os
 import datetime
+import os
 import errno
 from urlparse import urlsplit
 
 from twext.web2.dav.davxml import ErrorResponse
-from twisted.internet.defer import (fail, succeed, inlineCallbacks, returnValue,
-                                    maybeDeferred, Deferred)
 
+from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode, http, http_headers
 from twisted.web2.http import HTTPError, StatusResponse
@@ -87,15 +86,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
-    propertyStore = CachingPropertyStore
-
-    @classmethod
-    def fetch(cls, request, path, *args, **kwargs):
-        """
-        stuff etc
-        """
-        return succeed(cls(path, *args, **kwargs))
-
     def __repr__(self):
         if self.isCalendarCollection():
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -284,7 +274,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         continue
 
                     # Get the access filtered view of the data
-                    caldata = yield child.iCalendarTextFiltered(isowner)
+                    caldata = child.iCalendarTextFiltered(isowner)
                     try:
                         subcalendar = iComponent.fromString(caldata)
                     except ValueError:
@@ -324,7 +314,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
             if name is None:
-                return self.iCalendar().addCallback(str)
+                return str(self.iCalendar())
 
             try:
                 calendar_file = self.fp.child(name).open()
@@ -333,7 +323,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise
 
         elif self.isCollection():
-            return succeed(None)
+            return None
 
         else:
             if name is not None:
@@ -347,10 +337,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
         finally:
             calendar_file.close()
 
-        return succeed(calendar_data)
+        return calendar_data
 
     def iCalendarXML(self, name=None):
-        return self.iCalendarText(name).addCallback(caldavxml.CalendarData.fromCalendar)
+        return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
 
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources
@@ -387,9 +377,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
     ##
 
     def listChildren(self):
-        return super(CalDAVFile, self).listChildren().addCallback(
-            lambda children: [child for child in children
-                              if not child.startswith(".")])
+        return [
+            child for child in super(CalDAVFile, self).listChildren()
+            if not child.startswith(".")
+        ]
 
     def propertyCollection(self):
         if not hasattr(self, "_propertyCollection"):
@@ -398,33 +389,47 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
-            return succeed(self)
+            return self
 
-        d = super(CalDAVFile, self).createSimilarFile(path)
-        def _gotFile(similar):
-            if isCalendarCollectionResource(self):
-                #
-                # Override DELETE, MOVE
-                #
-                for method in ("DELETE", "MOVE"):
-                    method = "http_" + method
-                    original = getattr(similar, method)
+        similar = super(CalDAVFile, self).createSimilarFile(path)
 
-                    @inlineCallbacks
-                    def override(request, original=original):
+        if isCalendarCollectionResource(self):
+            #
+            # Override the dead property store
+            #
+            superDeadProperties = similar.deadProperties
 
-                        # Call original method (which is deferred)
-                        response = (yield original(request))
+            def deadProperties():
+                if not hasattr(similar, "_dead_properties"):
+                    similar._dead_properties = self.propertyCollection().propertyStoreForChild(
+                        similar,
+                        superDeadProperties(caching=False)
+                    )
+                return similar._dead_properties
 
-                        # Wipe the cache
-                        similar.deadProperties().flushCache()
+            similar.deadProperties = deadProperties
 
-                        returnValue(response)
+            #
+            # Override DELETE, MOVE
+            #
+            for method in ("DELETE", "MOVE"):
+                method = "http_" + method
+                original = getattr(similar, method)
 
-                    setattr(similar, method, override)
+                @inlineCallbacks
+                def override(request, original=original):
 
-            return similar
-        return d.addCallback(_gotFile)
+                    # Call original method (which is deferred)
+                    response = (yield original(request))
+
+                    # Wipe the cache
+                    similar.deadProperties().flushCache()
+
+                    returnValue(response)
+
+                setattr(similar, method, override)
+
+        return similar
 
     def updateCTag(self):
         assert self.isCollection()
@@ -549,20 +554,21 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
     def provision(self):
-        d = self.provisionFile()
-        super(AutoProvisioningFileMixIn, self).provision()
-        return d
+        self.provisionFile()
+        return super(AutoProvisioningFileMixIn, self).provision()
 
-    def provisionFile(self, request=None):
+
+    def provisionFile(self):
         if hasattr(self, "_provisioned_file"):
-            return succeed(False)
+            return False
         else:
             self._provisioned_file = True
 
         fp = self.fp
+
         fp.restat(False)
         if fp.exists():
-            return succeed(False)
+            return False
 
         log.msg("Provisioning file: %s" % (self,))
 
@@ -587,7 +593,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
             fp.open("w").close()
             fp.restat(False)
 
-        return succeed(True)
+        return True
 
 class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
@@ -647,56 +653,55 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
         
         childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-        d = self.homeResourceClass.fetch(None, childPath.path, self, record)
-        def _gotChild(child):
-            if not child.exists():
-                self.provision()
+        child = self.homeResourceClass(childPath.path, self, record)
 
-                if not childPath.parent().isdir():
-                    childPath.parent().makedirs()
+        if not child.exists():
+            self.provision()
 
-                for oldPath in (
-                    # Pre 2.0: All in one directory
-                    self.fp.child(name),
-                    # Pre 1.2: In types hierarchy instead of the GUID hierarchy
-                    self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
-                ):
-                    if oldPath.exists():
-                        # The child exists at an old location.  Move to new location.
-                        log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
-                        try:
-                            oldPath.moveTo(childPath)
-                        except (OSError, IOError), e:
-                            log.err("Error moving calendar home %r: %s" % (oldPath, e))
-                            raise HTTPError(StatusResponse(
-                                responsecode.INTERNAL_SERVER_ERROR,
-                                "Unable to move calendar home."
-                            ))
-                        child.fp.restat(False)
-                        break
-                else:
-                    #
-                    # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
-                    # The result being that the default calendars will be present at some point
-                    # in the future, not necessarily right now, and we don't have a way to wait
-                    # on that to finish.
-                    #
-                    child.provisionDefaultCalendars()
+            if not childPath.parent().isdir():
+                childPath.parent().makedirs()
 
-                    #
-                    # Try to work around the above a little by telling the client that something
-                    # when wrong temporarily if the child isn't provisioned right away.
-                    #
-                    if not child.exists():
+            for oldPath in (
+                # Pre 2.0: All in one directory
+                self.fp.child(name),
+                # Pre 1.2: In types hierarchy instead of the GUID hierarchy
+                self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
+            ):
+                if oldPath.exists():
+                    # The child exists at an old location.  Move to new location.
+                    log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
+                    try:
+                        oldPath.moveTo(childPath)
+                    except (OSError, IOError), e:
+                        log.err("Error moving calendar home %r: %s" % (oldPath, e))
                         raise HTTPError(StatusResponse(
-                            responsecode.SERVICE_UNAVAILABLE,
-                            "Provisioning calendar home."
+                            responsecode.INTERNAL_SERVER_ERROR,
+                            "Unable to move calendar home."
                         ))
+                    child.fp.restat(False)
+                    break
+            else:
+                #
+                # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
+                # The result being that the default calendars will be present at some point
+                # in the future, not necessarily right now, and we don't have a way to wait
+                # on that to finish.
+                #
+                child.provisionDefaultCalendars()
 
-                assert child.exists()
+                #
+                # Try to work around the above a little by telling the client that something
+                # when wrong temporarily if the child isn't provisioned right away.
+                #
+                if not child.exists():
+                    raise HTTPError(StatusResponse(
+                        responsecode.SERVICE_UNAVAILABLE,
+                        "Provisioning calendar home."
+                    ))
 
-            return child
-        return d.addCallback(_gotChild)
+            assert child.exists()
+
+        return child
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -741,26 +746,21 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         }.get(name, None)
 
         if cls is not None:
-            d = cls.fetch(None, self.fp.child(name).path, self)
-            def _gotChild(child):
-                child.cacheNotifier = self.cacheNotifier
-                child.clientNotifier = self.clientNotifier
-                return child
-            return d.addCallback(_gotChild)
+            child = cls(self.fp.child(name).path, self)
+            child.cacheNotifier = self.cacheNotifier
+            child.clientNotifier = self.clientNotifier
+            return child
 
         return self.createSimilarFile(self.fp.child(name).path)
-
 
     def createSimilarFile(self, path):
         if path == self.fp.path:
             return self
         else:
-            d = CalDAVFile.fetch(None, path, principalCollections=self.principalCollections())
-            def _gotChild(similar):
-                similar.cacheNotifier = self.cacheNotifier
-                similar.clientNotifier = self.clientNotifier
-                return similar
-            return d.addCallback(_gotChild)
+            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            similar.cacheNotifier = self.cacheNotifier
+            similar.clientNotifier = self.clientNotifier
+            return similar
 
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.

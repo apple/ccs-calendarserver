@@ -28,4 +28,3 @@ Index: twisted/web2/server.py
          # This is where CONNECT would go if we wanted it
          return None
  
-

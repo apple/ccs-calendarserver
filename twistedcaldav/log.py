@@ -166,7 +166,7 @@ def clearLogLevels():
     Clears all log levels to the default.
     """
     logLevelsByNamespace.clear()
-    logLevelsByNamespace[None] = "info"  # Default log level
+    logLevelsByNamespace[None] = "warn"  # Default log level
 
 logLevelsByNamespace = {}
 clearLogLevels()

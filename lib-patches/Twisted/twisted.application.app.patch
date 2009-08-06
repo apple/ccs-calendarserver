@@ -1,6 +1,7 @@
-=== modified file 'twisted/application/app.py'
---- twisted/application/app.py	2008-12-14 22:09:07 +0000
-+++ twisted/application/app.py	2009-07-15 23:30:17 +0000
+Index: twisted/application/app.py
+===================================================================
+--- twisted/application/app.py	(revision 26969)
++++ twisted/application/app.py	(working copy)
 @@ -241,7 +241,11 @@
          @param application: The application on which to check for an
              L{ILogObserver}.
@@ -14,24 +15,25 @@
  
          if observer is None:
              observer = self._getLogObserver()
-@@ -408,8 +412,6 @@
+@@ -408,9 +412,7 @@
          Run the application.
          """
          self.preApplication()
 -        self.application = self.createOrGetApplication()
--
  
+-
          getLogObserverLegacy = getattr(self, 'getLogObserver', None)
          if getLogObserverLegacy is not None:
-@@ -418,7 +420,9 @@
+             warnings.warn("Specifying a log observer with getLogObserver is "
+@@ -418,8 +420,10 @@
                            category=DeprecationWarning)
              self.startLogging(self.getLogObserver())
          else:
 -            self.logger.start(self.application)
 +            self.logger.start(None)
-+
-+        self.application = self.createOrGetApplication()
  
++        self.application = self.createOrGetApplication()
++
          self.postApplication()
          self.logger.stop()
-
+ 

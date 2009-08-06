@@ -17,7 +17,7 @@
 import os
 
 from twisted.cred.credentials import UsernamePassword
-from twisted.internet.defer import inlineCallbacks, gatherResults
+from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav.resource import AccessDeniedError
@@ -105,38 +105,33 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             principalCollections = provisioningResource.principalCollections()
             self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
-            d = provisioningResource.listChildren()
-            def _gotProvisioningChildren(children):
-                recordTypes = set(children)
-                self.assertEquals(recordTypes, set(directory.recordTypes()))
+            recordTypes = set(provisioningResource.listChildren())
+            self.assertEquals(recordTypes, set(directory.recordTypes()))
 
-                for recordType in recordTypes:
-                    #print "   -> %s" % (recordType,)
-                    typeResource = provisioningResource.getChild(recordType)
-                    self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeProvisioningResource))
+            for recordType in recordTypes:
+                #print "   -> %s" % (recordType,)
+                typeResource = provisioningResource.getChild(recordType)
+                self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeProvisioningResource))
 
-                    typeURL = provisioningURL + recordType + "/"
-                    self.assertEquals(typeURL, typeResource.principalCollectionURL())
+                typeURL = provisioningURL + recordType + "/"
+                self.assertEquals(typeURL, typeResource.principalCollectionURL())
 
-                    principalCollections = typeResource.principalCollections()
+                principalCollections = typeResource.principalCollections()
+                self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
+
+                shortNames = set(typeResource.listChildren())
+                self.assertEquals(shortNames, set(r.shortNames[0] for r in directory.listRecords(recordType)))
+
+                for shortName in shortNames:
+                    #print "     -> %s" % (shortName,)
+                    recordResource = typeResource.getChild(shortName)
+                    self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
+
+                    recordURL = typeURL + shortName + "/"
+                    self.assertIn(recordURL, (recordResource.principalURL(),) + tuple(recordResource.alternateURIs()))
+
+                    principalCollections = recordResource.principalCollections()
                     self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
-                    d = typeResource.listChildren()
-                    def _gotTypeChildren(children):
-                        shortNames = set(children)
-                        self.assertEquals(shortNames, set(r.shortNames[0] for r in directory.listRecords(recordType)))
-
-                        for shortName in shortNames:
-                            #print "     -> %s" % (shortName,)
-                            recordResource = typeResource.getChild(shortName)
-                            self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
-
-                            recordURL = typeURL + shortName + "/"
-                            self.assertIn(recordURL, (recordResource.principalURL(),) + tuple(recordResource.alternateURIs()))
-
-                            principalCollections = recordResource.principalCollections()
-                            self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
-                    
-            return d.addCallback(_gotProvisioningChildren)
 
     def test_allRecords(self):
         """
@@ -336,15 +331,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.scheduleInboxURL(),
         DirectoryPrincipalResource.scheduleOutboxURL()
         """
-        ds = []
         # No calendar home provisioner should result in no calendar homes.
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
-                d = recordResource.calendarHomeURLs()
-                d.addCallback(lambda u: self.assertEqual(len(u), 0))
-                ds.append(d)
-                ds.append(recordResource.scheduleInboxURL().addCallback(self.failIf))
-                ds.append(recordResource.scheduleOutboxURL().addCallback(self.failIf))
+                self.failIf(tuple(recordResource.calendarHomeURLs()))
+                self.failIf(recordResource.scheduleInboxURL())
+                self.failIf(recordResource.scheduleOutboxURL())
 
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
@@ -364,31 +356,32 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Calendar home provisioners should result in calendar homes.
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
-                d = gatherResults([recordResource.calendarHomeURLs(),
-                                  recordResource.scheduleInboxURL(),
-                                  recordResource.scheduleOutboxURL()])
-                def _gotURLs(homeURLs, inboxURL, outboxURL):
-                    calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
+                homeURLs = tuple(recordResource.calendarHomeURLs())
+                self.failUnless(homeURLs)
 
-                    self.failUnless(inboxURL)
-                    self.failUnless(outboxURL)
+                calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
 
-                    for homeURL in homeURLs:
-                        self.failUnless(homeURL.startswith(calendarRootURL))
+                inboxURL = recordResource.scheduleInboxURL()
+                outboxURL = recordResource.scheduleOutboxURL()
 
-                        if inboxURL and inboxURL.startswith(homeURL):
-                            self.failUnless(len(inboxURL) > len(homeURL))
-                            self.failUnless(inboxURL.endswith("/"))
-                            inboxURL = None
+                self.failUnless(inboxURL)
+                self.failUnless(outboxURL)
 
-                        if outboxURL and outboxURL.startswith(homeURL):
-                            self.failUnless(len(outboxURL) > len(homeURL))
-                            self.failUnless(outboxURL.endswith("/"))
-                            outboxURL = None
+                for homeURL in homeURLs:
+                    self.failUnless(homeURL.startswith(calendarRootURL))
 
-                    self.failIf(inboxURL)
-                    self.failIf(outboxURL)
-        return gatherResults(ds)
+                    if inboxURL and inboxURL.startswith(homeURL):
+                        self.failUnless(len(inboxURL) > len(homeURL))
+                        self.failUnless(inboxURL.endswith("/"))
+                        inboxURL = None
+
+                    if outboxURL and outboxURL.startswith(homeURL):
+                        self.failUnless(len(outboxURL) > len(homeURL))
+                        self.failUnless(outboxURL.endswith("/"))
+                        outboxURL = None
+
+                self.failIf(inboxURL)
+                self.failIf(outboxURL)
 
     @inlineCallbacks
     def test_defaultAccessControlList_principals(self):
@@ -410,8 +403,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
                 yield self._checkPrivileges(*args)
-            children = yield provisioningResource.listChildren()
-            for recordType in children:
+
+            for recordType in provisioningResource.listChildren():
                 #print "   -> %s" % (recordType,)
                 typeResource = provisioningResource.getChild(recordType)
 

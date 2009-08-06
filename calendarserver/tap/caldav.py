@@ -597,6 +597,14 @@ class CalDAVServiceMaker (LoggingMixIn):
             directory,
         )
 
+        self.log_info("Setting up calendar collection: %r"
+                      % (self.calendarResourceClass,))
+
+        calendarCollection = self.calendarResourceClass(
+            os.path.join(config.DocumentRoot, "calendars"),
+            directory, "/calendars/",
+        )
+
         self.log_info("Setting up root resource: %r"
                       % (self.rootResourceClass,))
 
@@ -604,17 +612,9 @@ class CalDAVServiceMaker (LoggingMixIn):
             config.DocumentRoot,
             principalCollections=(principalCollection,),
         )
+
         root.putChild("principals", principalCollection)
-
-        d = self.calendarResourceClass.fetch(None,
-            os.path.join(config.DocumentRoot, "calendars"),
-            directory, "/calendars/")
-
-        def _installCalendars(calendarCollection):
-            self.log_info("Setting up calendar collection: %r"
-                          % (self.calendarResourceClass,))
-            root.putChild("calendars", calendarCollection)
-        d.addCallback(_installCalendars)
+        root.putChild("calendars", calendarCollection)
 
         for name, info in config.Aliases.iteritems():
             if os.path.sep in name or not info.get("path", None):

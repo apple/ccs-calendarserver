@@ -38,10 +38,8 @@ class CalendarHomeFileTests(TestCase):
 
 
     def test_childrenHaveCacheNotifier(self):
-        d = self.calendarHome.createSimilarFile('/fake/path')
-        def _gotResource(child):
-            self.assertEquals(child.cacheNotifier, self.calendarHome.cacheNotifier)
-        return d.addCallback(_gotResource)
+        child = self.calendarHome.createSimilarFile('/fake/path')
+        self.assertEquals(child.cacheNotifier, self.calendarHome.cacheNotifier)
 
 
 class CalDAVFileTests(TestCase):

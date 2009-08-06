@@ -135,14 +135,14 @@ class ICalendarPrincipalResource(IDAVResource):
             free-busy for this principal's calendar user.
         """
 
-    def scheduleInboxURL(request=None):
+    def scheduleInboxURL():
         """
         Get the schedule INBOX URL for this principal's calendar user.
-        @return: a Deferred that fires with a string containing the URL from the schedule-inbox-URL property.
+        @return: a string containing the URL from the schedule-inbox-URL property.
         """
 
-    def scheduleOutboxURL(request=None):
+    def scheduleOutboxURL():
         """
         Get the schedule OUTBOX URL for this principal's calendar user.
-        @return: a Deferred that fires with string containing the URL from the schedule-outbox-URL property.
+        @return: a string containing the URL from the schedule-outbox-URL property.
         """
