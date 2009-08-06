@@ -131,25 +131,43 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
         if not os.path.exists(destUidHomes):
             os.makedirs(destUidHomes)
 
-        homeNames = os.listdir(sourceUidHomes)
-        totalHomes = len(homeNames)
-        print "Processing %d calendar homes..." % (totalHomes,)
+        homeList = []
 
-        for home in homeNames:
+        for first in os.listdir(sourceUidHomes):
+            if len(first) == 2:
+                firstPath = os.path.join(sourceUidHomes, first)
+                for second in os.listdir(firstPath):
+                    if len(second) == 2:
+                        secondPath = os.path.join(firstPath, second)
+                        for home in os.listdir(secondPath):
+                            record = directoryMap.lookupCUA(home)
+                            if not record:
+                                print "Couldn't find %s, skipping." % (home,)
+                                continue
+                            sourceHome = os.path.join(secondPath, home)
+                            destHome = os.path.join(destUidHomes,
+                                record['guid'][0:2], record['guid'][2:4],
+                                record['guid'])
+                            homeList.append((sourceHome, destHome, record))
+
+            else:
+                home = first
+                sourceHome = os.path.join(sourceUidHomes, home)
+                if not os.path.isdir(sourceHome):
+                    continue
+                record = directoryMap.lookupCUA(home)
+                if not record:
+                    print "Couldn't find %s, skipping." % (home,)
+                    continue
+                sourceHome = os.path.join(sourceUidHomes, home)
+                destHome = os.path.join(destUidHomes, record['guid'])
+                homeList.append((sourceHome, destHome, record))
+
+        print "Processing %d calendar homes..." % (len(homeList),)
+
+        for sourceHome, destHome, record in homeList:
             quotaUsed = 0
 
-            if len(home) <= 2:
-                continue
-            sourceHome = os.path.join(sourceUidHomes, home)
-            if not os.path.isdir(sourceHome):
-                continue
-
-            record = directoryMap.lookupCUA(home)
-            if not record:
-                print "Couldn't find %s, skipping." % (home,)
-                continue
-
-            destHome = os.path.join(destUidHomes, record['guid'])
             if not os.path.exists(destHome):
                 os.makedirs(destHome)
 
@@ -280,7 +298,7 @@ def anonymizeData(directoryMap, data):
                     prop.value = "urn:uuid:%s" % (record['guid'],)
                     if prop.params.has_key('X-CALENDARSERVER-EMAIL'):
                         prop.params['X-CALENDARSERVER-EMAIL'] = (record['email'],)
-                    if prop.params.has_key('EMAIL'):
+                    else:
                         prop.params['EMAIL'] = (record['email'],)
                     prop.params['CN'] = (record['name'],)
             except KeyError:
@@ -377,11 +395,12 @@ class DirectoryMap(object):
             self.counts[internalType] += 1
             count = self.counts[internalType]
 
+            namePrefix = randomName(6)
             record = {
-                'guid' : str(uuid.uuid4()),
-                'name' : "%s %d" % (self.strings[internalType][1], count,),
+                'guid' : str(uuid.uuid4()).upper(),
+                'name' : "%s %s %d" % (namePrefix, self.strings[internalType][1], count,),
                 'recordName' : "%s%d" % (self.strings[internalType][1], count,),
-                'email' : ("%s%d@example.com" % (internalType, count,)),
+                'email' : ("%s_%s%d@example.com" % (namePrefix, internalType, count,)),
                 'type' : self.strings[internalType][0],
                 'cua' : cua,
             }
@@ -477,6 +496,14 @@ def anonymize(text):
     l = len(text)
     return (h*((l/32)+1))[:-(32-(l%32))]
 
+
+
+nameChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+def randomName(length):
+    l = []
+    for i in xrange(length):
+        l.append(random.choice(nameChars))
+    return "".join(l)
 
 
 if __name__ == "__main__":
