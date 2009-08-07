@@ -101,6 +101,8 @@ def main():
 
     directoryMap.printStats()
 
+    directoryMap.dumpDsImports(os.path.join(destDirectory, "dsimports"))
+
 
 def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
     # sourceDirectory and destDirectory are DocumentRoots
@@ -335,6 +337,12 @@ class DirectoryMap(object):
     def __init__(self, node):
 
         self.map = { }
+        self.byType = {
+            'users' : [],
+            'groups' : [],
+            'locations' : [],
+            'resources' : [],
+        }
         self.counts = {
             'users' : 0,
             'groups' : 0,
@@ -344,10 +352,10 @@ class DirectoryMap(object):
         }
 
         self.strings = {
-            'users' : ('Users', 'User'),
-            'groups' : ('Groups', 'Group'),
-            'locations' : ('Places', 'Place'),
-            'resources' : ('Resources', 'Resource'),
+            'users' : ('Users', 'user'),
+            'groups' : ('Groups', 'group'),
+            'locations' : ('Places', 'location'),
+            'resources' : ('Resources', 'resource'),
         }
 
         print "Fetching records from directory: %s" % (node,)
@@ -358,7 +366,7 @@ class DirectoryMap(object):
                 args = [
                     "/usr/bin/dscl", "-plist", node, "-readall",
                     "/%s" % (recordType,),
-                    "GeneratedUID", "RecordName", "EMailAddress",
+                    "GeneratedUID", "RecordName", "EMailAddress", "GroupMembers"
                 ],
                 stdout=PIPE, stderr=STDOUT,
             )
@@ -376,14 +384,16 @@ class DirectoryMap(object):
                         continue
                     origRecordNames = record['dsAttrTypeStandard:RecordName']
                     origEmails = record.get('dsAttrTypeStandard:EMailAddress', [])
+                    origMembers = record.get('dsAttrTypeStandard:GroupMembers', [])
                     self.addRecord(internalType=internalType, guid=origGUID,
-                        names=origRecordNames, emails=origEmails)
+                        names=origRecordNames, emails=origEmails,
+                        members=origMembers)
 
         print "Done."
         print ""
 
     def addRecord(self, internalType="users", guid=None, names=None,
-        emails=None, cua=None):
+        emails=None, members=None, cua=None):
 
         if cua:
             keys = [self.cua2key(cua)]
@@ -396,16 +406,21 @@ class DirectoryMap(object):
             count = self.counts[internalType]
 
             namePrefix = randomName(6)
+            typeStr = self.strings[internalType][1]
             record = {
                 'guid' : str(uuid.uuid4()).upper(),
-                'name' : "%s %s %d" % (namePrefix, self.strings[internalType][1], count,),
-                'recordName' : "%s%d" % (self.strings[internalType][1], count,),
-                'email' : ("%s_%s%d@example.com" % (namePrefix, internalType, count,)),
+                'name' : "%s %s%d" % (namePrefix, typeStr, count,),
+                'first' : namePrefix,
+                'last' : "%s%d" % (typeStr, count,),
+                'recordName' : "%s%d" % (typeStr, count,),
+                'email' : ("%s%d@example.com" % (typeStr, count,)),
                 'type' : self.strings[internalType][0],
                 'cua' : cua,
+                'members' : members,
             }
             for key in keys:
                 self.map[key] = record
+            self.byType[internalType].append(record)
             return record
         else:
             return None
@@ -463,6 +478,76 @@ class DirectoryMap(object):
         if unknown:
             print " Principals not found in directory: %d" % (unknown,)
 
+    def dumpDsImports(self, dirPath):
+        if not os.path.exists(dirPath):
+            os.makedirs(dirPath)
+
+        uid = 1000000
+        filePath = os.path.join(dirPath, "users.dsimport")
+        with open(filePath, "w") as out:
+            out.write("0x0A 0x5C 0x3A 0x2C dsRecTypeStandard:Users 12 dsAttrTypeStandard:RecordName dsAttrTypeStandard:AuthMethod dsAttrTypeStandard:Password dsAttrTypeStandard:UniqueID dsAttrTypeStandard:GeneratedUID dsAttrTypeStandard:PrimaryGroupID dsAttrTypeStandard:RealName dsAttrTypeStandard:FirstName dsAttrTypeStandard:LastName dsAttrTypeStandard:NFSHomeDirectory dsAttrTypeStandard:UserShell dsAttrTypeStandard:EMailAddress\n")
+            for record in self.byType['users']:
+                fields = []
+                fields.append(record['recordName'])
+                fields.append("dsAuthMethodStandard\\:dsAuthClearText")
+                fields.append("test") # password
+                fields.append(str(uid))
+                fields.append(record['guid'])
+                fields.append("20") # primary group id
+                fields.append(record['name'])
+                fields.append(record['first'])
+                fields.append(record['last'])
+                fields.append("/var/empty")
+                fields.append("/usr/bin/false")
+                fields.append(record['email'])
+                out.write(":".join(fields))
+                out.write("\n")
+                uid += 1
+
+        gid = 2000000
+        filePath = os.path.join(dirPath, "groups.dsimport")
+        with open(filePath, "w") as out:
+            out.write("0x0A 0x5C 0x3A 0x2C dsRecTypeStandard:Groups 5 dsAttrTypeStandard:RecordName dsAttrTypeStandard:PrimaryGroupID dsAttrTypeStandard:GeneratedUID dsAttrTypeStandard:RealName dsAttrTypeStandard:GroupMembership\n")
+            for record in self.byType['groups']:
+                fields = []
+                fields.append(record['recordName'])
+                fields.append(str(gid))
+                fields.append(record['guid'])
+                fields.append(record['name'])
+                anonMembers = []
+                for member in record['members']:
+                    memberRec = self.lookupCUA("urn:uuid:%s" % (member,))
+                    if memberRec:
+                        anonMembers.append(memberRec['guid'])
+                if anonMembers: # skip empty groups
+                    fields.append(",".join(anonMembers))
+                    out.write(":".join(fields))
+                    out.write("\n")
+                    gid += 1
+
+        filePath = os.path.join(dirPath, "resources.dsimport")
+        with open(filePath, "w") as out:
+            out.write("0x0A 0x5C 0x3A 0x2C dsRecTypeStandard:Resources 3 dsAttrTypeStandard:RecordName dsAttrTypeStandard:GeneratedUID dsAttrTypeStandard:RealName\n")
+            for record in self.byType['resources']:
+                fields = []
+                fields.append(record['recordName'])
+                fields.append(record['guid'])
+                fields.append(record['name'])
+                out.write(":".join(fields))
+                out.write("\n")
+
+        filePath = os.path.join(dirPath, "places.dsimport")
+        with open(filePath, "w") as out:
+            out.write("0x0A 0x5C 0x3A 0x2C dsRecTypeStandard:Places 3 dsAttrTypeStandard:RecordName dsAttrTypeStandard:GeneratedUID dsAttrTypeStandard:RealName\n")
+            for record in self.byType['locations']:
+                fields = []
+                fields.append(record['recordName'])
+                fields.append(record['guid'])
+                fields.append(record['name'])
+                out.write(":".join(fields))
+                out.write("\n")
+
+
 
 class DirectoryError(Exception):
     """
@@ -504,6 +589,8 @@ def randomName(length):
     for i in xrange(length):
         l.append(random.choice(nameChars))
     return "".join(l)
+
+
 
 
 if __name__ == "__main__":
