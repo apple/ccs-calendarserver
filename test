@@ -24,6 +24,52 @@ set -u
 until_fail="";
   coverage="";
 
+py_version ()
+{
+  local python="$1"; shift
+  echo "$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
+}
+
+try_python ()
+{
+  local python="$1"; shift
+
+  if [ -z "${python}" ]; then return 1; fi;
+
+  if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
+  local py_version="$(py_version "${python}")";
+  if [ "${py_version/./}" -lt "24" ]; then return 1; fi;
+
+  return 0;
+}
+
+for v in "" "2.6" "2.5"; do
+  for p in                                                              \
+    "${PYTHON:=}"                                                       \
+    "python${v}"                                                        \
+    "/usr/local/bin/python${v}"                                         \
+    "/usr/local/python/bin/python${v}"                                  \
+    "/usr/local/python${v}/bin/python${v}"                              \
+    "/opt/bin/python${v}"                                               \
+    "/opt/python/bin/python${v}"                                        \
+    "/opt/python${v}/bin/python${v}"                                    \
+    "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"     \
+    "/opt/local/bin/python${v}"                                         \
+    "/sw/bin/python${v}"                                                \
+    ;
+  do
+    if try_python "${p}"; then python="${p}"; break; fi;
+  done;
+  if [ -n "${python:-}" ]; then break; fi;
+done;
+
+if [ -z "${python:-}" ]; then
+  echo "No suitable python found.";
+  exit 1;
+else
+  echo "Using ${python} as Python";
+fi;
+
 usage ()
 {
   program="$(basename "$0")";
@@ -67,4 +113,4 @@ else
     test_modules="calendarserver twistedcaldav twext twisted";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
+cd "${wd}" && "${python}" "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
