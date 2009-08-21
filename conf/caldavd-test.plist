@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -145,10 +145,6 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
       </dict>
@@ -210,6 +206,48 @@
     </dict>
     -->
 
+
+    <!--
+        Augment service
+
+        Augments for the directory service records to add calendar specific attributes.
+
+        A variety of augment services are available for use.
+        When using a partitioned server, a service that can be accessed from each host will be needed.
+      -->
+
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>xmlFiles</key>
+        <array>
+	      <string>conf/auth/augments-test.xml</string>
+        </array>
+      </dict>
+    </dict>
+    
+    <!-- Sqlite Augment Service -->
+    <!--
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>/etc/caldavd/augments.sqlite</string>
+      </dict>
+    </dict>
+     -->
+
+	<key>ProxyLoadFromFile</key>
+    <string>conf/auth/proxies-test.xml</string>
 
     <!--
         Special principals

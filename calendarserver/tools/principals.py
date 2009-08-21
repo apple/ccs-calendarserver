@@ -431,11 +431,11 @@ def action_setAutoSchedule(principal, autoSchedule):
             { True: "true", False: "false" }[autoSchedule],
             principal,
         )
-        (yield principal.setAutoSchedule(autoSchedule))
+        principal.setAutoSchedule(autoSchedule)
 
 @inlineCallbacks
 def action_getAutoSchedule(principal):
-    autoSchedule = (yield principal.getAutoSchedule())
+    autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (
         principal,
         { True: "true", False: "false" }[autoSchedule],

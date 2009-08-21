@@ -334,27 +334,20 @@ class CachingDirectoryRecord(DirectoryRecord):
 
     def __init__(
         self, service, recordType, guid,
-        enabled=False, hostedAt="",
         shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        enabledForCalendaring=None,
-        calendarUserAddresses=set(),
         uid=None,
     ):
         super(CachingDirectoryRecord, self).__init__(
             service               = service,
             recordType            = recordType,
             guid                  = guid,
-            enabled               = enabled,
-            hostedAt              = hostedAt,
             shortNames            = shortNames,
             authIDs               = authIDs,
             fullName              = fullName,
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            enabledForCalendaring = enabledForCalendaring,
-            calendarUserAddresses = calendarUserAddresses,
             uid                   = uid,
         )
         

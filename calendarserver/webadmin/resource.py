@@ -154,7 +154,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             # Update the auto-schedule value if specified.
             if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
                 if principal.record.recordType != "users" and principal.record.recordType != "groups":
-                    result = (yield principal.setAutoSchedule(autoSchedule == "true"))
+                    result = principal.setAutoSchedule(autoSchedule == "true")
 
             # Update the proxies if specified.
             for proxyId in removeProxies:
@@ -277,7 +277,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         ###
         autoScheduleHtml = ""
         if resource.record.recordType != "users" and resource.record.recordType != "groups":
-            autoSchedule = (yield resource.getAutoSchedule())
+            autoSchedule = resource.getAutoSchedule()
             autoScheduleHtml = """
 <div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>
 <form id=\"frm_autoSchedule\" name=\"autoScheduleForm\" action=\"/admin/\" style=\"margin-top:15px\">

@@ -26,6 +26,7 @@ from twisted.web2.http import HTTPError
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import TwistedSchedulingObjectResource
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
@@ -321,6 +322,8 @@ class ImplicitScheduler(object):
     def extractCalendarData(self):
         
         # Get the originator who is the authenticated user
+        # TODO: the originator actually needs to be the owner of the calendar collection not the authenticated
+        # principal, who might be a proxy or admin
         self.originatorPrincipal = None
         self.originator = ""
         authz_principal = self.resource.currentPrincipal(self.request).children[0]
@@ -328,6 +331,10 @@ class ImplicitScheduler(object):
             originatorPrincipalURL = str(authz_principal)
             if originatorPrincipalURL:
                 self.originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
+                if not isinstance(self.originatorPrincipal, DirectoryCalendarPrincipalResource):
+                    log.error("Originator '%s' is not enabled for calendaring" % (originatorPrincipalURL,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "invalid-originator")))
+
                 if self.originatorPrincipal:
                     # Pick the first mailto cu address or the first other type
                     for item in self.originatorPrincipal.calendarUserAddresses():

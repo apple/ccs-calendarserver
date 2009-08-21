@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,11 +36,11 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         super(ProvisionedCalendars, self).setUp()
         
         # Setup the initial directory
-        self.xmlfile = self.mktemp()
-        fd = open(self.xmlfile, "w")
+        self.xmlFile = self.mktemp()
+        fd = open(self.xmlFile, "w")
         fd.write(open(xmlFile.path, "r").read())
         fd.close()
-        self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlfile})
+        self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlFile})
         
         # Set up a principals hierarchy for each service we're testing with
         name = "principals"

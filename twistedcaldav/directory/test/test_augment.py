@@ -16,11 +16,12 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.augment import AugmentXMLDB, AugmentSqliteDB
-from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
+from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
+import cStringIO
 import os
 
-xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "augments.xml"))
+xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 
 testRecords = (
     {"guid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
@@ -54,12 +55,41 @@ class AugmentXMLTests(AugmentTests):
     @inlineCallbacks
     def test_read(self):
         
-        db = AugmentXMLDB(xmlFile)
+        db = AugmentXMLDB((xmlFile,))
 
         for item in testRecords:
             yield self._checkRecord(db, item)
 
         yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+    def test_parseErrors(self):
+        
+        db = {}
+        self.assertRaises(RuntimeError, XMLAugmentsParser, cStringIO.StringIO(""), db)
+        self.assertRaises(RuntimeError, XMLAugmentsParser, cStringIO.StringIO("""<?xml version="1.0" encoding="utf-8"?>
+<accounts>
+    <foo/>
+</accounts>
+"""), db)
+        self.assertRaises(RuntimeError, XMLAugmentsParser, cStringIO.StringIO("""<?xml version="1.0" encoding="utf-8"?>
+<augments>
+    <foo/>
+</augments>
+"""), db)
+        self.assertRaises(RuntimeError, XMLAugmentsParser, cStringIO.StringIO("""<?xml version="1.0" encoding="utf-8"?>
+<augments>
+  <record>
+    <enable>true</enable>
+  </record>
+</augments>
+"""), db)
+        self.assertRaises(RuntimeError, XMLAugmentsParser, cStringIO.StringIO("""<?xml version="1.0" encoding="utf-8"?>
+  <record>
+    <guid>admin</guid>
+    <enable>true</enable>
+    <foo/>
+  </record>
+"""), db)
 
 class AugmentSqliteTests(AugmentTests):
 
@@ -68,7 +98,7 @@ class AugmentSqliteTests(AugmentTests):
         
         db = AugmentSqliteDB(self.mktemp())
 
-        dbxml = AugmentXMLDB(xmlFile)
+        dbxml = AugmentXMLDB((xmlFile,))
         for record in dbxml.db.values():
             yield db.addAugmentRecord(record)
 

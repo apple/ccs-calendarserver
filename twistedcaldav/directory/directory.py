@@ -298,11 +298,8 @@ class DirectoryRecord(LoggingMixIn):
 
     def __init__(
         self, service, recordType, guid,
-        enabled=False, hostedAt="",
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        enabledForCalendaring=False,
-        calendarUserAddresses=set(),
         uid=None,
     ):
         assert service.realmName is not None
@@ -315,29 +312,21 @@ class DirectoryRecord(LoggingMixIn):
         if uid is None:
             uid = guid
 
-        if enabledForCalendaring and recordType == service.recordType_groups:
-            raise AssertionError("Groups may not be enabled for calendaring")
-
-        if enabledForCalendaring:
-            calendarUserAddresses = set(calendarUserAddresses)
-            calendarUserAddresses.add("urn:uuid:%s" % (guid,))
-        else:
-            assert len(calendarUserAddresses) == 0
-
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
         self.uid                   = uid
-        self.enabled               = enabled
-        self.hostedAt              = hostedAt
+        self.enabled               = False
+        self.hostedAt              = ""
         self.shortNames            = shortNames
         self.authIDs               = authIDs
         self.fullName              = fullName
         self.firstName             = firstName
         self.lastName              = lastName
         self.emailAddresses        = emailAddresses
-        self.enabledForCalendaring = enabledForCalendaring
-        self.calendarUserAddresses = calendarUserAddresses
+        self.enabledForCalendaring = False
+        self.autoSchedule          = False
+        self.calendarUserAddresses = set()
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -356,6 +345,31 @@ class DirectoryRecord(LoggingMixIn):
             h = (h + hash(getattr(self, attr))) & sys.maxint
 
         return h
+
+    def addAugmentInformation(self, augment):
+        
+        if augment:
+            self.enabled = augment.enabled
+            self.hostedAt = augment.hostedAt
+            self.enabledForCalendaring = augment.enabledForCalendaring
+            self.autoSchedule = augment.autoSchedule
+            self.calendarUserAddresses = set(augment.calendarUserAddresses)
+
+            if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
+                raise AssertionError("Groups may not be enabled for calendaring")
+    
+            if self.enabledForCalendaring:
+                for email in self.emailAddresses:
+                    self.calendarUserAddresses.add("mailto:%s" % (email.lower(),))
+                self.calendarUserAddresses.add("urn:uuid:%s" % (self.guid,))
+            else:
+                assert len(self.calendarUserAddresses) == 0
+
+        else:
+            self.enabled = False
+            self.hostedAt = ""
+            self.enabledForCalendaring = False
+            self.calendarUserAddresses = set()
 
     def members(self):
         return ()

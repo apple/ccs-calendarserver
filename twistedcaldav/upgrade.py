@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,30 +252,34 @@ def upgrade_to_1(config):
 
 
     def migrateResourceInfo(config, directory, uid, gid):
-        log.info("Fetching delegate assignments and auto-schedule settings from directory")
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-        resourceInfo = directory.getResourceInfo()
-        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
-            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
-            if proxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-write" % (guid,),
-                    [proxy]
-                )
-            if readOnlyProxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-read" % (guid,),
-                    [readOnlyProxy]
-                )
+        # TODO: we need to account for the new augments database. This means migrating from the pre-resource info
+        # implementation and the resource-info implementation
+        pass
 
-        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
-
-        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
+#        log.info("Fetching delegate assignments and auto-schedule settings from directory")
+#        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+#        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
+#        resourceInfo = directory.getResourceInfo()
+#        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
+#            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
+#            if proxy:
+#                calendarUserProxyDatabase.setGroupMembersInDatabase(
+#                    "%s#calendar-proxy-write" % (guid,),
+#                    [proxy]
+#                )
+#            if readOnlyProxy:
+#                calendarUserProxyDatabase.setGroupMembersInDatabase(
+#                    "%s#calendar-proxy-read" % (guid,),
+#                    [readOnlyProxy]
+#                )
+#
+#        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+#        if os.path.exists(dbPath):
+#            os.chown(dbPath, uid, gid)
+#
+#        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
+#        if os.path.exists(dbPath):
+#            os.chown(dbPath, uid, gid)
 
     def createMailTokensDatabase(config, uid, gid):
         # Cause the tokens db to be created on disk so we can set the

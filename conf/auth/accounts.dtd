@@ -17,16 +17,16 @@ limitations under the License.
 <!ELEMENT accounts (user*, group*, resource*, location*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid*, guid, password?, enable?, hosted-at?, name?, first-name?, last-name?, email-address*, enable-calendar?, cuaddr*)>
+  <!ELEMENT user (uid*, guid, password?, name?, first-name?, last-name?, email-address*,)>
     <!ATTLIST user repeat CDATA "1">
 
-  <!ELEMENT group (uid*, guid, password?, enable?, hosted-at?, name?, members, enable-calendar?, cuaddr*)>
+  <!ELEMENT group (uid*, guid, password?, name?, members, enable-calendar?,)>
     <!ATTLIST group repeat CDATA "1">
 
-  <!ELEMENT resource (uid*, guid, password?, enable?, hosted-at?, name?, enable-calendar?, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
+  <!ELEMENT resource (uid*, guid, password?, name?,)>
     <!ATTLIST resource repeat CDATA "1">
 
-  <!ELEMENT location (uid*, guid, password?, enable?, hosted-at?, name?, enable-calendar?, cuaddr*, auto-schedule?, proxies?, read-only-proxies?)>
+  <!ELEMENT location (uid*, guid, password?, name?,)>
     <!ATTLIST location repeat CDATA "1">
 
   <!ELEMENT member (#PCDATA)>
@@ -35,16 +35,9 @@ limitations under the License.
   <!ELEMENT uid               (#PCDATA)>
   <!ELEMENT guid              (#PCDATA)>
   <!ELEMENT password          (#PCDATA)>
-  <!ELEMENT enable            (#PCDATA)>
-  <!ELEMENT hosted-at         (#PCDATA)>
   <!ELEMENT name              (#PCDATA)>
   <!ELEMENT first-name        (#PCDATA)>
   <!ELEMENT last-name         (#PCDATA)>
   <!ELEMENT email-address     (#PCDATA)>
   <!ELEMENT members           (member*)>
-  <!ELEMENT enable-calendar   (#PCDATA)>
-  <!ELEMENT cuaddr            (#PCDATA)>
-  <!ELEMENT auto-schedule     (#PCDATA)>
-  <!ELEMENT proxies           (member*)>
-  <!ELEMENT read-only-proxies (member*)>
 >

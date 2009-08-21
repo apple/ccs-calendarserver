@@ -14,11 +14,15 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.database import AbstractADBAPIDatabase
-from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser,\
-    RECORD_TYPES
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twistedcaldav.database import AbstractADBAPIDatabase
+from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
+import time
+
+from twistedcaldav.log import Logger
+
+log = Logger()
 
 class AugmentRecord(object):
     """
@@ -28,18 +32,18 @@ class AugmentRecord(object):
     def __init__(
         self,
         guid,
-        enabled,
-        hostedAt,
-        enabledForCalendaring,
-        autoSchedule,
-        calendarUserAddresses,  
+        enabled=False,
+        hostedAt="",
+        enabledForCalendaring=False,
+        autoSchedule=False,
+        calendarUserAddresses=None,  
     ):
         self.guid = guid
         self.enabled = enabled
         self.hostedAt = hostedAt
         self.enabledForCalendaring = enabledForCalendaring
         self.autoSchedule = autoSchedule
-        self.calendarUserAddresses = calendarUserAddresses
+        self.calendarUserAddresses = calendarUserAddresses if calendarUserAddresses else set()
 
 class AugmentDB(object):
     """
@@ -61,17 +65,34 @@ class AugmentDB(object):
         
         raise NotImplementedError("Child class must define this.")
 
+    def refresh(self):
+        """
+        Refresh any cached data.
+        """
+        pass
+        
+AugmentService = AugmentDB()   # Global augment service
+
+
 class AugmentXMLDB(AugmentDB):
     """
     XMLFile based augment database implementation.
     """
     
-    def __init__(self, xmlfilepath):
+    def __init__(self, xmlFiles, cacheTimeout=30):
         
-        self.xmlfilepath = xmlfilepath
+        self.xmlFiles = xmlFiles
+        self.cacheTimeout = cacheTimeout * 60 # Value is mins we want secs
+        self.lastCached = 0
         self.db = {}
         
-        self._parseXML()
+        try:
+            self.db = self._parseXML()
+        except RuntimeError:
+            log.error("Failed to parse XML augments file - fatal error on startup")
+            raise
+            
+        self.lastCached = time.time()
 
     def getAugmentRecord(self, guid):
         """
@@ -83,31 +104,32 @@ class AugmentXMLDB(AugmentDB):
         @return: L{Deferred}
         """
         
+        # May need to re-cache
+        if self.lastCached + self.cacheTimeout <= time.time():
+            self.refresh()
+            
         return succeed(self.db.get(guid))
+
+    def refresh(self):
+        """
+        Refresh any cached data.
+        """
+        try:
+            self.db = self._parseXML()
+        except RuntimeError:
+            log.error("Failed to parse XML augments file during cache refresh - ignoring")
+        self.lastCached = time.time()
 
     def _parseXML(self):
         
-        # We will re-use the XML account format and associated classes
+        # Do each file
+        results = {}
+        for xmlFile in self.xmlFiles:
+            
+            # Creating a parser does the parse
+            XMLAugmentsParser(xmlFile, results)
         
-        # Create a parser and do the parse
-        parser = XMLAccountsParser(self.xmlfilepath, externalUpdate=False)
-        
-        # Add all records to our DB
-        for recordType in RECORD_TYPES.values():
-            for record in parser.items[recordType].itervalues():
-                
-                # Create augment record from XML account record
-                augment = AugmentRecord(
-                    guid=record.guid,
-                    enabled=record.enabled,
-                    hostedAt=record.hostedAt,
-                    enabledForCalendaring=record.enabledForCalendaring,
-                    autoSchedule=record.autoSchedule,
-                    calendarUserAddresses=record.calendarUserAddresses,
-                )
-                
-                self.db[augment.guid] = augment
-
+        return results
 
 class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     """

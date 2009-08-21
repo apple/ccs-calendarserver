@@ -50,7 +50,6 @@ from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
@@ -61,7 +60,6 @@ from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import getWikiACL
-from twistedcaldav.partitions import partitions
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
@@ -764,38 +762,10 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     ##
 
     def setAutoSchedule(self, autoSchedule):
-        self._resource_info_index().setAutoSchedule(self.record.guid, autoSchedule)
+        self.record.autoSchedule = autoSchedule
 
-    @inlineCallbacks
     def getAutoSchedule(self):
-        value = (yield self._resource_info_index().getAutoSchedule(self.record.guid))
-        if value is None:
-            # No value has been explicitly set yet.  If this is a user/group
-            # the default should be False.  If resource/location, True.
-            if self.record.recordType in (DirectoryService.recordType_locations,
-                DirectoryService.recordType_resources):
-                yield self.setAutoSchedule(True)
-                returnValue(True)
-            else:
-                yield self.setAutoSchedule(False)
-                returnValue(False)
-        else:
-            returnValue(value)
-
-
-    def _resource_info_index(self):
-        """
-        Return the resource info SQL database for this calendar principal.
-
-        @return: the L{ResourceInfoDatabase} for the calendar principal.
-        """
-
-        # The db is located in the data root
-        self.pcollection = self.parent.parent
-        if not hasattr(self.pcollection, "resource_info_db"):
-            setattr(self.pcollection, "resource_info_db", ResourceInfoDatabase(config.DataRoot))
-        return self.pcollection.resource_info_db
-
+        return self.record.autoSchedule
 
     ##
     # Static

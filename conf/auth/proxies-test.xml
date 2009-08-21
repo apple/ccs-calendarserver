@@ -16,31 +16,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<!DOCTYPE proxies SYSTEM "proxies.dtd">
 
-<accounts realm="Test Realm">
-  <user>
-    <uid>admin</uid>
-    <password>admin</password>
-    <name>Super User</name>
-  </user>
-  <user>
-    <uid>test</uid>
-    <password>test</password>
-    <name>Test User</name>
-  </user>
-  <group>
-    <uid>users</uid>
-    <password>users</password>
-    <name>Users Group</name>
-    <members>
-      <member type="users">test</member>
-    </members>
-  </group>
-  <location>
-    <uid>mercury</uid>
-    <password>mercury</password>
-    <name>Mecury Conference Room, Building 1, 2nd Floor</name>
-  </location>
-</accounts>
-
+<proxies>
+  <record repeat="10">
+    <guid>resource%02d</guid>
+    <proxies>
+      <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+      <member>user03</member>
+    </read-only-proxies>
+  </record>
+</proxies>

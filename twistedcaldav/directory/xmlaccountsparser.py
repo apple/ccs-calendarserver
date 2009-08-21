@@ -27,11 +27,8 @@ import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
-from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.log import Logger
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 log = Logger()
 
@@ -44,19 +41,12 @@ ELEMENT_RESOURCE          = "resource"
 ELEMENT_SHORTNAME         = "uid"
 ELEMENT_GUID              = "guid"
 ELEMENT_PASSWORD          = "password"
-ELEMENT_ENABLE            = "enable"
-ELEMENT_HOSTEDAT          = "hosted-at"
 ELEMENT_NAME              = "name"
 ELEMENT_FIRST_NAME        = "first-name"
 ELEMENT_LAST_NAME         = "last-name"
 ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
-ELEMENT_ENABLECALENDAR    = "enable-calendar"
-ELEMENT_CUADDR            = "cuaddr"
-ELEMENT_AUTOSCHEDULE      = "auto-schedule"
-ELEMENT_PROXIES           = "proxies"
-ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
 
 ATTRIBUTE_REALM           = "realm"
 ATTRIBUTE_REPEAT          = "repeat"
@@ -102,43 +92,6 @@ class XMLAccountsParser(object):
             log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
-        if externalUpdate:
-            self._updateExternalDatabases()
-
-    def _updateExternalDatabases(self):
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-
-        for records in self.items.itervalues():
-            for principal in records.itervalues():
-
-                resourceInfoDatabase.setAutoScheduleInDatabase(principal.guid,
-                    principal.autoSchedule)
-
-                if principal.proxies:
-                    proxies = []
-                    for recordType, uid in principal.proxies:
-                        record = self.items[recordType].get(uid)
-                        if record is not None:
-                            proxies.append(record.guid)
-
-                    calendarUserProxyDatabase.setGroupMembersInDatabase(
-                        "%s#calendar-proxy-write" % (principal.guid,),
-                        proxies
-                    )
-
-                if principal.readOnlyProxies:
-                    readOnlyProxies = []
-                    for recordType, uid in principal.readOnlyProxies:
-                        record = self.items[recordType].get(uid)
-                        if record is not None:
-                            readOnlyProxies.append(record.guid)
-
-                    calendarUserProxyDatabase.setGroupMembersInDatabase(
-                        "%s#calendar-proxy-read" % (principal.guid,),
-                        readOnlyProxies
-                    )
 
     def _parseXML(self, node):
         """
@@ -154,19 +107,6 @@ class XMLAccountsParser(object):
                 item = self.items[recordType].get(shortName)
                 if item is not None:
                     item.groups.add(group.shortNames[0])
-
-        def updateProxyFor(proxier):
-            # Update proxy membership
-            for recordType, shortName in proxier.proxies:
-                item = self.items[recordType].get(shortName)
-                if item is not None:
-                    item.proxyFor.add((proxier.recordType, proxier.shortNames[0]))
-
-            # Update read-only proxy membership
-            for recordType, shortName in proxier.readOnlyProxies:
-                item = self.items[recordType].get(shortName)
-                if item is not None:
-                    item.readOnlyProxyFor.add((proxier.recordType, proxier.shortNames[0]))
 
         for child in node._get_childNodes():
             child_name = child._get_localName()
@@ -196,7 +136,6 @@ class XMLAccountsParser(object):
         for records in self.items.itervalues():
             for principal in records.itervalues():
                 updateMembership(principal)
-                updateProxyFor(principal)
                 
 class XMLAccountRecord (object):
     """
@@ -210,21 +149,12 @@ class XMLAccountRecord (object):
         self.shortNames = []
         self.guid = None
         self.password = None
-        self.enabled = True
-        self.hostedAt = ""
         self.fullName = None
         self.firstName = None
         self.lastName = None
         self.emailAddresses = set()
         self.members = set()
         self.groups = set()
-        self.calendarUserAddresses = set()
-        self.autoSchedule = False
-        self.enabledForCalendaring = False
-        self.proxies = set()
-        self.proxyFor = set()
-        self.readOnlyProxies = set()
-        self.readOnlyProxyFor = set()
 
     def repeat(self, ctr):
         """
@@ -264,29 +194,16 @@ class XMLAccountRecord (object):
                 emailAddresses.add(emailAddr % ctr)
             else:
                 emailAddresses.add(emailAddr)
-        calendarUserAddresses = set()
-        for cuaddr in self.calendarUserAddresses:
-            if cuaddr.find("%") != -1:
-                calendarUserAddresses.add(cuaddr % ctr)
-            else:
-                calendarUserAddresses.add(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
         result.shortNames = shortNames
         result.guid = guid
         result.password = password
-        result.enabled = self.enabled
-        result.hostedAt = self.hostedAt
         result.fullName = fullName
         result.firstName = firstName
         result.lastName = lastName
         result.emailAddresses = emailAddresses
         result.members = self.members
-        result.calendarUserAddresses = calendarUserAddresses
-        result.autoSchedule = self.autoSchedule
-        result.enabledForCalendaring = self.enabledForCalendaring
-        result.proxies = self.proxies
-        result.readOnlyProxies = self.readOnlyProxies
         return result
 
     def parseXML(self, node):
@@ -302,12 +219,6 @@ class XMLAccountRecord (object):
                     self.guid = child.firstChild.data.encode("utf-8")
                     if len(self.guid) < 4:
                         self.guid += "?" * (4 - len(self.guid))
-            elif child_name == ELEMENT_ENABLE:
-                if child.firstChild is not None:
-                    self.enabled = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
-            elif child_name == ELEMENT_HOSTEDAT:
-                if child.firstChild is not None:
-                    self.hostedAt = child.firstChild.data.encode("utf-8")
             elif child_name == ELEMENT_PASSWORD:
                 if child.firstChild is not None:
                     self.password = child.firstChild.data.encode("utf-8")
@@ -325,25 +236,8 @@ class XMLAccountRecord (object):
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
-            elif child_name == ELEMENT_ENABLECALENDAR:
-                if child.firstChild is not None:
-                    self.enabledForCalendaring = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
-            elif child_name == ELEMENT_CUADDR:
-                if child.firstChild is not None:
-                    self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
-            elif child_name == ELEMENT_AUTOSCHEDULE:
-                if child.firstChild is not None:
-                    self.autoSchedule = (child.firstChild.data.encode("utf-8") == VALUE_TRUE)
-            elif child_name == ELEMENT_PROXIES:
-                self._parseMembers(child, self.proxies)
-            elif child_name == ELEMENT_READ_ONLY_PROXIES:
-                self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
-
-        if self.enabledForCalendaring:
-            for email in self.emailAddresses:
-                self.calendarUserAddresses.add("mailto:%s" % (email,))
 
         if not self.shortNames:
             self.shortNames.append(self.guid)

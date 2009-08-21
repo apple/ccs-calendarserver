@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,10 @@ class ProxyDBUpgradeTests(TestCase):
         xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
             "directory", "test", "accounts.xml")
         config.DirectoryService.params.xmlFile = xmlFile
+
+        xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+            "directory", "test", "augments.xml")
+        config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
 
 
     def setUpInitialStates(self):
@@ -349,10 +353,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
 
         root = self.createHierarchy(before)
@@ -463,10 +467,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
 
         root = self.createHierarchy(before)
@@ -593,10 +597,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
 
         root = self.createHierarchy(before)
@@ -724,10 +728,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
 
         root = self.createHierarchy(before)
@@ -825,10 +829,10 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
 
 
@@ -866,18 +870,18 @@ class ProxyDBUpgradeTests(TestCase):
             {
                 "@contents" : "1",
             },
-            CalendarUserProxyDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
+#            CalendarUserProxyDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            },
             MailGatewayTokensDatabase.dbFilename :
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            }
+#            ResourceInfoDatabase.dbFilename :
+#            {
+#                "@contents" : None,
+#            }
         }
         root = self.createHierarchy(before)
         config.DocumentRoot = root
@@ -889,25 +893,25 @@ class ProxyDBUpgradeTests(TestCase):
         calendarUserProxyDatabase = CalendarUserProxyDatabase(root)
         resourceInfoDatabase = ResourceInfoDatabase(root)
 
-        for guid, info in assignments.iteritems():
-
-            proxyGroup = "%s#calendar-proxy-write" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
-            if info[1]:
-                self.assertTrue(info[1] in result)
-            else:
-                self.assertTrue(not result)
-
-            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
-            if info[2]:
-                self.assertTrue(info[2] in result)
-            else:
-                self.assertTrue(not result)
-
-            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
-            autoSchedule = autoSchedule == 1
-            self.assertEquals(info[0], autoSchedule)
+#        for guid, info in assignments.iteritems():
+#
+#            proxyGroup = "%s#calendar-proxy-write" % (guid,)
+#            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
+#            if info[1]:
+#                self.assertTrue(info[1] in result)
+#            else:
+#                self.assertTrue(not result)
+#
+#            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
+#            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
+#            if info[2]:
+#                self.assertTrue(info[2] in result)
+#            else:
+#                self.assertTrue(not result)
+#
+#            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
+#            autoSchedule = autoSchedule == 1
+#            self.assertEquals(info[0], autoSchedule)
 
 
 

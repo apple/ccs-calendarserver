@@ -33,6 +33,7 @@ from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -63,7 +64,11 @@ class OpenDirectoryService(CachingDirectoryService):
             'node' : '/Search',
             'cacheTimeout' : 30,
         }
-        ignored = ('requireComputerRecord',)
+        ignored = (
+            'requireComputerRecord',
+            'restrictEnabledRecords',
+            'restrictToGroup'
+        )
         params = self.getParams(params, defaults, ignored)
 
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
@@ -153,26 +158,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 returnGroups,
             ):
                 yield GUID
-
-    def _calendarUserAddresses(self, recordType, recordData):
-        """
-        Extract specific attributes from the directory record for use as calendar user address.
-        
-        @param recordData: a C{dict} containing the attributes retrieved from the directory.
-        @return: a C{set} of C{str} for each expanded calendar user address.
-        """
-        # Now get the addresses
-        result = set()
-        
-        # Add each email address as a mailto URI
-        emails = recordData.get(dsattributes.kDSNAttrEMailAddress)
-        if emails is not None:
-            if isinstance(emails, str):
-                emails = [emails]
-            for email in emails:
-                result.add("mailto:%s" % (email.lower(),))
-                
-        return result
 
     def recordTypes(self):
         return (
@@ -558,33 +543,6 @@ class OpenDirectoryService(CachingDirectoryService):
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
-            # Determine enabled state
-            if recordType == self.recordType_groups:
-                enabledForCalendaring = False
-            else:
-                enabledForCalendaring = True
-
-            if enabledForCalendaring:
-                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
-            else:
-                # Some records we want to keep even though they are not enabled for calendaring.
-                # Others we discard.
-                if recordType not in (
-                    self.recordType_users,
-                    self.recordType_groups,
-                ):
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring"
-                        % (recordType, recordShortName)
-                    )
-                    continue
-
-                self.log_debug(
-                    "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                    % (recordType, recordShortName)
-                )
-                calendarUserAddresses = ()
-
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
@@ -611,11 +569,16 @@ class OpenDirectoryService(CachingDirectoryService):
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
                 emailAddresses        = recordEmailAddresses,
-                enabledForCalendaring = enabledForCalendaring,
-                calendarUserAddresses = calendarUserAddresses,
                 memberGUIDs           = memberGUIDs,
             )
-            if enabledForCalendaring:
+
+            # Look up augment information
+            # TODO: this needs to be deferred but for now we hard code the deferred result because
+            # we know it is completing immediately.
+            d = augment.AugmentService.getAugmentRecord(record.guid)
+            d.addCallback(lambda x:record.addAugmentInformation(x))
+
+            if record.enabledForCalendaring:
                 enabledRecords.append(record)
             else:
                 disabledRecords.append(record)
@@ -693,8 +656,6 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
         fullName, firstName, lastName, emailAddresses,
-        enabledForCalendaring,
-        calendarUserAddresses,
         memberGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
@@ -707,8 +668,6 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            enabledForCalendaring = enabledForCalendaring,
-            calendarUserAddresses = calendarUserAddresses,
         )
         self.nodeName = nodeName
         self._memberGUIDs = tuple(memberGUIDs)

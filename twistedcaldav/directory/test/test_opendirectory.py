@@ -21,6 +21,7 @@ except ImportError:
 else:
     import twisted.web2.auth.digest
     import twistedcaldav.directory.test.util
+    from twistedcaldav.directory import augment
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
     import dsattributes
@@ -52,6 +53,7 @@ else:
         def setUp(self):
             super(OpenDirectory, self).setUp()
             self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
+            augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
 
         def tearDown(self):
             for call in self._service._delayedCalls:
@@ -72,8 +74,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                calendarUserAddresses = set(("mailtoguid@example.com",)),
-                enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
 
@@ -94,8 +94,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                calendarUserAddresses = set(("mailtoguid@example.com",)),
-                enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
 

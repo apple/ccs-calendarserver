@@ -20,6 +20,7 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.util import uuidFromName
 from uuid import uuid4
+from twistedcaldav.directory.augment import AugmentRecord
 
 class TestDirectoryService (CachingDirectoryService):
 
@@ -62,9 +63,17 @@ class TestDirectoryService (CachingDirectoryService):
                         firstName             = "",
                         lastName              = "",
                         emailAddresses        = record.get("email"),
-                        calendarUserAddresses = record.get("cua"),
-                        enabledForCalendaring = True,
                     ) 
+                    
+                    augmentRecord = AugmentRecord(
+                        guid = cacheRecord.guid,
+                        enabled=True,
+                        enabledForCalendaring = True,
+                        calendarUserAddresses = set(record.get("cua")),
+                    )
+                    
+                    cacheRecord.addAugmentInformation(augmentRecord)
+
                     self.recordCacheForType(recordType).addRecord(cacheRecord,
                         indexType, indexKey)
 

@@ -45,6 +45,15 @@ DEFAULT_SERVICE_PARAMS = {
     },
 }
 
+DEFAULT_AUGMENT_PARAMS = {
+    "twistedcaldav.directory.augment.AugmentXMLDB": {
+        "xmlFiles": ["/etc/caldavd/augments.xml",],
+    },
+    "twistedcaldav.directory.augment.AugmentSqliteDB": {
+        "dbpath": "/etc/caldavd/augments.sqlite",
+    },
+}
+
 DEFAULT_CONFIG = {
     # Note: Don't use None values below; that confuses the command-line parser.
 
@@ -95,6 +104,23 @@ DEFAULT_CONFIG = {
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
+
+    #
+    # Augment service
+    #
+    #    Augments for the directory service records to add calendar specific attributes.
+    #
+    "AugmentService": {
+        "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+        "params": DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
+    },
+
+    #
+    # Proxy loader
+    #
+    #    Allows for initialization of the proxy database from an XML file.
+    #
+    "ProxyLoadFromFile": "",
 
     #
     # Special principals
@@ -446,6 +472,13 @@ def _postUpdateDirectoryService(configDict):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
 
+def _postUpdateAugmentService(configDict):
+    if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
+        for param in tuple(configDict.AugmentService.params):
+            if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
+                log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
+                del configDict.AugmentService.params[param]
+
 def _updateACLs(configDict):
     #
     # Base resource ACLs
@@ -653,6 +686,7 @@ PRE_UPDATE_HOOKS = (
 POST_UPDATE_HOOKS = (
     _updateHostName,
     _postUpdateDirectoryService,
+    _postUpdateAugmentService,
     _updateACLs,
     _updateRejectClients,
     _updateDropBox,

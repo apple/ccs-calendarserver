@@ -23,54 +23,40 @@ limitations under the License.
     <uid>admin</uid>
     <guid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</guid>
     <password>nimda</password>
-    <enable>true</enable>
     <name>Administrators</name>
   </user>
   <user>
     <uid>wsanchez</uid>
     <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
     <password>zehcnasw</password>
-    <enable>true</enable>
     <name>Wilfredo Sanchez</name>
     <email-address>wsanchez@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:wsanchez@example.com</cuaddr>
   </user>
   <user>
     <uid>cdaboo</uid>
     <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
     <password>oobadc</password>
-    <enable>true</enable>
     <name>Cyrus Daboo</name>
     <email-address>cdaboo@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:cdaboo@example.com</cuaddr>
   </user>
   <user>
     <uid>lecroy</uid>
     <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
     <password>yorcel</password>
-    <enable>true</enable>
     <name>Chris Lecroy</name>
     <email-address>lecroy@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:lecroy@example.com</cuaddr>
   </user>
   <user>
     <uid>dreid</uid>
     <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
     <password>dierd</password>
-    <enable>true</enable>
     <name>David Reid</name>
     <email-address>dreid@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:dreid@example.com</cuaddr>
   </user>
   <user>
     <uid>nocalendar</uid>
     <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
     <password>radnelacon</password>
-    <enable>true</enable>
     <name>No Calendar</name>
     <email-address>nocalendar@example.com</email-address>
   </user>
@@ -78,15 +64,12 @@ limitations under the License.
     <uid>user%02d</uid>
     <guid>user%02d</guid>
     <password>%02duser</password>
-    <enable>true</enable>
     <name>User %02d</name>
-    <enable-calendar>true</enable-calendar>
   </user>
   <group>
     <uid>managers</uid>
     <guid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
     <password>managers</password>
-    <enable>true</enable>
     <name>Managers</name>
     <members>
       <member type="users">lecroy</member>
@@ -96,7 +79,6 @@ limitations under the License.
     <uid>admin</uid>
     <guid>admin</guid>
     <password>admin</password>
-    <enable>true</enable>
     <name>Administrators</name>
     <members>
       <member type="groups">managers</member>
@@ -106,7 +88,6 @@ limitations under the License.
     <uid>grunts</uid>
     <guid>grunts</guid>
     <password>grunts</password>
-    <enable>true</enable>
     <name>We do all the work</name>
     <members>
       <member>wsanchez</member>
@@ -118,7 +99,6 @@ limitations under the License.
     <uid>right_coast</uid>
     <guid>right_coast</guid>
     <password>right_coast</password>
-    <enable>true</enable>
     <name>East Coast</name>
     <members>
       <member>cdaboo</member>
@@ -128,7 +108,6 @@ limitations under the License.
     <uid>left_coast</uid>
     <guid>left_coast</guid>
     <password>left_coast</password>
-    <enable>true</enable>
     <name>West Coast</name>
     <members>
       <member>wsanchez</member>
@@ -140,7 +119,6 @@ limitations under the License.
     <uid>both_coasts</uid>
     <guid>both_coasts</guid>
     <password>both_coasts</password>
-    <enable>true</enable>
     <name>Both Coasts</name>
     <members>
       <member type="groups">right_coast</member>
@@ -151,7 +129,6 @@ limitations under the License.
     <uid>recursive1_coasts</uid>
     <guid>recursive1_coasts</guid>
     <password>recursive1_coasts</password>
-    <enable>true</enable>
     <name>Recursive1 Coasts</name>
     <members>
       <member type="groups">recursive2_coasts</member>
@@ -162,7 +139,6 @@ limitations under the License.
     <uid>recursive2_coasts</uid>
     <guid>recursive2_coasts</guid>
     <password>recursive2_coasts</password>
-    <enable>true</enable>
     <name>Recursive2 Coasts</name>
     <members>
       <member type="groups">recursive1_coasts</member>
@@ -173,7 +149,6 @@ limitations under the License.
     <uid>non_calendar_group</uid>
     <guid>non_calendar_group</guid>
     <password>non_calendar_group</password>
-    <enable>true</enable>
     <name>Non-calendar group</name>
     <members>
       <member>cdaboo</member>
@@ -184,89 +159,49 @@ limitations under the License.
     <uid>mercury</uid>
     <guid>mercury</guid>
     <password>mercury</password>
-    <enable>true</enable>
     <name>Mecury Seven</name>
     <email-address>mercury@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:mercury@example.com</cuaddr>
-    <proxies>
-      <member type="groups">left_coast</member>
-    </proxies>
   </location>
   <location>
     <uid>gemini</uid>
     <guid>gemini</guid>
     <password>gemini</password>
-    <enable>true</enable>
     <name>Gemini Twelve</name>
     <email-address>gemini@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:gemini@example.com</cuaddr>
-    <auto-schedule>true</auto-schedule>
-    <proxies>
-      <member>wsanchez</member>
-    </proxies>
   </location>
   <location>
     <uid>apollo</uid>
     <guid>apollo</guid>
     <password>apollo</password>
-    <enable>true</enable>
     <name>Apollo Eleven</name>
     <email-address>apollo@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:apollo@example.com</cuaddr>
-    <proxies>
-      <member type="groups">both_coasts</member>
-    </proxies>
   </location>
   <location>
     <uid>orion</uid>
     <guid>orion</guid>
     <password>orion</password>
-    <enable>true</enable>
     <name>Orion</name>
     <email-address>orion@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:orion@example.com</cuaddr>
-    <proxies>
-      <member type="groups">recursive1_coasts</member>
-    </proxies>
   </location>
   <resource>
     <uid>transporter</uid>
     <guid>transporter</guid>
     <password>transporter</password>
-    <enable>true</enable>
     <name>Mass Transporter</name>
     <email-address>transporter@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:transporter@example.com</cuaddr>
   </resource>
   <resource>
     <uid>ftlcpu</uid>
     <guid>ftlcpu</guid>
     <password>ftlcpu</password>
-    <enable>true</enable>
     <name>Faster-Than-Light Microprocessor</name>
     <email-address>ftlcpu@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:ftlcpu@example.com</cuaddr>
   </resource>
   <resource>
     <uid>non_calendar_proxy</uid>
     <guid>non_calendar_proxy</guid>
     <password>non_calendar_proxy</password>
-    <enable>true</enable>
     <name>Non-calendar proxy</name>
     <email-address>non_calendar_proxy@example.com</email-address>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:non_calendar_proxy@example.com</cuaddr>
-    <proxies>
-      <member type="groups">non_calendar_group</member>
-    </proxies>
-    <read-only-proxies>
-      <member type="groups">recursive2_coasts</member>
-    </read-only-proxies>
   </resource>
 </accounts>

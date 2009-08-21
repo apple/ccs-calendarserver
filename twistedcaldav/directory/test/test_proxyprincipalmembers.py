@@ -18,7 +18,8 @@ from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
+from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile,\
+    proxiesFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
@@ -26,16 +27,21 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util
 from twistedcaldav.config import config
-
+from twistedcaldav.directory import augment
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+import os
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
     """
+    
+    @inlineCallbacks
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
         self.directoryService = XMLDirectoryService({'xmlFile' : xmlFile})
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
 
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
@@ -47,6 +53,10 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         self.site.resource.putChild(name, provisioningResource)
 
         self.principalRootResources[self.directoryService.__class__.__name__] = provisioningResource
+
+        config.DataRoot = self.mktemp()
+        os.mkdir(config.DataRoot)
+        yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
     def _getPrincipalByShortName(self, type, name):
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]

@@ -39,6 +39,7 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
+from twisted.internet import reactor
 from twisted.internet.reactor import callLater
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -74,6 +75,8 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.config import config
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
+from twistedcaldav.directory import augment
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -491,6 +494,29 @@ class CalDAVServiceMaker (LoggingMixIn):
         if sudoDirectory:
             directory.userRecordTypes.insert(0,
                 SudoDirectoryService.recordType_sudoers)
+
+        #
+        # Setup the Augment Service
+        #
+        augmentClass = namedClass(config.AugmentService.type)
+
+        self.log_info("Configuring augment service of type: %s" % (augmentClass,))
+
+        try:
+            augment.AugmentService = augmentClass(**config.AugmentService.params)
+        except IOError, e:
+            self.log_error("Could not start augment service")
+            raise
+
+        #
+        # Make sure proxies get initialized
+        #
+        if config.ProxyLoadFromFile:
+            def _doProxyUpdate():
+                loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
+                return loader.updateProxyDB()
+            
+            reactor.addSystemEventTrigger("before", "startup", _doProxyUpdate)
 
         #
         # Configure Memcached Client Pool

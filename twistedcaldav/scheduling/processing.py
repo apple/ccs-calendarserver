@@ -282,7 +282,7 @@ class ImplicitProcessor(object):
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
             name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
             
@@ -305,7 +305,7 @@ class ImplicitProcessor(object):
             result = (True, autoprocessed, changes,)
         else:
             # Processing update to existing event
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
             new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
             if new_calendar:
      
@@ -366,7 +366,7 @@ class ImplicitProcessor(object):
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed.
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
 
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
