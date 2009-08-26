@@ -290,7 +290,7 @@ fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 
 @inlineCallbacks
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
-                         excludeuid=None, organizer=None, same_calendar_user=False,
+                         excludeuid=None, organizer=None, organizerPrincipal=None, same_calendar_user=False,
                          servertoserver=False):
     """
     Run a free busy report on the specified calendar collection
@@ -313,7 +313,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
     if not servertoserver:
         try:
-            yield calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),))
+            yield calresource.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), principal=organizerPrincipal)
         except AccessDeniedError:
             returnValue(matchtotal)
 
@@ -371,7 +371,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
         if not servertoserver:
             try:
-                yield child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces)
+                yield child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces, principal=organizerPrincipal)
             except AccessDeniedError:
                 continue
 

@@ -487,7 +487,7 @@ class ImplicitProcessor(object):
                         tr.start = makeTimedUTC(instance.start)
                         tr.end = makeTimedUTC(instance.end)
 
-                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
+                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
                         
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):

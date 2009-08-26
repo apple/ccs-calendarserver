@@ -38,7 +38,8 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser,\
+    PartitionedCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
@@ -96,14 +97,18 @@ class ScheduleViaCalDAV(DeliveryService):
         organizerProp = self.scheduler.calendar.getOrganizerProperty()
         uid = self.scheduler.calendar.resourceUID()
 
+        organizerPrincipal = None
+        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser,):
+            organizerPrincipal = davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL()))
+
         for recipient in self.recipients:
 
             #
             # Check access controls
             #
-            if isinstance(self.scheduler.organizer, LocalCalendarUser):
+            if organizerPrincipal:
                 try:
-                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL())))
+                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=organizerPrincipal)
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permissions")))
@@ -120,7 +125,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
             # Different behavior for free-busy vs regular invite
             if self.freebusy:
-                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid)
+                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, organizerPrincipal, uid)
             else:
                 yield self.generateResponse(recipient, self.responses)
 
@@ -137,7 +142,7 @@ class ScheduleViaCalDAV(DeliveryService):
         # Do implicit scheduling message processing.
         try:
             processor = ImplicitProcessor()
-            processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
+            _ignore_processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
                 self.scheduler.request,
                 self.scheduler.calendar,
                 self.scheduler.originator,
@@ -189,7 +194,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 returnValue(True)
     
     @inlineCallbacks
-    def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid):
+    def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
         cuas = recipient.principal.calendarUserAddresses()
@@ -201,6 +206,7 @@ class ScheduleViaCalDAV(DeliveryService):
             fbresult = (yield self.generateAttendeeFreeBusyResponse(
                 recipient,
                 organizerProp,
+                organizerPrincipal,
                 uid,
                 attendeeProp,
                 remote,
@@ -215,7 +221,7 @@ class ScheduleViaCalDAV(DeliveryService):
             returnValue(True)
     
     @inlineCallbacks
-    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, uid, attendeeProp, remote):
+    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote):
 
         # Find the current recipients calendar-free-busy-set
         fbset = (yield recipient.principal.calendarFreeBusyURIs(self.scheduler.request))
@@ -254,8 +260,9 @@ class ScheduleViaCalDAV(DeliveryService):
                 matchtotal,
                 excludeuid = self.scheduler.excludeUID,
                 organizer = self.scheduler.organizer.cuaddr,
+                organizerPrincipal = organizerPrincipal,
                 same_calendar_user = same_calendar_user,
-                servertoserver=remote
+                servertoserver=remote,
             ))
     
         # Build VFREEBUSY iTIP reply for this recipient
