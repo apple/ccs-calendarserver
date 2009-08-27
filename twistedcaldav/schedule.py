@@ -27,7 +27,8 @@ import md5
 import time
 
 from twisted.internet import reactor
-from twisted.internet.defer import maybeDeferred, succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import maybeDeferred, succeed, inlineCallbacks, returnValue,\
+    Deferred
 from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, Response
@@ -435,6 +436,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Loop over each recipient and do appropriate action.
         autoresponses = []
         for recipient in recipients:
+
+            # Yield to the reactor once through each loop
+            d = Deferred()
+            def _timedDeferred():
+                d.callback(True)
+            reactor.callLater(0.0, _timedDeferred)
+            yield d
+
             # Get the principal resource for this recipient
             principal = self.principalForCalendarUserAddress(recipient)
 
@@ -498,6 +507,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Now process free-busy set calendars
                         matchtotal = 0
                         for calendarResourceURL in fbset:
+
+                            # Yield to the reactor once through each loop
+                            d = Deferred()
+                            def _timedDeferred():
+                                d.callback(True)
+                            reactor.callLater(0.0, _timedDeferred)
+                            yield d
+
                             calendarResource = yield request.locateResource(calendarResourceURL)
                             if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
                                 # We will ignore missing calendars. If the recipient has failed to
