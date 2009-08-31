@@ -347,6 +347,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
 
+    @inlineCallbacks
     def test_defaultAccessControlList_principals(self):
         """
         Default access controls for principals.
@@ -356,8 +357,10 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 for args in _authReadOnlyPrivileges(recordResource, recordResource.principalURL()):
                     yield args
 
-        return serialize(self._checkPrivileges, work())
+        for args in work():
+            yield self._checkPrivileges(*args)
 
+    @inlineCallbacks
     def test_defaultAccessControlList_provisioners(self):
         """
         Default access controls for principal provisioning resources.
@@ -377,7 +380,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     for args in _authReadOnlyPrivileges(typeResource, typeResource.principalCollectionURL()):
                         yield args
 
-        return serialize(self._checkPrivileges, work())
+        for args in work():
+            yield self._checkPrivileges(*args)
 
     def _allRecords(self):
         """
