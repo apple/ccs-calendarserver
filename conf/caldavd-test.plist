@@ -285,8 +285,6 @@ limitations under the License.
    <string>debug</string>
  -->
   </dict>
-	<key>MoreAccessLogData</key>
-	<true/>
 
   <!-- Accounting -->
   <key>AccountingCategories</key>

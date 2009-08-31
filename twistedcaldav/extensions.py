@@ -52,6 +52,7 @@ from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.method.report import http_REPORT
 
 log = Logger()
 
@@ -221,6 +222,7 @@ class DAVResource (SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     def http_ACL(self, request):
         return super(DAVResource, self).http_ACL(request)
 
+    http_REPORT = http_REPORT 
 
     def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
         """
@@ -422,6 +424,9 @@ class DAVPrincipalResource (SuperDAVPrincipalResource, LoggingMixIn):
     """
     Extended L{twisted.web2.dav.static.DAVFile} implementation.
     """
+
+    http_REPORT = http_REPORT
+
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property

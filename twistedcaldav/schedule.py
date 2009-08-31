@@ -415,6 +415,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # shows up in a given principal's calendars, rather than
         # tracking the activities of a specific user.
         #
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
         if freebusy:
             if accountingEnabled("iTIP-VFREEBUSY", organizerPrincipal):
                 emitAccounting(
@@ -422,6 +424,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     "Originator: %s\nRecipients: %s\n\n%s"
                     % (originator, ", ".join(recipients), str(calendar))
                 )
+            request.extendedLogItems["freebusy"] = len(recipients)
+    
         else:
             if accountingEnabled("iTIP", organizerPrincipal):
                 emitAccounting(
@@ -429,6 +433,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     "Originator: %s\nRecipients: %s\n\n%s"
                     % (originator, ", ".join(recipients), str(calendar))
                 )
+            request.extendedLogItems["itip.%s" % (calendar.propertyValue("METHOD").lower(),)] = len(recipients)
 
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)

@@ -64,10 +64,6 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
-            firstLine = '%s %s HTTP/%s' %(
-                request.method,
-                request.uri.replace('"', '%22'),
-                '.'.join([str(x) for x in request.clientproto]))
     
             # Try to determine authentication and authorization identifiers
             uid = "-"
@@ -99,46 +95,75 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     else:
                         uid = uidn
     
-            format_str = '%s - %s [%s] "%s" %s %d "%s" "%s" [%.1f ms]'
-            format_data = (
-                request.remoteAddr.host,
-                uid,
-                self.logDateString(
-                    response.headers.getHeader('date', 0)),
-                firstLine,
-                response.code,
-                loginfo.bytesSent,
-                request.headers.getHeader('referer', '-'),
-                request.headers.getHeader('user-agent', '-'),
-                (time.time() - request.initTime) * 1000,
+            #
+            # For some methods which basically allow you to tunnel a
+            # custom request (eg. REPORT, POST), the method name
+            # itself doesn't tell you much about what action is being
+            # requested.  This allows a method to tack a submethod
+            # attribute to the request, so we can provide a little
+            # more detail here.
+            #
+            if config.EnableExtendedAccessLog and hasattr(request, "submethod"):
+                method = "%s(%s)" % (request.method, request.submethod)
+            else:
+                method = request.method
+
+            # Standard Apache access log fields
+            format = (
+                '%(host)s - %(uid)s [%(date)s]'
+                ' "%(method)s %(uri)s HTTP/%(protocolVersion)s"'
+                ' %(statusCode)s %(bytesSent)d'
+                ' "%(referer)s" "%(userAgent)s"'
             )
-            if config.MoreAccessLogData:
-                try:
-                    serverInstance = request.chanRequest.transport.server.port
-                except AttributeError:
-                    serverInstance = "Unknown"
+
+            try:
+                serverInstance = request.chanRequest.transport.server.port
+            except AttributeError:
+                serverInstance = "Unknown"
+            if config.EnableExtendedAccessLog:
                 
-                format_str += ' [%s %s]'
-                format_data += (
-                    serverInstance,
-                    request.chanRequest.channel.factory.outstandingRequests,
-                )
-            self.logMessage(format_str % format_data)
+                formats = [
+                    format,
+                    # Performance monitoring extensions
+                    'i=%(serverInstance)s t=%(timeSpent).1f or=%(outstandingRequests)s',
+                ]
+                if hasattr(request, "extendedLogItems"):
+                    for k, v in request.extendedLogItems.iteritems():
+                        v = str(v).replace('"', "%22")
+                        if " " in v:
+                            v = '"%s"' % (v,)
+                        formats.append("%s=%s" % (k, v))
+                format = " ".join(formats)
+
+            formatArgs = {
+                "host"                : request.remoteAddr.host,
+                "uid"                 : uid,
+                "date"                : self.logDateString(response.headers.getHeader("date", 0)),
+                "method"              : method,
+                "uri"                 : request.uri.replace('"', "%22"),
+                "protocolVersion"     : ".".join(str(x) for x in request.clientproto),
+                "statusCode"          : response.code,
+                "bytesSent"           : loginfo.bytesSent,
+                "referer"             : request.headers.getHeader("referer", "-"),
+                "userAgent"           : request.headers.getHeader("user-agent", "-"),
+                "serverInstance"      : serverInstance,
+                "timeSpent"           : (time.time() - request.initTime) * 1000,
+                "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
+            }
+            self.logMessage(format % formatArgs)
 
         elif "overloaded" in eventDict:
             overloaded = eventDict.get("overloaded")
-            format_str = '%s - - [%s] "???" 503 0 "-" "-" [0.0 ms]'
-            format_data = (
-                overloaded.transport.hostname,
-                self.logDateString(time.time()),
-            )
-            if config.MoreAccessLogData:
-                format_str += ' [%s %s]'
-                format_data += (
-                    overloaded.transport.server.port,
-                    overloaded.outstandingRequests,
-                )
-            self.logMessage(format_str % format_data)
+            format = '%(host)s - - [%(date)s] "???" 503 0 "-" "-"'
+            formatArgs = {
+                "host": overloaded.transport.hostname,
+                "date": self.logDateString(time.time()),
+            }
+            if config.EnableExtendedAccessLog:
+                format += " i=%(serverInstance)s t=0.0 or=%(outstandingRequests)s"
+                formatArgs["serverInstance"] = overloaded.transport.server.port
+                formatArgs["outstandingRequests"] = overloaded.outstandingRequests
+            self.logMessage(format % formatArgs)
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """
