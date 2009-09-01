@@ -26,9 +26,9 @@ else:
     from twistedcaldav.directory.util import uuidFromName
 
     class OpenDirectoryService (RealOpenDirectoryService):
-        def _queryDirectory(directory, recordType, shortName=None, guid=None):
+        def _queryDirectory(self, recordType, shortName=None, guid=None):
             if shortName is None and guid is None:
-                return directory.fakerecords[recordType]
+                return self.fakerecords[recordType]
 
             assert shortName is None or guid is None
             if guid is not None:
@@ -36,7 +36,7 @@ else:
 
             records = []
 
-            for name, record in directory.fakerecords[recordType]:
+            for name, record in self.fakerecords[recordType]:
                 if name == shortName or record[dsattributes.kDS1AttrGeneratedUID] == guid:
                     records.append((name, record))
 
@@ -394,6 +394,60 @@ else:
             user2 = self._service.recordWithShortName(DirectoryService.recordType_users, "user02")
             self.assertTrue(user2 is not None)
             self.assertEqual(set((group2, group3)), user2.groups()) 
+
+        def test_calendaruseraddress(self):
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                ],
+                DirectoryService.recordType_groups: [],
+                DirectoryService.recordType_resources: [],
+                DirectoryService.recordType_locations: [],
+            }
+
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
+            self.assertTrue(user1 is not None)
+
+            user3 = self._service.recordWithCalendarUserAddress("mailto:user03@example.com")
+            self.assertTrue(user3 is None)
+
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                ],
+                DirectoryService.recordType_groups: [],
+                DirectoryService.recordType_resources: [],
+                DirectoryService.recordType_locations: [],
+            }
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
+            self.assertTrue(user1 is not None)
+
+            user3 = self._service.recordWithCalendarUserAddress("mailto:user03@example.com")
+            self.assertTrue(user3 is not None)
+
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 02"),
+                    fakeODRecord("User 03"),
+                ],
+                DirectoryService.recordType_groups: [],
+                DirectoryService.recordType_resources: [],
+                DirectoryService.recordType_locations: [],
+            }
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
+            self.assertTrue(user1 is None)
+
+            user3 = self._service.recordWithCalendarUserAddress("mailto:user03@example.com")
+            self.assertTrue(user3 is not None)
 
 def fakeODRecord(fullName, shortName=None, guid=None, email=None, addLocator=True, members=None):
     if shortName is None:

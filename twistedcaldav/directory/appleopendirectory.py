@@ -476,6 +476,25 @@ class OpenDirectoryService(DirectoryService):
 
         return record
 
+    def recordWithCalendarUserAddress(self, address):
+        address = address.lower()
+
+        def lookup():
+            for recordType in self.recordTypes():
+                record = self._storage(recordType)["cuaddrs"].get(address, None)
+                if record:
+                    return record
+            else:
+                return None
+
+        record = lookup()
+
+        if record is None:
+            # Nothing found
+            self.log_info("Unable to find any record with calendar user address %s" % (address,))
+
+        return record
+
     def groupsForGUID(self, guid):
         
         # Lookup in index
@@ -590,6 +609,7 @@ class OpenDirectoryService(DirectoryService):
         if shortName is None and guid is None:
             records = {}
             guids   = {}
+            cuaddrs = {}
 
             disabledNames = set()
             disabledGUIDs = set()
@@ -604,6 +624,7 @@ class OpenDirectoryService(DirectoryService):
 
             records = storage["records"]
             guids   = storage["guids"]
+            cuaddrs = storage["cuaddrs"]
 
             disabledNames = storage["disabled names"]
             disabledGUIDs = storage["disabled guids"]
@@ -728,6 +749,7 @@ class OpenDirectoryService(DirectoryService):
 
                 shortName = record.shortName
                 guid      = record.guid
+                cuaddrset = record.calendarUserAddresses
 
                 disabledNames.add(shortName)
                 disabledGUIDs.add(guid)
@@ -736,6 +758,9 @@ class OpenDirectoryService(DirectoryService):
                     del records[shortName]
                 if guid in guids:
                     del guids[guid]
+                for cuaddr in cuaddrset:
+                    if cuaddr in cuaddrs:
+                        del cuaddrs[cuaddr]
 
             # Check for disabled items
             if record.shortName in disabledNames or record.guid in disabledGUIDs:
@@ -756,6 +781,8 @@ class OpenDirectoryService(DirectoryService):
 
                 if record.shortName not in disabledNames:
                     records[record.shortName] = guids[record.guid] = record
+                    for cuaddr in record.calendarUserAddresses:
+                        cuaddrs[cuaddr] = record
                     self.log_debug("Added record %s to OD record cache" % (record,))
 
                     # Do group indexing if needed
@@ -775,6 +802,7 @@ class OpenDirectoryService(DirectoryService):
                 "status"        : "new",
                 "records"       : records,
                 "guids"         : guids,
+                "cuaddrs"       : cuaddrs,
                 "disabled names": disabledNames,
                 "disabled guids": disabledGUIDs,
             }
