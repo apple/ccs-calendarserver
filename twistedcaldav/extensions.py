@@ -437,16 +437,17 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
             for record in records:
                 resource = principalCollection.principalForRecord(record)
-                matchingResources.append(resource)
-
-                # We've determined this is a matching resource
-                matchcount += 1
-                if clientLimit is not None and matchcount >= clientLimit:
-                    resultsWereLimited = ("client", matchcount)
-                    break
-                if matchcount >= max_number_of_matches:
-                    resultsWereLimited = ("server", matchcount)
-                    break
+                if resource:
+                    matchingResources.append(resource)
+    
+                    # We've determined this is a matching resource
+                    matchcount += 1
+                    if clientLimit is not None and matchcount >= clientLimit:
+                        resultsWereLimited = ("client", matchcount)
+                        break
+                    if matchcount >= max_number_of_matches:
+                        resultsWereLimited = ("server", matchcount)
+                        break
 
         # Generate the response
         responses = []
