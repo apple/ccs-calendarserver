@@ -234,6 +234,9 @@ def main():
         loadConfig(configFileName)
         directory = getDirectory()
 
+        #from twistedcaldav.log import setLogLevelForNamespace
+        #setLogLevelForNamespace("twistedcaldav.memcacheprops", "debug")
+
         calendarHomes = set()
 
         for path in calendarHomePaths:
@@ -307,16 +310,15 @@ def processCalendarHome(
                 readProperties = readProperties,
                 readIndexes = readIndexes,
             )
-            # OMG NO SRLY FIXME
-            if childName == "meetingmaker":
+            if calendarHome.record.recordType != "users" and childName not in ("inbox", "outbox"):
                 #
                 # Add calendar to F/B set
                 #
                 if calendarHome.record.recordType is dummyDirectoryRecord:
-                    log.err("Unable to edit F/B info for %s" % (calendarHome,))
+                    log.msg("Unable to edit F/B info for %s" % (calendarHome,))
                     continue
 
-                calendarURL = "/calendars/__uids__/%s/meetingmaker" % (calendarHome.record.guid,)
+                calendarURL = "/calendars/__uids__/%s/%s/" % (calendarHome.record.guid, childName)
 
                 inbox = calendarHome.getChild("inbox")
 
@@ -330,13 +332,13 @@ def processCalendarHome(
                     needFB = False
 
                     for href in hrefs:
-                        if str(href) == calendarURL:
+                        if str(href).rstrip("/")+"/" == calendarURL:
                             break
                     else:
                         needFB = True
 
                 if needFB:
-                    log.msg("Adding Meeting Maker calendar to F/B set for %s" % (calendarHome,))
+                    log.msg("Adding calendar %s to F/B set for %s" % (childName, calendarHome))
                     hrefs.append(davxml.HRef(calendarURL))
                     fbProp = caldavxml.CalendarFreeBusySet(*hrefs)
                     inbox.writeDeadProperty(fbProp)
@@ -345,7 +347,7 @@ def processCalendar(
     calendarCollection,
     readCalendarData = True,
     readProperties = True,
-    readIndexes = True
+    readIndexes = True,
 ):
     if readProperties:
         readPropertiesForResource(calendarCollection)
@@ -365,7 +367,9 @@ def processCalendar(
         if readCalendarData:
             childCalendar = child.iCalendarText()
         if readProperties:
+            #child.deadProperties().flushCache()
             readPropertiesForResource(child)
+            #readProperties = False
 
 def readPropertiesForResource(resource):
     #log.msg(resource)
@@ -373,7 +377,7 @@ def readPropertiesForResource(resource):
         try:
             property = resource.readDeadProperty(qname)
         except Exception, e:
-            log.err("Error reading {%s}%s property on resource %s\n%s\n" % (qname[0], qname[1], resource, e))
+            log.msg("Error reading {%s}%s property on resource %s\n%s\n" % (qname[0], qname[1], resource, e))
             resource.removeDeadProperty(qname)
 
 if __name__ == "__main__":
