@@ -3,17 +3,21 @@
 set -e
 set -u
 
-if [ "$(whoami)" != "_calendar" ]; then
-  echo "Must be calendar user, not $(whoami).";
-  exit 1;
+log="${HOME}/warmup/warmup.log";
+
+if [ ! -f "${log}" ]; then
+  touch "${log}";
+  sudo chown calendar "${log}";
 fi;
 
-cd /Library/CalendarServer/Documents/calendars/__uids__;
+#cd /Library/CalendarServer/Documents/calendars/__uids__;
+cd /Volumes/ngs1/icalp/CalendarServerRoot/Documents/calendars/__uids__;
 
 for d in $(find . -depth 1); do
   args="";
   for h in "${d}"/*/*; do
     args="${args} --home ${h}";
   done;
-  /ngs/app/icalt/caldav_warmup ${args} &
+  sudo -u calendar "${HOME}/warmup/caldav_warmup" --log="${log}" --no-icalendar ${args} &
+  sleep 20 || true;
 done;
