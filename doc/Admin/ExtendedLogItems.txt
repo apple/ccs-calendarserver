@@ -35,10 +35,10 @@ response include:
  * recipients - the number of recipients in a CalDAV scheduling
    request via POST.
 
- * itip.requests - the number of attendees in an iMIP scheduling
-   request.
+ * itip.requests - the number of attendees in an implicit scheduling
+   operation.
 
  * itip.refreshes - the number of attendee refreshes completed after
-   an iMIP refresh request.
+   an implicit scheduling operation.
 
  * itip.reply - "reply" or "cancel" if...???
