@@ -16,6 +16,8 @@
 # limitations under the License.
 ##
 
+from __future__ import with_statement
+
 from getopt import getopt, GetoptError
 from subprocess import Popen, PIPE, STDOUT
 import datetime
