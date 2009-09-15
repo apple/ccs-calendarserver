@@ -332,7 +332,7 @@ class Coalescer(LoggingMixIn):
     """
 
     delaySeconds = 5
-    sendAnywayAfterCount = 5
+    sendAnywayAfterCount = 0
 
     def __init__(self, notifiers, reactor=None, delaySeconds=None,
         sendAnywayAfterCount=None):
