@@ -1,0 +1,44 @@
+Calendar Server extends the Apache log file format it uses by:
+
+ * Adding a "sub-method" to the HTTP method field.
+ * Adding key-value pairs at the end of log lines.
+
+The sub-method is adding by appending a "." followed by the name of
+the sub-method to the original HTTP request method.  This is used to
+clarify what operation is going on for HTTP methods that are commonly
+used to tunnel other operations, such as POST and REPORT.  For
+example, CalDAV uses POST to for free/busy lookups, and there are many
+types of REPORTs.
+
+Key-value pairs are used to provide additional details about the
+request.  They are added to the end of the line as enw fields in the
+form key=value.
+
+These keys are always emitted:
+
+ * i - the port number of the server instance emitting the log entry.
+
+ * t - the amount of time spent processing the request (in
+   milliseconds).
+
+ * or - the number of outstanding requests enqueued for the server
+   instance emitting the log entry.
+
+Keys that may be emitted depending on the client request and server
+response include:
+
+ * rcount - the number of resources specified in a MULTIGET request.
+
+ * responses - the number of responses included in a multi-status
+   response to a PROPFIND request or a CalDAV calendar-query request.
+
+ * recipients - the number of recipients in a CalDAV scheduling
+   request via POST.
+
+ * itip.requests - the number of attendees in an iMIP scheduling
+   request.
+
+ * itip.refreshes - the number of attendee refreshes completed after
+   an iMIP refresh request.
+
+ * itip.reply - "reply" or "cancel" if...???
