@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+##
+
+##
+# WARNING: This script is intended for use by developers working on
+# the Calendar Server code base.  It is not intended for use in a
+# deployment configuration.
 #
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
+# DO NOT use this script as a system startup tool (eg. in /etc/init.d,
+# /Library/StartupItems, launchd plists, etc.)
+#
+# For those uses, install the server properly (eg. with "./run -i
+# /tmp/foo && cd /tmp/foo && pax -pe -rvw . /") and use the caldavd
+# executable to start the server.
 ##
 
 set -e
@@ -43,6 +54,12 @@ disable_setup="false";
      read_key="";
       profile="";
       reactor="";
+
+if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then
+  cache_deps="${wd}/.dependencies";
+else
+  cache_deps="${CALENDARSERVER_CACHE_DEPS}";
+fi;
 
 usage ()
 {
@@ -87,7 +104,7 @@ while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
     'R')       reactor="-R ${OPTARG}"; ;;
     't')  service_type="${OPTARG}"; ;;
     'K')      read_key="${OPTARG}"; ;;
-    'S')       profile="-p ${OPTARG}"; ;;
+    'S')       profile="--profiler cprofile -p ${OPTARG}"; ;;
     'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
     's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
     'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
@@ -122,7 +139,7 @@ try_python ()
   return 0;
 }
 
-for v in "" "2.5"; do
+for v in "" "2.6" "2.5"; do
   for p in								\
     "${PYTHON:=}"							\
     "python${v}"							\
@@ -223,8 +240,23 @@ fi;
 
 export PYTHONPATH="${caldav}";
 
+# Find a command that can hash up a string for us
+if type -t openssl > /dev/null; then
+  hash="hash"; hash () { openssl dgst -md5; }
+elif type -t md5 > /dev/null; then
+  hash="md5";
+elif type -t md5sum > /dev/null; then
+  hash="md5sum";
+elif type -t cksum > /dev/null; then
+  hash="hash"; hash () { cksum | cut -f 1 -d " "; }
+elif type -t sum > /dev/null; then
+  hash="hash"; hash () { sum | cut -f 1 -d " "; }
+else
+  hash="";
+fi;
+
 ##
-# Download and set up dependancies
+# Routines
 ##
 
 run () {
@@ -233,11 +265,17 @@ run () {
     exit 0;
   fi;
 
+  echo "";
+  echo "Using ${python} as Python";
+
   if "${do_run}"; then
     if [ ! -f "${config}" ]; then
+      echo "";
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
+      echo "";
       echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
+      echo "";
       exit 1;
     fi;
 
@@ -246,7 +284,8 @@ run () {
       mkdir "${wd}/logs";
     fi;
 
-    PATH="${PATH}:${wd}/../memcached-1.2.5/_root/bin" \
+    echo "";
+    echo "Starting server...";
     exec ${caldavd_wrapper_command}                   \
         "${caldav}/bin/caldavd" ${daemonize}          \
         -f "${config}"                                \
@@ -291,25 +330,41 @@ www_get () {
   local path="$1"; shift;
   local  url="$1"; shift;
 
-  local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
-
-  case "${ext}" in
-    gz|tgz) decompress="gzip -d -c"; ;;
-    bz2)    decompress="bzip2 -d -c"; ;;
-    tar)    decompress="cat"; ;;
-    *)
-      echo "Unknown extension: ${ext}";
-      exit 1;
-      ;;
-  esac;
-
   if "${force_setup}" || [ ! -d "${path}" ]; then
+    local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
+
+    case "${ext}" in
+      gz|tgz) decompress="gzip -d -c"; ;;
+      bz2)    decompress="bzip2 -d -c"; ;;
+      tar)    decompress="cat"; ;;
+      *)
+        echo "Unknown extension: ${ext}";
+        exit 1;
+        ;;
+    esac;
+
     echo "";
-    echo "Downloading ${name}...";
+
+    if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
+      mkdir -p "${cache_deps}";
+
+      cache_file="${cache_deps}/${name}-$(echo "${url}" | "${hash}")-$(basename "${url}")";
+
+      if [ ! -f "${cache_file}" ]; then
+	echo "Downloading ${name}...";
+	curl -L "${url}" -o "${cache_file}";
+      fi;
+
+      echo "Unpacking ${name} from cache...";
+      get () { cat "${cache_file}"; }
+    else
+      echo "Downloading ${name}..."; 
+      get () { curl -L "${url}"; }
+    fi;
+
     rm -rf "${path}";
     cd "$(dirname "${path}")";
-    curl -L "${url}" | ${decompress} | tar xvf -;
-    chmod -R ugo+r "${path}";
+    get | ${decompress} | tar -xvf -;
     apply_patches "${name}" "${path}";
     cd /;
   fi;
@@ -324,7 +379,7 @@ svn_get () {
   local revision="$1"; shift;
 
   if [ -d "${path}" ]; then
-    wc_uri="$(svn info --xml "${path}" 2> /dev/null | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
+    local wc_uri="$(svn info --xml "${path}" 2> /dev/null | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
 
     if "${force_setup}"; then
       # Verify that we have a working copy checked out from the correct URI
@@ -356,7 +411,7 @@ svn_get () {
 
           apply_patches "${name}" "${path}";
         else
-          svnversion="$(svnversion "${path}")";
+          local svnversion="$(svnversion "${path}")";
           if [ "${svnversion%%[M:]*}" != "${revision}" ]; then
             echo "";
             echo "Updating ${name}...";
@@ -368,8 +423,30 @@ svn_get () {
       fi;
     fi;
   else
-    echo "Checking out ${name}...";
-    svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
+    echo "";
+
+    checkout () {
+      echo "Checking out ${name}...";
+      svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
+    }
+
+    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
+      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | "${hash}")@r${revision}.tgz";
+
+      mkdir -p "${cache_deps}";
+
+      if [ -f "${cache_file}" ]; then
+	echo "Unpacking ${name} from cache...";
+	mkdir -p "${path}";
+	tar -C "${path}" -xvzf "${cache_file}";
+      else
+	checkout;
+	echo "Caching ${name}...";
+	tar -C "${path}" -cvzf "${cache_file}" .;
+      fi;
+    else
+      checkout;
+    fi;
 
     apply_patches "${name}" "${path}";
   fi;
@@ -380,13 +457,11 @@ py_build () {
     local     path="$1"; shift;
     local optional="$1"; shift;
 
-    if "${do_setup}" && (
-        "${force_setup}" || [ ! -d "${path}/build/${py_platform_libdir}" ]
-    ); then
+    if "${do_setup}"; then
       echo "";
       echo "Building ${name}...";
       cd "${path}";
-      if ! "${python}" ./setup.py build --build-lib "build/${py_platform_libdir}" "$@"; then
+      if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
           if "${optional}"; then
               echo "WARNING: ${name} failed to build.";
               echo "WARNING: ${name} is not required to run the server; continuing without it.";
@@ -417,13 +492,9 @@ py_have_module () {
     PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
 }
 
-put_setuptools () {
-    local where="$1"; shift;
-
-    if "${do_get}"; then
-      cp "${caldav}/support/setuptools-0.6c8-py2.5.egg" "${where}/";
-    fi;
-}
+##
+# Download and set up dependancies
+##
 
 #
 # Zope Interface
@@ -458,9 +529,9 @@ fi;
 #
 
 if ! py_have_module OpenSSL; then
-  ssl="${top}/pyOpenSSL-0.6";
+  ssl="${top}/pyOpenSSL-0.7";
 
-  www_get "PyOpenSSL" "${ssl}" http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.6.tar.gz;
+  www_get "PyOpenSSL" "${ssl}" http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.7.tar.gz;
   py_build "PyOpenSSL" "${ssl}" false;
   py_install "PyOpenSSL" "${ssl}";
 
@@ -475,7 +546,7 @@ if type krb5-config > /dev/null; then
   if ! py_have_module kerberos; then
     kerberos="${top}/PyKerberos";
 
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 1541;
+    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 4241;
     py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
     py_install "PyKerberos" "${kerberos}";
 
@@ -491,7 +562,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   if ! py_have_module opendirectory; then
     opendirectory="${top}/PyOpenDirectory";
 
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 1964;
+    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 4106;
     py_build "PyOpenDirectory" "${opendirectory}" false;
     py_install "PyOpenDirectory" "${opendirectory}";
 
@@ -507,7 +578,6 @@ if ! py_have_module xattr; then
   xattr="${top}/xattr";
 
   svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.5 1013;
-  put_setuptools "${xattr}";
   py_build "xattr" "${xattr}" false;
   py_install "xattr" "${xattr}";
 
@@ -532,7 +602,7 @@ fi;
 # select26
 #
 
-if ! py_have_module select26; then
+if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
   select26="${top}/select26-0.1a3"
 
   www_get "select26" "${select26}" http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz;
@@ -546,9 +616,9 @@ if ! type memcached >& /dev/null; then
   #
   # libevent
   #
-  libevent="${top}/libevent-1.4.4-stable"
+  libevent="${top}/libevent-1.4.8-stable"
 
-  www_get "libevent" "${libevent}" http://www.monkey.org/~provos/libevent-1.4.4-stable.tar.gz
+  www_get "libevent" "${libevent}" http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz
 
   if "${do_setup}" && (
     "${force_setup}" || [ ! -d "${libevent}/_root" ]
@@ -561,12 +631,15 @@ if ! type memcached >& /dev/null; then
     make install;
   fi;
 
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${libevent}/_root/lib";
+  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${libevent}/_root/lib";
+
   #
   # memcached
   #
-  memcached="${top}/memcached-1.2.5"
+  memcached="${top}/memcached-1.2.6"
 
-  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.5.tar.gz;
+  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.6.tar.gz;
 
   if "${do_setup}" && (
     "${force_setup}" || [ ! -d "${memcached}/_root" ]
@@ -580,6 +653,8 @@ if ! type memcached >& /dev/null; then
     make;
     make install;
   fi;
+
+  export PATH="${PATH}:${top}/memcached-1.2.6/_root/bin";
 fi;
 
 #
@@ -618,9 +693,9 @@ fi;
 #
 
 if ! py_have_module dateutil; then
-    dateutil="${top}/python-dateutil-1.2";
+    dateutil="${top}/python-dateutil-1.4.1";
 
-    www_get "dateutil" "${dateutil}" http://labix.org/download/python-dateutil/python-dateutil-1.2.tar.bz2;
+    www_get "dateutil" "${dateutil}" http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz;
     py_install "dateutil" "${dateutil}";
 
     export PYTHONPATH="${PYTHONPATH}:${dateutil}";
@@ -642,7 +717,6 @@ case "${USER}" in
 esac;
 svn_uri="${base}/vobject/trunk";
 svn_get "vObject" "${vobject}" "${svn_uri}" 193;
-put_setuptools "${vobject}";
 
 py_install "vObject" "${vobject}";
 
@@ -668,14 +742,28 @@ fi;
 
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
-
-  www_get "PyDirector" "${pydirector}" http://softlayer.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
-  put_setuptools "${pydirector}";
+  www_get "PyDirector" "${pydirector}" http://internap.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
 
   export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
 fi;
+
+#
+# CalDAVTester
+#
+
+caldavtester="${top}/CalDAVTester";
+
+svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/branches/users/cdaboo/deployment" HEAD;
+
+#
+# PyFlakes
+#
+
+pyflakes="${top}/Pyflakes";
+
+svn_get "Pyflakes" "${pyflakes}" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;
 
 #
 # Calendar Server

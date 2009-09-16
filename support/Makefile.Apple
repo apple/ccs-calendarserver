@@ -53,7 +53,7 @@ $(Project)::            $(BuildDirectory)/$(Project)
 build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1a3 Twisted $(Project)
 
 setup:
-	$(_v) $(Sources)/run -g
+	$(_v) ./run -g
 
 prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz select26-0.1a3.tgz Twisted.tgz
 
@@ -81,7 +81,9 @@ install:: build
 	$(_v) cd $(BuildDirectory)/pydirector-1.0.0      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4           && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject               && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+ifeq ($(shell uname -r),9.8.0)
 	$(_v) cd $(BuildDirectory)/select26-0.1a3        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+endif
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web/topfiles/setup.py  install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/web2/topfiles/setup.py install $(PY_INSTALL_FLAGS)
