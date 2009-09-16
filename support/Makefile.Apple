@@ -50,12 +50,16 @@ pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
 select26-0.1a3::	$(BuildDirectory)/select26-0.1a3
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1a3 Twisted $(Project)
-
 setup:
 	$(_v) ./run -g
 
-prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz select26-0.1a3.tgz Twisted.tgz
+build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
+prep:: setup PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
+
+ifeq ($(shell uname -r),9.8.0)
+build:: select26-0.1a3
+prep:: select26-0.1a3.tgz
+endif
 
 PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject select26-0.1.a3 $(Project)::
 	@echo "Building $@..."
