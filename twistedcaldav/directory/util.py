@@ -129,6 +129,9 @@ class NotFilePath(FilePath):
     def dirname(self):
         return ""
 
+    def changed(self):
+        pass
+
     def restat(self, reraise=True):
         pass
 

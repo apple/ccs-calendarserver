@@ -46,7 +46,7 @@ Index: twisted/web2/dav/xattrprops.py
          return r
  
      def _decode(clazz, name):
-@@ -97,19 +98,83 @@
+@@ -97,22 +98,86 @@
  
      def get(self, qname):
          try:
@@ -133,7 +133,11 @@ Index: twisted/web2/dav/xattrprops.py
 +                break
  
          # Update the resource because we've modified it
-         self.resource.fp.restat()
+-        self.resource.fp.restat()
++        self.resource.fp.changed()
+ 
+     def delete(self, qname):
+         try:
 @@ -121,15 +186,31 @@
              # RFC 2518 Section 12.13.1 says that removal of
              # non-existing property is not an error.

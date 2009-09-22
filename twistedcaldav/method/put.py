@@ -41,7 +41,6 @@ def http_PUT(self, request):
     parent = parent.getResult()
 
     if isPseudoCalendarCollectionResource(parent):
-        self.fp.restat(False)
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")

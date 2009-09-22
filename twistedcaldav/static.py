@@ -333,7 +333,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         return self._propertyCollection
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
 
         similar = super(CalDAVFile, self).createSimilarFile(path)
@@ -509,6 +509,13 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
         else:
             self._provisioned_file = True
 
+        # If the file already exists we can just exit here - there is no need to go further
+        if self.fp.exists():
+            return False
+
+        # At this point the original FilePath did not indicate an existing file, but we should
+        # recheck it to see if some other request sneaked in and already created/provisioned it
+
         fp = self.fp
 
         fp.restat(False)
@@ -533,10 +540,10 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
                 # Check our status again, and re-raise if we're not a collection.
                 if not self.isCollection():
                     raise
-            fp.restat(False)
+            fp.changed()
         else:
             fp.open("w").close()
-            fp.restat(False)
+            fp.changed()
 
         return True
 
@@ -623,7 +630,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                             responsecode.INTERNAL_SERVER_ERROR,
                             "Unable to move calendar home."
                         ))
-                    child.fp.restat(False)
+                    child.fp.changed()
                     break
             else:
                 #
@@ -693,7 +700,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         return self.createSimilarFile(self.fp.child(name).path)
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
@@ -770,7 +777,7 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
         return True
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             return CalDAVFile(path, principalCollections=self.principalCollections())
@@ -850,7 +857,7 @@ class DropBoxHomeFile (AutoProvisioningFileMixIn, DropBoxHomeResource, CalDAVFil
         self.parent = parent
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             return DropBoxCollectionFile(path, self)
@@ -864,7 +871,7 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             return DropBoxChildFile(path, self)
@@ -879,7 +886,7 @@ class DropBoxChildFile (CalDAVFile):
         assert self.fp.isfile() or not self.fp.exists()
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             return responsecode.NOT_FOUND
@@ -892,7 +899,7 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
         assert self.fp.isfile() or not self.fp.exists()
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             return responsecode.NOT_FOUND

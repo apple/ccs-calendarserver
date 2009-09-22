@@ -14,7 +14,39 @@ Index: twisted/web2/static.py
          # Remove the dots from the path to split
          self.defaultType = defaultType
          self.ignoredExts = list(ignoredExts)
-@@ -383,7 +386,7 @@
+@@ -213,6 +216,13 @@
+         if indexNames is not None:
+             self.indexNames = indexNames
+ 
++    def comparePath(self, path):
++        
++        if isinstance(path, filepath.FilePath):
++            return path.path == self.fp.path
++        else:
++            return path == self.fp.path
++
+     def exists(self):
+         return self.fp.exists()
+ 
+@@ -318,7 +328,7 @@
+ 
+         child_fp = self.fp.child(name)
+         if child_fp.exists():
+-            return self.createSimilarFile(child_fp.path)
++            return self.createSimilarFile(child_fp)
+         else:
+             return None
+ 
+@@ -374,7 +384,7 @@
+         return self.createSimilarFile(fpath.path), segments[1:]
+ 
+     def renderHTTP(self, req):
+-        self.fp.restat(False)
++        self.fp.changed()
+         return super(File, self).renderHTTP(req)
+ 
+     def render(self, req):
+@@ -383,7 +393,7 @@
              return responsecode.NOT_FOUND
  
          if self.fp.isdir():
