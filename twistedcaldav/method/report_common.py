@@ -102,8 +102,8 @@ def responseForHref(request, responses, href, resource, calendar, propertiesForR
 
     @param request: the L{IRequest} for the current request.
     @param responses: the list of responses to append the result of this method to.
-    @param href: the L{HRef} element of the resource being targetted.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param href: the L{HRef} element of the resource being targeted.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -136,7 +136,7 @@ def allPropertiesForResource(request, prop, resource, calendar=None, isowner=Tru
     Return all (non-hidden) properties for the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -157,7 +157,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, isowner=Tru
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -181,7 +181,7 @@ def propertyListForResource(request, prop, resource, calendar=None, isowner=True
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -220,7 +220,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param props: a list of property elements or qname tuples for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targetted resource.
+    @param resource: the L{CalDAVFile} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -283,6 +283,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, isowner
 
 _namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)
     
+fbtype_mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
+fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
+
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                          excludeuid=None, organizer=None, same_calendar_user=False):
     """
@@ -295,9 +298,9 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     @param matchtotal:  the running total for the number of matches.
     @param excludeuid:  a C{str} containing a UID value to exclude any components with that
         UID from contributing to free-busy.
-    @param organizer:   a C{str} containing the value of the ORGANIZER proeprty in the VFREEBUSY request.
+    @param organizer:   a C{str} containing the value of the ORGANIZER property in the VFREEBUSY request.
         This is used in conjunction with the UID value to process exclusions.
-    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting tyhe free-busy information
+    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting the free-busy information
         is the same as the calendar user being targeted.
     """
     
@@ -309,6 +312,10 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     except AccessDeniedError:
         yield matchtotal
         return
+
+    # May need organizer principal
+    organizer_principal = calresource.principalForCalendarUserAddress(organizer) if organizer else None
+    organizer_uid = organizer_principal.principalUID() if organizer_principal else ""
 
     #
     # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
@@ -340,14 +347,23 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         tz = None
     tzinfo = filter.settimezone(tz)
 
-    # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+    # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = waitForDeferred(calresource.inheritedACEsforChildren(request))
     yield filteredaces
     filteredaces = filteredaces.getResult()
 
-    for name, uid, type in calresource.index().search(filter): #@UnusedVariable
-        
+    resources = calresource.index().search(filter, fbtype=True)
+
+    # We care about separate instances for VEVENTs only
+    aggregated_resources = {}
+    for name, uid, type, test_organizer, float, start, end, fbtype in resources:
+        aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+
+    for key in aggregated_resources.iterkeys():
+
+        name, uid, type, test_organizer = key
+
         # Check privileges - must have at least CalDAV:read-free-busy
         child = waitForDeferred(request.locateChildResource(calresource, name))
         yield child
@@ -360,40 +376,91 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         except AccessDeniedError:
             continue
 
-        calendar = calresource.iCalendar(name)
-        
-        # The calendar may come back as None if the resource is being changed, or was deleted
-        # between our initial index query and getting here. For now we will ignore this errror, but in
-        # the longer term we need to simplement some form of locking, perhaps.
-        if calendar is None:
-            log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
-            continue
-        
-        # Ignore ones of this UID
-        if excludeuid:
-            # See if we have a UID match
-            if (excludeuid == uid):
-                # Check that ORGANIZER's match (security requirement)
-                if (organizer is None) or (organizer == calendar.getOrganizer()):
+        # Short-cut - if an fbtype exists we can use that
+        if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
+            
+            # Look at each instance
+            for float, start, end, fbtype in aggregated_resources[key]:
+                # Ignore free time or unknown
+                if fbtype in ('F', '?'):
                     continue
-                # Check for no ORGANIZER and check by same calendar user
-                elif (calendar.getOrganizer() is None) and same_calendar_user:
-                    continue
+                
+                # Ignore ones of this UID
+                if excludeuid:
+                    # See if we have a UID match
+                    if (excludeuid == uid):
+                        test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                        test_uid = test_principal.principalUID() if test_principal else ""
 
-        if filter.match(calendar, None):
-            # Check size of results is within limit
-            matchtotal += 1
-            if matchtotal > max_number_of_matches:
-                raise NumberOfMatchesWithinLimits
+                        # Check that ORGANIZER's match (security requirement)
+                        if (organizer is None) or (organizer_uid == test_uid):
+                            continue
+                        # Check for no ORGANIZER and check by same calendar user
+                        elif (test_uid == "") and same_calendar_user:
+                            continue
+                        
+                # Apply a timezone to any floating times
+                fbstart = datetime.datetime.strptime(start[:-6], "%Y-%m-%d %H:%M:%S")
+                if float == 'Y':
+                    fbstart = fbstart.replace(tzinfo=tzinfo)
+                else:
+                    fbstart = fbstart.replace(tzinfo=utc)
+                fbend =datetime.datetime.strptime(end[:-6], "%Y-%m-%d %H:%M:%S")
+                if float == 'Y':
+                    fbend = fbend.replace(tzinfo=tzinfo)
+                else:
+                    fbend = fbend.replace(tzinfo=utc)
+                
+                # Clip instance to time range
+                clipped = clipPeriod((fbstart, fbend - fbstart), (timerange.start, timerange.end))
 
-            if calendar.mainType() == "VEVENT":
-                processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
-            elif calendar.mainType() == "VFREEBUSY":
-                processFreeBusyFreeBusy(calendar, fbinfo, timerange)
-            elif calendar.mainType() == "VAVAILABILITY":
-                processAvailabilityFreeBusy(calendar, fbinfo, timerange)
-            else:
-                assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+                # Double check for overlap
+                if clipped:
+                    fbinfo[fbtype_index_mapper.get(fbtype, 0)].append(clipped)
+                
+        else:
+            calendar = calresource.iCalendar(name)
+            
+            # The calendar may come back as None if the resource is being changed, or was deleted
+            # between our initial index query and getting here. For now we will ignore this error, but in
+            # the longer term we need to implement some form of locking, perhaps.
+            if calendar is None:
+                log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
+                continue
+            
+            # Ignore ones of this UID
+            if excludeuid:
+                # See if we have a UID match
+                if (excludeuid == uid):
+                    test_organizer = calendar.getOrganizer()
+                    test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                    test_uid = test_principal.principalUID() if test_principal else ""
+    
+                    # Check that ORGANIZER's match (security requirement)
+                    if (organizer is None) or (organizer_uid == test_uid):
+                        continue
+                    # Check for no ORGANIZER and check by same calendar user
+                    elif (test_organizer is None) and same_calendar_user:
+                        continue
+    
+            if filter.match(calendar, None):
+                # Check size of results is within limit
+                matchtotal += 1
+                if matchtotal > max_number_of_matches:
+                    raise NumberOfMatchesWithinLimits
+    
+                if calendar.mainType() == "VEVENT":
+                    processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
+                    
+                    # Lets also force an index rebuild for this resource so that next time we have the fbtype set
+                    calresource.index().addResource(name, calendar)
+
+                elif calendar.mainType() == "VFREEBUSY":
+                    processFreeBusyFreeBusy(calendar, fbinfo, timerange)
+                elif calendar.mainType() == "VAVAILABILITY":
+                    processAvailabilityFreeBusy(calendar, fbinfo, timerange)
+                else:
+                    assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
     
     yield matchtotal
 
@@ -488,14 +555,13 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
             if fbtype == "FREE":
                 continue
             
-            # Look at each period in the propert
+            # Look at each period in the property
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Clip period for this instance
                 clipped = clipPeriod(period, (timerange.start, timerange.end))
                 if clipped:
-                    mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
-                    fbinfo[mapper.get(fbtype, 0)].append(clipped)
+                    fbinfo[fbtype_mapper.get(fbtype, 0)].append(clipped)
 
 def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
     """
@@ -537,8 +603,7 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         if fbtype is None:
             fbtype = "BUSY-UNAVAILABLE"
 
-        mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
-        fbinfo[mapper.get(fbtype, 2)].extend(busyperiods)
+        fbinfo[fbtype_mapper.get(fbtype, 2)].extend(busyperiods)
             
 
 def processAvailablePeriods(calendar, timerange):
@@ -557,7 +622,7 @@ def processAvailablePeriods(calendar, timerange):
             uid = component.propertyValue("UID")
             uidmap.setdefault(uid, []).append(component)
             
-    # Then we expand each uid set seperately
+    # Then we expand each uid set separately
     for componentSet in uidmap.itervalues():
         instances = InstanceList()
         instances.expandTimeRanges(componentSet, timerange.end)

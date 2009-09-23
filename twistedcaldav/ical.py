@@ -651,6 +651,25 @@ class Component (object):
         else:
             return None, None
 
+    def getFBType(self):
+        
+        # Only VEVENTs block time
+        if self.name() not in ("VEVENT", ):
+            return "FREE"
+        
+        # If it is TRANSPARENT we always ignore it
+        if self.propertyValue("TRANSP") == "TRANSPARENT":
+            return "FREE"
+        
+        # Handle status
+        status = self.propertyValue("STATUS")
+        if status == "CANCELLED":
+            return "FREE"
+        elif status == "TENTATIVE":
+            return "BUSY-TENTATIVE"
+        else:
+            return "BUSY"
+
     def addProperty(self, property):
         """
         Adds a property to this component.
@@ -1252,7 +1271,7 @@ _regex_duration = None
 
 def tzexpand(tzdata, start, end):
     """
-    Expand a timezone to get onset/utc-offset observance tuples withinthe specified
+    Expand a timezone to get onset/utc-offset observance tuples within the specified
     time range.
 
     @param tzdata: the iCalendar data containing a VTIMEZONE.
