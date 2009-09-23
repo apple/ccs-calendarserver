@@ -1,0 +1,32 @@
+Index: twisted/python/filepath.py
+===================================================================
+--- twisted/python/filepath.py	(revision 19773)
++++ twisted/python/filepath.py	(working copy)
+@@ -370,6 +370,9 @@
+ 
+     # stat methods below
+ 
++    def changed(self):
++        self.statinfo = None
++
+     def restat(self, reraise=True):
+         """
+         Re-calculate cached effects of 'stat'.  To refresh information on this path
+@@ -496,7 +499,7 @@
+             os.rmdir(self.path)
+         else:
+             os.remove(self.path)
+-        self.restat(False)
++        self.changed()
+ 
+     def makedirs(self):
+         return os.makedirs(self.path)
+@@ -600,7 +603,7 @@
+     def moveTo(self, destination):
+         try:
+             os.rename(self.path, destination.path)
+-            self.restat(False)
++            self.changed()
+         except OSError, ose:
+             if ose.errno == errno.EXDEV:
+                 # man 2 rename, ubuntu linux 5.10 "breezy":
