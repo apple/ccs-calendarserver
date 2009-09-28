@@ -65,35 +65,35 @@ except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
-from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav import memcachepool
+from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
+from twistedcaldav.accesslog import AMPLoggingFactory
 from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
-from twistedcaldav.accesslog import AMPLoggingFactory
-from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.config import config
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
-from twistedcaldav.directory import augment
+from twistedcaldav.config import config
+from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
+from twistedcaldav.localization import processLocalizationFiles
+from twistedcaldav.log import Logger, LoggingMixIn
+from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.pdmonster import PDClientAddressWrapper
+from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
-from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import upgradeData
-from twistedcaldav.pdmonster import PDClientAddressWrapper
-from twistedcaldav import memcachepool
-from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.util import getNCPU
-from twistedcaldav.localization import processLocalizationFiles
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -509,6 +509,19 @@ class CalDAVServiceMaker (LoggingMixIn):
             raise
 
         #
+        # Setup the PoxyDB Service
+        #
+        proxydbClass = namedClass(config.ProxyDBService.type)
+
+        self.log_info("Configuring proxydb service of type: %s" % (proxydbClass,))
+
+        try:
+            calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+        except IOError, e:
+            self.log_error("Could not start proxydb service")
+            raise
+
+        #
         # Make sure proxies get initialized
         #
         if config.ProxyLoadFromFile:
@@ -516,7 +529,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
                 return loader.updateProxyDB()
             
-            reactor.addSystemEventTrigger("before", "startup", _doProxyUpdate)
+            reactor.addSystemEventTrigger("after", "startup", _doProxyUpdate)
 
         #
         # Configure Memcached Client Pool

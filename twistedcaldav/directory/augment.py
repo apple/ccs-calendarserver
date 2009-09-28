@@ -16,7 +16,8 @@
 
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twistedcaldav.database import AbstractADBAPIDatabase
+from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
+    ADBAPIPostgreSQLMixin
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import time
 
@@ -243,43 +244,48 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     @inlineCallbacks
     def _db_init_data_tables(self):
         """
-        Initialise the underlying database tables.
+        Initialize the underlying database tables.
         """
 
         #
         # TESTTYPE table
         #
-        yield self._db_execute(
-            """
-            create table AUGMENTS (
-                GUID         text unique,
-                ENABLED      text(1),
-                PARTITIONID  text,
-                CALENDARING  text(1),
-                AUTOSCHEDULE text(1),
-                CUADDRS      text
-            )
-            """
-        )
-        yield self._db_execute(
-            """
-            create table PARTITIONS (
-                PARTITIONID  integer primary key autoincrement,
-                HOSTEDAT     text
-            )
-            """
-        )
+        yield self._create_table("AUGMENTS", (
+            ("GUID",         "text unique"),
+            ("ENABLED",      "text(1)"),
+            ("PARTITIONID",  "text"),
+            ("CALENDARING",  "text(1)"),
+            ("AUTOSCHEDULE", "text(1)"),
+            ("CUADDRS",      "text"),
+        ))
+
+        yield self._create_table("PARTITIONS", (
+            ("PARTITIONID",   "serial"),
+            ("HOSTEDAT",      "text"),
+        ))
 
     @inlineCallbacks
-    def _db_remove_data_tables(self):
-        yield self._db_execute("drop table if exists AUGMENTS")
-        yield self._db_execute("drop table if exists PARTITIONS")
+    def _db_empty_data_tables(self):
+        yield self._db_execute("delete from AUGMENTS")
+        yield self._db_execute("delete from PARTITIONS")
 
-class AugmentSqliteDB(AugmentADAPI):
+class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     """
     Sqlite based augment database implementation.
     """
 
     def __init__(self, dbpath):
         
-        super(AugmentSqliteDB, self).__init__("Augments", "sqlite3", (dbpath,))
+        ADBAPISqliteMixin.__init__(self)
+        AugmentADAPI.__init__(self, "Augments", "sqlite3", (dbpath,))
+
+class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
+    """
+    PostgreSQL based augment database implementation.
+    """
+
+    def __init__(self, host, database):
+        
+        ADBAPIPostgreSQLMixin.__init__(self)
+        AugmentADAPI.__init__(self, "Augments", "pgdb", (), host=host, database=database,)
+

@@ -14,13 +14,20 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.log import Logger
-
 from twisted.enterprise.adbapi import ConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.threadpool import ThreadPool
 
+from twistedcaldav.config import ConfigurationError
+from twistedcaldav.log import Logger
+
 import thread
+
+try:
+    import pgdb
+except:
+    pgdb = None
+#pgdb = None
 
 """
 Generic ADAPI database access object.
@@ -133,6 +140,14 @@ class AbstractADBAPIDatabase(object):
             self.initialized = False
 
     @inlineCallbacks
+    def clean(self):
+        
+        if not self.initialized:
+            yield self.open()
+
+        yield self._db_empty_data_tables()
+
+    @inlineCallbacks
     def execute(self, sql, *query_params):
         
         if not self.initialized:
@@ -187,13 +202,8 @@ class AbstractADBAPIDatabase(object):
         """
         raise NotImplementedError
         
-    @inlineCallbacks
     def _test_schema_table(self):
-        result = (yield self._db_value_for_sql("""
-        select (1) from SQLITE_MASTER
-         where TYPE = 'table' and NAME = 'CALDAV'
-        """))
-        returnValue(result)
+        return self._test_table("CALDAV")
 
     @inlineCallbacks
     def _db_init(self):
@@ -221,14 +231,11 @@ class AbstractADBAPIDatabase(object):
         #
         # CALDAV table keeps track of our schema version and type
         #
-        yield self._db_execute(
-            """
-            create table if not exists CALDAV (
-                KEY text unique,
-                VALUE text unique
-            )
-            """
-        )
+        yield self._create_table("CALDAV", (
+            ("KEY", "text unique"),
+            ("VALUE", "text unique"),
+        ), True)
+
         yield self._db_execute(
             """
             insert or ignore into CALDAV (KEY, VALUE)
@@ -248,6 +255,14 @@ class AbstractADBAPIDatabase(object):
         """
         raise NotImplementedError
 
+    def _db_empty_data_tables(self):
+        """
+        Delete the database tables.
+        """
+
+        # Implementations can override this to re-create data
+        pass
+        
     def _db_recreate(self):
         """
         Recreate the database tables.
@@ -318,6 +333,7 @@ class AbstractADBAPIDatabase(object):
         @raise AssertionError: if the query yields multiple columns.
         """
         
+        sql = self._prepare_statement(sql)
         results = (yield self.pool.runQuery(sql, *query_params))
         returnValue(tuple(results))
 
@@ -333,6 +349,7 @@ class AbstractADBAPIDatabase(object):
         @raise AssertionError: if the query yields multiple columns.
         """
         
+        sql = self._prepare_statement(sql)
         results = (yield self.pool.runQuery(sql, *query_params))
         returnValue(tuple([row[0] for row in results]))
 
@@ -363,4 +380,178 @@ class AbstractADBAPIDatabase(object):
             C{sql} with C{query_params}.
         """
         
+        sql = self._prepare_statement(sql)
         return self.pool.runOperation(sql, *query_params)
+
+    """
+    Since different databases support different types of columns and modifiers on those we need to
+    have an "abstract" way of specifying columns in our code and then map the abstract specifiers to
+    the underlying DB's allowed types.
+    
+    Types we can use are:
+    
+    integer
+    text
+    text(n)
+    date
+    serial
+    
+    The " unique" modifier can be appended to any of those.
+    """
+    def _map_column_types(self, type):
+        raise NotImplementedError
+        
+    def _create_table(self, name, columns, ifnotexists=False):
+        raise NotImplementedError
+
+    def _test_table(self, name):
+        raise NotImplementedError
+
+    def _prepare_statement(self, sql):
+        raise NotImplementedError
+        
+class ADBAPISqliteMixin(object):
+
+    @classmethod
+    def _map_column_types(self, coltype):
+        
+        result = ""
+        splits = coltype.split()
+        if splits[0] == "integer":
+            result = "integer"
+        elif splits[0] == "text":
+            result = "text"
+        elif splits[0].startswith("text("):
+            result = splits[0]
+        elif splits[0] == "date":
+            result = "date"
+        elif splits[0] == "serial":
+            result = "integer primary key autoincrement"
+        
+        if len(splits) > 1 and splits[1] == "unique":
+            result += " unique"
+        
+        return result
+
+    @inlineCallbacks
+    def _create_table(self, name, columns, ifnotexists=False):
+        
+        colDefs = ["%s %s" % (colname, self._map_column_types(coltype)) for colname, coltype in columns]
+        statement = "create table %s%s (%s)" % (
+            "if not exists " if ifnotexists else "",
+            name,
+            ", ".join(colDefs),
+        )
+        yield self._db_execute(statement)
+
+    @inlineCallbacks
+    def _test_table(self, name):
+        result = (yield self._db_value_for_sql("""
+        select (1) from SQLITE_MASTER
+         where TYPE = 'table' and NAME = '%s'
+        """ % (name,)))
+        returnValue(result)
+
+    def _prepare_statement(self, sql):
+        # We are going to use the sqlite syntax of :1, :2 etc for our
+        # internal statements so we do not need to remap those
+        return sql
+
+if pgdb:
+
+    class ADBAPIPostgreSQLMixin(object):
+        
+        @classmethod
+        def _map_column_types(self, coltype):
+            
+            result = ""
+            splits = coltype.split()
+            if splits[0] == "integer":
+                result = "integer"
+            elif splits[0] == "text":
+                result = "text"
+            elif splits[0].startswith("text("):
+                result = "char" + splits[0][4:]
+            elif splits[0] == "date":
+                result = "date"
+            elif splits[0] == "serial":
+                result = "serial"
+            
+            if len(splits) > 1 and splits[1] == "unique":
+                result += " unique"
+            
+            return result
+    
+        @inlineCallbacks
+        def _create_table(self, name, columns, ifnotexists=False):
+            
+            colDefs = ["%s %s" % (colname, self._map_column_types(coltype)) for colname, coltype in columns]
+            statement = "create table %s (%s)" % (
+                name,
+                ", ".join(colDefs),
+            )
+            
+            try:
+                yield self._db_execute(statement)
+            except pgdb.DatabaseError:
+                
+                if not ifnotexists:
+                    raise
+                
+                result = (yield self._test_table(name))
+                if not result:
+                    raise 
+    
+        @inlineCallbacks
+        def _test_table(self, name):
+            result = (yield self._db_value_for_sql("""
+            select * from pg_tables
+             where tablename = '%s'
+            """ % (name.lower(),)))
+            returnValue(result)
+    
+        @inlineCallbacks
+        def _db_init_schema_table(self):
+            """
+            Initialise the underlying database tables.
+            @param db_filename: the file name of the index database.
+            @param q:           a database cursor to use.
+            """
+    
+            #
+            # CALDAV table keeps track of our schema version and type
+            #
+            try:
+                yield self._create_table("CALDAV", (
+                    ("KEY", "text unique"),
+                    ("VALUE", "text unique"),
+                ), True)
+    
+                yield self._db_execute(
+                    """
+                    insert into CALDAV (KEY, VALUE)
+                    values ('SCHEMA_VERSION', :1)
+                    """, (self._db_version(),)
+                )
+                yield self._db_execute(
+                    """
+                    insert into CALDAV (KEY, VALUE)
+                    values ('TYPE', :1)
+                    """, (self._db_type(),)
+                )
+            except pgdb.DatabaseError:
+                pass
+    
+        def _prepare_statement(self, sql):
+            # Convert :1, :2 etc format into %s
+            ctr = 1
+            while sql.find(":%d" % (ctr,)) != -1:
+                sql = sql.replace(":%d" % (ctr,), "%s")
+                ctr += 1
+            return sql
+
+else:
+    class ADBAPIPostgreSQLMixin(object):
+        
+        def __init__(self):
+            raise ConfigurationError("PostgreSQL module not available.")

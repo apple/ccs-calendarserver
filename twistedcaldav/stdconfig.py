@@ -52,6 +52,20 @@ DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
         "dbpath": "/etc/caldavd/augments.sqlite",
     },
+    "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
+        "host": "localhost",
+        "database": "augments",
+    },
+}
+
+DEFAULT_PROXYDB_PARAMS = {
+    "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB": {
+        "dbpath": "/etc/caldavd/proxies.sqlite",
+    },
+    "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
+        "host": "localhost",
+        "database": "proxies",
+    },
 }
 
 DEFAULT_CONFIG = {
@@ -116,11 +130,13 @@ DEFAULT_CONFIG = {
     },
 
     #
-    # Proxy loader
+    # Proxies
     #
-    #    Allows for initialization of the proxy database from an XML file.
-    #
-    "ProxyLoadFromFile": "",
+    "ProxyDBService": {
+        "type": "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB",
+        "params": DEFAULT_PROXYDB_PARAMS["twistedcaldav.directory.calendaruserproxy.ProxySqliteDB"],
+    },
+    "ProxyLoadFromFile": "",    # Allows for initialization of the proxy database from an XML file
 
     #
     # Special principals
@@ -479,6 +495,13 @@ def _postUpdateAugmentService(configDict):
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
                 del configDict.AugmentService.params[param]
 
+def _postUpdateProxyDBService(configDict):
+    if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
+        for param in tuple(configDict.ProxyDBService.params):
+            if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
+                log.warn("Parameter %s is not supported by service %s" % (param, configDict.ProxyDBService.type))
+                del configDict.ProxyDBService.params[param]
+
 def _updateACLs(configDict):
     #
     # Base resource ACLs
@@ -687,6 +710,7 @@ POST_UPDATE_HOOKS = (
     _updateHostName,
     _postUpdateDirectoryService,
     _postUpdateAugmentService,
+    _postUpdateProxyDBService,
     _updateACLs,
     _updateRejectClients,
     _updateDropBox,

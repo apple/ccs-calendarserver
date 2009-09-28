@@ -16,8 +16,7 @@
 
 from xml.etree.ElementTree import ElementTree
 from xml.parsers.expat import ExpatError
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.config import config
+from twistedcaldav.directory import calendaruserproxy
 from twisted.internet.defer import inlineCallbacks
 import types
 
@@ -129,7 +128,7 @@ class XMLCalendarUserProxyLoader(object):
     @inlineCallbacks
     def updateProxyDB(self):
         
-        db = CalendarUserProxyDatabase(config.DataRoot)
+        db = calendaruserproxy.ProxyDBService
         for item in self.items:
             guid, write_proxies, read_proxies = item
             for proxy in write_proxies:

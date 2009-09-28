@@ -17,10 +17,10 @@ limitations under the License.
 <!ELEMENT accounts (user*, group*, resource*, location*) >
   <!ATTLIST accounts realm CDATA "">
 
-  <!ELEMENT user (uid*, guid, password?, name?, first-name?, last-name?, email-address*,)>
+  <!ELEMENT user (uid*, guid, password?, name?, first-name?, last-name?, email-address*)>
     <!ATTLIST user repeat CDATA "1">
 
-  <!ELEMENT group (uid*, guid, password?, name?, members, enable-calendar?,)>
+  <!ELEMENT group (uid*, guid, password?, name?, members)>
     <!ATTLIST group repeat CDATA "1">
 
   <!ELEMENT resource (uid*, guid, password?, name?,)>

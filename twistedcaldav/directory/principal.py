@@ -49,7 +49,7 @@ from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
@@ -641,16 +641,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         """
         Return the SQL database for calendar user proxies.
 
-        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        @return: the L{ProxyDB} for the principal collection.
         """
 
-        # Get the principal collection we are contained in
-        pcollection = self.parent.parent
-
         # The db is located in the principal collection root
-        if not hasattr(pcollection, "calendar_user_proxy_db"):
-            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(config.DataRoot))
-        return pcollection.calendar_user_proxy_db
+        return calendaruserproxy.ProxyDBService
 
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
