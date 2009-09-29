@@ -27,7 +27,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util
 from twistedcaldav.config import config
-from twistedcaldav.directory import augment
+from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 import os
 
@@ -42,6 +42,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         self.directoryService = XMLDirectoryService({'xmlFile' : xmlFile})
         augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(self.mktemp())
 
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
@@ -100,7 +101,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             proxyPrincipal = self._getPrincipalByShortName(proxyPrincipal[0], proxyPrincipal[1])
         members.add(proxyPrincipal)
         
-        principal.setGroupMemberSetPrincipals(members)
+        yield principal.setGroupMemberSetPrincipals(members)
 
     @inlineCallbacks
     def _removeProxy(self, recordType, recordName, subPrincipalName, proxyRecordType, proxyRecordName):
@@ -115,14 +116,15 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 members.remove(p)
                 break
         
-        principal.setGroupMemberSetPrincipals(members)
+        yield principal.setGroupMemberSetPrincipals(members)
 
+    @inlineCallbacks
     def _clearProxy(self, principal, subPrincipalName):
 
         if isinstance(principal, tuple):
             principal = self._getPrincipalByShortName(principal[0], principal[1])
         principal = principal.getChild(subPrincipalName)
-        principal.setGroupMemberSetPrincipals(set())
+        yield principal.setGroupMemberSetPrincipals(set())
 
     @inlineCallbacks
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
@@ -304,7 +306,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
             self.assertEquals(notifier.changedCount, 0)
 
-            proxyGroup.setGroupMemberSet(
+            yield proxyGroup.setGroupMemberSet(
                 davxml.GroupMemberSet(
                     davxml.HRef.fromString(
                         "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/")),
@@ -377,6 +379,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         # Set up the in-memory (non-null) memcacher:
         config.ProcessType = "Single"
+        calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
         principal = self._getPrincipalByShortName(
             DirectoryService.recordType_users, "wsanchez")
         db = principal._calendar_user_proxy_index()
@@ -522,5 +525,5 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 parser = XMLAccountsParser(self.directoryService.xmlFile)
                 self.directoryService._parsedAccounts = parser.items
 
-                self._clearProxy(principal, proxyType)
-                self._clearProxy(fakePrincipal, proxyType)
+                yield self._clearProxy(principal, proxyType)
+                yield self._clearProxy(fakePrincipal, proxyType)

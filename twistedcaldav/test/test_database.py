@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.database import AbstractADBAPIDatabase
+from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin
 import twistedcaldav.test.util
 
 from twisted.internet.defer import inlineCallbacks
@@ -27,7 +27,7 @@ class Database (twistedcaldav.test.util.TestCase):
     Test abstract SQL DB class
     """
     
-    class TestDB(AbstractADBAPIDatabase):
+    class TestDB(ADBAPISqliteMixin, AbstractADBAPIDatabase):
         
         def __init__(self, path, persistent=False, version="1"):
             self.version = version

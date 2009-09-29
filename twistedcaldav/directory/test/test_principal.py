@@ -25,7 +25,7 @@ from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.config import config
-from twistedcaldav.directory import augment
+from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
@@ -67,6 +67,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.principalRootResources[directory.__class__.__name__] = provisioningResource
 
         augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(self.mktemp())
 
     def test_hierarchy(self):
         """
