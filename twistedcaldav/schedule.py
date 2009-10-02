@@ -320,6 +320,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Parse the calendar object from the HTTP request stream
         try:
             calendar = yield Component.fromIStream(request.stream)
+            calendardata = str(calendar)
         except:
             self.log_error("Error while handling POST: %s" % (Failure(),))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data")))
@@ -422,7 +423,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 emitAccounting(
                     "iTIP-VFREEBUSY", organizerPrincipal,
                     "Originator: %s\nRecipients: %s\n\n%s"
-                    % (originator, ", ".join(recipients), str(calendar))
+                    % (originator, ", ".join(recipients), calendardata)
                 )
             request.extendedLogItems["freebusy"] = len(recipients)
     
@@ -431,9 +432,10 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 emitAccounting(
                     "iTIP", organizerPrincipal,
                     "Originator: %s\nRecipients: %s\n\n%s"
-                    % (originator, ", ".join(recipients), str(calendar))
+                    % (originator, ", ".join(recipients), calendardata)
                 )
             request.extendedLogItems["itip.%s" % (calendar.propertyValue("METHOD").lower(),)] = len(recipients)
+        request.extendedLogItems["cl"] = str(len(calendardata))
 
         # Prepare for multiple responses
         responses = ScheduleResponseQueue("POST", responsecode.OK)
@@ -558,7 +560,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 
                 else:
                     # Hash the iCalendar data for use as the last path element of the URI path
-                    name = md5.new(str(calendar) + str(time.time()) + inbox.fp.path).hexdigest() + ".ics"
+                    name = md5.new(calendardata + str(time.time()) + inbox.fp.path).hexdigest() + ".ics"
                 
                     # Get a resource for the new item
                     childURL = joinURL(inboxURL, name)
@@ -572,7 +574,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                             sourcecal = False,
                             destination = child,
                             destination_uri = childURL,
-                            calendardata = str(calendar),
+                            calendardata = calendardata,
                             destinationparent = inbox,
                             destinationcal = True,
                             isiTIP = True
@@ -601,6 +603,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             # First check that we have a method that we can auto-respond to
             if not itip.canAutoRespond(calendar):
                 autoresponses = []
+            else:
+                request.extendedLogItems["itip.auto"] = len(autoresponses)
             
         # Now do the actual auto response
         for principal, inbox, child in autoresponses:
