@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
+    succeed
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -248,9 +249,10 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
             def setGroupMembers(self, uid, members):
                 self.members = members
+                return succeed(None)
 
             def getMembers(self, uid):
-                return self.members
+                return succeed(self.members)
 
 
         user = self._getPrincipalByShortName(self.directoryService.recordType_users,
@@ -425,7 +427,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 delRec = self.directoryService.recordWithShortName(
                     DirectoryService.recordType_users, "dreid")
                 for cache in self.directoryService._recordCaches.itervalues():
-                   cache.removeRecord(delRec)
+                    cache.removeRecord(delRec)
                 del self.directoryService._accounts()[
                     DirectoryService.recordType_users]["dreid"]
 
