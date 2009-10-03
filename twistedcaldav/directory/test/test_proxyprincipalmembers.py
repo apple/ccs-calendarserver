@@ -240,6 +240,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(check)
         return d
 
+    @inlineCallbacks
     def test_setGroupMemberSet(self):
         class StubMemberDB(object):
             def __init__(self):
@@ -267,7 +268,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             davxml.HRef.fromString(
                 "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/"))
 
-        proxyGroup.setGroupMemberSet(new_members, None)
+        yield proxyGroup.setGroupMemberSet(new_members, None)
 
         self.assertEquals(
             set([str(p) for p in memberdb.members]),
@@ -275,6 +276,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                  "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"]))
 
 
+    @inlineCallbacks
     def test_setGroupMemberSetNotifiesPrincipalCaches(self):
         class StubCacheNotifier(object):
             changedCount = 0
@@ -294,7 +296,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
             self.assertEquals(notifier.changedCount, 0)
 
-            proxyGroup.setGroupMemberSet(
+            yield proxyGroup.setGroupMemberSet(
                 davxml.GroupMemberSet(
                     davxml.HRef.fromString(
                         "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/")),
