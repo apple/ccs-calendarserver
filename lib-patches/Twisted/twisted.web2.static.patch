@@ -14,7 +14,7 @@ Index: twisted/web2/static.py
          # Remove the dots from the path to split
          self.defaultType = defaultType
          self.ignoredExts = list(ignoredExts)
-@@ -213,6 +216,13 @@
+@@ -213,13 +216,20 @@
          if indexNames is not None:
              self.indexNames = indexNames
  
@@ -28,16 +28,36 @@ Index: twisted/web2/static.py
      def exists(self):
          return self.fp.exists()
  
-@@ -318,7 +328,7 @@
+     def etag(self):
+         if not self.fp.exists(): return None
+ 
+-        st = self.fp.statinfo
++        st = self.fp.getstatinfo()
+ 
+         #
+         # Mark ETag as weak if it was modified more recently than we can
+@@ -317,8 +327,11 @@
+         if child: return child
  
          child_fp = self.fp.child(name)
++        if hasattr(self, "knownChildren"):
++            if name in self.knownChildren:
++                child_fp.existsCached = True
          if child_fp.exists():
 -            return self.createSimilarFile(child_fp.path)
 +            return self.createSimilarFile(child_fp)
          else:
              return None
  
-@@ -374,7 +384,7 @@
+@@ -329,6 +342,7 @@
+         children = self.putChildren.keys()
+         if self.fp.isdir():
+             children += [c for c in self.fp.listdir() if c not in children]
++            self.knownChildren = set(children)
+         return children
+ 
+     def locateChild(self, req, segments):
+@@ -374,7 +388,7 @@
          return self.createSimilarFile(fpath.path), segments[1:]
  
      def renderHTTP(self, req):
@@ -46,7 +66,7 @@ Index: twisted/web2/static.py
          return super(File, self).renderHTTP(req)
  
      def render(self, req):
-@@ -383,7 +393,7 @@
+@@ -383,7 +397,7 @@
              return responsecode.NOT_FOUND
  
          if self.fp.isdir():

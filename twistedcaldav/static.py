@@ -40,6 +40,7 @@ from urlparse import urlsplit
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue
 from twisted.python.failure import Failure
+from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -339,6 +340,13 @@ class CalDAVFile (CalDAVResource, DAVFile):
         similar = super(CalDAVFile, self).createSimilarFile(path)
 
         if isCalendarCollectionResource(self):
+
+			# Short-circuit stat with information we know to be true at this point
+            if isinstance(path, FilePath) and hasattr(self, "knownChildren"):
+                if os.path.basename(path.path) in self.knownChildren:
+                    path.existsCached = True
+                    path.isDirCached = False
+
             #
             # Override the dead property store
             #

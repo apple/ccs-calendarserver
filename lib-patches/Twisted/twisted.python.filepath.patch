@@ -2,17 +2,75 @@ Index: twisted/python/filepath.py
 ===================================================================
 --- twisted/python/filepath.py	(revision 19773)
 +++ twisted/python/filepath.py	(working copy)
-@@ -370,6 +370,9 @@
+@@ -286,9 +286,11 @@
+     statinfo = None
+     path = None
+ 
+-    def __init__(self, path, alwaysCreate=False):
++    def __init__(self, path, alwaysCreate=False, existsCached=None, isDirCached=None):
+         self.path = abspath(path)
+         self.alwaysCreate = alwaysCreate
++        self.existsCached = existsCached
++        self.isDirCached = isDirCached
+ 
+     def __getstate__(self):
+         d = self.__dict__.copy()
+@@ -370,6 +372,11 @@
  
      # stat methods below
  
 +    def changed(self):
 +        self.statinfo = None
++        self.existsCached = None
++        self.isDirCached = None
 +
      def restat(self, reraise=True):
          """
          Re-calculate cached effects of 'stat'.  To refresh information on this path
-@@ -496,7 +499,7 @@
+@@ -381,11 +388,22 @@
+         """
+         try:
+             self.statinfo = stat(self.path)
++            self.existsCached = True
++            self.isDirCached = S_ISDIR(self.statinfo.st_mode)
+         except OSError:
+             self.statinfo = 0
++            self.existsCached = False
++            self.isDirCached = None
+             if reraise:
+                 raise
+ 
++    def getstatinfo(self):
++        st = self.statinfo
++        if not st:
++            self.restat()
++            st = self.statinfo
++        return st
++
+     def getsize(self):
+         st = self.statinfo
+         if not st:
+@@ -437,7 +455,9 @@
+ 
+ 
+     def exists(self):
+-        if self.statinfo:
++        if self.existsCached is not None:
++            return self.existsCached
++        elif self.statinfo:
+             return True
+         elif self.statinfo is None:
+             self.restat(False)
+@@ -446,6 +466,8 @@
+             return False
+ 
+     def isdir(self):
++        if self.isDirCached is not None:
++            return self.isDirCached
+         st = self.statinfo
+         if not st:
+             self.restat(False)
+@@ -496,7 +518,7 @@
              os.rmdir(self.path)
          else:
              os.remove(self.path)
@@ -21,7 +79,7 @@ Index: twisted/python/filepath.py
  
      def makedirs(self):
          return os.makedirs(self.path)
-@@ -600,7 +603,7 @@
+@@ -600,7 +622,7 @@
      def moveTo(self, destination):
          try:
              os.rename(self.path, destination.path)
