@@ -444,12 +444,13 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         autoresponses = []
         for recipient in recipients:
 
-            # Yield to the reactor once through each loop
-            d = Deferred()
-            def _timedDeferred():
-                d.callback(True)
-            reactor.callLater(0.0, _timedDeferred)
-            yield d
+            # Yield to the reactor once through each loop if more than one attendee
+            if len(recipients) > 1:
+                d = Deferred()
+                def _timedDeferred():
+                    d.callback(True)
+                reactor.callLater(0.0, _timedDeferred)
+                yield d
 
             # Get the principal resource for this recipient
             principal = self.principalForCalendarUserAddress(recipient)
@@ -514,13 +515,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                         # Now process free-busy set calendars
                         matchtotal = 0
                         for calendarResourceURL in fbset:
-
-                            # Yield to the reactor once through each loop
-                            d = Deferred()
-                            def _timedDeferred():
-                                d.callback(True)
-                            reactor.callLater(0.0, _timedDeferred)
-                            yield d
 
                             calendarResource = yield request.locateResource(calendarResourceURL)
                             if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
