@@ -508,7 +508,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         """
         super(DirectoryPrincipalResource, self).__init__(NotFilePath(isdir=True))
 
-        self.cacheNotifier = self.cacheNotifierFactory(self)
+        self.cacheNotifier = self.cacheNotifierFactory(self, cacheHandle="PrincipalToken")
 
         if self.isCollection():
             slash = "/"

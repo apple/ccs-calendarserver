@@ -218,12 +218,8 @@ def run(principalIDs, actions):
         # Connect to memcached, notifications
         #
         if config.Memcached.ClientEnabled:
-            memcachepool.installPool(
-                IPv4Address(
-                    "TCP",
-                    config.Memcached.BindAddress,
-                    config.Memcached.Port,
-                ),
+            memcachepool.installPools(
+                config.Memcached.Pools,
                 config.Memcached.MaxClients
             )
         if config.Notifications.Enabled:

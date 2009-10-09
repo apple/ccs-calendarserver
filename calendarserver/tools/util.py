@@ -142,7 +142,7 @@ def autoDisableMemcached(config):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        s.connect((config.Memcached.BindAddress, config.Memcached.Port))
+        s.connect((config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port))
         s.close()
 
     except socket.error:

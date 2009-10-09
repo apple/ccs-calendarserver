@@ -15,6 +15,7 @@
 ##
 
 from twisted.python.failure import Failure
+from twisted.internet.address import IPv4Address
 from twisted.internet.defer import Deferred, fail
 from twisted.internet.protocol import ReconnectingClientFactory
 
@@ -370,22 +371,44 @@ class CachePoolUserMixIn(object):
     @ivar _cachePool: A saved cachePool.
     """
     _cachePool = None
+    _cachePoolHandle = "Default"
 
     def getCachePool(self):
         if self._cachePool is None:
-            return defaultCachePool()
+            return defaultCachePool(self._cachePoolHandle)
 
         return self._cachePool
 
 
 
-_memCachePool = None
+_memCachePools = {}         # Maps a name to a pool object
+_memCachePoolHandler = {}   # Maps a handler id to a named pool
 
-def installPool(serverAddress, maxClients=5, reactor=None):
-    global _memCachePool
-    _memCachePool = MemCachePool(serverAddress,
+def installPools(pools, maxClients=5, reactor=None):
+    
+    for name, pool in pools.items():
+        if pool["Enabled"]:
+            _installPool(
+                name,
+                pool["HandleCacheTypes"],
+                IPv4Address(
+                    "TCP",
+                    pool["BindAddress"],
+                    pool["Port"],
+                ),
+                maxClients,
+                reactor,
+            )
+
+def _installPool(name, handleTypes, serverAddress, maxClients=5, reactor=None):
+
+    pool = MemCachePool(serverAddress,
                                  maxClients=maxClients,
                                  reactor=None)
+    _memCachePools[name] = pool
 
-def defaultCachePool():
-    return _memCachePool
+    for handle in handleTypes:
+        _memCachePoolHandler[handle] = pool
+
+def defaultCachePool(name):
+    return _memCachePoolHandler[name]

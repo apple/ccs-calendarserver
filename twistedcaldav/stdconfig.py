@@ -429,8 +429,24 @@ DEFAULT_CONFIG = {
         "MaxClients": 5,
         "ClientEnabled": True,
         "ServerEnabled": True,
-        "BindAddress": "127.0.0.1",
-        "Port": 11211,
+        "Pools": {
+            "Default": {
+                "Enabled": True,
+                "BindAddress": "127.0.0.1",
+                "Port": 11211,
+                "HandleCacheTypes": [
+                    "Default",
+                ]
+            },
+            "ProxyDB": {
+                "Enabled": True,
+                "BindAddress": "127.0.0.1",
+                "Port": 11211,
+                "HandleCacheTypes": [
+                    "ProxyDB", "PrincipalToken",
+                ]
+            },
+        },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
         "Options": [],

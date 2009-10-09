@@ -154,7 +154,7 @@ class CachingDirectoryService(DirectoryService):
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
             self.memcacheClient = memcacheclient.ClientFactory.getClient(['%s:%s' %
-                (config.Memcached.BindAddress, config.Memcached.Port)],
+                (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
 

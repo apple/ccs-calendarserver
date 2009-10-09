@@ -60,7 +60,9 @@ class MemcachePropertyCollection (LoggingMixIn):
 
             log.info("Instantiating memcache connection for MemcachePropertyCollection")
 
-            MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient(["%s:%s" % (config.Memcached.BindAddress, config.Memcached.Port)],
+            MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient([
+                    "%s:%s" % (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)
+                ],
                 debug=0,
                 pickleProtocol=2,
             )

@@ -105,6 +105,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         
         assert len(namespace) <= Memcacher.NAMESPACE_MAX_LENGTH, "Memcacher namespace must be less than or equal to %s characters long" % (Memcacher.NAMESPACE_MAX_LENGTH,)
         self._memcacheProtocol = None
+        self._cachePoolHandle = namespace
         self._namespace = namespace
         self._pickle = pickle
         self._noInvalidation = no_invalidation

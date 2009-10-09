@@ -61,9 +61,10 @@ class URINotFoundException(Exception):
 
 class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
-    def __init__(self, resource, cachePool=None):
+    def __init__(self, resource, cachePool=None, cacheHandle="Default"):
         self._resource = resource
         self._cachePool = cachePool
+        self._cachePoolHandle = cacheHandle
 
     def _newCacheToken(self):
         return str(uuid.uuid4())

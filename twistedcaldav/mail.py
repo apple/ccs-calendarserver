@@ -545,12 +545,8 @@ class MailGatewayServiceMaker(LoggingMixIn):
     def makeService(self, options):
 
         if config.Memcached.ClientEnabled:
-            memcachepool.installPool(
-                IPv4Address(
-                    "TCP",
-                    config.Memcached.BindAddress,
-                    config.Memcached.Port,
-                ),
+            memcachepool.installPools(
+                config.Memcached.Pools,
                 config.Memcached.MaxClients,
             )
 
