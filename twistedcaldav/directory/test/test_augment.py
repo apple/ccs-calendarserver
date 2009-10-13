@@ -23,6 +23,7 @@ import cStringIO
 import os
 
 xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
+xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")
 
 testRecords = (
     {"guid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
@@ -33,6 +34,8 @@ testRecords = (
     {"guid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
     {"guid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True, "autoSchedule":True, "calendarUserAddresses":set(("mailto:usera@example.com", "mailto:user.a@example.com", "mailto:user_a@example.com",))},
 )
+
+testRecordDefault = {"guid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True, "autoSchedule":False, "calendarUserAddresses":set()}
 
 class AugmentTests(TestCase):
 
@@ -62,6 +65,16 @@ class AugmentXMLTests(AugmentTests):
             yield self._checkRecord(db, item)
 
         yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+    @inlineCallbacks
+    def test_read_default(self):
+        
+        db = AugmentXMLDB((xmlFileDefault,))
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        yield self._checkRecord(db, testRecordDefault)
 
     def test_parseErrors(self):
         
@@ -108,6 +121,20 @@ class AugmentSqliteTests(AugmentTests):
 
         yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
+    @inlineCallbacks
+    def test_read_default(self):
+        
+        db = AugmentSqliteDB(self.mktemp())
+
+        dbxml = AugmentXMLDB((xmlFileDefault,))
+        for record in dbxml.db.values():
+            yield db.addAugmentRecord(record)
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        yield self._checkRecord(db, testRecordDefault)
+
 class AugmentPostgreSQLTests(AugmentTests):
 
     @inlineCallbacks
@@ -124,6 +151,21 @@ class AugmentPostgreSQLTests(AugmentTests):
             yield self._checkRecord(db, item)
 
         yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+    @inlineCallbacks
+    def test_read_default(self):
+        
+        db = AugmentPostgreSQLDB("localhost", "augments")
+        yield db.clean()
+
+        dbxml = AugmentXMLDB((xmlFileDefault,))
+        for record in dbxml.db.values():
+            yield db.addAugmentRecord(record)
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        yield self._checkRecord(db, testRecordDefault)
 
 try:
     import pgdb

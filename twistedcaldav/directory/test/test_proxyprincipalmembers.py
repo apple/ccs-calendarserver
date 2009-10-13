@@ -303,7 +303,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         oldCacheNotifier = DirectoryPrincipalResource.cacheNotifierFactory
 
         try:
-            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2: notifier)
+            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2, **kwargs: notifier)
 
             self.assertEquals(notifier.changedCount, 0)
 

@@ -19,6 +19,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
     ADBAPIPostgreSQLMixin
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
+import copy
 import time
 
 from twistedcaldav.log import Logger
@@ -54,7 +55,27 @@ class AugmentDB(object):
     def __init__(self):
         pass
     
+    @inlineCallbacks
     def getAugmentRecord(self, guid):
+        """
+        Get an AugmentRecord for the specified GUID or the default.
+
+        @param guid: directory GUID to lookup
+        @type guid: C{str}
+        
+        @return: L{Deferred}
+        """
+        
+        result = (yield self._lookupAugmentRecord(guid))
+        if result is None:
+            if not hasattr(self, "_defaultRecord"):
+                self._defaultRecord = (yield self._lookupAugmentRecord("Default"))
+            if self._defaultRecord is not None:
+                result = copy.deepcopy(self._defaultRecord)
+                result.guid = guid
+        returnValue(result)
+
+    def _lookupAugmentRecord(self, guid):
         """
         Get an AugmentRecord for the specified GUID.
 
@@ -95,7 +116,7 @@ class AugmentXMLDB(AugmentDB):
             
         self.lastCached = time.time()
 
-    def getAugmentRecord(self, guid):
+    def _lookupAugmentRecord(self, guid):
         """
         Get an AugmentRecord for the specified GUID.
 
@@ -148,7 +169,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         AbstractADBAPIDatabase.__init__(self, dbID, dbapiName, dbapiArgs, True, **kwargs)
         
     @inlineCallbacks
-    def getAugmentRecord(self, guid):
+    def _lookupAugmentRecord(self, guid):
         """
         Get an AugmentRecord for the specified GUID.
 

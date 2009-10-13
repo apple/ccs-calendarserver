@@ -411,4 +411,6 @@ def _installPool(name, handleTypes, serverAddress, maxClients=5, reactor=None):
         _memCachePoolHandler[handle] = pool
 
 def defaultCachePool(name):
+    if name not in _memCachePoolHandler:
+        name = "Default"
     return _memCachePoolHandler[name]

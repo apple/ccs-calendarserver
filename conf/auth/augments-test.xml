@@ -20,26 +20,9 @@ limitations under the License.
 
 <augments>
   <record>
-    <guid>admin</guid>
+    <guid>Default</guid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-  </record>
-  <record>
-    <guid>apprentice</guid>
-    <enable>true</enable>
-    <enable-calendar>true</enable-calendar>
-  </record>
-  <record repeat="99">
-    <guid>user%02d</guid>
-    <enable>true</enable>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:user%02d@example.com</cuaddr>
-  </record>
-  <record repeat="10">
-    <guid>public%02d</guid>
-    <enable>true</enable>
-    <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:public%02d@example.com</cuaddr>
   </record>
   <record repeat="10">
     <guid>location%02d</guid>
