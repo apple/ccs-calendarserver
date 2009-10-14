@@ -42,11 +42,6 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
-max_number_of_matches = 500
-
-class NumberOfMatchesWithinLimits(Exception):
-    pass
-
 def http_REPORT(self, request):
     """
     Respond to a REPORT request. (RFC 3253, section 3.6)
