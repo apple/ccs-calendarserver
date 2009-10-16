@@ -354,9 +354,12 @@ DEFAULT_CONFIG = {
     #
     # Partitioning
     #
-    "EnablePartitions":    False,   # Partitioning enabled or not
-    "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
-    "PartitionConfigFile": "/etc/caldavd/partitions.plist", # File path for partition information
+    "Partitioning" : {
+        "Enabled":             False,   # Partitioning enabled or not
+        "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
+        "PartitionConfigFile": "/etc/caldavd/partitions.plist", # File path for partition information
+        "MaxClients":          5,       # Pool size for connections to each partition
+    },
 
     #
     # Performance tuning
@@ -713,9 +716,11 @@ def _updatePartitions(configDict):
     # Partitions
     #
 
-    if configDict.EnablePartitions:
-        partitions.setSelfPartition(configDict.ServerPartitionID)
-        partitions.readConfig(configDict.PartitionConfigFile)
+    if configDict.Partitioning.Enabled:
+        partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
+        partitions.setMaxClients(configDict.Partitioning.MaxClients)
+        partitions.readConfig(configDict.Partitioning.PartitionConfigFile)
+        partitions.installReverseProxies()
     else:
         partitions.clear()
 

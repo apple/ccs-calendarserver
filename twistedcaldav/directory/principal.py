@@ -883,8 +883,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             url = home.url()
             if name:
                 url = joinURL(url, name)
-            if not self.locallyHosted():
-                url = joinURL(self.hostedURL(), url)
                 
             return url
 

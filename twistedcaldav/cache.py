@@ -28,7 +28,7 @@ from twisted.web2.iweb import IResource
 from twisted.web2.stream import MemoryStream
 
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcachepool import CachePoolUserMixIn
+from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config
 
 
@@ -163,7 +163,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         self._cachePool = cachePool
 
 
-    def _tokenForURI(self, uri):
+    def _tokenForURI(self, uri, cachePoolHandle=None):
         """
         Get a property store for the given C{uri}.
 
@@ -171,13 +171,16 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         @return: A C{str} representing the token for the URI.
         """
 
-        return self.getCachePool().get('cacheToken:%s' % (uri,))
+        if cachePoolHandle:
+            return defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,))
+        else:
+            return self.getCachePool().get('cacheToken:%s' % (uri,))
 
 
     def _getTokens(self, request):
         def _tokensForURIs((pURI, rURI)):
             tokens = []
-            d1 = self._tokenForURI(pURI)
+            d1 = self._tokenForURI(pURI, "PrincipalToken")
             d1.addCallback(tokens.append)
             d1.addCallback(lambda _ign: self._getRecordForURI(pURI, request))
             d1.addCallback(lambda dToken: tokens.append(hash(dToken)))

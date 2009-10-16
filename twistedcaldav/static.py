@@ -38,7 +38,6 @@ import datetime
 import os
 import errno
 from urlparse import urlsplit
-import urlparse
 
 from twext.web2.dav.davxml import ErrorResponse
 
@@ -53,11 +52,11 @@ from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, bindMethods, joinURL
-from twisted.web2.resource import RedirectResource
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
@@ -706,22 +705,21 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
         
         else:
             childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-            child = CalendarHomeRedirectFile(childPath.path, self, record)
+            child = CalendarHomeReverseProxyFile(childPath.path, self, record)
 
         return child
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class CalendarHomeRedirectFile(RedirectResource):
+class CalendarHomeReverseProxyFile(ReverseProxyResource):
     
     def __init__(self, path, parent, record):
         self.path = path
         self.parent = parent
         self.record = record
         
-        parsedURL = urlparse.urlparse(self.record.hostedURL())
-        super(CalendarHomeRedirectFile, self).__init__(scheme=parsedURL.scheme, host=parsedURL.hostname, port=parsedURL.port)
+        super(CalendarHomeReverseProxyFile, self).__init__(self.record.hostedAt)
     
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)

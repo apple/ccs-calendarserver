@@ -14,8 +14,9 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.log import Logger
 from twext.python.plistlib import readPlist
+from twistedcaldav.client.pool import installPool
+from twistedcaldav.log import Logger
 
 """
 Collection of classes for managing partition information for a group of servers.
@@ -32,6 +33,7 @@ class Partitions(object):
     def clear(self):
         self.partitions = {}
         self.ownUID = ""
+        self.maxClients = 5
 
     def readConfig(self, plistpath):
         try:
@@ -49,8 +51,21 @@ class Partitions(object):
     def setSelfPartition(self, uid):
         self.ownUID = uid
 
+    def setMaxClients(self, maxClients):
+        self.maxClients = maxClients
+
     def getPartitionURL(self, uid):
         # When the UID matches this server return an empty string
         return self.partitions.get(uid, None) if uid != self.ownUID else ""
+
+    def installReverseProxies(self):
+        
+        for partition, url in self.partitions.iteritems():
+            if partition != self.ownUID:
+                installPool(
+                    partition,
+                    url,
+                    self.maxClients,
+                )
 
 partitions = Partitions()
