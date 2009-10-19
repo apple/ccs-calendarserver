@@ -387,6 +387,10 @@
     <key>SSLCertificate</key>
     <string>twistedcaldav/test/data/server.pem</string>
 
+    <!-- SSL authority chain (for intermediate certs) -->
+    <key>SSLAuthorityChain</key>
+    <string></string>
+
     <!-- Private key -->
     <key>SSLPrivateKey</key>
     <string>twistedcaldav/test/data/server.pem</string>

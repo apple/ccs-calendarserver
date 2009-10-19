@@ -291,6 +291,10 @@
     <key>SSLCertificate</key>
     <string></string>
 
+    <!-- SSL authority chain (for intermediate certs) -->
+    <key>SSLAuthorityChain</key>
+    <string></string>
+
     <!-- Private key -->
     <key>SSLPrivateKey</key>
     <string></string>
