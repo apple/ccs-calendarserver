@@ -285,14 +285,14 @@ class ImplicitScheduler(object):
         
         self.request.doing_attendee_refresh = True
         try:
-            result = (yield self.processRequests())
+            refreshCount = (yield self.processRequests())
         finally:
             delattr(self.request, "doing_attendee_refresh")
 
-        if result:
+        if refreshCount:
             if not hasattr(self.request, "extendedLogItems"):
                 self.request.extendedLogItems = {}
-            self.request.extendedLogItems["itip.refreshes"] = result
+            self.request.extendedLogItems["itip.refreshes"] = refreshCount
 
     @inlineCallbacks
     def sendAttendeeReply(self, request, resource, calendar, attendee):
