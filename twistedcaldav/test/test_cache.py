@@ -336,7 +336,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         self.tokens['/principals/__uids__/cdaboo/'] = 'principalToken0'
         self.tokens['/principals/__uids__/dreid/'] = 'principalTokenX'
 
-        def _getToken(uri):
+        def _getToken(uri, cachePoolHandle=None):
             return succeed(self.tokens.get(uri))
 
         self.rc._tokenForURI = _getToken
