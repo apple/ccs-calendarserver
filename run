@@ -658,10 +658,11 @@ esac;
 svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4";
 svn_get "Twisted" "${twisted}" "${svn_uri}" 26969;
 
-# No py_build step, since we tend to do edit Twisted, we want the sources in
-# PYTHONPATH, not a build directory.
-
 py_install "Twisted" "${twisted}";
+py_build "Twisted" "${twisted}" false
+
+# Although we built it to generate distribution metadata, let's add the sources
+# to PYTHONPATH instead so that we can edit them easily.
 
 export PYTHONPATH="${PYTHONPATH}:${twisted}";
 
