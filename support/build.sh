@@ -359,7 +359,7 @@ py_dependency () {
         echo;
         echo "Building ${name}... [overrides system, building egg-info metadata only]";
         cd "${srcdir}";
-        "${python}" ./setup.py -q egg_info 2>&1 | grep -v 'Unrecognized .svn/entries';
+        "${python}" ./setup.py -q egg_info 2>&1 | grep -i -v 'Unrecognized .svn/entries';
         cd /;
       fi;
     else
