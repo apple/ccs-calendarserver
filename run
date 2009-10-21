@@ -1,4 +1,5 @@
 #!/bin/bash
+# -*- sh-basic-offset: 2 -*-
 
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
@@ -29,43 +30,22 @@
 # executable to start the server.
 ##
 
-set -e
-set -u
+set -e;
+set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-##
-# Command line
-##
+. support/build.sh;
 
-      verbose="";
-       do_get="true";
-     do_setup="true";
-       do_run="true";
-  force_setup="false";
-disable_setup="false";
-   print_path="false";
-      install="";
-    daemonize="-X";
-         kill="false";
-      restart="false";
-  plugin_name="caldav";
- service_type="Combined";
-     read_key="";
-      profile="";
-      reactor="";
 
-if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then
-  cache_deps="${wd}/.dependencies";
-else
-  cache_deps="${CALENDARSERVER_CACHE_DEPS}";
-fi;
-
-usage ()
-{
+# Echo the usage for the main 'run' script, then exit with an error.
+usage () {
   program="$(basename "$0")";
 
-  if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
+  if [ "${1--}" != "-" ]; then
+    echo "$@";
+    echo;
+  fi;
 
   echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iI dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
@@ -76,195 +56,57 @@ usage ()
   echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
   echo "	-p  Print PYTHONPATH value for server and exit";
-  echo "        -d  Run caldavd as a daemon";
-  echo "        -k  Stop caldavd";
-  echo "        -r  Restart caldavd";
-  echo "        -K  Print value of configuration key and exit";
-  echo "        -i  Perform a system install into dst; implies -s";
-  echo "        -I  Perform a home install into dst; implies -s";
-  echo "        -t  Select the server process type (Master, Slave or Combined) [${service_type}]";
-  echo "        -S  Write a pstats object for each process to the given directory when the server is stopped.";
+  echo "	-d  Run caldavd as a daemon";
+  echo "	-k  Stop caldavd";
+  echo "	-r  Restart caldavd";
+  echo "	-K  Print value of configuration key and exit";
+  echo "	-i  Perform a system install into dst; implies -s";
+  echo "	-I  Perform a home install into dst; implies -s";
+  echo "	-t  Select the server process type (Master, Slave or Combined) [${service_type}]";
+  echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
   echo "	-P  Select the twistd plugin name [${plugin_name}]";
-  echo "        -R  Twisted Reactor plugin to execute [${reactor}]";
+  echo "	-R  Twisted Reactor plugin to execute [${reactor}]";
 
-  if [ "${1-}" == "-" ]; then return 0; fi;
+  if [ "${1-}" == "-" ]; then
+    return 0;
+  fi;
   exit 64;
 }
 
-while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
-  case "$option" in
-    '?') usage; ;;
-    'h') usage -; exit 0; ;;
-    'v')       verbose="-v"; ;;
-    'f')   force_setup="true"; ;;
-    'k')          kill="true"; ;;
-    'r')       restart="true"; ;;
-    'd')     daemonize=""; ;;
-    'P')   plugin_name="${OPTARG}"; ;;
-    'R')       reactor="-R ${OPTARG}"; ;;
-    't')  service_type="${OPTARG}"; ;;
-    'K')      read_key="${OPTARG}"; ;;
-    'S')       profile="--profiler cprofile -p ${OPTARG}"; ;;
-    'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
-    's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
-    'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
-    'i') do_get="true" ; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
-    'I') do_get="true" ; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
-  esac;
-done;
-shift $((${OPTIND} - 1));
-
-if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
-
-##
-# Set up paths
-##
-
-py_version ()
-{
-  local python="$1"; shift;
-  echo "$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
-}
-
-try_python ()
-{
-  local python="$1"; shift;
-
-  if [ -z "${python}" ]; then return 1; fi;
-
-  if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
-  local py_version="$(py_version "${python}")";
-  if [ "${py_version/./}" -lt "25" ]; then return 1; fi;
-
-  return 0;
-}
-
-for v in "" "2.6" "2.5"; do
-  for p in								\
-    "${PYTHON:=}"							\
-    "python${v}"							\
-    "/usr/local/bin/python${v}"						\
-    "/usr/local/python/bin/python${v}"					\
-    "/usr/local/python${v}/bin/python${v}"				\
-    "/opt/bin/python${v}"						\
-    "/opt/python/bin/python${v}"					\
-    "/opt/python${v}/bin/python${v}"					\
-    "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"	\
-    "/opt/local/bin/python${v}"						\
-    "/sw/bin/python${v}"						\
-    ;
-  do
-    if try_python "${p}"; then python="${p}"; break; fi;
+# Parse command-line options to set up state which controls the behavior of the
+# functions in build.sh.
+parse_options () {
+  while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
+    case "$option" in
+      '?') usage; ;;
+      'h') usage -; exit 0; ;;
+      'v')       verbose="-v"; ;;
+      'f')   force_setup="true"; ;;
+      'k')          kill="true"; ;;
+      'r')       restart="true"; ;;
+      'd')     daemonize=""; ;;
+      'P')   plugin_name="${OPTARG}"; ;;
+      'R')       reactor="-R ${OPTARG}"; ;;
+      't')  service_type="${OPTARG}"; ;;
+      'K')      read_key="${OPTARG}"; ;;
+      'S')       profile="--profiler cprofile -p ${OPTARG}"; ;;
+      'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
+      's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
+      'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
+      'i') do_get="true" ; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
+      'I') do_get="true" ; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+    esac;
   done;
-  if [ -n "${python:-}" ]; then break; fi;
-done;
-
-if [ -z "${python:-}" ]; then
-  echo "No suitable python found. Python 2.5 is required.";
-  exit 1;
-fi;
-
-if [ -z "${caldav:-}" ]; then
-  caldav="${wd}";
-fi;
-
-if [ -z "${caldavd_wrapper_command:-}" ]; then
-  if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
-      caldavd_wrapper_command="launchctl bsexec /";
-  else
-      caldavd_wrapper_command="";
+  shift $((${OPTIND} - 1));
+  if [ $# != 0 ]; then
+    usage "Unrecognized arguments:" "$@";
   fi;
-fi;
-
-    top="$(cd "${caldav}/.." && pwd -L)"
-patches="${caldav}/lib-patches";
-twisted="${top}/Twisted";
-    dav="${twisted}/twisted/web2/dav"
-
-if [ -z "${config:-}" ]; then
-  config="${wd}/conf/caldavd-dev.plist";
-fi;
-
-conf_read_key ()
-{
-  local key="$1"; shift;
-
-  # FIXME: This only works for simple values (no arrays, dicts)
-  tr '\n' ' ' < "${config}"                                                 \
-    | xpath "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2> /dev/null \
-    | sed -n 's|^<[^<][^<]*>\([^<]*\)</[^<][^<]*>.*$|\1|p';
 }
 
-if [ -n "${read_key}" ]; then
-    conf_read_key "${read_key}";
-    exit $?;
-fi;
 
-if "${kill}" || "${restart}"; then
-    pidfile="$(conf_read_key "PIDFile")";
-    if [ ! -r "${pidfile}" ]; then
-        echo "Unreadable PID file: ${pidfile}";
-        exit 1;
-    fi;
-    pid="$(cat "${pidfile}" | head -1)";
-    if [ -z "${pid}" ]; then
-        echo "No PID in PID file: ${pidfile}";
-        exit 1;
-    fi;
-    echo "Killing process ${pid}";
-    kill -TERM "${pid}";
-    if ! "${restart}"; then
-        exit 0;
-    fi;
-fi;
-
-if [ -z "${PYTHONPATH:-}" ]; then
-  user_python_path="";
-else
-  user_python_path=":${PYTHONPATH}";
-fi;
-
-       py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
-        py_version="$(py_version "${python}")";
-py_platform_libdir="lib.${py_platform}-${py_version}";
-
-if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
-  install="$(pwd)/${install}";
-fi;
-
-svn_uri_base="$(svn info "${caldav}" --xml 2> /dev/null | sed -n 's|^.*<root>\(.*\)</root>.*$|\1|p')";
-
-if [ -z "${svn_uri_base}" ]; then
-  svn_uri_base="http://svn.calendarserver.org/repository/calendarserver";
-fi;
-
-export PYTHONPATH="${caldav}";
-
-# Find a command that can hash up a string for us
-if type -t openssl > /dev/null; then
-  hash="hash"; hash () { openssl dgst -md5; }
-elif type -t md5 > /dev/null; then
-  hash="md5";
-elif type -t md5sum > /dev/null; then
-  hash="md5sum";
-elif type -t cksum > /dev/null; then
-  hash="hash"; hash () { cksum | cut -f 1 -d " "; }
-elif type -t sum > /dev/null; then
-  hash="hash"; hash () { sum | cut -f 1 -d " "; }
-else
-  hash="";
-fi;
-
-##
-# Routines
-##
-
+# Actually run the server.  (Or, exit, if things aren't sufficiently set up in
+# order to do that.)
 run () {
-  if "${print_path}"; then
-    echo "${PYTHONPATH}";
-    exit 0;
-  fi;
-
   echo "";
   echo "Using ${python} as Python";
 
@@ -298,477 +140,71 @@ run () {
   fi;
 }
 
-apply_patches () {
-  local name="$1"; shift;
-  local path="$1"; shift;
 
-  if [ -d "${patches}/${name}" ]; then
-    echo "";
-    echo "Applying patches to ${name} in ${path}...";
+# The main-point of the 'run' script: parse all options, decide what to do,
+# then do it.
+run_main () {
+  parse_options "$@";
 
-    cd "${path}";
-    find "${patches}/${name}"                  \
-        -type f                                \
-        -name '*.patch'                        \
-        -print                                 \
-        -exec patch -p0 --forward -i '{}' ';';
-    cd /;
-
+  # If we've been asked to read a configuration key, just read it and exit.
+  if [ -n "${read_key}" ]; then
+    conf_read_key "${read_key}";
+    exit $?;
   fi;
 
-  echo ""
-  echo "Removing build directory ${path}/build..."
-  rm -rf "${path}/build";
-  echo "Removing pyc files from ${path}..."
-  find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm -f;
-}
-
-www_get () {
-  if ! "${do_get}"; then return 0; fi;
-
-  local name="$1"; shift;
-  local path="$1"; shift;
-  local  url="$1"; shift;
-
-  if "${force_setup}" || [ ! -d "${path}" ]; then
-    local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
-
-    case "${ext}" in
-      gz|tgz) decompress="gzip -d -c"; ;;
-      bz2)    decompress="bzip2 -d -c"; ;;
-      tar)    decompress="cat"; ;;
-      *)
-        echo "Unknown extension: ${ext}";
-        exit 1;
-        ;;
-    esac;
-
-    echo "";
-
-    if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
-      mkdir -p "${cache_deps}";
-
-      cache_file="${cache_deps}/${name}-$(echo "${url}" | "${hash}")-$(basename "${url}")";
-
-      if [ ! -f "${cache_file}" ]; then
-	echo "Downloading ${name}...";
-	curl -L "${url}" -o "${cache_file}";
-      fi;
-
-      echo "Unpacking ${name} from cache...";
-      get () { cat "${cache_file}"; }
-    else
-      echo "Downloading ${name}..."; 
-      get () { curl -L "${url}"; }
+  if "${kill}" || "${restart}"; then
+    pidfile="$(conf_read_key "PIDFile")";
+    if [ ! -r "${pidfile}" ]; then
+      echo "Unreadable PID file: ${pidfile}";
+      exit 1
     fi;
-
-    rm -rf "${path}";
-    cd "$(dirname "${path}")";
-    get | ${decompress} | tar -xvf -;
-    apply_patches "${name}" "${path}";
-    cd /;
+    pid="$(cat "${pidfile}" | head -1)";
+    if [ -z "${pid}" ]; then
+      echo "No PID in PID file: ${pidfile}";
+      exit 1;
+    fi;
+    echo "Killing process ${pid}";
+    kill -TERM "${pid}";
+    if ! "${restart}"; then
+      exit 0;
+    fi;
   fi;
-}
 
-svn_get () {
-  if ! "${do_get}"; then return 0; fi;
-
-  local     name="$1"; shift;
-  local     path="$1"; shift;
-  local      uri="$1"; shift;
-  local revision="$1"; shift;
-
-  if [ -d "${path}" ]; then
-    local wc_uri="$(svn info --xml "${path}" 2> /dev/null | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
-
-    if "${force_setup}"; then
-      # Verify that we have a working copy checked out from the correct URI
-      if [ "${wc_uri}" != "${uri}" ]; then
-        echo "";
-        echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
-        rm -rf "${path}";
-        svn_get "${name}" "${path}" "${uri}" "${revision}";
-        return $?;
-      fi;
-
-      echo "";
-
-      echo "Reverting ${name}...";
-      svn revert -R "${path}";
-
-      echo "Updating ${name}...";
-      svn update -r "${revision}" "${path}";
-
-      apply_patches "${name}" "${path}";
-    else
-      if ! "${print_path}"; then
-        # Verify that we have a working copy checked out from the correct URI
-        if [ "${wc_uri}" != "${uri}" ]; then
-          echo "";
-          echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
-          echo "Performing repository switch for ${name}...";
-          svn switch -r "${revision}" "${uri}" "${path}";
-
-          apply_patches "${name}" "${path}";
-        else
-          local svnversion="$(svnversion "${path}")";
-          if [ "${svnversion%%[M:]*}" != "${revision}" ]; then
-            echo "";
-            echo "Updating ${name}...";
-            svn update -r "${revision}" "${path}";
-
-            apply_patches "${name}" "${path}";
-          fi;
-        fi;
-      fi;
-    fi;
+  # Prepare to set up PYTHONPATH et. al.
+  if [ -z "${PYTHONPATH:-}" ]; then
+    user_python_path="";
   else
-    echo "";
-
-    checkout () {
-      echo "Checking out ${name}...";
-      svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
-    }
-
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
-      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | "${hash}")@r${revision}.tgz";
-
-      mkdir -p "${cache_deps}";
-
-      if [ -f "${cache_file}" ]; then
-	echo "Unpacking ${name} from cache...";
-	mkdir -p "${path}";
-	tar -C "${path}" -xvzf "${cache_file}";
-      else
-	checkout;
-	echo "Caching ${name}...";
-	tar -C "${path}" -cvzf "${cache_file}" .;
-      fi;
-    else
-      checkout;
-    fi;
-
-    apply_patches "${name}" "${path}";
+    user_python_path=":${PYTHONPATH}";
   fi;
+
+  export PYTHONPATH="${caldav}";
+
+  # About to do something for real; let's enumerate (and depending on options,
+  # possibly download and/or install) the dependencies.
+  dependencies;
+
+  # Now that all the dependencies are set up, let's see if we're just being
+  # asked to print the path.
+  if "${print_path}"; then
+    echo "${PYTHONPATH}";
+    exit 0;
+  fi;
+
+  # If we're installing, install the calendar server itself.
+  py_install "Calendar Server" "${caldav}";
+
+  if [ -n "${install_home:-}" ]; then
+    do_home_install;
+  fi;
+
+  # Finish setting up PYTHONPATH (put the user's original path at the *end* so
+  # that CalendarServer takes precedence).
+
+  export PYTHONPATH="${PYTHONPATH}${user_python_path}";
+
+  # Finally, run the server.
+  run;
 }
 
-py_build () {
-    local     name="$1"; shift;
-    local     path="$1"; shift;
-    local optional="$1"; shift;
 
-    if "${do_setup}"; then
-      echo "";
-      echo "Building ${name}...";
-      cd "${path}";
-      if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
-          if "${optional}"; then
-              echo "WARNING: ${name} failed to build.";
-              echo "WARNING: ${name} is not required to run the server; continuing without it.";
-          else
-              return $?;
-          fi;
-      fi;
-      cd /;
-    fi;
-}
-
-py_install () {
-  local name="$1"; shift;
-  local path="$1"; shift;
-
-  if [ -n "${install}" ]; then
-    echo "";
-    echo "Installing ${name}...";
-    cd "${path}";
-    "${python}" ./setup.py install "${install_flag}${install}";
-    cd /;
-  fi;
-}
-
-py_have_module () {
-    local module="$1"; shift;
-
-    PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
-}
-
-##
-# Download and set up dependancies
-##
-
-#
-# Zope Interface
-#
-
-if ! py_have_module zope.interface; then
-  zope="${top}/zope.interface-3.3.0";
-
-  www_get "Zope Interface" "${zope}" http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz;
-  py_build "Zope Interface" "${zope}" false;
-  py_install "Zope Interface" "${zope}";
-
-  export PYTHONPATH="${PYTHONPATH}:${zope}/build/${py_platform_libdir}";
-fi;
-
-#
-# PyXML
-#
-
-if ! py_have_module xml.dom.ext; then
-  xml="${top}/PyXML-0.8.4";
-
-  www_get "PyXML" "${xml}" http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
-  py_build "PyXML" "${xml}" false;
-  py_install "PyXML" "${xml}";
-
-  export PYTHONPATH="${PYTHONPATH}:${xml}/build/${py_platform_libdir}";
-fi;
-
-#
-# PyOpenSSL
-#
-
-if ! py_have_module OpenSSL; then
-  ssl="${top}/pyOpenSSL-0.7";
-
-  www_get "PyOpenSSL" "${ssl}" http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.7.tar.gz;
-  py_build "PyOpenSSL" "${ssl}" false;
-  py_install "PyOpenSSL" "${ssl}";
-
-  export PYTHONPATH="${PYTHONPATH}:${ssl}/build/${py_platform_libdir}";
-fi;
-
-#
-# PyKerberos
-#
-
-if type krb5-config > /dev/null; then
-  if ! py_have_module kerberos; then
-    kerberos="${top}/PyKerberos";
-
-    svn_get "PyKerberos" "${kerberos}" "${svn_uri_base}/PyKerberos/trunk" 4241;
-    py_build "PyKerberos" "${kerberos}" false; # FIXME: make optional
-    py_install "PyKerberos" "${kerberos}";
-
-    export PYTHONPATH="${PYTHONPATH}:${kerberos}/build/${py_platform_libdir}";
-  fi;
-fi;
-
-#
-# PyOpenDirectory
-#
-
-if [ "$(uname -s)" == "Darwin" ]; then
-  if ! py_have_module opendirectory; then
-    opendirectory="${top}/PyOpenDirectory";
-
-    svn_get "PyOpenDirectory" "${opendirectory}" "${svn_uri_base}/PyOpenDirectory/trunk" 4106;
-    py_build "PyOpenDirectory" "${opendirectory}" false;
-    py_install "PyOpenDirectory" "${opendirectory}";
-
-    export PYTHONPATH="${PYTHONPATH}:${opendirectory}/build/${py_platform_libdir}";
-  fi;
-fi;
-
-#
-# xattr
-#
-
-if ! py_have_module xattr; then
-  xattr="${top}/xattr";
-
-  svn_get "xattr" "${xattr}" http://svn.red-bean.com/bob/xattr/releases/xattr-0.5 1013;
-  py_build "xattr" "${xattr}" false;
-  py_install "xattr" "${xattr}";
-
-  export PYTHONPATH="${PYTHONPATH}:${xattr}/build/${py_platform_libdir}";
-fi;
-
-#
-# select26
-#
-
-if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
-  select26="${top}/select26-0.1a3"
-
-  www_get "select26" "${select26}" http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz;
-  py_build "select26" "${select26}" true;
-  py_install "select26" "${select26}";
-
-  export PYTHONPATH="${PYTHONPATH}:${select26}/build/${py_platform_libdir}";
-fi;
-
-if ! type memcached >& /dev/null; then
-  #
-  # libevent
-  #
-  libevent="${top}/libevent-1.4.8-stable"
-
-  www_get "libevent" "${libevent}" http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz
-
-  if "${do_setup}" && (
-    "${force_setup}" || [ ! -d "${libevent}/_root" ]
-  ); then
-    echo "";
-    echo "Building libevent...";
-    cd "${libevent}";
-    ./configure --prefix="${libevent}/_root";
-    make;
-    make install;
-  fi;
-
-  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${libevent}/_root/lib";
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${libevent}/_root/lib";
-
-  #
-  # memcached
-  #
-  memcached="${top}/memcached-1.2.6"
-
-  www_get "memcached" "${memcached}" http://www.danga.com/memcached/dist/memcached-1.2.6.tar.gz;
-
-  if "${do_setup}" && (
-    "${force_setup}" || [ ! -d "${memcached}/_root" ]
-  ); then
-    echo "";
-    echo "Building memcached...";
-    cd "${memcached}";
-    ./configure --prefix="${memcached}/_root" \
-                --with-libevent="${libevent}/_root" \
-                --enable-threads;
-    make;
-    make install;
-  fi;
-
-  export PATH="${PATH}:${top}/memcached-1.2.6/_root/bin";
-fi;
-
-#
-# Twisted
-#
-
-case "${USER}" in
-  wsanchez)
-    proto="svn+ssh";
-    ;;
-  *)
-    proto="svn";
-    ;;
-esac;
-svn_uri="${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4";
-svn_get "Twisted" "${twisted}" "${svn_uri}" 26969;
-
-py_install "Twisted" "${twisted}";
-py_build "Twisted" "${twisted}" false
-
-# Although we built it to generate distribution metadata, let's add the sources
-# to PYTHONPATH instead so that we can edit them easily.
-
-export PYTHONPATH="${PYTHONPATH}:${twisted}";
-
-# twisted.web2 doesn't get installed by default
-if [ -n "${install}" ]; then
-  echo "";
-  echo "Installing Twisted.web2...";
-  cd "${twisted}";
-  "${python}" ./twisted/web2/topfiles/setup.py install "${install_flag}${install}";
-  cd /;
-fi;
-
-#
-# dateutil
-#
-
-if ! py_have_module dateutil; then
-    dateutil="${top}/python-dateutil-1.4.1";
-
-    www_get "dateutil" "${dateutil}" http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz;
-    py_install "dateutil" "${dateutil}";
-
-    export PYTHONPATH="${PYTHONPATH}:${dateutil}";
-fi;
-
-#
-# vobject
-#
-
-vobject="${top}/vobject";
-
-case "${USER}" in
-  cyrusdaboo)
-    base="svn+ssh://cdaboo@svn.osafoundation.org/svn";
-    ;;
-  *)
-    base="http://svn.osafoundation.org";
-    ;;
-esac;
-svn_uri="${base}/vobject/trunk";
-svn_get "vObject" "${vobject}" "${svn_uri}" 212;
-
-py_install "vObject" "${vobject}";
-
-export PYTHONPATH="${PYTHONPATH}:${vobject}";
-
-#
-# PyDirector
-#
-
-if ! py_have_module pydirector; then
-  pydirector="${top}/pydirector-1.0.0";
-  www_get "PyDirector" "${pydirector}" http://internap.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
-  py_build "PyDirector" "${pydirector}" false;
-  py_install "PyDirector" "${pydirector}";
-
-  export PYTHONPATH="${PYTHONPATH}:${pydirector}/build/${py_platform_libdir}";
-fi;
-
-#
-# CalDAVTester
-#
-
-caldavtester="${top}/CalDAVTester";
-
-svn_get "CalDAVTester" "${caldavtester}" "${svn_uri_base}/CalDAVTester/trunk" 4517;
-
-#
-# PyFlakes
-#
-
-pyflakes="${top}/Pyflakes";
-
-svn_get "Pyflakes" "${pyflakes}" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;
-
-#
-# Calendar Server
-#
-
-py_install "Calendar Server" "${caldav}";
-
-##
-# Do home install
-# This is a hack, but it's needed because installing with --home doesn't work for python-dateutil.
-##
-
-if [ -n "${install_home:-}" ]; then
-  py_prefix="$("${python}" -c "import sys; print sys.prefix;")";
-  py_libdir="$("${python}" -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1);")";
-
-  install -d "${install_home}";
-  install -d "${install_home}/bin";
-  install -d "${install_home}/conf";
-  install -d "${install_home}/lib/python";
-
-  rsync -av "${install}${py_prefix}/bin/" "${install_home}/bin/";
-  rsync -av "${install}${py_libdir}/" "${install_home}/lib/python/";
-  rsync -av "${install}${py_prefix}/caldavd/" "${install_home}/caldavd/";
-
-  rm -rf "${install}";
-fi;
-
-##
-# Run the server
-##
-
-export PYTHONPATH="${PYTHONPATH}${user_python_path}";
-
-run;
+run_main "$@";
