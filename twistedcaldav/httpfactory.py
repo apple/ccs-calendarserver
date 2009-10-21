@@ -34,19 +34,21 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
 
         if config.HTTPRetryAfter:
             retryAfter = randint(int(config.HTTPRetryAfter * 1/2), int(config.HTTPRetryAfter * 3/2))
-            headers = { "retryAfter": retryAfter }
+            retryAfter = "Retry-After: %s\r\n" % retryAfter
         else:
-            headers = {}
+            retryAfter = ""
 
-        self.transport.write("HTTP/1.0 503 Service Unavailable\r\n"
-                             "Content-Type: text/html\r\n"
-                             "Retry-After: %(retryAfter)s\r\n"
-                             "Connection: close\r\n\r\n"
-                             "<html><head><title>503 Service Unavailable</title></head>"
-                             "<body><h1>Service Unavailable</h1>"
-                             "The server is currently overloaded, "
-                             "please try again later.</body></html>"
-                             % headers)
+        self.transport.write(
+            "HTTP/1.0 503 Service Unavailable\r\n"
+            "Content-Type: text/html\r\n"
+            "%(retryAfter)s"
+            "Connection: close\r\n\r\n"
+            "<html><head><title>503 Service Unavailable</title></head>"
+            "<body><h1>Service Unavailable</h1>"
+            "The server is currently overloaded, "
+            "please try again later.</body></html>"
+            % { "retryAfter": retryAfter }
+        )
 
         self.transport.loseConnection()
 
