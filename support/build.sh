@@ -446,7 +446,7 @@ dependencies () {
     "svn" "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5" \
     false false false false 1013;
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
-    py_dependency "select26" "select26" "select26" \
+    py_dependency "select26" "select26" "select26-0.1a3" \
       "www" "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz" \
       true false false false 0;
   fi;
