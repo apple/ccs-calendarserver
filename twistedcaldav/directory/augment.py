@@ -305,8 +305,8 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     PostgreSQL based augment database implementation.
     """
 
-    def __init__(self, host, database):
+    def __init__(self, host, database, user=None, password=None):
         
         ADBAPIPostgreSQLMixin.__init__(self)
-        AugmentADAPI.__init__(self, "Augments", "pgdb", (), host=host, database=database,)
+        AugmentADAPI.__init__(self, "Augments", "pgdb", (), host=host, database=database, user=user, password=password,)
 

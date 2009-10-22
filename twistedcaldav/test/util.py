@@ -41,8 +41,8 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
         dataroot = self.mktemp()
         os.mkdir(dataroot)
         config.DataRoot = dataroot
-        config.Memcached.ClientEnabled = False
-        config.Memcached.ServerEnabled = False
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
         memcacheclient.ClientFactory.allowTestCache = True
 
     def createHierarchy(self, structure):

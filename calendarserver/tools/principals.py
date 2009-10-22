@@ -217,11 +217,10 @@ def run(principalIDs, actions):
         #
         # Connect to memcached, notifications
         #
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPools(
-                config.Memcached.Pools,
-                config.Memcached.MaxClients
-            )
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients
+        )
         if config.Notifications.Enabled:
             installNotificationClient(
                 config.Notifications.InternalNotificationHost,

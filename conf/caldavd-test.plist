@@ -693,10 +693,6 @@
     <!-- Support for Memcached -->
     <key>Memcached</key>
     <dict>
-      <key>ServerEnabled</key>
-      <true/>
-      <key>ClientEnabled</key>
-      <true/>
       <key>MaxClients</key>
       <integer>5</integer>
       <key>memcached</key>

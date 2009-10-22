@@ -544,11 +544,10 @@ class MailGatewayServiceMaker(LoggingMixIn):
 
     def makeService(self, options):
 
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPools(
-                config.Memcached.Pools,
-                config.Memcached.MaxClients,
-            )
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
 
         multiService = service.MultiService()
 

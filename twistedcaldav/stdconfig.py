@@ -53,8 +53,10 @@ DEFAULT_AUGMENT_PARAMS = {
         "dbpath": "/etc/caldavd/augments.sqlite",
     },
     "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
-        "host": "localhost",
+        "host":     "localhost",
         "database": "augments",
+        "user":     "",
+        "password": "",
     },
 }
 
@@ -63,8 +65,10 @@ DEFAULT_PROXYDB_PARAMS = {
         "dbpath": "/etc/caldavd/proxies.sqlite",
     },
     "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
-        "host": "localhost",
+        "host":     "localhost",
         "database": "proxies",
+        "user":     "",
+        "password": "",
     },
 }
 
@@ -430,25 +434,25 @@ DEFAULT_CONFIG = {
 
     "Memcached": {
         "MaxClients": 5,
-        "ClientEnabled": True,
-        "ServerEnabled": True,
         "Pools": {
             "Default": {
-                "Enabled": True,
+                "ClientEnabled": True,
+                "ServerEnabled": True,
                 "BindAddress": "127.0.0.1",
                 "Port": 11211,
                 "HandleCacheTypes": [
                     "Default",
                 ]
             },
-            "ProxyDB": {
-                "Enabled": True,
-                "BindAddress": "127.0.0.1",
-                "Port": 11211,
-                "HandleCacheTypes": [
-                    "ProxyDB", "PrincipalToken",
-                ]
-            },
+#            "ProxyDB": {
+#                "ClientEnabled": True,
+#                "ServerEnabled": True,
+#                "BindAddress": "127.0.0.1",
+#                "Port": 11211,
+#                "HandleCacheTypes": [
+#                    "ProxyDB", "PrincipalToken",
+#                ]
+#            },
         },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes

@@ -62,7 +62,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         self.contentFilters = []
 
-        if config.Memcached["ClientEnabled"]:
+        if config.Memcached.Pools.Default.ClientEnabled:
             self.responseCache = MemcacheResponseCache(self.fp)
 
             CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier

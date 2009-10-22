@@ -387,7 +387,7 @@ _memCachePoolHandler = {}   # Maps a handler id to a named pool
 def installPools(pools, maxClients=5, reactor=None):
     
     for name, pool in pools.items():
-        if pool["Enabled"]:
+        if pool["ServerEnabled"]:
             _installPool(
                 name,
                 pool["HandleCacheTypes"],

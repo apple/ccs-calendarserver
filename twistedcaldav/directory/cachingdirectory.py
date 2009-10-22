@@ -75,7 +75,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
 
-        useMemcache = useMemcache and config.Memcached.ClientEnabled
+        useMemcache = useMemcache and config.Memcached.Pools.Default.ClientEnabled
         if neverExpire:
             record.neverExpire()
 
@@ -288,7 +288,7 @@ class CachingDirectoryService(DirectoryService):
                 pass
             
             # Check memcache
-            if config.Memcached.ClientEnabled:
+            if config.Memcached.Pools.Default.ClientEnabled:
                 key = "dir|%s|%s" % (indexType, indexKey)
                 record = self.memcacheGet(key)
                 self.log_debug("Memcache: checking %s" % (key,))
@@ -321,7 +321,7 @@ class CachingDirectoryService(DirectoryService):
             self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
 
-            if config.Memcached.ClientEnabled:
+            if config.Memcached.Pools.Default.ClientEnabled:
                 self.log_debug("Memcache: storing (negative) %s" % (key,))
                 self.memcacheSet("-%s" % (key,), 1)
 

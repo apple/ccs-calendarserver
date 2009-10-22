@@ -388,10 +388,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # Now do any on disk upgrades we might need.
                 # Memcache isn't running at this point, so temporarily change
                 # the config so nobody tries to talk to it while upgrading
-                memcacheSetting = config.Memcached.ClientEnabled
-                config.Memcached.ClientEnabled = False
+                memcacheSetting = config.Memcached.Pools.Default.ClientEnabled
+                config.Memcached.Pools.Default.ClientEnabled = False
                 upgradeData(config)
-                config.Memcached.ClientEnabled = memcacheSetting
+                config.Memcached.Pools.Default.ClientEnabled = memcacheSetting
 
 
             service = serviceMethod(options)
@@ -534,11 +534,10 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         # Configure Memcached Client Pool
         #
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPools(
-                config.Memcached.Pools,
-                config.Memcached.MaxClients,
-            )
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
 
         #
         # Configure NotificationClient
@@ -1099,25 +1098,23 @@ class CalDAVServiceMaker (LoggingMixIn):
                 env=parentEnv,
             )
 
-        if config.Memcached.ServerEnabled:
-            self.log_info("Adding memcached service")
-
-            memcachedArgv = [
-                config.Memcached.memcached,
-                "-p", str(config.Memcached.Port),
-                "-l", config.Memcached.BindAddress,
-                "-U", "0",
-            ]
-
-            if config.Memcached.MaxMemory is not 0:
-                memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
-
-            if config.UserName:
-                memcachedArgv.extend(["-u", config.UserName])
-
-            memcachedArgv.extend(config.Memcached.Options)
-
-            monitor.addProcess("memcached", memcachedArgv, env=parentEnv)
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                self.log_info("Adding memcached service for pool: %s" % (name,))
+        
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-p", str(pool.Port),
+                    "-l", pool.BindAddress,
+                    "-U", "0",
+                ]
+        
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
+        
+                memcachedArgv.extend(config.Memcached.Options)
+        
+                monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
 
         if (
             config.Notifications.Enabled and
@@ -1291,9 +1288,6 @@ class TwistdSlaveProcess(object):
             "-o", "ControlPort=%d"
                   % (config.ControlPort,),
         ])
-
-        if config.Memcached.ServerEnabled:
-            args.extend(["-o", "Memcached/ClientEnabled=True"])
 
         if self.ports:
             args.extend([
