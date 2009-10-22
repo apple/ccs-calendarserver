@@ -357,10 +357,13 @@ py_dependency () {
     if "${inplace}"; then
       if "${do_setup}" && "${override_system}" && ! "${skip_egg}"; then
         echo;
-        echo "Building ${name}... [overrides system, building egg-info metadata only]";
-        cd "${srcdir}";
-        "${python}" ./setup.py -q egg_info 2>&1 | grep -i -v 'Unrecognized .svn/entries';
-        cd /;
+        if py_have_module setuptools; then
+          echo "Building ${name}... [overrides system, building egg-info metadata only]";
+          cd "${srcdir}";
+          "${python}" ./setup.py -q egg_info 2>&1 | (
+            grep -i -v 'Unrecognized .svn/entries' || true);
+          cd /;
+        fi;
       fi;
     else
       py_build "${name}" "${srcdir}" "${optional}";
