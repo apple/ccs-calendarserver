@@ -33,10 +33,10 @@ response include:
    response to a PROPFIND request or a CalDAV calendar-query request.
 
  * recipients - the number of recipients in a CalDAV scheduling
-   request via POST.
+   request via POST (which are typically only freebusy requests).
 
  * itip.requests - the number of attendees in an implicit scheduling
-   operation.
+   operation triggered by an Organizer.
 
  * itip.refreshes - the number of attendee refreshes completed after
    an implicit scheduling operation.
