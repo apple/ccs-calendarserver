@@ -334,7 +334,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         raise NotImplementedError("Subclass must implement provisionChild()")
 
     def url(self):
-        return joinURL(self.parent.url(), self.record.uid)
+        return joinURL(self.parent.url(), self.record.uid, "/")
 
     def canonicalURL(self, request):
         return succeed(self.url())
