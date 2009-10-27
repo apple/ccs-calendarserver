@@ -24,7 +24,7 @@ import os
 import socket
 import stat
 import sys
-from time import sleep
+from time import sleep, time
 
 from tempfile import mkstemp
 from subprocess import Popen, PIPE
@@ -39,7 +39,7 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.reactor import callLater
+from twisted.internet.reactor import callLater, spawnProcess
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.address import IPv4Address
@@ -56,7 +56,8 @@ from twisted.web2.static import File as FileResource
 from twisted.web2.http import Request, RedirectResponse
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.web2.channel.http import HTTP503LoggingFactory
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
+from twext.web2.channel.http import HTTP503LoggingFactory, LimitingHTTPFactory, SSLRedirectRequest
 
 try:
     from twistedcaldav.version import version
@@ -86,7 +87,6 @@ from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import upgradeData
-from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav import memcachepool
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.util import getNCPU
@@ -372,7 +372,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if not serviceMethod:
             raise UsageError(
                 "Unknown server type %s. "
-                "Please choose: Master, Slave, Single or Combined"
+                "Please choose: Slave, Single or Combined"
                 % (config.ProcessType,)
             )
         else:
@@ -713,17 +713,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Setting up service")
 
         if config.ProcessType == "Slave":
-            if (
-                config.MultiProcess.ProcessCount > 1 and
-                config.MultiProcess.LoadBalancer.Enabled
-            ):
-                realRoot = PDClientAddressWrapper(
-                    logWrapper,
-                    config.PythonDirector.ControlSocket,
-                    directory,
-                )
-            else:
-                realRoot = logWrapper
+            realRoot = logWrapper
 
             if config.ControlSocket:
                 mode = "AF_UNIX"
@@ -741,7 +731,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             self.deleteStaleSocketFiles()
 
             realRoot = logWrapper
-            
+
             logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile,
             )
@@ -752,43 +742,35 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         site = Site(realRoot)
 
-        channel = HTTP503LoggingFactory(
+        httpFactory = LimitingHTTPFactory(
             site,
-            maxRequests = config.MaxRequests,
-            retryAfter = config.HTTPRetryAfter,
-            betweenRequestsTimeOut = config.IdleConnectionTimeOut,
-            vary = True,
+            maxRequests=config.MaxRequests,
+            maxAccepts=config.MaxAccepts,
+            betweenRequestsTimeOut=config.IdleConnectionTimeOut,
+            vary=True,
         )
+        if config.RedirectHTTPToHTTPS:
+            redirectFactory = LimitingHTTPFactory(
+                SSLRedirectRequest,
+                maxRequests=config.MaxRequests,
+                maxAccepts=config.MaxAccepts,
+                betweenRequestsTimeOut=config.IdleConnectionTimeOut,
+                vary=True,
+            )
 
-        def updateChannel(configDict):
-            channel.maxRequests = configDict.MaxRequests
-            channel.retryAfter = configDict.HTTPRetryAfter
+        def updateFactory(configDict):
+            httpFactory.maxRequests = configDict.MaxRequests
+            httpFactory.maxAccepts = configDict.MaxAccepts
+            if config.RedirectHTTPToHTTPS:
+                redirectFactory.maxRequests = configDict.MaxRequests
+                redirectFactory.maxAccepts = configDict.MaxAccepts
 
-        config.addPostUpdateHook(updateChannel)
+        config.addPostUpdateHook(updateFactory)
 
-        if not config.BindAddresses:
-            config.BindAddresses = [""]
+        if config.InheritFDs or config.InheritSSLFDs:
 
-        for bindAddress in config.BindAddresses:
-            if config.BindHTTPPorts:
-                if config.HTTPPort == 0:
-                    raise UsageError(
-                        "HTTPPort required if BindHTTPPorts is not empty"
-                    )
-            elif config.HTTPPort != 0:
-                    config.BindHTTPPorts = [config.HTTPPort]
-
-            if config.BindSSLPorts:
-                if config.SSLPort == 0:
-                    raise UsageError(
-                        "SSLPort required if BindSSLPorts is not empty"
-                    )
-            elif config.SSLPort != 0:
-                config.BindSSLPorts = [config.SSLPort]
-
-            for port in config.BindSSLPorts:
-                self.log_info("Adding SSL server at %s:%s"
-                              % (bindAddress, port))
+            for fd in config.InheritSSLFDs:
+                fd = int(fd)
 
                 try:
                     contextFactory = ChainingOpenSSLContextFactory(
@@ -799,53 +781,100 @@ class CalDAVServiceMaker (LoggingMixIn):
                         sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
                     )
                 except SSLError, e:
-                    self.log_error("Unable to set up SSL context factory: %s"
-                                   % (e,))
-                    self.log_error("Disabling SSL port: %s" % (port,))
+                    log.error("Unable to set up SSL context factory: %s" % (e,))
                 else:
-                    httpsService = SSLServer(
-                        int(port), channel,
-                        contextFactory, interface=bindAddress,
+                    MaxAcceptSSLServer(
+                        fd, httpFactory,
+                        contextFactory,
                         backlog=config.ListenBacklog,
-                    )
-                    httpsService.setServiceParent(service)
-
-            for port in config.BindHTTPPorts:
-
-                if config.RedirectHTTPToHTTPS:
-                    #
-                    # Redirect non-SSL ports to the configured SSL port.
-                    #
-                    class SSLRedirectRequest(Request):
-                        def process(self):
-                            if config.SSLPort == 443:
-                                location = (
-                                    "https://%s%s"
-                                    % (config.ServerHostName, self.uri)
-                                )
-                            else:
-                                location = (
-                                    "https://%s:%d%s"
-                                    % (config.ServerHostName, config.SSLPort, self.uri)
-                                )
-                            self.writeResponse(RedirectResponse(location))
-
-                    self.log_info(
-                        "Redirecting HTTP port %s:%s to HTTPS port %s:%s"
-                        % (bindAddress, port, bindAddress, config.SSLPort)
-                    )
-                    TCPServer(int(port), HTTPFactory(SSLRedirectRequest),
-                        interface=bindAddress, backlog=config.ListenBacklog,
+                        inherit=True
                     ).setServiceParent(service)
 
+            for fd in config.InheritFDs:
+                fd = int(fd)
+
+                if config.RedirectHTTPToHTTPS:
+                    self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
+                    useFactory = redirectFactory
                 else:
-                    # Set up non-SSL port
-                    self.log_info(
-                        "Adding server at %s:%s"
-                        % (bindAddress, port)
-                    )
-                    TCPServer(int(port), channel,
-                        interface=bindAddress, backlog=config.ListenBacklog,
+                    useFactory = httpFactory
+
+                MaxAcceptTCPServer(
+                    fd, useFactory,
+                    backlog=config.ListenBacklog,
+                    inherit=True
+                ).setServiceParent(service)
+
+
+        else: # Not inheriting, therefore we open our own:
+
+            if not config.BindAddresses:
+                config.BindAddresses = [""]
+
+            for bindAddress in config.BindAddresses:
+                if config.BindHTTPPorts:
+                    if config.HTTPPort == 0:
+                        raise UsageError(
+                            "HTTPPort required if BindHTTPPorts is not empty"
+                        )
+                elif config.HTTPPort != 0:
+                        config.BindHTTPPorts = [config.HTTPPort]
+
+                if config.BindSSLPorts:
+                    if config.SSLPort == 0:
+                        raise UsageError(
+                            "SSLPort required if BindSSLPorts is not empty"
+                        )
+                elif config.SSLPort != 0:
+                    config.BindSSLPorts = [config.SSLPort]
+
+                for port in config.BindSSLPorts:
+                    self.log_info("Adding SSL server at %s:%s"
+                                  % (bindAddress, port))
+
+                    try:
+                        contextFactory = ChainingOpenSSLContextFactory(
+                            config.SSLPrivateKey,
+                            config.SSLCertificate,
+                            certificateChainFile=config.SSLAuthorityChain,
+                            passwdCallback=getSSLPassphrase,
+                            sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
+                        )
+                    except SSLError, e:
+                        self.log_error("Unable to set up SSL context factory: %s"
+                                       % (e,))
+                        self.log_error("Disabling SSL port: %s" % (port,))
+                    else:
+                        httpsService = MaxAcceptSSLServer(
+                            int(port), httpFactory,
+                            contextFactory, interface=bindAddress,
+                            backlog=config.ListenBacklog,
+                            inherit=False
+                        )
+                        httpsService.setServiceParent(service)
+
+                for port in config.BindHTTPPorts:
+
+                    if config.RedirectHTTPToHTTPS:
+                        #
+                        # Redirect non-SSL ports to the configured SSL port.
+                        #
+                        self.log_info("Redirecting HTTP port %s to HTTPS port %s"
+                            % (port, config.SSLPort)
+                        )
+                        useFactory = redirectFactory
+                    else:
+                        self.log_info(
+                            "Adding server at %s:%s"
+                            % (bindAddress, port)
+                        )
+                        useFactory = httpFactory
+
+                    MaxAcceptTCPServer(
+                        int(port), useFactory,
+                        interface=bindAddress,
+                        backlog=config.ListenBacklog,
+                        inherit=False
                     ).setServiceParent(service)
 
 
@@ -861,7 +890,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
-        
+
         # The logger service must come before the monitor service, otherwise
         # we won't know which logging port to pass to the slaves' command lines
 
@@ -887,14 +916,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         }
         if "KRB5_KTNAME" in os.environ:
             parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
-
-        hosts = []
-        sslHosts = []
-
-        port = [config.HTTPPort,]
-        sslPort = [config.SSLPort,]
-
-        bindAddress = ["127.0.0.1"]
 
         #
         # Attempt to calculate the number of processes to use 1 per processor
@@ -922,147 +943,67 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             config.MultiProcess.ProcessCount = processCount
 
-        if config.MultiProcess.ProcessCount > 1:
+
+        # Open the socket(s) to be inherited by the slaves
+
+        if not config.BindAddresses:
+            config.BindAddresses = [""]
+
+        inheritFDs = []
+        inheritSSLFDs = []
+
+        s._inheritedSockets = [] # keep a reference to these so they don't close
+
+        for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
-                port = [list(reversed(config.BindHTTPPorts))[0]]
+                if config.HTTPPort == 0:
+                    raise UsageError(
+                        "HTTPPort required if BindHTTPPorts is not empty"
+                    )
+            elif config.HTTPPort != 0:
+                config.BindHTTPPorts = [config.HTTPPort]
 
             if config.BindSSLPorts:
-                sslPort = [list(reversed(config.BindSSLPorts))[0]]
+                if config.SSLPort == 0:
+                    raise UsageError(
+                        "SSLPort required if BindSSLPorts is not empty"
+                    )
+            elif config.SSLPort != 0:
+                config.BindSSLPorts = [config.SSLPort]
 
-        elif config.MultiProcess.ProcessCount == 1:
-            if config.BindHTTPPorts:
-                port = config.BindHTTPPorts
+            def _openSocket(addr, port):
+                log.info("Opening socket for inheritance at %s:%d" % (addr, port))
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.setblocking(0)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((addr, port))
+                sock.listen(config.ListenBacklog)
+                s._inheritedSockets.append(sock)
+                return sock
 
-            if config.BindSSLPorts:
-                sslPort = config.BindSSLPorts
+            for portNum in config.BindHTTPPorts:
+                sock = _openSocket(bindAddress, int(portNum))
+                inheritFDs.append(sock.fileno())
 
-        if port[0] == 0:
-            port = None
+            for portNum in config.BindSSLPorts:
+                sock = _openSocket(bindAddress, int(portNum))
+                inheritSSLFDs.append(sock.fileno())
 
-        if sslPort[0] == 0:
-            sslPort = None
-
-        # If the load balancer isn't enabled, or if we only have one process
-        # We listen directly on the interfaces.
-
-        if (
-            not config.MultiProcess.LoadBalancer.Enabled or
-            config.MultiProcess.ProcessCount == 1
-        ):
-            bindAddress = config.BindAddresses
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
-            if config.MultiProcess.ProcessCount > 1:
-                if port is not None:
-                    port = [port[0] + 1]
-
-                if sslPort is not None:
-                    sslPort = [sslPort[0] + 1]
-
             process = TwistdSlaveProcess(
                 config.Twisted.twistd,
                 self.tapname,
                 options["config"],
-                bindAddress,
-                port,
-                sslPort
+                p,
+                config.BindAddresses,
+                inheritFDs=inheritFDs,
+                inheritSSLFDs=inheritSSLFDs
             )
 
             monitor.addProcessObject(process, parentEnv)
 
-            if config.HTTPPort:
-                hosts.append(process.getHostLine())
 
-            if config.SSLPort:
-                sslHosts.append(process.getHostLine(ssl=True))
-
-        #
-        # Set up pydirector config file.
-        #
-        if (config.MultiProcess.LoadBalancer.Enabled and
-            config.MultiProcess.ProcessCount > 1):
-            services = []
-
-            if not config.BindAddresses:
-                config.BindAddresses = [""]
-
-            scheduler_map = {
-                "LeastConnections": "leastconns",
-                "RoundRobin": "roundrobin",
-                "LeastConnectionsAndRoundRobin": "leastconnsrr",
-            }
-
-            for bindAddress in config.BindAddresses:
-                httpListeners = []
-                sslListeners = []
-
-                httpPorts = config.BindHTTPPorts
-                if not httpPorts:
-                    if config.HTTPPort != 0:
-                        httpPorts = (config.HTTPPort,)
-
-                sslPorts = config.BindSSLPorts
-                if not sslPorts:
-                    if config.SSLPort != 0:
-                        sslPorts = (config.SSLPort,)
-
-                for ports, listeners in (
-                    (httpPorts, httpListeners),
-                    (sslPorts, sslListeners)
-                ):
-                    for port in ports:
-                        listeners.append(
-                            """<listen ip="%s:%s" />""" % (bindAddress, port)
-                        )
-
-                scheduler = config.MultiProcess.LoadBalancer.Scheduler
-
-                pydirServiceTemplate = (
-                    """<service name="%(name)s">"""
-                    """%(listeningInterfaces)s"""
-                    """<group name="main" scheduler="%(scheduler)s">"""
-                    """%(hosts)s"""
-                    """</group>"""
-                    """<enable group="main" />"""
-                    """</service>"""
-                )
-
-                if httpPorts:
-                    services.append(
-                        pydirServiceTemplate % {
-                            "name": "http",
-                            "listeningInterfaces": "\n".join(httpListeners),
-                            "scheduler": scheduler_map[scheduler],
-                            "hosts": "\n".join(hosts)
-                        }
-                    )
-
-                if sslPorts:
-                    services.append(
-                        pydirServiceTemplate % {
-                            "name": "https",
-                            "listeningInterfaces": "\n".join(sslListeners),
-                            "scheduler": scheduler_map[scheduler],
-                            "hosts": "\n".join(sslHosts),
-                        }
-                    )
-
-            pdconfig = """<pdconfig>%s<control socket="%s" /></pdconfig>""" % (
-                "\n".join(services), config.PythonDirector.ControlSocket,
-            )
-
-            fd, fname = mkstemp(prefix="pydir")
-            os.write(fd, pdconfig)
-            os.close(fd)
-
-            self.log_info("Adding pydirector service with configuration: %s"
-                          % (fname,))
-
-            monitor.addProcess(
-                "pydir",
-                [sys.executable, config.PythonDirector.pydir, fname],
-                env=parentEnv,
-            )
 
         if config.Memcached.ServerEnabled:
             self.log_info("Adding memcached service")
@@ -1152,25 +1093,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         return s
 
-    def makeService_Master(self, options):
-        service = procmon.ProcessMonitor()
-
-        parentEnv = {"PYTHONPATH": os.environ.get("PYTHONPATH", "")}
-
-        self.log_info("Adding pydirector service with configuration: %s"
-                      % (config.PythonDirector.ConfigFile,))
-
-        service.addProcess(
-            "pydir",
-            [
-                sys.executable,
-                config.PythonDirector.pydir,
-                config.PythonDirector.ConfigFile
-            ],
-            env=parentEnv
-        )
-
-        return service
 
     def deleteStaleSocketFiles(self):
         
@@ -1205,27 +1127,24 @@ class CalDAVServiceMaker (LoggingMixIn):
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistd, tapname, configFile, interfaces, port, sslPort):
+    def __init__(self, twistd, tapname, configFile, id, interfaces,
+            inheritFDs=None, inheritSSLFDs=None):
+
         self.twistd = twistd
 
         self.tapname = tapname
 
         self.configFile = configFile
 
-        self.ports = port
-        self.sslPorts = sslPort
+        self.id = id
+
+        self.inheritFDs = inheritFDs
+        self.inheritSSLFDs = inheritSSLFDs
 
         self.interfaces = interfaces
 
     def getName(self):
-        if self.ports is not None:
-            return "%s-%s" % (self.prefix, self.ports[0])
-        elif self.sslPorts is not None:
-            return "%s-%s" % (self.prefix, self.sslPorts[0])
-
-        raise ConfigurationError(
-            "Can't create TwistdSlaveProcess without a TCP Port"
-        )
+        return '%s-%s' % (self.prefix, self.id)
 
     def getCommandLine(self):
         args = [sys.executable, self.twistd]
@@ -1251,6 +1170,7 @@ class TwistdSlaveProcess(object):
             "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
             "-o", "PIDFile=None",
             "-o", "ErrorLogFile=None",
+            "-o", "LogID=%s" % (self.id,),
             "-o", "MultiProcess/ProcessCount=%d"
                   % (config.MultiProcess.ProcessCount,),
             "-o", "ControlPort=%d"
@@ -1260,32 +1180,17 @@ class TwistdSlaveProcess(object):
         if config.Memcached.ServerEnabled:
             args.extend(["-o", "Memcached/ClientEnabled=True"])
 
-        if self.ports:
+        if self.inheritFDs:
             args.extend([
-                "-o", "BindHTTPPorts=%s" % (",".join(map(str, self.ports)),)
+                "-o", "InheritFDs=%s" % (",".join(map(str, self.inheritFDs)),)
             ])
 
-        if self.sslPorts:
+        if self.inheritSSLFDs:
             args.extend([
-                "-o", "BindSSLPorts=%s" % (",".join(map(str, self.sslPorts)),)
+                "-o", "InheritSSLFDs=%s" % (",".join(map(str, self.inheritSSLFDs)),)
             ])
 
         return args
-
-    def getHostLine(self, ssl=False):
-        name = self.getName()
-        port = None
-
-        if self.ports is not None:
-            port = self.ports
-
-        if ssl and self.sslPorts is not None:
-            port = self.sslPorts
-
-        if port is None:
-            raise ConfigurationError("Can not add a host without a port")
-
-        return """<host name="%s" ip="127.0.0.1:%s" />""" % (name, port[0])
 
 
 class ControlPortTCPServer(TCPServer):
@@ -1375,6 +1280,28 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             proc.signalProcess(signal)
         except ProcessExitedAlready:
             pass
+
+    def startProcess(self, name):
+        if self.protocols.has_key(name):
+            return
+        p = self.protocols[name] = procmon.LoggingProtocol()
+        p.service = self
+        p.name = name
+        args, uid, gid, env = self.processes[name]
+        self.timeStarted[name] = time()
+
+        childFDs = { 0 : "w", 1 : "r", 2 : "r" }
+
+        # Examine args for -o InheritFDs= and -o InheritSSLFDs=
+        # Add any file descriptors listed in those args to the childFDs
+        # dictionary so those don't get closed across the spawn.
+        for i in xrange(len(args)-1):
+            if args[i] == "-o" and args[i+1].startswith("Inherit"):
+                for fd in map(int, args[i+1].split("=")[1].split(",")):
+                    childFDs[fd] = fd
+
+        spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
+            childFDs=childFDs)
 
 
 def getSSLPassphrase(*ignored):

@@ -125,11 +125,11 @@ class ConfigTests(TestCase):
         self.assertEquals(config.SSLPort, 8443)
 
     def testMerge(self):
-        self.assertEquals(config.MultiProcess.LoadBalancer.Enabled, True)
+        self.assertEquals(config.MultiProcess.StaggeredStartup.Enabled, False)
 
         config.update({"MultiProcess": {}})
 
-        self.assertEquals(config.MultiProcess.LoadBalancer.Enabled, True)
+        self.assertEquals(config.MultiProcess.StaggeredStartup.Enabled, False)
 
     def testDirectoryService_noChange(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
@@ -206,7 +206,7 @@ class ConfigTests(TestCase):
     def testMergeDefaults(self):
         config.updateDefaults({"MultiProcess": {}})
 
-        self.assertEquals(config._provider.getDefaults().MultiProcess.LoadBalancer.Enabled, True)
+        self.assertEquals(config._provider.getDefaults().MultiProcess.StaggeredStartup.Enabled, False)
 
     def testSetDefaults(self):
         config.updateDefaults({"SSLPort": 8443})

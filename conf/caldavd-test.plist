@@ -413,19 +413,6 @@
     <dict>
       <key>ProcessCount</key>
       <integer>2</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
-
-      <key>LoadBalancer</key>
-      <dict>
-        <!--
-            Valid values are:
-            - LeastConnections
-            - RoundRobin
-            - LeastConnectionsAndRoundRobin
-          -->
-        <key>Scheduler</key>
-        <string>LeastConnections</string>
-      </dict>
-
     </dict>
 
 

@@ -495,10 +495,6 @@ dependencies () {
     "svn" "${base}/vobject/trunk" \
     false true true true 212;
 
-  py_dependency "PyDirector" "pydirector" "pydirector-1.0.0" \
-    "www" http://internap.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz \
-    false false false false 0;
-
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4517;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;

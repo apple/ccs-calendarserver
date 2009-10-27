@@ -1280,6 +1280,9 @@ def check_key(key, key_extra_len=0):
         Is not a string (Raises MemcachedKeyError)
         Is None (Raises MemcachedKeyError)
     """
+
+    return # Short-circuit this expensive method
+
     if type(key) == types.TupleType: key = key[1]
     if not key:
         raise Client.MemcachedKeyNoneError, ("Key is None")

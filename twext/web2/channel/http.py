@@ -20,11 +20,16 @@ from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory, HTTPChannelRequest,\
     HTTPChannel
+from twisted.web2.http import Request, RedirectResponse
+from twistedcaldav.config import config
+
 from twistedcaldav import accounting
 import time
 
 __all__ = [
     "HTTP503LoggingFactory",
+    "LimitingHTTPFactory",
+    "SSLRedirectRequest",
 ]
 
 class OverloadedLoggingServerProtocol (protocol.Protocol):
@@ -163,3 +168,58 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
             accounting.emitAccounting("HTTP", "all", "".join(self.logData.request) + "".join(self.logData.response))
 
 HTTPChannel.chanRequestFactory = HTTPLoggingChannelRequest
+
+
+
+class LimitingHTTPChannel(HTTPChannel):
+    """ HTTPChannel that takes itself out of the reactor once it has enough
+        requests in flight.
+    """
+
+    def connectionMade(self):
+        HTTPChannel.connectionMade(self)
+        if self.factory.outstandingRequests >= self.factory.maxRequests:
+            self.factory.myServer.myPort.stopReading()
+
+    def connectionLost(self, reason):
+        HTTPChannel.connectionLost(self, reason)
+        if self.factory.outstandingRequests < self.factory.maxRequests:
+            self.factory.myServer.myPort.startReading()
+
+class LimitingHTTPFactory(HTTPFactory):
+    """ HTTPFactory which stores maxAccepts on behalf of the MaxAcceptPortMixin
+    """
+
+    protocol = LimitingHTTPChannel
+
+    def __init__(self, requestFactory, maxRequests=600, maxAccepts=100,
+        **kwargs):
+        HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
+        self.maxAccepts = maxAccepts
+
+    def buildProtocol(self, addr):
+
+        p = protocol.ServerFactory.buildProtocol(self, addr)
+        for arg, value in self.protocolArgs.iteritems():
+            setattr(p, arg, value)
+        return p
+
+
+
+class SSLRedirectRequest(Request):
+    """ For redirecting HTTP to HTTPS port """
+
+    def process(self):
+        if config.SSLPort == 443:
+            location = (
+                "https://%s%s"
+                % (config.ServerHostName, self.uri)
+            )
+        else:
+            location = (
+                "https://%s:%d%s"
+                % (config.ServerHostName, config.SSLPort, self.uri)
+            )
+        self.writeResponse(RedirectResponse(location))
+
+

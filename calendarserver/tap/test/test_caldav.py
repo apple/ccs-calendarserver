@@ -26,6 +26,7 @@ from twisted.web2.dav import auth
 from twisted.web2.log import LogWrapperResource
 
 from twext.python.plistlib import writePlist
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, _mergeData
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
@@ -127,7 +128,6 @@ class CalDAVOptionsTest (TestCase):
         myConfig = ConfigDict(DEFAULT_CONFIG)
 
         myConfig.Authentication.Basic.Enabled = False
-        myConfig.MultiProcess.LoadBalancer.Enabled = False
         myConfig.HTTPPort = 80
         myConfig.ServerHostName = "calendar.calenderserver.org"
 
@@ -139,10 +139,6 @@ class CalDAVOptionsTest (TestCase):
         self.config.parseOptions(args)
 
         self.assertEquals(config.ServerHostName, myConfig["ServerHostName"])
-        self.assertEquals(
-            config.MultiProcess.LoadBalancer.Enabled,
-            myConfig.MultiProcess.LoadBalancer.Enabled
-        )
         self.assertEquals(config.HTTPPort, myConfig.HTTPPort)
         self.assertEquals(
             config.Authentication.Basic.Enabled,
@@ -242,9 +238,9 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         Test the default options of the dispatching makeService
         """
-        validServices = ["Slave", "Master", "Combined"]
+        validServices = ["Slave", "Combined"]
 
-        self.config["HTTPPort"] = 80
+        self.config["HTTPPort"] = 8008
 
         for service in validServices:
             self.config["ProcessType"] = service
@@ -294,8 +290,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         expectedSubServices = (
-            (internet.TCPServer, self.config["HTTPPort"]),
-            (internet.SSLServer, self.config["SSLPort"]),
+            (MaxAcceptTCPServer, self.config["HTTPPort"]),
+            (MaxAcceptSSLServer, self.config["SSLPort"]),
         )
 
         configuredSubServices = [(s.__class__, s.args) for s in service.services]

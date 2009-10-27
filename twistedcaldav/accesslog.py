@@ -146,7 +146,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "bytesSent"           : loginfo.bytesSent,
                 "referer"             : request.headers.getHeader("referer", "-"),
                 "userAgent"           : request.headers.getHeader("user-agent", "-"),
-                "serverInstance"      : request.serverInstance,
+                "serverInstance"      : config.LogID,
                 "timeSpent"           : (time.time() - request.initTime) * 1000,
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
             }
