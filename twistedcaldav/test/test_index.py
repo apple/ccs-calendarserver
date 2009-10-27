@@ -590,57 +590,152 @@ class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
                 """, name, uid, calendar.resourceType(), instances.limit
             )
 
+    class OldIndexv7(Index):
+
+        def _db_version(self):
+            """
+            @return: the schema version assigned to this index.
+            """
+            return "7"
+
+        def _db_init_data_tables_base(self, q, uidunique):
+            """
+            Initialise the underlying database tables.
+            @param q:           a database cursor to use.
+            """
+            #
+            # RESOURCE table is the primary index table
+            #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
+            #   UID: iCalendar UID (may or may not be unique)
+            #   TYPE: iCalendar component type
+            #   RECURRANCE_MAX: Highest date of recurrence expansion
+            #   ORGANIZER: cu-address of the Organizer of the event
+            #
+            if uidunique:
+                q.execute(
+                    """
+                    create table RESOURCE (
+                        NAME           text unique,
+                        UID            text unique,
+                        TYPE           text,
+                        RECURRANCE_MAX date,
+                        ORGANIZER      text
+                    )
+                    """
+                )
+            else:
+                q.execute(
+                    """
+                    create table RESOURCE (
+                        NAME           text unique,
+                        UID            text,
+                        TYPE           text,
+                        RECURRANCE_MAX date
+                    )
+                    """
+                )
+    
+            #
+            # TIMESPAN table tracks (expanded) time spans for resources
+            #   NAME: Related resource (RESOURCE foreign key)
+            #   FLOAT: 'Y' if start/end are floating, 'N' otherwise
+            #   START: Start date
+            #   END: End date
+            #   FBTYPE: FBTYPE value:
+            #     '?' - unknown
+            #     'F' - free
+            #     'B' - busy
+            #     'U' - busy-unavailable
+            #     'T' - busy-tentative
+            #
+            q.execute(
+                """
+                create table TIMESPAN (
+                    NAME  text,
+                    FLOAT text(1),
+                    START date,
+                    END   date,
+                    FBTYPE text(1)
+                )
+                """
+            )
+    
+            if uidunique:
+                #
+                # RESERVED table tracks reserved UIDs
+                #   UID: The UID being reserved
+                #   TIME: When the reservation was made
+                #
+                q.execute(
+                    """
+                    create table RESERVED (
+                        UID  text unique,
+                        TIME date
+                    )
+                    """
+                )
+
     def setUp(self):
         super(SQLIndexUpgradeTests, self).setUp()
         self.site.resource.isCalendarCollection = lambda: True
         self.db = Index(self.site.resource)
-        self.olddb = SQLIndexUpgradeTests.OldIndexv6(self.site.resource)
+        self.olddbv6 = SQLIndexUpgradeTests.OldIndexv6(self.site.resource)
+        self.olddbv7 = SQLIndexUpgradeTests.OldIndexv7(self.site.resource)
 
     def prepareOldDB(self):
-        if os.path.exists(self.olddb.dbpath):
-            os.remove(self.olddb.dbpath)
+        if os.path.exists(self.olddbv6.dbpath):
+            os.remove(self.olddbv6.dbpath)
 
     def test_old_schema(self):
         
-        self.prepareOldDB()
-
-        schema = self.olddb._db_value_for_sql(
-            """
-            select VALUE from CALDAV
-             where KEY = 'SCHEMA_VERSION'
-            """)
-        self.assertEqual(schema, self.olddb._db_version())
+        for olddb in (self.olddbv6, self.olddbv7):
+            self.prepareOldDB()
+    
+            schema = olddb._db_value_for_sql(
+                """
+                select VALUE from CALDAV
+                 where KEY = 'SCHEMA_VERSION'
+                """)
+            self.assertEqual(schema, olddb._db_version())
 
     def test_empty_upgrade(self):
         
-        self.prepareOldDB()
-
-        schema = self.olddb._db_value_for_sql(
-            """
-            select VALUE from CALDAV
-             where KEY = 'SCHEMA_VERSION'
-            """)
-        self.assertEqual(schema, self.olddb._db_version())
-
-        self.assertRaises(sqlite3.OperationalError, self.olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
-        self.assertRaises(sqlite3.OperationalError, self.olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
-
-        schema = self.db._db_value_for_sql(
-            """
-            select VALUE from CALDAV
-             where KEY = 'SCHEMA_VERSION'
-            """)
-        self.assertEqual(schema, self.db._db_version())
-
-        value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE")
-        self.assertEqual(value, None)
+        for olddb in (self.olddbv6, self.olddbv7):
+            self.prepareOldDB()
+    
+            schema = olddb._db_value_for_sql(
+                """
+                select VALUE from CALDAV
+                 where KEY = 'SCHEMA_VERSION'
+                """)
+            self.assertEqual(schema, olddb._db_version())
+    
+            if olddb._db_version() == "6":
+                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
+                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
+            elif olddb._db_version() == "7":
+                olddb._db_value_for_sql("select ORGANIZER from RESOURCE")
+                olddb._db_value_for_sql("select FBTYPE from TIMESPAN")
+            self.assertEqual(set([row[1] for row in olddb._db_execute("PRAGMA index_list(TIMESPAN)")]), set())
+    
+            schema = self.db._db_value_for_sql(
+                """
+                select VALUE from CALDAV
+                 where KEY = 'SCHEMA_VERSION'
+                """)
+            self.assertEqual(schema, self.db._db_version())
+    
+            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE")
+            self.assertEqual(value, None)
+            self.assertEqual(set([row[1] for row in self.db._db_execute("PRAGMA index_list(TIMESPAN)")]), set(("STARTENDFLOAT",)))
 
     def test_basic_upgrade(self):
         
-        self.prepareOldDB()
-
-        calendar_name = "1.ics"
-        calendar_data = """BEGIN:VCALENDAR
+        for olddb in (self.olddbv6, self.olddbv7):
+            self.prepareOldDB()
+    
+            calendar_name = "1.ics"
+            calendar_data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -653,27 +748,38 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """
-
-        self.olddb.addResource(calendar_name, Component.fromString(calendar_data))
-        self.assertTrue(self.olddb.resourceExists(calendar_name))
-
-        self.assertRaises(sqlite3.OperationalError, self.olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
-        self.assertRaises(sqlite3.OperationalError, self.olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
-
-        value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
-        self.assertEqual(value, "?")
-
-        value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
-        self.assertEqual(value, "?")
-
-        self.db.addResource(calendar_name, Component.fromString(calendar_data))
-        self.assertTrue(self.olddb.resourceExists(calendar_name))
-
-        value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
-        self.assertEqual(value, "mailto:user1@example.com")
-
-        value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
-        self.assertEqual(value, "B")
+    
+            olddb.addResource(calendar_name, Component.fromString(calendar_data))
+            self.assertTrue(olddb.resourceExists(calendar_name))
+    
+            if olddb._db_version() == "6":
+                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
+                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
+            elif olddb._db_version() == "7":
+                olddb._db_value_for_sql("select ORGANIZER from RESOURCE")
+                olddb._db_value_for_sql("select FBTYPE from TIMESPAN")
+            self.assertEqual(set([row[1] for row in olddb._db_execute("PRAGMA index_list(TIMESPAN)")]), set())
+    
+            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
+            if olddb._db_version() == "6":
+                self.assertEqual(value, "?")
+            else:
+                self.assertEqual(value, "mailto:user1@example.com")
+    
+            value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
+            if olddb._db_version() == "6":
+                self.assertEqual(value, "?")
+            else:
+                self.assertEqual(value, "B")
+    
+            self.db.addResource(calendar_name, Component.fromString(calendar_data))
+            self.assertTrue(olddb.resourceExists(calendar_name))
+    
+            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
+            self.assertEqual(value, "mailto:user1@example.com")
+    
+            value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
+            self.assertEqual(value, "B")
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):
