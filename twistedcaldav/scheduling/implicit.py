@@ -36,6 +36,7 @@ from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 __all__ = [
     "ImplicitScheduler",
@@ -328,6 +329,10 @@ class ImplicitScheduler(object):
             originatorPrincipalURL = str(authz_principal)
             if originatorPrincipalURL:
                 self.originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
+                if not isinstance(self.originatorPrincipal, DirectoryCalendarPrincipalResource):
+                    log.error("Originator '%s' is not enabled for calendaring" % (originatorPrincipalURL,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "invalid-originator")))
+
                 if self.originatorPrincipal:
                     # Pick the first mailto cu address or the first other type
                     for item in self.originatorPrincipal.calendarUserAddresses():

@@ -28,3 +28,50 @@ Index: twisted/web2/server.py
          # This is where CONNECT would go if we wanted it
          return None
  
+@@ -386,6 +396,15 @@
+             # We found a Resource... update the request.prepath and postpath
+             for x in xrange(len(path) - len(newpath)):
+                 self.prepath.append(self.postpath.pop(0))
++            url = quote("/" + "/".join(self.prepath) + ("/" if self.prepath and self.prepath[-1] else ""))
++            self._rememberResource(newres, url)
++        else:
++            try:
++                previousURL = self.urlForResource(res)
++                url = quote(previousURL + path[0] + ("/" if path[0] and len(path) > 1 else ""))
++                self._rememberResource(newres, url)
++            except NoURLForResourceError:
++                pass
+ 
+         child = self._getChild(None, newres, newpath, updatepaths=updatepaths)
+ 
+@@ -467,13 +486,29 @@
+         segments = unquote(path).split("/")
+         assert segments[0] == "", "URL path didn't begin with '/': %s" % (path,)
+ 
++        # Walk the segments up to see if we can find a cached resource to start from
++        preSegments = segments[:-1]
++        postSegments = segments[-1:]
++        cachedParent = None
++        while(len(preSegments)):
++            parentPath = "/".join(preSegments) + "/"
++            cachedParent = self._resourcesByURL.get(parentPath, None)
++            if cachedParent is not None:
++                break
++            else:
++                postSegments.insert(0, preSegments.pop())
++        
++        if cachedParent is None:
++            cachedParent = self.site.resource
++            postSegments = segments[1:]
++
+         def notFound(f):
+             f.trap(http.HTTPError)
+             if f.value.response.code != responsecode.NOT_FOUND:
+                 return f
+             return None
+ 
+-        d = defer.maybeDeferred(self._getChild, None, self.site.resource, segments[1:], updatepaths=False)
++        d = defer.maybeDeferred(self._getChild, None, cachedParent, postSegments, updatepaths=False)
+         d.addCallback(self._rememberResource, path)
+         d.addErrback(notFound)
+         return d

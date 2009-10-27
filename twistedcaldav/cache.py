@@ -319,6 +319,9 @@ class _CachedResponseResource(object):
         self._response = response
 
     def renderHTTP(self, request):
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+        request.extendedLogItems["cached"] = "1"
         return self._response
 
     def locateChild(self, request, segments):

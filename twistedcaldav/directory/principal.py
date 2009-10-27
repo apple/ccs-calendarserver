@@ -888,11 +888,8 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return succeed(inbox)
 
     def calendarHomeURLs(self):
-        home = self.calendarHome()
-        if home is None:
-            return ()
-        else:
-            return (home.url(),)
+        homeURL = self._homeChildURL(None)
+        return (homeURL,) if homeURL else ()
 
     def scheduleInboxURL(self):
         return self._homeChildURL("inbox/")
@@ -907,11 +904,19 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def _homeChildURL(self, name):
-        home = self.calendarHome()
-        if home is None:
+        if not hasattr(self, "calendarHomeURL"):
+            home = self.calendarHome()
+            if home is None:
+                self.calendarHomeURL = None
+                return None
+            else:
+                self.calendarHomeURL = home.url()
+            
+        url = self.calendarHomeURL
+        if url is None:
             return None
         else:
-            return joinURL(home.url(), name)
+            return joinURL(url, name) if name else url
 
     def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack

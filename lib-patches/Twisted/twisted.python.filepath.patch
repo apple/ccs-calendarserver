@@ -1,0 +1,91 @@
+Index: twisted/python/filepath.py
+===================================================================
+--- twisted/python/filepath.py	(revision 26969)
++++ twisted/python/filepath.py	(working copy)
+@@ -326,9 +326,11 @@
+     statinfo = None
+     path = None
+ 
+-    def __init__(self, path, alwaysCreate=False):
++    def __init__(self, path, alwaysCreate=False, existsCached=None, isDirCached=None):
+         self.path = abspath(path)
+         self.alwaysCreate = alwaysCreate
++        self.existsCached = existsCached
++        self.isDirCached = isDirCached
+ 
+     def __getstate__(self):
+         d = self.__dict__.copy()
+@@ -449,6 +451,11 @@
+ 
+     # stat methods below
+ 
++    def changed(self):
++        self.statinfo = None
++        self.existsCached = None
++        self.isDirCached = None
++
+     def restat(self, reraise=True):
+         """
+         Re-calculate cached effects of 'stat'.  To refresh information on this path
+@@ -460,12 +467,23 @@
+         """
+         try:
+             self.statinfo = stat(self.path)
++            self.existsCached = True
++            self.isDirCached = S_ISDIR(self.statinfo.st_mode)
+         except OSError:
+             self.statinfo = 0
++            self.existsCached = False
++            self.isDirCached = None
+             if reraise:
+                 raise
+ 
++    def getstatinfo(self):
++        st = self.statinfo
++        if not st:
++            self.restat()
++            st = self.statinfo
++        return st
+ 
++
+     def chmod(self, mode):
+         """
+         Changes the permissions on self, if possible.  Propagates errors from
+@@ -536,7 +554,9 @@
+             C{False} in the other cases.
+         @rtype: C{bool}
+         """
+-        if self.statinfo:
++        if self.existsCached is not None:
++            return self.existsCached
++        elif self.statinfo:
+             return True
+         else:
+             self.restat(False)
+@@ -547,6 +567,8 @@
+ 
+ 
+     def isdir(self):
++        if self.isDirCached is not None:
++            return self.isDirCached
+         st = self.statinfo
+         if not st:
+             self.restat(False)
+@@ -603,7 +625,7 @@
+             os.rmdir(self.path)
+         else:
+             os.remove(self.path)
+-        self.restat(False)
++        self.changed()
+ 
+ 
+     def makedirs(self):
+@@ -770,7 +792,7 @@
+         """
+         try:
+             os.rename(self.path, destination.path)
+-            self.restat(False)
++            self.changed()
+         except OSError, ose:
+             if ose.errno == errno.EXDEV:
+                 # man 2 rename, ubuntu linux 5.10 "breezy":

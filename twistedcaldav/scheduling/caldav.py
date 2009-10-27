@@ -96,14 +96,18 @@ class ScheduleViaCalDAV(DeliveryService):
         organizerProp = self.scheduler.calendar.getOrganizerProperty()
         uid = self.scheduler.calendar.resourceUID()
 
+        organizerPrincipal = None
+        if type(self.scheduler.organizer) in (LocalCalendarUser,):
+            organizerPrincipal = davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL()))
+
         for recipient in self.recipients:
 
             #
             # Check access controls
             #
-            if isinstance(self.scheduler.organizer, LocalCalendarUser):
+            if organizerPrincipal:
                 try:
-                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL())))
+                    yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=organizerPrincipal)
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
                     err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permissions")))
@@ -127,8 +131,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        calendar_str = str(self.scheduler.calendar)
-        name = md5(calendar_str + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
+        name = md5(self.scheduler.calendardata + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
     
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)
@@ -137,7 +140,7 @@ class ScheduleViaCalDAV(DeliveryService):
         # Do implicit scheduling message processing.
         try:
             processor = ImplicitProcessor()
-            processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
+            _ignore_processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
                 self.scheduler.request,
                 self.scheduler.calendar,
                 self.scheduler.originator,
@@ -152,6 +155,9 @@ class ScheduleViaCalDAV(DeliveryService):
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
             responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
+            if not hasattr(self.scheduler.request, "extendedLogItems"):
+                self.scheduler.request.extendedLogItems = {}
+            self.scheduler.request.extendedLogItems["itip.auto"] = self.scheduler.request.extendedLogItems.get("itip.auto", 0) + 1
             returnValue(True)
         else:
             # Copy calendar to inbox 
@@ -255,7 +261,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 excludeuid = self.scheduler.excludeUID,
                 organizer = self.scheduler.organizer.cuaddr,
                 same_calendar_user = same_calendar_user,
-                servertoserver=remote
+                servertoserver=remote,
             ))
     
         # Build VFREEBUSY iTIP reply for this recipient

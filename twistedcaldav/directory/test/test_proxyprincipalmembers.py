@@ -91,7 +91,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             proxyPrincipal = self._getPrincipalByShortName(proxyPrincipal[0], proxyPrincipal[1])
         members.add(proxyPrincipal)
         
-        principal.setGroupMemberSetPrincipals(members)
+        yield principal.setGroupMemberSetPrincipals(members)
 
     @inlineCallbacks
     def _removeProxy(self, recordType, recordName, subPrincipalName, proxyRecordType, proxyRecordName):
@@ -106,14 +106,14 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 members.remove(p)
                 break
         
-        principal.setGroupMemberSetPrincipals(members)
+        yield principal.setGroupMemberSetPrincipals(members)
 
     def _clearProxy(self, principal, subPrincipalName):
 
         if isinstance(principal, tuple):
             principal = self._getPrincipalByShortName(principal[0], principal[1])
         principal = principal.getChild(subPrincipalName)
-        principal.setGroupMemberSetPrincipals(set())
+        yield principal.setGroupMemberSetPrincipals(set())
 
     @inlineCallbacks
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
@@ -483,7 +483,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                     delRec = self.directoryService.recordWithShortName(
                         DirectoryService.recordType_users, "dreid")
                     for cache in self.directoryService._recordCaches.itervalues():
-                       cache.removeRecord(delRec)
+                        cache.removeRecord(delRec)
                     del self.directoryService._accounts()[
                         DirectoryService.recordType_users]["dreid"]
 

@@ -40,7 +40,6 @@ def http_PUT(self, request):
     parent = (yield request.locateResource(parentURL))
 
     if isPseudoCalendarCollectionResource(parent):
-        self.fp.restat(False)
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
@@ -51,6 +50,9 @@ def http_PUT(self, request):
         # Read the calendar component from the stream
         try:
             calendardata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(calendardata))
 
             # We must have some data at this point
             if calendardata is None:
@@ -74,4 +76,12 @@ def http_PUT(self, request):
 
     else:
         result = (yield super(CalDAVFile, self).http_PUT(request))
+
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+        clength = request.headers.getHeader("content-length", 0)
+        if clength == 0:
+            clength = self.fp.getsize()
+        request.extendedLogItems["cl"] = str(clength)
+        
         returnValue(result)

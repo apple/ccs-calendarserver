@@ -95,6 +95,7 @@ class Scheduler(object):
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
         self.request.extendedLogItems["recipients"] = len(self.recipients)
+        self.request.extendedLogItems["cl"] = str(len(self.calendardata))
     
         # Do some extra authorization checks
         self.checkAuthorization()
@@ -113,6 +114,7 @@ class Scheduler(object):
         self.originator = originator
         self.recipients = recipients
         self.calendar = calendar
+        self.calendardata = str(self.calendar)
         self.internal_request = internal_request
 
         # Do some extra authorization checks
@@ -233,6 +235,7 @@ class Scheduler(object):
         # Parse the calendar object from the HTTP request stream
         try:
             self.calendar = (yield Component.fromIStream(self.request.stream))
+            self.calendardata = str(self.calendar)
         except:
             # FIXME: Bare except
             log.err("Error while handling %s: %s" % (self.method, Failure(),))
@@ -330,7 +333,7 @@ class Scheduler(object):
                         str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
                         str(self.request.serverInstance),
                         str(self.method),
-                        str(self.calendar)
+                        self.calendardata,
                     )
                 )
 

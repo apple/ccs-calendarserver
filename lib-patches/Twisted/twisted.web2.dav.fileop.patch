@@ -1,0 +1,48 @@
+Index: twisted/web2/dav/fileop.py
+===================================================================
+--- twisted/web2/dav/fileop.py	(revision 26969)
++++ twisted/web2/dav/fileop.py	(working copy)
+@@ -162,8 +162,8 @@
+ 
+         response = responsecode.NO_CONTENT
+ 
+-    # Restat filepath since we deleted the backing file
+-    filepath.restat(False)
++    # Remove stat info for filepath since we deleted the backing file
++    filepath.changed()
+ 
+     return succeed(response)
+ 
+@@ -371,8 +371,8 @@
+     except OSError:
+         pass
+     else:
+-        # Restat source filepath since we moved it
+-        source_filepath.restat(False)
++        # Remove stat info from source filepath since we moved it
++        source_filepath.changed()
+         yield success_code
+         return
+ 
+@@ -462,8 +462,8 @@
+             "writing to file: %s" % (filepath.path,)
+         ))
+ 
+-    # Restat filepath since we modified the backing file
+-    filepath.restat(False)
++    # Remove stat info from filepath since we modified the backing file
++    filepath.changed()
+     yield success_code
+ 
+ put = deferredGenerator(put)
+@@ -480,8 +480,8 @@
+     """
+     try:
+         os.mkdir(filepath.path)
+-        # Restat filepath because we modified it
+-        filepath.restat(False)
++        # Remove stat info from filepath because we modified it
++        filepath.changed()
+     except:
+         raise HTTPError(statusForFailure(
+             Failure(),
