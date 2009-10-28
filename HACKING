@@ -4,6 +4,7 @@ Developer's Guide to Hacking the Calendar Server
 If you are interested in contributing to Darwin Calendar Server
 project, please read this document.
 
+
 Participating in the Community
 ==============================
 
@@ -44,18 +45,30 @@ see if someone else has already filed your bug.  In that case, add a
 comment to the existing bug if appropriate and monitor it, rather than
 filing a duplicate.
 
+
 Obtaining the Code
 ==================
 
-Check out the sources using Subversion from this repository URL:
+The source code to Calendar Server is available via Subversion at this
+repository URL:
 
   http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/
 
-It is assumed here that you are familiar with and able to use
-Subversion.  More information about Subversion, including
-documentation and download instructions, is available from:
+You can also browse the repository directly using your web browser, or
+use WebDAV clients to browse the repository, such as Mac OS X's Finder
+(`Go -> Connect to Server`).
+
+A richer web interface which provides access to version history and
+logs is available via Trac here:
+
+  http://trac.calendarserver.org/browser/
+
+Most developers will want to use a full-featured Subversion client.
+More information about Subversion, including documentation and client
+download instructions, is available from the Subversion project:
 
   http://subversion.tigris.org/
+
 
 Directory Layout
 ================
@@ -90,6 +103,7 @@ A rough guide to the source tree:
    systems), but that the Calendar Server does not depend on.
 
  * ``support/`` - Support files of possible use to developers.
+
 
 Coding Standards
 ================
@@ -347,6 +361,7 @@ Additions:
        ...
        """
 
+
 Best Practices
 ==============
 
@@ -379,6 +394,7 @@ Best Practices
        ... do something with stream ...
      finally:
        stream.close()
+
 
 Testing
 =======
@@ -422,6 +438,7 @@ and then running CalDAVTester against it.  For information about
 CalDAVTester is available here:
 
   http://trac.calendarserver.org/projects/calendarserver/wiki/CalDAVTester
+
 
 Commit Policy
 =============
