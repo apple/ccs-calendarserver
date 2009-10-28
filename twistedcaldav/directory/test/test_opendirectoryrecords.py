@@ -14,7 +14,11 @@
 # limitations under the License.
 ##
 
-import twisted.trial.unittest
+from twistedcaldav.test.util import TestCase
+from twisted.cred.credentials import UsernamePassword
+import opendirectory
+
+
 
 try:
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryService as RealOpenDirectoryService
@@ -42,7 +46,7 @@ else:
 
             return tuple(records)
     
-    class ReloadCache(twisted.trial.unittest.TestCase):
+    class ReloadCache(TestCase):
         def setUp(self):
             super(ReloadCache, self).setUp()
             self._service = OpenDirectoryService(node="/Search", dosetup=False)
@@ -448,6 +452,71 @@ else:
 
             user3 = self._service.recordWithCalendarUserAddress("mailto:user03@example.com")
             self.assertTrue(user3 is not None)
+
+
+    class AuthCacheTests(TestCase):
+
+        def _authenticateUserBasic(self, ignore, node, name, password):
+            self._odAccessed = True
+            return self._passwords.get(name, "") == password
+
+        def setUp(self):
+            super(AuthCacheTests, self).setUp()
+            self._service = OpenDirectoryService(node="/Search", dosetup=False)
+            self._service.servicetags.add("FE588D50-0514-4DF9-BCB5-8ECA5F3DA274:030572AE-ABEC-4E0F-83C9-FCA304769E5F:calendar")
+            self._passwords = { }
+
+            # Monkeypatch the real opendirectory.authenticateUserBasic
+            self._prev = opendirectory.authenticateUserBasic
+            opendirectory.authenticateUserBasic = self._authenticateUserBasic
+
+        def tearDown(self):
+            for call in self._service._delayedCalls:
+                call.cancel()
+            opendirectory.authenticateUserBasic = self._prev
+
+        def test_caching(self):
+
+            self._service.fakerecords = {
+                DirectoryService.recordType_users: [
+                    fakeODRecord("User 01"),
+                ],
+            }
+            self._service.reloadCache(DirectoryService.recordType_users)
+
+            user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
+            self._passwords["user01"] = "user01"
+            cred = UsernamePassword("user01", "user01")
+
+            # Verify we go to OD when password is neither local nor in memcache
+            self._odAccessed = False
+            self.assertTrue(user1.verifyCredentials(cred))
+            self.assertTrue(self._odAccessed)
+
+            # Verify we don't go to OD when password is local
+            self._odAccessed = False
+            self.assertTrue(user1.verifyCredentials(cred))
+            self.assertFalse(self._odAccessed)
+
+            # Verify we don't go to OD when password not local but *is* in
+            # memcache
+            del user1.password
+            self._odAccessed = False
+            self.assertTrue(user1.verifyCredentials(cred))
+            self.assertFalse(self._odAccessed)
+
+            # Verify a password change will send us to OD
+            self._passwords["user01"] = "new user01"
+            cred = UsernamePassword("user01", "new user01")
+            self._odAccessed = False
+            self.assertTrue(user1.verifyCredentials(cred))
+            self.assertTrue(self._odAccessed)
+
+            # Verify the new password was memcached correctly
+            del user1.password
+            self._odAccessed = False
+            self.assertTrue(user1.verifyCredentials(cred))
+            self.assertFalse(self._odAccessed)
 
 def fakeODRecord(fullName, shortName=None, guid=None, email=None, addLocator=True, members=None):
     if shortName is None:

@@ -52,6 +52,7 @@ class FakeCheckSACL(object):
 
 class RootTests(TestCase):
     def setUp(self):
+        super(RootTests, self).setUp()
         self.docroot = self.mktemp()
         os.mkdir(self.docroot)
 

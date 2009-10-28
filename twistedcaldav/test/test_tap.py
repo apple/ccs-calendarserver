@@ -18,6 +18,7 @@ import os
 from copy import deepcopy
 
 from twisted.trial import unittest
+from twistedcaldav.test.util import TestCase
 
 from twisted.python.usage import Options, UsageError
 from twisted.python.util import sibpath
@@ -53,7 +54,7 @@ class TestCalDAVOptions(CalDAVOptions):
         pass
 
 
-class CalDAVOptionsTest(unittest.TestCase):
+class CalDAVOptionsTest(TestCase):
     """
     Test various parameters of our usage.Options subclass
     """
@@ -63,6 +64,7 @@ class CalDAVOptionsTest(unittest.TestCase):
         Set up our options object, giving it a parent, and forcing the
         global config to be loaded from defaults.
         """
+        super(CalDAVOptionsTest, self).setUp()
         self.config = TestCalDAVOptions()
         self.config.parent = Options()
         self.config.parent['uid'] = 0
@@ -163,7 +165,7 @@ class CalDAVOptionsTest(unittest.TestCase):
 
         self.assertEquals(config.MultiProcess['ProcessCount'], 102)
 
-class BaseServiceMakerTests(unittest.TestCase):
+class BaseServiceMakerTests(TestCase):
     """
     Utility class for ServiceMaker tests.
     """
@@ -171,6 +173,7 @@ class BaseServiceMakerTests(unittest.TestCase):
     configOptions = None
 
     def setUp(self):
+        super(BaseServiceMakerTests, self).setUp()
         self.options = TestCalDAVOptions()
         self.options.parent = Options()
         self.options.parent['gid'] = None

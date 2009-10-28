@@ -6,7 +6,7 @@ Test the memcacher cache abstraction.
 """
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.trial.unittest import TestCase
+from twistedcaldav.test.util import TestCase
 
 from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher

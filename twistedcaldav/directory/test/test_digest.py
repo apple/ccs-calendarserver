@@ -2,7 +2,7 @@
 
 from twisted.cred import error
 from twisted.internet import address
-from twisted.trial import unittest
+from twistedcaldav.test.util import TestCase
 from twisted.web2.auth import digest
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.test.test_server import SimpleRequest
@@ -71,7 +71,7 @@ namelessAuthRequest = 'realm="test realm",nonce="doesn\'t matter"'
 emtpyAttributeAuthRequest = 'realm="",nonce="doesn\'t matter"'
 
 
-class DigestAuthTestCase(unittest.TestCase):
+class DigestAuthTestCase(TestCase):
     """
     Test the behavior of DigestCredentialFactory
     """
@@ -80,6 +80,7 @@ class DigestAuthTestCase(unittest.TestCase):
         """
         Create a DigestCredentialFactory for testing
         """
+        super(DigestAuthTestCase, self).setUp()
         self.path1 = self.mktemp()
         self.path2 = self.mktemp()
         os.mkdir(self.path1)

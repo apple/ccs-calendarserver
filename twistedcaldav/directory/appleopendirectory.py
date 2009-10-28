@@ -33,6 +33,13 @@ from xml.parsers.expat import ExpatError
 import opendirectory
 import dsattributes
 import dsquery
+import memcacheclient
+
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import new as md5
+
 
 from twisted.internet.reactor import callLater
 from twisted.internet.threads import deferToThread
@@ -173,6 +180,14 @@ class OpenDirectoryService(DirectoryService):
         for attr in ("directory", "node"):
             h = (h + hash(getattr(self, attr))) & sys.maxint
         return h
+
+    def _getMemcacheClient(self, refresh=False):
+        if refresh or not hasattr(self, "memcacheClient"):
+            self.memcacheClient = memcacheclient.ClientFactory.getClient(['%s:%s' %
+                (config.Memcached.BindAddress, config.Memcached.Port)],
+                debug=0, pickleProtocol=2)
+        return self.memcacheClient
+
 
     def _lookupVHostRecord(self):
         """
@@ -1087,20 +1102,36 @@ class OpenDirectoryRecord(DirectoryRecord):
         result.update(self.service.readOnlyProxiesForGUID(DirectoryService.recordType_locations, self.guid))
         return result
 
+
+    def getMemcacheKey(self, shortName):
+        key = "auth-%s" % (md5(shortName).hexdigest(),)
+        return key
+
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
-            # Check cached password
+            # Check cached password which is an md5 hexdigest
+
+            credPassword = md5(credentials.password).hexdigest()
             try:
-                if credentials.password == self.password:
+                if credPassword == self.password:
                     return True
             except AttributeError:
-                pass
+                # No locally stored password; check memcached
+                key = self.getMemcacheKey(self.shortName)
+                memcachePassword = self.service._getMemcacheClient().get(key)
+                if memcachePassword is not None:
+                    if credPassword == memcachePassword:
+                        # Memcached version matches, store locally
+                        self.password = credPassword
+                        return True
 
-            # Check with directory services
+            # No local version, *or* local version differs; check directory services
             try:
                 if opendirectory.authenticateUserBasic(self.service.directory, self.nodeName, self.shortName, credentials.password):
                     # Cache the password to avoid future DS queries
-                    self.password = credentials.password
+                    self.password = credPassword
+                    key = self.getMemcacheKey(self.shortName)
+                    self.service._getMemcacheClient().set(key, self.password, time=self.service.cacheTimeout*60)
                     return True
             except opendirectory.ODError, e:
                 self.log_error("Open Directory (node=%s) error while performing basic authentication for user %s: %s"
