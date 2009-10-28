@@ -101,7 +101,7 @@ Server, please observe the following conventions.
 Please note that all of our code at present does not follow these
 standards, but that does not mean that one shouldn't bother to do so.
 On the contrary, code changes that do nothing but reformat code to
-comply with these standards are welcome, and code chanegs that do not
+comply with these standards are welcome, and code changes that do not
 conform to these standards are discouraged.
 
 **We require Python 2.5 or higher.** It therefore is OK to write code
@@ -140,7 +140,7 @@ PEP-8 items we do not follow:
          highlight > 100:
              raise ValueError("sorry, you lose")
 
-   Don't do that, it's gross, and the indentation for the "raise" line
+   Don't do that, it's gross, and the indentation for the ``raise`` line
    gets confusing.  Use parentheses:
 
    ::
@@ -174,7 +174,7 @@ PEP-8 items we do not follow:
 
 Additions:
 
- * Close parentheses and brackets such as '()', '[]' and '{}' at the
+ * Close parentheses and brackets such as ``()``, ``[]`` and ``{}`` at the
    same indent level as the line in which you opened it:
 
    ::
@@ -200,10 +200,10 @@ Additions:
      )
 
    Similarly, callables that take many arguments can be broken up into
-   multiple lines, as in the launchAtTarget example above.
+   multiple lines, as in the ``launchAtTarget()`` example above.
 
- * It's OK to break generator expressions and list comprehensions into
-   multiple lines.  For example:
+ * Breaking generator expressions and list comprehensions into
+   multiple lines can improve readability.  For example:
 
    ::
 
@@ -232,19 +232,20 @@ Additions:
      process = subprocess.Popen(...)
 
    This makes code shorter and removes the runtime indirection (which
-   can be relevant in tight loops).
+   can be relevant in tight loops). It also makes it easier to replace
+   one implementation with another.
 
- * All files should have an __all__ specification.  Put them at the
+ * All files should have an ``__all__`` specification.  Put them at the
    top of the file, before imports (PEP-8 puts them at the top, but
    after the imports), so you can see what the public symbols are for
    a file right at the top.
 
  * It is more important that symbol names are meaningful than it is
-   that they be concise.  "x" is rarely an appropriate name for a
-   variable.  "transmogrifierStatus" is more useful to the reader than
-   "trmgStat"; avoid contractions.
+   that they be concise.  ``x`` is rarely an appropriate name for a
+   variable.  ``transmogrifierStatus`` is more useful to the reader
+   than ``trmgStat``; avoid contractions.
 
- * A deferred that will be immediately returned may be called "d":
+ * A deferred that will be immediately returned may be called ``d``:
 
    ::
 
@@ -253,8 +254,8 @@ Additions:
      d.addErrback(onError)
      return d
 
- * When using waitForDeferred() in a deferredGenerator, "x" may be
-   used to clear the deferred if the deferred result will be ignored.
+ * When using ``waitForDeferred()`` in a deferredGenerator, ``x`` may
+   be used to clear the deferred if the deferred result will be ignored.
 
    ::
 
@@ -263,7 +264,7 @@ Additions:
      x.getResult()
      del x # Optional, but should be safe
 
- * "_" may be used to denote unused arguments in callbacks:
+ * ``_`` may be used to denote unused callback arguments:
 
    ::
 
@@ -276,19 +277,20 @@ Additions:
      d.addCallback(onCompletion)
      return d
 
- * Do not prefix symbols with "_" unless they might otherwise be
+ * Do not prefix symbols with ``_`` unless they might otherwise be
    exposed as a public symbol: a private method name should begin with
-   "_", but a locally scoped variable should not, as there is no
-   danger of it being exposed.
+   ``_``, but a locally scoped variable should not, as there is no
+   danger of it being exposed. Locally scoped variables are already
+   private.
 
- * Per twisted convention, use camel-case (fuzzyWidget,
-   doThisAndThat()) for symbol names instead of using underbars
-   (fuzzy_widget, do_this_and_that()).
+ * Per twisted convention, use camel-case (``fuzzyWidget``,
+   ``doThisAndThat()``) for symbol names instead of using underscores
+   (``fuzzy_widget``, ``do_this_and_that()``).
 
-   Use of underbars is reserved for implied dispatching and the like
-   (eg. http_FOO()).  See the Twisted Coding Standard for details.
+   Use of underscores is reserved for implied dispatching and the like
+   (eg. ``http_FOO()``).  See the Twisted Coding Standard for details.
 
- * Always use a tuple when using % formatting, even when only one
+ * Always use a tuple when using ``%``-formatting, even when only one
    value is being provided:
 
    ::
@@ -301,10 +303,10 @@ Additions:
 
      error = "Unexpected value: %s" % value
 
-   Which is allowed in Python, but results in an programming error if
-   type(value) is tuple and len(value) != 1.
+   Which is allowed in Python, but results in a programming error if
+   ``type(value) is tuple and len(value) != 1``.
 
- * Don't use a trailing ',' at the end of a tuple if it's on one line:
+ * Don't use a trailing ``,`` at the end of a tuple if it's on one line:
 
    ::
 
@@ -323,9 +325,9 @@ Additions:
      )
 
  * Docstrings are important.  All public symbols (anything declared in
-   __all__) must have a correct docstring.  The script
-   docs/Developer/gendocs will generate the API documentation using
-   pydoctor.  See the pydoctor documentation for details on the
+   ``__all__``) must have a correct docstring.  The script
+   ``docs/Developer/gendocs`` will generate the API documentation using
+   ``pydoctor``.  See the ``pydoctor`` documentation for details on the
    formatting:
 
      http://codespeak.net/~mwh/pydoctor/
@@ -334,7 +336,7 @@ Additions:
 
  * Use PEP-257 as a guideline for docstrings.
 
- * Begin all multi-line docstrings with a 3 double quotes and a
+ * Begin all multi-line docstrings with 3 double quotes and a
    newline:
 
    ::
@@ -350,9 +352,10 @@ Best Practices
 
  * If a callable is going to return a Deferred some of the time, it
    should probably return a deferred all of the time.  Return
-   succeed(value) instead of value if necessary.  This avoids forcing
-   the caller to check as to whether the value is a deferred or not.
-   (eg. by using maybeDeferred())
+   ``succeed(value)`` instead of ``value`` if necessary.  This avoids
+   forcing the caller to check as to whether the value is a deferred
+   or not (eg. by using ``maybeDeferred()``), which is both annoying
+   to code and potentially expensive at runtime.
 
  * Be proactive about closing files and file-like objects.
 
@@ -389,9 +392,9 @@ Note that repeatedly committing code that breaks units tests presents
 a possible time sink for other developers, and is not looked upon
 favorably.
 
-Units tests can be run rather easily by executing the `test` script at
-the top of the Calendar Server source tree.  By default, it will run
-all of the `twistedcaldav` tests followed by all of the `twisted`
+Units tests can be run rather easily by executing the ``test`` script
+at the top of the Calendar Server source tree.  By default, it will
+run all of the Calendar Server tests followed by all of the Twisted
 tests.  You can run specific tests by specifying them as arguments
 like this:
 
@@ -403,11 +406,12 @@ All non-trivial public callables must have unit tests.  (Note we don't
 don't totally comply with this rule; that's a problem we'd like to
 fix.)  All other callables should have unit tests.
 
-Units tests are written using the `twisted.trial` framework.  Test
-module names should start with `test_`.  Twisted has some tips on
+Units tests are written using the ``twisted.trial`` framework.  Test
+module names should start with ``test_``.  Twisted has some tips on
 writing tests here:
 
   http://twistedmatrix.com/projects/core/documentation/howto/testing.html
+
   http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/test-standard.xhtml?format=raw
 
 We also use CalDAVTester (which is a companion to Calendar Server in
