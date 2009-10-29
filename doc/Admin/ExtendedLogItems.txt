@@ -19,35 +19,49 @@ form ``key=value``.
 
 These keys are always emitted:
 
- * ``i`` - the port number of the server instance emitting the log
-   entry.
+  ``i``
 
- * ``t`` - the amount of time spent processing the request (in
-   milliseconds).
+    the port number of the server instance emitting the log
 
- * ``or`` - the number of outstanding requests enqueued for the server
-   instance emitting the log entry.
+  ``t``
+
+    the amount of time spent processing the request (in milliseconds).
+
+  ``or``
+
+    the number of outstanding requests enqueued for the server
+    instance emitting the log entry.
 
 Keys that may be emitted depending on the client request and server
 response include:
 
- * ``rcount`` - the number of resources specified in a ``MULTIGET``
-   request.
+  ``rcount``
 
- * ``responses`` - the number of responses included in a
-   ``multi-status`` response to a ``PROPFIND`` request or a CalDAV
-   ``calendar-query`` request.
+    the number of resources specified in a ``MULTIGET`` request.
 
- * ``recipients`` - the number of recipients in a CalDAV scheduling
-   request via ``POST`` (which are typically only free/busy requests).
+  ``responses``
 
- * ``itip.requests`` - the number of attendees in a scheduling
-   operation triggered by an Organizer.
+    the number of responses included in a ``multi-status`` response to
+    a ``PROPFIND`` request or a CalDAV ``calendar-query`` request.
 
- * ``itip.refreshes`` - the number of attendee refreshes completed
-   after a scheduling operation.
+  ``recipients``
 
- * ``itip.reply`` - Either ``reply`` or ``cancel`` depending on...???
+    the number of recipients in a CalDAV scheduling request via
+    ``POST`` (which are typically only free/busy requests).
+
+  ``itip.requests``
+
+    the number of attendees in a scheduling operation triggered by an
+    Organizer.
+
+  ``itip.refreshes``
+
+    the number of attendee refreshes completed after a scheduling
+    operation.
+
+  ``itip.reply``
+
+    Either ``reply`` or ``cancel`` depending on...???
 
 In the following example, we see a ``CalDAV:calendar-multiget``
 ``REPORT`` for 32 resources in a user's calendar, which was handled by
