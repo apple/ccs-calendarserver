@@ -10,8 +10,8 @@ The sub-method is adding by appending the name of the sub-method in
 parentheses to the original HTTP request method.  This is used to
 clarify what operation is going on for HTTP methods that are commonly
 used to tunnel other operations, such as ``POST`` and ``REPORT``.  For
-example, CalDAV uses ``POST`` for free/busy lookups, and there are
-many types of ``REPORT``s.
+example, CalDAV uses ``POST`` for free/busy lookups, and ``REPORT``
+can be used to make any sort of query.
 
 Key-value pairs are used to provide additional details about the
 request.  They are added to the end of the line as new fields in the
