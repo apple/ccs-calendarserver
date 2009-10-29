@@ -314,7 +314,7 @@ DEFAULT_CONFIG = {
     #
 
     # Set the maximum number of outstanding requests to this server.
-    "MaxRequests": 1,
+    "MaxRequests": 80,
     "MaxAccepts": 1,
 
     "ListenBacklog": 2024,
