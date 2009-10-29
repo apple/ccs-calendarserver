@@ -44,9 +44,32 @@ A given directory service may classify records into "types" such as
 users, groups, resources, and so on. Calendar Server keeps this
 distinction, and some types are treated specially.
 
+Principal types commonly provided by directory services include:
+
+users
+
+  Individual (typically human) users of the system.
+
+groups
+
+  Principals that contain other principals ("members"). Members can be
+  principals of any type, including other group principals.
+
+locations
+
+  Locations that can be scheduled.
+
+resources
+
+  Other resources (eg. projectors) which can be scheduled.
+
 For example, only user principals are allowed to authenticate with
 (log into) the server. Only group principals have members, and group
 principals do not have calendars.
+
+
+Configuration
+=============
 
 The directory service used by the server is configured in the
 ``caldavd.plist`` file by specifying the directory service

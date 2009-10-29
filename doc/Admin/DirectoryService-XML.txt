@@ -4,6 +4,9 @@ XML Directory Service
 The XML directory service provides principal information that is read
 from an XML file.
 
+The XML file provides principal information for users, groups,
+locations, and resources.
+
 One advantage to this directory service implementation is that it does
 not require a networked directory server to be running somewhere,
 instead simply relying on a file.
@@ -42,36 +45,17 @@ Configuring Principals
 Principals are expressed in an XML document. The root element
 ``accounts`` has an attribute ``realm`` which describes the
 authentication realm. It contains principal elements which in turn
-contain elements describing the principal. The element itself denotes
-the principal type.
-
-The principal types supported by the XML directory service are:
-
-users
-
-  Individual (typically human) users of the system. XML element: ``user``
-
-groups
-
-  Principals that contain other principals ("members"). Members can be
-  principals of any type, including other group principals.  XML
-  element: ``group``
-
-locations
-
-  Locations that can be scheduled. XML element: ``location``
-
-resources
-
-  Other resources (eg. projectors) which can be scheduled. XML
-  element: ``resource``
+contain elements describing the principal. The element itself
+(``user``, ``group``, ``location``, ``resource``) denotes the
+principal type.
 
 Principal elements can contain the following elements which provide
 information about the principal:
 
 ``uid``
 
-  The login identifier for the principal (ie. "username" or "short name").
+  The login identifier for the principal (ie. "user name" or "short
+  name").
 
 ``guid``
 
