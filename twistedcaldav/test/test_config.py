@@ -59,6 +59,7 @@ class ConfigTests(TestCase):
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
+        config.update(None) # Make sure the update hooks get called
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
