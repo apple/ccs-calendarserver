@@ -565,6 +565,11 @@ class OpenDirectoryService(CachingDirectoryService):
             recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
+            if recordNodeName == "/Local/Default":
+                self.log_warn("Local users aren't eligible for calendaring: %s"
+                    % (recordShortName,))
+                continue
+
             if not recordType:
                 self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
                     % (recordShortName, recordNodeName))

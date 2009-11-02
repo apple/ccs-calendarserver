@@ -197,3 +197,35 @@ else:
             recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
             self.assertFalse(self.service().recordWithGUID("1234567890"))
+
+        def test_queryDirectoryLocalUsers(self):
+            """ Test for lookup on local users, ensuring they don't get
+                faulted in """
+
+            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
+
+                data = [
+                    {
+                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                        dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
+                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
+                    },
+                    {
+                        dsattributes.kDS1AttrGeneratedUID : "987654321",
+                        dsattributes.kDSNAttrRecordName : ["user2", "User 2"],
+                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                    },
+                ]
+                results = []
+                for entry in data:
+                    if entry[attr] == value:
+                        results.append(("", entry))
+                return results
+
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
+            self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "987654321", lookupMethod=lookupMethod)
+            self.assertFalse(self.service().recordWithGUID("1234567890"))
+            self.assertTrue(self.service().recordWithGUID("987654321"))
