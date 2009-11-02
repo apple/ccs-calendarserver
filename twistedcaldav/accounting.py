@@ -100,6 +100,7 @@ def emitAccounting(category, principal, data):
             if index == 1000:
                 log.error("Too many %s accounting files for %s" % (category, principal))
                 return
+            index += 1
 
     #
     # Now write out the data to the log file
