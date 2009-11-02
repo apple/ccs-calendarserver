@@ -566,13 +566,13 @@ class OpenDirectoryService(CachingDirectoryService):
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if recordNodeName == "/Local/Default":
-                self.log_warn("Local users aren't eligible for calendaring: %s"
-                    % (recordShortName,))
+                self.log_info("Local record (%s)%s is not eligible for calendaring."
+                              % (recordType, recordShortName))
                 continue
 
             if not recordType:
                 self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
-                    % (recordShortName, recordNodeName))
+                               % (recordShortName, recordNodeName))
                 continue
 
             recordType = self._fromODRecordTypes[recordType]
