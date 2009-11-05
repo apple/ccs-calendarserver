@@ -17,15 +17,19 @@
 import os
 import sys
 import tempfile
+import socket
+import time
 
 from twisted.runner import procmon
 from twisted.application import internet, service
 from twisted.internet import reactor, process
+from twisted.python.reflect import namedClass
 
 from twistedcaldav.accesslog import AMPLoggingFactory, RotatingFileAccessLoggingObserver
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.util import getNCPU
 from twistedcaldav.log import Logger
+from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 
 log = Logger()
 
@@ -54,16 +58,23 @@ hostTemplate = '<host name="%(name)s" ip="%(bindAddress)s:%(port)s" />'
 class TwistdSlaveProcess(object):
     prefix = "caldav"
 
-    def __init__(self, twistd, tapname, configFile,
-                 interfaces, port, sslPort):
+    def __init__(self, twistd, tapname, configFile, id,
+                 interfaces, port, sslPort,
+                 inheritFDs=None, inheritSSLFDs=None):
+
         self.twistd = twistd
 
         self.tapname = tapname
 
         self.configFile = configFile
 
+        self.id = id
+
         self.ports = port
         self.sslPorts = sslPort
+
+        self.inheritFDs = inheritFDs
+        self.inheritSSLFDs = inheritSSLFDs
 
         self.interfaces = interfaces
 
@@ -72,6 +83,8 @@ class TwistdSlaveProcess(object):
             return '%s-%s' % (self.prefix, self.ports[0])
         elif self.sslPorts is not None:
             return '%s-%s' % (self.prefix, self.sslPorts[0])
+        elif self.inheritFDs or self.inheritSSLFDs:
+            return '%s-%s' % (self.prefix, self.id)
 
         raise ConfigurationError(
             "Can't create TwistdSlaveProcess without a TCP Port")
@@ -101,6 +114,7 @@ class TwistdSlaveProcess(object):
              '-o', 'BindAddresses=%s' % (','.join(self.interfaces),),
              '-o', 'PIDFile=None',
              '-o', 'ErrorLogFile=None',
+             '-o', 'LogID=%s' % (self.id,),
              '-o', 'MultiProcess/ProcessCount=%d' % (
                     config.MultiProcess['ProcessCount'],)])
 
@@ -118,8 +132,15 @@ class TwistdSlaveProcess(object):
                     '-o',
                     'BindSSLPorts=%s' % (','.join(map(str, self.sslPorts)),)])
 
+        if self.inheritFDs:
+            args.extend([
+                    '-o',
+                    'InheritFDs=%s' % (','.join(map(str, self.inheritFDs)),)])
 
-
+        if self.inheritSSLFDs:
+            args.extend([
+                    '-o',
+                    'InheritSSLFDs=%s' % (','.join(map(str, self.inheritSSLFDs)),)])
 
         return args
 
@@ -132,6 +153,9 @@ class TwistdSlaveProcess(object):
 
         if ssl and self.sslPorts is not None:
             port = self.sslPorts
+
+        if self.inheritFDs or self.inheritSSLFDs:
+            port = [self.id]
 
         if port is None:
             raise ConfigurationError(
@@ -186,8 +210,38 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         except process.ProcessExitedAlready:
             pass
 
+    def startProcess(self, name):
+        if self.protocols.has_key(name):
+            return
+        p = self.protocols[name] = procmon.LoggingProtocol()
+        p.service = self
+        p.name = name
+        args, uid, gid, env = self.processes[name]
+        self.timeStarted[name] = time.time()
+
+        childFDs = { 0 : "w", 1 : "r", 2 : "r" }
+
+        # Examine args for -o InheritFDs= and -o InheritSSLFDs=
+        # Add any file descriptors listed in those args to the childFDs
+        # dictionary so those don't get closed across the spawn.
+        for i in xrange(len(args)-1):
+            if args[i] == "-o" and args[i+1].startswith("Inherit"):
+                for fd in map(int, args[i+1].split("=")[1].split(",")):
+                    childFDs[fd] = fd
+
+        reactor.spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
+            childFDs=childFDs)
+
 def makeService_Combined(self, options):
+
+
+    # Refresh directory information on behalf of the child processes
+    directoryClass = namedClass(config.DirectoryService["type"])
+    directory = directoryClass(dosetup=False, **config.DirectoryService["params"])
+    directory.refresh()
+
     s = service.MultiService()
+
     monitor = DelayedStartupProcessMonitor()
     monitor.setServiceParent(s)
     s.processMonitor = monitor
@@ -204,6 +258,9 @@ def makeService_Combined(self, options):
     sslPort = [config.SSLPort,]
 
     bindAddress = ['127.0.0.1']
+
+    inheritFDs = []
+    inheritSSLFDs = []
 
     # Attempt to calculate the number of processes to use
     # 1 per processor
@@ -234,17 +291,66 @@ def makeService_Combined(self, options):
         if config.BindSSLPorts:
             sslPort = config.BindSSLPorts
 
+
     if port[0] == 0:
         port = None
 
     if sslPort[0] == 0:
         sslPort = None
 
-    # If the load balancer isn't enabled, or if we only have one process
-    # We listen directly on the interfaces.
+    # If we only have one process, disable the software load balancer and
+    # listen directly on the interfaces.
 
-    if ((not config.MultiProcess['LoadBalancer']['Enabled']) or
-        (config.MultiProcess['ProcessCount'] == 1)):
+    if config.MultiProcess['ProcessCount'] == 1:
+        config.MultiProcess['LoadBalancer']['Enabled'] = False
+        bindAddress = config.BindAddresses
+
+    elif config.EnableConnectionInheriting:
+        # Open the socket(s) to be inherited by the slaves
+
+        config.MultiProcess['LoadBalancer']['Enabled'] = False
+
+        if not config.BindAddresses:
+            config.BindAddresses = [""]
+
+        s._inheritedSockets = [] # keep a reference to these so they don't close
+
+        for bindAddress in config.BindAddresses:
+            if config.BindHTTPPorts:
+                if config.HTTPPort == 0:
+                    raise UsageError(
+                        "HTTPPort required if BindHTTPPorts is not empty"
+                    )
+            elif config.HTTPPort != 0:
+                config.BindHTTPPorts = [config.HTTPPort]
+
+            if config.BindSSLPorts:
+                if config.SSLPort == 0:
+                    raise UsageError(
+                        "SSLPort required if BindSSLPorts is not empty"
+                    )
+            elif config.SSLPort != 0:
+                config.BindSSLPorts = [config.SSLPort]
+
+            def _openSocket(addr, port):
+                log.info("Opening socket for inheritance at %s:%d" % (addr, port))
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.setblocking(0)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((addr, port))
+                sock.listen(config.ListenBacklog)
+                s._inheritedSockets.append(sock)
+                return sock
+
+            for portNum in config.BindHTTPPorts:
+                sock = _openSocket(bindAddress, int(portNum))
+                inheritFDs.append(sock.fileno())
+
+            for portNum in config.BindSSLPorts:
+                sock = _openSocket(bindAddress, int(portNum))
+                inheritSSLFDs.append(sock.fileno())
+
+    if not config.MultiProcess['LoadBalancer']['Enabled']:
         bindAddress = config.BindAddresses
 
     for p in xrange(0, config.MultiProcess['ProcessCount']):
@@ -255,11 +361,21 @@ def makeService_Combined(self, options):
             if sslPort is not None:
                 sslPort = [sslPort[0] + 1]
 
+        if inheritFDs:
+            port = None
+
+        if inheritSSLFDs:
+            sslPort = None
+
         process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      self.tapname,
                                      options['config'],
+                                     p,
                                      bindAddress,
-                                     port, sslPort)
+                                     port, sslPort,
+                                     inheritFDs=inheritFDs,
+                                     inheritSSLFDs=inheritSSLFDs
+                                     )
 
         monitor.addProcess(process.getName(),
                            process.getCommandLine(),
@@ -340,8 +456,6 @@ def makeService_Combined(self, options):
                                      config.PythonDirector['pydir'],
                                      fname],
                            env=parentEnv)
-
-
     if config.Memcached["ServerEnabled"]:
         log.msg("Adding memcached service")
 

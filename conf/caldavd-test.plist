@@ -61,6 +61,11 @@ limitations under the License.
   <key>BindSSLPorts</key>
   <array></array>
 
+  <!-- Connection settings -->
+  <key>MaxRequests</key>
+  <integer>1</integer>
+  <key>MaxAccepts</key>
+  <integer>1</integer>
 
   <!--
     Data Store
@@ -335,7 +340,7 @@ limitations under the License.
   <key>MultiProcess</key>
   <dict>
     <key>ProcessCount</key>
-    <integer>0</integer>
+    <integer>2</integer>
 
     <key>LoadBalancer</key>
     <dict>
@@ -350,6 +355,8 @@ limitations under the License.
 
       <!-- Least Connections and Round Robin -->
       <!-- <string>LeastConnectionsAndRoundRobin</string> -->
+      <key>Enabled</key>
+      <false/>
     </dict>
 
   </dict>

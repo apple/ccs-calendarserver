@@ -40,7 +40,7 @@ class XMLDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
 
-    def __init__(self, xmlFile):
+    def __init__(self, xmlFile, **kwds):
         super(XMLDirectoryService, self).__init__()
 
         if type(xmlFile) is str:

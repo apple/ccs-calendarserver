@@ -117,7 +117,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             )
 
             try:
-                serverInstance = request.chanRequest.transport.server.port
+                if config.EnableConnectionInheriting:
+                    serverInstance = config.LogID
+                else:
+                    serverInstance = request.chanRequest.transport.server.port
             except AttributeError:
                 serverInstance = "Unknown"
             if config.EnableExtendedAccessLog:

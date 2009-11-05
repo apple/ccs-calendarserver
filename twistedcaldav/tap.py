@@ -16,10 +16,12 @@
 
 import os
 import stat
+import socket
 
 from zope.interface import implements
 
 from twisted.internet.address import IPv4Address
+from twisted.internet import tcp, ssl
 
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
@@ -49,7 +51,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
-from twistedcaldav.httpfactory import HTTP503LoggingFactory
+from twistedcaldav.httpfactory import HTTP503LoggingFactory, LimitingHTTPFactory
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.timezones import TimezoneCache
@@ -418,6 +420,70 @@ class ChainingOpenSSLContextFactory(DefaultOpenSSLContextFactory):
 
         self._context = ctx
 
+class InheritedPort(tcp.Port):
+
+    def __init__(self, fd, factory, reactor):
+        tcp.Port.__init__(self, 0, factory, reactor=reactor)
+        # MOR: careful because fromfd dup()'s the socket, so we need to
+        # make sure we don't leak file descriptors
+        self.socket = socket.fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
+        self._realPortNumber = self.port = self.socket.getsockname()[1]
+
+    def createInternetSocket(self):
+        return self.socket
+
+    def startListening(self):
+        log.msg("%s starting on %s" % (self.factory.__class__, self._realPortNumber))
+        self.factory.doStart()
+        self.connected = 1
+        self.fileno = self.socket.fileno
+        self.numberAccepts = self.factory.maxRequests
+        self.startReading()
+
+    def doRead(self):
+        self.numberAccepts = min(self.factory.maxRequests - self.factory.outstandingRequests, self.factory.maxAccepts)
+        tcp.Port.doRead(self)
+
+
+class InheritedSSLPort(InheritedPort):
+    _socketShutdownMethod = 'sock_shutdown'
+
+    transport = ssl.Server
+
+    def __init__(self, fd, factory, ctxFactory, reactor):
+        InheritedPort.__init__(self, fd, factory, reactor)
+        self.ctxFactory = ctxFactory
+        self.socket = SSL.Connection(self.ctxFactory.getContext(), self.socket)
+
+    def _preMakeConnection(self, transport):
+        transport._startTLS()
+        return tcp.Port._preMakeConnection(self, transport)
+
+class InheritTCPServer(internet.TCPServer):
+
+    def __init__(self, *args, **kwargs):
+        internet.TCPServer.__init__(self, *args, **kwargs)
+        self.args[1].myServer = self
+
+    def _getPort(self):
+        from twisted.internet import reactor
+        port = InheritedPort(self.args[0], self.args[1], reactor)
+        port.startListening()
+        self.myPort = port
+        return port
+
+class InheritSSLServer(internet.SSLServer):
+
+    def __init__(self, *args, **kwargs):
+        internet.SSLServer.__init__(self, *args, **kwargs)
+        self.args[1].myServer = self
+
+    def _getPort(self):
+        from twisted.internet import reactor
+        port = InheritedSSLPort(self.args[0], self.args[1], self.args[2], reactor)
+        port.startListening()
+        self.myPort = port
+        return port
 
 class CalDAVServiceMaker(object):
     implements(IPlugin, service.IServiceMaker)
@@ -649,48 +715,30 @@ class CalDAVServiceMaker(object):
 
         site = Site(realRoot)
 
-        channel = HTTP503LoggingFactory(
-            site,
-            maxRequests=config.MaxRequests,
-            betweenRequestsTimeOut=config.IdleConnectionTimeOut)
 
-        def updateChannel(config, items):
-            channel.maxRequests = config.MaxRequests
+        # If inheriting file descriptors from the master, use those to handle
+        # requests instead of opening ports.
 
-        config.addHook(updateChannel)
+        if (config.EnableConnectionInheriting and
+           (config.InheritFDs or config.InheritSSLFDs)):
 
-        if not config.BindAddresses:
-            config.BindAddresses = [""]
+            channel = LimitingHTTPFactory(
+                site,
+                maxRequests=config.MaxRequests,
+                maxAccepts=config.MaxAccepts,
+                resumeRequests=config.ResumeRequests,
+                betweenRequestsTimeOut=config.IdleConnectionTimeOut)
 
-        for bindAddress in config.BindAddresses:
-            if config.BindHTTPPorts:
-                if config.HTTPPort == 0:
-                    raise UsageError(
-                        "HTTPPort required if BindHTTPPorts is not empty"
-                    )
-            elif config.HTTPPort != 0:
-                    config.BindHTTPPorts = [config.HTTPPort]
-
-            if config.BindSSLPorts:
-                if config.SSLPort == 0:
-                    raise UsageError(
-                        "SSLPort required if BindSSLPorts is not empty"
-                    )
-            elif config.SSLPort != 0:
-                config.BindSSLPorts = [config.SSLPort]
-
-            for port in config.BindHTTPPorts:
-                log.info("Adding server at %s:%s" % (bindAddress, port))
-
-                httpService = internet.TCPServer(
-                    int(port), channel,
-                    interface=bindAddress,
+            for fd in config.InheritFDs:
+                fd = int(fd)
+                inheritedService = InheritTCPServer(
+                    fd, channel,
                     backlog=config.ListenBacklog
                 )
-                httpService.setServiceParent(service)
+                inheritedService.setServiceParent(service)
 
-            for port in config.BindSSLPorts:
-                log.info("Adding SSL server at %s:%s" % (bindAddress, port))
+            for fd in config.InheritSSLFDs:
+                fd = int(fd)
 
                 try:
                     contextFactory = ChainingOpenSSLContextFactory(
@@ -701,14 +749,80 @@ class CalDAVServiceMaker(object):
                     )
                 except SSL.Error, e:
                     log.error("Unable to set up SSL context factory: %s" % (e,))
-                    log.error("Disabling SSL port: %s" % (port,))
                 else:
-                    httpsService = internet.SSLServer(
-                        int(port), channel,
-                        contextFactory, interface=bindAddress,
+                    inheritedService = InheritSSLServer(
+                        fd, channel,
+                        contextFactory,
                         backlog=config.ListenBacklog
                     )
-                    httpsService.setServiceParent(service)
+                    inheritedService.setServiceParent(service)
+
+
+        else: # Not inheriting, therefore open our own:
+
+            channel = HTTP503LoggingFactory(
+                site,
+                maxRequests=config.MaxRequests,
+                betweenRequestsTimeOut=config.IdleConnectionTimeOut)
+
+            if not config.BindAddresses:
+                config.BindAddresses = [""]
+
+            for bindAddress in config.BindAddresses:
+                if config.BindHTTPPorts:
+                    if config.HTTPPort == 0:
+                        raise UsageError(
+                            "HTTPPort required if BindHTTPPorts is not empty"
+                        )
+                elif config.HTTPPort != 0:
+                    config.BindHTTPPorts = [config.HTTPPort]
+
+                if config.BindSSLPorts:
+                    if config.SSLPort == 0:
+                        raise UsageError(
+                            "SSLPort required if BindSSLPorts is not empty"
+                        )
+                elif config.SSLPort != 0:
+                    config.BindSSLPorts = [config.SSLPort]
+
+                for port in config.BindHTTPPorts:
+                    log.info("Adding server at %s:%s" % (bindAddress, port))
+
+                    httpService = internet.TCPServer(
+                        int(port), channel,
+                        interface=bindAddress,
+                        backlog=config.ListenBacklog
+                    )
+                    httpService.setServiceParent(service)
+
+                for port in config.BindSSLPorts:
+                    log.info("Adding SSL server at %s:%s" % (bindAddress, port))
+
+                    try:
+                        contextFactory = ChainingOpenSSLContextFactory(
+                            config.SSLPrivateKey,
+                            config.SSLCertificate,
+                            certificateChainFile=config.SSLAuthorityChain,
+                            passwdCallback=_getSSLPassphrase
+                        )
+                    except SSL.Error, e:
+                        log.error("Unable to set up SSL context factory: %s" % (e,))
+                        log.error("Disabling SSL port: %s" % (port,))
+                    else:
+                        httpsService = internet.SSLServer(
+                            int(port), channel,
+                            contextFactory, interface=bindAddress,
+                            backlog=config.ListenBacklog
+                        )
+                        httpsService.setServiceParent(service)
+
+        def updateChannel(config, items):
+            channel.maxRequests = config.MaxRequests
+            channel.maxAccepts = config.MaxAccepts
+            channel.requestsRequests = config.ResumeRequests
+
+        config.addHook(updateChannel)
+
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)

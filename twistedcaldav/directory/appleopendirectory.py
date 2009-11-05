@@ -34,6 +34,8 @@ import opendirectory
 import dsattributes
 import dsquery
 import memcacheclient
+import memcacheclient
+import cPickle as pickle
 
 try:
     from hashlib import md5
@@ -43,8 +45,10 @@ except ImportError:
 
 from twisted.internet.reactor import callLater
 from twisted.internet.threads import deferToThread
+from twisted.internet.task import LoopingCall
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
+from twisted.python.filepath import FilePath
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -64,7 +68,7 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, cacheTimeout=30):
+    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, cacheTimeout=30, **kwds):
         """
         @param node: an OpenDirectory node name to bind to.
         @param requireComputerRecord: C{True} if the directory schema is to be used to determine
@@ -109,6 +113,71 @@ class OpenDirectoryService(DirectoryService):
 
             for recordType in self.recordTypes():
                 self.recordsForType(recordType)
+
+    def refresh(self, loop=True):
+        """
+        This service works by having the master process call this method
+        which queries OD for all records, storing the pickled results into
+        files that the child processes stat/read every minute.
+        The files are only written by this method if there are actually
+        changes in the results.
+        The reloadCache( ) method below used to talk to OD, but now it reads
+        these files.
+        """
+
+        def _refresh(self):
+            dataRoot = FilePath(config.DataRoot)
+            cacheDir = dataRoot.child("DirectoryCache")
+            if not cacheDir.exists():
+                cacheDir.createDirectory()
+
+            for recordType in self.recordTypes():
+                self.log_debug("Master fetching %s from directory" % (recordType,))
+                cacheFile = cacheDir.child(recordType)
+                try:
+                    results = self._queryDirectory(recordType)
+                except Exception, e:
+                    self.log_error("Master query for %s failed: %s" % (recordType, e))
+                    continue
+
+                results.sort()
+                numNewResults = len(results)
+                pickled = pickle.dumps(results)
+                needsWrite = True
+                if cacheFile.exists():
+                    prevPickled = cacheFile.getContent()
+                    if prevPickled == pickled:
+                        needsWrite = False
+                    else:
+                        prevResults = pickle.loads(prevPickled)
+                        numPrevResults = len(prevResults)
+                        if numPrevResults == 0:
+                            needsWrite = True
+                        else:
+                            if float(numNewResults) / numPrevResults < 0.5:
+                                # New results is less than half of what it used
+                                # to be -- this indicates we might not have
+                                # gotten back enough records from OD.  Don't
+                                # write out the file, but log an error.
+                                self.log_error("OD results for %s substantially less than last time: was %d, now %d." % (recordType, numPrevResults, numNewResults))
+                                needsWrite = False
+                                continue
+
+                if needsWrite:
+                    self.log_info("Saving cache file for %s (%d items)" % (recordType, numNewResults))
+                    cacheFile.setContent(pickled)
+                else:
+                    self.log_debug("%s info hasn't changed" % (recordType,))
+
+        def _refreshInThread(self):
+            return deferToThread(_refresh, self)
+
+        _refresh(self)
+
+        if loop:
+            LoopingCall(_refreshInThread, self).start(self.cacheTimeout * 60)
+
+
 
     def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None):
 
@@ -445,70 +514,27 @@ class OpenDirectoryService(DirectoryService):
         try:
             return self.recordsForType(recordType)[shortName]
         except KeyError:
-            # Check negative cache
-            if shortName in self._storage(recordType)["disabled names"]:
-                return None
-
-            # Cache miss; try looking the record up, in case it is new
-            # FIXME: This is a blocking call (hopefully it's a fast one)
-            self.reloadCache(recordType, shortName=shortName)
-            record = self.recordsForType(recordType).get(shortName, None)
-            if record is None:
-                # Add to negative cache
-                self._storage(recordType)["disabled names"].add(shortName)
-            return record
+            return None
 
     def recordWithGUID(self, guid):
-        def lookup():
-            for recordType in self.recordTypes():
-                record = self._storage(recordType)["guids"].get(guid, None)
-                if record:
-                    return record
-            else:
-                return None
+        for recordType in self.recordTypes():
+            record = self._storage(recordType)["guids"].get(guid, None)
+            if record:
+                return record
+        else:
+            return None
 
-        record = lookup()
-
-        if record is None:
-            # Cache miss; try looking the record up, in case it is new
-            for recordType in self.recordTypes():
-                # Check negative cache
-                if guid in self._storage(recordType)["disabled guids"]:
-                    continue
-
-                self.reloadCache(recordType, guid=guid)
-                record = lookup()
-
-                if record is None:
-                    self._storage(recordType)["disabled guids"].add(guid)
-                else:
-                    self.log_info("Faulted record with GUID %s into %s record cache"
-                                  % (guid, recordType))
-                    break
-            else:
-                # Nothing found; add to negative cache
-                self.log_info("Unable to find any record with GUID %s" % (guid,))
-
-        return record
 
     def recordWithCalendarUserAddress(self, address):
         address = address.lower()
 
-        def lookup():
-            for recordType in self.recordTypes():
-                record = self._storage(recordType)["cuaddrs"].get(address, None)
-                if record:
-                    return record
-            else:
-                return None
+        for recordType in self.recordTypes():
+            record = self._storage(recordType)["cuaddrs"].get(address, None)
+            if record:
+                return record
+        else:
+            return None
 
-        record = lookup()
-
-        if record is None:
-            # Nothing found
-            self.log_info("Unable to find any record with calendar user address %s" % (address,))
-
-        return record
 
     def groupsForGUID(self, guid):
         
@@ -609,46 +635,61 @@ class OpenDirectoryService(DirectoryService):
                 self.log_error("OD search failed: %s" % (e,))
                 raise
 
-    def reloadCache(self, recordType, shortName=None, guid=None):
-        if shortName is not None:
-            self.log_info("Faulting record with shortName %s into %s record cache" % (shortName, recordType))
-        elif guid is not None:
-            self.log_info("Faulting record with guid %s into %s record cache" % (guid, recordType))
-        elif shortName is None and guid is None:
-            self.log_info("Reloading %s record cache" % (recordType,))
-        else:
-            raise AssertionError("%r.reloadCache(%s, %s, %s)" % (self, recordType, shortName, guid))
+    def reloadCache(self, recordType, forceUpdate=False):
 
-        results = self._queryDirectory(recordType, shortName=shortName, guid=guid)
+        def rot():
+            storage["status"] = "stale"
+            removals = set()
+            for call in self._delayedCalls:
+                if not call.active():
+                    removals.add(call)
+            for item in removals:
+                self._delayedCalls.remove(item)
+
+        cacheTimeout = 60 # child processes always check once per minute
+
+        dataRoot = FilePath(config.DataRoot)
+        cacheDir = dataRoot.child("DirectoryCache")
+        if not cacheDir.exists():
+            self.log_error("Directory cache directory for does not exist: %s" % (cacheDir.path,))
+            return
+
+        cacheFile = cacheDir.child(recordType)
+        if not cacheFile.exists():
+            self.log_debug("Directory cache file for %s does not exist: %s" % (recordType, cacheFile.path))
+            results = []
+            lastModified = 0
+        else:
+            lastModified = cacheFile.getModificationTime()
+            try:
+                storage = self._records[recordType]
+                if not forceUpdate and (lastModified <= storage["last modified"]):
+                    self.log_debug("Directory cache file for %s unchanged" % (recordType,))
+                    storage["status"] = "new" # mark this as not stale
+                    self._delayedCalls.add(callLater(cacheTimeout, rot))
+                    return
+            except KeyError:
+                # Haven't read the file before
+                pass
+
+            self.log_debug("Reloading %s record cache" % (recordType,))
+
+            pickled = cacheFile.getContent()
+            results = pickle.loads(pickled)
+            # results = self._queryDirectory(recordType)
+
+        records = {}
+        guids   = {}
+        cuaddrs = {}
+
+        disabledNames = set()
+        disabledGUIDs = set()
         
-        if shortName is None and guid is None:
-            records = {}
-            guids   = {}
-            cuaddrs = {}
-
-            disabledNames = set()
-            disabledGUIDs = set()
-            
-            if recordType == DirectoryService.recordType_groups:
-                groupsForGUID = {}
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                proxiesForGUID = {}
-                readOnlyProxiesForGUID = {}
-        else:
-            storage = self._records[recordType]
-
-            records = storage["records"]
-            guids   = storage["guids"]
-            cuaddrs = storage["cuaddrs"]
-
-            disabledNames = storage["disabled names"]
-            disabledGUIDs = storage["disabled guids"]
-            
-            if recordType == DirectoryService.recordType_groups:
-                groupsForGUID = storage["groupsForGUID"]
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                proxiesForGUID = storage["proxiesForGUID"]
-                readOnlyProxiesForGUID = storage["readOnlyProxiesForGUID"]
+        if recordType == DirectoryService.recordType_groups:
+            groupsForGUID = {}
+        elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            proxiesForGUID = {}
+            readOnlyProxiesForGUID = {}
 
         for (recordShortName, value) in results:
             enabledForCalendaring = True
@@ -809,54 +850,38 @@ class OpenDirectoryService(DirectoryService):
                         self._indexGroup(record, record._proxyGUIDs, proxiesForGUID)
                         self._indexGroup(record, record._readOnlyProxyGUIDs, readOnlyProxiesForGUID)
 
-        if shortName is None and guid is None:
-            #
-            # Replace the entire cache
-            #
-            storage = {
-                "status"        : "new",
-                "records"       : records,
-                "guids"         : guids,
-                "cuaddrs"       : cuaddrs,
-                "disabled names": disabledNames,
-                "disabled guids": disabledGUIDs,
-            }
+        #
+        # Replace the entire cache
+        #
+        storage = {
+            "status"        : "new",
+            "records"       : records,
+            "guids"         : guids,
+            "cuaddrs"       : cuaddrs,
+            "disabled names": disabledNames,
+            "disabled guids": disabledGUIDs,
+            "last modified" : lastModified,
+        }
 
-            # Add group indexing if needed
-            if recordType == DirectoryService.recordType_groups:
-                storage["groupsForGUID"] = groupsForGUID
+        # Add group indexing if needed
+        if recordType == DirectoryService.recordType_groups:
+            storage["groupsForGUID"] = groupsForGUID
 
-            # Add proxy indexing if needed
-            elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
-                storage["proxiesForGUID"] = proxiesForGUID
-                storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
+        # Add proxy indexing if needed
+        elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+            storage["proxiesForGUID"] = proxiesForGUID
+            storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
 
-            def rot():
-                storage["status"] = "stale"
-                removals = set()
-                for call in self._delayedCalls:
-                    if not call.active():
-                        removals.add(call)
-                for item in removals:
-                    self._delayedCalls.remove(item)
+        self._delayedCalls.add(callLater(cacheTimeout, rot))
 
-            #
-            # Add jitter/fuzz factor to avoid stampede for large OD query
-            # Max out the jitter at 60 minutes
-            #
-            cacheTimeout = min(self.cacheTimeout, 60) * 60
-            cacheTimeout = (cacheTimeout * random()) - (cacheTimeout / 2)
-            cacheTimeout += self.cacheTimeout * 60
-            self._delayedCalls.add(callLater(cacheTimeout, rot))
+        self._records[recordType] = storage
 
-            self._records[recordType] = storage
+        self.log_info(
+            "Added %d records to %s OD record cache; expires in %d seconds"
+            % (len(self._records[recordType]["guids"]), recordType, cacheTimeout)
+        )
 
-            self.log_info(
-                "Added %d records to %s OD record cache; expires in %d seconds"
-                % (len(self._records[recordType]["guids"]), recordType, cacheTimeout)
-            )
-
-    def _queryDirectory(self, recordType, shortName=None, guid=None):
+    def _queryDirectory(self, recordType):
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDS1AttrDistinguishedName,
@@ -887,45 +912,44 @@ class OpenDirectoryService(DirectoryService):
 
         if self.requireComputerRecord:
             if self.isWorkgroupServer and recordType == DirectoryService.recordType_users:
-                if shortName is None and guid is None:
-                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                        self.directory,
-                        dsattributes.kDSNAttrRecordName,
-                        saclGroup,
-                        dsattributes.eDSExact,
-                        False,
-                        dsattributes.kDSStdRecordTypeGroups,
-                        [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups],
-                    ))
-                    results = opendirectory.queryRecordsWithAttribute_list(
-                        self.directory,
-                        dsattributes.kDSNAttrRecordName,
-                        saclGroup,
-                        dsattributes.eDSExact,
-                        False,
-                        dsattributes.kDSStdRecordTypeGroups,
-                        [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
+                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                    self.directory,
+                    dsattributes.kDSNAttrRecordName,
+                    saclGroup,
+                    dsattributes.eDSExact,
+                    False,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups],
+                ))
+                results = opendirectory.queryRecordsWithAttribute_list(
+                    self.directory,
+                    dsattributes.kDSNAttrRecordName,
+                    saclGroup,
+                    dsattributes.eDSExact,
+                    False,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
+                )
+
+                if len(results) == 1:
+                    members      = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
+                    nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
+                else:
+                    members = []
+                    nestedGroups = []
+
+                guidQueries = []
+
+                for GUID in self._expandGroupMembership(members, nestedGroups):
+                    guidQueries.append(
+                        dsquery.match(dsattributes.kDS1AttrGeneratedUID, GUID, dsattributes.eDSExact)
                     )
 
-                    if len(results) == 1:
-                        members      = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
-                        nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
-                    else:
-                        members = []
-                        nestedGroups = []
+                if not guidQueries:
+                    self.log_warn("No SACL enabled users found.")
+                    return ()
 
-                    guidQueries = []
-
-                    for GUID in self._expandGroupMembership(members, nestedGroups):
-                        guidQueries.append(
-                            dsquery.match(dsattributes.kDS1AttrGeneratedUID, GUID, dsattributes.eDSExact)
-                        )
-
-                    if not guidQueries:
-                        self.log_warn("No SACL enabled users found.")
-                        return ()
-
-                    query = dsquery.expression(dsquery.expression.OR, guidQueries)
+                query = dsquery.expression(dsquery.expression.OR, guidQueries)
 
             #
             # For users and groups, we'll load all entries, even if
@@ -950,18 +974,7 @@ class OpenDirectoryService(DirectoryService):
                 else:
                     query = dsquery.expression(dsquery.expression.AND, (subquery, query))
 
-        if shortName is not None:
-            subquery = dsquery.match(dsattributes.kDSNAttrRecordName, shortName, dsattributes.eDSExact)
-        elif guid is not None:
-            subquery = dsquery.match(dsattributes.kDS1AttrGeneratedUID, guid, dsattributes.eDSExact)
-        else:
-            subquery = None
-
-        if subquery is not None:
-            if query is None:
-                query = subquery
-            else:
-                query = dsquery.expression(dsquery.expression.AND, (subquery, query))
+        subquery = None
 
         try:
             if query:

@@ -227,6 +227,8 @@ class BaseServiceMakerTests(TestCase):
         """
 
         self.options.parseOptions(['-f', self.configFile])
+        config.Memcached.ClientEnabled = False
+        config.Memcached.ServerEnabled = False
 
         return CalDAVServiceMaker().makeService(self.options)
 
@@ -251,7 +253,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         validServices = ['Slave', 'Master', 'Combined']
 
-        self.config['HTTPPort'] = 80
+        self.config['HTTPPort'] = 8008
 
         for service in validServices:
             self.config['ProcessType'] = service
