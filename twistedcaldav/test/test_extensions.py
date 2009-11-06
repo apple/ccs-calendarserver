@@ -156,9 +156,9 @@ class DirectoryListingTest(TestCase):
     @inlineCallbacks
     def test_nonASCIIListMixedChildren(self):
         """
-        Listing a directory that contains unicode metadata and non-ASCII
-        characters in a filename should result in a listing that contains the
-        names of both entities.
+        Listing a directory that contains unicode content-type metadata and
+        non-ASCII characters in a filename should result in a listing that
+        contains the names of both entities.
         """
         unicodeChildName = "test"
         def addUnicodeChild(davFile):
@@ -172,7 +172,7 @@ class DirectoryListingTest(TestCase):
     @inlineCallbacks
     def test_nonASCIIListMixedProperties(self):
         """
-        Listing a directory that contains unicode metadata and non-ASCII
+        Listing a directory that contains unicode DAV properties and non-ASCII
         characters in a filename should result in a listing that contains the
         names of both entities.
         """
