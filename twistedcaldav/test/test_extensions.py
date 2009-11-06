@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 ##
 # Copyright (c) 2009 Apple Inc. All rights reserved.
 #
@@ -23,8 +23,32 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
 
 from twisted.web.microdom import parseString
+from twisted.web2.static import MetaDataMixin
 
 from twistedcaldav.extensions import DAVFile
+
+from twisted.web2.dav.element.base import WebDAVElement
+
+class UnicodeProperty(WebDAVElement):
+    """
+    An element with a unicode name.
+    """
+
+    name = u'unicode'
+
+    allowed_children = {}
+
+
+class StrProperty(WebDAVElement):
+    """
+    An element with a unicode name.
+    """
+
+    name = 'str'
+
+    allowed_children = {}
+
+
 
 class SimpleFakeRequest(object):
     """
@@ -68,8 +92,11 @@ def browserHTML2ETree(htmlString):
 
     @return: an object implementing the standard library ElementTree interface.
     """
-    return XML(parseString(htmlString, beExtremelyLenient=True).toxml().decode("utf-8"))
+    return XML(parseString(htmlString, beExtremelyLenient=True).toxml())
 
+
+
+nonASCIIFilename = u"アニメ.txt"
 
 
 class DirectoryListingTest(TestCase):
@@ -78,21 +105,25 @@ class DirectoryListingTest(TestCase):
     """
 
     @inlineCallbacks
-    def doDirectoryTest(self, expectedNames):
+    def doDirectoryTest(self, addedNames, modify=lambda x: None, expectedNames=None):
         """
         Do a test of a L{DAVFile} pointed at a directory, verifying that files
         existing with the given names will be faithfully 'played back' via HTML
         rendering.
         """
+        if expectedNames is None:
+            expectedNames = addedNames
         fp = FilePath(self.mktemp())
         fp.createDirectory()
         for sampleName in expectedNames:
             fp.child(sampleName).touch()
         df = DAVFile(fp)
+        modify(df)
         responseXML = browserHTML2ETree(
             (yield df.render(SimpleFakeRequest('/'))).stream.read()
         )
-        names = set([element.text for element in responseXML.findall(".//a")])
+        names = set([element.text.encode("utf-8")
+                     for element in responseXML.findall(".//a")])
         self.assertEquals(set(expectedNames), names)
 
 
@@ -101,7 +132,7 @@ class DirectoryListingTest(TestCase):
         Rendering a L{DAVFile} that is backed by a directory will produce an
         HTML document including links to its contents.
         """
-        return self.doDirectoryTest(['gamma.txt', 'beta.html', 'alpha.xml'])
+        return self.doDirectoryTest([u'gamma.txt', u'beta.html', u'alpha.xml'])
 
 
     def test_emptyList(self):
@@ -110,4 +141,44 @@ class DirectoryListingTest(TestCase):
         links.
         """
         return self.doDirectoryTest([])
-        
+
+
+    def test_nonASCIIList(self):
+        """
+        Listing a directory with a file in it that includes characters that
+        fall outside of the 'Basic Latin' and 'Latin-1 Supplement' unicode
+        blocks should result in those characters being rendered as links in the
+        index.
+        """
+        return self.doDirectoryTest([nonASCIIFilename.encode("utf-8")])
+
+
+    @inlineCallbacks
+    def test_nonASCIIListMixedChildren(self):
+        """
+        Listing a directory that contains unicode metadata and non-ASCII
+        characters in a filename should result in a listing that contains the
+        names of both entities.
+        """
+        unicodeChildName = "test"
+        def addUnicodeChild(davFile):
+            m = MetaDataMixin()
+            m.contentType = lambda: u'text/plain'
+            davFile.putChild(unicodeChildName, m)
+        yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
+                                   [nonASCIIFilename.encode("utf-8"), unicodeChildName])
+
+
+    @inlineCallbacks
+    def test_nonASCIIListMixedProperties(self):
+        """
+        Listing a directory that contains unicode metadata and non-ASCII
+        characters in a filename should result in a listing that contains the
+        names of both entities.
+        """
+        def addUnicodeChild(davFile):
+            davFile.writeProperty(UnicodeProperty(), None)
+            davFile.writeProperty(StrProperty(), None)
+        yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
+                                   [nonASCIIFilename.encode("utf-8")])
+

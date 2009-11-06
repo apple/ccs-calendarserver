@@ -970,15 +970,16 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
                         value = cgi.escape(value)
 
                     output.append(
-                        """<tr class="%(even)s">"""
-                        """<td valign="top">%(name)s</td>"""
-                        """<td><pre>%(value)s</pre></td>"""
-                        """</tr>"""
-                        % {
-                            "even": even.state() and "even" or "odd",
-                            "name": name,
-                            "value": value,
-                        }
+                        str("""<tr class="%(even)s">"""
+                            """<td valign="top">%(name)s</td>"""
+                            """<td><pre>%(value)s</pre></td>"""
+                            """</tr>"""
+                            % {
+                                "even": even.state() and "even" or "odd",
+                                "name": name,
+                                "value": value,
+                            }
+                        )
                     )
 
                 output.append("</div>")
