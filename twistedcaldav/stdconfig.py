@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -21,7 +22,7 @@ import re
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
 
-from twext.python.plistlib import readPlist
+from twext.python.plistlib import PlistParser
 
 from twistedcaldav.config import (
     ConfigProvider, ConfigurationError, config, _mergeData, )
@@ -392,15 +393,36 @@ DEFAULT_CONFIG = {
     "ResponseCacheTimeout": 30, # Minutes
 }
 
+
+
+class NoUnicodePlistParser(PlistParser):
+    """
+    A variant of L{PlistParser} which avoids exposing the 'unicode' data-type
+    to application code when non-ASCII characters are found, instead
+    consistently exposing UTF-8 encoded 'str' objects.
+    """
+
+    def getData(self):
+        """
+        Get the currently-parsed data as a 'str' object.
+        """
+        data = "".join(self.data).encode("utf-8")
+        self.data = []
+        return data
+
+
+
 class PListConfigProvider(ConfigProvider):
     
     def loadConfig(self):
         configDict = {}
         if self._configFileName:
+            parser = NoUnicodePlistParser()
             try:
-                configDict = readPlist(self._configFileName)
+                configDict = parser.parse(open(self._configFileName))
             except (IOError, OSError):                                    
-                log.error("Configuration file does not exist or is inaccessible: %s" % (self._configFileName,))
+                log.error("Configuration file does not exist or is inaccessible: %s" %
+                          (self._configFileName,))
             else:
                 configDict = _cleanup(configDict, self._defaults)
         return configDict
