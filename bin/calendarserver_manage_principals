@@ -34,6 +34,8 @@ if __name__ == "__main__":
         child = Popen((run, "-p"), stdout=PIPE)
         path, stderr = child.communicate()
 
+        path = path.rstrip("\n")
+
         if child.wait() == 0:
             sys.path[0:0] = path.split(":")
 
