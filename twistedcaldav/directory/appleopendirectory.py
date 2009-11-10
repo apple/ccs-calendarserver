@@ -68,7 +68,7 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, cacheTimeout=30, **kwds):
+    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, doreload=True, cacheTimeout=30, **kwds):
         """
         @param node: an OpenDirectory node name to bind to.
         @param requireComputerRecord: C{True} if the directory schema is to be used to determine
@@ -111,8 +111,9 @@ class OpenDirectoryService(DirectoryService):
                     if self.isWorkgroupServer:
                         self.log_info("Enabling Workgroup Server compatibility mode")
 
-            for recordType in self.recordTypes():
-                self.recordsForType(recordType)
+            if doreload:
+                for recordType in self.recordTypes():
+                    self.recordsForType(recordType)
 
     def refresh(self, loop=True):
         """

@@ -237,7 +237,7 @@ def makeService_Combined(self, options):
 
     # Refresh directory information on behalf of the child processes
     directoryClass = namedClass(config.DirectoryService["type"])
-    directory = directoryClass(dosetup=False, **config.DirectoryService["params"])
+    directory = directoryClass(dosetup=True, doreload=False, **config.DirectoryService["params"])
     directory.refresh()
 
     s = service.MultiService()
