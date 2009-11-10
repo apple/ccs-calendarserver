@@ -56,7 +56,7 @@ def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
     print "usage: %s [options] action_flags principal [principal ...]" % (name,)
-    print "       %s [options] --list-principals type" % (name,)
+   #print "       %s [options] --list-principals type" % (name,)
     print ""
     print "  Performs the given actions against the giving principals."
     print ""
@@ -71,7 +71,7 @@ def usage(e=None):
     print ""
     print "actions:"
    #print "  --search <search-string>: search for matching resources"
-    print "  --list-principals=type: list all principals of the given type"
+   #print "  --list-principals=type: list all principals of the given type"
     print "  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
     print "  --list-read-proxies: list proxies with read-only access"
     print "  --list-write-proxies: list proxies with read-write access"
@@ -100,7 +100,7 @@ def main():
                 "help",
                 "config=",
                #"search=",
-               #"list-principals=",
+                "list-principals=",
                 "read-property=",
                 "list-read-proxies",
                 "list-write-proxies",
