@@ -38,6 +38,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.directory.directory import UnknownRecordTypeError
 
 from calendarserver.tools.util import booleanArgument, autoDisableMemcached
 from calendarserver.tools.util import loadConfig, getDirectory
@@ -45,11 +46,17 @@ from calendarserver.provision.root import RootResource
 
 def usage(e=None):
     if e:
+        if isinstance(e, UnknownRecordTypeError):
+            print "Valid record types:"
+            for recordType in config.directory.recordTypes():
+                print "    %s" % (recordType,)
+
         print e
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] actions principal [principal ...]" % (name,)
+    print "usage: %s [options] action_flags principal [principal ...]" % (name,)
+    print "       %s [options] --list-principals type" % (name,)
     print ""
     print "  Performs the given actions against the giving principals."
     print ""
@@ -64,7 +71,8 @@ def usage(e=None):
     print ""
     print "actions:"
    #print "  --search <search-string>: search for matching resources"
-    print "  -P, --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
+    print "  --list-principals=type: list all principals of the given type"
+    print "  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
     print "  --list-read-proxies: list proxies with read-only access"
     print "  --list-write-proxies: list proxies with read-write access"
     print "  --list-proxies: list all proxies"
@@ -92,6 +100,7 @@ def main():
                 "help",
                 "config=",
                #"search=",
+               #"list-principals=",
                 "read-property=",
                 "list-read-proxies",
                 "list-write-proxies",
@@ -110,7 +119,8 @@ def main():
     # Get configuration
     #
     configFileName = None
-    actions = []
+    listPrincipals = None
+    principalActions = []
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -119,21 +129,24 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
-        elif opt in ("-P", "--read-property"):
+        elif opt in ("", "--list-principals"):
+            listPrincipals = arg
+
+        elif opt in ("", "--read-property"):
             try:
                 qname = sname2qname(arg)
             except ValueError, e:
                 abort(e)
-            actions.append((action_readProperty, qname))
+            principalActions.append((action_readProperty, qname))
 
         elif opt in ("", "--list-read-proxies"):
-            actions.append((action_listProxies, "read"))
+            principalActions.append((action_listProxies, "read"))
 
         elif opt in ("", "--list-write-proxies"):
-            actions.append((action_listProxies, "write"))
+            principalActions.append((action_listProxies, "write"))
 
         elif opt in ("-L", "--list-proxies"):
-            actions.append((action_listProxies, "read", "write"))
+            principalActions.append((action_listProxies, "read", "write"))
 
         elif opt in ("--add-read-proxy", "--add-write-proxy"):
             if "read" in opt:
@@ -148,7 +161,7 @@ def main():
             except ValueError, e:
                 abort(e)
 
-            actions.append((action_addProxy, proxyType, arg))
+            principalActions.append((action_addProxy, proxyType, arg))
 
         elif opt in ("", "--remove-proxy"):
             try:
@@ -156,7 +169,7 @@ def main():
             except ValueError, e:
                 abort(e)
 
-            actions.append((action_removeProxy, arg))
+            principalActions.append((action_removeProxy, arg))
 
         elif opt in ("", "--set-auto-schedule"):
             try:
@@ -164,16 +177,13 @@ def main():
             except ValueError, e:
                 abort(e)
 
-            actions.append((action_setAutoSchedule, autoSchedule))
+            principalActions.append((action_setAutoSchedule, autoSchedule))
 
         elif opt in ("", "--get-auto-schedule"):
-            actions.append((action_getAutoSchedule,))
+            principalActions.append((action_getAutoSchedule,))
 
         else:
             raise NotImplementedError(opt)
-
-    if not args:
-        usage("No principals specified.")
 
     #
     # Get configuration
@@ -196,9 +206,28 @@ def main():
         abort(e)
 
     #
+    # List principals
+    #
+    if listPrincipals:
+        if args:
+            usage("Too many arguments")
+
+        try:
+            print config.directory
+            for record in config.directory.listRecords(listPrincipals):
+                print record
+        except UnknownRecordTypeError, e:
+            usage(e)
+
+        return
+
+    #
     # Do a quick sanity check that arguments look like principal
     # identifiers.
     #
+    if not args:
+        usage("No principals specified.")
+
     for arg in args:
         try:
             principalForPrincipalID(arg, checkOnly=True)
@@ -208,7 +237,7 @@ def main():
     #
     # Start the reactor
     #
-    reactor.callLater(0, run, args, actions)
+    reactor.callLater(0, run, args, principalActions)
     reactor.run()
 
 @inlineCallbacks
