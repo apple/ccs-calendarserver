@@ -399,3 +399,6 @@ class UnknownRecordTypeError(DirectoryError):
     """
     Unknown directory record type.
     """
+    def __init__(self, recordType):
+        DirectoryError.__init__(self, "Invalid record type: %s" % (recordType,))
+        self.recordType = recordType
