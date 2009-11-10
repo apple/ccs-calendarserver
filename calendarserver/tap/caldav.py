@@ -1097,7 +1097,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     def deleteStaleSocketFiles(self):
         
         # Check all socket files we use.
-        for checkSocket in [config.ControlSocket, config.GlobalStatsSocket, config.PythonDirector.ControlSocket] :
+        for checkSocket in [config.ControlSocket, config.GlobalStatsSocket] :
     
             # See if the file exists.
             if (os.path.exists(checkSocket)):

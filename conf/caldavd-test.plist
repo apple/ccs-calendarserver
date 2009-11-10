@@ -685,22 +685,6 @@
     </dict>
 
 
-    <!--
-        Python Director
-      -->
-
-    <key>PythonDirector</key>
-    <dict>
-      <key>pydir</key>
-      <string>../pydirector-1.0.0/pydir.py</string>
-
-      <key>ConfigFile</key>
-      <string>conf/pydir.xml</string>
-
-      <key>ControlSocket</key>
-      <string>logs/caldavd-pydir.sock</string>
-    </dict>
-
     <key>Localization</key>
     <dict>
       <key>LocalesDirectory</key>

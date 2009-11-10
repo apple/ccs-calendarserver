@@ -346,13 +346,6 @@ DEFAULT_CONFIG = {
         "reactor": "select",
     },
 
-    # Python Director
-    "PythonDirector": {
-        "pydir": "/usr/share/caldavd/bin/pydir.py",
-        "ConfigFile": "/etc/caldavd/pydir.xml",
-        "ControlSocket": "/var/run/caldavd-pydir.sock",
-    },
-
     # Umask
     "umask": 0027,
 
@@ -702,13 +695,6 @@ def _cleanup(configDict, defaultDict):
 
         elif key in renamedOptions:
             renamed(key, renamedOptions[key])
-
-#       elif key == "pydirConfig":
-#           deprecated(key, "PythonDirector -> pydir")
-#           if "PythonDirector" not in cleanDict:
-#               cleanDict["PythonDirector"] = {}
-#           cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
-#           del cleanDict["pydirConfig"]
 
         else:
             unknown(key,)
