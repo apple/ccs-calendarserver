@@ -31,7 +31,7 @@ import memcacheclient
 import base64
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
@@ -215,7 +215,10 @@ class CachingDirectoryService(DirectoryService):
         )
 
     def recordCacheForType(self, recordType):
-        return self._recordCaches[recordType]
+        try:
+            return self._recordCaches[recordType]
+        except KeyError:
+            raise UnknownRecordTypeError(recordType)
 
     def listRecords(self, recordType):
         return self.recordCacheForType(recordType).records
