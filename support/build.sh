@@ -432,8 +432,8 @@ dependencies () {
   py_dependency "PyXML" "xml.dom.ext" "PyXML-0.8.4" \
     "www" "http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz" \
     false false false false 0;
-  py_dependency "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.7" \
-    "www" "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.7.tar.gz" \
+  py_dependency "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
+    "www" "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz" \
     false false false false 0;
   if type krb5-config > /dev/null; then
     py_dependency "PyKerberos" "kerberos" "PyKerberos" \
