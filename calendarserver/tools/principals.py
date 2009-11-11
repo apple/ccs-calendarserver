@@ -38,7 +38,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 
 from calendarserver.tools.util import booleanArgument, autoDisableMemcached
 from calendarserver.tools.util import loadConfig, getDirectory
@@ -200,7 +200,10 @@ def main():
 
         os.umask(config.umask)
 
-        config.directory = getDirectory()
+        try:
+            config.directory = getDirectory()
+        except DirectoryError, e:
+            abort(e)
         autoDisableMemcached(config)
     except ConfigurationError, e:
         abort(e)
