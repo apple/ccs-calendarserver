@@ -277,17 +277,31 @@ def main():
                     calendarHomes.add(calendarHome)
 
     n = 0
+    ok_n = 0
+    fail_n = 0
     N = len(calendarHomes)
     for calendarHome in calendarHomes:
         n += 1
         log.msg("%.2f%% (%d of %d)" % (100.0 * n/N, n, N))
-        processCalendarHome(
-            calendarHome,
-            directory = directory,
-            readCalendarData = readCalendarData,
-            readProperties = readProperties,
-            readIndexes = readIndexes,
-        )
+        try:
+            processCalendarHome(
+                calendarHome,
+                directory = directory,
+                readCalendarData = readCalendarData,
+                readProperties = readProperties,
+                readIndexes = readIndexes,
+            )
+            ok_n += 1
+        except Exception, e:
+            log.msg("Exception for calendar home '%s': %s" % (calendarHome, e))
+            fail_n += 1
+
+    log.msg("")
+    log.msg("Results:")
+    log.msg("Total Processed: %d" % (n,))
+    log.msg("Total OK: %d" % (ok_n,))
+    log.msg("Total Bad: %d" % (fail_n,))
+
 
 def processCalendarHome(
     calendarHome,
