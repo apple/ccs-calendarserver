@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_upgrade -*-
 ##
 # Copyright (c) 2008 Apple Inc. All rights reserved.
 #
@@ -177,6 +178,10 @@ def upgrade_to_1(config):
         try:
             for cal in os.listdir(homePath):
                 calPath = os.path.join(homePath, cal)
+                if not os.path.isdir(calPath):
+                    # Skip non-directories; these might have been uploaded by a
+                    # random DAV client, they can't be calendar collections.
+                    continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
                 if not upgradeCalendarCollection(calPath, directory):
                     errorOccurred = True

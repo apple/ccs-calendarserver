@@ -14,6 +14,10 @@
 # limitations under the License.
 ##
 
+
+from twisted.python.filepath import FilePath
+from twisted.web2.dav import davxml
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -22,7 +26,6 @@ from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
-from twisted.web2.dav import davxml
 
 import hashlib
 import os, zlib, cPickle
@@ -562,13 +565,35 @@ class ProxyDBUpgradeTests(TestCase):
 
 
 
-    def test_calendarsUpgradeWithDSStore(self):
+    def test_calendarsUpgradeWithUnknownFiles(self):
         """
-        Verify that .DS_Store files don't hinder an upgrade
+        Unknown files, including .DS_Store files at any point in the hierarchy,
+        as well as non-directory in a user's calendar home, will be ignored and not
+        interrupt an upgrade.
         """
 
         self.setUpXMLDirectory()
         directory = getDirectory()
+
+        ignoredUIDContents = {
+            "64" : {
+                "23" : {
+                    "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                        "calendar" : {
+                        },
+                        "garbage.ics" : {
+                            "@contents": "Oops, not actually an ICS file.",
+                        },
+                        "other-file.txt": {
+                            "@contents": "Also not a calendar collection."
+                        }
+                    }
+                }
+            },
+            ".DS_Store" : {
+                "@contents" : "",
+            }
+        }
 
         before = {
             ".DS_Store" :
@@ -581,13 +606,7 @@ class ProxyDBUpgradeTests(TestCase):
                 {
                     "@contents" : "",
                 },
-                "__uids__" :
-                {
-                    ".DS_Store" :
-                    {
-                        "@contents" : "",
-                    },
-                },
+                "__uids__" :ignoredUIDContents,
             },
             "principals" :
             {
@@ -623,13 +642,7 @@ class ProxyDBUpgradeTests(TestCase):
                 {
                     "@contents" : "",
                 },
-                "__uids__" :
-                {
-                    ".DS_Store" :
-                    {
-                        "@contents" : "",
-                    },
-                },
+                "__uids__" : ignoredUIDContents,
             },
             CalendarUserProxyDatabase.dbFilename :
             {
