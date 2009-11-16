@@ -240,7 +240,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         validServices = ["Slave", "Combined"]
 
-        self.config["HTTPPort"] = 8008
+        self.config["HTTPPort"] = 0
 
         for service in validServices:
             self.config["ProcessType"] = service
