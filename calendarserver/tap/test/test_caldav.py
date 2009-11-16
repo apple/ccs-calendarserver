@@ -269,7 +269,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
             self.assertIsInstance(socketService, internet.UNIXServer)
             m = socketService.kwargs.get("mode", 0666)
             self.assertEquals(
-                m, int("700", 8),
+                m, int("600", 8),
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
 

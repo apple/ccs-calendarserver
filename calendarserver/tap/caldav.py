@@ -898,7 +898,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
         if config.ControlSocket:
-            loggingService = UNIXServer(config.ControlSocket, logger, mode=0700)
+            loggingService = UNIXServer(config.ControlSocket, logger, mode=0600)
         else:
             loggingService = ControlPortTCPServer(
                 config.ControlPort, logger, interface="127.0.0.1"
@@ -1090,7 +1090,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         stats = CalDAVStatisticsServer(logger) 
-        statsService = UNIXServer(config.GlobalStatsSocket, stats, mode=0700)
+        statsService = UNIXServer(config.GlobalStatsSocket, stats, mode=0600)
         statsService.setName("stats")
         statsService.setServiceParent(s)
 
