@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -26,7 +27,6 @@ import stat
 import sys
 from time import sleep, time
 
-from tempfile import mkstemp
 from subprocess import Popen, PIPE
 from pwd import getpwnam, getpwuid
 from grp import getgrnam
@@ -43,7 +43,7 @@ from twisted.internet.reactor import callLater, spawnProcess
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.address import IPv4Address
-from twisted.application.internet import TCPServer, SSLServer, UNIXServer
+from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
@@ -51,16 +51,15 @@ from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
-from twisted.web2.channel import HTTPFactory
 from twisted.web2.static import File as FileResource
-from twisted.web2.http import Request, RedirectResponse
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-from twext.web2.channel.http import HTTP503LoggingFactory, LimitingHTTPFactory, SSLRedirectRequest
+from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 
 try:
     from twistedcaldav.version import version
+    version                     # pacify pyflakes
 except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
@@ -94,6 +93,7 @@ from twistedcaldav.localization import processLocalizationFiles
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
+    NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
 
@@ -898,10 +898,12 @@ class CalDAVServiceMaker (LoggingMixIn):
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
         if config.ControlSocket:
-            loggingService = UNIXServer(config.ControlSocket, logger)
+            loggingService = UNIXServer(config.ControlSocket, logger, mode=0700)
         else:
-            loggingService = ControlPortTCPServer(config.ControlPort, logger,
-                interface="127.0.0.1")
+            loggingService = ControlPortTCPServer(
+                config.ControlPort, logger, interface="127.0.0.1"
+            )
+        loggingService.setName("logging")
         loggingService.setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
@@ -1088,7 +1090,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         stats = CalDAVStatisticsServer(logger) 
-        statsService = UNIXServer(config.GlobalStatsSocket, stats) 
+        statsService = UNIXServer(config.GlobalStatsSocket, stats, mode=0700)
+        statsService.setName("stats")
         statsService.setServiceParent(s)
 
         return s
