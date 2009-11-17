@@ -29,7 +29,7 @@ from twisted.python.reflect import namedClass
 
 import socket
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import augment
+from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -89,13 +89,17 @@ def getDirectory():
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
 
+    # Load augment/proxy db classes now
+    augmentClass = namedClass(config.AugmentService.type)
+    augment.AugmentService = augmentClass(**config.AugmentService.params)
+
+    proxydbClass = namedClass(config.ProxyDBService.type)
+    calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+
     # Wait for directory service to become available
     directory = MyDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
-
-    augmentClass = namedClass(config.AugmentService.type)
-    augment.AugmentService = augmentClass(**config.AugmentService.params)
 
     return directory
 
