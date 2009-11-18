@@ -226,6 +226,82 @@ class ProxyDBUpgradeTests(TestCase):
         self.assertEquals(newValue, expected)
 
 
+    def verifyDirectoryComparison(self, before, after, reverify=False):
+        """
+        Verify that the hierarchy described by "before", when upgraded, matches
+        the hierarchy described by "after".
+
+        @param before: a dictionary of the format accepted by L{TestCase.createHierarchy}
+
+        @param after: a dictionary of the format accepted by L{TestCase.createHierarchy}
+
+        @param reverify: if C{True}, re-verify the hierarchy by upgrading a
+            second time and re-verifying the root again.
+
+        @raise twisted.trial.unittest.FailTest: if the test fails.
+
+        @return: C{None}
+        """
+        root = self.createHierarchy(before)
+
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        if reverify:
+            # Ensure that repeating the process doesn't change anything
+            upgradeData(config)
+            self.assertTrue(self.verifyHierarchy(root, after))
+
+
+    def test_removeNotificationDirectories(self):
+        """
+        The upgrade process should remove unused notification directories in
+        users' calendar homes, as well as the XML files found therein.
+        """
+        self.setUpXMLDirectory()
+
+        before = {
+            "calendars": {
+                "users": {
+                    "wsanchez": {
+                        "calendar" : {},
+                        "notifications": {
+                            "sample-notification.xml": {
+                                "@contents":  "<?xml version='1.0'>\n<should-be-ignored />"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        after = {
+            "calendars" : {
+                "__uids__" : {
+                    "64" : {
+                        "23" : {
+                            "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                                "calendar": {},
+                            }
+                        }
+                    }
+                }
+            },
+            ".calendarserver_version" : {
+                "@contents" : "1",
+            },
+            CalendarUserProxyDatabase.dbFilename : { "@contents" : None },
+            MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
+            ResourceInfoDatabase.dbFilename : { "@contents" : None },
+            "tasks" : {"incoming" : {}}
+        }
+
+        self.verifyDirectoryComparison(before, after)
+
+
     def test_calendarsUpgradeWithTypes(self):
         """
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
@@ -359,18 +435,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
 
     def test_calendarsUpgradeWithOrphans(self):
@@ -446,17 +511,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
 
     def test_calendarsUpgradeWithDuplicateOrphans(self):
@@ -547,18 +602,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
 
     def test_calendarsUpgradeWithUnknownFiles(self):
@@ -653,17 +697,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
 
     def test_calendarsUpgradeWithUIDs(self):
@@ -766,17 +800,8 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
 
     def test_calendarsUpgradeWithUIDsMultilevel(self):
         """
@@ -895,18 +920,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
     def test_calendarsUpgradeWithNoChange(self):
         """
@@ -1025,15 +1039,7 @@ class ProxyDBUpgradeTests(TestCase):
             }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-
+        self.verifyDirectoryComparison(before, after)
 
 
     def test_calendarsUpgradeWithError(self):

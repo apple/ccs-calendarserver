@@ -182,6 +182,10 @@ def upgrade_to_1(config):
                     # Skip non-directories; these might have been uploaded by a
                     # random DAV client, they can't be calendar collections.
                     continue
+                if cal == 'notifications':
+                    # Delete the old, now obsolete, notifications directory.
+                    rmdir(calPath)
+                    continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
                 if not upgradeCalendarCollection(calPath, directory):
                     errorOccurred = True
