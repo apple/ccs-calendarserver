@@ -128,6 +128,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 ]
                 if hasattr(request, "extendedLogItems"):
                     for k, v in request.extendedLogItems.iteritems():
+                        k = str(k).replace('"', "%22")
                         v = str(v).replace('"', "%22")
                         if " " in v:
                             v = '"%s"' % (v,)
