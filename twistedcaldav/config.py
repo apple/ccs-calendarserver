@@ -29,13 +29,31 @@ import re
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
 
-from twext.python.plistlib import readPlist
+from twext.python.plistlib import PlistParser
 
 from twistedcaldav.log import Logger
 from twistedcaldav.log import clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError
 from twistedcaldav.util import (
     KeychainAccessError, KeychainPasswordNotFound, getPasswordFromKeychain
 )
+
+
+
+class NoUnicodePlistParser(PlistParser):
+    """
+    A variant of L{PlistParser} which avoids exposing the 'unicode' data-type
+    to application code when non-ASCII characters are found, instead
+    consistently exposing UTF-8 encoded 'str' objects.
+    """
+
+    def getData(self):
+        """
+        Get the currently-parsed data as a 'str' object.
+        """
+        data = "".join(self.data).encode("utf-8")
+        self.data = []
+        return data
+
 
 log = Logger()
 
@@ -645,8 +663,9 @@ class Config (object):
         self._configFile = configFile
 
         if configFile:
+            parser = NoUnicodePlistParser()
             try:
-                configDict = readPlist(configFile)
+                configDict = parser.parse(open(configFile))
             except (IOError, OSError):
                 log.error("Unable to open config file: %s" % (configFile,))
             else:
