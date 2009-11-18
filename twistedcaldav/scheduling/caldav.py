@@ -71,9 +71,10 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # Check for local address matches first
         if cuaddr.startswith("mailto:") and config.Scheduling[cls.serviceType()]["EmailDomain"]:
-            splits = cuaddr[7:].split("?")
+            addr = cuaddr[7:].split("?")[0]
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
-            if splits[0].endswith(domain):
+            account, addrDomain = addr.split("@")
+            if addrDomain == domain:
                 return True
 
         elif (cuaddr.startswith("http://") or cuaddr.startswith("https://")) and config.Scheduling[cls.serviceType()]["HTTPDomain"]:
