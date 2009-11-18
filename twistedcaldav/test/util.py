@@ -133,7 +133,7 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
             if actual:
                 # There are unexpected children
-                print "Unexpected:", actual
+                print "Unexpected:", actual, 'in', parent
                 return False
 
             return True
