@@ -177,6 +177,10 @@ def upgrade_to_1(config):
         try:
             for cal in os.listdir(homePath):
                 calPath = os.path.join(homePath, cal)
+                if cal == 'notifications':
+                    # Delete the old, now obsolete, notifications directory.
+                    rmdir(calPath)
+                    continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
                 if not upgradeCalendarCollection(calPath, directory):
                     errorOccurred = True
