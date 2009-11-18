@@ -369,7 +369,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         def collectResults(results):
             self.log_info("Got back %d records from OD" % (len(results),))
-            for key, val in results.iteritems():
+            for key, val in results:
                 self.log_debug("OD result: %s %s" % (key, val))
                 try:
                     guid = val[dsattributes.kDS1AttrGeneratedUID]
@@ -380,7 +380,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     pass
 
         def multiQuery(directory, queries, attrs, operand):
-            results = {}
+            results = []
 
             for query, recordTypes in queries.iteritems():
                 if not query:
@@ -401,8 +401,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
                     (recordTypes, operand, caseless, complexExpression))
 
-                results.update(
-                    opendirectory.queryRecordsWithAttributes(
+                results.extend(
+                    opendirectory.queryRecordsWithAttributes_list(
                         directory,
                         complexExpression,
                         caseless,
