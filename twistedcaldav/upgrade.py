@@ -462,10 +462,10 @@ def upgradeData(config):
         try:
             with open(versionFilePath) as versionFile:
                 onDiskVersion = int(versionFile.read().strip())
-        except IOError, e:
+        except IOError:
             log.error("Cannot open %s; skipping migration" %
                 (versionFilePath,))
-        except ValueError, e:
+        except ValueError:
             log.error("Invalid version number in %s; skipping migration" %
                 (versionFilePath,))
 
