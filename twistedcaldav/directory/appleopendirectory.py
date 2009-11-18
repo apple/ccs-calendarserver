@@ -479,9 +479,10 @@ class OpenDirectoryService(CachingDirectoryService):
                 listRecordTypes.append(dsattributes.kDSStdRecordTypeUsers)
     
             elif recordType == DirectoryService.recordType_groups:
-                listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
-                attrs.append(dsattributes.kDSNAttrGroupMembers)
-                attrs.append(dsattributes.kDSNAttrNestedGroups)
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
+                    attrs.append(dsattributes.kDSNAttrGroupMembers)
+                    attrs.append(dsattributes.kDSNAttrNestedGroups)
     
             elif recordType == DirectoryService.recordType_locations:
                 if queryattr != dsattributes.kDSNAttrEMailAddress:
