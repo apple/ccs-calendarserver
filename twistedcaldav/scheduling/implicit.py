@@ -283,11 +283,16 @@ class ImplicitScheduler(object):
             if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
                 self.request.suppressRefresh = True
         
-        self.request.doing_attendee_refresh = True
+        if hasattr(self.request, "doing_attendee_refresh"):
+            self.request.doing_attendee_refresh += 1
+        else:
+            self.request.doing_attendee_refresh = 1
         try:
             result = (yield self.processRequests())
         finally:
-            delattr(self.request, "doing_attendee_refresh")
+            self.request.doing_attendee_refresh -= 1
+            if self.request.doing_attendee_refresh == 0:
+                delattr(self.request, "doing_attendee_refresh")
 
         if result:
             if not hasattr(self.request, "extendedLogItems"):
