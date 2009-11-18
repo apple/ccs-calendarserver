@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -39,7 +40,6 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.defer import DeferredList, succeed, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -61,6 +61,7 @@ from twext.web2.channel.http import HTTP503LoggingFactory
 
 try:
     from twistedcaldav.version import version
+    version                     # pacify pyflakes
 except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
@@ -94,6 +95,7 @@ from twistedcaldav.localization import processLocalizationFiles
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
+    NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
 
@@ -854,10 +856,12 @@ class CalDAVServiceMaker (LoggingMixIn):
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
         if config.ControlSocket:
-            loggingService = UNIXServer(config.ControlSocket, logger)
+            loggingService = UNIXServer(config.ControlSocket, logger, mode=0600)
         else:
-            loggingService = ControlPortTCPServer(config.ControlPort, logger,
-                interface="127.0.0.1")
+            loggingService = ControlPortTCPServer(
+                config.ControlPort, logger, interface="127.0.0.1"
+            )
+        loggingService.setName("logging")
         loggingService.setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
@@ -1132,7 +1136,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         stats = CalDAVStatisticsServer(logger) 
-        statsService = UNIXServer(config.GlobalStatsSocket, stats) 
+        statsService = UNIXServer(config.GlobalStatsSocket, stats, mode=0600)
+        statsService.setName("stats")
         statsService.setServiceParent(s)
 
         return s

@@ -15,7 +15,6 @@
 ##
 
 
-from twisted.python.filepath import FilePath
 from twisted.web2.dav import davxml
 
 from twistedcaldav.config import config
@@ -310,7 +309,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -447,7 +445,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -524,7 +521,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "archived" :
@@ -617,7 +613,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         ignoredUIDContents = {
             "64" : {
@@ -712,8 +707,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
-
 
         before = {
             "calendars" :
@@ -817,7 +810,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -937,7 +929,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -1058,7 +1049,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -1317,7 +1307,7 @@ def isValidCTag(value):
     except zlib.error:
         return False
     try:
-        doc = davxml.WebDAVDocument.fromString(value)
+        davxml.WebDAVDocument.fromString(value)
         return True
     except ValueError:
         return False

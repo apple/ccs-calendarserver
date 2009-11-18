@@ -245,7 +245,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         validServices = ["Slave", "Master", "Combined"]
 
-        self.config["HTTPPort"] = 80
+        self.config["HTTPPort"] = 0
 
         for service in validServices:
             self.config["ProcessType"] = service
@@ -255,6 +255,29 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config["ProcessType"] = "Unknown Service"
         self.writeConfig()
         self.assertRaises(UsageError, self.makeService)
+
+
+    def test_modesOnUNIXSockets(self):
+        """
+        The logging and stats UNIX sockets that are bound as part of the
+        'Combined' service hierarchy should have a secure mode specified: only
+        the executing user should be able to open and send to them.
+        """
+
+        self.config["HTTPPort"] = 0 # Don't conflict with the test above.
+
+        self.config["ProcessType"] = "Combined"
+        self.writeConfig()
+        svc = self.makeService()
+        for serviceName in ["logging", "stats"]:
+            socketService = svc.getServiceNamed(serviceName)
+            self.assertIsInstance(socketService, internet.UNIXServer)
+            m = socketService.kwargs.get("mode", 0666)
+            self.assertEquals(
+                m, int("600", 8),
+                "Wrong mode on %s: %s" % (serviceName, oct(m))
+            )
+
 
 
 class SlaveServiceTest(BaseServiceMakerTests):
