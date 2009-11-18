@@ -18,9 +18,10 @@
 Generic SQL database access object.
 """
 
-__all__ = [
+__all__ = [ 
+    "db_prefix",
+    "DatabaseError",
     "AbstractSQLDatabase",
-    "db_prefix"
 ]
 
 import os
@@ -36,7 +37,11 @@ log = Logger()
 
 db_prefix = ".db."
 
-class AbstractSQLDatabase(object):
+
+DatabaseError = sqlite.DatabaseError
+
+
+class AbstractSQLDatabase (object):
     """
     A generic SQL database.
     """
@@ -83,9 +88,8 @@ class AbstractSQLDatabase(object):
                     self._db_connection = sqlite.connect(db_filename, isolation_level=None)
                 else:
                     self._db_connection = sqlite.connect(db_filename)
-            except:
-                log.err("Unable to open database: %s" % (self,))
-                raise
+            except DatabaseError:
+                raise DatabaseError("Unable to open database %s" % (self.dbpath,))
 
             #
             # Set up the schema
@@ -304,7 +308,7 @@ class AbstractSQLDatabase(object):
         try:
             q.execute(sql, query_params)
             return q.fetchall()
-        except:
+        except DatabaseError:
             log.err("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))
             raise
         finally:

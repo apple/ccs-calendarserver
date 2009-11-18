@@ -30,6 +30,8 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.log import Logger
+from twistedcaldav.sql import DatabaseError
+from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
@@ -97,7 +99,10 @@ class XMLAccountsParser(object):
             log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
-        self._updateExternalDatabases()
+        try:
+            self._updateExternalDatabases()
+        except DatabaseError, e:
+            raise DirectoryError(e)
 
     def _updateExternalDatabases(self):
         resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
