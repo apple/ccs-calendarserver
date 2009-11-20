@@ -686,6 +686,13 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
             proxyFors.update(proxies)
 
+        uids = set()
+        for principal in tuple(proxyFors):
+            if principal.principalUID() in uids:
+                proxyFors.remove(principal)
+            else:
+                uids.add(principal.principalUID())
+
         returnValue(proxyFors)
 
     def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=None, infinity=False):
