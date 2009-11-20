@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.python.failure import Failure
 
@@ -55,6 +55,20 @@ class ScheduleViaIMip(DeliveryService):
             # We do not do freebusy requests via iMIP
             if self.freebusy:
                 raise ValueError("iMIP VFREEBUSY REQUESTs not supported.")
+
+            method = self.scheduler.calendar.propertyValue("METHOD") 
+            if method not in (
+                "PUBLISH",
+                "REQUEST",
+                "ADD",
+                "CANCEL",
+                "DECLINE_COUNTER",
+            ):
+                log.info("Could not do server-to-imip method: %s" % (method,))
+                for recipient in self.recipients:
+                    err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
+                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
+                returnValue(None)
 
             caldata = str(self.scheduler.calendar)
 
