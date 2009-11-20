@@ -668,20 +668,30 @@ class iTIPRequestStatus(object):
     String constants for various iTIP status codes we use.
     """
     
-    MESSAGE_PENDING_CODE    = "1.0"
-    MESSAGE_SENT_CODE       = "1.1"
-    MESSAGE_DELIVERED_CODE  = "1.2"
+    MESSAGE_PENDING_CODE        = "1.0"
+    MESSAGE_SENT_CODE           = "1.1"
+    MESSAGE_DELIVERED_CODE      = "1.2"
+
+    SUCCESS_CODE                = "2.0"
+
+    INVALID_CALENDAR_USER_CODE  = "3.7"
+    NO_AUTHORITY_CODE           = "3.8"
+
+    BAD_REQUEST_CODE            = "5.0"
+    SERVICE_UNAVAILABLE_CODE    = "5.1"
+    INVALID_SERVICE_CODE        = "5.2"
+    NO_USER_SUPPORT_CODE        = "5.3"
 
     MESSAGE_PENDING         = MESSAGE_PENDING_CODE + ";Scheduling message send is pending"
     MESSAGE_SENT            = MESSAGE_SENT_CODE + ";Scheduling message has been sent"
     MESSAGE_DELIVERED       = MESSAGE_DELIVERED_CODE + ";Scheduling message has been delivered"
     
-    SUCCESS                 = "2.0;Success"
+    SUCCESS                 = SUCCESS_CODE + ";Success"
 
-    INVALID_CALENDAR_USER   = "3.7;Invalid Calendar User"
-    NO_AUTHORITY            = "3.8;No authority"
+    INVALID_CALENDAR_USER   = INVALID_CALENDAR_USER_CODE + ";Invalid Calendar User"
+    NO_AUTHORITY            = NO_AUTHORITY_CODE + ";No authority"
 
-    BAD_REQUEST             = "5.0;Service cannot handle request"
-    SERVICE_UNAVAILABLE     = "5.1;Service unavailable"
-    INVALID_SERVICE         = "5.2;Invalid calendar service"
-    NO_USER_SUPPORT         = "5.3;No scheduling support for user"
+    BAD_REQUEST             = BAD_REQUEST_CODE + ";Service cannot handle request"
+    SERVICE_UNAVAILABLE     = SERVICE_UNAVAILABLE_CODE + ";Service unavailable"
+    INVALID_SERVICE         = INVALID_SERVICE_CODE + ";Invalid calendar service"
+    NO_USER_SUPPORT         = NO_USER_SUPPORT_CODE + ";No scheduling support for user"
