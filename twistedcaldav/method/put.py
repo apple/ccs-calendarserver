@@ -52,7 +52,7 @@ def http_PUT(self, request):
             calendardata = (yield allDataFromStream(request.stream))
             if not hasattr(request, "extendedLogItems"):
                 request.extendedLogItems = {}
-            request.extendedLogItems["cl"] = str(len(calendardata))
+            request.extendedLogItems["cl"] = str(len(calendardata)) if calendardata else "0"
 
             # We must have some data at this point
             if calendardata is None:
