@@ -338,6 +338,30 @@ class CalDAVOptions (Options, LoggingMixIn):
             )
 
 
+
+class GroupOwnedUNIXServer(UNIXServer, object):
+    """
+    A L{GroupOwnedUNIXServer} is a L{UNIXServer} which changes the group
+    ownership of its socket immediately after binding its port.
+
+    @ivar gid: the group ID which should own the socket after it is bound.
+    """
+    def __init__(self, gid, *args, **kw):
+        super(GroupOwnedUNIXServer, self).__init__(*args, **kw)
+        self.gid = gid
+
+
+    def privilegedStartService(self):
+        """
+        Bind the UNIX socket and then change its group.
+        """
+        super(GroupOwnedUNIXServer, self).privilegedStartService()
+        fileName = self._port.port # Unfortunately, there's no public way to
+                                   # access this. -glyph
+        os.chown(fileName, os.getuid(), self.gid)
+
+
+
 class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
 
@@ -897,8 +921,14 @@ class CalDAVServiceMaker (LoggingMixIn):
         logger = AMPLoggingFactory(
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
+        if config.GroupName:
+            gid = getgrnam(config.GroupName).gr_gid
+        else:
+            gid = os.getgid()
         if config.ControlSocket:
-            loggingService = UNIXServer(config.ControlSocket, logger, mode=0600)
+            loggingService = GroupOwnedUNIXServer(
+                gid, config.ControlSocket, logger, mode=0660
+            )
         else:
             loggingService = ControlPortTCPServer(
                 config.ControlPort, logger, interface="127.0.0.1"
@@ -1090,7 +1120,9 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         stats = CalDAVStatisticsServer(logger) 
-        statsService = UNIXServer(config.GlobalStatsSocket, stats, mode=0600)
+        statsService = GroupOwnedUNIXServer(
+            gid, config.GlobalStatsSocket, stats, mode=0660
+        )
         statsService.setName("stats")
         statsService.setServiceParent(s)
 

@@ -15,10 +15,18 @@
 ##
 
 import os
+import stat
+import grp
+
 from os.path import dirname, abspath
+
+from twisted.trial.unittest import TestCase as BaseTestCase
 
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
+
+from twisted.internet.protocol import ServerFactory
+
 from twisted.application.service import IService
 from twisted.application import internet
 
@@ -36,7 +44,8 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 from twistedcaldav.test.util import TestCase
 
-from calendarserver.tap.caldav import CalDAVOptions, CalDAVServiceMaker, CalDAVService
+from calendarserver.tap.caldav import (CalDAVOptions, CalDAVServiceMaker,
+                                       CalDAVService, GroupOwnedUNIXServer)
 
 
 # Points to top of source tree.
@@ -229,6 +238,37 @@ class BaseServiceMakerTests(TestCase):
         return service.services[0].args[1].protocolArgs["requestFactory"]
 
 
+
+def determineAppropriateGroupID():
+    """
+    Determine a secondary group ID which can be used for testing.
+    """
+    return os.getgroups()[1]
+
+
+
+class SocketGroupOwnership(BaseTestCase):
+    """
+    Tests for L{GroupOwnedUNIXServer}.
+    """
+
+    def test_groupOwnedUNIXSocket(self):
+        """
+        When a L{GroupOwnedUNIXServer} is started, it will change the group of
+        its socket.
+        """
+        alternateGroup = determineAppropriateGroupID()
+        socketName = self.mktemp()
+        gous = GroupOwnedUNIXServer(alternateGroup, socketName, ServerFactory(), mode=0660)
+        gous.privilegedStartService()
+        self.addCleanup(gous.stopService)
+        filestat = os.stat(socketName)
+        self.assertTrue(stat.S_ISSOCK(filestat.st_mode))
+        self.assertEquals(filestat.st_gid, alternateGroup)
+        self.assertEquals(filestat.st_uid, os.getuid())
+
+
+
 class CalDAVServiceMakerTests(BaseServiceMakerTests):
     """
     Test the service maker's behavior
@@ -260,18 +300,21 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
 
         self.config["HTTPPort"] = 0 # Don't conflict with the test above.
+        alternateGroup = determineAppropriateGroupID()
+        self.config.GroupName = grp.getgrgid(alternateGroup).gr_name
 
         self.config["ProcessType"] = "Combined"
         self.writeConfig()
         svc = self.makeService()
         for serviceName in ["logging", "stats"]:
             socketService = svc.getServiceNamed(serviceName)
-            self.assertIsInstance(socketService, internet.UNIXServer)
+            self.assertIsInstance(socketService, GroupOwnedUNIXServer)
             m = socketService.kwargs.get("mode", 0666)
             self.assertEquals(
-                m, int("600", 8),
+                m, int("660", 8),
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
+            self.assertEquals(socketService.gid, alternateGroup)
 
 
 
