@@ -217,8 +217,8 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                                     davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
                                 )
 
-                    child = (yield super(RootResource, self).locateChild(request, segments))
-                    returnValue(child)
+                except HTTPError:
+                    raise
 
                 # FIXME: should catch something more specific than Exception
                 except Exception, e:
@@ -230,8 +230,14 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
 
         # We don't want the /inbox resource to pay attention to SACLs because
-        # we just want it to use the hard-coded ACL for the imip reply user
-        if segments[0] == "inbox":
+        # we just want it to use the hard-coded ACL for the imip reply user.
+        # The /timezones resource is used by the wiki web calendar.
+        if segments[0] in ("inbox", "timezones"):
+            request.checkedSACL = True
+
+        elif (len(segments) > 2 and (segments[1] == "wikis" or
+            (segments[1] == "__uids__" and segments[2].startswith("wiki-")))):
+            # This is a wiki-related resource
             request.checkedSACL = True
 
         elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
