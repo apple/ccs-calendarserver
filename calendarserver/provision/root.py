@@ -162,7 +162,10 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-        # Examine cookies for wiki auth token
+        # Examine cookies for wiki auth token; if there, ask the paired wiki
+        # server for the corresponding record name.  If that maps to a
+        # principal, assign that to authnuser.
+
         wikiConfig = config.Authentication.Wiki
         cookies = request.headers.getHeader("cookie")
         if wikiConfig["Enabled"] and cookies is not None:
@@ -178,67 +181,52 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 proxy = Proxy(wikiConfig["URL"])
                 try:
                     username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                except Exception, e:
+                    log.error("Failed to look up wiki token (%s)" % (e,))
+                    username = None
+
+                if username is not None:
                     log.debug("Wiki lookup returned user: %s" % (username,))
+                    principal = None
                     directory = request.site.resource.getDirectory()
                     record = directory.recordWithShortName("users", username)
-                    if record is None:
-                        raise HTTPError(StatusResponse(
-                            responsecode.FORBIDDEN,
-                            "The username (%s) corresponding to your sessionID was not found by calendar server." % (username,)
-                        ))
-                    for collection in self.principalCollections():
-                        principal = collection.principalForRecord(record)
-                        if principal is not None:
-                            break
-                    else:
-                        # Can't find principal
-                        raise HTTPError(StatusResponse(
-                            responsecode.FORBIDDEN,
-                            "The principal corresponding to your username (%s) was not found by calendar server." % (username,)
-                        ))
+                    log.debug("Wiki user record for user %s : %s" % (username, record))
+                    if record:
+                        # Note: record will be None if it's a /Local/Default user
+                        for collection in self.principalCollections():
+                            principal = collection.principalForRecord(record)
+                            if principal is not None:
+                                break
 
-                    request.authzUser = request.authnUser = davxml.Principal(
-                        davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
-                    )
-
-                    if not isinstance(principal, DirectoryCalendarPrincipalResource):
-                        # Not enabled for calendaring, so use the wiki principal as authzUser if the resource is within
-                        # a wiki.  Examining the request path to determine this:
-                        path = request.prepath
-                        if len(path) > 2 and path[0] in ("principals", "calendars"):
-                            wikiName = None
-                            if path[1] == "wikis":
-                                wikiName = path[2]
-                            elif path[1] == "__uids__" and path[2].startswith("wiki-"):
-                                wikiName = path[2][5:]
-                            if wikiName:
-                                log.debug("Using %s wiki as authzUser instead of %s" % (wikiName, username))
-                                request.authzUser = davxml.Principal(
-                                    davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
-                                )
-
-                except HTTPError:
-                    raise
-
-                # FIXME: should catch something more specific than Exception
-                except Exception, e:
-                    log.warn("Wiki lookup returned ERROR: %s" % (e,))
-                    raise HTTPError(StatusResponse(
-                        responsecode.FORBIDDEN,
-                        "Your sessionID was rejected by the authenticating wiki server."
-                    ))
-
+                    if principal:
+                        log.debug("Found wiki principal and setting authnuser and authzuser")
+                        request.authzUser = request.authnUser = davxml.Principal(
+                            davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
+                        )
 
         # We don't want the /inbox resource to pay attention to SACLs because
         # we just want it to use the hard-coded ACL for the imip reply user.
-        # The /timezones resource is used by the wiki web calendar.
+        # The /timezones resource is used by the wiki web calendar, so open
+        # up that resource.
         if segments[0] in ("inbox", "timezones"):
             request.checkedSACL = True
 
         elif (len(segments) > 2 and (segments[1] == "wikis" or
             (segments[1] == "__uids__" and segments[2].startswith("wiki-")))):
-            # This is a wiki-related resource
+
+            # This is a wiki-related resource. SACLs are not checked.
             request.checkedSACL = True
+
+            # The authzuser value is set to that of the wiki principal.
+            wikiName = None
+            if segments[1] == "wikis":
+                wikiName = segments[2]
+            else:
+                wikiName = segments[2][5:]
+            if wikiName:
+                request.authzUser = davxml.Principal(
+                    davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
+                )
 
         elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             yield self.checkSacl(request)
