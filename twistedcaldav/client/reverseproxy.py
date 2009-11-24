@@ -23,7 +23,7 @@ from twisted.web2 import iweb
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.resource import LeafResource
 
-from twistedcaldav.client.pool import getReverseProxyPool
+from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.log import LoggingMixIn
 
 import urllib
@@ -64,7 +64,7 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         """
             
         self.logger.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
-        clientPool = getReverseProxyPool(self.poolID)
+        clientPool = getHTTPClientPool(self.poolID)
         proxyRequest = ClientRequest(request.method, request.uri, request.headers, request.stream)
         response = (yield clientPool.submitRequest(proxyRequest))
         returnValue(response)

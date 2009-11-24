@@ -17,13 +17,14 @@
 __all__ = [
     "installPools",
     "installPool",
-    "getReverseProxyPool",
+    "getHTTPClientPool",
 ]
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import Deferred
-from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
+from twisted.internet.protocol import ClientFactory
 from twisted.web2 import responsecode
 from twisted.web2.client.http import HTTPClientProtocol
 from twisted.web2.http import StatusResponse, HTTPError
@@ -32,57 +33,55 @@ from twistedcaldav.log import LoggingMixIn
 import OpenSSL
 import urlparse
 
-class ReverseProxyClientFactory(ReconnectingClientFactory, LoggingMixIn):
+class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
     """
-    A client factory for HTTPClient that reconnects and notifies a pool of it's
-    state.
+    A client factory for HTTPClient that notifies a pool of it's state. It the connection
+    fails in the middle of a request it will retry the request.
 
-    @ivar connectionPool: A managing connection pool that we notify of events.
-    @ivar deferred: A L{Deferred} that represents the initial connection.
-    @ivar _protocolInstance: The current instance of our protocol that we pass
+    @ivar protocol: The current instance of our protocol that we pass
         to our connectionPool.
+    @ivar connectionPool: A managing connection pool that we notify of events.
     """
     protocol = HTTPClientProtocol
     connectionPool = None
-    maxRetries = 2
 
     def __init__(self, reactor):
         self.reactor = reactor
         self.instance = None
-        self.deferred = Deferred()
+        self.onConnect = Deferred()
+        self.afterConnect = Deferred()
 
     def clientConnectionLost(self, connector, reason):
         """
         Notify the connectionPool that we've lost our connection.
         """
 
+        if hasattr(self, "afterConnect"):
+            self.reactor.callLater(0, self.afterConnect.errback, reason)
+            del self.afterConnect
+
         if self.connectionPool.shutdown_requested:
             # The reactor is stopping; don't reconnect
             return
-
-        self.log_error("ReverseProxy connection lost: %s" % (reason,))
-        if self.instance is not None:
-            self.connectionPool.clientGone(self.instance)
 
     def clientConnectionFailed(self, connector, reason):
         """
         Notify the connectionPool that we're unable to connect
         """
-        self.log_error("ReverseProxy connection failed: %s" % (reason,))
-        if hasattr(self, "deferred"):
-            self.reactor.callLater(0, self.deferred.errback, reason)
-            del self.deferred
+        if hasattr(self, "onConnect"):
+            self.reactor.callLater(0, self.onConnect.errback, reason)
+            del self.onConnect
+        elif hasattr(self, "afterConnect"):
+            self.reactor.callLater(0, self.afterConnect.errback, reason)
+            del self.afterConnect
 
     def buildProtocol(self, addr):
-        if self.instance is not None:
-            self.connectionPool.clientGone(self.instance)
-
         self.instance = self.protocol()
-        self.reactor.callLater(0, self.deferred.callback, self.instance)
-        del self.deferred
+        self.reactor.callLater(0, self.onConnect.callback, self.instance)
+        del self.onConnect
         return self.instance
 
-class ReverseProxyPool(LoggingMixIn):
+class HTTPClientPool(LoggingMixIn):
     """
     A connection pool for HTTPClientProtocol instances.
 
@@ -100,9 +99,10 @@ class ReverseProxyPool(LoggingMixIn):
     @ivar _pendingConnects: A C{int} indicating how many connections are in
         progress.
     """
-    clientFactory = ReverseProxyClientFactory
+    clientFactory = PooledHTTPClientFactory
+    maxRetries = 2
 
-    def __init__(self, scheme, serverAddress, maxClients=5, reactor=None):
+    def __init__(self, name, scheme, serverAddress, maxClients=5, reactor=None):
         """
         @param serverAddress: An L{IPv4Address} indicating the server to
             connect to.
@@ -110,6 +110,8 @@ class ReverseProxyPool(LoggingMixIn):
         @param reactor: An L{IReactorTCP{ provider used to initiate new
             connections.
         """
+        
+        self._name = name
         self._scheme = scheme
         self._serverAddress = serverAddress
         self._maxClients = maxClients
@@ -125,12 +127,12 @@ class ReverseProxyPool(LoggingMixIn):
         self._busyClients = set([])
         self._freeClients = set([])
         self._pendingConnects = 0
-        self._commands = []
+        self._pendingRequests = []
 
     def _isIdle(self):
         return (
             len(self._busyClients) == 0 and
-            len(self._commands) == 0 and
+            len(self._pendingRequests) == 0 and
             self._pendingConnects == 0
         )
 
@@ -152,17 +154,7 @@ class ReverseProxyPool(LoggingMixIn):
 
         self._pendingConnects += 1
 
-        def _connected(client):
-            self._pendingConnects -= 1
-
-            return client
-
-        def _badGateway(f):
-            raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to reverse proxy host."))
-
         factory = self.clientFactory(self._reactor)
-        factory.noisy = False
-
         factory.connectionPool = self
 
         if self._scheme == "https":
@@ -173,10 +165,24 @@ class ReverseProxyPool(LoggingMixIn):
         else:
             raise ValueError("URL scheme for client pool not supported")
 
-        d = factory.deferred
+        def _doneOK(client):
+            self._pendingConnects -= 1
 
-        d.addCallback(_connected)
-        d.addErrback(_badGateway)
+            def _goneClientAfterError(f, client):
+                f.trap(ConnectionLost, ConnectionDone, ConnectError)
+                self.clientGone(client)
+
+            d2 = factory.afterConnect
+            d2.addErrback(_goneClientAfterError, client)
+            return client
+
+        def _doneError(result):
+            self._pendingConnects -= 1
+            return result
+
+        d = factory.onConnect
+        d.addCallbacks(_doneOK, _doneError)
+        
         return d
 
     def _performRequestOnClient(self, client, request, *args, **kwargs):
@@ -200,11 +206,16 @@ class ReverseProxyPool(LoggingMixIn):
             self.clientFree(client)
             return result
 
+        def _goneClientAfterError(result):
+            self.clientGone(client)
+            return result
+
         self.clientBusy(client)
         d = client.submitRequest(request, closeAfter=False)
-        d.addBoth(_freeClientAfterRequest)
+        d.addCallbacks(_freeClientAfterRequest, _goneClientAfterError)
         return d
 
+    @inlineCallbacks
     def submitRequest(self, request, *args, **kwargs):
         """
         Select an available client and perform the given request on it.
@@ -219,15 +230,39 @@ class ReverseProxyPool(LoggingMixIn):
         @return: A L{Deferred} that fires with the result of the given command.
         """
 
-        client = None
-        if len(self._freeClients) > 0:
-            client = self._freeClients.pop()
+        # Try this maxRetries times
+        for ctr in xrange(self.maxRetries + 1):
+            try:
+                response = (yield self._submitRequest(request, args, kwargs))
+            except (ConnectionLost, ConnectionDone, ConnectError), e:
+                self.log_error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr+1, e,))
+                continue
+            else:
+                returnValue(response)
+        else:
+            self.log_error("HTTP pooled client connection error - exhausted retry attempts.")
+            raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to HTTP pooled client host."))
 
-            d = self._performRequestOnClient(client, request, *args, **kwargs)
+    def _submitRequest(self, request, *args, **kwargs):
+        """
+        Select an available client and perform the given request on it.
+
+        @param command: A C{str} representing an attribute of
+            L{MemCacheProtocol}.
+        @parma args: Any positional arguments that should be passed to
+            C{command}.
+        @param kwargs: Any keyword arguments that should be passed to
+            C{command}.
+
+        @return: A L{Deferred} that fires with the result of the given command.
+        """
+
+        if len(self._freeClients) > 0:
+            d = self._performRequestOnClient(self._freeClients.pop(), request, *args, **kwargs)
 
         elif len(self._busyClients) + self._pendingConnects >= self._maxClients:
             d = Deferred()
-            self._commands.append((d, request, args, kwargs))
+            self._pendingRequests.append((d, request, args, kwargs))
             self.log_debug("Request queued: %s, %r, %r" % (request, args, kwargs))
             self._logClientStats()
 
@@ -243,7 +278,7 @@ class ReverseProxyPool(LoggingMixIn):
                 len(self._freeClients),
                 len(self._busyClients),
                 self._pendingConnects,
-                len(self._commands)))
+                len(self._pendingRequests)))
 
     def clientGone(self, client):
         """
@@ -259,6 +294,8 @@ class ReverseProxyPool(LoggingMixIn):
 
         self.log_debug("Removed client: %r" % (client,))
         self._logClientStats()
+
+        self._processPending()
 
     def clientBusy(self, client):
         """
@@ -289,19 +326,22 @@ class ReverseProxyPool(LoggingMixIn):
         if self.shutdown_deferred and self._isIdle():
             self.shutdown_deferred.callback(None)
 
-        if len(self._commands) > 0:
-            d, request, args, kwargs = self._commands.pop(0)
+        self.log_debug("Freed client: %r" % (client,))
+        self._logClientStats()
+
+        self._processPending()
+
+    def _processPending(self):
+        if len(self._pendingRequests) > 0:
+            d, request, args, kwargs = self._pendingRequests.pop(0)
 
             self.log_debug("Performing Queued Request: %s, %r, %r" % (
                     request, args, kwargs))
             self._logClientStats()
 
-            _ign_d = self.submitRequest(request, *args, **kwargs)
+            _ign_d = self._submitRequest(request, *args, **kwargs)
 
-            _ign_d.addCallback(d.callback)
-
-        self.log_debug("Freed client: %r" % (client,))
-        self._logClientStats()
+            _ign_d.addCallbacks(d.callback, d.errback)
 
     def suggestMaxClients(self, maxClients):
         """
@@ -327,7 +367,8 @@ def installPools(hosts, maxClients=5, reactor=None):
 def installPool(name, url, maxClients=5, reactor=None):
 
     parsedURL = urlparse.urlparse(url)
-    pool = ReverseProxyPool(
+    pool = HTTPClientPool(
+        name,
         parsedURL.scheme,
         IPv4Address(
             "TCP",
@@ -339,5 +380,5 @@ def installPool(name, url, maxClients=5, reactor=None):
     )
     _clientPools[name] = pool
 
-def getReverseProxyPool(name):
+def getHTTPClientPool(name):
     return _clientPools[name]

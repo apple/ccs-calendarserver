@@ -356,7 +356,8 @@ class DirectoryRecord(LoggingMixIn):
             self.calendarUserAddresses = set(augment.calendarUserAddresses)
 
             if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
-                raise AssertionError("Groups may not be enabled for calendaring")
+                self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortName,))
+                self.enabledForCalendaring = False
     
             if self.enabledForCalendaring:
                 for email in self.emailAddresses:

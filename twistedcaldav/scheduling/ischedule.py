@@ -172,7 +172,9 @@ class IScheduleRequest(object):
     def _generateHeaders(self):
         self.headers = Headers()
         self.headers.setHeader('Host', utf8String(self.server.host + ":%s" % (self.server.port,)))
-        self.headers.addRawHeader('Originator', utf8String(self.scheduler.originator.cuaddr))
+        
+        # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
+        self.headers.addRawHeader('Originator', utf8String(self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee))
         self._doAuthentication()
         for recipient in self.recipients:
             self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))

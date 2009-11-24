@@ -72,6 +72,8 @@ class Scheduler(object):
         self.recipients = None
         self.calendar = None
         self.organizer = None
+        self.attendee = None
+        self.isiTIPRequest = None
         self.timeRange = None
         self.excludeUID = None
         self.fakeTheResult = False
@@ -281,6 +283,27 @@ class Scheduler(object):
             log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
+        # Determine iTIP method mode
+        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+            self.isiTIPRequest = True
+
+        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
+            self.isiTIPRequest = False
+
+            # Verify that there is a single ATTENDEE property
+            attendees = self.calendar.getAttendees()
+        
+            # Must have only one
+            if len(attendees) != 1:
+                log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendardata,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+            self.attendee = attendees[0]
+
+        else:
+            msg = "Unknown iTIP METHOD: %s" % (self.calendar.propertyValue("METHOD"),)
+            log.err(msg)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+
     def checkForFreeBusy(self):
         if not hasattr(self, "isfreebusy"):
             if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
@@ -555,17 +578,8 @@ class CalDAVScheduler(Scheduler):
         Only local attendees are allowed for message originating from this server.
         """
         
-        # Verify that there is a single ATTENDEE property
-        attendees = self.calendar.getAttendees()
-    
-        # Must have only one
-        if len(attendees) != 1:
-            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-        attendee = attendees[0]
-    
         # Attendee's Outbox MUST be the request URI
-        attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
+        attendeePrincipal = self.resource.principalForCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if self.doingPOST and attendeePrincipal.scheduleOutboxURL() != self.request.uri:
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
@@ -580,16 +594,12 @@ class CalDAVScheduler(Scheduler):
         """
     
         # Prevent spoofing of ORGANIZER with specific METHODs when local
-        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+        if self.isiTIPRequest:
             self.checkOrganizerAsOriginator()
     
         # Prevent spoofing when doing reply-like METHODs
-        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
-            self.checkAttendeeAsOriginator()
-            
         else:
-            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Unknown iTIP METHOD for security checks"))
+            self.checkAttendeeAsOriginator()
 
     def finalChecks(self):
         """
@@ -803,17 +813,8 @@ class IScheduleScheduler(RemoteScheduler):
         Only local attendees are allowed for message originating from this server.
         """
         
-        # Verify that there is a single ATTENDEE property
-        attendees = self.calendar.getAttendees()
-    
-        # Must have only one
-        if len(attendees) != 1:
-            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-        attendee = attendees[0]
-    
         # Attendee cannot be local.
-        attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
+        attendeePrincipal = self.resource.principalForCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if attendeePrincipal.locallyHosted():
                 log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
@@ -821,7 +822,7 @@ class IScheduleScheduler(RemoteScheduler):
             else:
                 self._validPartitionServer(attendeePrincipal)                
         else:
-            localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(attendee))
+            localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:
                 log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
