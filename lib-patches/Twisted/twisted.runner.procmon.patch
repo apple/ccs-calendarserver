@@ -1,0 +1,15 @@
+Index: twisted/runner/procmon.py
+===================================================================
+--- twisted/runner/procmon.py	(revision 26969)
++++ twisted/runner/procmon.py	(working copy)
+@@ -68,6 +68,10 @@
+     def lineReceived(self, line):
+         log.msg('[%s] %s' % (self.tag, line))
+ 
++    def lineLengthExceeded(self, line):
++        """ Don't disconnect just because the process wrote too big a line """
++        log.msg('Line length exceeded')
++
+ class LoggingProtocol(protocol.ProcessProtocol):
+ 
+     service = None
