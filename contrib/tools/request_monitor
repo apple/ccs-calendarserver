@@ -185,6 +185,7 @@ while True:
     users = { }
     startTime = None
     endTime = None
+    errorCount = 0
 
     try: 
         for line in tail(filename, numLines):
@@ -197,6 +198,9 @@ while True:
 
             logTime = dateparse(logTime, fuzzy=True)
             times.append(logTime)
+
+            if status >= 500:
+                errorCount += 1
 
             outstanding = int(extended['or'])
             logId = int(extended['i'])
@@ -294,6 +298,9 @@ while True:
         print "Response time: average %.1f ms, max %.1f ms" % (totalRespTime / numRequests, maxRespTime)
         print "<10ms: %d  >10ms: %d  >100ms: %d  >1s: %d  >10s: %d  >30s: %d  >60s: %d" % (under10ms, over10ms, over100ms, over1s, over10s, over30s, over60s)
         print
+        if errorCount:
+            print "Number of 500 errors: %d" % (errorCount,)
+            print
 
         print "Proc:   Peak outstanding:        Seconds of processing (number of requests):"
         for l in xrange(8):
