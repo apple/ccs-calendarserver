@@ -465,7 +465,7 @@ dependencies () {
 
   py_dependency "Twisted" "twisted" "Twisted" \
     "svn" "${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
-    false true true false 26969;
+    false true true false 27612;
 
   # twisted.web2 doesn't get installed by default, so in the install phase
   # let's make sure it does.
