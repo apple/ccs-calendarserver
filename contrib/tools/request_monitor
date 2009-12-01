@@ -44,6 +44,8 @@ def listenq():
             break
         except ValueError:
             pass
+    else: # Nobody is listening on 8443
+        return "0"
 
 _listenQueueHistory = []
 
@@ -288,6 +290,7 @@ while True:
 
         print "- " * 40
         q = listenQueueHistory()
+        print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), 
         print "Listen queue:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
         q = idleHistory()
         print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
