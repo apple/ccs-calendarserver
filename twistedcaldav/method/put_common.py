@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_validation -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -48,7 +49,7 @@ from twisted.web2.stream import MemoryStream
 from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict, ScheduleTag
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
 from twistedcaldav.customxml import calendarserver_namespace ,\
     TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
     TwistedScheduleMatchETags
@@ -339,7 +340,12 @@ class StoreCalendarObjectResource(object):
                 result, message = self.validAttendeeListSizeCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-attendees-per-instance")))
+                    raise HTTPError(
+                        ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance))
+                        )
+                    )
 
                 # Normalize the calendar user addresses once we know we have valid
                 # calendar data
