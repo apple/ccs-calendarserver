@@ -99,10 +99,13 @@ class iTipProcessing(object):
             master_valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
             private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
             transps = current_master.properties("TRANSP")
+            organizer = current_master.getProperty("ORGANIZER")
+            organizer_schedule_status = organizer.params().get("SCHEDULE-STATUS", None) if organizer else None
         else:
             master_valarms = ()
             private_comments = ()
             transps = ()
+            organizer_schedule_status = None
 
         if itip_message.masterComponent() is not None:
             
@@ -117,11 +120,15 @@ class iTipProcessing(object):
                 master_component.addProperty(comment)
             for transp in transps:
                 master_component.replaceProperty(transp)
+            if organizer_schedule_status: 
+                organizer = master_component.getProperty("ORGANIZER")
+                if organizer:
+                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
                 
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, component)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, component)
             
             # Now try to match recurrences
             for component in calendar.subcomponents():
@@ -132,7 +139,7 @@ class iTipProcessing(object):
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
                         if new_component:
                             new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, new_component)
+                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, new_component)
             
             # Replace the entire object
             return new_calendar, rids
@@ -149,7 +156,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, component, remove_matched=True)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, component, remove_matched=True)
                     calendar.addComponent(component)
                     if recipient and not autoprocessing:
                         iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
@@ -446,7 +453,7 @@ class iTipProcessing(object):
         return attendee.value(), partstat_changed, private_comment_changed
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, transps, to_component, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, transps, organizer_schedule_status, to_component, remove_matched=False):
 
         rid = to_component.getRecurrenceIDUTC()
 
@@ -458,6 +465,13 @@ class iTipProcessing(object):
             [to_component.addProperty(prop) for prop in matched.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")]
             [to_component.replaceProperty(prop) for prop in matched.properties("TRANSP")]
 
+            organizer = matched.getProperty("ORGANIZER")
+            organizer_schedule_status = organizer.params().get("SCHEDULE-STATUS", None) if organizer else None
+            if organizer_schedule_status: 
+                organizer = to_component.getProperty("ORGANIZER")
+                if organizer:
+                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
+
             # Remove the old one
             if remove_matched:
                 from_calendar.removeComponent(matched)
@@ -468,6 +482,10 @@ class iTipProcessing(object):
             [to_component.addComponent(alarm) for alarm in master_valarms]
             [to_component.addProperty(comment) for comment in private_comments]
             [to_component.replaceProperty(transp) for transp in transps]
+            if organizer_schedule_status: 
+                organizer = to_component.getProperty("ORGANIZER")
+                if organizer:
+                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
     
     @staticmethod
     def fixForiCal3(components, recipient, compatibilityMode):

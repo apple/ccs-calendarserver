@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,42 +86,51 @@ def emitAccounting(category, principal, data):
             principal.record.guid
         )
     else:
-        return
+        return None
 
     try:
         #
         # Obtain the accounting log file name
         #
         logRoot = config.AccountingLogRoot
-        logDirectory = os.path.join(
-            logRoot,
-            principalLogPath,
-            category
+        logDirectory = category
+        if principalLogPath:
+            logDirectory = os.path.join(
+                logDirectory,
+                principalLogPath,
+            )
+        logFilename = os.path.join(
+            logDirectory,
+            datetime.datetime.now().isoformat()
         )
-        logFilename = os.path.join(logDirectory, datetime.datetime.now().isoformat())
     
-        if not os.path.isdir(logDirectory):
-            os.makedirs(logDirectory)
+        if not os.path.isdir(os.path.join(logRoot, logDirectory)):
+            os.makedirs(os.path.join(logRoot, logDirectory))
             logFilename = "%s-01" % (logFilename,)
         else:
             index = 1
             while True:
                 path = "%s-%02d" % (logFilename, index)
-                if not os.path.isfile(path):
+                if not os.path.isfile(os.path.join(logRoot, path)):
                     logFilename = path
                     break
                 if index == 1000:
                     log.error("Too many %s accounting files for %s" % (category, principal))
-                    return
+                    return None
+                index += 1
     
         #
         # Now write out the data to the log file
         #
-        logFile = open(logFilename, "a")
+        logFile = open(os.path.join(logRoot, logFilename), "a")
         try:
             logFile.write(data)
         finally:
             logFile.close()
+            
+        return logFilename
+
     except OSError, e:
         # No failures in accounting should propagate out
         log.error("Failed to write accounting data due to: %s" % (str(e),))
+        return None

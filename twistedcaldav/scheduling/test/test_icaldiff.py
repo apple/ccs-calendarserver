@@ -594,7 +594,19 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.4 Simple component, valarm change",
@@ -753,7 +765,24 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test for Attendee
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.7 Simple component, vtimezone no change",
@@ -917,7 +946,37 @@ END:VTIMEZONE
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US-Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:STANDARD
+DTSTART:19901026T060000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19900404T010000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=US-Eastern:20080601T120000
+DTEND;TZID=US-Eastern:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.9 Simple component, vtimezone substitute",
@@ -1323,7 +1382,28 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
             (
                 "#1.4 Complex component, additional override no change ok",
@@ -1557,7 +1637,37 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T123000Z
+DTEND:20080602T130000Z
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""")
             ),
         )
 
@@ -2195,7 +2305,20 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",)
             ),
             (
                 "#1.6 Add uncancelled component, no master",
@@ -2237,7 +2360,20 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T130000Z
+DTEND:20080604T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",)
             ),
         )
 
@@ -2339,7 +2475,19 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",)
             ),
             (
                 "#1.3 Different dropbox",
@@ -2378,7 +2526,23 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None,)
+                (True, False, (), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTACH;VALUE=URI:http://localhost/calendars/users/dropbox/6073432E-644B-49
+ 65-B6F7-C3F08E70BBF9.dropbox/caldavd.plist
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+X-APPLE-DROPBOX:/calendars/users/dropbox/6073432E-644B-4965-B6F7-C3F08E70B
+ BF9.dropbox
+END:VEVENT
+END:VCALENDAR
+""",)
             ),
             (
                 "#1.4 Change dropbox - remove ATTACH",
@@ -2627,7 +2791,20 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (False, False, (), None,)
+                (True, True, ('20080601T120000Z',), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T130000Z
+DTEND:20080601T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",)
             ),
             (
                 "#2.1 Two overridden components, partstat change - ok",
