@@ -1,0 +1,92 @@
+Index: twisted/python/util.py
+===================================================================
+--- twisted/python/util.py	(revision 19773)
++++ twisted/python/util.py	(working copy)
+@@ -562,9 +562,32 @@
+     return [e[2] for e in L2]
+ 
+ try:
+-    import pwd, grp
+-    from os import setgroups, getgroups
+-    
++    from ctypes import c_int, c_char_p, cdll
++    from ctypes.util import find_library
++    hasCtypes = True
++except ImportError:
++    hasCtypes = False
++
++if sys.platform == "darwin" and hasCtypes:
++    import pwd
++    libc = cdll.LoadLibrary(find_library("libc"))
++    def initgroups(uid, primaryGid):
++        """
++        Call initgroups with ctypes.
++        """
++        c_gid = c_int(primaryGid)
++        username = pwd.getpwuid(uid)[0]
++        c_username = c_char_p(username)
++        return libc.initgroups(c_username, c_gid)
++
++elif pwd is None or grp is None or setgroups is None or getgroups is None:
++    def initgroups(uid, primaryGid):
++        """
++        Do nothing.
++
++        Underlying platform support require to manipulate groups is missing.
++        """
++else:
+     def _setgroups_until_success(l):
+         while(1):
+             # NASTY NASTY HACK (but glibc does it so it must be okay):
+@@ -589,9 +612,10 @@
+             else:
+                 # Success, yay!
+                 return
+-            
++
+     def initgroups(uid, primaryGid):
+-        """Initializes the group access list.
++        """
++        Initializes the group access list.
+ 
+         This is done by reading the group database /etc/group and using all
+         groups of which C{uid} is a member.  The additional group
+@@ -600,14 +624,21 @@
+         If the given user is a member of more than C{NGROUPS}, arbitrary
+         groups will be silently discarded to bring the number below that
+         limit.
+-        """       
++
++        @type uid: C{int}
++        @param uid: The UID for which to look up group information.
++
++        @type primaryGid: C{int} or C{NoneType}
++        @param primaryGid: If provided, an additional GID to include when
++            setting the groups.
++        """
+         try:
+             # Try to get the maximum number of groups
+             max_groups = os.sysconf("SC_NGROUPS_MAX")
+         except:
+             # No predefined limit
+             max_groups = 0
+-        
++
+         username = pwd.getpwuid(uid)[0]
+         l = []
+         if primaryGid is not None:
+@@ -628,14 +659,8 @@
+                         raise
+             else:
+                 raise
+-                                    
+ 
+-except:
+-    def initgroups(uid, primaryGid):
+-        """Do nothing.
+ 
+-        Underlying platform support require to manipulate groups is missing.
+-        """
+ 
+ 
+ def switchUID(uid, gid, euid=False):
