@@ -102,7 +102,7 @@ else:
                     fakeODRecord("Location 02"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
             self._service.reloadCache(DirectoryService.recordType_groups)
@@ -148,7 +148,7 @@ else:
                     fakeODRecord("Location 04", addLocator=False),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
             self._service.reloadCache(DirectoryService.recordType_groups)
@@ -173,7 +173,7 @@ else:
                     fakeODRecord("User 01"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -187,7 +187,7 @@ else:
                     fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
 
@@ -202,7 +202,7 @@ else:
                     fakeODRecord("User 02"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -219,7 +219,7 @@ else:
                     fakeODRecord("User 02", guid="30CA2BB9-C935-4A5D-80E2-79266BCB0255"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -238,7 +238,7 @@ else:
                     fakeODRecord("User 03", guid="113D7F74-F84A-4F17-8C96-CE8F10D68EF8"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -258,7 +258,7 @@ else:
                     fakeODRecord("User 02", guid="136E369F-DB40-4135-878D-B75D38242D39"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -277,7 +277,7 @@ else:
                     fakeODRecord("User 03", guid="D10F3EE0-5014-41D3-8488-3819D3EF3B2A"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -292,7 +292,7 @@ else:
                     fakeODRecord("User 03", guid="62368DDF-0C62-4C97-9A58-DE9FD46131A0", shortName="user05"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
 
@@ -328,7 +328,7 @@ else:
                     fakeODRecord("Location 02"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
             self._service.reloadCache(DirectoryService.recordType_groups)
@@ -358,7 +358,7 @@ else:
                     guidForShortName("user02"),
                 ]),
             ]
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_groups, forceUpdate=True)
 
             group1 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group01")
@@ -388,7 +388,7 @@ else:
                     guidForShortName("user02"),
                 ]),
             ]
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_groups, forceUpdate=True)
 
             group1 = self._service.recordWithShortName(DirectoryService.recordType_groups, "group01")
@@ -418,7 +418,7 @@ else:
                 DirectoryService.recordType_resources: [],
                 DirectoryService.recordType_locations: [],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
 
             self._service.reloadCache(DirectoryService.recordType_users)
 
@@ -438,7 +438,7 @@ else:
                 DirectoryService.recordType_resources: [],
                 DirectoryService.recordType_locations: [],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
 
             user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
@@ -456,7 +456,7 @@ else:
                 DirectoryService.recordType_resources: [],
                 DirectoryService.recordType_locations: [],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
 
             user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
@@ -486,7 +486,7 @@ else:
                 DirectoryService.recordType_resources: [],
                 DirectoryService.recordType_locations: [],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
             user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")
             self.assertTrue(user1 is not None)
@@ -496,7 +496,7 @@ else:
                     fakeODRecord("User 01"),
                     fakeODRecord("User 02"),
             ]
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_users, forceUpdate=True)
             user3 = self._service.recordWithCalendarUserAddress("mailto:user03@example.com")
             self.assertTrue(user3 is not None)
@@ -529,7 +529,7 @@ else:
                     fakeODRecord("User 01"),
                 ],
             }
-            self._service.refresh(loop=False)
+            self._service.refresh(loop=False, master=True)
             self._service.reloadCache(DirectoryService.recordType_users)
 
             user1 = self._service.recordWithCalendarUserAddress("mailto:user01@example.com")

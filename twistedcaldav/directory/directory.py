@@ -139,12 +139,13 @@ class DirectoryService(LoggingMixIn):
             for record in self.listRecords(recordType):
                 yield record
 
-    def refresh(self):
+    def refresh(self, master=False):
         """
         This gets called in the master process to give the directory service
         a chance to refresh a cache of directory information
         """
         pass
+
 
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)

@@ -17,6 +17,7 @@
 import os
 import stat
 import socket
+import signal
 
 from zope.interface import implements
 
@@ -827,6 +828,15 @@ class CalDAVServiceMaker(object):
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
 
+
+        # Register USR1 handler
+        def sigusr1_handler(num, frame):
+            log.debug("SIGUSR1 recieved, triggering directory refresh")
+            baseDirectory.refresh()
+            return
+
+        signal.signal(signal.SIGUSR1, sigusr1_handler)
+
         return service
 
     makeService_Combined = makeService_Combined
@@ -862,7 +872,6 @@ class CalDAVServiceMaker(object):
                 else:
                     return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
 
-            import signal
             def sighup_handler(num, frame):
                 log.info("SIGHUP recieved at %s" % (location(frame),))
 

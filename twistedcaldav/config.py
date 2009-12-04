@@ -73,6 +73,7 @@ serviceDefaultParams = {
         "node": "/Search",
         "requireComputerRecord": True,
         "cacheTimeout": 30,
+        "signalIntervalSeconds": 10,
     },
 }
 

@@ -25,6 +25,7 @@ __all__ = [
 
 import sys
 import os
+import signal
 from random import random
 from uuid import UUID
 
@@ -68,7 +69,7 @@ class OpenDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
-    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, doreload=True, cacheTimeout=30, **kwds):
+    def __init__(self, node="/Search", requireComputerRecord=True, dosetup=True, doreload=True, cacheTimeout=30, signalIntervalSeconds=10, **kwds):
         """
         @param node: an OpenDirectory node name to bind to.
         @param requireComputerRecord: C{True} if the directory schema is to be used to determine
@@ -90,8 +91,10 @@ class OpenDirectoryService(DirectoryService):
         self.computerRecords = {}
         self.servicetags = set()
         self.cacheTimeout = cacheTimeout
+        self.signalIntervalSeconds = signalIntervalSeconds
         self._records = {}
         self._delayedCalls = set()
+        self._refreshing = False
 
         self.isWorkgroupServer = False
 
@@ -115,7 +118,7 @@ class OpenDirectoryService(DirectoryService):
                 for recordType in self.recordTypes():
                     self.recordsForType(recordType)
 
-    def refresh(self, loop=True):
+    def refresh(self, loop=True, master=False):
         """
         This service works by having the master process call this method
         which queries OD for all records, storing the pickled results into
@@ -126,57 +129,82 @@ class OpenDirectoryService(DirectoryService):
         these files.
         """
 
+        if self._refreshing:
+            self.log_warn("Already refreshing directory cache")
+            return
+
+        self._refreshing = True
+
         def _refresh(self):
-            dataRoot = FilePath(config.DataRoot)
-            cacheDir = dataRoot.child("DirectoryCache")
-            if not cacheDir.exists():
-                cacheDir.createDirectory()
+            try:
+                dataRoot = FilePath(config.DataRoot)
+                cacheDir = dataRoot.child("DirectoryCache")
+                if not cacheDir.exists():
+                    cacheDir.createDirectory()
 
-            for recordType in self.recordTypes():
-                self.log_debug("Master fetching %s from directory" % (recordType,))
-                cacheFile = cacheDir.child(recordType)
-                try:
-                    results = self._queryDirectory(recordType)
-                except Exception, e:
-                    self.log_error("Master query for %s failed: %s" % (recordType, e))
-                    continue
+                dataWritten = False
+                for recordType in self.recordTypes():
+                    self.log_warn("Master fetching %s for directory cache" % (recordType,))
+                    cacheFile = cacheDir.child(recordType)
+                    try:
+                        results = self._queryDirectory(recordType)
+                    except Exception, e:
+                        self.log_error("Master query for %s failed: %s" % (recordType, e))
+                        continue
 
-                results.sort()
-                numNewResults = len(results)
-                pickled = pickle.dumps(results)
-                needsWrite = True
-                if cacheFile.exists():
-                    prevPickled = cacheFile.getContent()
-                    if prevPickled == pickled:
-                        needsWrite = False
-                    else:
-                        prevResults = pickle.loads(prevPickled)
-                        numPrevResults = len(prevResults)
-                        if numPrevResults == 0:
-                            needsWrite = True
+                    results.sort()
+                    numNewResults = len(results)
+                    pickled = pickle.dumps(results)
+                    needsWrite = True
+                    if cacheFile.exists():
+                        prevPickled = cacheFile.getContent()
+                        if prevPickled == pickled:
+                            needsWrite = False
                         else:
-                            if float(numNewResults) / numPrevResults < 0.5:
-                                # New results is less than half of what it used
-                                # to be -- this indicates we might not have
-                                # gotten back enough records from OD.  Don't
-                                # write out the file, but log an error.
-                                self.log_error("OD results for %s substantially less than last time: was %d, now %d." % (recordType, numPrevResults, numNewResults))
-                                needsWrite = False
-                                continue
+                            prevResults = pickle.loads(prevPickled)
+                            numPrevResults = len(prevResults)
+                            if numPrevResults == 0:
+                                needsWrite = True
+                            else:
+                                if float(numNewResults) / numPrevResults < 0.5:
+                                    # New results is less than half of what it used
+                                    # to be -- this indicates we might not have
+                                    # gotten back enough records from OD.  Don't
+                                    # write out the file, but log an error.
+                                    self.log_error("OD results for %s substantially less than last time: was %d, now %d." % (recordType, numPrevResults, numNewResults))
+                                    needsWrite = False
+                                    continue
 
-                if needsWrite:
-                    self.log_info("Saving cache file for %s (%d items)" % (recordType, numNewResults))
-                    cacheFile.setContent(pickled)
-                else:
-                    self.log_debug("%s info hasn't changed" % (recordType,))
+                    if needsWrite:
+                        self.log_warn("Saving directory cache file for %s (%d items)" % (recordType, numNewResults))
+                        cacheFile.setContent(pickled)
+                        dataWritten = True
+                    else:
+                        self.log_warn("%s info hasn't changed" % (recordType,))
+
+                if dataWritten and hasattr(self, 'processMonitor'):
+                    self.processMonitor.signalAll(signal.SIGUSR1, "caldav", seconds=self.signalIntervalSeconds)
+            finally:
+                self._refreshing = False
 
         def _refreshInThread(self):
             return deferToThread(_refresh, self)
 
-        _refresh(self)
+        if master:
+            _refresh(self)
 
-        if loop:
-            LoopingCall(_refreshInThread, self).start(self.cacheTimeout * 60)
+            if loop:
+                LoopingCall(_refreshInThread, self).start(self.cacheTimeout * 60)
+        else:
+            def _reloadCaches():
+                try:
+                    self.log_warn("Reading directory cache files")
+                    for recordType in self.recordTypes():
+                        self.reloadCache(recordType)
+                    self.log_warn("Done reading directory cache files")
+                finally:
+                    self._refreshing = False
+            deferToThread(_reloadCaches)
 
 
 
@@ -483,19 +511,6 @@ class OpenDirectoryService(DirectoryService):
         except KeyError:
             self.reloadCache(recordType)
             storage = self._records[recordType]
-        else:
-            if storage["status"] == "stale":
-                storage["status"] = "loading"
-
-                def onError(f):
-                    storage["status"] = "stale" # Keep trying
-                    self.log_error(
-                        "Unable to load records of type %s from OpenDirectory due to unexpected error: %s"
-                        % (recordType, f)
-                    )
-
-                d = deferToThread(self.reloadCache, recordType)
-                d.addErrback(onError)
 
         return storage
 
@@ -638,17 +653,6 @@ class OpenDirectoryService(DirectoryService):
 
     def reloadCache(self, recordType, forceUpdate=False):
 
-        def rot():
-            storage["status"] = "stale"
-            removals = set()
-            for call in self._delayedCalls:
-                if not call.active():
-                    removals.add(call)
-            for item in removals:
-                self._delayedCalls.remove(item)
-
-        cacheTimeout = 60 # child processes always check once per minute
-
         dataRoot = FilePath(config.DataRoot)
         cacheDir = dataRoot.child("DirectoryCache")
         if not cacheDir.exists():
@@ -664,11 +668,14 @@ class OpenDirectoryService(DirectoryService):
             lastModified = cacheFile.getModificationTime()
             try:
                 storage = self._records[recordType]
+                if storage["status"] == "loading":
+                    self.log_warn("Directory cache file for %s already being reloaded" % (recordType,))
+                    return
                 if not forceUpdate and (lastModified <= storage["last modified"]):
                     self.log_debug("Directory cache file for %s unchanged" % (recordType,))
                     storage["status"] = "new" # mark this as not stale
-                    self._delayedCalls.add(callLater(cacheTimeout, rot))
                     return
+                storage["status"] = "loading"
             except KeyError:
                 # Haven't read the file before
                 pass
@@ -677,7 +684,6 @@ class OpenDirectoryService(DirectoryService):
 
             pickled = cacheFile.getContent()
             results = pickle.loads(pickled)
-            # results = self._queryDirectory(recordType)
 
         records = {}
         guids   = {}
@@ -692,30 +698,48 @@ class OpenDirectoryService(DirectoryService):
             proxiesForGUID = {}
             readOnlyProxiesForGUID = {}
 
+        def allowForACLs():
+            return recordType in (
+                DirectoryService.recordType_users,
+                DirectoryService.recordType_groups,
+            )
+
+        def disableForCalendaring(recordShortName):
+            self.log_debug(
+                "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
+                % (recordType, recordShortName)
+            )
+
+        def invalidRecord(recordShortName):
+            self.log_error(
+                "Directory (incorrectly) returned a record with no applicable "
+                "ServicesLocator attribute: (%s) %s"
+                % (recordType, recordShortName)
+            )
+
+        def disableRecord(record):
+            self.log_warn("Record disabled due to conflict (record name and GUID must match): %s" % (record,))
+
+            shortName = record.shortName
+            guid      = record.guid
+            cuaddrset = record.calendarUserAddresses
+
+            disabledNames.add(shortName)
+            disabledGUIDs.add(guid)
+
+            if shortName in records:
+                del records[shortName]
+            if guid in guids:
+                del guids[guid]
+            for cuaddr in cuaddrset:
+                if cuaddr in cuaddrs:
+                    del cuaddrs[cuaddr]
+
         for (recordShortName, value) in results:
             enabledForCalendaring = True
 
             if self.requireComputerRecord:
                 servicesLocators = value.get(dsattributes.kDSNAttrServicesLocator)
-
-                def allowForACLs():
-                    return recordType in (
-                        DirectoryService.recordType_users,
-                        DirectoryService.recordType_groups,
-                    )
-
-                def disableForCalendaring():
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                        % (recordType, recordShortName)
-                    )
-
-                def invalidRecord():
-                    self.log_error(
-                        "Directory (incorrectly) returned a record with no applicable "
-                        "ServicesLocator attribute: (%s) %s"
-                        % (recordType, recordShortName)
-                    )
 
                 if servicesLocators:
                     if type(servicesLocators) is str:
@@ -726,17 +750,17 @@ class OpenDirectoryService(DirectoryService):
                             break
                     else:
                         if allowForACLs():
-                            disableForCalendaring()
+                            disableForCalendaring(recordShortName)
                             enabledForCalendaring = False
                         else:
-                            invalidRecord()
+                            invalidRecord(recordShortName)
                             continue
                 else:
                     if allowForACLs():
-                        disableForCalendaring()
+                        disableForCalendaring(recordShortName)
                         enabledForCalendaring = False
                     else:
-                        invalidRecord()
+                        invalidRecord(recordShortName)
                         continue
 
             # Now get useful record info.
@@ -801,24 +825,6 @@ class OpenDirectoryService(DirectoryService):
                 readOnlyProxyGUIDs    = readOnlyProxyGUIDs,
             )
 
-            def disableRecord(record):
-                self.log_warn("Record disabled due to conflict (record name and GUID must match): %s" % (record,))
-
-                shortName = record.shortName
-                guid      = record.guid
-                cuaddrset = record.calendarUserAddresses
-
-                disabledNames.add(shortName)
-                disabledGUIDs.add(guid)
-
-                if shortName in records:
-                    del records[shortName]
-                if guid in guids:
-                    del guids[guid]
-                for cuaddr in cuaddrset:
-                    if cuaddr in cuaddrs:
-                        del cuaddrs[cuaddr]
-
             # Check for disabled items
             if record.shortName in disabledNames or record.guid in disabledGUIDs:
                 disableRecord(record)
@@ -873,13 +879,11 @@ class OpenDirectoryService(DirectoryService):
             storage["proxiesForGUID"] = proxiesForGUID
             storage["readOnlyProxiesForGUID"] = readOnlyProxiesForGUID
 
-        self._delayedCalls.add(callLater(cacheTimeout, rot))
-
         self._records[recordType] = storage
 
         self.log_info(
-            "Added %d records to %s OD record cache; expires in %d seconds"
-            % (len(self._records[recordType]["guids"]), recordType, cacheTimeout)
+            "Added %d records to %s OD record cache"
+            % (len(self._records[recordType]["guids"]), recordType)
         )
 
     def _queryDirectory(self, recordType):
