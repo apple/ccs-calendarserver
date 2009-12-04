@@ -566,7 +566,7 @@ class OpenDirectoryService(CachingDirectoryService):
             recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
-            if recordNodeName == "/Local/Default":
+            if recordNodeName == "/Local/Default" and not (config.Scheduling.iMIP.Username in recordShortNames):
                 self.log_info("Local record (%s)%s is not eligible for calendaring."
                               % (recordType, recordShortName))
                 continue
