@@ -443,7 +443,7 @@ dependencies () {
   if [ "$(uname -s)" == "Darwin" ]; then
     py_dependency "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
       "svn" "${svn_uri_base}/PyOpenDirectory/trunk" \
-      false false false false 4106;
+      false false false false 4827;
   fi;
   py_dependency "xattr" "xattr" "xattr" \
     "svn" "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5" \
