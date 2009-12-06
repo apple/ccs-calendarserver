@@ -21,6 +21,7 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
+from twistedcaldav import accounting
 
 from difflib import unified_diff
 
@@ -36,17 +37,17 @@ log = Logger()
 
 class iCalDiff(object):
     
-    def __init__(self, calendar1, calendar2, smart_merge):
+    def __init__(self, oldcalendar, newcalendar, smart_merge):
         """
         
-        @param calendar1:
-        @type calendar1:
-        @param calendar2:
-        @type calendar2:
+        @param oldcalendar:
+        @type oldcalendar:
+        @param newcalendar:
+        @type newcalendar:
         """
         
-        self.calendar1 = calendar1
-        self.calendar2 = calendar2
+        self.oldcalendar = oldcalendar
+        self.newcalendar = newcalendar
         self.smart_merge = smart_merge
     
     def organizerDiff(self):
@@ -75,34 +76,32 @@ class iCalDiff(object):
             return calendar
         
         # Normalize components for comparison
-        self.calendar1 = duplicateAndNormalize(self.calendar1)
-        self.calendar2 = duplicateAndNormalize(self.calendar2)
+        oldcalendar_norm = duplicateAndNormalize(self.oldcalendar)
+        newcalendar_norm = duplicateAndNormalize(self.newcalendar)
 
-        result = self.calendar1 == self.calendar2
-        if not result:
-            self._logDiffError("organizerDiff: Mismatched calendar objects")
+        result = oldcalendar_norm == newcalendar_norm
         return result
 
     def _organizerMerge(self):
         """
-        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        Merge changes to ATTENDEE properties in oldcalendar into newcalendar.
         """
-        organizer = normalizeCUAddr(self.calendar2.masterComponent().propertyValue("ORGANIZER"))
+        organizer = normalizeCUAddr(self.newcalendar.masterComponent().propertyValue("ORGANIZER"))
         self._doSmartMerge(organizer, True)
 
     def _doSmartMerge(self, ignore_attendee, is_organizer):
         """
-        Merge changes to ATTENDEE properties in calendar1 into calendar2.
+        Merge changes to ATTENDEE properties in oldcalendar into newcalendar.
         """
         
-        old_master = self.calendar1.masterComponent()
-        new_master = self.calendar2.masterComponent()
+        old_master = self.oldcalendar.masterComponent()
+        new_master = self.newcalendar.masterComponent()
         
         # Do master merge first
         self._tryComponentMerge(old_master, new_master, ignore_attendee, is_organizer)
 
         # New check the matching components
-        for old_component in self.calendar1.subcomponents():
+        for old_component in self.oldcalendar.subcomponents():
             
             # Make sure we have an appropriate component
             if old_component.name() == "VTIMEZONE":
@@ -112,17 +111,17 @@ class iCalDiff(object):
                 continue
 
             # Find matching component in new calendar
-            new_component = self.calendar2.overriddenComponent(rid)
+            new_component = self.newcalendar.overriddenComponent(rid)
             if new_component is None:
                 # If the old component was cancelled ignore when an attendee
                 if not is_organizer and old_component.propertyValue("STATUS") == "CANCELLED":
                     continue
                 
                 # Determine whether the instance is still valid in the new calendar
-                new_component = self.calendar2.deriveInstance(rid)
+                new_component = self.newcalendar.deriveInstance(rid)
                 if new_component:
                     # Derive a new instance from the new calendar and transfer attendee status
-                    self.calendar2.addComponent(new_component)
+                    self.newcalendar.addComponent(new_component)
                     self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
                 else:
                     # Ignore the old instance as it no longer exists
@@ -131,7 +130,7 @@ class iCalDiff(object):
                 self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
 
         # Check the new instances not in the old calendar
-        for new_component in self.calendar2.subcomponents():
+        for new_component in self.newcalendar.subcomponents():
             
             # Make sure we have an appropriate component
             if new_component.name() == "VTIMEZONE":
@@ -141,16 +140,16 @@ class iCalDiff(object):
                 continue
 
             # Find matching component in old calendar
-            old_component = self.calendar1.overriddenComponent(rid)
+            old_component = self.oldcalendar.overriddenComponent(rid)
             if old_component is None:
                 # If the new component is cancelled ignore when an attendee
                 if not is_organizer and new_component.propertyValue("STATUS") == "CANCELLED":
                     continue
                 
                 # Try to derive a new instance in the client and transfer attendee status
-                old_component = self.calendar1.deriveInstance(rid)
+                old_component = self.oldcalendar.deriveInstance(rid)
                 if old_component:
-                    self.calendar1.addComponent(old_component)
+                    self.oldcalendar.addComponent(old_component)
                     self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
                 else:
                     # Ignore as we have no state for the new instance
@@ -248,11 +247,11 @@ class iCalDiff(object):
 
         if config.MaxInstancesForRRULE != 0:
             try:
-                self.calendar1.truncateRecurrence(config.MaxInstancesForRRULE)
+                self.oldcalendar.truncateRecurrence(config.MaxInstancesForRRULE)
             except (ValueError, TypeError), ex:
                 log.err("Cannot truncate calendar resource: %s" % (ex,))
 
-        self.newCalendar = self.calendar1.duplicate()
+        self.newCalendar = self.oldcalendar.duplicate()
         self.newMaster = self.newCalendar.masterComponent()
 
         changeCausesReply = False
@@ -285,60 +284,61 @@ class iCalDiff(object):
                
             return exdates, map, master
         
-        exdates1, map1, master1 = mapComponents(self.calendar1)
-        set1 = set(map1.keys())
-        exdates2, map2, master2 = mapComponents(self.calendar2)
-        set2 = set(map2.keys())
+        exdatesold, mapold, masterold = mapComponents(self.oldcalendar)
+        setold = set(mapold.keys())
+        exdatesnew, mapnew, masternew = mapComponents(self.newcalendar)
+        setnew = set(mapnew.keys())
 
         # Handle case where iCal breaks events without a master component
-        if master2 is not None and master1 is None:
-            master2Start = master2.getStartDateUTC()
-            key2 = (master2.name(), master2.propertyValue("UID"), master2Start)
-            if key2 not in set1:
+        if masternew is not None and masterold is None:
+            masternewStart = masternew.getStartDateUTC()
+            keynew = (masternew.name(), masternew.propertyValue("UID"), masternewStart)
+            if keynew not in setold:
                 # The DTSTART in the fake master does not match a RECURRENCE-ID in the real data.
                 # We have to do a brute force search for the component that matches based on DTSTART
-                for component1 in self.calendar1.subcomponents():
-                    if component1.name() == "VTIMEZONE":
+                for componentold in self.oldcalendar.subcomponents():
+                    if componentold.name() == "VTIMEZONE":
                         continue
-                    if master2Start == component1.getStartDateUTC():
+                    if masternewStart == componentold.getStartDateUTC():
                         break
                 else:
                     # Nothing matches - this has to be treated as an error
-                    log.debug("attendeeMerge: Unable to match fake master component: %s" % (key2,))
+                    self._logDiffError("attendeeMerge: Unable to match fake master component: %s" % (keynew,))
                     return False, False, (), None
             else:
-                component1 = self.calendar1.overriddenComponent(master2Start)
+                componentold = self.oldcalendar.overriddenComponent(masternewStart)
             
             # Take the recurrence ID from component1 and fix map2/set2
-            key2 = (master2.name(), master2.propertyValue("UID"), None)
-            component2 = map2[key2]
-            del map2[key2]
+            keynew = (masternew.name(), masternew.propertyValue("UID"), None)
+            componentnew = mapnew[keynew]
+            del mapnew[keynew]
             
-            rid1 = component1.getRecurrenceIDUTC()
-            newkey2 = (master2.name(), master2.propertyValue("UID"), rid1)
-            map2[newkey2] = component2
-            set2.remove(key2)
-            set2.add(newkey2)
+            ridold = componentold.getRecurrenceIDUTC()
+            newkeynew = (masternew.name(), masternew.propertyValue("UID"), ridold)
+            mapnew[newkeynew] = componentnew
+            setnew.remove(keynew)
+            setnew.add(newkeynew)
     
-        # All the components in calendar1 must be in calendar2 unless they are CANCELLED
-        result = set1 - set2
-        for key in result:
+        # All the components in oldcalendar must be in newcalendar unless they are CANCELLED
+        for key in setold - setnew:
             _ignore_name, _ignore_uid, rid = key
-            component = map1[key]
+            component = mapold[key]
             if component.propertyValue("STATUS") != "CANCELLED":
                 # Attendee may decline by EXDATE'ing an instance - we need to handle that
-                if exdates2 is None or rid in exdates2:
+                if exdatesnew is None or rid in exdatesnew:
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
                         changedRids.append(toString(rid) if rid else "")
                 else:
-                    log.debug("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
-                    return False, False, (), None
+                    # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                    # override the client
+                    self._logDiffError("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
             else: 
-                if exdates2 is not None and rid not in exdates2:
-                    log.debug("attendeeMerge: Missing EXDATE for cancelled components from first calendar: %s" % (key,))
-                    return False, False, (), None
+                if exdatesnew is not None and rid not in exdatesnew:
+                    # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                    # override the client
+                    self._logDiffError("attendeeMerge: Missing EXDATE for cancelled components from first calendar: %s" % (key,))
                 else:
                     # Remove the CANCELLED component from the new calendar and add an EXDATE
                     overridden = self.newCalendar.overriddenComponent(rid)
@@ -346,52 +346,63 @@ class iCalDiff(object):
                     if self.newMaster:
                         self.newMaster.addProperty(Property("EXDATE", [rid,]))
         
-        # Derive a new component in the new calendar for each new one in set2
-        for key in set2 - set1:
+        # Derive a new component in the new calendar for each new one in setnew
+        for key in setnew - setold:
             
             # First check if the attendee's copy is cancelled and properly EXDATE'd
             # and skip it if so.
             _ignore_name, _ignore_uid, rid = key
-            component2 = map2[key]
-            if component2.propertyValue("STATUS") == "CANCELLED":
-                if exdates1 is None or rid not in exdates1:
-                    log.debug("attendeeMerge: Cancelled component not found in first calendar (or no EXDATE): %s" % (key,))
-                    return False, False, (), None
+            componentnew = mapnew[key]
+            if componentnew.propertyValue("STATUS") == "CANCELLED":
+                if exdatesold is None or rid not in exdatesold:
+                    # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                    # override the client
+                    self._logDiffError("attendeeMerge: Cancelled component not found in first calendar (or no EXDATE): %s" % (key,))
+                    setnew.remove(key)
                 else:
                     # Derive new component with STATUS:CANCELLED and remove EXDATE
                     newOverride = self.newCalendar.deriveInstance(rid, allowCancelled=True)
                     if newOverride is None:
-                        log.debug("attendeeMerge: Could not derive instance for cancelled component: %s" % (key,))
-                        return False, False, (), None
-                    self.newCalendar.addComponent(newOverride)
+                        # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                        # override the client
+                        self._logDiffError("attendeeMerge: Could not derive instance for cancelled component: %s" % (key,))
+                        setnew.remove(key)
+                    else:
+                        self.newCalendar.addComponent(newOverride)
             else:
                 # Derive new component
                 newOverride = self.newCalendar.deriveInstance(rid)
                 if newOverride is None:
-                    log.debug("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
-                    return False, False, (), None
-                self.newCalendar.addComponent(newOverride)
+                    # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                    # override the client
+                    self._logDiffError("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
+                    setnew.remove(key)
+                else:
+                    self.newCalendar.addComponent(newOverride)
 
         # So now newCalendar has all the same components as set2. Check changes and do transfers.
         
         # Make sure the same VCALENDAR properties match
-        if not self._checkVCALENDARProperties(self.newCalendar, self.calendar2):
+        if not self._checkVCALENDARProperties(self.newCalendar, self.newcalendar):
+            # We used to generate a 403 here - but instead we now ignore this error and let the server data
+            # override the client
             self._logDiffError("attendeeMerge: VCALENDAR properties do not match")
-            return False, False, (), None
 
         # Now we transfer per-Attendee
-        # data from calendar2 into newCalendar to sync up changes, whilst verifying that other
+        # data from newcalendar into newCalendar to sync up changes, whilst verifying that other
         # key properties are unchanged
         declines = []
-        for key in set2:
+        for key in setnew:
             _ignore_name, _ignore_uid, rid = key
             serverData = self.newCalendar.overriddenComponent(rid)
-            clientData = map2[key]
+            clientData = mapnew[key]
             
             allowed, reply = self._transferAttendeeData(serverData, clientData, declines)
             if not allowed:
+                # We used to generate a 403 here - but instead we now ignore this error and let the server data
+                # override the client
                 self._logDiffError("attendeeMerge: Mismatched calendar objects")
-                return False, False, (), None
+                #return False, False, (), None
             changeCausesReply |= reply
             if reply:
                 changedRids.append(toString(rid) if rid else "")
@@ -407,7 +418,7 @@ class iCalDiff(object):
                         changeCausesReply = True
                         changedRids.append(toString(decline) if decline else "")
                 else:
-                    log.debug("Unable to override and instance to mark as DECLINED: %s" % (decline,))
+                    self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
 
         return True, changeCausesReply, changedRids, self.newCalendar
@@ -430,9 +441,9 @@ class iCalDiff(object):
 
     def _transferAttendeeData(self, serverComponent, clientComponent, declines):
         
-        # First check validity of date-time related properties
-        if not self._checkInvalidChanges(serverComponent, clientComponent, declines):
-            return False, False
+        # We are skipping this check now - instead we let the server data override the broken client data
+        # First check validity of date-time related properties and get removed components which are declines
+        self._checkInvalidChanges(serverComponent, clientComponent, declines)
         
         # Now look for items to transfer from one to the other.
         # We care about the ATTENDEE's PARTSTAT, TRANSP, VALARMS, X-APPLE-NEEDS-REPLY,
@@ -462,9 +473,8 @@ class iCalDiff(object):
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
         
-        # Dropbox
-        if not self._transferDropBoxData(serverComponent, clientComponent):
-            return False, False
+        # Dropbox - this now never returns false
+        self._transferDropBoxData(serverComponent, clientComponent)
 
         # Handle VALARMs
         serverComponent.removeAlarms()
@@ -483,14 +493,14 @@ class iCalDiff(object):
         if not clientDropbox:
             return True
         elif not serverDropbox:
-            # Attendee not allowed to add a dropbox
-            log.debug("Attendee not allowed to add dropbox: %s" % (clientDropbox,))
-            return False
+            # Attendee not allowed to add a dropbox - ignore this
+            self._logDiffError("Attendee not allowed to add dropbox: %s" % (clientDropbox,))
+            return True
         else:
-            # Values must be the same
+            # Values must be the same - ignore this
             if serverDropbox != clientDropbox:
-                log.debug("Attendee not allowed to change dropbox from: %s to: %s" % (serverDropbox, clientDropbox,))
-                return False
+                self._logDiffError("Attendee not allowed to change dropbox from: %s to: %s" % (serverDropbox, clientDropbox,))
+                return True
 
             # Remove existing ATTACH's from server
             for attachment in tuple(serverComponent.properties("ATTACH")):
@@ -622,39 +632,41 @@ class iCalDiff(object):
         
         rids = {}
 
-        map1 = mapComponents(self.calendar1)
-        set1 = set(map1.keys())
-        map2 = mapComponents(self.calendar2)
-        set2 = set(map2.keys())
+        oldmap = mapComponents(self.oldcalendar)
+        oldset = set(oldmap.keys())
+        newmap = mapComponents(self.newcalendar)
+        newset = set(newmap.keys())
 
-        # Now verify that each component in set1 matches what is in set2
-        for key in (set1 & set2):
-            component1 = map1[key]
-            component2 = map2[key]
+        # Now verify that each component in oldset matches what is in newset
+        for key in (oldset & newset):
+            component1 = oldmap[key]
+            component2 = newmap[key]
             self._diffComponents(component1, component2, rids)
         
-        # Now verify that each additional component in set1 matches a derived component in set2
-        for key in set1 - set2:
-            component1 = map1[key]
-            component2 = self.calendar2.deriveInstance(key[2])
-            if component2 is None:
+        # Now verify that each additional component in oldset matches a derived component in newset
+        for key in oldset - newset:
+            oldcomponent = oldmap[key]
+            newcomponent = self.newcalendar.deriveInstance(key[2])
+            if newcomponent is None:
                 continue
-            self._diffComponents(component1, component2, rids)
+            self._diffComponents(oldcomponent, newcomponent, rids)
         
-        # Now verify that each additional component in set1 matches a derived component in set2
-        for key in set2 - set1:
-            component1 = self.calendar1.deriveInstance(key[2])
-            if component1 is None:
+        # Now verify that each additional component in oldset matches a derived component in newset
+        for key in newset - oldset:
+            oldcomponent = self.oldcalendar.deriveInstance(key[2])
+            if oldcomponent is None:
                 continue
-            component2 = map2[key]
-            self._diffComponents(component1, component2, rids)
+            newcomponent = newmap[key]
+            self._diffComponents(oldcomponent, newcomponent, rids)
         
         return rids
 
-    def _attendeeDuplicateAndNormalize(self, comp):
+    def _componentDuplicateAndNormalize(self, comp):
         comp = comp.duplicate()
         comp.normalizePropertyValueLists("EXDATE")
         comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+        comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
+        comp.removeAlarms()
         comp.normalizeAll()
         comp.normalizeAttachments()
         iTipGenerator.prepareSchedulingMessage(comp, reply=True)
@@ -669,8 +681,8 @@ class iCalDiff(object):
             return
         
         # Duplicate then normalize for comparison
-        comp1 = self._attendeeDuplicateAndNormalize(comp1)
-        comp2 = self._attendeeDuplicateAndNormalize(comp2)
+        comp1 = self._componentDuplicateAndNormalize(comp1)
+        comp2 = self._componentDuplicateAndNormalize(comp2)
 
         # Diff all the properties
         comp1.transformAllFromNative()
@@ -710,10 +722,30 @@ class iCalDiff(object):
 
     def _logDiffError(self, title):
 
-        diff = "\n".join(unified_diff(
-            str(self.calendar1).split("\n"),
-            str(self.calendar2).split("\n"),
+        strcal1 = str(self.oldcalendar)
+        strcal2 = str(self.newcalendar)
+        strdiff = "\n".join(unified_diff(
+            strcal1.split("\n"),
+            strcal2.split("\n"),
             fromfile='Existing Calendar Object',
             tofile='New Calendar Object',
         ))
-        log.debug("%s:\n%s" % (title, diff,))
+        
+        logstr = """%s
+
+------ Existing Calendar Data ------
+%s
+------ New Calendar Data ------
+%s
+------ Diff ------
+%s
+""" % (title, strcal1, strcal2, strdiff,)
+
+        loggedUID = self.oldcalendar.resourceUID()
+        if loggedUID:
+            loggedUID = loggedUID.encode("base64")[:-1]
+        else:
+            loggedUID = "Unknown"
+        loggedName = accounting.emitAccounting("Implicit Errors", loggedUID, logstr)
+        if loggedName:
+            log.err("Generating Implicit Error accounting at path: %s" % (loggedName,))
