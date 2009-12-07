@@ -568,44 +568,45 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
 
         @return: a deferred returning a C{set} of members.
         """
+        def gotCachedMembers(members):
+            if members is not None:
+                return members
 
-        def _members():
-            return set([
+            # Cache miss; compute members and update cache
+            members = set([
                 row[0] for row in
                 self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID)
             ])
-
-        def gotCachedMembers(members):
-            if members is None:
-                # Cache miss; compute members and update cache
-                members = _members()
-                d = self._memcacher.setMembers(principalUID, members)
-                d.addCallback(lambda _: members)
-                return d
-            else:
-                return members
+            d = self._memcacher.setMembers(principalUID, members)
+            d.addCallback(lambda _: members)
+            return d
 
         d = self._memcacher.getMembers(principalUID)
         d.addCallback(gotCachedMembers)
         return d
 
-    @inlineCallbacks
     def getMemberships(self, principalUID):
         """
         Return the list of group principal UIDs the specified principal is a member of.
         
         @return: a deferred returning a C{set} of memberships.
         """
+        def gotCachedMemberships(memberships):
+            if memberships is not None:
+                return memberships
 
-        def _members():
-            return set([row[0] for row in self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalUID)])
+            # Cache miss; compute memberships and update cache
+            memberships = set([
+                row[0] for row in
+                self._db_execute("select GROUPNAME from GROUPS where MEMBER = :1", principalUID)
+            ])
+            d = self._memcacher.setMemberships(principalUID, memberships)
+            d.addCallback(lambda _: memberships)
+            return d
 
-        # Pull from cache
-        result = yield self._memcacher.getMemberships(principalUID)
-        if result is None:
-            result = _members()
-            yield self._memcacher.setMemberships(principalUID, result)
-        returnValue(result)
+        d = self._memcacher.getMemberships(principalUID)
+        d.addCallback(gotCachedMemberships)
+        return d
 
     def _add_to_db(self, principalUID, members):
         """
