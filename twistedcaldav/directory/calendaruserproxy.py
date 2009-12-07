@@ -475,8 +475,8 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
         remove_members = current_members.difference(update_members)
         add_members = update_members.difference(current_members)
         for member in itertools.chain(remove_members, add_members,):
-            _ignore = yield self._memcacher.deleteMembership(member)
-        _ignore = yield self._memcacher.deleteMember(principalUID)
+            yield self._memcacher.deleteMembership(member)
+        yield self._memcacher.deleteMember(principalUID)
 
     def setGroupMembersInDatabase(self, principalUID, members):
         """
@@ -534,13 +534,13 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
 
             elif overdue is None:
                 # No timer was previously set
-                self.log_debug("Delaying removal of missing proxy principal '%s'" %
-                    (principalUID,))
+                self.log_debug("Delaying removal of missing proxy principal '%s'"
+                               % (principalUID,))
                 self._memcacher.setDeletionTimer(principalUID, delay=delay)
                 returnValue(None)
 
-        self.log_warn("Removing missing proxy principal for '%s'" %
-            (principalUID,))
+        self.log_warn("Removing missing proxy principal for '%s'"
+                      % (principalUID,))
 
         for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
             groupUID = "%s#%s" % (principalUID, suffix,)
@@ -562,7 +562,6 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
         self._db_commit()
         self._memcacher.clearDeletionTimer(principalUID)
 
-    @inlineCallbacks
     def getMembers(self, principalUID):
         """
         Return the list of group member UIDs for the specified principal.
@@ -571,14 +570,24 @@ class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
         """
 
         def _members():
-            return set([row[0] for row in self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID)])
+            return set([
+                row[0] for row in
+                self._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", principalUID)
+            ])
 
-        # Pull from cache
-        result = yield self._memcacher.getMembers(principalUID)
-        if result is None:
-            result = _members()
-            yield self._memcacher.setMembers(principalUID, result)
-        returnValue(result)
+        def gotCachedMembers(members):
+            if members is None:
+                # Cache miss; compute members and update cache
+                members = _members()
+                d = self._memcacher.setMembers(principalUID, members)
+                d.addCallback(lambda _: members)
+                return d
+            else:
+                return members
+
+        d = self._memcacher.getMembers(principalUID)
+        d.addCallback(gotCachedMembers)
+        return d
 
     @inlineCallbacks
     def getMemberships(self, principalUID):
