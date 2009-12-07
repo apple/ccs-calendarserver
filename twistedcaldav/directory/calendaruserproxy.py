@@ -354,11 +354,15 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     def expandedGroupMembers(self):
         return self._expandMemberUIDs(infinity=True)
 
-    @inlineCallbacks
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
-        memberships = yield self._index().getMemberships(self.uid)
-        returnValue([p for p in [self.pcollection.principalForUID(uid) for uid in memberships] if p])
+        d = self._index().getMemberships(self.uid)
+        d.addCallback(lambda memberships: [
+            p for p
+            in [self.pcollection.principalForUID(uid) for uid in memberships]
+            if p
+        ])
+        return d
 
 class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
     """
