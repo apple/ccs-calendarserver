@@ -23,8 +23,7 @@ __all__ = [
     "CalendarUserProxyDatabase",
 ]
 
-from twisted.internet.defer import returnValue
-from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -211,11 +210,12 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             
         returnValue(True)
 
-    @inlineCallbacks
     def setGroupMemberSetPrincipals(self, principals):
         # Map the principals to UIDs.
-        uids = [p.principalUID() for p in principals]
-        yield self._index().setGroupMembers(self.uid, uids)
+        return self._index().setGroupMembers(
+            self.uid,
+            [p.principalUID() for p in principals],
+        )
 
     ##
     # HTTP
