@@ -123,7 +123,7 @@ def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
         if inboxItemFile.fp.exists():
             inboxItemFile.fp.remove()
 
-    d = scheduler.doSchedulingViaPUT(originator, recipients, calendar, internal_request=False))
+    d = scheduler.doSchedulingViaPUT(originator, recipients, calendar, internal_request=False)
     d.addCallback(removeItem)
     return d
 
