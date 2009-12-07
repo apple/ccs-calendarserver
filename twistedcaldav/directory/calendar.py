@@ -27,7 +27,7 @@ __all__ = [
     "DirectoryCalendarHomeResource",
 ]
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
@@ -411,18 +411,20 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
 
         return davxml.ACL(*aces)
 
-    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        def gotACL(wikiACL):
+            if wikiACL is not None:
+                # ACL depends on wiki server...
+                log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
+                return succeed(wikiACL)
+            else:
+                # ...otherwise permissions are fixed, and are not subject to
+                # inheritance rules, etc.
+                return succeed(self.defaultAccessControlList())
 
-        wikiACL = (yield getWikiACL(self, request))
-        if wikiACL is not None:
-            # ACL depends on wiki server...
-            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
-            returnValue(wikiACL)
-        else:
-            # ...otherwise permissions are fixed, and are not subject to
-            # inheritance rules, etc.
-            returnValue(self.defaultAccessControlList())
+        d = getWikiACL(self, request)
+        d.addCallback(gotACL)
+        return d
 
     def principalCollections(self):
         return self.parent.principalCollections()
