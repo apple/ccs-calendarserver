@@ -268,15 +268,14 @@ Additions:
      d.addErrback(onError)
      return d
 
- * When using ``waitForDeferred()`` in a deferredGenerator, ``x`` may
-   be used to clear the deferred if the deferred result will be ignored.
+ * We prefer ``inlineCallbacks`` over ``deferredGenerator``.
+   ``inlineCallbacks`` are more readable, and we do not support Python
+   versions old enough that ``deferredGenerator`` would be necessary.
 
-   ::
-
-     x = waitForDeferred(doThisAndThat())
-     yield x
-     x.getResult()
-     del x # Optional, but should be safe
+ * That said, avoid using ``inlineCallbacks`` when chaining deferreds
+   is straightforward, as they are more expensive.  Use
+   ``inlineCallbacks`` when necessary for keeping code maintainable,
+   such as when creating serialized deferreds in a for loop.
 
  * ``_`` may be used to denote unused callback arguments:
 

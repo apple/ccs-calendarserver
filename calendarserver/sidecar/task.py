@@ -25,7 +25,7 @@ from calendarserver.provision.root import RootResource
 from time import sleep
 from twisted.application.service import Service, IServiceMaker
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, succeed
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
@@ -56,22 +56,26 @@ class FakeRequest(object):
         self._urlsByResource = {}
         self.headers = Headers()
 
-    @inlineCallbacks
     def _getChild(self, resource, segments):
         if not segments:
             returnValue(resource)
 
-        child, remaining = (yield resource.locateChild(self, segments))
-        returnValue((yield self._getChild(child, remaining)))
+        d = resource.locateChild(self, segments)
+        d.addCallback(lambda location: self._getChild(*location))
+        return d
 
-    @inlineCallbacks
     def locateResource(self, url):
         url = url.strip("/")
         segments = url.split("/")
-        resource = (yield self._getChild(self.rootResource, segments))
-        if resource:
-            self._rememberResource(resource, url)
-        returnValue(resource)
+
+        def remember(resource):
+            if resource:
+                self._rememberResource(resource, url)
+            return resource
+
+        d = self._getChild(self.rootResource, segments)
+        d.addCallback(remember)
+        return d
 
     def _rememberResource(self, resource, url):
         self._resourcesByURL[url] = resource
@@ -87,7 +91,6 @@ class FakeRequest(object):
     def addResponseFilter(*args, **kwds):
         pass
 
-@inlineCallbacks
 def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
     log.debug("Processing inbox item %s" % (inboxItemFile,))
 
@@ -102,7 +105,7 @@ def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
     try:
         method = calendar.propertyValue("METHOD")
     except ValueError:
-        returnValue(None)
+        return succeed(None)
 
     if method == "REPLY":
         # originator is attendee sending reply
@@ -115,12 +118,14 @@ def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
     originator = LocalCalendarUser(originator, originatorPrincipal)
     recipients = (owner,)
     scheduler = DirectScheduler(FakeRequest(rootResource, "PUT"), inboxItemFile)
-    result = (yield scheduler.doSchedulingViaPUT(originator, recipients,
-        calendar, internal_request=False))
 
-    if os.path.exists(inboxItemFile.fp.path):
-        os.remove(inboxItemFile.fp.path)
+    def removeItem(_):
+        if inboxItemFile.fp.exists():
+            inboxItemFile.fp.remove()
 
+    d = scheduler.doSchedulingViaPUT(originator, recipients, calendar, internal_request=False))
+    d.addCallback(removeItem)
+    return d
 
 
 class Task(object):
@@ -130,27 +135,25 @@ class Task(object):
         self.taskName = fileName.split(".")[0]
         self.taskFile = os.path.join(self.service.processingDir, fileName)
 
-    @inlineCallbacks
     def run(self):
-        methodName = "task_%s" % (self.taskName,)
-        method = getattr(self, methodName, None)
-        if method:
-            try:
-                log.warn("Running task '%s'" % (self.taskName))
-                yield method()
-                log.warn("Completed task '%s'" % (self.taskName))
-            except Exception, e:
-                log.error("Failed task '%s' (%s)" % (self.taskName, e))
-                os.remove(self.taskFile)
-                raise
-        else:
-            log.error("Unknown task requested: '%s'" % (self.taskName))
+        method = getattr(self, "task_%s" % (self.taskName,), None)
+
+        if method is None:
+            log.error("Unknown task requested: %s" % (self.taskName))
             os.remove(self.taskFile)
-            returnValue(None)
+            return succeed(None)
 
-    @inlineCallbacks
+        try:
+            log.warn("Running task: %s" % (self.taskName))
+            d = method()
+            d.addCallback(lambda _: log.warn("Completed task: %s" % (self.taskName)))
+            return d
+        except Exception, e:
+            log.error("Failed task '%s' (%s)" % (self.taskName, e))
+            os.remove(self.taskFile)
+            raise
+
     def task_scheduleinboxes(self):
-
         calendars = self.service.root.getChild("calendars")
         uidDir = calendars.getChild("__uids__")
 
@@ -174,20 +177,24 @@ class Task(object):
 
             inboxItemFile = inboxFile.getChild(fileName)
 
-            yield processInboxItem(
+            def processed(_):
+                inboxItems.remove(inboxItem)
+
+                # Rewrite the task file in case we exit before we're done
+                with open(self.taskFile + ".tmp", "w") as output:
+                    for inboxItem in inboxItems:
+                        output.write("%s\n" % (inboxItem,))
+                os.rename(self.taskFile + ".tmp", self.taskFile)
+
+            d = processInboxItem(
                 self.service.root,
                 self.service.directory,
                 inboxFile,
                 inboxItemFile,
                 uuid
             )
-            inboxItems.remove(inboxItem)
-
-            # Rewrite the task file in case we exit before we're done
-            with open(self.taskFile + ".tmp", "w") as output:
-                for inboxItem in inboxItems:
-                    output.write("%s\n" % (inboxItem,))
-            os.rename(self.taskFile + ".tmp", self.taskFile)
+            d.addCallback(processed)
+            return d
 
         os.remove(self.taskFile)
 
