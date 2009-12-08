@@ -62,7 +62,6 @@ class TestDirectoryService (CachingDirectoryService):
                         firstName             = "",
                         lastName              = "",
                         emailAddresses        = record.get("email"),
-                        calendarUserAddresses = record.get("cua"),
                         enabledForCalendaring = True,
                     ) 
                     self.recordCacheForType(recordType).addRecord(cacheRecord,

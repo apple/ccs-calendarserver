@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -23,7 +24,6 @@ __all__ = [
     "DirectoryRecord",
     "DirectoryError",
     "DirectoryConfigurationError",
-    "UnknownRecordError",
     "UnknownRecordTypeError",
 ]
 
@@ -193,7 +193,7 @@ class DirectoryService(LoggingMixIn):
                         return True
                 elif matchType == 'contains':
                     try:
-                        _ignore_discard = testValue.index(value)
+                        testValue.index(value)
                         return True
                     except ValueError:
                         pass
@@ -295,7 +295,6 @@ class DirectoryRecord(LoggingMixIn):
     def __init__(
         self, service, recordType, guid, shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(),
         enabledForCalendaring=None,
         uid=None,
     ):
@@ -321,12 +320,6 @@ class DirectoryRecord(LoggingMixIn):
         if enabledForCalendaring and recordType == service.recordType_groups:
             raise AssertionError("Groups may not be enabled for calendaring")
 
-        if enabledForCalendaring:
-            calendarUserAddresses = set(calendarUserAddresses)
-            calendarUserAddresses.add("urn:uuid:%s" % (guid,))
-        else:
-            assert len(calendarUserAddresses) == 0
-
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
@@ -338,7 +331,25 @@ class DirectoryRecord(LoggingMixIn):
         self.lastName              = lastName
         self.emailAddresses        = emailAddresses
         self.enabledForCalendaring = enabledForCalendaring
-        self.calendarUserAddresses = calendarUserAddresses
+
+
+    def get_calendarUserAddresses(self):
+        """
+        Dynamically construct a calendarUserAddresses attribute which describes
+        this L{DirectoryRecord}.
+
+        @see: L{IDirectoryRecord.calendarUserAddresses}.
+        """
+        if not self.enabledForCalendaring:
+            return frozenset()
+        return frozenset(
+            ["urn:uuid:%s" % (self.guid,)] +
+            ["mailto:%s" % (emailAddress,)
+             for emailAddress in self.emailAddresses]
+        )
+
+    calendarUserAddresses = property(get_calendarUserAddresses)
+
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):

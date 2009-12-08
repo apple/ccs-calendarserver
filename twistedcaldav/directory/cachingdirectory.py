@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_cachedirectory -*-
 ##
 # Copyright (c) 2009 Apple Inc. All rights reserved.
 #
@@ -26,7 +27,7 @@ __all__ = [
 
 
 import time
-import types
+
 import memcacheclient
 import base64
 
@@ -103,16 +104,13 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                     indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
                 except AttributeError:
                     continue
-                if isinstance(indexData, str):
-                    indexData = (indexData,)
-                if type(indexData) in (types.ListType, types.TupleType, set):
-                    for item in indexData:
-                        try:
-                            del self.recordsIndexedBy[indexType][item]
-                        except KeyError:
-                            self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
-                else:
-                    raise AssertionError("Data from record attribute must be str, list or tuple")
+                if isinstance(indexData, basestring):
+                    indexData = [indexData]
+                for item in indexData:
+                    try:
+                        del self.recordsIndexedBy[indexType][item]
+                    except KeyError:
+                        self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
         
     def findRecord(self, indexType, indexKey):
         return self.recordsIndexedBy[indexType].get(indexKey)
@@ -338,7 +336,6 @@ class CachingDirectoryRecord(DirectoryRecord):
     def __init__(
         self, service, recordType, guid, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(),
         enabledForCalendaring=None, uid=None,
     ):
         super(CachingDirectoryRecord, self).__init__(
@@ -351,7 +348,6 @@ class CachingDirectoryRecord(DirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            calendarUserAddresses = calendarUserAddresses,
             enabledForCalendaring = enabledForCalendaring,
             uid                   = uid,
         )

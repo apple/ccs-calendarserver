@@ -70,6 +70,8 @@ class IDirectoryService(Interface):
     def recordWithCalendarUserAddress(address):
         """
         @param address: the calendar user address of the record to look up.
+        @type address: C{str}
+
         @return: an L{IDirectoryRecord} with the given calendar user
             address, or C{None} if no such record is found.  Note that
             some directory services may not be able to locate records
@@ -100,7 +102,18 @@ class IDirectoryRecord(Interface):
     firstName             = Attribute("The first name of this record.")
     lastName              = Attribute("The last name of this record.")
     emailAddress          = Attribute("The email address of this record.")
-    calendarUserAddresses = Attribute("A set of calendar user addresses for this record.")
+    calendarUserAddresses = Attribute(
+        """
+        An iterable of C{str}s representing calendar user addresses for this
+        L{IDirectoryRecord}.
+
+        A "calendar user address", as defined by U{RFC 2445 section
+        4.3.3<http://xml.resource.org/public/rfc/html/rfc2445.html#anchor50>},
+        is simply an URI which identifies this user.  Some of these URIs are
+        relative references to URLs from the root of the calendar server's HTTP
+        hierarchy.
+        """
+    )
     enabledForCalendaring = Attribute("Determines whether this record should be provisioned with a calendar home.")
 
     def members():

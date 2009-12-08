@@ -178,26 +178,6 @@ class OpenDirectoryService(CachingDirectoryService):
             ):
                 yield GUID
 
-    def _calendarUserAddresses(self, recordType, recordData):
-        """
-        Extract specific attributes from the directory record for use as calendar user address.
-        
-        @param recordData: a C{dict} containing the attributes retrieved from the directory.
-        @return: a C{set} of C{str} for each expanded calendar user address.
-        """
-        # Now get the addresses
-        result = set()
-        
-        # Add each email address as a mailto URI
-        emails = recordData.get(dsattributes.kDSNAttrEMailAddress)
-        if emails is not None:
-            if isinstance(emails, str):
-                emails = [emails]
-            for email in emails:
-                result.add("mailto:%s" % (email.lower(),))
-                
-        return result
-
     def recordTypes(self):
         return (
             self.recordType_users,
@@ -633,9 +613,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 else:
                     enabledForCalendaring = True
 
-            if enabledForCalendaring:
-                calendarUserAddresses = self._calendarUserAddresses(recordType, value)
-            else:
+            if not enabledForCalendaring:
                 # Some records we want to keep even though they are not enabled for calendaring.
                 # Others we discard.
                 if recordType not in (
@@ -652,7 +630,6 @@ class OpenDirectoryService(CachingDirectoryService):
                     "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
                     % (recordType, recordShortName)
                 )
-                calendarUserAddresses = ()
 
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
@@ -680,7 +657,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
                 emailAddresses        = recordEmailAddresses,
-                calendarUserAddresses = calendarUserAddresses,
                 enabledForCalendaring = enabledForCalendaring,
                 memberGUIDs           = memberGUIDs,
             )
@@ -829,9 +805,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
         fullName, firstName, lastName, emailAddresses,
-        calendarUserAddresses,
-        enabledForCalendaring,
-        memberGUIDs,
+        enabledForCalendaring, memberGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,
@@ -843,8 +817,6 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            calendarUserAddresses = calendarUserAddresses,
-            enabledForCalendaring = enabledForCalendaring,
         )
         self.nodeName = nodeName
         self._memberGUIDs = tuple(memberGUIDs)

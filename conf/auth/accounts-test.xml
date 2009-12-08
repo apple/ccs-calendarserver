@@ -44,7 +44,6 @@ limitations under the License.
     <first-name>User</first-name>
     <last-name>%02d</last-name>
     <email-address>user%02d@example.com</email-address>
-    <cuaddr>mailto:user%02d@example.com</cuaddr>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
@@ -53,7 +52,7 @@ limitations under the License.
     <name>Public %02d</name>
     <first-name>Public</first-name>
     <last-name>%02d</last-name>
-    <cuaddr>mailto:public%02d@example.com</cuaddr>
+    <email-address>public%02d@example.com</email-address>
   </user>
   <location repeat="10">
     <uid>location%02d</uid>

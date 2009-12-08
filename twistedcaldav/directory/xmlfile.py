@@ -78,24 +78,24 @@ class XMLDirectoryService(CachingDirectoryService):
         
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
-                
+                record = XMLDirectoryRecord(
+                    service       = self,
+                    recordType    = recordType,
+                    shortNames    = tuple(xmlPrincipal.shortNames),
+                    xmlPrincipal  = xmlPrincipal,
+                )
+
                 matched = False
                 if indexType == self.INDEX_TYPE_GUID:
                     matched = indexKey == xmlPrincipal.guid
                 elif indexType == self.INDEX_TYPE_SHORTNAME:
                     matched = indexKey in xmlPrincipal.shortNames
                 elif indexType == self.INDEX_TYPE_CUA:
-                    matched = indexKey in xmlPrincipal.calendarUserAddresses
+                    matched = indexKey in record.calendarUserAddresses
                 
                 if matched:
-                    record = XMLDirectoryRecord(
-                        service       = self,
-                        recordType    = recordType,
-                        shortNames    = tuple(xmlPrincipal.shortNames),
-                        xmlPrincipal  = xmlPrincipal,
-                    )
-                    self.recordCacheForType(recordType).addRecord(record,
-                        indexType, indexKey)
+                    self.recordCacheForType(recordType).addRecord(
+                        record, indexType, indexKey)
             
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
@@ -191,7 +191,6 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,
             emailAddresses        = xmlPrincipal.emailAddresses,
-            calendarUserAddresses = xmlPrincipal.calendarUserAddresses,
             enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
         )
 

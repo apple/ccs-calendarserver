@@ -52,7 +52,6 @@ ELEMENT_LAST_NAME         = "last-name"
 ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
-ELEMENT_CUADDR            = "cuaddr"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
 ELEMENT_DISABLECALENDAR   = "disable-calendar"
 ELEMENT_PROXIES           = "proxies"
@@ -264,12 +263,6 @@ class XMLAccountRecord (object):
                 emailAddresses.add(emailAddr % ctr)
             else:
                 emailAddresses.add(emailAddr)
-        calendarUserAddresses = set()
-        for cuaddr in self.calendarUserAddresses:
-            if cuaddr.find("%") != -1:
-                calendarUserAddresses.add(cuaddr % ctr)
-            else:
-                calendarUserAddresses.add(cuaddr)
         
         result = XMLAccountRecord(self.recordType)
         result.shortNames = shortNames
@@ -280,7 +273,6 @@ class XMLAccountRecord (object):
         result.lastName = lastName
         result.emailAddresses = emailAddresses
         result.members = self.members
-        result.calendarUserAddresses = calendarUserAddresses
         result.autoSchedule = self.autoSchedule
         result.enabledForCalendaring = self.enabledForCalendaring
         result.proxies = self.proxies
@@ -317,9 +309,6 @@ class XMLAccountRecord (object):
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
-            elif child_name == ELEMENT_CUADDR:
-                if child.firstChild is not None:
-                    self.calendarUserAddresses.add(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_AUTOSCHEDULE:
                 self.autoSchedule = True
             elif child_name == ELEMENT_DISABLECALENDAR:

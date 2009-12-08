@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -865,9 +866,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, uri))
             if config.SSLPort:
                 addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
-
-        # Add a UUID URI based on the record's GUID to the list.
-        addresses.add("urn:uuid:%s" % (self.record.guid,))
 
         return addresses
 

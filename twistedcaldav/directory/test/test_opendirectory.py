@@ -72,7 +72,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                calendarUserAddresses = set(("mailtoguid@example.com",)),
                 enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
@@ -90,7 +89,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                calendarUserAddresses = set(("mailtoguid@example.com",)),
                 enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
@@ -112,7 +110,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                calendarUserAddresses = set(("mailtoguid@example.com",)),
                 enabledForCalendaring = True,
                 memberGUIDs           = [],
             )

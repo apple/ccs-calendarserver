@@ -28,7 +28,7 @@ limitations under the License.
     <uid>test</uid>
     <password>test</password>
     <name>Test User</name>
-    <cuaddr>mailto:testuser@example.com</cuaddr>
+    <email-address>testuser@example.com</email-address>
   </user>
   <group>
     <uid>users</uid>
