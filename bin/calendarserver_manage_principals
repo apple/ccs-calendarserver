@@ -16,7 +16,6 @@
 # limitations under the License.
 ##
 
-from __future__ import with_statement
 import sys
 
 #PYTHONPATH
@@ -38,6 +37,8 @@ if __name__ == "__main__":
 
         if child.wait() == 0:
             sys.path[0:0] = path.split(":")
+
+        sys.argv[1:1] = ["-f", join(home, "conf", "caldavd-dev.plist")]
 
     from calendarserver.tools.principals import main
     main()

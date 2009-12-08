@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 ##
 # Copyright (c) 2006-2007 Apple Inc. All rights reserved.
 #
@@ -36,6 +37,8 @@ if __name__ == "__main__":
 
         if child.wait() == 0:
             sys.path[0:0] = path.split(":")
+
+        sys.argv[1:1] = ["-f", join(home, "conf", "caldavd-dev.plist")]
 
     from calendarserver.tools.warmup import main
     main()
