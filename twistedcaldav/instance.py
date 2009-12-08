@@ -24,9 +24,9 @@ from twistedcaldav.dateops import normalizeForIndex, compareDateTime, difference
 
 from vobject.icalendar import utc
 
-# The maximum number of instances we will ezpand out to.
+# The maximum number of instances we will expand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
-max_allowed_instances = 1000
+max_allowed_instances = 3000
 
 class TooManyInstancesError(Exception):
     def __init__(self):
