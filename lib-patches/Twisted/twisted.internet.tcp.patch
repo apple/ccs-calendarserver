@@ -1,0 +1,13 @@
+Index: twisted/internet/tcp.py
+===================================================================
+--- twisted/internet/tcp.py	(revision 19773)
++++ twisted/internet/tcp.py	(working copy)
+@@ -772,6 +772,8 @@
+                     return
+                 try:
+                     skt, addr = self.socket.accept()
++                    if addr is None: # sometimes this happens on OS X
++                        raise socket.error(ECONNABORTED)
+                 except socket.error, e:
+                     if e.args[0] in (EWOULDBLOCK, EAGAIN):
+                         self.numberAccepts = i
