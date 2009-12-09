@@ -272,6 +272,7 @@ defaultConfig = {
     "IdleConnectionTimeOut": 15,
     "UIDReservationTimeOut": 30 * 60,
 
+    "MaxAllowedInstances": 3000,
 
     #
     # Localization

@@ -20,21 +20,17 @@ iCalendar Recurrence Expansion Utilities
 
 import datetime
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, compareDateTime, differenceDateTime, periodEnd
 
 from vobject.icalendar import utc
 
-# The maximum number of instances we will expand out to.
-# Raise a TooManyInstancesError exception if we exceed this.
-max_allowed_instances = 3000
-
-class TooManyInstancesError(Exception):
-    def __init__(self):
-        Exception.__init__(self)
-        self.max_allowed = max_allowed_instances
-
-    def __repr__(self):
-        return "<%s max:%s>" % (self.__class__.__name__, self.max_allowed)
+class TooManyInstancesError(RuntimeError):
+    def __init__(self, count):
+        RuntimeError.__init__(self, "Too many recurrance instances (%s > %s)"
+                              % (count, config.MaxAllowedInstances))
+        self.count = count
+        self.max_allowed = config.MaxAllowedInstances
 
 class Instance(object):
     
@@ -162,8 +158,8 @@ class InstanceList(object):
         self.instances[str(instance.rid)] = instance
         
         # Check for too many instances
-        if len(self.instances) > max_allowed_instances:
-            raise TooManyInstancesError()
+        if len(self.instances) > config.MaxAllowedInstances:
+            raise TooManyInstancesError(len(self.instances))
 
     def _addMasterEventComponent(self, component, limit):
         """
