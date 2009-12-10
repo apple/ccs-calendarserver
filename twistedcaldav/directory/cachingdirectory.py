@@ -93,7 +93,11 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             if useMemcache:
                 key = "dir|%s|%s" % (indexType, indexKey)
                 self.log_debug("Memcache: storing %s" % (key,))
-                self.directoryService.memcacheSet(key, record)
+                try:
+                    self.directoryService.memcacheSet(key, record)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to store %s" % (key,))
+                    pass
 
 
     def removeRecord(self, record):
@@ -291,8 +295,14 @@ class CachingDirectoryService(DirectoryService):
             # Check memcache
             if config.Memcached.ClientEnabled:
                 key = "dir|%s|%s" % (indexType, indexKey)
-                record = self.memcacheGet(key)
                 self.log_debug("Memcache: checking %s" % (key,))
+
+                try:
+                    record = self.memcacheGet(key)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to get %s" % (key,))
+                    record = None
+
                 if record is None:
                     self.log_debug("Memcache: miss %s" % (key,))
                 else:
@@ -301,7 +311,11 @@ class CachingDirectoryService(DirectoryService):
                     return record
 
                 # Check negative memcache
-                val = self.memcacheGet("-%s" % (key,))
+                try:
+                    val = self.memcacheGet("-%s" % (key,))
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to get -%s" % (key,))
+                    val = None
                 if val == 1:
                     self.log_debug("Memcache: negative %s" % (key,))
                     self._disabledKeys[indexType][indexKey] = time.time()
@@ -324,7 +338,12 @@ class CachingDirectoryService(DirectoryService):
 
             if config.Memcached.ClientEnabled:
                 self.log_debug("Memcache: storing (negative) %s" % (key,))
-                self.memcacheSet("-%s" % (key,), 1)
+                try:
+                    self.memcacheSet("-%s" % (key,), 1)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to set -%s" % (key,))
+                    pass
+
 
         return None
 
