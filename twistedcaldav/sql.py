@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,23 +99,8 @@ class AbstractSQLDatabase (object):
                 # Create CALDAV table if needed
 
                 if self._test_schema_table(q):
-                    q.execute(
-                        """
-                        select VALUE from CALDAV
-                         where KEY = 'SCHEMA_VERSION'
-                        """)
-                    version = q.fetchone()
-
-                    if version is not None: version = version[0]
-
-                    q.execute(
-                        """
-                        select VALUE from CALDAV
-                         where KEY = 'TYPE'
-                        """)
-                    dbtype = q.fetchone()
-
-                    if dbtype is not None: dbtype = dbtype[0]
+                    
+                    version, dbtype = self._get_schema_version(q)
 
                     if (version != self._db_version()) or (dbtype != self._db_type()):
 
@@ -125,13 +110,6 @@ class AbstractSQLDatabase (object):
                         self._db_connection.close()
                         del(self._db_connection)
 
-                        if version != self._db_version():
-                            log.err("Database %s has different schema (v.%s vs. v.%s)"
-                                    % (db_filename, version, self._db_version()))
-                            
-                            # Upgrade the DB
-                            return self._db_upgrade(version)
-
                         if dbtype != self._db_type():
                             log.err("Database %s has different type (%s vs. %s)"
                                     % (db_filename, dbtype, self._db_type()))
@@ -139,6 +117,13 @@ class AbstractSQLDatabase (object):
                             # Delete this index and start over
                             os.remove(db_filename)
                             return self._db()
+
+                        if version != self._db_version():
+                            log.err("Database %s has different schema (v.%s vs. v.%s)"
+                                    % (db_filename, version, self._db_version()))
+                            
+                            # Upgrade the DB
+                            return self._db_upgrade(version)
 
                 else:
                     self._db_init(db_filename, q)
@@ -154,6 +139,27 @@ class AbstractSQLDatabase (object):
          where TYPE = 'table' and NAME = 'CALDAV'
         """)
         return q.fetchone()
+
+    def _get_schema_version(self, q):
+        q.execute(
+            """
+            select VALUE from CALDAV
+             where KEY = 'SCHEMA_VERSION'
+            """)
+        version = q.fetchone()
+
+        if version is not None: version = version[0]
+
+        q.execute(
+            """
+            select VALUE from CALDAV
+             where KEY = 'TYPE'
+            """)
+        dbtype = q.fetchone()
+
+        if dbtype is not None: dbtype = dbtype[0]
+
+        return version, dbtype
 
     def _db_init(self, db_filename, q):
         """
@@ -228,24 +234,38 @@ class AbstractSQLDatabase (object):
         if do_commit:
             self._db_commit()
 
+    def _db_can_upgrade(self, old_version):
+        
+        return self.persistent
+
     def _db_upgrade(self, old_version):
         """
         Upgrade the database tables.
         """
         
-        if self.persistent:
+        if self._db_can_upgrade(old_version):
             self._db_connection = sqlite.connect(self.dbpath, isolation_level=None)
             q = self._db_connection.cursor()
-            self._db_upgrade_data_tables(q, old_version)
-            self._db_upgrade_schema(q)
+            q.execute("begin exclusive transaction")
+
+            # We re-check whether the schema version again AFTER we've got an exclusive
+            # lock as some other server process may have snuck in and already upgraded it
+            # before we got the lock, or whilst we were waiting for it.
+            version, _ignore_dbtype = self._get_schema_version(q)
+
+            if version != self._db_version():
+                self._db_upgrade_data_tables(q, old_version)
+                self._db_upgrade_schema(q)
+
+            q.execute("commit")
             self._db_close()
-            return self._db()
         else:
             # Non-persistent DB's by default can be removed and re-created. However, for simple
             # DB upgrades they SHOULD override this method and handle those for better performance.
             os.remove(self.dbpath)
-            return self._db()
-    
+
+        return self._db()
+
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
