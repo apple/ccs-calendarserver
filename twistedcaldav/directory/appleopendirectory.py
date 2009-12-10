@@ -760,7 +760,9 @@ class OpenDirectoryService(CachingDirectoryService):
         """
 
         if self.node == "/Search":
-            nodes = opendirectory.listNodes(self.directory)
+            result = opendirectory.getNodeAttributes(self.directory, "/Search",
+                (dsattributes.kDS1AttrSearchPath,))
+            nodes = result[dsattributes.kDS1AttrSearchPath]
         else:
             nodes = [self.node]
 
