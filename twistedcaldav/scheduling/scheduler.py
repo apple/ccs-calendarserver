@@ -26,7 +26,7 @@ from twisted.web2.dav.http import errorForFailure, messageForFailure, statusForF
 from twisted.web2.http import HTTPError, Response, StatusResponse
 from twisted.web2.http_headers import MimeType
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, dateops
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
@@ -295,7 +295,13 @@ class Scheduler(object):
                 if dtstart is None or dtend is None:
                     log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start/end not valid"))
-                self.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
+
+                # Some clients send floating instead of UTC - coerce to UTC
+                if dtstart.tzinfo is None or dtend.tzinfo is None:
+                    log.err("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start or end not UTC"))
+
+                self.timeRange = TimeRange(start=dateops.toString(dtstart), end=dateops.toString(dtend))
                 self.timeRange.start = dtstart
                 self.timeRange.end = dtend
         
