@@ -340,8 +340,27 @@ class OpenDirectoryService(CachingDirectoryService):
 
     _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
 
+    def _uniqueTupleFromAttribute(self, attribute):
+        if attribute:
+            if isinstance(attribute, str):
+                return (attribute,)
+            else:
+                s = set()
+                return tuple([(s.add(x), x)[1] for x in attribute if x not in s])
+        else:
+            return ()
 
-    def recordsMatchingFields(self, fields, operand="or", recordType=None):
+    def _setFromAttribute(self, attribute, lower=False):
+        if attribute:
+            if isinstance(attribute, str):
+                return set((attribute.lower() if lower else attribute,))
+            else:
+                return set([item.lower() if lower else item for item in attribute])
+        else:
+            return ()
+
+    def recordsMatchingFields(self, fields, operand="or", recordType=None,
+        lookupMethod=opendirectory.queryRecordsWithAttributes_list):
 
         # Note that OD applies case-sensitivity globally across the entire
         # query, not per expression, so the current code uses whatever is
@@ -349,13 +368,56 @@ class OpenDirectoryService(CachingDirectoryService):
 
         def collectResults(results):
             self.log_info("Got back %d records from OD" % (len(results),))
-            for key, val in results:
-                self.log_debug("OD result: %s %s" % (key, val))
+            for key, value in results:
+                self.log_debug("OD result: %s %s" % (key, value))
                 try:
-                    guid = val[dsattributes.kDS1AttrGeneratedUID]
-                    record = self.recordWithGUID(guid)
-                    if record:
-                        yield record
+                    recordNodeName = value.get(
+                        dsattributes.kDSNAttrMetaNodeLocation)
+                    recordShortNames = self._uniqueTupleFromAttribute(
+                        value.get(dsattributes.kDSNAttrRecordName))
+                    if (recordNodeName == "/Local/Default" and not
+                        (config.Scheduling.iMIP.Username in recordShortNames)):
+                        continue
+
+                    recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+                    recordType = value.get(dsattributes.kDSNAttrRecordType)
+                    if isinstance(recordType, list):
+                        recordType = recordType[0]
+                    if not recordType:
+                        continue
+                    recordType = self._fromODRecordTypes[recordType]
+
+                    recordAuthIDs = self._setFromAttribute(
+                        value.get(dsattributes.kDSNAttrAltSecurityIdentities))
+                    recordFullName = value.get(
+                        dsattributes.kDS1AttrDistinguishedName)
+                    recordFirstName = value.get(dsattributes.kDS1AttrFirstName)
+                    recordLastName = value.get(dsattributes.kDS1AttrLastName)
+                    recordEmailAddresses = self._setFromAttribute(
+                        value.get(dsattributes.kDSNAttrEMailAddress),
+                        lower=True)
+
+                    # Create records but don't store them in our index or
+                    # send them to memcached, because these are transient,
+                    # existing only so we can create principal resource
+                    # objects that are used to generate the REPORT result.
+
+                    record = OpenDirectoryRecord(
+                        service               = self,
+                        recordType            = recordType,
+                        guid                  = recordGUID,
+                        nodeName              = recordNodeName,
+                        shortNames            = recordShortNames,
+                        authIDs               = recordAuthIDs,
+                        fullName              = recordFullName,
+                        firstName             = recordFirstName,
+                        lastName              = recordLastName,
+                        emailAddresses        = recordEmailAddresses,
+                        enabledForCalendaring = True,
+                        memberGUIDs           = (),
+                    )
+                    yield record
+
                 except KeyError:
                     pass
 
@@ -382,7 +444,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     (recordTypes, operand, caseless, complexExpression))
 
                 results.extend(
-                    opendirectory.queryRecordsWithAttributes_list(
+                    lookupMethod(
                         directory,
                         complexExpression,
                         caseless,
@@ -410,7 +472,17 @@ class OpenDirectoryService(CachingDirectoryService):
             multiQuery,
             self.directory,
             queries,
-            [ dsattributes.kDS1AttrGeneratedUID ],
+            [
+                dsattributes.kDS1AttrGeneratedUID,
+                dsattributes.kDSNAttrRecordName,
+                dsattributes.kDSNAttrAltSecurityIdentities,
+                dsattributes.kDSNAttrRecordType,
+                dsattributes.kDS1AttrDistinguishedName,
+                dsattributes.kDS1AttrFirstName,
+                dsattributes.kDS1AttrLastName,
+                dsattributes.kDSNAttrEMailAddress,
+                dsattributes.kDSNAttrMetaNodeLocation,
+            ],
             operand
         )
         deferred.addCallback(collectResults)
@@ -509,24 +581,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
-        def _uniqueTupleFromAttribute(attribute):
-            if attribute:
-                if isinstance(attribute, str):
-                    return (attribute,)
-                else:
-                    s = set()
-                    return tuple([(s.add(x), x)[1] for x in attribute if x not in s])
-            else:
-                return ()
-
-        def _setFromAttribute(attribute, lower=False):
-            if attribute:
-                if isinstance(attribute, str):
-                    return set((attribute.lower() if lower else attribute,))
-                else:
-                    return set([item.lower() if lower else item for item in attribute])
-            else:
-                return ()
 
         enabledRecords = []
         disabledRecords = []
@@ -535,15 +589,15 @@ class OpenDirectoryService(CachingDirectoryService):
 
             # Now get useful record info.
             recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
-            recordShortNames     = _uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordShortNames     = self._uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
             recordType           = value.get(dsattributes.kDSNAttrRecordType)
             if isinstance(recordType, list):
                 recordType = recordType[0]
-            recordAuthIDs        = _setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
+            recordAuthIDs        = self._setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
             recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
             recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
             recordLastName       = value.get(dsattributes.kDS1AttrLastName)
-            recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
+            recordEmailAddresses = self._setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if recordNodeName == "/Local/Default" and not (config.Scheduling.iMIP.Username in recordShortNames):

@@ -333,6 +333,16 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         log.debug("No principal for calendar user address: %r" % (address,))
         return None
 
+    def principalForRecord(self, record):
+        if record is None:
+            return None
+
+        parent = self.getChild(uidsResourceName)
+        if record.enabledForCalendaring:
+            principal = DirectoryCalendarPrincipalResource(parent, record)
+        else:
+            principal = DirectoryPrincipalResource(parent, record)
+        return principal
 
     ##
     # Static
