@@ -29,6 +29,7 @@ __all__ = ["MemcachePropertyCollection"]
 
 try:
     from hashlib import md5
+    md5                         # be quiet, pyflakes
 except ImportError:
     from md5 import new as md5
 
@@ -37,6 +38,7 @@ from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn, Logger
@@ -68,6 +70,7 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return MemcachePropertyCollection._memcacheClient
 
+    @inlineCallbacks
     def propertyCache(self):
         # The property cache has this format:
         #  {
@@ -82,13 +85,14 @@ class MemcachePropertyCollection (LoggingMixIn):
         #    ...,
         #  }
         if not hasattr(self, "_propertyCache"):
-            self._propertyCache = self._loadCache()
-        return self._propertyCache
+            self._propertyCache = (yield self._loadCache())
+        returnValue(self._propertyCache)
 
+    @inlineCallbacks
     def childCache(self, child):
         path = child.fp.path
         key = self._keyForPath(path)
-        propertyCache = self.propertyCache()
+        propertyCache = (yield self.propertyCache())
 
         try:
             childCache, token = propertyCache[key]
@@ -100,7 +104,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             #log.error(message)
             #raise AssertionError(message)
 
-        return propertyCache, key, childCache, token
+        returnValue((propertyCache, key, childCache, token))
 
     def _keyForPath(self, path):
         key = "|".join((
@@ -109,22 +113,23 @@ class MemcachePropertyCollection (LoggingMixIn):
         ))
         return md5(key).hexdigest()
 
+    @inlineCallbacks
     def _loadCache(self, childNames=None):
         if childNames is None:
             abortIfMissing = False
-            childNames = self.collection.listChildren()
+            childNames = yield self.collection.listChildren()
         else:
             if childNames:
                 abortIfMissing = True
             else:
-                return {}
+                returnValue({})
 
         self.log_debug("Loading cache for %s" % (self.collection,))
 
         client = self.memcacheClient()
         assert client is not None, "OMG no cache!"
         if client is None:
-            return None
+            returnValue(None)
 
         keys = tuple((
             (self._keyForPath(self.collection.fp.child(childName).path), childName)
@@ -153,12 +158,12 @@ class MemcachePropertyCollection (LoggingMixIn):
             if abortIfMissing:
                 raise MemcacheError("Unable to fully load cache for %s" % (self.collection,))
 
-            loaded = self._buildCache(childNames=missing)
-            loaded = self._loadCache(childNames=(FilePath(name).basename() for name in loaded.iterkeys()))
+            loaded = (yield self._buildCache(childNames=missing))
+            loaded = (yield self._loadCache(childNames=(FilePath(name).basename() for name in loaded.iterkeys())))
 
             result.update(loaded.iteritems())
 
-        return result
+        returnValue(result)
 
     def _storeCache(self, cache):
         self.log_debug("Storing cache for %s" % (self.collection,))
@@ -173,34 +178,33 @@ class MemcachePropertyCollection (LoggingMixIn):
         if client is not None:
             client.set_multi(values, time=self.cacheTimeout)
 
+    @inlineCallbacks
     def _buildCache(self, childNames=None):
         if childNames is None:
-            childNames = self.collection.listChildren()
+            childNames = yield self.collection.listChildren()
         elif not childNames:
-            return {}
+            returnValue({})
 
         self.log_debug("Building cache for %s" % (self.collection,))
 
         cache = {}
 
         for childName in childNames:
-            child = self.collection.getChild(childName)
-            if child is None:
-                continue
+            child = (yield self.collection.getChild(childName))
+            if child is not None:
+                propertyStore = child.deadProperties()
+                props = {}
+                for qname in (yield propertyStore.list(cache=False)):
+                    props[qname] = (yield propertyStore.get(qname, cache=False))
 
-            propertyStore = child.deadProperties()
-            props = {}
-            for qname in propertyStore.list(cache=False):
-                props[qname] = propertyStore.get(qname, cache=False)
-
-            cache[child.fp.path] = props
-
+                cache[child.fp.path] = props
         self._storeCache(cache)
+        returnValue(cache)
 
-        return cache
 
+    @inlineCallbacks
     def setProperty(self, child, property, delete=False):
-        propertyCache, key, childCache, token = self.childCache(child)
+        propertyCache, key, childCache, token = (yield self.childCache(child))
 
         if delete:
             qname = property
@@ -228,12 +232,12 @@ class MemcachePropertyCollection (LoggingMixIn):
 
                 finally:
                     # Re-fetch the properties for this child
-                    loaded = self._loadCache(childNames=(child.fp.basename(),))
+                    loaded = (yield self._loadCache(childNames=(child.fp.basename(),)))
                     propertyCache.update(loaded.iteritems())
 
                 retries -= 1
 
-                propertyCache, key, childCache, token = self.childCache(child)
+                propertyCache, key, childCache, token = (yield self.childCache(child))
 
                 if delete:
                     if childCache.has_key(qname):
@@ -251,10 +255,11 @@ class MemcachePropertyCollection (LoggingMixIn):
     def deleteProperty(self, child, qname):
         return self.setProperty(child, qname, delete=True)
 
+    @inlineCallbacks
     def flushCache(self, child):
         path = child.fp.path
         key = self._keyForPath(path)
-        propertyCache = self.propertyCache()
+        propertyCache = (yield self.propertyCache())
 
         if key in propertyCache:
             del propertyCache[key]
@@ -274,20 +279,22 @@ class MemcachePropertyCollection (LoggingMixIn):
             self.child = child
             self.childPropertyStore = childPropertyStore
 
+        @inlineCallbacks
         def propertyCache(self):
             path = self.child.fp.path
             key = self.parentPropertyCollection._keyForPath(path)
-            parentPropertyCache = self.parentPropertyCollection.propertyCache()
-            return parentPropertyCache.get(key, ({}, None))[0]
+            parentPropertyCache = (yield self.parentPropertyCollection.propertyCache())
+            returnValue((yield parentPropertyCache.get(key, ({}, None)))[0])
 
         def flushCache(self):
             self.parentPropertyCollection.flushCache(self.child)
 
+        @inlineCallbacks
         def get(self, qname, cache=True):
             if cache:
-                propertyCache = self.propertyCache()
+                propertyCache = (yield self.propertyCache())
                 if qname in propertyCache:
-                    return propertyCache[qname]
+                    returnValue(propertyCache[qname])
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
@@ -296,36 +303,42 @@ class MemcachePropertyCollection (LoggingMixIn):
 
             self.log_debug("Read for %s on %s"
                            % (qname, self.childPropertyStore.resource.fp.path))
-            return self.childPropertyStore.get(qname)
+            returnValue((yield self.childPropertyStore.get(qname)))
 
+        @inlineCallbacks
         def set(self, property):
             self.log_debug("Write for %s on %s"
                            % (property.qname(), self.childPropertyStore.resource.fp.path))
 
-            self.parentPropertyCollection.setProperty(self.child, property)
-            self.childPropertyStore.set(property)
+            yield self.parentPropertyCollection.setProperty(self.child, property)
+            yield self.childPropertyStore.set(property)
+            returnValue(None)
 
+        @inlineCallbacks
         def delete(self, qname):
             self.log_debug("Delete for %s on %s"
                            % (qname, self.childPropertyStore.resource.fp.path))
 
-            self.parentPropertyCollection.deleteProperty(self.child, qname)
-            self.childPropertyStore.delete(qname)
+            yield self.parentPropertyCollection.deleteProperty(self.child, qname)
+            yield self.childPropertyStore.delete(qname)
+            returnValue(None)
 
+        @inlineCallbacks
         def contains(self, qname, cache=True):
             if cache:
-                propertyCache = self.propertyCache()
-                return qname in propertyCache
+                propertyCache = (yield self.propertyCache())
+                returnValue(qname in propertyCache)
 
             self.log_debug("Contains for %s"
                            % (self.childPropertyStore.resource.fp.path,))
-            return self.childPropertyStore.contains(qname)
+            returnValue((yield self.childPropertyStore.contains(qname)))
 
+        @inlineCallbacks
         def list(self, cache=True):
             if cache:
-                propertyCache = self.propertyCache()
-                return propertyCache.iterkeys()
+                propertyCache = (yield self.propertyCache())
+                returnValue(propertyCache.iterkeys())
 
             self.log_debug("List for %s"
                            % (self.childPropertyStore.resource.fp.path,))
-            return self.childPropertyStore.list()
+            returnValue((yield self.childPropertyStore.list()))

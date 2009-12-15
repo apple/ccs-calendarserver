@@ -1,0 +1,17 @@
+Index: twisted/web2/test/test_static.py
+===================================================================
+--- twisted/web2/test/test_static.py	(revision 27622)
++++ twisted/web2/test/test_static.py	(working copy)
+@@ -34,7 +34,11 @@
+         """
+         Test that we can get an ETag
+         """
+-        self.failUnless(self.data.etag())
++        d = self.data.etag()
++        def _callback(etag):
++            self.failUnless(etag)
++        d.addCallback(_callback)
++        return d
+ 
+ 
+     def test_render(self):

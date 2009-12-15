@@ -1,0 +1,10 @@
+Index: twisted/web2/dav/method/propfind.py
+===================================================================
+--- twisted/web2/dav/method/propfind.py	(revision 27622)
++++ twisted/web2/dav/method/propfind.py	(working copy)
+@@ -1,4 +1,4 @@
+-# -*- test-case-name: twisted.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
++# -*- test-case-name: twisted.web2.dav.test.test_prop.PROP -*-
+ ##
+ # Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ #

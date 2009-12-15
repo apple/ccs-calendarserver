@@ -1,0 +1,51 @@
+Index: twisted/web2/dav/test/test_delete.py
+===================================================================
+--- twisted/web2/dav/test/test_delete.py	(revision 27622)
++++ twisted/web2/dav/test/test_delete.py	(working copy)
+@@ -26,6 +26,7 @@
+ import urllib
+ import random
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ from twisted.web2 import responsecode
+ from twisted.web2.iweb import IResponse
+ from twisted.web2.test.test_server import SimpleRequest
+@@ -54,6 +55,8 @@
+                 self.fail("DELETE did not remove path %s" % (path,))
+ 
+         def work():
++            results = []
++
+             for filename in os.listdir(self.docroot):
+                 path = os.path.join(self.docroot, filename)
+                 uri = urllib.quote("/" + filename)
+@@ -63,12 +66,26 @@
+                 def do_test(response, path=path):
+                     return check_result(response, path)
+ 
+-                request = SimpleRequest(self.site, "DELETE", uri)
++                site = waitForDeferred(self.site)
++                yield site
++                site = site.getResult()
++                request = SimpleRequest(site, "DELETE", uri)
+ 
+                 depth = random.choice(("infinity", None))
+                 if depth is not None:
+                     request.headers.setHeader("depth", depth)
+ 
+-                yield (request, do_test)
++                results.append((request, do_test))
+ 
+-        return serialize(self.send, work())
++            yield results
++
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        d = d.getResult( )
++
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult( )
++        yield d

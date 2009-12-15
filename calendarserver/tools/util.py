@@ -25,6 +25,7 @@ __all__ = [
 import os
 from time import sleep
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
 
 import socket
@@ -69,21 +70,24 @@ def getDirectory():
 
         principalCollection = property(getPrincipalCollection, setPrincipalCollection)
 
+        @inlineCallbacks
         def calendarHomeForRecord(self, record):
-            principal = self.principalCollection.principalForRecord(record)
+            principal = (yield self.principalCollection.principalForRecord(record))
             if principal:
                 try:
-                    return principal.calendarHome()
+                    returnValue(principal.calendarHome())
                 except AttributeError:
                     pass
-            return None
+            returnValue(None)
 
+        @inlineCallbacks
         def calendarHomeForShortName(self, recordType, shortName):
-            principal = self.principalCollection.principalForShortName(recordType, shortName)
+            principal = (yield self.principalCollection.principalForShortName(recordType, shortName))
             if principal:
-                return principal.calendarHome()
-            return None
+                returnValue(principal.calendarHome())
+            returnValue(None)
 
+        # Deferred
         def principalForCalendarUserAddress(self, cua):
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
@@ -100,7 +104,7 @@ class DummyDirectoryService (DirectoryService):
     baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
     def recordTypes(self): return ()
     def listRecords(self): return ()
-    def recordWithShortName(self): return None
+    def recordWithShortName(self): return succeed(None)
 
 dummyDirectoryRecord = DirectoryRecord(
     service = DummyDirectoryService(),

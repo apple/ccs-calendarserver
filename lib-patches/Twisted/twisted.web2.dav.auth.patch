@@ -1,0 +1,27 @@
+Index: twisted/web2/dav/auth.py
+===================================================================
+--- twisted/web2/dav/auth.py	(revision 27622)
++++ twisted/web2/dav/auth.py	(working copy)
+@@ -91,14 +91,18 @@
+         else:
+             raise error.UnauthorizedLogin("Bad credentials for: %s" % (principalURIs[0],))
+ 
+-    def requestAvatarId(self, credentials):
+-        pcreds = IPrincipalCredentials(credentials)
+-        pswd = str(pcreds.authnPrincipal.readDeadProperty(TwistedPasswordProperty))
+-
++    def _cbReadDeadProperty(self, result, credentials, pcreds):
++        pswd = str(result)
+         d = defer.maybeDeferred(credentials.checkPassword, pswd)
+         d.addCallback(self._cbPasswordMatch, (pcreds.authnPrincipal.principalURL(), pcreds.authzPrincipal.principalURL()))
+         return d
+ 
++    def requestAvatarId(self, credentials):
++        pcreds = IPrincipalCredentials(credentials)
++        d = pcreds.authnPrincipal.readDeadProperty(TwistedPasswordProperty)
++        d.addCallback(self._cbReadDeadProperty, credentials, pcreds)
++        return d
++
+ ##
+ # Utilities
+ ##

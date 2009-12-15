@@ -1,0 +1,413 @@
+Index: twisted/web2/dav/resource.py
+===================================================================
+--- twisted/web2/dav/resource.py	(revision 27622)
++++ twisted/web2/dav/resource.py	(working copy)
+@@ -57,7 +57,7 @@
+ from twisted.python import log
+ from twisted.python.failure import Failure
+ from twisted.internet.defer import Deferred, maybeDeferred, succeed, inlineCallbacks
+-from twisted.internet.defer import waitForDeferred, deferredGenerator
++from twisted.internet.defer import waitForDeferred, deferredGenerator, returnValue
+ from twisted.internet import reactor
+ from twisted.web2 import responsecode
+ from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse
+@@ -186,11 +186,12 @@
+         namespace, name = qname
+         if namespace == dav_namespace:
+             if name in ("quota-available-bytes", "quota-used-bytes"):
+-                d = self.hasQuota(request)
+-                d.addCallback(lambda result: result)
+-                return d
++                return self.hasQuota(request)
+         
+-        return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
++        if qname in self.liveProperties:
++            return succeed(True)
++        else:
++            return self.deadProperties().contains(qname)
+ 
+     def readProperty(self, property, request):
+         """
+@@ -209,24 +210,28 @@
+             if namespace == dav_namespace:
+                 if name == "resourcetype":
+                     # Allow live property to be overriden by dead property
+-                    if self.deadProperties().contains(qname):
+-                        return self.deadProperties().get(qname)
+-                    if self.isCollection():
+-                        return davxml.ResourceType.collection
+-                    return davxml.ResourceType.empty
++                    def restype(hasDead):
++                        if hasDead:
++                            return self.deadProperties().get(qname)
++                        if self.isCollection():
++                            return davxml.ResourceType.collection
++                        return davxml.ResourceType.empty
++                    return self.deadProperties().contains(qname).addCallback(restype)
+ 
+                 if name == "getetag":
+-                    etag = self.etag()
+-                    if etag is None:
+-                        return None
+-                    return davxml.GETETag(etag.generate())
++                    detag = self.etag()
++                    def procetag(etag):
++                        if etag is None:
++                            return None
++                        return davxml.GETETag(etag.generate())
++                    return detag.addCallback(procetag)
+ 
+                 if name == "getcontenttype":
+-                    mimeType = self.contentType()
+-                    if mimeType is None:
+-                        return None
+-                    return davxml.GETContentType(generateContentType(mimeType))
+-
++                    def mimetype(mimeType):
++                        if mimeType is None:
++                            return None
++                        return davxml.GETContentType(generateContentType(mimeType))
++                    return self.contentType().addCallback(mimetype)
+                 if name == "getcontentlength":
+                     length = self.contentLength()
+                     if length is None:
+@@ -250,10 +255,11 @@
+                     return davxml.CreationDate.fromDate(creationDate)
+ 
+                 if name == "displayname":
+-                    displayName = self.displayName()
+-                    if displayName is None:
+-                        return None
+-                    return davxml.DisplayName(displayName)
++                    def dispname(displayName):
++                        if displayName is None:
++                            return None
++                        return davxml.DisplayName(displayName)
++                    return self.displayName().addCallback(dispname)
+ 
+                 if name == "supportedlock":
+                     return davxml.SupportedLock(
+@@ -429,7 +435,10 @@
+             if not has:
+                 qnames.remove(dqname)
+ 
+-        for qname in self.deadProperties().list():
++        wfd = waitForDeferred(self.deadProperties().list())
++        yield wfd
++        deadPropNames = wfd.getResult()
++        for qname in deadPropNames:
+             if (qname not in qnames) and (qname[0] != twisted_private_namespace):
+                 qnames.add(qname)
+ 
+@@ -498,7 +507,7 @@
+         in the dead property store may or may not be ignored when reading the
+         property with L{readProperty}.
+         """
+-        self.deadProperties().set(property)
++        return self.deadProperties().set(property)
+ 
+     def removeDeadProperty(self, property):
+         """
+@@ -517,18 +526,23 @@
+     # Overrides some methods in MetaDataMixin in order to allow DAV properties
+     # to override the values of some HTTP metadata.
+     #
++    @inlineCallbacks
+     def contentType(self):
+-        if self.hasDeadProperty((davxml.dav_namespace, "getcontenttype")):
+-            return self.readDeadProperty((davxml.dav_namespace, "getcontenttype")).mimeType()
++        if (yield self.hasDeadProperty((davxml.dav_namespace, "getcontenttype"))):
++            returnValue((yield self.readDeadProperty((davxml.dav_namespace, "getcontenttype")).mimeType()))
+         else:
+-            return super(DAVPropertyMixIn, self).contentType()
++            returnValue((yield super(DAVPropertyMixIn, self).contentType()))
+ 
++    @inlineCallbacks
+     def displayName(self):
+-        if self.hasDeadProperty((davxml.dav_namespace, "displayname")):
+-            return str(self.readDeadProperty((davxml.dav_namespace, "displayname")))
++        if (yield self.hasDeadProperty((davxml.dav_namespace, "displayname"))):
++            returnValue(str((yield self.readDeadProperty((
++                                davxml.dav_namespace, "displayname")))))
+         else:
+-            return super(DAVPropertyMixIn, self).displayName()
++            returnValue((yield super(DAVPropertyMixIn, self).displayName()))
+ 
++
++
+ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
+     """
+     WebDAV resource.
+@@ -567,6 +581,7 @@
+         """
+         unimplemented(self)
+ 
++
+     def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+         """
+         See L{IDAVResource.findChildren}.
+@@ -581,7 +596,7 @@
+ 
+         completionDeferred = Deferred()
+         basepath = request.urlForResource(self)
+-        children = list(self.listChildren())
++        children = []
+ 
+         def checkPrivilegesError(failure):
+             failure.trap(AccessDeniedError)
+@@ -613,6 +628,11 @@
+ 
+             reactor.callLater(0, getChild)
+ 
++        def gotChildren(childs):
++            children[:] = childs
++            getChild()
++            return completionDeferred
++
+         def getChild():
+             try:
+                 childname = children.pop()
+@@ -624,10 +644,10 @@
+                 d.addCallback(checkPrivileges)
+                 d.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
+                 d.addErrback(completionDeferred.errback)
++                return d
+ 
+-        getChild()
++        return self.listChildren().addCallback(gotChildren)
+ 
+-        return completionDeferred
+ 
+     def supportedReports(self):
+         """
+@@ -706,7 +726,7 @@
+                 hasattr(request, 'loginInterfaces')):
+             request.authnUser = davxml.Principal(davxml.Unauthenticated())
+             request.authzUser = davxml.Principal(davxml.Unauthenticated())
+-            return (request.authnUser, request.authzUser)
++            return succeed((request.authnUser, request.authzUser))
+ 
+         authHeader = request.headers.getHeader('authorization')
+ 
+@@ -754,7 +774,7 @@
+         else:
+             request.authnUser = davxml.Principal(davxml.Unauthenticated())
+             request.authzUser = davxml.Principal(davxml.Unauthenticated())
+-            return (request.authnUser, request.authzUser)
++            return succeed((request.authnUser, request.authzUser))
+ 
+     ##
+     # ACL
+@@ -789,7 +809,7 @@
+         # and deny any type of write access (PUT, DELETE, etc.) to
+         # everything.
+         #
+-        return readonlyACL
++        return succeed(readonlyACL)
+ 
+     def defaultAccessControlList(self):
+         """
+@@ -800,7 +820,7 @@
+         # The default behaviour is no ACL; we should inherrit from the parent
+         # collection.
+         #
+-        return davxml.ACL()
++        return succeed(davxml.ACL())
+ 
+     def setAccessControlList(self, acl):
+         """
+@@ -809,7 +829,7 @@
+         This implementation stores the ACL in the private property
+         C{(L{twisted_private_namespace}, "acl")}.
+         """
+-        self.writeDeadProperty(acl)
++        return self.writeDeadProperty(acl)
+ 
+     def mergeAccessControlList(self, new_acl, request):
+         """
+@@ -967,7 +987,7 @@
+         via the ACL command.
+         @param new_aces: C{list} of L{ACE} for ACL being set.
+         """
+-        self.setAccessControlList(davxml.ACL(*new_aces))
++        return self.setAccessControlList(davxml.ACL(*new_aces))
+ 
+     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
+         for ace_privilege in ace_privileges:
+@@ -1117,7 +1137,9 @@
+             return url
+ 
+         try:
+-            acl = self.readDeadProperty(davxml.ACL)
++            dacl = waitForDeferred(self.readDeadProperty(davxml.ACL))
++            yield dacl
++            acl = dacl.getResult()
+         except HTTPError, e:
+             assert e.response.code == responsecode.NOT_FOUND, (
+                 "Expected %s response from readDeadProperty() exception, not %s"
+@@ -1130,9 +1152,13 @@
+ 
+             if myURL == "/":
+                 # If we get to the root without any ACLs, then use the default.
+-                acl = self.defaultRootAccessControlList()
++                acl = waitForDeferred(self.defaultRootAccessControlList())
++                yield acl
++                acl = acl.getResult()
+             else:
+-                acl = self.defaultAccessControlList()
++                acl = waitForDeferred(self.defaultAccessControlList())
++                yield acl
++                acl = acl.getResult()
+ 
+         # Dynamically update privileges for those ace's that are inherited.
+         if inheritance:
+@@ -1251,16 +1277,17 @@
+             It will errback with an HTTPError(responsecode.FORBIDDEN) if
+             the principal isn't found.
+         """
+-        authnPrincipal = self.findPrincipalForAuthID(authid)
++        d = self.findPrincipalForAuthID(authid)
++        def principalFound(authnPrincipal):
++            if authnPrincipal is None:
++                log.msg("Could not find the principal resource for user id: %s" % (authid,))
++                raise HTTPError(responsecode.FORBIDDEN)
+ 
+-        if authnPrincipal is None:
+-            log.msg("Could not find the principal resource for user id: %s" % (authid,))
+-            raise HTTPError(responsecode.FORBIDDEN)
++            d2 = self.authorizationPrincipal(request, authid, authnPrincipal)
++            d2.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
++            return d2
++        return d.addCallback(principalFound)
+ 
+-        d = self.authorizationPrincipal(request, authid, authnPrincipal)
+-        d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
+-        return d
+-
+     def findPrincipalForAuthID(self, authid):
+         """
+         Return authentication and authorization principal identifiers for the
+@@ -1663,7 +1690,9 @@
+ 
+         # Check this resource first
+         if self.isCollection():
+-            qroot = self.quotaRoot(request)
++            qroot = waitForDeferred(self.quotaRoot(request))
++            yield qroot
++            qroot = qroot.getResult()
+             if qroot is not None:
+                 used = waitForDeferred(self.currentQuotaUse(request))
+                 yield used
+@@ -1701,7 +1730,10 @@
+         """
+         
+         # Check this one first
+-        if self.hasQuotaRoot(request):
++        hqr = waitForDeferred(self.hasQuotaRoot(request))
++        yield hqr
++        hqr = hqr.getResult()
++        if hqr:
+             yield True
+             return
+         
+@@ -1714,7 +1746,8 @@
+                 parent = parent.getResult()
+                 d = waitForDeferred(parent.hasQuota(request))
+                 yield d
+-                yield d.getResult()
++                res = d.getResult()
++                yield res
+             else:
+                 yield False
+         except NoURLForResourceError:
+@@ -1727,16 +1760,17 @@
+         @return: a C{True} if this resource has quota root, C{False} otherwise.
+         """
+         return self.hasDeadProperty(TwistedQuotaRootProperty)
+-    
++
++    @inlineCallbacks
+     def quotaRoot(self, request):
+         """
+         @return: a C{int} containing the maximum allowed bytes if this collection
+             is quota-controlled, or C{None} if not quota controlled.
+         """
+-        if self.hasDeadProperty(TwistedQuotaRootProperty):
+-            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
++        if (yield self.hasDeadProperty(TwistedQuotaRootProperty)):
++            returnValue(int(str((yield self.readDeadProperty(TwistedQuotaRootProperty)))))
+         else:
+-            return None
++            returnValue(None)
+     
+     def quotaRootParent(self, request):
+         """
+@@ -1759,7 +1793,8 @@
+         yield None
+     
+     quotaRootParent = deferredGenerator(quotaRootParent)
+-        
++
++    @inlineCallbacks
+     def setQuotaRoot(self, request, maxsize):
+         """
+         @param maxsize: a C{int} containing the maximum allowed bytes for the contents
+@@ -1769,11 +1804,11 @@
+         assert maxsize is None or isinstance(maxsize, int), "maxsize must be an int or None"
+         
+         if maxsize is not None:
+-            self.writeDeadProperty(TwistedQuotaRootProperty(str(maxsize)))
++            yield self.writeDeadProperty(TwistedQuotaRootProperty(str(maxsize)))
+         else:
+             # Remove both the root and the cached used value
+-            self.removeDeadProperty(TwistedQuotaRootProperty)
+-            self.removeDeadProperty(TwistedQuotaUsedProperty)
++            yield self.removeDeadProperty(TwistedQuotaRootProperty)
++            yield self.removeDeadProperty(TwistedQuotaUsedProperty)
+     
+     def quotaSize(self, request):
+         """
+@@ -1798,7 +1833,9 @@
+         quotaroot = self
+         while(quotaroot is not None):
+             # Check quota on this root (if it has one)
+-            quota = quotaroot.quotaRoot(request)
++            quota = waitForDeferred(quotaroot.quotaRoot(request))
++            yield quota
++            quota = quota.getResult()
+             if quota is not None:
+                 if available > quota[0]:
+                     yield False
+@@ -1844,6 +1881,8 @@
+ 
+     quotaSizeAdjust = deferredGenerator(quotaSizeAdjust)
+ 
++
++    @inlineCallbacks
+     def currentQuotaUse(self, request):
+         """
+         Get the cached quota use value, or if not present (or invalid) determine
+@@ -1856,17 +1895,15 @@
+         assert self.hasQuotaRoot(request), "Quota use only on quota root collection"
+         
+         # Try to get the cached value property
+-        if self.hasDeadProperty(TwistedQuotaUsedProperty):
+-            return succeed(int(str(self.readDeadProperty(TwistedQuotaUsedProperty))))
++        if (yield self.hasDeadProperty(TwistedQuotaUsedProperty)):
++            returnValue(int(str((yield self.readDeadProperty(TwistedQuotaUsedProperty)))))
+         else:
+             # Do brute force size determination and cache the result in the private property
+-            def _defer(result):
+-                self.writeDeadProperty(TwistedQuotaUsedProperty(str(result)))
+-                return result
+-            d = self.quotaSize(request)
+-            d.addCallback(_defer)
+-            return d
++            result = yield self.quotaSize(request)
++            yield self.writeDeadProperty(TwistedQuotaUsedProperty(str(result)))
++            returnValue(result)
+ 
++
+     def updateQuotaUse(self, request, adjust):
+         """
+         Update the quota used value on this resource.

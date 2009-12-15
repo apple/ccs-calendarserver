@@ -70,11 +70,11 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
             for principal in config.AdminPrincipals
         ))
 
-        return davxml.ACL(*aces)
+        return succeed(davxml.ACL(*aces))
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
     """
@@ -130,9 +130,9 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
     def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
-            return davxml.ResourceType.calendarproxyread
+            return succeed(davxml.ResourceType.calendarproxyread)
         elif self.proxyType == "calendar-proxy-write":
-            return davxml.ResourceType.calendarproxywrite
+            return succeed(davxml.ResourceType.calendarproxywrite)
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
@@ -149,13 +149,14 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         return True
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+    # Deferred
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -182,7 +183,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         principals = []
         newUIDs = set()
         for uri in members:
-            principal = self.pcollection._principalForURI(uri)
+            principal = (yield self.pcollection._principalForURI(uri))
             # Invalid principals MUST result in an error.
             if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
@@ -204,7 +205,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         
         changedUIDs = newUIDs.symmetric_difference(oldUIDs)
         for uid in changedUIDs:
-            principal = self.pcollection.principalForUID(uid)
+            principal = (yield self.pcollection.principalForUID(uid))
             if principal:
                 yield principal.cacheNotifier.changed()
             
@@ -275,7 +276,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     ##
 
     def displayName(self):
-        return self.proxyType
+        return succeed(self.proxyType)
 
     ##
     # ACL
@@ -306,7 +307,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         if uid not in uids:
             from twistedcaldav.directory.principal import DirectoryPrincipalResource
             uids.add(uid)
-            principal = self.pcollection.principalForUID(uid)
+            principal = (yield self.pcollection.principalForUID(uid))
             if isinstance(principal, CalendarUserProxyPrincipalResource):
                 members = yield self._directGroupMembers()
                 for member in members:
@@ -330,7 +331,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         found = []
         missing = []
         for uid in members:
-            p = self.pcollection.principalForUID(uid)
+            p = (yield self.pcollection.principalForUID(uid))
             if p:
                 found.append(p)
                 # Make sure any outstanding deletion timer entries for
@@ -343,8 +344,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         for uid in missing:
             cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 # in seconds
 
-            yield self._index().removePrincipal(uid,
-                delay=cacheTimeout*2)
+            yield self._index().removePrincipal(uid, delay=cacheTimeout*2)
 
         returnValue(found)
 
@@ -354,15 +354,16 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     def expandedGroupMembers(self):
         return self._expandMemberUIDs(infinity=True)
 
+    @inlineCallbacks
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
-        d = self._index().getMemberships(self.uid)
-        d.addCallback(lambda memberships: [
-            p for p
-            in [self.pcollection.principalForUID(uid) for uid in memberships]
-            if p
-        ])
-        return d
+        memberships = yield self._index().getMemberships(self.uid)
+        returnValue([p for p in
+                     [(yield self.pcollection.principalForUID(uid))
+                      for uid in memberships]
+                     if p])
+
+
 
 class CalendarUserProxyDatabase(AbstractSQLDatabase, LoggingMixIn):
     """

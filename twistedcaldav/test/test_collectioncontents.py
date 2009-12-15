@@ -192,9 +192,11 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         fd.close()
         fd = open(os.path.join(colpath, "bogus"), "w")
         fd.close()
-        children = self.site.resource.listChildren()
-        self.assertTrue("bogus" in children)
-        self.assertFalse("._bogus" in children)
+        d = self.site.resource.listChildren()
+        def _gotChildren(children):
+            self.assertTrue("bogus" in children)
+            self.assertFalse("._bogus" in children)
+        return d.addCallback(_gotChildren)
 
     def test_fail_dot_file_put_in_calendar(self):
         """

@@ -1,0 +1,114 @@
+Index: twisted/web2/dav/test/util.py
+===================================================================
+--- twisted/web2/dav/test/util.py	(revision 27622)
++++ twisted/web2/dav/test/util.py	(working copy)
+@@ -31,7 +31,7 @@
+ 
+ from twisted.python import log
+ from twisted.trial import unittest
+-from twisted.internet.defer import Deferred
++from twisted.internet.defer import Deferred, waitForDeferred, deferredGenerator, succeed
+ 
+ from twisted.web2.http import HTTPError, StatusResponse
+ from twisted.web2 import responsecode
+@@ -60,22 +60,24 @@
+             ))
+ 
+         doc = davxml.WebDAVDocument.fromString(property)
+-        return doc.root_element
++        return succeed(doc.root_element)
+ 
+     def set(self, property):
+         self._dict[property.qname()] = property.toxml()
++        return succeed(None)
+ 
+     def delete(self, qname):
+         try:
+             del(self._dict[qname])
+         except KeyError:
+             pass
++        return succeed(None)
+ 
+     def contains(self, qname):
+-        return qname in self._dict
++        return succeed(qname in self._dict)
+ 
+     def list(self):
+-        return self._dict.keys()
++        return succeed(self._dict.keys())
+ 
+ class TestFile (DAVFile):
+     _cachedPropertyStores = {}
+@@ -121,7 +123,9 @@
+         docroot = self.mktemp()
+         os.mkdir(docroot)
+         rootresource = self.resource_class(docroot)
+-        rootresource.setAccessControlList(self.grantInherit(davxml.All()))
++        d = waitForDeferred(rootresource.setAccessControlList(self.grantInherit(davxml.All())))
++        yield d
++        d = d.getResult()
+ 
+         dirnames = (
+             os.path.join(docroot, "dir1"),                          # 0
+@@ -149,37 +153,56 @@
+         for dirname in (docroot,) + dirnames[3:8+1]:
+             for filename in filenames[:5]:
+                 copy(filename, dirname)
+-        return docroot
++        yield docroot
+ 
++    createDocumentRoot = deferredGenerator(createDocumentRoot)
+ 
++
+     def _getDocumentRoot(self):
+         if not hasattr(self, "_docroot"):
+             log.msg("Setting up docroot for %s" % (self.__class__,))
+ 
+-            self._docroot = self.createDocumentRoot()
++            d = waitForDeferred(self.createDocumentRoot())
++            yield d
++            self._docroot = d.getResult()
+ 
++        yield self._docroot
++
++    _getDocumentRoot = deferredGenerator(_getDocumentRoot)
++
++    def _getStoredDocumentRoot(self):
+         return self._docroot
+ 
+     def _setDocumentRoot(self, value):
+         self._docroot = value
+ 
+-    docroot = property(_getDocumentRoot, _setDocumentRoot)
++    docroot = property(_getStoredDocumentRoot, _setDocumentRoot)
+ 
+     def _getSite(self):
+         if not hasattr(self, "_site"):
+             rootresource = self.resource_class(self.docroot)
+-            rootresource.setAccessControlList(self.grantInherit(davxml.All()))
++            d = waitForDeferred(rootresource.setAccessControlList(self.grantInherit(davxml.All())))
++            yield d
++            d.getResult()
+             self._site = Site(rootresource)
++        yield self._site
++    _getSite = deferredGenerator(_getSite)
++
++    def _getStoredSite(self):
+         return self._site
+ 
+     def _setSite(self, site):
+         self._site = site
+ 
+-    site = property(_getSite, _setSite)
++    site = property(_getStoredSite, _setSite)
+ 
+     def setUp(self):
+         unittest.TestCase.setUp(self)
+         TestFile._cachedPropertyStores = {}
++        d = self._getDocumentRoot()
++        d.addCallback(lambda _: self._getSite())
++        return d
++        # self._getSite()
+ 
+     def tearDown(self):
+         unittest.TestCase.tearDown(self)

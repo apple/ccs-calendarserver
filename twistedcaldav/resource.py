@@ -115,6 +115,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     # HTTP
     ##
 
+    @inlineCallbacks
     def render(self, request):
         if config.EnableMonolithicCalendars:
             #
@@ -139,23 +140,19 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         else:
             renderAsHTML = True
 
-        if not renderAsHTML and self.isPseudoCalendarCollection():
+        if not renderAsHTML and (yield self.isPseudoCalendarCollection()):
             # Render a monolithic iCalendar file
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+                returnValue(RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/')))
 
-            def _defer(data):
-                response = Response()
-                response.stream = MemoryStream(str(data))
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
-                return response
+            data = (yield self.iCalendarRolledup(request))
+            response = Response()
+            response.stream = MemoryStream(str(data))
+            response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
+            returnValue(response)
 
-            d = self.iCalendarRolledup(request)
-            d.addCallback(_defer)
-            return d
-
-        return super(CalDAVResource, self).render(request)
+        returnValue((yield super(CalDAVResource, self).render(request)))
 
     def renderHTTP(self, request):
         response = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
@@ -197,6 +194,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
     )
 
+    @inlineCallbacks
     def hasProperty(self, property, request):
         """
         Need to special case schedule-calendar-transp for backwards compatability.
@@ -208,10 +206,10 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             qname = property.qname()
 
         # Force calendar collections to always appear to have the property
-        if qname == (caldav_namespace, "schedule-calendar-transp") and self.isCalendarCollection():
-            return succeed(True)
+        if qname == (caldav_namespace, "schedule-calendar-transp") and (yield self.isCalendarCollection()):
+            returnValue(True)
         else:
-            return super(CalDAVResource, self).hasProperty(property, request)
+            returnValue((yield super(CalDAVResource, self).hasProperty(property, request)))
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -230,8 +228,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
                 # CalDAV-access-09, section 5.2.3
-                if self.hasDeadProperty(qname):
-                    returnValue(self.readDeadProperty(qname))
+                if (yield self.hasDeadProperty(qname)):
+                    returnValue((yield self.readDeadProperty(qname)))
                 returnValue(self.supportedCalendarComponentSet)
             elif name == "supported-calendar-data":
                 # CalDAV-access-09, section 5.2.4
@@ -258,13 +256,13 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             elif name == "schedule-calendar-transp":
                 # For backwards compatibility, if the property does not exist we need to create
                 # it and default to the old free-busy-set value.
-                if self.isCalendarCollection() and not self.hasDeadProperty(property):
+                if (yield self.isCalendarCollection()) and not (yield self.hasDeadProperty(property)):
                     # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
                     principal = (yield self.ownerPrincipal(request))
                     fbset = (yield principal.calendarFreeBusyURIs(request))
                     url = (yield self.canonicalURL(request))
                     opaque = url in fbset
-                    self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+                    yield self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)
@@ -276,7 +274,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         )
 
         if property.qname() == (caldav_namespace, "supported-calendar-component-set"):
-            if not self.isPseudoCalendarCollection():
+            if not (yield self.isPseudoCalendarCollection()):
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar collection." % (property,)
@@ -306,7 +304,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 ))
 
         elif property.qname() == (caldav_namespace, "schedule-calendar-transp"):
-            if not self.isCalendarCollection():
+            if not (yield self.isCalendarCollection()):
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar collection." % (property,)
@@ -316,19 +314,14 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             principal = (yield self.ownerPrincipal(request))
             
             # Map owner to their inbox
-            inboxURL = principal.scheduleInboxURL()
+            inboxURL = yield principal.scheduleInboxURL()
             if inboxURL:
                 inbox = (yield request.locateResource(inboxURL))
                 myurl = (yield self.canonicalURL(request))
-                inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
+                yield inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
 
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
-
-    def writeDeadProperty(self, property):
-        val = super(CalDAVResource, self).writeDeadProperty(property)
-
-        return val
 
 
     ##
@@ -341,8 +334,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification
-        if self.hasDeadProperty(TwistedCalendarAccessProperty):
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+        if (yield self.hasDeadProperty(TwistedCalendarAccessProperty)):
+            access = (yield self.readDeadProperty(TwistedCalendarAccessProperty))
             if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
                 # Need to insert ACE to prevent non-owner principals from seeing this resource
                 owner = (yield self.owner(request))
@@ -443,9 +436,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     def displayName(self):
         if 'record' in dir(self):
             if self.record.fullName:
-                return self.record.fullName
+                return succeed(self.record.fullName)
             elif self.record.shortNames:
-                return self.record.shortNames[0]
+                return succeed(self.record.shortNames[0])
             else:
                 return super(DAVResource, self).displayName()
         else:
@@ -461,20 +454,21 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
         return self.isSpecialCollection(caldavxml.Calendar)
 
+    @inlineCallbacks
     def isSpecialCollection(self, collectiontype):
         """
         See L{ICalDAVResource.isSpecialCollection}.
         """
-        if not self.isCollection(): return False
+        if not self.isCollection(): returnValue(False)
 
         try:
-            resourcetype = self.readDeadProperty((dav_namespace, "resourcetype"))
+            resourcetype = (yield self.readDeadProperty((dav_namespace, "resourcetype")))
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND, (
                 "Unexpected response code: %s" % (e.response.code,)
             )
-            return False
-        return bool(resourcetype.childrenOfType(collectiontype))
+            returnValue(False)
+        returnValue(bool(resourcetype.childrenOfType(collectiontype)))
 
     def isPseudoCalendarCollection(self):
         """
@@ -488,10 +482,10 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
-        def checkPrivilegesError(failure):
+        def checkPrivilegesError(failure, children):
             failure.trap(AccessDeniedError)
 
-            reactor.callLater(0, getChild)
+            reactor.callLater(0, getChild, children)
 
         def checkPrivileges(child):
             if privileges is None:
@@ -501,18 +495,23 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             ca.addCallback(lambda ign: child)
             return ca
 
-        def gotChild(child, childpath):
-            if child.isCalendarCollection():
-                callback(child, childpath)
-            elif child.isCollection():
-                if depth == "infinity":
-                    fc = child.findCalendarCollections(depth, request, callback, privileges)
-                    fc.addCallback(lambda x: reactor.callLater(0, getChild))
-                    return fc
+        def gotChild(child, childpath, children):
+            def isCalCallback(result):
+                if result:
+                    callback(child, childpath)
+                elif child.isCollection():
+                    if depth == "infinity":
+                        fc = child.findCalendarCollections(depth, request, callback, privileges)
+                        fc.addCallback(lambda x: reactor.callLater(0, getChild, children))
+                        return fc
+                reactor.callLater(0, getChild, children)
 
-            reactor.callLater(0, getChild)
+            d = child.isCalendarCollection()
+            d.addCallback(isCalCallback)
+            return d
 
-        def getChild():
+
+        def getChild(children):
             try:
                 childname = children.pop()
             except IndexError:
@@ -521,15 +520,14 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 childpath = joinURL(basepath, childname)
                 child = request.locateResource(childpath)
                 child.addCallback(checkPrivileges)
-                child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
+                child.addCallbacks(gotChild, checkPrivilegesError, (childpath, children), None, (children,))
                 child.addErrback(completionDeferred.errback)
 
         completionDeferred = Deferred()
 
         if depth != "0" and self.isCollection():
             basepath = request.urlForResource(self)
-            children = self.listChildren()
-            getChild()
+            self.listChildren().addCallback(getChild)
         else:
             completionDeferred.callback(None)
 
@@ -554,10 +552,10 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         
         # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
         principal = (yield self.ownerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
+        inboxURL = yield principal.scheduleInboxURL()
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
+            yield inbox.processFreeBusyCalendar(request.path, False)
 
     @inlineCallbacks
     def movedCalendar(self, request, defaultCalendar, destination, destination_uri):
@@ -567,36 +565,37 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         
         # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
         principal = (yield self.ownerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
+        inboxURL = yield principal.scheduleInboxURL()
         if inboxURL:
             (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
 
             inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
+            yield inbox.processFreeBusyCalendar(request.path, False)
+            yield inbox.processFreeBusyCalendar(destination_uri, (yield destination.isCalendarOpaque()))
             
             # Adjust the default calendar setting if necessary
             if defaultCalendar:
                 yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)), request)               
 
+    @inlineCallbacks
     def isCalendarOpaque(self):
         
-        assert self.isCalendarCollection()
+        assert (yield self.isCalendarCollection())
         
-        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
-            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
-            return property.children[0] == caldavxml.Opaque()
+        if (yield self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp"))):
+            property = (yield self.readDeadProperty((caldav_namespace, "schedule-calendar-transp")))
+            returnValue(property.children[0] == caldavxml.Opaque())
         else:
-            return False
+            returnValue(False)
 
     @inlineCallbacks
     def isDefaultCalendar(self, request):
         
-        assert self.isCalendarCollection()
+        assert (yield self.isCalendarCollection())
         
         # Not allowed to delete the default calendar
         principal = (yield self.ownerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
+        inboxURL = yield principal.scheduleInboxURL()
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
             default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
@@ -618,14 +617,18 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         an infinite loop.  A subclass must override one of both of these
         methods.
         """
-        calendar_data = self.iCalendarText(name)
+        d = self.iCalendarText(name)
+        def _gotData(calendar_data):
+            if calendar_data is None:
+                return None
 
-        if calendar_data is None: return None
+            try:
+                return iComponent.fromString(calendar_data)
+            except ValueError:
+                return None
 
-        try:
-            return iComponent.fromString(calendar_data)
-        except ValueError:
-            return None
+        d.addCallback(_gotData)
+        return d
 
     def iCalendarRolledup(self, request):
         """
@@ -648,7 +651,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         an infinite loop.  A subclass must override one of both of these
         methods.
         """
-        return str(self.iCalendar(name))
+        return self.iCalendar(name).addCallback(str)
 
     def iCalendarXML(self, name=None):
         """
@@ -656,8 +659,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         This implementation returns an XML element constructed from the object
         returned by L{iCalendar} when given the same arguments.
         """
-        return caldavxml.CalendarData.fromCalendar(self.iCalendar(name))
+        return self.iCalendar(name).addCallback(caldavxml.CalendarData.fromCalendar)
 
+    # Deferred, because the lookup function has to be
     def iCalendarAddressDoNormalization(self, ical):
         """
         Normalize calendar user addresses in the supplied iCalendar object into their
@@ -667,24 +671,26 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         @type ical: L{Component}
         """
 
+        @inlineCallbacks
         def lookupFunction(cuaddr):
-            principal = self.principalForCalendarUserAddress(cuaddr)
+            principal = (yield self.principalForCalendarUserAddress(cuaddr))
             if principal is None:
-                return (None, None, None)
+                returnValue((None, None, None))
             else:
-                return (principal.record.fullName.decode("utf-8"),
+                returnValue((principal.record.fullName.decode("utf-8"),
                     principal.record.guid,
-                    principal.record.calendarUserAddresses)
+                    principal.record.calendarUserAddresses))
 
-        ical.normalizeCalendarUserAddresses(lookupFunction)
+        return ical.normalizeCalendarUserAddresses(lookupFunction)
 
 
+    @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForCalendarUserAddress(address)
+            principal = (yield principalCollection.principalForCalendarUserAddress(address))
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
@@ -695,6 +701,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             result.append(davxml.Report(caldavxml.FreeBusyQuery(),))
         return result
 
+
+    @inlineCallbacks
     def writeNewACEs(self, newaces):
         """
         Write a new ACL to the resource's property store. We override this for calendar collections
@@ -707,7 +715,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
 
         # Do this only for regular calendar collections and Inbox/Outbox
-        if self.isPseudoCalendarCollection():
+        if (yield self.isPseudoCalendarCollection()):
             edited_aces = []
             for ace in newaces:
                 if TwistedACLInheritable() not in ace.children:
@@ -720,7 +728,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             edited_aces = newaces
 
         # Do inherited with possibly modified set of aces
-        super(CalDAVResource, self).writeNewACEs(edited_aces)
+        returnValue((yield maybeDeferred(super(CalDAVResource, self).writeNewACEs, edited_aces)))
 
     ##
     # Utilities
@@ -757,13 +765,13 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
         Quota root only ever set on calendar homes.
         """
-        return False
+        return succeed(False)
     
     def quotaRoot(self, request):
         """
         Quota root only ever set on calendar homes.
         """
-        return None
+        return succeed(None)
 
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
@@ -775,13 +783,13 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
         return True
 
     def isCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def isPseudoCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def principalForCalendarUserAddress(self, address):
-        return None
+        return succeed(None)
 
     def supportedReports(self):
         """
@@ -855,24 +863,25 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
 
         if namespace == caldav_namespace:
             if name == "calendar-home-set":
+                urls = (yield self.calendarHomeURLs())
                 returnValue(caldavxml.CalendarHomeSet(
-                    *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                    *[davxml.HRef(url) for url in urls]
                 ))
 
             elif name == "calendar-user-address-set":
                 returnValue(caldavxml.CalendarUserAddressSet(
-                    *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                    *[davxml.HRef(uri) for uri in (yield self.calendarUserAddresses())]
                 ))
 
             elif name == "schedule-inbox-URL":
-                url = self.scheduleInboxURL()
+                url = (yield self.scheduleInboxURL())
                 if url is None:
                     returnValue(None)
                 else:
                     returnValue(caldavxml.ScheduleInboxURL(davxml.HRef(url)))
 
             elif name == "schedule-outbox-URL":
-                url = self.scheduleOutboxURL()
+                url = (yield self.scheduleOutboxURL())
                 if url is None:
                     returnValue(None)
                 else:
@@ -883,7 +892,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
 
         elif namespace == calendarserver_namespace:
             if name == "dropbox-home-URL" and config.EnableDropBox:
-                url = self.dropboxURL()
+                url = (yield self.dropboxURL())
                 if url is None:
                     returnValue(None)
                 else:
@@ -918,20 +927,22 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
 
         return super(CalendarPrincipalResource, self).writeProperty(property, request)
 
+    @inlineCallbacks
     def calendarHomeURLs(self):
-        if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
-            home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))
-            return [str(h) for h in home_set.children]
+        if (yield self.hasDeadProperty((caldav_namespace, "calendar-home-set"))):
+            home_set = (yield self.readDeadProperty((caldav_namespace, "calendar-home-set")))
+            returnValue([str(h) for h in home_set.children])
         else:
-            return ()
+            returnValue(())
 
+    @inlineCallbacks
     def calendarUserAddresses(self):
-        if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
-            addresses = self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
-            return [str(h) for h in addresses.children]
+        if (yield self.hasDeadProperty((caldav_namespace, "calendar-user-address-set"))):
+            addresses = (yield self.readDeadProperty((caldav_namespace, "calendar-user-address-set")))
+            returnValue([str(h) for h in addresses.children])
         else:
             # Must have a valid address of some kind so use the principal uri
-            return (self.principalURL(),)
+            returnValue((self.principalURL(),))
 
     def calendarFreeBusyURIs(self, request):
         def gotInbox(inbox):
@@ -961,34 +972,37 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         """
         @return: the deferred schedule inbox for this principal.
         """
-        return request.locateResource(self.scheduleInboxURL())
+        return self.scheduleInboxURL().addCallback(request.locateResource)
 
+    @inlineCallbacks
     def scheduleInboxURL(self):
-        if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
-            inbox = self.readDeadProperty((caldav_namespace, "schedule-inbox-URL"))
-            return str(inbox.children[0])
+        if (yield self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL"))):
+            inbox = (yield self.readDeadProperty((caldav_namespace, "schedule-inbox-URL")))
+            returnValue(str(inbox.children[0]))
         else:
-            return None
+            returnValue(None)
 
+    @inlineCallbacks
     def scheduleOutboxURL(self):
         """
         @return: the schedule outbox URL for this principal.
         """
-        if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
-            outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
-            return str(outbox.children[0])
+        if (yield self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL"))):
+            outbox = (yield self.readDeadProperty((caldav_namespace, "schedule-outbox-URL")))
+            returnValue(str(outbox.children[0]))
         else:
-            return None
+            returnValue(None)
 
+    @inlineCallbacks
     def dropboxURL(self):
         """
         @return: the drop box home collection URL for this principal.
         """
-        if self.hasDeadProperty((calendarserver_namespace, "dropbox-home-URL")):
-            inbox = self.readDeadProperty((caldav_namespace, "dropbox-home-URL"))
-            return str(inbox.children[0])
+        if (yield self.hasDeadProperty((calendarserver_namespace, "dropbox-home-URL"))):
+            inbox = (yield self.readDeadProperty((caldav_namespace, "dropbox-home-URL")))
+            returnValue(str(inbox.children[0]))
         else:
-            return None
+            returnValue(None)
 
     ##
     # Quota
@@ -998,13 +1012,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         """
         Quota root only ever set on calendar homes.
         """
-        return False
+        return succeed(False)
     
     def quotaRoot(self, request):
         """
         Quota root only ever set on calendar homes.
         """
-        return None
+        return succeed(None)
 
 
 class AuthenticationWrapper(SuperAuthenticationWrapper):
@@ -1043,7 +1057,7 @@ def isCalendarCollectionResource(resource):
     try:
         resource = ICalDAVResource(resource)
     except TypeError:
-        return False
+        return succeed(False)
     else:
         return resource.isCalendarCollection()
 
@@ -1051,7 +1065,7 @@ def isPseudoCalendarCollectionResource(resource):
     try:
         resource = ICalDAVResource(resource)
     except TypeError:
-        return False
+        return succeed(False)
     else:
         return resource.isPseudoCalendarCollection()
 

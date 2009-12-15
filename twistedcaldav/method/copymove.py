@@ -48,7 +48,7 @@ def http_COPY(self, request):
     """
 
     # Copy of calendar collections isn't allowed.
-    if isPseudoCalendarCollectionResource(self):
+    if (yield isPseudoCalendarCollectionResource(self)):
         returnValue(responsecode.FORBIDDEN)
 
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
@@ -79,7 +79,7 @@ def http_COPY(self, request):
         )
 
     # Checks for copying a calendar collection
-    if self.isCalendarCollection():
+    if (yield self.isCalendarCollection()):
         log.err("Attempt to copy a calendar collection into another calendar collection %s" % destination)
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "calendar-collection-location-ok")))
 
@@ -118,7 +118,7 @@ def http_MOVE(self, request):
     """
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
-        is_calendar_collection = isPseudoCalendarCollectionResource(self)
+        is_calendar_collection = (yield isPseudoCalendarCollectionResource(self))
         defaultCalendar = (yield self.isDefaultCalendar(request)) if is_calendar_collection else False
 
         # Do default WebDAV action
@@ -154,7 +154,7 @@ def http_MOVE(self, request):
 
     if destinationcal:
         # Checks for copying a calendar collection
-        if self.isCalendarCollection():
+        if (yield self.isCalendarCollection()):
             log.err("Attempt to move a calendar collection into another calendar collection %s" % destination)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "calendar-collection-location-ok")))
     
@@ -219,7 +219,7 @@ def checkForCalendarAction(self, request):
 
     # Check for parent calendar collection
     sourceparent = (yield request.locateResource(parentForURL(request.uri)))
-    if isCalendarCollectionResource(sourceparent):
+    if (yield isCalendarCollectionResource(sourceparent)):
         result = True
         sourcecal = True
     
@@ -238,7 +238,7 @@ def checkForCalendarAction(self, request):
     # Check for parent calendar collection
     destination_uri = urlsplit(destination_uri)[2]
     destinationparent = (yield request.locateResource(parentForURL(destination_uri)))
-    if isCalendarCollectionResource(destinationparent):
+    if (yield isCalendarCollectionResource(destinationparent)):
         result = True
         destinationcal = True
 

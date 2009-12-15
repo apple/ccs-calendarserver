@@ -54,7 +54,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     # Make sure target resource is of the right type
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
-        if not parent.isPseudoCalendarCollection():
+        if not (yield parent.isPseudoCalendarCollection()):
             log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
 
@@ -105,7 +105,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     """
 
     disabled = False
-    if self.isPseudoCalendarCollection():
+    if (yield self.isPseudoCalendarCollection()):
         requestURIis = "calendar"
 
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
@@ -138,7 +138,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
             for href in resources:
                 resource_uri = str(href)
                 name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
-                if not self._isChildURI(request, resource_uri) or self.getChild(name) is None:
+                if not self._isChildURI(request, resource_uri) or (yield self.getChild(name)) is None:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                 else:
                     valid_names.append(name)
@@ -216,7 +216,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
                     parent = (yield child.locateParent(request, resource_uri))
     
-                    if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
+                    if not (yield parent.isCalendarCollection()) or not parent.index().resourceExists(name):
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     
@@ -245,7 +245,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
                     parent = (yield self.locateParent(request, resource_uri))
     
-                    if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
+                    if not (yield parent.isPseudoCalendarCollection()) or not parent.index().resourceExists(name):
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     child = self

@@ -30,7 +30,7 @@ from twisted.cred.error import UnauthorizedLogin
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.directory import UnknownRecordTypeError
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 class AggregateDirectoryService(DirectoryService):
     """
@@ -89,22 +89,27 @@ class AggregateDirectoryService(DirectoryService):
     def recordTypes(self):
         return set(self._recordTypes)
 
+    @inlineCallbacks
     def listRecords(self, recordType):
-        records = self._query("listRecords", recordType)
+        records = (yield self._query("listRecords", recordType))
         if records is None:
-            return ()
+            returnValue( () )
         else:
-            return records
+            returnValue(records)
 
+    # Deferred
     def recordWithShortName(self, recordType, shortName):
         return self._query("recordWithShortName", recordType, shortName)
 
+    # Deferred
     def recordWithUID(self, uid):
         return self._queryAll("recordWithUID", uid)
 
+    # Deferred
     def recordWithAuthID(self, authID):
         return self._queryAll("recordWithAuthID", authID)
 
+    # Deferred
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
 
@@ -132,24 +137,27 @@ class AggregateDirectoryService(DirectoryService):
         except KeyError:
             raise UnknownRecordTypeError(recordType)
 
+    # Deferred
     def _query(self, query, recordType, *args):
         try:
             service = self.serviceForRecordType(recordType)
         except UnknownRecordTypeError:
-            return None
+            return succeed(None)
 
+        # query is deferred
         return getattr(service, query)(
             recordType[len(service.recordTypePrefix):],
             *[a[len(service.recordTypePrefix):] for a in args]
         )
 
+    @inlineCallbacks
     def _queryAll(self, query, *args):
         for service in self._recordTypes.values():
-            record = getattr(service, query)(*args)
+            record = (yield getattr(service, query)(*args))
             if record is not None:
-                return record
+                returnValue(record)
         else:
-            return None
+            returnValue(None)
 
     userRecordTypes = [DirectoryService.recordType_users]
 
@@ -160,13 +168,14 @@ class AggregateDirectoryService(DirectoryService):
         
         raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
 
+    @inlineCallbacks
     def getResourceInfo(self):
         results = []
         for service in self._recordTypes.values():
-            for result in service.getResourceInfo():
+            for result in (yield service.getResourceInfo()):
                 if result:
                     results.append(result)
-        return results
+        returnValue(results)
 
 class DuplicateRecordTypeError(DirectoryError):
     """

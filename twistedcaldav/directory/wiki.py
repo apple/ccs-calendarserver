@@ -28,7 +28,7 @@ from twisted.web.xmlrpc import Proxy, Fault
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 
 from twisted.web2.dav.resource import TwistedACLInheritable
@@ -65,7 +65,7 @@ class WikiDirectoryService(DirectoryService):
         return (WikiDirectoryService.recordType_wikis,)
 
     def listRecords(self, recordType):
-        return ()
+        return succeed(())
 
     def recordWithShortName(self, recordType, shortName):
         if recordType != WikiDirectoryService.recordType_wikis:
@@ -75,10 +75,10 @@ class WikiDirectoryService(DirectoryService):
             record = self.byShortName[shortName]
             self.log_info("Returning existing wiki record with UID %s" %
                 (record.uid,))
-            return record
+            return succeed(record)
 
         record = self._addRecord(shortName)
-        return record
+        return succeed(record)
 
     def recordWithUID(self, uid):
 
@@ -86,14 +86,14 @@ class WikiDirectoryService(DirectoryService):
             record = self.byUID[uid]
             self.log_info("Returning existing wiki record with UID %s" %
                 (record.uid,))
-            return record
+            return succeed(record)
 
         if uid.startswith(self.UIDPrefix):
             shortName = uid[len(self.UIDPrefix):]
             record = self._addRecord(shortName)
-            return record
+            return succeed(record)
         else:
-            return None
+            return succeed(None)
 
     def _addRecord(self, shortName):
 

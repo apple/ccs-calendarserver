@@ -27,7 +27,7 @@ from grp import getgrnam
 from twisted.python.util import switchUID
 from twisted.internet import reactor
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav import davxml
 
 from twext.python.log import StandardIOObserver
@@ -157,6 +157,7 @@ def main():
                 raise AssertionError("Unknown proxy type")
 
             try:
+                # MOR: what to do here?
                 principalForPrincipalID(arg, checkOnly=True)
             except ValueError, e:
                 abort(e)
@@ -165,6 +166,7 @@ def main():
 
         elif opt in ("", "--remove-proxy"):
             try:
+                # MOR: what to do here?
                 principalForPrincipalID(arg, checkOnly=True)
             except ValueError, e:
                 abort(e)
@@ -233,6 +235,7 @@ def main():
 
     for arg in args:
         try:
+            # MOR: what to do here?
             principalForPrincipalID(arg, checkOnly=True)
         except ValueError, e:
             abort(e)
@@ -288,7 +291,7 @@ def run(principalIDs, actions):
         for principalID in principalIDs:
             # Resolve the given principal IDs to principals
             try:
-                principal = principalForPrincipalID(principalID)
+                principal = (yield principalForPrincipalID(principalID))
             except ValueError:
                 principal = None
 
@@ -307,6 +310,7 @@ def run(principalIDs, actions):
         #
         reactor.stop()
 
+@inlineCallbacks
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
     
     # Allow a directory parameter to be passed in, but default to config.directory
@@ -319,14 +323,14 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         raise ValueError("Can't resolve paths yet")
 
         if checkOnly:
-            return None
+            returnValue(None)
 
     if principalID.startswith("("):
         try:
             i = principalID.index(")")
 
             if checkOnly:
-                return None
+                returnValue(None)
 
             recordType = principalID[1:i]
             shortName = principalID[i+1:]
@@ -334,26 +338,26 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
             if not recordType or not shortName or "(" in recordType:
                 raise ValueError()
 
-            return directory.principalCollection.principalForShortName(recordType, shortName)
+            returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
         except ValueError:
             pass
 
     if ":" in principalID:
         if checkOnly:
-            return None
+            returnValue(None)
 
         recordType, shortName = principalID.split(":", 1)
 
-        return directory.principalCollection.principalForShortName(recordType, shortName)
+        returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
     try:
         guid = UUID(principalID)
 
         if checkOnly:
-            return None
+            returnValue(None)
 
-        return directory.principalCollection.principalForUID(guid)
+        returnValue((yield directory.principalCollection.principalForUID(guid)))
     except ValueError:
         pass
 
@@ -372,7 +376,7 @@ def action_readProperty(resource, qname):
 @inlineCallbacks
 def action_listProxies(principal, *proxyTypes):
     for proxyType in proxyTypes:
-        subPrincipal = proxySubprincipal(principal, proxyType)
+        subPrincipal = (yield proxySubprincipal(principal, proxyType))
         if subPrincipal is None:
             print "No %s proxies for %s" % (proxyType, principal)
             continue
@@ -392,7 +396,7 @@ def action_listProxies(principal, *proxyTypes):
 @inlineCallbacks
 def action_addProxy(principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID)
+        proxyPrincipal = (yield principalForPrincipalID(proxyID))
         (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
 
 @inlineCallbacks
@@ -425,7 +429,7 @@ def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
 @inlineCallbacks
 def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID)
+        proxyPrincipal = (yield principalForPrincipalID(proxyID))
         (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
 @inlineCallbacks
@@ -434,7 +438,7 @@ def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
     for proxyType in proxyTypes:
         proxyURL = proxyPrincipal.url()
 
-        subPrincipal = proxySubprincipal(principal, proxyType)
+        subPrincipal = (yield proxySubprincipal(principal, proxyType))
         if subPrincipal is None:
             sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
             continue
@@ -477,8 +481,6 @@ def action_getAutoSchedule(principal):
 def _run(directory, root, optargs, principalIDs):
 
     print ""
-
-    resource = None
 
     for opt, arg in optargs:
 

@@ -1,0 +1,46 @@
+Index: twisted/web2/dav/test/test_mkcol.py
+===================================================================
+--- twisted/web2/dav/test/test_mkcol.py	(revision 27622)
++++ twisted/web2/dav/test/test_mkcol.py	(working copy)
+@@ -24,6 +24,7 @@
+ 
+ import os
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ from twisted.web2 import responsecode
+ from twisted.web2.iweb import IResponse
+ from twisted.web2.stream import MemoryStream
+@@ -35,6 +36,7 @@
+     """
+     MKCOL request
+     """
++
+     # FIXME:
+     # Try in nonexistant parent collection.
+     # Try on existing resource.
+@@ -58,8 +60,13 @@
+ 
+         request = SimpleRequest(self.site, "MKCOL", uri)
+ 
+-        return self.send(request, check_result)
++        d = waitForDeferred(self.send(request, check_result))
++        yield d
++        d = d.getResult()
++        yield d
+ 
++    test_MKCOL = deferredGenerator(test_MKCOL)
++
+     def test_MKCOL_invalid_body(self):
+         """
+         MKCOL request with invalid request body
+@@ -82,4 +89,9 @@
+         request = SimpleRequest(self.site, "MKCOL", uri)
+         request.stream = MemoryStream("This is not a valid MKCOL request body.")
+ 
+-        return self.send(request, check_result)
++        d = waitForDeferred(self.send(request, check_result))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_MKCOL_invalid_body = deferredGenerator(test_MKCOL_invalid_body)

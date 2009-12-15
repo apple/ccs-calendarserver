@@ -1,0 +1,120 @@
+Index: twisted/web2/dav/xattrprops.py
+===================================================================
+--- twisted/web2/dav/xattrprops.py	(revision 27622)
++++ twisted/web2/dav/xattrprops.py	(working copy)
+@@ -47,6 +47,8 @@
+ if getattr(xattr, 'xattr', None) is None:
+     raise ImportError("wrong xattr package imported")
+ 
++from twisted.internet.defer import succeed, fail
++
+ from twisted.python.util import untilConcludes
+ from twisted.python.failure import Failure
+ from twisted.python import log
+@@ -124,18 +126,18 @@
+         try:
+             data = self.attrs.get(self._encode(qname))
+         except KeyError:
+-            raise HTTPError(StatusResponse(
++            return fail(HTTPError(StatusResponse(
+                     responsecode.NOT_FOUND,
+-                    "No such property: {%s}%s" % qname))
++                    "No such property: {%s}%s" % qname)))
+         except IOError, e:
+             if e.errno in _ATTR_MISSING:
+-                raise HTTPError(StatusResponse(
++                return fail(HTTPError(StatusResponse(
+                         responsecode.NOT_FOUND,
+-                        "No such property: {%s}%s" % qname))
++                        "No such property: {%s}%s" % qname)))
+             else:
+-                raise HTTPError(StatusResponse(
++                return fail(HTTPError(StatusResponse(
+                         statusForFailure(Failure()),
+-                        "Unable to read property: {%s}%s" % qname))
++                        "Unable to read property: {%s}%s" % qname)))
+ 
+         #
+         # Unserialize XML data from an xattr.  The storage format has changed
+@@ -165,15 +167,15 @@
+                 format = "Invalid property value stored on server: {%s}%s %s"
+                 msg = format % (qname[0], qname[1], data)
+                 log.err(None, msg)
+-                raise HTTPError(
+-                    StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
++                return fail(HTTPError(
++                    StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg)))
+             else:
+                 legacy = True
+ 
+         if legacy:
+             self.set(doc.root_element)
+ 
+-        return doc.root_element
++        return succeed(doc.root_element)
+ 
+ 
+     def set(self, property):
+@@ -188,6 +190,7 @@
+ 
+         # Update the resource because we've modified it
+         self.resource.fp.restat()
++        return succeed(None)
+ 
+ 
+     def delete(self, qname):
+@@ -208,10 +211,11 @@
+                 if e.errno not in _ATTR_MISSING:
+                     raise
+         except:
+-            raise HTTPError(
++            return Failure(HTTPError(
+                 StatusResponse(
+                     statusForFailure(Failure()),
+-                    "Unable to delete property: " + key))
++                    "Unable to delete property: " + key)))
++        return succeed(None)
+ 
+ 
+     def contains(self, qname):
+@@ -228,16 +232,16 @@
+         try:
+             self.attrs.get(key)
+         except KeyError:
+-            return False
++            return succeed(False)
+         except IOError, e:
+             if e.errno in _ATTR_MISSING or e.errno == errno.ENOENT:
+-                return False
+-            raise HTTPError(
++                return succeed(False)
++            return Failure(HTTPError(
+                 StatusResponse(
+                     statusForFailure(Failure()),
+-                    "Unable to read property: " + key))
++                    "Unable to read property: " + key)))
+         else:
+-            return True
++            return succeed(True)
+ 
+ 
+     def list(self):
+@@ -252,13 +256,14 @@
+         try:
+             attrs = iter(self.attrs)
+         except IOError, e:
+-            raise HTTPError(
++            return Failure(HTTPError(
+                 StatusResponse(
+                     statusForFailure(Failure()),
+-                    "Unable to list properties: " + self.resource.fp.path))
++                    "Unable to list properties: " + self.resource.fp.path)))
+         else:
+-            return [
+-                self._decode(name)
++            return succeed(
++                [self._decode(name)
+                 for name
+                 in attrs
+                 if name.startswith(prefix)]
++            )

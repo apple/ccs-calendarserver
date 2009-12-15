@@ -35,7 +35,7 @@ from zope.interface import implements
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, maybeDeferred
 
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
@@ -82,6 +82,7 @@ class DirectoryService(LoggingMixIn):
     # For ICredentialsChecker
     credentialInterfaces = (IPrincipalCredentials,)
 
+    # called using maybeDeferred...
     def requestAvatarId(self, credentials):
         credentials = IPrincipalCredentials(credentials)
 
@@ -107,13 +108,16 @@ class DirectoryService(LoggingMixIn):
                 credentials.authzPrincipal.principalURL(),
             )
         else:
-            if credentials.authnPrincipal.record.verifyCredentials(credentials.credentials):
-                return (
-                    credentials.authnPrincipal.principalURL(),
-                    credentials.authzPrincipal.principalURL(),
-                )
-            else:
-                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,)) 
+            d = maybeDeferred(credentials.authnPrincipal.record.verifyCredentials, credentials.credentials)
+            def _verify(authed):
+                if authed:
+                    return (
+                        credentials.authnPrincipal.principalURL(),
+                        credentials.authzPrincipal.principalURL(),
+                        )
+                else:
+                    raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,)) 
+            return d.addCallback(_verify)
 
     def recordTypes(self):
         raise NotImplementedError("Subclass must implement recordTypes()")
@@ -127,35 +131,36 @@ class DirectoryService(LoggingMixIn):
     def recordWithUID(self, uid):
         for record in self.allRecords():
             if record.uid == uid:
-                return record
-        return None
+                return succeed(record)
+        return succeed(None)
 
     def recordWithGUID(self, guid):
         for record in self.allRecords():
             if record.guid == guid:
-                return record
-        return None
+                return succeed(record)
+        return succeed(None)
 
     def recordWithAuthID(self, authID):
         for record in self.allRecords():
             if authID in record.authIDs:
-                return record
-        return None
+                return succeed(record)
+        return succeed(None)
 
+    @inlineCallbacks
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         record = None
         if address.startswith("urn:uuid:"):
             guid = address[9:]
-            record = self.recordWithGUID(guid)
+            record = (yield self.recordWithGUID(guid))
         elif address.startswith("mailto:"):
             for record in self.allRecords():
                 if address in record.calendarUserAddresses:
                     break
             else:
-                return None
+                returnValue(None)
 
-        return record if record and record.enabledForCalendaring else None
+        returnValue(record if record and record.enabledForCalendaring else None)
 
     def allRecords(self):
         for recordType in self.recordTypes():
@@ -248,7 +253,7 @@ class DirectoryService(LoggingMixIn):
         return succeed(yieldMatches(recordType))
 
     def getResourceInfo(self):
-        return ()
+        return succeed(())
 
     def isAvailable(self):
         return True
@@ -370,13 +375,13 @@ class DirectoryRecord(LoggingMixIn):
         return h
 
     def members(self):
-        return ()
+        return succeed(())
 
     def groups(self):
-        return ()
+        return succeed(())
 
     def verifyCredentials(self, credentials):
-        return False
+        return succeed(False)
 
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {

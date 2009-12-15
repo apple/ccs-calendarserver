@@ -42,7 +42,7 @@ except ImportError:
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import maybeDeferred, succeed
+from twisted.internet.defer import maybeDeferred, succeed, returnValue, inlineCallbacks
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
@@ -162,6 +162,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         raise NotImplementedError
 
+    @inlineCallbacks
     def resourceNamesForUID(self, uid):
         """
         Looks up the names of the resources with the given UID.
@@ -177,7 +178,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         resources = []
         for name in names:
             name_utf8 = name.encode("utf-8")
-            if name is not None and self.resource.getChild(name_utf8) is None:
+            if name is not None and (yield self.resource.getChild(name_utf8)) is None:
                 # Clean up
                 log.err("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
                 self._delete_from_db(name, uid)
@@ -185,8 +186,9 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             else:
                 resources.append(name)
 
-        return resources
+        returnValue(resources)
 
+    @inlineCallbacks
     def resourceNameForUID(self, uid):
         """
         Looks up the name of the resource with the given UID.
@@ -195,11 +197,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         result = None
 
-        for name in self.resourceNamesForUID(uid):
+        for name in (yield self.resourceNamesForUID(uid)):
             assert result is None, "More than one resource with UID %s in calendar collection %r" % (uid, self)
             result = name
 
-        return result
+        returnValue(result)
 
     def resourceUIDForName(self, name):
         """
@@ -265,15 +267,16 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         results = self._db_values_for_sql(statement, *names)
         return results
 
-
+    @inlineCallbacks
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
         names = self.notExpandedBeyond(minDate)
         # Actually expand recurrence max
         for name in names:
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
-            self.reExpandResource(name, minDate)
+            yield self.reExpandResource(name, minDate)
 
+    @inlineCallbacks
     def indexedSearch(self, filter, fbtype=False):
         """
         Finds resources matching the given qualifiers.
@@ -298,7 +301,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                     maxDate = maxDate.date()
                     if isStartDate:
                         maxDate += datetime.timedelta(days=365)
-                    self.testAndUpdateIndex(maxDate)
+                    yield self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handler this filter in an indexed search
                 raise IndexedSearchException()
@@ -321,16 +324,18 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
 
         # Check result for missing resources
-
+        rows = []
         for row in rowiter:
             name = row[0]
-            if self.resource.getChild(name.encode("utf-8")):
-                yield row
+            if (yield self.resource.getChild(name.encode("utf-8"))):
+                rows.append(row)
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
+        returnValue(rows)
 
+    @inlineCallbacks
     def bruteForceSearch(self):
         """
         List the whole index and tests for existence, updating the index
@@ -340,16 +345,16 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
 
         # Check result for missing resources:
-
+        rows = []
         for row in rowiter:
             name = row[0]
-            if self.resource.getChild(name.encode("utf-8")):
-                yield row
+            if (yield self.resource.getChild(name.encode("utf-8"))):
+                rows.append(row)
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
-
+        returnValue(rows)
 
     def _db_version(self):
         """
@@ -489,15 +494,17 @@ class CalendarIndex (AbstractCalendarIndex):
         """
         return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", minDate)
 
+    @inlineCallbacks
     def reExpandResource(self, name, expand_until):
         """
         Given a resource name, remove it from the database and re-add it
         with a longer expansion.
         """
-        calendar = self.resource.getChild(name).iCalendar()
+        child = (yield self.resource.getChild(name))
+        calendar = (yield child.iCalendar())
         self._add_to_db(name, calendar, expand_until=expand_until, reCreate=True)
         self._db_commit()
-
+        
     def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
         """
         Records the given calendar resource in the index with the given name.
@@ -748,6 +755,7 @@ class Index (CalendarIndex):
             index. C{resource} must be a calendar collection (i.e.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
+        # MOR: isCalendarCollection( ) is now deferred.  What to do here?
         assert resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
         super(Index, self).__init__(resource)
 
@@ -785,8 +793,8 @@ class Index (CalendarIndex):
         @return: True if the UID is not in the index and is not reserved,
             False otherwise.
         """
-        rname = self.resourceNameForUID(uid)
-        return (rname is None or rname in names)
+        return self.resourceNameForUID(uid).addCallback(
+            lambda rname: rname is None or rname in names)
 
     def _db_type(self):
         """
@@ -850,7 +858,8 @@ class IndexSchedule (CalendarIndex):
             index. C{resource} must be a calendar collection (i.e.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
-        assert resource.isPseudoCalendarCollection() and not resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
+        # MOR: isCalendarCollection( ) is now deferred.  What to do here?
+        # assert resource.isPseudoCalendarCollection() and not resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
         super(IndexSchedule, self).__init__(resource)
 
     def reserveUID(self, uid): #@UnusedVariable
@@ -897,7 +906,7 @@ class IndexSchedule (CalendarIndex):
         """
 
         # iTIP does not require unique UIDs
-        return True
+        return succeed(True)
 
     def _db_type(self):
         """

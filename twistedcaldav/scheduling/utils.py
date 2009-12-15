@@ -30,27 +30,28 @@ def getCalendarObjectForPrincipals(request, principal, uid):
     result["calendar_collection_uri"] = None
     if principal:
         # Get principal's calendar-home
-        calendar_home = principal.calendarHome()
+        calendar_home = yield principal.calendarHome()
         
         # FIXME: because of the URL->resource request mapping thing, we have to force the request
         # to recognize this resource
         request._rememberResource(calendar_home, calendar_home.url())
 
         # Run a UID query against the UID
-
-        def queryCalendarCollection(collection, uri):
-            rname = collection.index().resourceNameForUID(uid)
+        def queryCalendarCollection(rname, collection, uri):
             if rname:
-                result["resource"] = collection.getChild(rname)
+                def _setResource(rsrc):
+                    result["resource"] = rsrc
+                d = collection.getChild(rname).addCallback(_setResource)
                 result["resource_name"] = rname
                 result["calendar_collection"] = collection
                 result["calendar_collection_uri"] = uri
-                return succeed(False)
+                return d
             else:
                 return succeed(True)
-        
+        def getResourceName(collection, uri):
+            return collection.index().resourceNameForUID(uid).addCallback(queryCalendarCollection, collection, uri)
         # NB We are by-passing privilege checking here. That should be OK as the data found is not
         # exposed to the user.
-        yield report_common.applyToCalendarCollections(calendar_home, request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+        yield report_common.applyToCalendarCollections(calendar_home, request, calendar_home.url(), "infinity", getResourceName, None)
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))

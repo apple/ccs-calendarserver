@@ -1,0 +1,89 @@
+Index: twisted/web2/dav/test/test_move.py
+===================================================================
+--- twisted/web2/dav/test/test_move.py	(revision 27622)
++++ twisted/web2/dav/test/test_move.py	(working copy)
+@@ -24,6 +24,7 @@
+ 
+ import os
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ import twisted.web2.dav.test.util
+ import twisted.web2.dav.test.test_copy
+ from twisted.web2 import responsecode
+@@ -60,8 +61,18 @@
+                 if sum != sumFile(dst_path):
+                     self.fail("isdir %s produced different directory" % (uri,))
+ 
+-        return serialize(self.send, work(self, test))
+ 
++        d = waitForDeferred(work(self, test))
++        yield d
++        d = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult( )
++        yield d
++
++    test_MOVE_create = deferredGenerator(test_MOVE_create)
++
+     def test_MOVE_exists(self):
+         """
+         MOVE to existing resource.
+@@ -74,8 +85,17 @@
+                 # FIXME: Check XML error code (2518bis)
+                 pass
+ 
+-        return serialize(self.send, work(self, test, overwrite=False))
++        d = waitForDeferred(work(self, test, overwrite=False))
++        yield d
++        d = d.getResult()
+ 
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult( )
++        yield d
++
++    test_MOVE_exists = deferredGenerator(test_MOVE_exists)
++
+     def test_MOVE_overwrite(self):
+         """
+         MOVE to existing resource with overwrite header.
+@@ -88,8 +108,17 @@
+                 # FIXME: Check XML error code (2518bis)
+                 pass
+ 
+-        return serialize(self.send, work(self, test, overwrite=True))
++        d = waitForDeferred(work(self, test, overwrite=True))
++        yield d
++        d = d.getResult()
+ 
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult( )
++        yield d
++
++    test_MOVE_overwrite = deferredGenerator(test_MOVE_overwrite)
++
+     def test_MOVE_no_parent(self):
+         """
+         MOVE to resource with no parent.
+@@ -102,7 +131,17 @@
+                 # FIXME: Check XML error code (2518bis)
+                 pass
+ 
+-        return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
+ 
++        d = waitForDeferred(work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
++        yield d
++        d = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult( )
++        yield d
++
++    test_MOVE_no_parent = deferredGenerator(test_MOVE_no_parent)
++
+ def work(self, test, overwrite=None, dst=None):
+     return twisted.web2.dav.test.test_copy.work(self, test, overwrite, dst, depths=(None,))

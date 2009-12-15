@@ -99,6 +99,7 @@ class XMLFile (
     def service(self):
         return XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
 
+    @inlineCallbacks
     def test_changedXML(self):
         service = self.service()
 
@@ -123,10 +124,10 @@ class XMLFile (
         ):
             # Fault records in
             for name in expectedRecords:
-                service.recordWithShortName(recordType, name)
+                yield service.recordWithShortName(recordType, name)
 
             self.assertEquals(
-                set(r.shortNames[0] for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in (yield service.listRecords(recordType))),
                 set(expectedRecords)
             )
 
@@ -156,16 +157,17 @@ class XMLFile (
         ):
             # Fault records in
             for name in expectedRecords:
-                service.recordWithShortName(recordType, name)
+                yield service.recordWithShortName(recordType, name)
 
             self.assertEquals(
-                set(r.shortNames[0] for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in (yield service.listRecords(recordType))),
                 set(expectedRecords)
             )
         resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        self.assertTrue((yield resourceInfoDatabase.getAutoSchedule(service.recordWithShortName(DirectoryService.recordType_locations, "my office").guid)))
+        self.assertTrue((yield resourceInfoDatabase.getAutoSchedule((yield service.recordWithShortName(DirectoryService.recordType_locations, "my office")).guid)))
 
 
+    @inlineCallbacks
     def test_okDisableCalendar(self):
         service = self.service()
 
@@ -195,16 +197,16 @@ class XMLFile (
         ):
             # Fault records in
             for name in expectedRecords:
-                service.recordWithShortName(recordType, name)
+                yield service.recordWithShortName(recordType, name)
 
             self.assertEquals(
-                set(r.shortNames[0] for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in (yield service.listRecords(recordType))),
                 set(expectedRecords)
             )
 
         # All groups are disabled
-        self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
-        self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
+        self.assertFalse((yield service.recordWithShortName(DirectoryService.recordType_groups, "enabled")).enabledForCalendaring)
+        self.assertFalse((yield service.recordWithShortName(DirectoryService.recordType_groups, "disabled")).enabledForCalendaring)
 
     @inlineCallbacks
     def test_okProxies(self):
@@ -241,10 +243,10 @@ class XMLFile (
         ):
             # Fault records in
             for name in expectedRecords:
-                service.recordWithShortName(recordType, name)
+                yield service.recordWithShortName(recordType, name)
 
             self.assertEquals(
-                set(r.shortNames[0] for r in service.listRecords(recordType)),
+                set(r.shortNames[0] for r in (yield service.listRecords(recordType))),
                 set(expectedRecords)
             )
         calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)

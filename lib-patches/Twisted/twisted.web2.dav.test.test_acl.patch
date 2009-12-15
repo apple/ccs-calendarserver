@@ -1,0 +1,378 @@
+Index: twisted/web2/dav/test/test_acl.py
+===================================================================
+--- twisted/web2/dav/test/test_acl.py	(revision 27622)
++++ twisted/web2/dav/test/test_acl.py	(working copy)
+@@ -26,6 +26,8 @@
+ 
+ from twisted.cred.portal import Portal
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
++
+ from twisted.web2 import responsecode
+ from twisted.web2.auth import basic
+ from twisted.web2.stream import MemoryStream
+@@ -50,7 +52,9 @@
+         os.mkdir(docroot)
+ 
+         userResource = TestDAVPrincipalResource("/principals/users/user01")
+-        userResource.writeDeadProperty(TwistedPasswordProperty("user01"))
++        d = waitForDeferred(userResource.writeDeadProperty(TwistedPasswordProperty("user01")))
++        yield d
++        d = d.getResult()
+ 
+         principalCollection = TestPrincipalsCollection(
+             "/principals/",
+@@ -75,7 +79,9 @@
+             loginInterfaces
+         ))
+ 
+-        rootResource.setAccessControlList(self.grant(davxml.All()))
++        d = waitForDeferred(rootResource.setAccessControlList(self.grant(davxml.All())))
++        yield d
++        d.getResult( )
+ 
+         for name, acl in (
+             ("none"       , self.grant()),
+@@ -88,7 +94,9 @@
+             if not os.path.isfile(filename):
+                 file(filename, "w").close()
+             resource = self.resource_class(filename)
+-            resource.setAccessControlList(acl)
++            d2 = waitForDeferred(resource.setAccessControlList(acl))
++            yield d2
++            d2.getResult()
+ 
+         for name, acl in (
+             ("nobind" , self.grant()),
+@@ -99,9 +107,12 @@
+             if not os.path.isdir(dirname):
+                 os.mkdir(dirname)
+             resource = self.resource_class(dirname)
+-            resource.setAccessControlList(acl)
+-        return docroot
++            d3 = waitForDeferred(resource.setAccessControlList(acl))
++            yield d3
++            d3.getResult()
++        yield docroot
+ 
++    createDocumentRoot = deferredGenerator(createDocumentRoot)
+ 
+     def restore(self):
+         # Get rid of whatever messed up state the test has now so that we'll
+@@ -119,6 +130,7 @@
+             dst_path = os.path.join(self.docroot, "copy_dst")
+             dst_uri = "/" + os.path.basename(dst_path)
+ 
++            results = []
+             for src, status in (
+                 ("nobind", responsecode.FORBIDDEN),
+                 ("bind",   responsecode.FORBIDDEN),
+@@ -129,11 +141,15 @@
+                 if not os.path.isdir(src_path):
+                     os.mkdir(src_path)
+                 src_resource = self.resource_class(src_path)
+-                src_resource.setAccessControlList({
++
++                d = waitForDeferred(src_resource.setAccessControlList({
+                     "nobind": self.grant(),
+                     "bind"  : self.grant(davxml.Bind()),
+                     "unbind": self.grant(davxml.Bind(), davxml.Unbind())
+-                }[src])
++                }[src]))
++                yield d
++                d.getResult()
++
+                 for name, acl in (
+                     ("none"       , self.grant()),
+                     ("read"       , self.grant(davxml.Read())),
+@@ -144,8 +160,11 @@
+                     filename = os.path.join(src_path, name)
+                     if not os.path.isfile(filename):
+                         file(filename, "w").close()
+-                    self.resource_class(filename).setAccessControlList(acl)
+ 
++                    d = waitForDeferred(self.resource_class(filename).setAccessControlList(acl))
++                    yield d
++                    d.getResult()
++
+                 for method in ("COPY", "MOVE"):
+                     for name, code in (
+                         ("none"       , {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
+@@ -166,12 +185,30 @@
+                                 os.remove(dst_path)
+     
+                             if response.code != code:
+-                                return self.oops(request, response, code, method, name)
++                                d = waitForDeferred(self.oops(request, response, code, method, name))
++                                yield d
++                                d = d.getResult()
++                                yield d
++                                return
+     
+-                        yield (request, test)
++                        results.append( (request, test) )
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_MOVE_source = deferredGenerator(test_COPY_MOVE_source)
++
++
+     def test_COPY_MOVE_dest(self):
+         """
+         Verify destination access controls during COPY and MOVE.
+@@ -180,6 +217,7 @@
+             src_path = os.path.join(self.docroot, "read")
+             uri = "/" + os.path.basename(src_path)
+ 
++            results = []
+             for method in ("COPY", "MOVE"):
+                 for name, code in (
+                     ("nobind" , responsecode.FORBIDDEN),
+@@ -198,18 +236,41 @@
+                             os.remove(dst_path)
+ 
+                         if response.code != code:
+-                            return self.oops(request, response, code, method, name)
++                            d = waitForDeferred(self.oops(request, response, code, method, name))
++                            yield d
++                            d = d.getResult()
++                            yield d
++                            return
+ 
+-                    yield (request, test)
++                    results.append((request, test))
+                     self.restore()
++                    # restore( ) blows away _docroot explicitly;
++                    # need to repopulate it
++                    d = waitForDeferred(self._getDocumentRoot())
++                    yield d
++                    d.getResult()
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_MOVE_dest = deferredGenerator(test_COPY_MOVE_dest)
++
+     def test_DELETE(self):
+         """
+         Verify access controls during DELETE.
+         """
+         def work():
++            results = []
+             for name, code in (
+                 ("nobind" , responsecode.FORBIDDEN),
+                 ("bind"   , responsecode.FORBIDDEN),
+@@ -225,12 +286,28 @@
+ 
+                 def test(response, code=code, path=path):
+                     if response.code != code:
+-                        return self.oops(request, response, code, "DELETE", name)
++                        d = waitForDeferred(self.oops(request, response, code, "DELETE", name))
++                        yield d
++                        d = d.getResult()
++                        yield d
++                        return
+ 
+-                yield (request, test)
++                results.append((request, test))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++
+     def test_UNLOCK(self):
+         """
+         Verify access controls during UNLOCK of unowned lock.
+@@ -243,8 +320,10 @@
+         """
+         Verify access controls during MKCOL.
+         """
+-        for method in ("MKCOL", "PUT"):
+-            def work():
++        def work():
++            results = []
++
++            for method in ("MKCOL", "PUT"):
+                 for name, code in (
+                     ("nobind" , responsecode.FORBIDDEN),
+                     ("bind"   , responsecode.CREATED),
+@@ -263,17 +342,34 @@
+ 
+                     def test(response, code=code, path=path):
+                         if response.code != code:
+-                            return self.oops(request, response, code, method, name)
++                            d = waitForDeferred(self.oops(request, response, code, "DELETE", name))
++                            yield d
++                            d = d.getResult()
++                            yield d
++                            return
+ 
+-                    yield (request, test)
++                    results.append((request, test))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++
+     def test_PUT_exists(self):
+         """
+         Verify access controls during PUT of existing file.
+         """
+         def work():
++            results = []
+             for name, code in (
+                 ("none"       , responsecode.FORBIDDEN),
+                 ("read"       , responsecode.FORBIDDEN),
+@@ -288,12 +384,28 @@
+ 
+                 def test(response, code=code, path=path):
+                     if response.code != code:
+-                        return self.oops(request, response, code, "PUT", name)
++                        d = waitForDeferred(self.oops(request, response, code, "PUT", name))
++                        yield d
++                        d = d.getResult()
++                        yield d
++                        return
+ 
+-                yield (request, test)
++                results.append((request, test))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++
+     def test_PROPFIND(self):
+         """
+         Verify access controls during PROPFIND.
+@@ -307,6 +419,7 @@
+         Verify access controls during PROPPATCH.
+         """
+         def work():
++            results = []
+             for name, code in (
+                 ("none"       , responsecode.FORBIDDEN),
+                 ("read"       , responsecode.FORBIDDEN),
+@@ -324,17 +437,33 @@
+ 
+                 def test(response, code=code, path=path):
+                     if response.code != code:
+-                        return self.oops(request, response, code, "PROPPATCH", name)
++                        d = waitForDeferred(self.oops(request, response, code, "PROPPATCH", name))
++                        yield d
++                        d = d.getResult()
++                        yield d
++                        return
+ 
+-                yield (request, test)
++                results.append((request, test))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
+     def test_GET_REPORT(self):
+         """
+         Verify access controls during GET and REPORT.
+         """
+         def work():
++            results = []
+             for method in ("GET", "REPORT"):
+                 if method == "GET":
+                     ok = responsecode.OK
+@@ -360,12 +489,27 @@
+ 
+                     def test(response, code=code, path=path):
+                         if response.code != code:
+-                            return self.oops(request, response, code, method, name)
++                            d = waitForDeferred(self.oops(request, response, code, method, name))
++                            yield d
++                            d = d.getResult()
++                            yield d
+ 
+-                    yield (request, test)
++                    results.append((request, test))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++
+     def oops(self, request, response, code, method, name):
+         def gotResponseData(doc):
+             if doc is None:

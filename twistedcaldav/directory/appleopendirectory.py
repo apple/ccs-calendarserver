@@ -35,6 +35,7 @@ import opendirectory
 import dsattributes
 import dsquery
 
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
@@ -120,7 +121,11 @@ class OpenDirectoryService(CachingDirectoryService):
             h = (h + hash(getattr(self, attr))) & sys.maxint
         return h
 
-    def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None, returnGroups=False):
+    @inlineCallbacks
+    def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None, results=None, returnGroups=False):
+
+        if results is None:
+            results = set()
 
         if processedGUIDs is None:
             processedGUIDs = set()
@@ -134,7 +139,7 @@ class OpenDirectoryService(CachingDirectoryService):
         for memberGUID in members:
             if memberGUID not in processedGUIDs:
                 processedGUIDs.add(memberGUID)
-                yield memberGUID
+                results.add(memberGUID)
 
         for groupGUID in nestedGroups:
             if groupGUID in processedGUIDs:
@@ -149,7 +154,9 @@ class OpenDirectoryService(CachingDirectoryService):
                 dsattributes.kDSStdRecordTypeGroups,
                 [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
             ))
-            result = opendirectory.queryRecordsWithAttribute_list(
+            # MOR: Doublecheck this
+            result = (yield deferToThread(
+                opendirectory.queryRecordsWithAttribute_list,
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
                 groupGUID,
@@ -157,7 +164,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 False,
                 dsattributes.kDSStdRecordTypeGroups,
                 [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
-            )
+            ))
 
             if not result:
                 self.log_error("Couldn't find group %s when trying to expand nested groups."
@@ -168,15 +175,37 @@ class OpenDirectoryService(CachingDirectoryService):
 
             processedGUIDs.add(groupGUID)
             if returnGroups:
-                yield groupGUID
+                results.add(groupGUID)
 
-            for GUID in self._expandGroupMembership(
+            yield self._expandGroupMembership(
                 group.get(dsattributes.kDSNAttrGroupMembers, []),
                 group.get(dsattributes.kDSNAttrNestedGroups, []),
                 processedGUIDs,
+                results,
                 returnGroups,
-            ):
-                yield GUID
+            )
+
+        returnValue(results)
+
+    def _calendarUserAddresses(self, recordType, recordData):
+        """
+        Extract specific attributes from the directory record for use as calendar user address.
+        
+        @param recordData: a C{dict} containing the attributes retrieved from the directory.
+        @return: a C{set} of C{str} for each expanded calendar user address.
+        """
+        # Now get the addresses
+        result = set()
+        
+        # Add each email address as a mailto URI
+        emails = recordData.get(dsattributes.kDSNAttrEMailAddress)
+        if emails is not None:
+            if isinstance(emails, str):
+                emails = [emails]
+            for email in emails:
+                result.add("mailto:%s" % (email.lower(),))
+                
+        return result
 
     def recordTypes(self):
         return (
@@ -186,6 +215,7 @@ class OpenDirectoryService(CachingDirectoryService):
             self.recordType_resources,
         )
 
+    @inlineCallbacks
     def groupsForGUID(self, guid):
         
         attrs = [
@@ -207,7 +237,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             ))
-            results = opendirectory.queryRecordsWithAttribute_list(
+            results = (yield deferToThread(
+                opendirectory.queryRecordsWithAttribute_list,
                 self.directory,
                 query.attribute,
                 query.value,
@@ -215,7 +246,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 False,
                 recordType,
                 attrs,
-            )
+            ))
         except opendirectory.ODError, ex:
             self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
@@ -238,7 +269,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             ))
-            results = opendirectory.queryRecordsWithAttribute_list(
+            results = (yield deferToThread(
+                opendirectory.queryRecordsWithAttribute_list,
                 self.directory,
                 query.attribute,
                 query.value,
@@ -246,7 +278,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 False,
                 recordType,
                 attrs,
-            )
+            ))
         except opendirectory.ODError, ex:
             self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
@@ -258,7 +290,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordGUID:
                 guids.add(recordGUID)
 
-        return guids
+        returnValue(guids)
 
     def proxiesForGUID(self, recordType, guid):
         
@@ -341,23 +373,12 @@ class OpenDirectoryService(CachingDirectoryService):
     _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
 
 
+    @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 
         # Note that OD applies case-sensitivity globally across the entire
         # query, not per expression, so the current code uses whatever is
         # specified in the last field in the fields list
-
-        def collectResults(results):
-            self.log_info("Got back %d records from OD" % (len(results),))
-            for key, val in results:
-                self.log_debug("OD result: %s %s" % (key, val))
-                try:
-                    guid = val[dsattributes.kDS1AttrGeneratedUID]
-                    record = self.recordWithGUID(guid)
-                    if record:
-                        yield record
-                except KeyError:
-                    pass
 
         def multiQuery(directory, queries, attrs, operand):
             results = []
@@ -406,17 +427,30 @@ class OpenDirectoryService(CachingDirectoryService):
 
         queries = buildQueries(recordTypes, fields, self._ODFields)
 
-        deferred = deferToThread(
+        odResults = (yield deferToThread(
             multiQuery,
             self.directory,
             queries,
             [ dsattributes.kDS1AttrGeneratedUID ],
             operand
-        )
-        deferred.addCallback(collectResults)
-        return deferred
+        ))
+
+        results = []
+        self.log_info("Got back %d records from OD" % (len(results),))
+        for key, val in odResults.iteritems():
+            self.log_debug("OD result: %s %s" % (key, val))
+            try:
+                guid = val[dsattributes.kDS1AttrGeneratedUID]
+                record = (yield self.recordWithGUID(guid))
+                if record:
+                    results.append(record)
+            except KeyError:
+                pass
+
+        returnValue(results)
 
 
+    @inlineCallbacks
     def queryDirectory(self, recordTypes, indexType, indexKey,
         lookupMethod=opendirectory.queryRecordsWithAttribute_list):
         
@@ -490,7 +524,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 listRecordTypes,
                 attrs,
             ))
-            results = lookupMethod(
+            results = (yield deferToThread(
+                lookupMethod,
                 self.directory,
                 query.attribute,
                 query.value,
@@ -498,13 +533,13 @@ class OpenDirectoryService(CachingDirectoryService):
                 False,
                 listRecordTypes,
                 attrs,
-            )
+            ))
             self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
         except opendirectory.ODError, ex:
             if ex.message[1] == -14140 or ex.message[1] == -14200:
                 # Unsupported attribute on record - don't fail
-                return
+                returnValue(None)
             else:
                 self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
@@ -589,7 +624,8 @@ class OpenDirectoryService(CachingDirectoryService):
                             dsattributes.kDSStdRecordTypeGroups,
                             [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
                         ))
-                        results = lookupMethod(
+                        results = (yield deferToThread(
+                            lookupMethod,
                             self.directory,
                             attributeToMatch,
                             valueToMatch,
@@ -597,7 +633,7 @@ class OpenDirectoryService(CachingDirectoryService):
                             False,
                             dsattributes.kDSStdRecordTypeGroups,
                             [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-                        )
+                        ))
 
                         if len(results) == 1:
                             members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
@@ -605,7 +641,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         else:
                             members = []
                             nestedGroups = []
-                        self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
+                        self.restrictedGUIDs = (yield self._expandGroupMembership(members, nestedGroups, returnGroups=True))
                         self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
                         self.restrictedTimestamp = time.time()
 
@@ -683,9 +719,9 @@ class OpenDirectoryService(CachingDirectoryService):
             # Fetch the set of groups this record is a member of so we can
             # cache it, rather than have each process make the same group
             # lookup
-            record._groupMembershipGUIDs = self.groupsForGUID(record.guid)
+            record._groupMembershipGUIDs = (yield self.groupsForGUID(record.guid))
 
-            self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
+            yield self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
     def _parseResourceInfo(self, plist, guid, recordType, shortname):
         """
@@ -714,6 +750,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         return (autoaccept, proxy, read_only_proxy,)
 
+    @inlineCallbacks
     def getResourceInfo(self):
         """
         Resource information including proxy assignments for resource and
@@ -725,6 +762,7 @@ class OpenDirectoryService(CachingDirectoryService):
             dsattributes.kDS1AttrGeneratedUID,
             dsattributes.kDSNAttrResourceInfo,
         ]
+        results = []
 
         for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
             try:
@@ -733,11 +771,12 @@ class OpenDirectoryService(CachingDirectoryService):
                     recordType,
                     attrs,
                 ))
-                results = opendirectory.listAllRecordsWithAttributes_list(
+                results = (yield deferToThread(
+                    opendirectory.listAllRecordsWithAttributes_list,
                     self.directory,
                     recordType,
                     attrs,
-                )
+                ))
             except opendirectory.ODError, ex:
                 self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
@@ -751,7 +790,8 @@ class OpenDirectoryService(CachingDirectoryService):
                             recordGUID, recordType, recordShortName)
                     except ValueError:
                         continue
-                    yield recordGUID, autoSchedule, proxy, readOnlyProxy
+                    results.append((recordGUID, autoSchedule, proxy, readOnlyProxy))
+        returnValue(results)
 
 
     def isAvailable(self):
@@ -841,44 +881,56 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             self.fullName
         )
 
+    @inlineCallbacks
     def members(self):
         if self.recordType != self.service.recordType_groups:
-            return
+            returnValue(None)
 
+        results = []
         for guid in self._memberGUIDs:
-            userRecord = self.service.recordWithGUID(guid)
+            userRecord = (yield self.service.recordWithGUID(guid))
             if userRecord is not None:
-                yield userRecord
+                results.append(userRecord)
+        returnValue(results)
 
+    @inlineCallbacks
     def groups(self):
         if self._groupMembershipGUIDs is None:
-            self._groupMembershipGUIDs = self.service.groupsForGUID(self.guid)
+            self._groupMembershipGUIDs = (yield self.service.groupsForGUID(self.guid))
 
+        results = []
         for guid in self._groupMembershipGUIDs:
-            record = self.service.recordWithGUID(guid)
+            record = (yield self.service.recordWithGUID(guid))
             if record:
-                yield record
+                results.append(record)
+        returnValue(results)
 
+    @inlineCallbacks
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
             # Check cached password
             try:
                 if credentials.password == self.password:
-                    return True
+                    returnValue(True)
             except AttributeError:
                 pass
 
             # Check with directory services
             try:
-                if opendirectory.authenticateUserBasic(self.service.directory, self.nodeName, self.shortNames[0], credentials.password):
+                if (yield deferToThread(
+                    opendirectory.authenticateUserBasic,
+                    self.service.directory,
+                    self.nodeName,
+                    self.shortNames[0],
+                    credentials.password)):
                     # Cache the password to avoid future DS queries
                     self.password = credentials.password
-                    return True
+                    returnValue(True)
             except opendirectory.ODError, e:
                 self.log_error("OpenDirectory (node=%s) error while performing basic authentication for user %s: %s"
                             % (self.service.realmName, self.shortNames[0], e))
 
-            return False
+            returnValue(False)
 
         elif isinstance(credentials, DigestedCredentials):
             #
@@ -903,23 +955,24 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     "missing digest response field: %s in: %s"
                     % (self.service.realmName, self.shortNames[0], e, credentials.fields)
                 )
-                return False
+                returnValue(False)
 
             try:
                 if self.digestcache[credentials.fields["uri"]] == response:
-                    return True
+                    returnValue(True)
             except (AttributeError, KeyError):
                 pass
 
             try:
-                if opendirectory.authenticateUserDigest(
+                if (yield deferToThread(
+                    opendirectory.authenticateUserDigest,
                     self.service.directory,
                     self.nodeName,
                     self.shortNames[0],
                     challenge,
                     response,
                     credentials.originalMethod if credentials.originalMethod else credentials.method
-                ):
+                )):
                     try:
                         cache = self.digestcache
                     except AttributeError:
@@ -927,7 +980,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
                     cache[credentials.fields["uri"]] = response
 
-                    return True
+                    returnValue(True)
                 else:
                     self.log_debug(
 """OpenDirectory digest authentication failed with:
@@ -943,11 +996,11 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     "OpenDirectory (node=%s) error while performing digest authentication for user %s: %s"
                     % (self.service.realmName, self.shortNames[0], e)
                 )
-                return False
+                returnValue(False)
 
-            return False
+            returnValue(False)
 
-        return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
+        returnValue((yield super(OpenDirectoryRecord, self).verifyCredentials(credentials)))
 
 class OpenDirectoryInitError(DirectoryError):
     """

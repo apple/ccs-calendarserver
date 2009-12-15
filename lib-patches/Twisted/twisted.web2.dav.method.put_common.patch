@@ -1,0 +1,50 @@
+Index: twisted/web2/dav/method/put_common.py
+===================================================================
+--- twisted/web2/dav/method/put_common.py	(revision 27622)
++++ twisted/web2/dav/method/put_common.py	(working copy)
+@@ -22,7 +22,7 @@
+ 
+ __version__ = "0.0"
+ 
+-__all__ = ["storeCalendarObjectResource"]
++__all__ = ["storeResource"]
+ 
+ from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
+ from twisted.python import failure, log
+@@ -208,20 +208,31 @@
+         # Update the MD5 value on the resource
+         if source is not None:
+             # Copy MD5 value from source to destination
+-            if source.hasDeadProperty(TwistedGETContentMD5):
+-                md5 = source.readDeadProperty(TwistedGETContentMD5)
+-                destination.writeDeadProperty(md5)
++            hasDeadProperty = waitForDeferred(source.hasDeadProperty(TwistedGETContentMD5))
++            yield hasDeadProperty
++            hasDeadProperty = hasDeadProperty.getResult()
++            if hasDeadProperty:
++                md5 = waitForDeferred(source.readDeadProperty(TwistedGETContentMD5))
++                yield md5
++                md5 = md5.getResult()
++                ignore = waitForDeferred(destination.writeDeadProperty(md5))
++                yield ignore
++                ignore = ignore.getResult( )
+         else:
+             # Finish MD5 calc and write dead property
+             md5.close()
+             md5 = md5.getMD5()
+-            destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
++            ignore = waitForDeferred(destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5)))
++            yield ignore
++            ignore = ignore.getResult( )
+ 
+         # Update the content-type value on the resource if it is not been copied or moved
+         if source is None:
+             content_type = request.headers.getHeader("content-type")
+             if content_type is not None:
+-                destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(content_type)))
++                ignore = waitForDeferred(destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(content_type))))
++                yield ignore
++                ignore = ignore.getResult( )
+ 
+         response = IResponse(response)
+         

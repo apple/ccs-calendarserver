@@ -16,21 +16,20 @@
 from __future__ import with_statement
 
 __all__ = [
-    "CalDAVService",
-    "CalDAVOptions",
-    "CalDAVServiceMaker",
+    "CalDAVTaskServiceMaker",
 ]
 
 from calendarserver.provision.root import RootResource
 from time import sleep
 from twisted.application.service import Service, IServiceMaker
 from twisted.internet.address import IPv4Address
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, returnValue, inlineCallbacks
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web2.http_headers import Headers
+from twisted.web2.server import NoURLForResourceError
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
@@ -91,8 +90,8 @@ class FakeRequest(object):
 def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
     log.debug("Processing inbox item %s" % (inboxItemFile,))
 
-    principals = rootResource.getChild("principals")
-    ownerPrincipal = principals.principalForUID(uuid)
+    principals = (yield rootResource.getChild("principals"))
+    ownerPrincipal = (yield principals.principalForUID(uuid))
     cua = "urn:uuid:%s" % (uuid,)
     owner = LocalCalendarUser(cua, ownerPrincipal,
         inboxFile, ownerPrincipal.scheduleInboxURL())
@@ -111,15 +110,17 @@ def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
         # originator is the organizer
         originator = calendar.getOrganizer()
 
-    originatorPrincipal = principals.principalForCalendarUserAddress(originator)
+    originatorPrincipal = (yield principals.principalForCalendarUserAddress(originator))
     originator = LocalCalendarUser(originator, originatorPrincipal)
     recipients = (owner,)
     scheduler = DirectScheduler(FakeRequest(rootResource, "PUT"), inboxItemFile)
-    result = (yield scheduler.doSchedulingViaPUT(originator, recipients,
-        calendar, internal_request=False))
+    yield scheduler.doSchedulingViaPUT(
+        originator, recipients, calendar, internal_request=False
+    )
 
     if os.path.exists(inboxItemFile.fp.path):
         os.remove(inboxItemFile.fp.path)
+
 
 
 
@@ -149,10 +150,10 @@ class Task(object):
             returnValue(None)
 
     @inlineCallbacks
+    @inlineCallbacks
     def task_scheduleinboxes(self):
-
-        calendars = self.service.root.getChild("calendars")
-        uidDir = calendars.getChild("__uids__")
+        calendars = (yield self.service.root.getChild("calendars"))
+        uidDir = (yield calendars.getChild("__uids__"))
 
         inboxItems = set()
         with open(self.taskFile) as input:
@@ -164,15 +165,15 @@ class Task(object):
             log.info("Processing inbox item: %s" % (inboxItem,))
             ignore, uuid, ignore, fileName = inboxItem.rsplit("/", 3)
 
-            homeFile = uidDir.getChild(uuid)
+            homeFile = (yield uidDir.getChild(uuid))
             if not homeFile:
                 continue
 
-            inboxFile = homeFile.getChild("inbox")
+            inboxFile = (yield homeFile.getChild("inbox"))
             if not inboxFile:
                 continue
 
-            inboxItemFile = inboxFile.getChild(fileName)
+            inboxItemFile = (yield inboxFile.getChild(fileName))
 
             yield processInboxItem(
                 self.service.root,
@@ -363,8 +364,6 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
         #
         # Setup the Directory
         #
-        directories = []
-
         directoryClass = namedClass(config.DirectoryService.type)
 
         self.log_info("Configuring directory service of type: %s"

@@ -184,14 +184,14 @@ class ScheduleViaCalDAV(DeliveryService):
                 responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
     
                 # Store CALDAV:originator property
-                child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
+                yield child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
             
                 # Store CALDAV:recipient property
-                child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
+                yield child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
             
                 # Store CS:schedule-changes property if present
                 if changes:
-                    child.writeDeadProperty(changes)
+                    yield child.writeDeadProperty(changes)
                     
                 returnValue(True)
     
@@ -199,7 +199,7 @@ class ScheduleViaCalDAV(DeliveryService):
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
-        cuas = recipient.principal.calendarUserAddresses()
+        cuas = (yield recipient.principal.calendarUserAddresses())
         attendeeProp = self.scheduler.calendar.getAttendeeProperty(cuas)
 
         remote = isinstance(self.scheduler.organizer, RemoteCalendarUser)
@@ -248,7 +248,7 @@ class ScheduleViaCalDAV(DeliveryService):
         matchtotal = 0
         for calendarResourceURL in fbset:
             calendarResource = (yield self.scheduler.request.locateResource(calendarResourceURL))
-            if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
+            if calendarResource is None or not calendarResource.exists() or not (yield isCalendarCollectionResource(calendarResource)):
                 # We will ignore missing calendars. If the recipient has failed to
                 # properly manage the free busy set that should not prevent us from working.
                 continue

@@ -1,0 +1,21 @@
+Index: twisted/web2/dav/test/test_options.py
+===================================================================
+--- twisted/web2/dav/test/test_options.py	(revision 27622)
++++ twisted/web2/dav/test/test_options.py	(working copy)
+@@ -31,6 +31,16 @@
+     """
+     OPTIONS request
+     """
++    def setUp(self):
++        # Pre-fetch site, so the rest of the test doesn't have to defer
++        twisted.web2.dav.test.util.TestCase.setUp(self)
++        self._getSite()
++
++
++    def _getStoredSite(self):
++        return self._site
++    site = property(_getStoredSite)
++
+     def test_DAV1(self):
+         """
+         DAV level 1

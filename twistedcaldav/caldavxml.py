@@ -497,7 +497,7 @@ class CalendarData (CalDAVElement):
         @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendar(resource.iCalendarText(), timezone)
+        return resource.iCalendarText().addCallback(self.elementFromCalendar, timezone)
 
     def elementFromCalendar(self, calendar, timezone=None):
         """
@@ -526,7 +526,7 @@ class CalendarData (CalDAVElement):
         @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
         @return: an L{CalendarData} with the (filtered) calendar data.
         """
-        return self.elementFromCalendarWithAccessRestrictions(resource.iCalendarText(), access, timezone)
+        return resource.iCalendarText().addCallback(self.elementFromCalendarWithAccessRestrictions, access, timezone)
 
     def elementFromCalendarWithAccessRestrictions(self, calendar, access, timezone=None):
         """

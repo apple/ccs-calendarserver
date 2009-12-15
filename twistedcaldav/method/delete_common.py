@@ -52,6 +52,7 @@ class DeleteResource(object):
         self.depth = depth
         self.internal_request = internal_request
 
+    @inlineCallbacks
     def validIfScheduleMatch(self):
         """
         Check for If-ScheduleTag-Match header behavior.
@@ -63,8 +64,8 @@ class DeleteResource(object):
             if header:
                 # Do "precondition" test
                 matched = False
-                if self.resource.exists() and self.resource.hasDeadProperty(ScheduleTag):
-                    scheduletag = self.resource.readDeadProperty(ScheduleTag)
+                if self.resource.exists() and (yield self.resource.hasDeadProperty(ScheduleTag)):
+                    scheduletag = (yield self.resource.readDeadProperty(ScheduleTag))
                     matched = (scheduletag == header)
                 if not matched:
                     log.debug("If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" % (header, scheduletag,))
@@ -104,7 +105,7 @@ class DeleteResource(object):
             yield delresource.quotaSizeAdjust(self.request, -old_size)
 
         if response == responsecode.NO_CONTENT:
-            if isPseudoCalendarCollectionResource(parent):
+            if (yield isPseudoCalendarCollectionResource(parent)):
                 index = parent.index()
                 index.deleteResource(delresource.fp.basename())
 
@@ -130,7 +131,7 @@ class DeleteResource(object):
         # as the iTIP operation may fail and may need to prevent the delete from happening.
     
         # Do If-Schedule-Tag-Match behavior first
-        self.validIfScheduleMatch()
+        yield self.validIfScheduleMatch()
 
         # Do quota checks before we start deleting things
         myquota = (yield delresource.quota(self.request))
@@ -143,7 +144,7 @@ class DeleteResource(object):
         lock = None
         if not self.internal_request:
             # Get data we need for implicit scheduling
-            calendar = delresource.iCalendar()
+            calendar = yield delresource.iCalendar()
             scheduler = ImplicitScheduler()
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
             if do_implicit_action:
@@ -205,8 +206,9 @@ class DeleteResource(object):
 
         errors = ResponseQueue(deluri, "DELETE", responsecode.NO_CONTENT)
 
-        for childname in delresource.listChildren():
+        children = yield delresource.listChildren()
 
+        for childname in children:
             childurl = joinURL(deluri, childname)
             child = (yield self.request.locateChildResource(delresource, childname))
 
@@ -276,10 +278,10 @@ class DeleteResource(object):
     @inlineCallbacks
     def run(self):
 
-        if isCalendarCollectionResource(self.parent):
+        if (yield isCalendarCollectionResource(self.parent)):
             response = (yield self.deleteCalendarResource(self.resource, self.resource_uri, self.parent))
             
-        elif isCalendarCollectionResource(self.resource):
+        elif (yield isCalendarCollectionResource(self.resource)):
             response = (yield self.deleteCalendar(self.resource, self.resource_uri, self.parent))
         
         elif self.resource.isCollection():

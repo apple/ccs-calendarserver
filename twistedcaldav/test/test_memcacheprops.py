@@ -27,6 +27,7 @@ Test memcacheprops.
 import os
 
 from twisted.web2.http import HTTPError
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.test.util import InMemoryPropertyStore
@@ -48,7 +49,7 @@ class StubCollection(object):
         return self.children.iterkeys()
 
     def getChild(self, childName):
-        return self.children[childName]
+        return succeed(self.children[childName])
 
     def propertyCollection(self):
         if not hasattr(self, "_propertyCollection"):
@@ -98,94 +99,113 @@ class StubProperty(object):
 
 class MemcachePropertyCollectionTestCase(TestCase):
     """
-    Test MemcacheProprtyCollection
+    Test MemcachePropertyCollection
     """
+
+    @inlineCallbacks
+    def assertRaisesDeferred(self, exception, f, *args, **kwargs):
+        try:
+            result = (yield f(*args, **kwargs))
+        except exception, inst:
+            returnValue(inst)
+        except:
+            raise self.failureException('%s raised instead of %s:\n %s'
+                                        % (sys.exc_info()[0],
+                                           exception.__name__,
+                                           failure.Failure().getTraceback()))
+        else:
+            raise self.failureException('%s not raised (%r returned)'
+                                        % (exception.__name__, result))
+
 
     def getColl(self):
         return StubCollection("calendars", ["a", "b", "c"])
 
+    @inlineCallbacks
     def test_setget(self):
 
-        child1 = self.getColl().getChild("a")
-        child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
+        child1 = (yield self.getColl().getChild("a"))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val1")))
 
-        child2 = self.getColl().getChild("a")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        child2 = (yield self.getColl().getChild("a"))
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop1"))).value,
             "val1")
 
-        child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val2"))
+        (yield child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val2")))
 
         # force memcache to be consulted (once per collection per request)
-        child1 = self.getColl().getChild("a")
+        child1 = (yield self.getColl().getChild("a"))
 
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop1"))).value,
             "val2")
 
+    @inlineCallbacks
     def test_merge(self):
-        child1 = self.getColl().getChild("a")
-        child2 = self.getColl().getChild("a")
-        child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val0"))
-        child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0"))
-        child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0"))
+        child1 = (yield self.getColl().getChild("a"))
+        child2 = (yield self.getColl().getChild("a"))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val0")))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0")))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0")))
 
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop1"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop3"))).value,
             "val0")
 
-        child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
-        child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val3"))
+        (yield child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1")))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val3")))
 
         # force memcache to be consulted (once per collection per request)
-        child2 = self.getColl().getChild("a")
+        child2 = (yield self.getColl().getChild("a"))
 
         # verify properties
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop1"))).value,
             "val1")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop3"))).value,
             "val3")
 
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop1"))).value,
             "val1")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop3"))).value,
             "val3")
 
+    @inlineCallbacks
     def test_delete(self):
-        child1 = self.getColl().getChild("a")
-        child2 = self.getColl().getChild("a")
-        child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val0"))
-        child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0"))
-        child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0"))
+        child1 = (yield self.getColl().getChild("a"))
+        child2 = (yield self.getColl().getChild("a"))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val0")))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0")))
+        (yield child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0")))
 
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop1"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop3"))).value,
             "val0")
 
-        child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
-        child1.deadProperties().delete(("ns1:", "prop1"))
-        self.assertRaises(HTTPError, child1.deadProperties().get, ("ns1:", "prop1"))
+        (yield child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1")))
+        (yield child1.deadProperties().delete(("ns1:", "prop1")))
+        self.assertRaisesDeferred(HTTPError, child1.deadProperties().get, ("ns1:", "prop1"))
 
-        self.assertFalse(child1.deadProperties().contains(("ns1:", "prop1"))) 
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertFalse((yield child1.deadProperties().contains(("ns1:", "prop1")))) 
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child1.deadProperties().get(("ns1:", "prop3"))).value,
             "val0")
 
         # force memcache to be consulted (once per collection per request)
-        child2 = self.getColl().getChild("a")
+        child2 = (yield self.getColl().getChild("a"))
 
         # verify properties
-        self.assertFalse(child2.deadProperties().contains(("ns1:", "prop1"))) 
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertFalse((yield child2.deadProperties().contains(("ns1:", "prop1")))) 
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop2"))).value,
             "val0")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals((yield child2.deadProperties().get(("ns1:", "prop3"))).value,
             "val0")

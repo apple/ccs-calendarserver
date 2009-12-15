@@ -16,6 +16,7 @@
 
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
+from twisted.internet.defer import succeed, inlineCallbacks
 
 from twistedcaldav.ical import Component
 from twistedcaldav.index import Index, default_future_expansion_duration,\
@@ -40,7 +41,7 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
         super(SQLIndexTests, self).setUp()
-        self.site.resource.isCalendarCollection = lambda: True
+        self.site.resource.isCalendarCollection = lambda: succeed(True)
         self.db = Index(self.site.resource)
 
 
@@ -100,6 +101,7 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         return d
 
 
+    @inlineCallbacks
     def test_index(self):
         data = (
             (
@@ -250,7 +252,7 @@ END:VCALENDAR
             else:
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
-        self.db.testAndUpdateIndex(datetime.date(2020, 1, 1))
+        yield self.db.testAndUpdateIndex(datetime.date(2020, 1, 1))
         for description, name, calendar_txt, reCreate, ok in data:
             if ok:
                 self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -426,13 +428,15 @@ END:VCALENDAR
                    )
               )
 
-            resources = self.db.indexedSearch(filter, fbtype=True)
-            index_results = set()
-            for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype in resources:
-                self.assertEqual(test_organizer, organizer, msg=description)
-                index_results.add((float, start, end, fbtype,))
+            d = self.db.indexedSearch(filter, fbtype=True)
+            def _gotSearchResults(resources):
+                index_results = set()
+                for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype in resources:
+                    self.assertEqual(test_organizer, organizer, msg=description)
+                    index_results.add((float, start, end, fbtype,))
 
-            self.assertEqual(set(instances), index_results, msg=description)
+                self.assertEqual(set(instances), index_results, msg=description)
+            return d.addCallback(_gotSearchResults)
 
 class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
     """

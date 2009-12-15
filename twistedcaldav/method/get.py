@@ -20,7 +20,7 @@ CalDAV GET method.
 
 __all__ = ["http_GET"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError
 from twisted.web2.http import Response
@@ -38,7 +38,7 @@ def http_GET(self, request):
     # Look for calendar access restriction on existing resource.
     if self.exists():
         try:
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+            access = (yield self.readDeadProperty(TwistedCalendarAccessProperty))
         except HTTPError:
             access = None
             
@@ -53,8 +53,8 @@ def http_GET(self, request):
             if not isowner:
                 # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
                 # access restrictions to the data.
-                caldata = caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
-
+                el = yield caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access)
+                caldata = el.calendarData()
                 response = Response()
                 response.stream = MemoryStream(caldata)
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
@@ -65,8 +65,8 @@ def http_GET(self, request):
     response = (yield super(CalDAVFile, self).http_GET(request))
     
     # Add Schedule-Tag header if property is present
-    if self.exists() and self.hasDeadProperty(ScheduleTag):
-        scheduletag = self.readDeadProperty(ScheduleTag)
+    if self.exists() and (yield self.hasDeadProperty(ScheduleTag)):
+        scheduletag = (yield self.readDeadProperty(ScheduleTag))
         if scheduletag:
             response.headers.setHeader("Schedule-Tag", str(scheduletag))
 

@@ -26,6 +26,7 @@ __all__ = [
 from twisted.python.filepath import FilePath
 from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
 from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.python.plistlib import readPlist
 
@@ -80,12 +81,16 @@ class SudoDirectoryService(DirectoryService):
             entry=entry)
 
 
-    def listRecords(self, recordType):
+    def _listRecords(self, recordType):
         if recordType != SudoDirectoryService.recordType_sudoers:
             raise UnknownRecordTypeError(recordType)
 
         for entry in self._accounts()['users']:
             yield self._recordForEntry(entry)
+
+
+    def listRecords(self, recordType):
+        return succeed(self._listRecords(recordType))
 
     def recordWithShortName(self, recordType, shortName):
         if recordType != SudoDirectoryService.recordType_sudoers:
@@ -93,8 +98,9 @@ class SudoDirectoryService(DirectoryService):
 
         for entry in self._accounts()['users']:
             if entry['username'] == shortName:
-                return self._recordForEntry(entry)
+                return succeed(self._recordForEntry(entry))
 
+    @inlineCallbacks
     def requestAvatarId(self, credentials):
         # FIXME: ?
         # We were checking if principal is enabled; seems unnecessary in current
@@ -105,11 +111,11 @@ class SudoDirectoryService(DirectoryService):
             raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
         sudouser = credentials.authnPrincipal.record
 
-        if credentials.authnPrincipal.record.verifyCredentials(credentials.credentials):
-            return (
+        if (yield credentials.authnPrincipal.record.verifyCredentials(credentials.credentials)):
+            returnValue( (
                 credentials.authnPrincipal.principalURL(),
                 credentials.authzPrincipal.principalURL(),
-                )
+                ) )
         else:
             raise UnauthorizedLogin(
                 "Incorrect credentials for %s" % (sudouser,))
@@ -134,8 +140,8 @@ class SudoDirectoryRecord(DirectoryRecord):
 
     def verifyCredentials(self, credentials):
         if IUsernamePassword.providedBy(credentials):
-            return credentials.checkPassword(self.password)
+            return succeed(credentials.checkPassword(self.password))
         elif IUsernameHashedPassword.providedBy(credentials):
-            return credentials.checkPassword(self.password)
+            return succeed(credentials.checkPassword(self.password))
 
         return super(SudoDirectoryRecord, self).verifyCredentials(credentials)

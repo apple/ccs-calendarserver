@@ -14,24 +14,61 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.directory.apache import BasicDirectoryService
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 
-from twistedcaldav.directory.test.test_apache import digestRealm, basicUserFile, groupFile
 from twistedcaldav.directory.test.test_xmlfile import xmlFile
 
-import twistedcaldav.directory.test.util
+from twistedcaldav.directory.test.util import DirectoryTestCase
+from twistedcaldav.directory.test.test_xmlfile import XMLFile
 
-apache_prefix = "apache:"
-xml_prefix = "xml:"
+node1_prefix = "node1:"
+node2_prefix = "node2:"
+
+
+class XMLFile2(object):
+    """
+    Dummy values for accounts2.xml
+    """
+    recordTypes = set((
+        DirectoryService.recordType_users,
+        DirectoryService.recordType_groups,
+        DirectoryService.recordType_locations,
+        DirectoryService.recordType_resources
+    ))
+
+    users = {
+        "wsanchez": { "password": "foo",  "guid": None, "addresses": () },
+        "cdaboo"  : { "password": "bar",  "guid": None, "addresses": () },
+        "dreid"   : { "password": "baz",  "guid": None, "addresses": () },
+        "lecroy"  : { "password": "quux", "guid": None, "addresses": () },
+    }
+    users = {}    # XXX: fix accounts2.xml to match the above values
+
+
+    groups = {
+        "managers"   : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "lecroy"),)                                        },
+        "grunts"     : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                    (DirectoryService.recordType_users, "cdaboo"),
+                                                                    (DirectoryService.recordType_users, "dreid")) },
+        "right_coast": { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "cdaboo"),)                                        },
+        "left_coast" : { "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users, "wsanchez"),
+                                                                    (DirectoryService.recordType_users, "dreid"),
+                                                                    (DirectoryService.recordType_users, "lecroy")) },
+    }
+    groups = {}   # XXX: fix accounts2.xml to match the above values
+
+    locations = {}
+    resources = {}
+
 
 testServices = (
-    (apache_prefix, twistedcaldav.directory.test.test_apache.Apache  ),
-    (xml_prefix   , twistedcaldav.directory.test.test_xmlfile.XMLFile),
+    (node1_prefix, XMLFile),
+    (node2_prefix, XMLFile2)
 )
 
-class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase):
+class AggregatedDirectories(DirectoryTestCase):
     def _recordTypes(self):
         recordTypes = set()
         for prefix, testClass in testServices:
@@ -65,16 +102,17 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         """
         Returns an IDirectoryService.
         """
-        apacheService = BasicDirectoryService(
-            {
-                'realmName' : digestRealm,
-                'userFile' : basicUserFile,
-                'groupFile' : groupFile,
-            }
-        )
-        apacheService.recordTypePrefix = apache_prefix
 
-        xmlService = XMLDirectoryService({'xmlFile' : xmlFile})
-        xmlService.recordTypePrefix = xml_prefix
+        node1Service = XMLDirectoryService({'xmlFile' : xmlFile})
+        node1Service.recordTypePrefix = node1_prefix
 
-        return AggregateDirectoryService((apacheService, xmlService))
+        fn, ext = xmlFile.basename().split(".")
+        otherFile = xmlFile.sibling(fn+'2.'+ext)
+        node2Service = XMLDirectoryService({'xmlFile': otherFile})
+        node2Service.recordTypePrefix = node2_prefix
+
+        return AggregateDirectoryService((node1Service, node2Service))
+
+del DirectoryTestCase           # DirectoryTestCase is a bad test-citizen and
+                                # subclasses TestCase even though it does not
+                                # want to be discovered as such.

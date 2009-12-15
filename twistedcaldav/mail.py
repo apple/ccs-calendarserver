@@ -196,14 +196,15 @@ class IMIPInboxResource(CalDAVFile):
         self.parent = parent
 
 
+    @inlineCallbacks
     def accessControlList(self, request, inheritance=True,
         expanding=False, inherited_aces=None):
 
         if not hasattr(self, "iMIPACL"):
 
             for principalCollection in self.principalCollections():
-                principal = principalCollection.principalForShortName("users",
-                    config.Scheduling.iMIP.Username)
+                principal = (yield principalCollection.principalForShortName("users",
+                    config.Scheduling.iMIP.Username))
                 if principal is not None:
                     break
             else:
@@ -222,19 +223,19 @@ class IMIPInboxResource(CalDAVFile):
                 ),
             )
 
-        return succeed(self.iMIPACL)
+        returnValue(self.iMIPACL)
 
     def resourceType(self):
-        return davxml.ResourceType.ischeduleinbox
+        return succeed(davxml.ResourceType.ischeduleinbox)
 
     def isCollection(self):
         return False
 
     def isCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def isPseudoCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -245,7 +246,7 @@ class IMIPInboxResource(CalDAVFile):
         return None
 
     def checkPreconditions(self, request):
-        return None
+        return succeed(None)
 
     def render(self, request):
         output = """<html>
@@ -280,13 +281,15 @@ class IMIPInboxResource(CalDAVFile):
         )
         if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
+                davxml.ACE(
+                    davxml.Principal(davxml.All()),
+                    davxml.Grant(*privs),
+                    davxml.Protected(),
+                ),
+            )
         )
 
     def supportedPrivileges(self, request):

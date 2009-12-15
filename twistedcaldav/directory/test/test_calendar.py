@@ -32,6 +32,7 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
     """
+    @inlineCallbacks
     def setUp(self):
         super(ProvisionedCalendars, self).setUp()
         
@@ -48,18 +49,20 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
 
         provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
 
-        self.site.resource.putChild("principals", provisioningResource)
+        yield self.site.resource.putChild("principals", provisioningResource)
 
-        self.setupCalendars()
+        yield self.setupCalendars()
 
         self.site.resource.setAccessControlList(davxml.ACL())
 
+    @inlineCallbacks
     def setupCalendars(self):
-        calendarCollection = CalendarHomeProvisioningFile(
+        calendarCollection = (yield CalendarHomeProvisioningFile.fetch(
+            None,
             os.path.join(self.docroot, "calendars"),
             self.directoryService,
             "/calendars/"
-        )
+        ))
         self.site.resource.putChild("calendars", calendarCollection)
 
     def test_NonExistentCalendarHome(self):
@@ -71,6 +74,7 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "GET", "/calendars/users/12345/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
 
     def test_ExistentCalendarHome(self):
 
@@ -81,6 +85,7 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
 
     def test_ExistentCalendar(self):
 
@@ -91,6 +96,7 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/calendar/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
 
     def test_ExistentInbox(self):
 
@@ -101,6 +107,7 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/inbox/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
 
     @inlineCallbacks
     def test_CalendarTranspProperty(self):

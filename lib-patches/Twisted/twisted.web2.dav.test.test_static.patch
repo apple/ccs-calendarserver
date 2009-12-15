@@ -1,0 +1,33 @@
+Index: twisted/web2/dav/test/test_static.py
+===================================================================
+--- twisted/web2/dav/test/test_static.py	(revision 27622)
++++ twisted/web2/dav/test/test_static.py	(working copy)
+@@ -28,6 +28,16 @@
+ from twisted.web2.test.test_server import SimpleRequest
+ 
+ class DAVFileTest(util.TestCase):
++
++    def setUp(self):
++        # Pre-fetch site, so the rest of the test doesn't have to defer
++        util.TestCase.setUp(self)
++        self._getSite()
++
++    def _getStoredSite(self):
++        return self._site
++    site = property(_getStoredSite)
++
+     def test_renderPrivileges(self):
+         """
+         Verify that a directory listing includes children which you
+@@ -36,8 +46,9 @@
+         request = SimpleRequest(self.site, "GET", "/")
+ 
+         def setEmptyACL(resource):
+-            resource.setAccessControlList(davxml.ACL()) # Empty ACL = no access
+-            return resource
++            # Empty ACL = no access
++            return resource.setAccessControlList(davxml.ACL()).addCallback(
++                lambda nothing: resource)
+ 
+         def renderRoot(_):
+             d = request.locateResource("/")

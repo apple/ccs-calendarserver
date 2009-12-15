@@ -79,6 +79,11 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         uidz = str(request.authzUser.children[0])
                         
                     def convertUIDtoShortName(uid):
+                        # MOR: recordWithUID is now deferred -- not sure what to do here, so shortcircuiting for the moment:
+                        return uid
+                        # Cyrus suggests adding the records as attributes of
+                        # the request objects when authn/authz are added
+
                         uid = uid.rstrip("/")
                         uid = uid[uid.rfind("/") + 1:]
                         record = request.site.resource.getDirectory().recordWithUID(uid)

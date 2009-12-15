@@ -132,7 +132,7 @@ class ImplicitProcessor(object):
         self.recipient_calendar_name = None
         calendar_resource, resource_name, calendar_collection, calendar_collection_uri = (yield getCalendarObjectForPrincipals(self.request, self.recipient.principal, self.uid))
         if calendar_resource:
-            self.recipient_calendar = calendar_resource.iCalendar()
+            self.recipient_calendar = yield calendar_resource.iCalendar()
             self.recipient_calendar_collection = calendar_collection
             self.recipient_calendar_collection_uri = calendar_collection_uri
             self.recipient_calendar_name = resource_name
@@ -508,7 +508,7 @@ class ImplicitProcessor(object):
         all_declined = not any(instance_states.itervalues())
 
         # Do the simple case of all accepted or decline separately
-        cuas = self.recipient.principal.calendarUserAddresses()
+        cuas = (yield self.recipient.principal.calendarUserAddresses())
         if all_accepted or all_declined:
             # Extract the ATTENDEE property matching current recipient from the calendar data
             attendeeProps = calendar.getAttendeeProperties(cuas)
@@ -632,7 +632,7 @@ class ImplicitProcessor(object):
         """
         
         from twistedcaldav.method.delete_common import DeleteResource
-        delchild = collection.getChild(name)
+        delchild = yield collection.getChild(name)
         childURL = joinURL(collURL, name)
         self.request._rememberResource(delchild, childURL)
 
@@ -687,7 +687,7 @@ class ImplicitProcessor(object):
         calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.originator.principal, self.uid))
         if not calendar_resource:
             raise ImplicitProcessorException("5.1;Service unavailable")
-        originator_calendar = calendar_resource.iCalendar()
+        originator_calendar = yield calendar_resource.iCalendar()
 
         # Get attendee's view of that
         originator_calendar.attendeesView((self.recipient.cuaddr,))

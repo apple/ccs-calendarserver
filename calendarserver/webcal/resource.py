@@ -28,6 +28,7 @@ from time import time
 from urlparse import urlparse
 from cgi import parse_qs
 
+from twisted.internet.defer import succeed
 from twisted.web2 import responsecode
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
@@ -40,20 +41,22 @@ from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
+        return succeed(
+            davxml.ACL(
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
                 ),
-                davxml.Protected(),
-                TwistedACLInheritable(),
-            ),
+            )
         )
 
     def etag(self):
         # Can't be calculated here
-        return None
+        return succeed(None)
 
     def contentLength(self):
         # Can't be calculated here
@@ -66,7 +69,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return True
 
     def displayName(self):
-        return "Web Calendar"
+        return succeed("Web Calendar")
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8");
@@ -75,7 +78,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return None
 
     def createSimilarFile(self, path):
-        return DAVFile(path, principalCollections=self.principalCollections())
+        return succeed(DAVFile(path, principalCollections=self.principalCollections()))
 
     _htmlContent_lastCheck      = 0
     _htmlContent_statInfo       = 0

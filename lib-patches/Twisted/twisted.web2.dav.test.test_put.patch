@@ -1,0 +1,169 @@
+Index: twisted/web2/dav/test/test_put.py
+===================================================================
+--- twisted/web2/dav/test/test_put.py	(revision 27622)
++++ twisted/web2/dav/test/test_put.py	(working copy)
+@@ -25,6 +25,7 @@
+ import os
+ import filecmp
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ from twisted.web2 import responsecode
+ from twisted.web2.iweb import IResponse
+ from twisted.web2.stream import FileStream
+@@ -44,25 +45,31 @@
+         """
+         dst_path = os.path.join(self.docroot, "dst")
+ 
+-        def checkResult(response, path):
+-            response = IResponse(response)
++        def makeClosure(path):
+ 
+-            if response.code not in (
+-                responsecode.CREATED,
+-                responsecode.NO_CONTENT
+-            ):
+-                self.fail("PUT failed: %s" % (response.code,))
++            # Return a function with 'path' closed
+ 
+-            if not os.path.isfile(dst_path):
+-                self.fail("PUT failed to create file %s." % (dst_path,))
++            def checkResult(response):
++                response = IResponse(response)
+ 
+-            if not filecmp.cmp(path, dst_path):
+-                self.fail("PUT failed to preserve data for file %s in file %s." % (path, dst_path))
++                if response.code not in (
++                    responsecode.CREATED,
++                    responsecode.NO_CONTENT
++                ):
++                    self.fail("PUT failed: %s" % (response.code,))
+ 
+-            etag = response.headers.getHeader("etag")
+-            if not etag:
+-                self.fail("No etag header in PUT response %r." % (response,))
++                if not os.path.isfile(dst_path):
++                    self.fail("PUT failed to create file %s." % (dst_path,))
+ 
++                if not filecmp.cmp(path, dst_path):
++
++                    self.fail("PUT failed to preserve data for file %s in file %s." % (path, dst_path))
++
++                etag = response.headers.getHeader("etag")
++                if not etag:
++                    self.fail("No etag header in PUT response %r." % (response,))
++            return checkResult
++
+         #
+         # We need to serialize these request & test iterations because they can
+         # interfere with each other.
+@@ -70,6 +77,7 @@
+         def work():
+             dst_uri = "/dst"
+ 
++            results = []
+             for name in os.listdir(self.docroot):
+                 if name == "dst":
+                     continue
+@@ -78,38 +86,53 @@
+ 
+                 # Can't really PUT something you can't read
+                 if not os.path.isfile(path): continue
+-    
+-                def do_test(response): checkResult(response, path)
+-    
++
+                 request = SimpleRequest(self.site, "PUT", dst_uri)
+                 request.stream = FileStream(file(path, "rb"))
+-    
+-                yield (request, do_test)
+ 
+-        return serialize(self.send, work())
++                results.append((request, makeClosure(path)))
+ 
++            yield results
++
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_PUT_simple = deferredGenerator(test_PUT_simple)
++
++
+     def test_PUT_again(self):
+         """
+         PUT on existing resource with If-None-Match header
+         """
++
+         dst_path = os.path.join(self.docroot, "dst")
+         dst_uri = "/dst"
+ 
+         def work():
++            results = []
+             for code in (
+                 responsecode.CREATED,
+                 responsecode.PRECONDITION_FAILED,
+                 responsecode.NO_CONTENT,
+                 responsecode.PRECONDITION_FAILED,
+                 responsecode.NO_CONTENT,
+-                responsecode.CREATED,
+             ):
+-                def checkResult(response, code=code):
+-                    response = IResponse(response)
++                def makeClosure(code):
++                    def checkResult(response, code=code):
++                        response = IResponse(response)
+ 
+-                    if response.code != code:
+-                        self.fail("Incorrect response code for PUT (%s != %s)"
+-                                  % (response.code, code))
++                        if response.code != code:
++                            self.fail("Incorrect response code for PUT (%s != %s)"
++                                      % (response.code, code))
++                    return checkResult
+ 
+                 def onError(f):
+                     f.trap(HTTPError)
+@@ -125,10 +148,23 @@
+                 elif code == responsecode.PRECONDITION_FAILED:
+                     request.headers.setHeader("if-none-match", ("*",))
+     
+-                yield (request, (checkResult, onError))
++                results.append((request, (makeClosure(code), onError)))
+ 
+-        return serialize(self.send, work())
++            yield results
+ 
++        work = deferredGenerator(work)
++
++        d = waitForDeferred(work())
++        yield d
++        results = d.getResult()
++
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_PUT_again = deferredGenerator(test_PUT_again)
++
+     def test_PUT_no_parent(self):
+         """
+         PUT with no parent
+@@ -145,4 +181,9 @@
+         request = SimpleRequest(self.site, "PUT", dst_uri)
+         request.stream = FileStream(file(__file__, "rb"))
+ 
+-        return self.send(request, checkResult)
++        result = waitForDeferred(self.send(request, checkResult))
++        yield result
++        result = result.getResult()
++        yield result
++
++    test_PUT_no_parent = deferredGenerator(test_PUT_no_parent)

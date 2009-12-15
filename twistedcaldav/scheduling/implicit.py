@@ -70,7 +70,8 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        existing_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
+        schedulingObject = yield self.checkSchedulingObjectResource(resource)
+        existing_type = "schedule" if schedulingObject else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         if existing_type == "calendar":
@@ -87,7 +88,7 @@ class ImplicitScheduler(object):
             # Also make sure that we return the new calendar being written rather than the old one
             # when the implicit action is executed
             self.return_calendar = calendar
-            self.calendar = resource.iCalendar()
+            self.calendar = yield resource.iCalendar()
             yield self.checkImplicitState()
         
         # Attendees are not allowed to overwrite one type with another
@@ -107,8 +108,9 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = yield self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = yield self.checkSchedulingObjectResource(srcresource)
+        src_is_implicit = src_is_implicit or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -137,8 +139,9 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = yield self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = yield self.checkSchedulingObjectResource(srcresource)
+        src_is_implicit = src_is_implicit or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -166,37 +169,39 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        resource_type = "schedule" if self.checkSchedulingObjectResource(resource) else "calendar"
+        schedulingObject = yield self.checkSchedulingObjectResource(resource)
+        resource_type = "schedule" if schedulingObject else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
+    @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):
         
         if resource and resource.exists():
             try:
-                implicit = resource.readDeadProperty(TwistedSchedulingObjectResource)
+                implicit = (yield resource.readDeadProperty(TwistedSchedulingObjectResource))
             except HTTPError:
                 implicit = None
             if implicit is not None:
-                return implicit != "false"
+                returnValue(implicit != "false")
             else:
-                calendar = resource.iCalendar()
+                calendar = yield resource.iCalendar()
                 # Get the ORGANIZER and verify it is the same for all components
                 try:
                     organizer = calendar.validOrganizerForScheduling()
                 except ValueError:
                     # We have different ORGANIZERs in the same iCalendar object - this is an error
-                    return False
-                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
-                resource.writeDeadProperty(TwistedSchedulingObjectResource("true" if organizerPrincipal != None else "false"))
+                    returnValue(False)
+                organizerPrincipal = (yield resource.principalForCalendarUserAddress(organizer)) if organizer else None
+                yield resource.writeDeadProperty(TwistedSchedulingObjectResource("true" if organizerPrincipal != None else "false"))
                 log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
                     calendar.resourceUID(),
                     "true" if organizerPrincipal != None else "false",
                 ))
-                return organizerPrincipal != None
+                returnValue(organizerPrincipal != None)
 
-        return False
+        returnValue(False)
         
     @inlineCallbacks
     def checkImplicitState(self):
@@ -208,7 +213,7 @@ class ImplicitScheduler(object):
         organizer_scheduling = (yield self.isOrganizerScheduling())
         if organizer_scheduling:
             self.state = "organizer"
-        elif self.isAttendeeScheduling():
+        elif (yield self.isAttendeeScheduling()):
             self.state = "attendee"
         else:
             self.state = None
@@ -270,7 +275,7 @@ class ImplicitScheduler(object):
         
         # Get some useful information from the calendar
         yield self.extractCalendarData()
-        self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = (yield self.resource.principalForCalendarUserAddress(self.organizer))
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
 
         # Originator is the organizer in this case
@@ -340,7 +345,7 @@ class ImplicitScheduler(object):
 
                 if self.originatorPrincipal:
                     # Pick the first mailto cu address or the first other type
-                    for item in self.originatorPrincipal.calendarUserAddresses():
+                    for item in (yield self.originatorPrincipal.calendarUserAddresses()):
                         if not self.originator:
                             self.originator = item
                         if item.startswith("mailto:"):
@@ -377,7 +382,7 @@ class ImplicitScheduler(object):
 
         # Get owner's calendar-home
         calendar_owner_principal = (yield self.resource.ownerPrincipal(self.request))
-        calendar_home = calendar_owner_principal.calendarHome()
+        calendar_home = yield calendar_owner_principal.calendarHome()
         
         check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
 
@@ -389,12 +394,13 @@ class ImplicitScheduler(object):
 
         @inlineCallbacks
         def queryCalendarCollection(collection, collection_uri):
-            rname = collection.index().resourceNameForUID(self.uid)
+            rname = yield collection.index().resourceNameForUID(self.uid)
             if rname:
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:
                     returnValue(True)
-                matched_type = "schedule" if self.checkSchedulingObjectResource(child) else "calendar"
+                schedulingObject = yield self.checkSchedulingObjectResource(child)
+                matched_type = "schedule" if schedulingObject else "calendar"
                 if (
                     collection_uri != check_parent_uri and
                     (type == "schedule" or matched_type == "schedule")
@@ -422,7 +428,7 @@ class ImplicitScheduler(object):
             returnValue(False)
         
         # Organizer must map to a valid principal
-        self.organizerPrincipal = self.resource.principalForCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = (yield self.resource.principalForCalendarUserAddress(self.organizer))
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
         if not self.organizerPrincipal:
             returnValue(False)
@@ -433,21 +439,22 @@ class ImplicitScheduler(object):
 
         returnValue(True)
 
+    @inlineCallbacks
     def isAttendeeScheduling(self):
         
         # First must have organizer property
         if not self.organizer:
-            return False
+            returnValue(False)
         
         # Check to see whether any attendee is the owner
         for attendee in self.attendees:
-            attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
+            attendeePrincipal = (yield self.resource.principalForCalendarUserAddress(attendee))
             if attendeePrincipal and attendeePrincipal.principalURL() == str(self.calendar_owner):
                 self.attendee = attendee
                 self.attendeePrincipal = attendeePrincipal
-                return True
+                returnValue(True)
         
-        return False
+        returnValue(False)
 
     @inlineCallbacks
     def doAccessControl(self, principal, is_organizer):
@@ -462,7 +469,7 @@ class ImplicitScheduler(object):
         """
         
         # Find outbox
-        outboxURL = principal.scheduleOutboxURL()
+        outboxURL = yield principal.scheduleOutboxURL()
         outbox = (yield self.request.locateResource(outboxURL))
         yield outbox.authorize(self.request, (caldavxml.ScheduleSend(),))
 
@@ -491,7 +498,7 @@ class ImplicitScheduler(object):
         elif self.action == "modify":
 
             # Read in existing data
-            self.oldcalendar = self.resource.iCalendar()
+            self.oldcalendar = yield self.resource.iCalendar()
             
             # Significant change
             no_change, self.changed_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
@@ -671,7 +678,7 @@ class ImplicitScheduler(object):
         for attendee, rids in aggregated.iteritems():
             
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses():
+            if attendee in (yield self.organizerPrincipal.calendarUserAddresses()):
                 continue
 
             # Generate an iTIP CANCEL message for this attendee, cancelling
@@ -709,7 +716,7 @@ class ImplicitScheduler(object):
         for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses():
+            if attendee in (yield self.organizerPrincipal.calendarUserAddresses()):
                 continue
 
             # Don't send message to specified attendees
@@ -771,7 +778,7 @@ class ImplicitScheduler(object):
         else:
             # Make sure ORGANIZER is not changed
             if self.resource.exists():
-                self.oldcalendar = self.resource.iCalendar()
+                self.oldcalendar = yield self.resource.iCalendar()
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
@@ -849,7 +856,7 @@ class ImplicitScheduler(object):
         self.organizer_calendar = None
         calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.organizerPrincipal, self.uid))
         if calendar_resource:
-            self.organizer_calendar = calendar_resource.iCalendar()
+            self.organizer_calendar = yield calendar_resource.iCalendar()
         
     def isAttendeeChangeInsignificant(self):
         """

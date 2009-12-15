@@ -1,0 +1,106 @@
+Index: twisted/web2/dav/test/test_copy.py
+===================================================================
+--- twisted/web2/dav/test/test_copy.py	(revision 27622)
++++ twisted/web2/dav/test/test_copy.py	(working copy)
+@@ -26,6 +26,7 @@
+ import os
+ import urllib
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ import twisted.web2.dav.test.util
+ from twisted.web2 import responsecode
+ from twisted.web2.test.test_server import SimpleRequest
+@@ -78,8 +79,17 @@
+                 self.fail("Source %s is neither a file nor a directory"
+                           % (path,))
+ 
+-        return serialize(self.send, work(self, test))
++        d = waitForDeferred(work(self, test))
++        yield d
++        d = d.getResult( )
+ 
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_create = deferredGenerator(test_COPY_create)
++
+     def test_COPY_exists(self):
+         """
+         COPY to existing resource.
+@@ -92,8 +102,18 @@
+                 # FIXME: Check XML error code (2518bis)
+                 pass
+ 
+-        return serialize(self.send, work(self, test, overwrite=False))
++        d = waitForDeferred(work(self, test, overwrite=False))
++        yield d
++        d = d.getResult( )
+ 
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_exists = deferredGenerator(test_COPY_exists)
++
++
+     def test_COPY_overwrite(self):
+         """
+         COPY to existing resource with overwrite header.
+@@ -108,8 +128,17 @@
+ 
+             self.failUnless(os.path.exists(dst_path), "COPY didn't produce file: %s" % (dst_path,))
+ 
+-        return serialize(self.send, work(self, test, overwrite=True))
++        d = waitForDeferred(work(self, test, overwrite=True))
++        yield d
++        d = d.getResult( )
+ 
++        d = waitForDeferred(serialize(self.send, iter(d)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_overwrite = deferredGenerator(test_COPY_overwrite)
++
+     def test_COPY_no_parent(self):
+         """
+         COPY to resource with no parent.
+@@ -122,9 +151,19 @@
+                 # FIXME: Check XML error code (2518bis)
+                 pass
+ 
+-        return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
++        d = waitForDeferred(work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
++        yield d
++        results = d.getResult()
+ 
++        d = waitForDeferred(serialize(self.send, iter(results)))
++        yield d
++        d = d.getResult()
++        yield d
++
++    test_COPY_no_parent = deferredGenerator(test_COPY_no_parent)
++
+ def work(self, test, overwrite=None, dst=None, depths=("0", "infinity", None)):
++    results = []
+     if dst is None:
+         dst = os.path.join(self.docroot, "dst")
+         os.mkdir(dst)
+@@ -158,8 +197,13 @@
+             if overwrite is not None:
+                 request.headers.setHeader("overwrite", overwrite)
+ 
+-            yield (request, do_test)
++            results.append((request, do_test))
+ 
++    yield results
++
++work = deferredGenerator(work)
++
++
+ def sumFile(path):
+     m = md5()
+ 

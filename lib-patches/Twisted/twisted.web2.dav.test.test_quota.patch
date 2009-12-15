@@ -1,0 +1,49 @@
+Index: twisted/web2/dav/test/test_quota.py
+===================================================================
+--- twisted/web2/dav/test/test_quota.py	(revision 27622)
++++ twisted/web2/dav/test/test_quota.py	(working copy)
+@@ -22,6 +22,7 @@
+ # DRI: Wilfredo Sanchez, wsanchez@apple.com
+ ##
+ 
++from twisted.internet.defer import waitForDeferred, deferredGenerator
+ from twisted.web2 import responsecode
+ from twisted.web2.iweb import IResponse
+ from twisted.web2.stream import FileStream
+@@ -34,16 +35,31 @@
+ 
+ class QuotaBase(twisted.web2.dav.test.util.TestCase):
+ 
+-    def createDocumentRoot(self):
++    def setUp(self):
++        # Pre-fetch site, so the rest of the test doesn't have to defer
++
++        twisted.web2.dav.test.util.TestCase.setUp(self)
++
+         docroot = self.mktemp()
+         os.mkdir(docroot)
+         rootresource = self.resource_class(docroot)
+-        rootresource.setAccessControlList(self.grantInherit(davxml.All()))
+-        self.site = Site(rootresource)
+-        self.site.resource.setQuotaRoot(None, 100000)
+-        return docroot
++        d = waitForDeferred(rootresource.setAccessControlList(self.grantInherit(davxml.All())))
++        yield d
++        d = d.getResult()
+ 
++        self._site = Site(rootresource)
++        d = waitForDeferred(self._site.resource.setQuotaRoot(None, 100000))
++        yield d
++        d = d.getResult()
++        yield d
+ 
++    setUp = deferredGenerator(setUp)
++
++    def _getStoredSite(self):
++        return self._site
++    site = property(_getStoredSite)
++
++
+     def checkQuota(self, value):
+         def _defer(quota):
+             self.assertEqual(quota, value)

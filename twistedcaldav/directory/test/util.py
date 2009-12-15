@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -14,10 +15,14 @@
 # limitations under the License.
 ##
 
+from zope.interface.verify import verifyObject
+
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
+from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 from twistedcaldav.test.util import TestCase
@@ -50,6 +55,15 @@ class DirectoryTestCase (TestCase):
     # For aggregator subclasses
     recordTypePrefixes = ("",)
 
+
+    def test_isDirectoryService(self):
+        """
+        Does the directory service at least attempt to implement the methods
+        described by the interface?
+        """
+        self.failUnless(verifyObject(IDirectoryService, self.service()))
+
+
     def test_realm(self):
         """
         IDirectoryService.realm
@@ -65,6 +79,7 @@ class DirectoryTestCase (TestCase):
 
         self.assertEquals(set(self.service().recordTypes()), self.recordTypes)
 
+    @inlineCallbacks
     def test_recordWithShortName(self):
         """
         IDirectoryService.recordWithShortName()
@@ -80,17 +95,18 @@ class DirectoryTestCase (TestCase):
 
             service = self.service()
             for shortName, info in data.iteritems():
-                record = service.recordWithShortName(info.get("prefix", "") + recordType, shortName)
+                record = (yield service.recordWithShortName(info.get("prefix", "") + recordType, shortName))
                 self.failUnless(record, "No record (%s)%s" % (info.get("prefix", "") + recordType, shortName))
                 self.compare(record, shortName, data[shortName])
 
             for prefix in self.recordTypePrefixes:
                 try:
-                    record = service.recordWithShortName(prefix + recordType, "IDunnoWhoThisIsIReallyDont")
+                    record = (yield service.recordWithShortName(prefix + recordType, "IDunnoWhoThisIsIReallyDont"))
                 except UnknownRecordTypeError:
                     continue
                 self.assertEquals(record, None)
 
+    @inlineCallbacks
     def test_recordWithUID(self):
         service = self.service()
         record = None
@@ -98,24 +114,26 @@ class DirectoryTestCase (TestCase):
         for shortName, what in self.allEntries():
             guid = what["guid"]
             if guid is not None:
-                record = service.recordWithUID(guid)
+                record = (yield service.recordWithUID(guid))
                 self.compare(record, shortName, what)
 
         if record is None:
             raise SkipTest("No GUIDs provided to test")
 
+    @inlineCallbacks
     def test_recordWithCalendarUserAddress(self):
         service = self.service()
         record = None
 
         for shortName, what in self.allEntries():
             for address in what["addresses"]:
-                record = service.recordWithCalendarUserAddress(address)
+                record = (yield service.recordWithCalendarUserAddress(address))
                 self.compare(record, shortName, what)
 
         if record is None:
             raise SkipTest("No calendar user addresses provided to test")
 
+    @inlineCallbacks
     def test_groupMembers(self):
         """
         IDirectoryRecord.members()
@@ -126,14 +144,15 @@ class DirectoryTestCase (TestCase):
         service = self.service()
         for group, info in self.groups.iteritems():
             prefix = info.get("prefix", "")
-            groupRecord = service.recordWithShortName(prefix + DirectoryService.recordType_groups, group)
-            result = set((m.recordType, prefix + m.shortNames[0]) for m in groupRecord.members())
+            groupRecord = (yield service.recordWithShortName(prefix + DirectoryService.recordType_groups, group))
+            result = set((m.recordType, prefix + m.shortNames[0]) for m in (yield groupRecord.members()))
             expected = set(self.groups[group]["members"])
             self.assertEquals(
                 result, expected,
                 "Wrong membership for group %r: %s != %s" % (group, result, expected)
             )
 
+    @inlineCallbacks
     def test_groupMemberships(self):
         """
         IDirectoryRecord.groups()
@@ -150,8 +169,8 @@ class DirectoryTestCase (TestCase):
             service = self.service()
             for shortName, info in data.iteritems():
                 prefix = info.get("prefix", "")
-                record = service.recordWithShortName(prefix + recordType, shortName)
-                result = set(prefix + g.shortNames[0] for g in record.groups())
+                record = (yield service.recordWithShortName(prefix + recordType, shortName))
+                result = set(prefix + g.shortNames[0] for g in (yield record.groups()))
                 expected = set(g for g in self.groups if (record.recordType, shortName) in self.groups[g]["members"])
                 self.assertEquals(
                     result, expected,
@@ -261,6 +280,7 @@ class BasicTestCase (DirectoryTestCase):
     """
     Tests a directory implementation with basic auth.
     """
+    @inlineCallbacks
     def test_verifyCredentials_basic(self):
         """
         IDirectoryRecord.verifyCredentials() with basic
@@ -270,8 +290,8 @@ class BasicTestCase (DirectoryTestCase):
 
         service = self.service()
         for user in self.users:
-            userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
-            self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user]["password"])))
+            userRecord = (yield service.recordWithShortName(DirectoryService.recordType_users, user))
+            self.failUnless((yield userRecord.verifyCredentials(UsernamePassword(user, self.users[user]["password"]))))
 
 # authRequest = {
 #    username="username",
@@ -290,6 +310,7 @@ class DigestTestCase (DirectoryTestCase):
     """
     Tests a directory implementation with digest auth.
     """
+    @inlineCallbacks
     def test_verifyCredentials_digest(self):
         """
         IDirectoryRecord.verifyCredentials() with digest
@@ -300,7 +321,7 @@ class DigestTestCase (DirectoryTestCase):
         service = self.service()
         for user in self.users:
             for good in (True, True, False, False, True):
-                userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
+                userRecord = (yield service.recordWithShortName(DirectoryService.recordType_users, user))
 
                 # I'm glad this is so simple...
                 response = calcResponse(
@@ -342,6 +363,6 @@ class DigestTestCase (DirectoryTestCase):
                 )
 
                 if good:
-                    self.failUnless(userRecord.verifyCredentials(credentials))
+                    self.failUnless((yield userRecord.verifyCredentials(credentials)))
                 else:
-                    self.failIf(userRecord.verifyCredentials(credentials))
+                    self.failIf((yield userRecord.verifyCredentials(credentials)))

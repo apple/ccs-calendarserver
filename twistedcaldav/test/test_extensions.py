@@ -177,8 +177,8 @@ class DirectoryListingTest(TestCase):
         names of both entities.
         """
         def addUnicodeChild(davFile):
-            davFile.writeProperty(UnicodeProperty(), None)
-            davFile.writeProperty(StrProperty(), None)
+            yield davFile.writeProperty(UnicodeProperty(), None)
+            yield davFile.writeProperty(StrProperty(), None)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8")])
 

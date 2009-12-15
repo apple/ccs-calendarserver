@@ -34,14 +34,15 @@ __all__ = [
     "TimezoneServiceFile",
 ]
 
-import datetime
 import os
+import datetime
 import errno
 from urlparse import urlsplit
 
 from twext.web2.dav.davxml import ErrorResponse
+from twisted.internet.defer import (succeed, inlineCallbacks, returnValue,
+                                    maybeDeferred)
 
-from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode, http, http_headers
@@ -87,8 +88,18 @@ class CalDAVFile (CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
+    propertyStore = CachingPropertyStore
+
+    @classmethod
+    def fetch(cls, request, path, *args, **kwargs):
+        """
+        stuff etc
+        """
+        return succeed(cls(path, *args, **kwargs))
+
     def __repr__(self):
-        if self.isCalendarCollection():
+        # MOR: I don't think we can defer __repr__, can we? Problem is, isCalendarCollection( ) now is deferred
+        if False and self.isCalendarCollection():
             return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
         else:
             return super(CalDAVFile, self).__repr__()
@@ -98,6 +109,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             return False
         return self.fp.path == other.fp.path
 
+    @inlineCallbacks
     def checkPreconditions(self, request):
         """
         We override the base class to handle the special implicit scheduling weak ETag behavior
@@ -106,8 +118,8 @@ class CalDAVFile (CalDAVResource, DAVFile):
         
         if config.Scheduling.CalDAV.ScheduleTagCompatibility:
             
-            if self.exists() and self.hasDeadProperty(TwistedScheduleMatchETags):
-                etags = self.readDeadProperty(TwistedScheduleMatchETags).children
+            if self.exists() and (yield self.hasDeadProperty(TwistedScheduleMatchETags)):
+                etags = (yield self.readDeadProperty(TwistedScheduleMatchETags)).children
                 if len(etags) > 1:
                     # This is almost verbatim from twisted.web2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
@@ -135,13 +147,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
                     # Check per-method preconditions
                     method = getattr(self, "preconditions_" + request.method, None)
                     if method:
-                        response = maybeDeferred(method, request)
-                        response.addCallback(lambda _: request)
-                        return response
+                        response = yield(method(request))
+                        returnValue(response)
                     else:
-                        return None
+                        returnValue(None)
 
-        return super(CalDAVFile, self).checkPreconditions(request)
+        returnValue((yield super(CalDAVFile, self).checkPreconditions(request)))
 
     def deadProperties(self, caching=True):
         if not hasattr(self, "_dead_properties"):
@@ -160,11 +171,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
     # CalDAV
     ##
 
+    @inlineCallbacks
     def resourceType(self):
-        if self.isCalendarCollection():
-            return davxml.ResourceType.calendar
+        if (yield self.isCalendarCollection()):
+            returnValue(davxml.ResourceType.calendar)
         else:
-            return super(CalDAVFile, self).resourceType()
+            returnValue((yield super(CalDAVFile, self).resourceType()))
 
     def createCalendar(self, request):
         #
@@ -199,28 +211,24 @@ class CalDAVFile (CalDAVResource, DAVFile):
         parent.addCallback(_defer)
         return parent
 
+    @inlineCallbacks
     def createCalendarCollection(self):
         #
         # Create the collection once we know it is safe to do so
         #
-        def onCalendarCollection(status):
-            if status != responsecode.CREATED:
-                raise HTTPError(status)
+        status = (yield self.createSpecialCollection(davxml.ResourceType.calendar))
+        if status != responsecode.CREATED:
+            raise HTTPError(status)
 
-            # Initialize CTag on the calendar collection
-            d1 = self.updateCTag()
+        # Initialize CTag on the calendar collection
+        yield self.updateCTag()
 
-            # Calendar is initially transparent to freebusy
-            self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
+        # Calendar is initially transparent to freebusy
+        yield self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
 
-            # Create the index so its ready when the first PUTs come in
-            d1.addCallback(lambda _: self.index().create())
-            d1.addCallback(lambda _: status)
-            return d1
-
-        d = self.createSpecialCollection(davxml.ResourceType.calendar)
-        d.addCallback(onCalendarCollection)
-        return d
+        # Create the index so its ready when the first PUTs come in
+        self.index().create()
+        returnValue(status)
 
     def createSpecialCollection(self, resourceType=None):
         #
@@ -230,8 +238,9 @@ class CalDAVFile (CalDAVResource, DAVFile):
             if status != responsecode.CREATED:
                 raise HTTPError(status)
 
-            self.writeDeadProperty(resourceType)
-            return status
+            d = self.writeDeadProperty(resourceType)
+            d.addCallback(lambda _: status)
+            return d
 
         def onError(f):
             try:
@@ -248,7 +257,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
     @inlineCallbacks
     def iCalendarRolledup(self, request):
-        if self.isPseudoCalendarCollection():
+        if (yield self.isPseudoCalendarCollection()):
             # Generate a monolithic calendar
             calendar = iComponent("VCALENDAR")
             calendar.addProperty(iProperty("VERSION", "2.0"))
@@ -259,8 +268,8 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             tzids = set()
             isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
-
-            for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
+            searchResults = yield self.index().bruteForceSearch()
+            for name, uid, type in searchResults: #@UnusedVariable
                 try:
                     child = yield request.locateChildResource(self, name)
                     child = IDAVResource(child)
@@ -275,7 +284,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         continue
 
                     # Get the access filtered view of the data
-                    caldata = child.iCalendarTextFiltered(isowner)
+                    caldata = yield child.iCalendarTextFiltered(isowner)
                     try:
                         subcalendar = iComponent.fromString(caldata)
                     except ValueError:
@@ -297,9 +306,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST))
 
+    @inlineCallbacks
     def iCalendarTextFiltered(self, isowner):
         try:
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
+            access = (yield self.readDeadProperty(TwistedCalendarAccessProperty))
         except HTTPError:
             access = None
 
@@ -308,23 +318,24 @@ class CalDAVFile (CalDAVResource, DAVFile):
             if not isowner:
                 # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
                 # access restrictions to the data.
-                return caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
+                el = (yield caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access))
+                returnValue(el.calendarData())
+        returnValue((yield self.iCalendarText()))
 
-        return self.iCalendarText()
-
+    @inlineCallbacks
     def iCalendarText(self, name=None):
-        if self.isPseudoCalendarCollection():
+        if (yield self.isPseudoCalendarCollection()):
             if name is None:
-                return str(self.iCalendar())
+                returnValue(self.iCalendar().addCallback(str))
 
             try:
                 calendar_file = self.fp.child(name).open()
             except IOError, e:
-                if e[0] == errno.ENOENT: return None
+                if e[0] == errno.ENOENT: returnValue(None)
                 raise
 
         elif self.isCollection():
-            return None
+            returnValue(None)
 
         else:
             if name is not None:
@@ -338,27 +349,22 @@ class CalDAVFile (CalDAVResource, DAVFile):
         finally:
             calendar_file.close()
 
-        return calendar_data
+        returnValue(calendar_data)
 
     def iCalendarXML(self, name=None):
-        return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
+        return self.iCalendarText(name).addCallback(caldavxml.CalendarData.fromCalendar)
 
+    @inlineCallbacks
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources
-        if self.isCollection():
-            return succeed(calendarPrivilegeSet)
+        if (yield self.isCollection()):
+            returnValue(calendarPrivilegeSet)
         else:
-            def gotParent(parent):
-                if parent and isCalendarCollectionResource(parent):
-                    return succeed(calendarPrivilegeSet)
-                else:
-                    return super(CalDAVFile, self).supportedPrivileges(request)
-
-            d = self.locateParent(request, request.urlForResource(self))
-            d.addCallback(gotParent)
-            return d
-
-        return super(CalDAVFile, self).supportedPrivileges(request)
+            parent = (yield self.locateParent(request, request.urlForResource(self)))
+            if parent and (yield isCalendarCollectionResource(parent)):
+                returnValue(calendarPrivilegeSet)
+            else:
+                returnValue((yield super(CalDAVFile, self).supportedPrivileges(request)))
 
     ##
     # Public additions
@@ -378,23 +384,23 @@ class CalDAVFile (CalDAVResource, DAVFile):
     ##
 
     def listChildren(self):
-        return [
-            child for child in super(CalDAVFile, self).listChildren()
-            if not child.startswith(".")
-        ]
+        return super(CalDAVFile, self).listChildren().addCallback(
+            lambda children: [child for child in children
+                              if not child.startswith(".")])
 
     def propertyCollection(self):
         if not hasattr(self, "_propertyCollection"):
             self._propertyCollection = MemcachePropertyCollection(self)
         return self._propertyCollection
 
+    @inlineCallbacks
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            returnValue(self)
 
-        similar = super(CalDAVFile, self).createSimilarFile(path)
+        similar = yield maybeDeferred(super(CalDAVFile, self).createSimilarFile, path)
 
-        if isCalendarCollectionResource(self):
+        if (yield isCalendarCollectionResource(self)):
 
             # Short-circuit stat with information we know to be true at this point
             if isinstance(path, FilePath) and hasattr(self, "knownChildren"):
@@ -437,15 +443,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
                 setattr(similar, method, override)
 
-        return similar
+        returnValue(similar)
 
+    @inlineCallbacks
     def updateCTag(self):
-        assert self.isCollection()
+        assert (yield self.isCollection())
         try:
-            self.writeDeadProperty(customxml.GETCTag(
+            yield self.writeDeadProperty(customxml.GETCTag(
                     str(datetime.datetime.now())))
         except:
-            return fail(Failure())
+            # MOR: was: return fail(Failure())
+            raise Failure()
 
         if hasattr(self, 'clientNotifier'):
             self.clientNotifier.notify(op="update")
@@ -454,12 +462,12 @@ class CalDAVFile (CalDAVResource, DAVFile):
                       % (self,))
 
         if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
+            returnValue((yield self.cacheNotifier.changed()))
         else:
             log.debug("%r does not have a cacheNotifier but the CTag changed"
                       % (self,))
 
-        return succeed(True)
+        returnValue(True)
 
     ##
     # Quota
@@ -557,40 +565,41 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             parent = yield request.locateResource(parent_uri)
 
-            if test(parent):
+            if (yield test(parent)):
                 returnValue(parent)
 
 class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
+
+    @inlineCallbacks
     def provision(self):
-        self.provisionFile()
-        return super(AutoProvisioningFileMixIn, self).provision()
+        yield self.provisionFile()
+        returnValue((yield super(AutoProvisioningFileMixIn, self).provision()))
 
-
-    def provisionFile(self):
+    @inlineCallbacks
+    def provisionFile(self, request=None):
         if hasattr(self, "_provisioned_file"):
-            return False
+            returnValue(False)
         else:
             self._provisioned_file = True
 
         # If the file already exists we can just exit here - there is no need to go further
         if self.fp.exists():
-            return False
+            returnValue(False)
 
         # At this point the original FilePath did not indicate an existing file, but we should
         # recheck it to see if some other request sneaked in and already created/provisioned it
 
         fp = self.fp
-
         fp.restat(False)
         if fp.exists():
-            return False
+            returnValue(False)
 
         log.msg("Provisioning file: %s" % (self,))
 
         if hasattr(self, "parent"):
             parent = self.parent
             if not parent.exists() and isinstance(parent, AutoProvisioningFileMixIn):
-                parent.provision()
+                yield parent.provision()
 
             assert parent.exists(), "Parent %s of %s does not exist" % (parent, self)
             assert parent.isCollection(), "Parent %s of %s is not a collection" % (parent, self)
@@ -608,7 +617,7 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
             fp.open("w").close()
             fp.changed()
 
-        return True
+        returnValue(True)
 
 class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
@@ -654,24 +663,24 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
         else:
             self.homeResourceClass = homeResourceClass
 
+    @inlineCallbacks
     def provisionChild(self, name):
-        record = self.directory.recordWithUID(name)
+        record = (yield self.directory.recordWithUID(name))
 
         if record is None:
             log.msg("No directory record with GUID %r" % (name,))
-            return None
+            returnValue(None)
 
         if not record.enabledForCalendaring:
             log.msg("Directory record %r is not enabled for calendaring" % (record,))
-            return None
+            returnValue(None)
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
         
         childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-        child = self.homeResourceClass(childPath.path, self, record)
-
+        child = (yield self.homeResourceClass.fetch(None, childPath.path, self, record))
         if not child.exists():
-            self.provision()
+            yield self.provision()
 
             if not childPath.parent().isdir():
                 childPath.parent().makedirs()
@@ -680,7 +689,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                 # Pre 2.0: All in one directory
                 self.fp.child(name),
                 # Pre 1.2: In types hierarchy instead of the GUID hierarchy
-                self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
+                (yield (yield self.parent.getChild(record.recordType)).fp.child(record.shortNames[0])),
             ):
                 if oldPath.exists():
                     # The child exists at an old location.  Move to new location.
@@ -696,27 +705,11 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                     child.fp.changed()
                     break
             else:
-                #
-                # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
-                # The result being that the default calendars will be present at some point
-                # in the future, not necessarily right now, and we don't have a way to wait
-                # on that to finish.
-                #
-                child.provisionDefaultCalendars()
-
-                #
-                # Try to work around the above a little by telling the client that something
-                # when wrong temporarily if the child isn't provisioned right away.
-                #
-                if not child.exists():
-                    raise HTTPError(StatusResponse(
-                        responsecode.SERVICE_UNAVAILABLE,
-                        "Provisioning calendar home."
-                    ))
+                yield child.provisionDefaultCalendars()
 
             assert child.exists()
 
-        return child
+        returnValue(child)
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
@@ -761,26 +754,31 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         }.get(name, None)
 
         if cls is not None:
-            child = cls(self.fp.child(name).path, self)
-            child.cacheNotifier = self.cacheNotifier
-            child.clientNotifier = self.clientNotifier
-            return child
+            d = cls.fetch(None, self.fp.child(name).path, self)
+            def _gotChild(child):
+                child.cacheNotifier = self.cacheNotifier
+                child.clientNotifier = self.clientNotifier
+                return child
+            return d.addCallback(_gotChild)
 
         return self.createSimilarFile(self.fp.child(name).path)
 
+
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            similar = CalDAVFile(path, principalCollections=self.principalCollections())
-            similar.cacheNotifier = self.cacheNotifier
-            similar.clientNotifier = self.clientNotifier
-            return similar
+            d = CalDAVFile.fetch(None, path, principalCollections=self.principalCollections())
+            def _gotChild(similar):
+                similar.cacheNotifier = self.cacheNotifier
+                similar.clientNotifier = self.clientNotifier
+                return similar
+            return d.addCallback(_gotChild)
 
     def getChild(self, name):
         # This avoids finding case variants of put children on case-insensitive filesystems.
         if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
-            return None
+            return succeed(None)
 
         return super(CalendarHomeFile, self).getChild(name)
 
@@ -847,9 +845,9 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return CalDAVFile(path, principalCollections=self.principalCollections())
+            return succeed(CalDAVFile(path, principalCollections=self.principalCollections()))
 
     def index(self):
         """
@@ -879,16 +877,17 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
         ScheduleFile.__init__(self, path, parent)
         ScheduleInboxResource.__init__(self, parent)
 
+    @inlineCallbacks
     def provision(self):
-        if self.provisionFile():
+        if (yield self.provisionFile()):
 
             # Initialize CTag on the calendar collection
-            self.updateCTag()
+            yield self.updateCTag()
 
             # Initialize the index
             self.index().create()
 
-        return super(ScheduleInboxFile, self).provision()
+        returnValue((yield super(ScheduleInboxFile, self).provision()))
 
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -909,12 +908,13 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
         ScheduleFile.__init__(self, path, parent)
         ScheduleOutboxResource.__init__(self, parent)
 
+    @inlineCallbacks
     def provision(self):
-        if self.provisionFile():
+        if (yield self.provisionFile()):
             # Initialize CTag on the calendar collection
-            self.updateCTag()
+            yield self.updateCTag()
 
-        return super(ScheduleOutboxFile, self).provision()
+        returnValue((yield super(ScheduleOutboxFile, self).provision()))
 
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -943,9 +943,9 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return responsecode.NOT_FOUND
+            return succeed(responsecode.NOT_FOUND)
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_COPY       (self, request): return responsecode.FORBIDDEN
@@ -965,10 +965,10 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def checkPreconditions(self, request):
-        return None
+        return succeed(None)
 
     ##
     # ACL
@@ -995,9 +995,9 @@ class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFil
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return responsecode.NOT_FOUND
+            return succeed(responsecode.NOT_FOUND)
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_COPY       (self, request): return responsecode.FORBIDDEN
@@ -1026,9 +1026,9 @@ class DropBoxHomeFile (AutoProvisioningFileMixIn, DropBoxHomeResource, CalDAVFil
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return DropBoxCollectionFile(path, self)
+            return succeed(DropBoxCollectionFile(path, self))
 
     def __repr__(self):
         return "<%s (dropbox home collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -1040,9 +1040,9 @@ class DropBoxCollectionFile (DropBoxCollectionResource, CalDAVFile):
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return DropBoxChildFile(path, self)
+            return succeed(DropBoxChildFile(path, self))
 
     def __repr__(self):
         return "<%s (dropbox collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -1055,9 +1055,9 @@ class DropBoxChildFile (CalDAVFile):
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return responsecode.NOT_FOUND
+            return succeed(responsecode.NOT_FOUND)
 
 class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
     def __init__(self, path, parent):
@@ -1068,9 +1068,9 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
-            return self
+            return succeed(self)
         else:
-            return responsecode.NOT_FOUND
+            return succeed(responsecode.NOT_FOUND)
 
     def http_PUT        (self, request): return responsecode.FORBIDDEN
     def http_COPY       (self, request): return responsecode.FORBIDDEN
@@ -1090,10 +1090,10 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def checkPreconditions(self, request):
-        return None
+        return succeed(None)
 
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)

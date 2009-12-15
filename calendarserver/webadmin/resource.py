@@ -31,7 +31,7 @@ from calendarserver.tools.principals import principalForPrincipalID, proxySubpri
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.web2.http import Response
 from twisted.web2.http_headers import MimeType
 from twisted.web2.stream import MemoryStream
@@ -48,11 +48,11 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
     # Only allow administrators to access
     def defaultAccessControlList(self):
-        return davxml.ACL(*config.AdminACEs)
+        return succeed(davxml.ACL(*config.AdminACEs))
     
     def etag(self):
         # Can't be calculated here
-        return None
+        return succeed(None)
 
     def contentLength(self):
         # Can't be calculated here
@@ -65,7 +65,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         return True
 
     def displayName(self):
-        return "Web Admin"
+        return succeed("Web Admin")
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8");
@@ -74,7 +74,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         return None
 
     def createSimilarFile(self, path):
-        return DAVFile(path, principalCollections=self.principalCollections())
+        return succeed(DAVFile(path, principalCollections=self.principalCollections()))
 
     def directoryStyleSheet(self):
         return (
@@ -149,24 +149,24 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         # Add details if a resource has been selected.
         if resourceId:
         
-            principal = self.getResourceById(request, resourceId)
+            principal = (yield self.getResourceById(request, resourceId))
     
             # Update the auto-schedule value if specified.
             if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
                 if principal.record.recordType != "users" and principal.record.recordType != "groups":
-                    result = (yield principal.setAutoSchedule(autoSchedule == "true"))
+                    (yield principal.setAutoSchedule(autoSchedule == "true"))
 
             # Update the proxies if specified.
             for proxyId in removeProxies:
-                proxy = self.getResourceById(request, proxyId)
+                proxy = (yield self.getResourceById(request, proxyId))
                 (yield action_removeProxyPrincipal(principal, proxy, proxyTypes=["read", "write"]))
 
             for proxyId in makeReadProxies:
-                proxy = self.getResourceById(request, proxyId)
+                proxy = (yield self.getResourceById(request, proxyId))
                 (yield action_addProxyPrincipal(principal, "read", proxy))
 
             for proxyId in makeWriteProxies:
-                proxy = self.getResourceById(request, proxyId)
+                proxy = (yield self.getResourceById(request, proxyId))
                 (yield action_addProxyPrincipal(principal, "write", proxy))
                 
             # Add the detailed content
@@ -263,7 +263,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         if davPropertyName:
             try:
                 namespace, name = davPropertyName.split("#")
-            except Exception, e:
+            except Exception:
                 propertyHtml += "<div>Unable to parse property to read: <b>%s</b></div>" % davPropertyName
 
             result = (yield resource.readProperty((namespace, name), None))
@@ -435,6 +435,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         htmlContent.addCallback(_defer)
         return htmlContent
 
+    # Deferred
     def getResourceById(self, request, resourceId):
         if resourceId.startswith("/"):
             return request.locateResource(resourceId)

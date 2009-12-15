@@ -1,0 +1,102 @@
+Index: twisted/web2/dav/test/test_resource.py
+===================================================================
+--- twisted/web2/dav/test/test_resource.py	(revision 27622)
++++ twisted/web2/dav/test/test_resource.py	(working copy)
+@@ -40,7 +40,13 @@
+     def setUp(self):
+         twisted.web2.dav.test.util.TestCase.setUp(self)
+         TestResource._cachedPropertyStores = {}
++        # Pre-fetch site, so the rest of the test doesn't have to defer
++        self._getSite()
+ 
++    def _getStoredSite(self):
++        return self._site
++    site = property(_getStoredSite)
++
+ class GenericDAVResource(TestCase):
+     def setUp(self):
+         TestCase.setUp(self)
+@@ -61,7 +67,7 @@
+             })
+         })
+ 
+-        self.site = Site(rootresource)
++        self._site = Site(rootresource)
+ 
+     def test_findChildren(self):
+         """
+@@ -200,6 +206,7 @@
+         return d
+ 
+ class AccessTests(TestCase):
++    @deferredGenerator
+     def setUp(self):
+         TestCase.setUp(self)
+ 
+@@ -218,13 +225,15 @@
+         protected = TestResource(
+             "/protected", principalCollections=[rootresource])
+ 
+-        protected.setAccessControlList(davxml.ACL(
++        d = waitForDeferred(protected.setAccessControlList(davxml.ACL(
+             davxml.ACE(
+                 davxml.Principal(davxml.HRef("/users/gooduser")),
+                 davxml.Grant(davxml.Privilege(davxml.All())),
+                 davxml.Protected()
+             )
+-        ))
++        )))
++        yield d
++        d.getResult()
+ 
+         rootresource.children["protected"] = protected
+ 
+@@ -236,7 +245,7 @@
+         loginInterfaces = (IPrincipal,)
+ 
+         self.rootresource = rootresource
+-        self.site = Site(AuthenticationWrapper(
++        self._site = Site(AuthenticationWrapper(
+             self.rootresource,
+             portal,
+             credentialFactories,
+@@ -385,7 +394,7 @@
+         return self.children is not None
+ 
+     def listChildren(self):
+-        return self.children.keys()
++        return succeed(self.children.keys())
+ 
+     def supportedPrivileges(self, request):
+         return succeed(davPrivilegeSet)
+@@ -407,6 +416,7 @@
+ 
+     def setAccessControlList(self, acl):
+         self.acl = acl
++        return succeed(self.acl)
+ 
+     def accessControlList(self, request, **kwargs):
+         return succeed(self.acl)
+@@ -468,10 +478,10 @@
+             dictionary, which itself is a L{TestResource} with
+             L{IDAVPrincipalCollectionResource} children.
+ 
+-        @return: a DAV principal resource of the given type with the given
+-            name.
++        @return: a L{Deferred} firing with a DAV principal resource of the
++            given type with the given name.
+ 
+-        @rtype: L{IDAVPrincipalResource} or C{NoneType}
++        @rtype: L{Deferred} firing L{IDAVPrincipalResource} or C{NoneType}
+         """
+         # XXX either move this to CalendarServer entirely or document it on
+         # IDAVPrincipalCollectionResource
+@@ -480,7 +490,7 @@
+         if typeResource:
+             user = typeResource.children.get(shortName, None)
+ 
+-        return user
++        return succeed(user)
+ 
+ 
+ 

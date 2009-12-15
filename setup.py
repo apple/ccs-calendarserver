@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- test-case-name: twistedcaldav,twext,calendarserver -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #

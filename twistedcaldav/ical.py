@@ -34,6 +34,7 @@ __all__ = [
 
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.stream import IStream
+from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
     normalizeStartEndDuration, toString, normalizeForIndex, differenceDateTime
@@ -2075,11 +2076,12 @@ class Component (object):
                     if dataValue.find(dropboxPrefix) != -1:
                         self.removeProperty(attachment)
 
+    @inlineCallbacks
     def normalizeCalendarUserAddresses(self, lookupFunction):
         """
         Do the ORGANIZER/ATTENDEE property normalization.
 
-        @param lookupFunction: function returning full name, guid, CUAs for a given CUA
+        @param lookupFunction: function returning full name, guid, CUAs for a given CUA (Deferred)
         @type lookupFunction: L{Function}
         """
         for component in self.subcomponents():
@@ -2093,7 +2095,7 @@ class Component (object):
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr)
+                name, guid, cuaddrs = (yield lookupFunction(cuaddr))
                 if guid is None:
                     continue
 

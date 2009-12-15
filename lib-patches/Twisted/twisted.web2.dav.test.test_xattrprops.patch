@@ -1,0 +1,170 @@
+Index: twisted/web2/dav/test/test_xattrprops.py
+===================================================================
+--- twisted/web2/dav/test/test_xattrprops.py	(revision 27622)
++++ twisted/web2/dav/test/test_xattrprops.py	(working copy)
+@@ -5,10 +5,13 @@
+ Tests for L{twisted.web2.dav.xattrprops}.
+ """
+ 
++import sys
+ from zlib import compress, decompress
+ from pickle import dumps
+ from cPickle import UnpicklingError
+ 
++from twisted.internet.defer import inlineCallbacks, returnValue
++from twisted.python import failure
+ from twisted.python.filepath import FilePath
+ from twisted.trial.unittest import TestCase
+ from twisted.web2.responsecode import NOT_FOUND, INTERNAL_SERVER_ERROR
+@@ -42,16 +45,18 @@
+         self.propertyStore = xattrPropertyStore(self.resource)
+ 
+ 
++    @inlineCallbacks
+     def test_getAbsent(self):
+         """
+         L{xattrPropertyStore.get} raises L{HTTPError} with a I{NOT FOUND}
+         response code if passed the name of an attribute for which there is no
+         corresponding value.
+         """
+-        error = self.assertRaises(HTTPError, self.propertyStore.get, ("foo", "bar"))
++        error = (yield self.assertRaisesDeferred(HTTPError, self.propertyStore.get, ("foo", "bar")))
+         self.assertEquals(error.response.code, NOT_FOUND)
+ 
+ 
++    @inlineCallbacks
+     def _forbiddenTest(self, method):
+         # Remove access to the directory containing the file so that getting
+         # extended attributes from it fails with EPERM.
+@@ -62,10 +67,10 @@
+ 
+         # Try to get a property from it - and fail.
+         document = self._makeValue()
+-        error = self.assertRaises(
++        error = (yield self.assertRaisesDeferred(
+             HTTPError,
+             getattr(self.propertyStore, method),
+-            document.root_element.qname())
++            document.root_element.qname()))
+ 
+         # Make sure that the status is FORBIDDEN, a roughly reasonable mapping
+         # of the EPERM failure.
+@@ -106,11 +111,12 @@
+         return self.attrs[attribute]
+ 
+ 
++    @inlineCallbacks
+     def _checkValue(self, originalDocument):
+         property = originalDocument.root_element.qname()
+ 
+         # Try to load it via xattrPropertyStore.get
+-        loadedDocument = self.propertyStore.get(property)
++        loadedDocument = (yield self.propertyStore.get(property))
+ 
+         # XXX Why isn't this a WebDAVDocument?
+         self.assertIsInstance(loadedDocument, Depth)
+@@ -178,6 +184,7 @@
+             decompress(self._getValue(document)), document.toxml())
+ 
+ 
++    @inlineCallbacks
+     def test_getInvalid(self):
+         """
+         If the value associated with the property name passed to
+@@ -190,7 +197,7 @@
+             "random garbage goes here! \0 that nul is definitely garbage")
+ 
+         property = document.root_element.qname()
+-        error = self.assertRaises(HTTPError, self.propertyStore.get, property)
++        error = (yield self.assertRaisesDeferred(HTTPError, self.propertyStore.get, property))
+         self.assertEquals(error.response.code, INTERNAL_SERVER_ERROR)
+         self.assertEquals(
+             len(self.flushLoggedErrors(UnpicklingError)), 1)
+@@ -227,6 +234,7 @@
+         self.assertRaises(KeyError, self._getValue, document)
+ 
+ 
++    @inlineCallbacks
+     def test_deleteErrors(self):
+         """
+         If there is a problem deleting the specified property (aside from the
+@@ -240,15 +248,16 @@
+ 
+         # Try to delete a property from it - and fail.
+         document = self._makeValue()
+-        error = self.assertRaises(
++        error = (yield self.assertRaisesDeferred(
+             HTTPError,
+-            self.propertyStore.delete, document.root_element.qname())
++            self.propertyStore.delete, document.root_element.qname()))
+ 
+         # Make sure that the status is NOT FOUND, a roughly reasonable mapping
+         # of the EEXIST failure.
+         self.assertEquals(error.response.code, NOT_FOUND)
+ 
+ 
++    @inlineCallbacks
+     def test_contains(self):
+         """
+         L{xattrPropertyStore.contains} returns C{True} if the given property
+@@ -256,10 +265,10 @@
+         """
+         document = self._makeValue()
+         self.assertFalse(
+-            self.propertyStore.contains(document.root_element.qname()))
++            (yield self.propertyStore.contains(document.root_element.qname())))
+         self._setValue(document, document.toxml())
+         self.assertTrue(
+-            self.propertyStore.contains(document.root_element.qname()))
++            (yield self.propertyStore.contains(document.root_element.qname())))
+ 
+ 
+     def test_containsError(self):
+@@ -272,6 +281,7 @@
+         self._forbiddenTest('contains')
+ 
+ 
++    @inlineCallbacks
+     def test_list(self):
+         """
+         L{xattrPropertyStore.list} returns a C{list} of property names
+@@ -281,10 +291,11 @@
+         self.attrs[prefix + '{foo}bar'] = 'baz'
+         self.attrs[prefix + '{bar}baz'] = 'quux'
+         self.assertEquals(
+-            set(self.propertyStore.list()),
++            set((yield self.propertyStore.list())),
+             set([(u'foo', u'bar'), (u'bar', u'baz')]))
+ 
+ 
++    @inlineCallbacks
+     def test_listError(self):
+         """
+         If there is a problem checking if the specified property exists (aside
+@@ -301,8 +312,25 @@
+ 
+         # Try to get a property from it - and fail.
+         document = self._makeValue()
+-        error = self.assertRaises(HTTPError, self.propertyStore.list)
++        error = (yield self.assertRaisesDeferred(HTTPError, self.propertyStore.list))
+ 
+         # Make sure that the status is FORBIDDEN, a roughly reasonable mapping
+         # of the EPERM failure.
+         self.assertEquals(error.response.code, FORBIDDEN)
++
++
++    @inlineCallbacks
++    def assertRaisesDeferred(self, exception, f, *args, **kwargs):
++        try:
++            result = (yield f(*args, **kwargs))
++        except exception, inst:
++            returnValue(inst)
++        except:
++            raise self.failureException('%s raised instead of %s:\n %s'
++                                        % (sys.exc_info()[0],
++                                           exception.__name__,
++                                           failure.Failure().getTraceback()))
++        else:
++            raise self.failureException('%s not raised (%r returned)'
++                                        % (exception.__name__, result))
++

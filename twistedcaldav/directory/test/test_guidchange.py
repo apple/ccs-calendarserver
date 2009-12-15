@@ -19,6 +19,7 @@ from twistedcaldav.directory.directory import DirectoryService
 
 import os
 
+from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.test.test_server import SimpleRequest
@@ -76,6 +77,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         homeResource = "/calendars/users/cdaboo/"
         
+        @inlineCallbacks
         def privs1(result):
             # Change GUID in record
             fd = open(self.xmlfile, "w")
@@ -85,13 +87,13 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             # Force re-read of records (not sure why _fileInfo has to be wiped here...)
             self.directoryService._fileInfo = (0, 0)
-            self.directoryService.recordWithShortName(DirectoryService.recordType_users, "cdaboo")
+            yield self.directoryService.recordWithShortName(DirectoryService.recordType_users, "cdaboo")
 
             # Now force the calendar home resource to be reset
             self.resetCalendars()
             
             # Make sure new user cannot access old user's calendar home
-            return self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + newUID + "/"), davxml.Write, False)
+            returnValue((yield self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + newUID + "/"), davxml.Write, False)))
             
         # Make sure current user has access to their calendar home
         d = self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + oldUID + "/"), davxml.Write, True)

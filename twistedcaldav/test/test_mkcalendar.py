@@ -92,7 +92,7 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                 (davxml.DisplayName.qname(), "Lisa's Events"),
                 (caldavxml.CalendarDescription.qname(), "Calendar restricted to events."),
             ):
-                stored = yield resource.readProperty(qname, None)
+                stored = (yield resource.readProperty(qname, None))
                 stored = str(stored)
                 if stored != value:
                     self.fail("MKCALENDAR failed to set property %s: %s != %s"

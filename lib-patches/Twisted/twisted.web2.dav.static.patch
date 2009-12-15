@@ -1,0 +1,105 @@
+Index: twisted/web2/dav/static.py
+===================================================================
+--- twisted/web2/dav/static.py	(revision 27622)
++++ twisted/web2/dav/static.py	(working copy)
+@@ -28,7 +28,7 @@
+ 
+ __all__ = ["DAVFile"]
+ 
+-from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
++from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred, maybeDeferred
+ from twisted.python.filepath import InsecurePath
+ from twisted.python import log
+ from twisted.web2 import http_headers
+@@ -53,6 +53,14 @@
+ 
+     Extends twisted.web2.static.File to handle WebDAV methods.
+     """
++    @classmethod
++    def fetch(cls, request, path, *args, **kwargs):
++        """
++        stuff etc
++        """
++        return succeed(cls(path, *args, **kwargs))
++
++
+     def __init__(
+         self, path,
+         defaultType="text/plain", indexNames=None,
+@@ -82,12 +90,26 @@
+     ##
+ 
+     def etag(self):
+-        if not self.fp.exists(): return None
+-        if self.hasDeadProperty(TwistedGETContentMD5):
+-            return http_headers.ETag(str(self.readDeadProperty(TwistedGETContentMD5)))
++        if not self.fp.exists():
++            yield None
++            return
++
++        hasProp = waitForDeferred(self.hasDeadProperty(TwistedGETContentMD5))
++        yield hasProp
++        hasProp = hasProp.getResult()
++        if hasProp:
++            propValue = waitForDeferred(self.readDeadProperty(TwistedGETContentMD5))
++            yield propValue
++            propValue = propValue.getResult()
++            yield http_headers.ETag(str(propValue))
+         else:
+-            return super(DAVFile, self).etag()
++            d = waitForDeferred(super(DAVFile, self).etag())
++            yield d
++            d = d.getResult()
++            yield d
+ 
++    etag = deferredGenerator(etag)
++
+     def davComplianceClasses(self):
+         return ("1", "access-control") # Add "2" when we have locking
+ 
+@@ -169,9 +191,12 @@
+         """
+         # If getChild() finds a child resource, return it
+         try:
+-            child = self.getChild(segments[0])
++            child = waitForDeferred(maybeDeferred(self.getChild, segments[0]))
++            yield child
++            child = child.getResult()
+             if child is not None:
+-                return (child, segments[1:])
++                yield (child, segments[1:])
++                return
+         except InsecurePath:
+             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid URL path"))
+         
+@@ -180,19 +205,26 @@
+         # that the request wants created.
+         self.fp.restat(False)
+         if self.fp.exists() and not self.fp.isdir():
+-            return (None, ())
++            yield (None, ())
++            return
+ 
+         # OK, we need to return a child corresponding to the first segment
+         path = segments[0]
+         
+         if path == "":
+             # Request is for a directory (collection) resource
+-            return (self, ())
++            yield (self, ())
++            return
+ 
+-        return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
++        result = waitForDeferred(self.createSimilarFile(self.fp.child(path).path))
++        yield result
++        result = result.getResult()
++        yield (result, segments[1:])
+ 
++    locateChild = deferredGenerator(locateChild)
++
+     def createSimilarFile(self, path):
+-        return self.__class__(
++        return self.__class__.fetch(None, 
+             path, defaultType=self.defaultType, indexNames=self.indexNames[:],
+             principalCollections=self.principalCollections())
+ 

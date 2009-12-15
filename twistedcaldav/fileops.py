@@ -22,12 +22,15 @@ from twisted.web2.dav.fileop import copy
 from twisted.web2.dav.fileop import put
 from twisted.web2.dav.xattrprops import xattrPropertyStore
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 # This class simulates a DAVFile with enough information for use with xattrPropertyStore.
 class FakeXAttrResource(object):
     
     def __init__(self, fp):
         self.fp = fp
 
+@inlineCallbacks
 def putWithXAttrs(stream, filepath):
     """
     Write a file to a possibly existing path and preserve any xattrs at that path.
@@ -42,25 +45,21 @@ def putWithXAttrs(stream, filepath):
     props = []
     if filepath.exists():
         xold = xattrPropertyStore(FakeXAttrResource(filepath))
-        for item in xold.list():
-            props.append((xold.get(item)))
+        for item in (yield xold.list()):
+            props.append((yield xold.get(item)))
         xold = None
-    
-    # First do the actual file copy
-    def _gotResponse(response):
-    
-        # Restore original xattrs.
-        if props:
-            xnew = xattrPropertyStore(FakeXAttrResource(filepath))
-            for prop in props:
-                xnew.set(prop)
-            xnew = None
-    
-        return response
 
-    d = put(stream, filepath)
-    d.addCallback(_gotResponse)
-    return d
+    response = (yield put(stream, filepath))
+
+    # Restore original xattrs.
+    if props:
+        xnew = xattrPropertyStore(FakeXAttrResource(filepath))
+        for prop in props:
+            yield xnew.set(prop)
+        xnew = None
+
+    returnValue(response)
+
 
 def copyWithXAttrs(source_filepath, destination_filepath, destination_uri):
     """
@@ -102,10 +101,11 @@ def copyToWithXAttrs(from_fp, to_fp):
     # Now copy over xattrs.
     copyXAttrs(from_fp, to_fp)
 
+@inlineCallbacks
 def copyXAttrs(from_fp, to_fp):    
     # Create xattr stores for each file and copy over all xattrs.
     xfrom = xattrPropertyStore(FakeXAttrResource(from_fp))
     xto = xattrPropertyStore(FakeXAttrResource(to_fp))
 
-    for item in xfrom.list():
-        xto.set(xfrom.get(item))
+    for item in (yield xfrom.list()):
+        yield xto.set((yield xfrom.get(item)))

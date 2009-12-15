@@ -26,7 +26,6 @@ __all__ = [
     "DAVFile",
     "ReadOnlyWritePropertiesResourceMixIn",
     "ReadOnlyResourceMixIn",
-    "CachingXattrPropertyStore",
 ]
 
 import cPickle as pickle
@@ -164,6 +163,7 @@ class SudoSACLMixin (object):
             request.authzUser = davxml.Principal(davxml.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))
 
+    @inlineCallbacks
     def principalsForAuthID(self, request, creds):
         """
         Return authentication and authorization prinicipal identifiers
@@ -181,17 +181,17 @@ class SudoSACLMixin (object):
             HTTPError(responsecode.FORBIDDEN) if the principal isn't
             found.
         """
-        authnPrincipal = self.findPrincipalForAuthID(creds)
+        authnPrincipal = (yield self.findPrincipalForAuthID(creds))
 
         if authnPrincipal is None:
             log.info("Could not find the principal resource for user id: %s"
                      % (creds.username,))
             raise HTTPError(responsecode.FORBIDDEN)
 
-        d = self.authorizationPrincipal(request, creds.username, authnPrincipal)
-        d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
-        return d
+        authzPrincipal = (yield self.authorizationPrincipal(request, creds.username, authnPrincipal))
+        returnValue((authnPrincipal, authzPrincipal))
 
+    @inlineCallbacks
     def findPrincipalForAuthID(self, creds):
         """
         Return an authentication and authorization principal
@@ -199,20 +199,20 @@ class SudoSACLMixin (object):
         Check for sudo users before regular users.
         """
         if type(creds) is str:
-            return super(SudoSACLMixin, self).findPrincipalForAuthID(creds)
+            returnValue((yield super(SudoSACLMixin, self).findPrincipalForAuthID(creds)))
 
         for collection in self.principalCollections():
-            principal = collection.principalForShortName(
+            principal = (yield collection.principalForShortName(
                 SudoDirectoryService.recordType_sudoers, 
-                creds.username)
+                creds.username))
             if principal is not None:
-                return principal
+                returnValue(principal)
 
         for collection in self.principalCollections():
-            principal = collection.principalForAuthID(creds)
+            principal = (yield collection.principalForAuthID(creds))
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
     @inlineCallbacks
     def authorizationPrincipal(self, request, authID, authnPrincipal):
@@ -239,31 +239,33 @@ class SudoSACLMixin (object):
             # Substitute the authz value for principal look up
             authz = authz[0]
 
+        @inlineCallbacks
         def getPrincipalForType(type, name):
             for collection in self.principalCollections():
-                principal = collection.principalForShortName(type, name)
+                principal = (yield collection.principalForShortName(type, name))
                 if principal:
-                    return principal
+                    returnValue(principal)
 
+        @inlineCallbacks
         def isSudoUser(authzID):
-            if getPrincipalForType(SudoDirectoryService.recordType_sudoers, authzID):
-                return True
-            return False
+            if (yield getPrincipalForType(SudoDirectoryService.recordType_sudoers, authzID)):
+                returnValue(True)
+            returnValue(False)
 
         if (
             hasattr(authnPrincipal, "record") and
             authnPrincipal.record.recordType == SudoDirectoryService.recordType_sudoers
         ):
             if authz:
-                if isSudoUser(authz):
+                if (yield isSudoUser(authz)):
                     log.info("Cannot proxy as another proxy: user %r as user %r"
                              % (authID, authz))
                     raise HTTPError(responsecode.FORBIDDEN)
                 else:
-                    authzPrincipal = getPrincipalForType(DirectoryService.recordType_users, authz)
+                    authzPrincipal = (yield getPrincipalForType(DirectoryService.recordType_users, authz))
 
                     if not authzPrincipal:
-                        authzPrincipal = self.findPrincipalForAuthID(authz)
+                        authzPrincipal = (yield self.findPrincipalForAuthID(authz))
 
                     if authzPrincipal is not None:
                         log.info("Allow proxy: user %r as %r"
@@ -437,7 +439,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 operand=operand, cuType=cuType))
 
             for record in records:
-                resource = principalCollection.principalForRecord(record)
+                resource = (yield principalCollection.principalForRecord(record))
                 matchingResources.append(resource)
 
                 # We've determined this is a matching resource
@@ -530,7 +532,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
 
         children = []
         basepath = request.urlForResource(self)
-        childnames = list(self.listChildren())
+        childnames = yield self.listChildren()
         for childname in childnames:
             if names and childname not in names:
                 continue
@@ -701,7 +703,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
 
         if namespace == dav_namespace:
             if name == "resourcetype":
-                returnValue(self.resourceType())
+                returnValue((yield self.resourceType()))
 
         elif namespace == calendarserver_namespace:
             if name == "expanded-group-member-set":
@@ -742,14 +744,15 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
     def expandedGroupMemberships(self):
         return succeed(())
 
+    @inlineCallbacks
     def resourceType(self):
         # Allow live property to be overridden by dead property
-        if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return self.deadProperties().get((dav_namespace, "resourcetype"))
+        if (yield self.deadProperties().contains((dav_namespace, "resourcetype"))):
+            returnValue((yield self.deadProperties().get((dav_namespace, "resourcetype"))))
         if self.isCollection():
-            return davxml.ResourceType(davxml.Collection(), davxml.Principal())
+            returnValue(davxml.ResourceType(davxml.Collection(), davxml.Principal()))
         else:
-            return davxml.ResourceType(davxml.Principal())
+            returnValue(davxml.ResourceType(davxml.Principal()))
 
 
 class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
@@ -763,42 +766,47 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             qname = property.qname()
 
         if qname == (dav_namespace, "resourcetype"):
-            return succeed(self.resourceType())
+            return self.resourceType()
 
         return super(DAVFile, self).readProperty(property, request)
 
+    @inlineCallbacks
     def resourceType(self):
         # Allow live property to be overridden by dead property
-        if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return self.deadProperties().get((dav_namespace, "resourcetype"))
+        if (yield self.deadProperties().contains((dav_namespace, "resourcetype"))):
+            returnValue((yield self.deadProperties().get((dav_namespace, "resourcetype"))))
         if self.isCollection():
-            return davxml.ResourceType.collection
-        return davxml.ResourceType.empty
+            returnValue(davxml.ResourceType.collection)
+        returnValue(davxml.ResourceType.empty)
 
+    @inlineCallbacks
     def render(self, request):
         if not self.fp.exists():
-            return responsecode.NOT_FOUND
+            returnValue(responsecode.NOT_FOUND)
 
         if self.fp.isdir():
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+                returnValue(RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/')))
             else:
+                # MOR: Not sure what to do here -- it may be that render( )
+                # can't easily be deferred, in which case createSimilarFile( )
+                # will be a problem...
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:
                     # Render from the index file
-                    return self.createSimilarFile(ifp.path).render(request)
+                    returnValue((yield self.createSimilarFile(ifp.path).render(request)))
 
-                return self.renderDirectory(request)
+                returnValue((yield self.renderDirectory(request)))
 
         try:
             f = self.fp.open()
         except IOError, e:
             import errno
             if e[0] == errno.EACCES:
-                return responsecode.FORBIDDEN
+                returnValue(responsecode.FORBIDDEN)
             elif e[0] == errno.ENOENT:
-                return responsecode.NOT_FOUND
+                returnValue(responsecode.NOT_FOUND)
             else:
                 raise
 
@@ -806,13 +814,13 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         response.stream = FileStream(f, 0, self.fp.getsize())
 
         for (header, value) in (
-            ("content-type", self.contentType()),
+            ("content-type", (yield self.contentType())),
             ("content-encoding", self.contentEncoding()),
         ):
             if value is not None:
                 response.headers.setHeader(header, value)
 
-        return response
+        returnValue(response)
 
     def directoryStyleSheet(self):
         return (
@@ -868,6 +876,7 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         d.addCallback(gotBody)
         return d
 
+    # MOR: This is not working at the moment -- gotValues( ) isn't getting a sequence
     @printTracebacks
     def renderDirectoryBody(self, request):
         """
@@ -881,36 +890,40 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
         ]
 
         even = Alternator()
-        for name in sorted(self.listChildren()):
-            child = self.getChild(name)
+        d = self.listChildren()
 
-            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
+        @inlineCallbacks
+        def _gotChildren(children):
+            for name in sorted(children):
+                child = (yield self.getChild(name))
 
-            # FIXME: gray out resources that are not readable
+                url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
+
+                # FIXME: gray out resources that are not readable
+                output.append(
+                    """<tr class="%(even)s">"""
+                    """<td><a href="%(url)s">%(name)s</a></td>"""
+                    """<td align="right">%(size)s</td>"""
+                    """<td>%(lastModified)s</td>"""
+                    """<td>%(type)s</td>"""
+                    """</tr>"""
+                    % {
+                        "even": even.state() and "even" or "odd",
+                        "url": url,
+                        "name": cgi.escape(name),
+                        "size": size,
+                        "lastModified": lastModified,
+                        "type": contentType,
+                    }
+                )
+
             output.append(
-                """<tr class="%(even)s">"""
-                """<td><a href="%(url)s">%(name)s</a></td>"""
-                """<td align="right">%(size)s</td>"""
-                """<td>%(lastModified)s</td>"""
-                """<td>%(type)s</td>"""
-                """</tr>"""
-                % {
-                    "even": even.state() and "even" or "odd",
-                    "url": url,
-                    "name": cgi.escape(name),
-                    "size": size,
-                    "lastModified": lastModified,
-                    "type": contentType,
-                }
+                """</table></div>"""
+                """<div class="directory-listing">"""
+                """<h1>Properties</h1>"""
+                """<table>"""
+                """<tr><th>Name</th> <th>Value</th></tr>"""
             )
-
-        output.append(
-            """</table></div>"""
-            """<div class="directory-listing">"""
-            """<h1>Properties</h1>"""
-            """<table>"""
-            """<tr><th>Name</th> <th>Value</th></tr>"""
-        )
 
         def gotProperties(qnames):
             ds = []
@@ -988,9 +1001,10 @@ class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
             d = DeferredList(ds)
             d.addCallback(gotValues)
             return d
-
-        d = self.listProperties(request)
-        d.addCallback(gotProperties)
+        d.addCallback(
+            _gotChildren).addCallback(
+            lambda _: self.listProperties(request)).addCallback(
+            gotProperties)
         return d
 
     def getChildDirectoryEntry(self, child, name):
@@ -1070,7 +1084,7 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     ):
         # Permissions here are fixed, and are not subject to                    
         # inheritance rules, etc.                                               
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 class PropertyNotFoundError (HTTPError):
     def __init__(self, qname):
@@ -1090,51 +1104,55 @@ class CachingPropertyStore (LoggingMixIn):
         self.propertyStore = propertyStore
         self.resource = propertyStore.resource
 
+    @inlineCallbacks
     def get(self, qname):
         #self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
-        cache = self._cache()
+        cache = (yield self._cache())
 
         if qname in cache:
             property = cache.get(qname, None)
             if property is None:
                 self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                 try:
-                    property = self.propertyStore.get(qname)
+                    property = (yield self.propertyStore.get(qname))
                 except HTTPError:
                     del cache[qname]
                     raise PropertyNotFoundError(qname)
                 cache[qname] = property
 
-            return property
+            returnValue(property)
         else:
             raise PropertyNotFoundError(qname)
 
+    @inlineCallbacks
     def set(self, property):
         #self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
 
-        cache = self._cache()
+        cache = (yield self._cache())
 
         cache[property.qname()] = None
-        self.propertyStore.set(property)
+        yield self.propertyStore.set(property)
         cache[property.qname()] = property
+        returnValue(None)
 
+    @inlineCallbacks
     def contains(self, qname):
         #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
         try:
-            cache = self._cache()
+            cache = (yield self._cache())
         except HTTPError, e:
             if e.response.code == responsecode.NOT_FOUND:
-                return False
+                returnValue(False)
             else:
                 raise
 
         if qname in cache:
             #self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
-            return True
+            returnValue(True)
         else:
-            return False
+            returnValue(False)
 
     def delete(self, qname):
         #self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
@@ -1144,16 +1162,22 @@ class CachingPropertyStore (LoggingMixIn):
 
         self.propertyStore.delete(qname)
 
+    @inlineCallbacks
     def list(self):
         #self.log_debug("List: %r" % (self.resource.fp.path,))
-        return self._cache().iterkeys()
+        cache = (yield self._cache())
+        returnValue(cache.iterkeys())
 
+    @inlineCallbacks
     def _cache(self):
         if not hasattr(self, "_data"):
             #self.log_debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
-                for name in self.propertyStore.list()
+                for name in (yield self.propertyStore.list())
             )
-        return self._data
+        returnValue(self._data)
 
+
+    def flushCache(self):
+        del self._data

@@ -22,7 +22,7 @@ __all__ = [
     "FreeBusyURLResource",
 ]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import log
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
@@ -93,19 +93,19 @@ class FreeBusyURLResource (CalDAVResource):
                     davxml.Protected(),
                 ),
             )
-        return davxml.ACL(*aces)
+        return succeed(davxml.ACL(*aces))
 
     def resourceType(self):
-        return davxml.ResourceType.freebusyurl
+        return succeed(davxml.ResourceType.freebusyurl)
 
     def isCollection(self):
         return False
 
     def isCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def isPseudoCalendarCollection(self):
-        return False
+        return succeed(False)
 
     def render(self, request):
         output = """<html>
@@ -199,11 +199,11 @@ class FreeBusyURLResource (CalDAVResource):
         # TODO: We should probably verify that the actual time-range is within sensible bounds (e.g. not too far in the past or future and not too long)
         
         # Now lookup the principal details for the targeted user
-        principal = self.parent.principalForRecord()
+        principal = (yield self.parent.principalForRecord())
         
         # Pick the first mailto cu address or the first other type
         cuaddr = None
-        for item in principal.calendarUserAddresses():
+        for item in (yield principal.calendarUserAddresses()):
             if cuaddr is None:
                 cuaddr = item
             if item.startswith("mailto"):
@@ -211,7 +211,7 @@ class FreeBusyURLResource (CalDAVResource):
                 break
 
         # Get inbox details
-        inboxURL = principal.scheduleInboxURL()
+        inboxURL = (yield principal.scheduleInboxURL(request))
         if inboxURL is None:
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox URL for principal: %s" % (principal,)))
         try:

@@ -42,7 +42,7 @@ class IDirectoryService(Interface):
     def listRecords(recordType):
         """
         @param type: the type of records to retrieve.
-        @return: an iterable of records of the given type.
+        @return: a L{Deferred} firing an iterable of records of the given type.
         """
 
     def recordWithShortName(recordType, shortName):

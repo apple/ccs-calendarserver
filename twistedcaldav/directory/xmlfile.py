@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_xmlfile -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -28,6 +29,7 @@ import types
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
@@ -96,7 +98,10 @@ class XMLDirectoryService(CachingDirectoryService):
                 if matched:
                     self.recordCacheForType(recordType).addRecord(
                         record, indexType, indexKey)
+
+        return succeed(None)
             
+    @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
 
@@ -155,14 +160,16 @@ class XMLDirectoryService(CachingDirectoryService):
         else:
             recordTypes = (recordType,)
 
+        results = []
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
                 if xmlPrincipalMatches(xmlPrincipal):
-                    
                     # Load/cache record from its GUID
-                    record = self.recordWithGUID(xmlPrincipal.guid)
+                    record = (yield self.recordWithGUID(xmlPrincipal.guid))
                     if record:
-                        yield record
+                        results.append(record)
+
+        returnValue(results)
 
     def _accounts(self):
         currentTime = time()
@@ -198,18 +205,26 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
         self._members          = xmlPrincipal.members
         self._groups           = xmlPrincipal.groups
 
+    @inlineCallbacks
     def members(self):
+        results = []
         for recordType, shortName in self._members:
-            yield self.service.recordWithShortName(recordType, shortName)
+            record = (yield self.service.recordWithShortName(recordType, shortName))
+            results.append(record)
+        returnValue(results)
 
+    @inlineCallbacks
     def groups(self):
+        results = []
         for shortName in self._groups:
-            yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
+            record = (yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName))
+            results.append(record)
+        returnValue(results)
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
-            return credentials.password == self.password
+            return succeed(credentials.password == self.password)
         if isinstance(credentials, DigestedCredentials):
-            return credentials.checkPassword(self.password)
+            return succeed(credentials.checkPassword(self.password))
 
         return super(XMLDirectoryRecord, self).verifyCredentials(credentials)
