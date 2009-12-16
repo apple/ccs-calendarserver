@@ -454,6 +454,14 @@ dependencies () {
       true false false false 0;
   fi;
 
+  if ! type psql >& /dev/null; then
+    c_dependency "postgresql" "postgresql-8.4.1" \
+      "http://wwwmaster.postgresql.org/redir/198/h/source/v8.4.1/postgresql-8.4.1.tar.bz2";
+  fi;
+  py_dependency "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
+    "www" "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz" \
+    false false false false 0;
+
   case "${USER}" in
     wsanchez)
       proto="svn+ssh";
