@@ -38,14 +38,12 @@ class AugmentRecord(object):
         hostedAt="",
         enabledForCalendaring=False,
         autoSchedule=False,
-        calendarUserAddresses=None,  
     ):
         self.guid = guid
         self.enabled = enabled
         self.hostedAt = hostedAt
         self.enabledForCalendaring = enabledForCalendaring
         self.autoSchedule = autoSchedule
-        self.calendarUserAddresses = calendarUserAddresses if calendarUserAddresses else set()
 
 class AugmentDB(object):
     """
@@ -180,11 +178,11 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         """
         
         # Query for the record information
-        results = (yield self.query("select GUID, ENABLED, PARTITIONID, CALENDARING, AUTOSCHEDULE, CUADDRS from AUGMENTS where GUID = :1", (guid,)))
+        results = (yield self.query("select GUID, ENABLED, PARTITIONID, CALENDARING, AUTOSCHEDULE from AUGMENTS where GUID = :1", (guid,)))
         if not results:
             returnValue(None)
         else:
-            guid, enabled, partitionid, enabdledForCalendaring, autoSchedule, cuaddrs = results[0]
+            guid, enabled, partitionid, enabdledForCalendaring, autoSchedule = results[0]
             
             record = AugmentRecord(
                 guid = guid,
@@ -192,7 +190,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 hostedAt = (yield self._getPartition(partitionid)),
                 enabledForCalendaring = enabdledForCalendaring == "T",
                 autoSchedule = autoSchedule == "T",
-                calendarUserAddresses = set(cuaddrs.split("\t")) if cuaddrs else set(),
             )
             
             returnValue(record)
@@ -201,19 +198,18 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     def addAugmentRecord(self, record):
 
         partitionid = (yield self._getPartitionID(record.hostedAt))
-        cuaddrs = "\t".join(record.calendarUserAddresses)
         
         yield self.execute(
             """insert into AUGMENTS
-            (GUID, ENABLED, PARTITIONID, CALENDARING, AUTOSCHEDULE, CUADDRS)
-            values (:1, :2, :3, :4, :5, :6)""",
+            (GUID, ENABLED, PARTITIONID, CALENDARING, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5)""",
             (
                 record.guid,
                 "T" if record.enabled else "F",
                 partitionid,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.autoSchedule else "F",
-                cuaddrs,)
+            )
         )
 
     @inlineCallbacks
@@ -245,11 +241,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         self.cachedPartitions[partitionid] = partition
         returnValue(partition)
 
-    @inlineCallbacks
-    def _getCUAddrs(self, augmentid):
-        
-        return self.queryList("select CUADDR from CUADDRS where AUGMENTID = :1", (augmentid,))
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
@@ -277,7 +268,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
             ("PARTITIONID",  "text"),
             ("CALENDARING",  "text(1)"),
             ("AUTOSCHEDULE", "text(1)"),
-            ("CUADDRS",      "text"),
         ))
 
         yield self._create_table("PARTITIONS", (

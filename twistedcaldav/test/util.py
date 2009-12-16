@@ -45,9 +45,10 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         memcacheclient.ClientFactory.allowTestCache = True
 
-    def createHierarchy(self, structure):
-        root = self.mktemp()
-        os.mkdir(root)
+    def createHierarchy(self, structure, root=None):
+        if root is None:
+            root = self.mktemp()
+            os.mkdir(root)
 
         def createChildren(parent, subStructure):
             for childName, childStructure in subStructure.iteritems():
@@ -87,6 +88,18 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
                 if childName in actual:
                     actual.remove(childName)
+
+                if childName.startswith("*"):
+                    ext = childName.split(".")[1]
+                    found = False
+                    for actualFile in actual:
+                        if actualFile.endswith(ext):
+                            actual.remove(actualFile)
+                            found = True
+                            break
+                    if found:
+                        continue
+                    
 
                 childPath = os.path.join(parent, childName)
 
@@ -133,7 +146,7 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
 
             if actual:
                 # There are unexpected children
-                print "Unexpected:", actual
+                print "Unexpected:", actual, 'in', parent
                 return False
 
             return True

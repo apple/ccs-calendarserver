@@ -2,14 +2,14 @@
 
 
 Network Working Group                                           C. Daboo
-Internet-Draft                                            Apple Computer
+Internet-Draft                                                     Apple
 Intended status: Standards Track                         B. Desruisseaux
-Expires: May 18, 2007                                             Oracle
-                                                       November 14, 2006
+Expires: May 7, 2009                                              Oracle
+                                                        November 3, 2008
 
 
                          Calendar Availability
-                  draft-daboo-calendar-availability-00
+                  draft-daboo-calendar-availability-01
 
 Status of this Memo
 
@@ -34,11 +34,7 @@ Status of this Memo
    The list of Internet-Draft Shadow Directories can be accessed at
    http://www.ietf.org/shadow.html.
 
-   This Internet-Draft will expire on May 18, 2007.
-
-Copyright Notice
-
-   Copyright (C) The Internet Society (2006).
+   This Internet-Draft will expire on May 7, 2009.
 
 Abstract
 
@@ -49,17 +45,17 @@ Abstract
    requests, to generate repeating blocks of available or busy time with
    exceptions as needed.
 
-
-
-
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 1]
-
-Internet-Draft            Calendar Availability            November 2006
-
-
    This document also defines extensions to CalDAV calendar-access and
-   calendar-schedule which specify how this new calendar component
+   calendar-auto-schedule which specify how this new calendar component
    should be used when doing free busy time evaluation in CalDAV.
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 1]
+
+Internet-Draft            Calendar Availability            November 2008
+
 
 Editorial Note (To be removed by RFC Editor before publication)
 
@@ -79,13 +75,17 @@ Table of Contents
    5.  CalDAV Extensions  . . . . . . . . . . . . . . . . . . . . . . 11
      5.1.  CalDAV Requirements Overview . . . . . . . . . . . . . . . 11
      5.2.  New features in CalDAV . . . . . . . . . . . . . . . . . . 12
-   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 13
-   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 13
-   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 13
-   9.  Normative References . . . . . . . . . . . . . . . . . . . . . 13
-   Appendix A.  Example Calendar #1 . . . . . . . . . . . . . . . . . 14
-   Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 16
-   Intellectual Property and Copyright Statements . . . . . . . . . . 17
+   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 15
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 15
+     7.1.  Component Registrations  . . . . . . . . . . . . . . . . . 15
+     7.2.  Property Registrations . . . . . . . . . . . . . . . . . . 15
+   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 16
+   9.  Normative References . . . . . . . . . . . . . . . . . . . . . 16
+   Appendix A.  Example Calendar #1 . . . . . . . . . . . . . . . . . 16
+   Appendix B.  Change History (To be removed by RFC Editor
+                before publication) . . . . . . . . . . . . . . . . . 18
+   Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 18
+   Intellectual Property and Copyright Statements . . . . . . . . . . 19
 
 
 
@@ -108,16 +108,16 @@ Table of Contents
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 2]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 2]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
 1.  Introduction
 
    Often calendar users have regular periods of time when they are
    either available to be scheduled or always unavailable.  For example,
-   an office worker will often wish to only appear free to her work
+   an office worker will often wish to only appear free to their work
    colleagues during normal 'office hours' (e.g., Monday through Friday,
    9 am through 5 pm).  Or, a university professor may only be available
    to students during a set period of time (e.g., Thursday afternoons, 2
@@ -127,31 +127,32 @@ Internet-Draft            Calendar Availability            November 2006
    lookup for that user.  In addition it should be possible for
    different periods of available time to appear for different users.
 
-   However, iCalendar [RFC2445] does not provide a way to specify a
-   repeating period of available or unavailable time as "VFREEBUSY"
-   components cannot include any form of recurrence information, as
-   opposed to "VEVENT" components which can.  Since repeating patterns
-   are often the case, "VFREEBUSY" components are not sufficient to
-   solve this problem.
+   However, iCalendar [I-D.ietf-calsify-rfc2445bis] does not provide a
+   way to specify a repeating period of available or unavailable time as
+   "VFREEBUSY" components cannot include any form of recurrence
+   information, as opposed to "VEVENT" components which can.  Since
+   repeating patterns are often the case, "VFREEBUSY" components are not
+   sufficient to solve this problem.
 
    This specification defines a new type of iCalendar calendar component
    that can be used to publish user availability.
 
-   CalDAV provides a way for calendar users to access and manage
-   calendar data and exchange this data via scheduling operations.  As
-   part of this the CalDAV calendar-access [I-D.dusseault-caldav]
+   CalDAV [RFC4791] provides a way for calendar users to access and
+   manage calendar data and exchange this data via scheduling
+   operations.  As part of this the CalDAV calendar-access [RFC4791]
    feature provides a CALDAV:free-busy-query REPORT that returns free-
    busy information for a calendar collection or hierarchy of calendar
-   collections.  Also, the CalDAV calendar-schedule
+   collections.  Also, the CalDAV calendar-auto-schedule
    [I-D.desruisseaux-caldav-sched] feature allows free-busy information
    for a calendar user to be determined.  Both of these operations
    involve examining user calendars for events that 'block time', with
    the blocked out periods being returned in a "VFREEBUSY" component.
 
    This specification extends the CalDAV calendar-access and CalDAV
-   calendar-schedule features to allow the new iCalendar availability
-   components to be stored and manipulated, and to allow free-busy
-   lookups to use the information from any such components, if present.
+   calendar-auto-schedule features to allow the new iCalendar
+   availability components to be stored and manipulated, and to allow
+   free-busy lookups to use the information from any such components, if
+   present.
 
 
 2.  Conventions Used in This Document
@@ -163,10 +164,9 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 3]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 3]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
    When XML element types in the namespaces "DAV:" and
@@ -212,23 +212,24 @@ Internet-Draft            Calendar Availability            November 2006
                             ; the following are OPTIONAL,
                             ; but MUST NOT occur more than once
 
-                            busytype / created / dtstart / last-mod /
-                            organizer / seq / summary / url /
+                            busytype / created / dtend /dtstart /
+                            last-mod / organizer / seq / summary / url /
 
-                            ; either 'dtend' or 'duration' may appear
-                            ; in a 'availabilityprop', but 'dtend' and
+                            ; 'duration' is OPTIONAL in a
+                            ;  'availabilityprop' but MUST only be
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 4]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 4]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
-                            ; 'duration' MUST NOT occur in the same
-                            ; 'availabilityprop'
+                            ; present if 'dtstart' is also present and
+                            ; 'dtend' is not present, and it MUST NOT
+                            ; occur more than once
 
-                            dtend / duration /
+                            duration /
 
                             ; the following are OPTIONAL,
                             ; and MAY occur more than once
@@ -248,7 +249,7 @@ Internet-Draft            Calendar Availability            November 2006
 
                          dtstamp / dtstart / uid /
 
-                         ; either a 'dtend' or a 'duration' is required
+                         ; either a 'dtend' or a 'duration' is REQUIRED
                          ; in a 'availableprop', but 'dtend' and
                          ; 'duration' MUST NOT occur in the same
                          ; 'availableprop', and each MUST NOT occur more
@@ -275,18 +276,17 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 5]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 5]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
    Description:  A "VAVAILABILITY" component indicates a period of time
       within which availability information is provided.  A
       "VAVAILABILITY" component MUST specify a start time and optionally
       an end time or duration.  Within that time period, availability
-      defaults to a free-busy type of "BUSY", except for any time
-      periods corresponding to "AVAILABLE" sub-components.
+      defaults to a free-busy type of "BUSY-UNAVAILABLE", except for any
+      time periods corresponding to "AVAILABLE" sub-components.
 
       "AVAILABLE" sub-components are used to indicate periods of free
       time within the time range of the enclosing "VAVAILABILITY"
@@ -304,7 +304,7 @@ Internet-Draft            Calendar Availability            November 2006
       "VAVAILABILITY" component or any of its "AVAILABLE" sub-
       components, and that property includes a "TZID" parameter, then
       the iCalendar object containing the "VAVAILABILITY" component MUST
-      contain "VTIMEZONE" components corresponding to each "TZID"
+      contain "VTIMEZONE" components corresponding to each unique "TZID"
       parameter value.
 
       When used to publish available time, the "ORGANIZER" property
@@ -332,9 +332,9 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 6]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 6]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
       The following is an example of a "VAVAILABILITY" calendar
@@ -388,9 +388,9 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 7]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 7]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
         BEGIN:VAVAILABILITY
@@ -444,9 +444,9 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 8]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 8]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
    Property Name:  BUSYTYPE
@@ -491,18 +491,18 @@ Internet-Draft            Calendar Availability            November 2006
 
    An iCalendar "VFREEBUSY" component is used to convey "rolled-up"
    free-busy time information for a calendar user.  This can be
-   generated as the result of an iTIP "VFREEBUSY" [RFC2446] request or
-   through some other mechanism (e.g., a CalDAV calendar-access CALDAV:
-   free-busy-query REPORT).
+   generated as the result of an iTIP "VFREEBUSY"
+   [I-D.ietf-calsify-2446bis] request or through some other mechanism
+   (e.g., a CalDAV calendar-access CALDAV:free-busy-query REPORT).
 
    When a "VAVAILABILITY" component is present and intersects the time-
    range for the free-busy request, the time covered by the
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                  [Page 9]
+Daboo & Desruisseaux       Expires May 7, 2009                  [Page 9]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
    "VAVAILABILITY" component is set to busy and then portions of it
@@ -556,9 +556,9 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 10]
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 10]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
      +-----------+--------------------------------------------------+
@@ -601,28 +601,32 @@ Internet-Draft            Calendar Availability            November 2006
    This section lists what functionality is required of a CalDAV server
    which supports this extension.  A server:
 
-   o  MUST support CalDAV calendar-access;
-
-   o  MAY support CalDAV calendar-schedule;
-
    o  MUST support "VAVAILABILITY" components in a calendar collection
-      resource;
-
-
-
-
-
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 11]
-
-Internet-Draft            Calendar Availability            November 2006
-
+      resource if the CALDAV calendar-access feature is supported;
 
    o  MUST support CALDAV:free-busy-query REPORTs that aggregate the
       information in any "VAVAILABILITY" components;
 
-   o  MUST support CalDAV calendar-schedule iTIP [RFC2446] free busy
-      requests that aggregate the information in any "VAVAILABILITY"
-      components, if the CalDAV calendar-schedule feature is available.
+   o  MUST support "VAVAILABILITY" components stored in a CALDAV:inbox-
+      availability WebDAV property on a CALDAV scheduling inbox
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 11]
+
+Internet-Draft            Calendar Availability            November 2008
+
+
+      collection if the CALDAV calendar-auto-schedule feature is
+      supported;
+
+   o  MUST support iTIP [I-D.ietf-calsify-2446bis] free busy requests
+      that aggregate the information in any "VAVAILABILITY" components
+      in calendar collections that contribute to free-busy, or in any
+      "VAVAILABILITY" components stored in the CALDAV:calendar-
+      availability in the CALDAV scheduling inbox collection of the
+      calendar user targeted by the iTIP free-busy request, if the
+      CalDAV calendar-auto-schedule feature is available.
 
 5.2.  New features in CalDAV
 
@@ -659,29 +663,137 @@ Internet-Draft            Calendar Availability            November 2006
    collection "/home/bernard/calendars/" supports the new features
    defined in this specification.
 
+
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 12]
+
+Internet-Draft            Calendar Availability            November 2008
+
+
 5.2.2.  CALDAV:free-busy-query REPORT
 
    A CALDAV:free-busy-query REPORT can be executed on a calendar
    collection that contains iCalendar "VAVAILABILITY" components.  When
    that is done, the server MUST aggregate the information in any
    "VAVAILABILITY" components when generating the free-busy response, as
-
-
-
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 12]
-
-Internet-Draft            Calendar Availability            November 2006
-
-
    described in Section 4.
 
-5.2.3.  iTIP VFREEBUSY requests
+5.2.3.  CALDAV:calendar-availability Property
+
+   Name:  calendar-availability
+
+   Namespace:  urn:ietf:params:xml:ns:caldav
+
+   Purpose:  Defines a "VAVAILABILITY" component that will be used in
+      calculating free-busy time when an iTIP VFREEBUSY request is
+      targetted at the calendar user who owns the Inbox.
+
+   Conformance:  This property MAY be protected and SHOULD NOT be
+      returned by a PROPFIND allprop request (as defined in Section
+      12.14.1 of [RFC2518]).  Support for this property is REQUIRED.
+      The value of this property MUST be a valid iCalendar object
+      containing a single "VAVAILABILITY" component.
+
+   Description:  This property allows a user to specify their
+      availability by including a VAVAILABILITY component in the value
+      of this property.  If present, the server MUST use the
+      "VAVAILABILITY" component in the value of this property when
+      determining free-busy information as part of an iTIP VFREEBUSY
+      requested being handled by the server.
+
+   Definition:
+
+      <!ELEMENT calendar-availability (#PCDATA) >
+      ; Data value MUST be iCalendar object containing a
+      ; "VAVAILABILITY" component.
+
+   Example:
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 13]
+
+Internet-Draft            Calendar Availability            November 2008
+
+
+       <C:calendar-availability xmlns:D="DAV:"
+                            xmlns:C="urn:ietf:params:xml:ns:caldav"
+       >BEGIN:VCALENDAR
+       CALSCALE:GREGORIAN
+       PRODID:-//example.com//iCalendar 2.0//EN
+       VERSION:2.0
+       BEGIN:VTIMEZONE
+       LAST-MODIFIED:20040110T032845Z
+       TZID:America/Montreal
+       BEGIN:DAYLIGHT
+       DTSTART:20000404T020000
+       RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+       TZNAME:EDT
+       TZOFFSETFROM:-0500
+       TZOFFSETTO:-0400
+       END:DAYLIGHT
+       BEGIN:STANDARD
+       DTSTART:20001026T020000
+       RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+       TZNAME:EST
+       TZOFFSETFROM:-0400
+       TZOFFSETTO:-0500
+       END:STANDARD
+       END:VTIMEZONE
+       BEGIN:VEVENT
+       DTSTAMP:20061113T044111Z
+       DTSTART;TZID=America/Montreal:20061106T120000
+       DURATION:PT1H
+       SUMMARY:Meeting
+       UID:60A48841ECB90F3F215FE3D2@example.com
+       END:VEVENT
+       BEGIN:VAVAILABILITY
+       UID:20061005T133225Z-00001@example.com
+       DTSTAMP:20061005T133225Z
+       DTSTART;TZID=America/Montreal:20061002T000000
+       BEGIN:AVAILABLE
+       UID:20061005T133225Z-00001-A@example.com
+       SUMMARY:Monday to Friday from 9:00 to 18:00
+       DTSTART;TZID=America/Montreal:20061002T090000
+       DTEND;TZID=America/Montreal:20061002T180000
+       RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+       END:AVAILABLE
+       END:VAVAILABILITY
+       END:VCALENDAR
+       </C:calendar-availability>
+
+
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 14]
+
+Internet-Draft            Calendar Availability            November 2008
+
+
+5.2.4.  iTIP VFREEBUSY requests
 
    The [I-D.desruisseaux-caldav-sched] processing of a "VFREEBUSY"
    request targeted at the owner of the CALDAV:schedule-inbox will
    include free-busy information derived from "VAVAILABILITY" components
    in any calendar collection targeted during the request, as described
-   in Section 4.
+   in Section 4.  In addition, any "VAVAILABILITY" component specified
+   in the CALDAV:calendar-availability property on the owner's Inbox,
+   MUST be included in the free-busy calculation.
 
 
 6.  Security Considerations
@@ -692,12 +804,48 @@ Internet-Draft            Calendar Availability            November 2006
    "DESCRIPTION" MUST NOT be copied into the free-busy result data.
 
    Beyond this, this specification does not add any additional security
-   issues that are not already present in [RFC2445] and [RFC2446].
+   issues that are not already present in [I-D.ietf-calsify-rfc2445bis]
+   and [I-D.ietf-calsify-2446bis].
 
 
 7.  IANA Considerations
 
-   TBD - register new components using 2445bis templates.
+7.1.  Component Registrations
+
+   This documents defines the following new iCalendar components to be
+   added to the registry defined in Section 8.2.2 of
+   [I-D.ietf-calsify-rfc2445bis]:
+
+            +---------------+---------+----------------------+
+            | Component     | Status  | Reference            |
+            +---------------+---------+----------------------+
+            | VAVAILABILITY | Current | RFCXXXX, Section 3.1 |
+            | AVAILABLE     | Current | RFCXXXX, Section 3.1 |
+            +---------------+---------+----------------------+
+
+7.2.  Property Registrations
+
+   This documents defines the following new iCalendar properties to be
+   added to the registry defined in Section 8.2.3 of
+   [I-D.ietf-calsify-rfc2445bis]:
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 15]
+
+Internet-Draft            Calendar Availability            November 2008
+
+
+               +----------+---------+----------------------+
+               | Property | Status  | Reference            |
+               +----------+---------+----------------------+
+               | BUSYTYPE | Current | RFCXXXX, Section 3.2 |
+               +----------+---------+----------------------+
 
 
 8.  Acknowledgments
@@ -709,34 +857,32 @@ Internet-Draft            Calendar Availability            November 2006
 9.  Normative References
 
    [I-D.desruisseaux-caldav-sched]
-              Daboo, C., Desruisseaux, B., and L. Dusseault, "Scheduling
-              Extensions to CalDAV", draft-desruisseaux-caldav-sched-02
-              (work in progress), June 2006.
+              Daboo, C. and B. Desruisseaux, "CalDAV Scheduling
+              Extensions to WebDAV", draft-desruisseaux-caldav-sched-06
+              (work in progress), November 2008.
 
-   [I-D.dusseault-caldav]
-              Daboo, C., Desruisseaux, B., and L. Dusseault,
-              "Calendaring Extensions to WebDAV (CalDAV)",
-              draft-dusseault-caldav-15 (work in progress),
-              September 2006.
+   [I-D.ietf-calsify-2446bis]
+              Daboo, C., "iCalendar Transport-Independent
+              Interoperability Protocol (iTIP)",
+              draft-ietf-calsify-2446bis-08 (work in progress),
+              November 2008.
+
+   [I-D.ietf-calsify-rfc2445bis]
+              Desruisseaux, B., "Internet Calendaring and Scheduling
+              Core Object Specification (iCalendar)",
+              draft-ietf-calsify-rfc2445bis-09 (work in progress),
+              November 2008.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
 
+   [RFC2518]  Goland, Y., Whitehead, E., Faizi, A., Carter, S., and D.
+              Jensen, "HTTP Extensions for Distributed Authoring --
+              WEBDAV", RFC 2518, February 1999.
 
-
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 13]
-
-Internet-Draft            Calendar Availability            November 2006
-
-
-   [RFC2445]  Dawson, F. and D. Stenerson, "Internet Calendaring and
-              Scheduling Core Object Specification (iCalendar)",
-              RFC 2445, November 1998.
-
-   [RFC2446]  Silverberg, S., Mansour, S., Dawson, F., and R. Hopson,
-              "iCalendar Transport-Independent Interoperability Protocol
-              (iTIP) Scheduling Events, BusyTime, To-dos and Journal
-              Entries", RFC 2446, November 1998.
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
 
 
 Appendix A.  Example Calendar #1
@@ -746,43 +892,9 @@ Appendix A.  Example Calendar #1
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 14]
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 16]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
    iCalendar object
@@ -836,15 +948,30 @@ Internet-Draft            Calendar Availability            November 2006
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 15]
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 17]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
+
+
+Appendix B.  Change History (To be removed by RFC Editor before
+             publication)
+
+   Changes from -00:
+
+   1.  Allow property on Inbox for caldav-schedule.
+
+   2.  Clarify that DURATION can only be present in VAVAILABILITY if
+       DTSTART is also present, and DTEND is not.
+
+   3.  Updated references.
+
+   4.  Added templates.
 
 
 Authors' Addresses
 
    Cyrus Daboo
-   Apple Computer, Inc.
+   Apple Inc.
    1 Infinite Loop
    Cupertino, CA  95014
    USA
@@ -877,29 +1004,14 @@ Authors' Addresses
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 16]
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 18]
 
-Internet-Draft            Calendar Availability            November 2006
+Internet-Draft            Calendar Availability            November 2008
 
 
 Full Copyright Statement
 
-   Copyright (C) The Internet Society (2006).
+   Copyright (C) The IETF Trust (2008).
 
    This document is subject to the rights, licenses and restrictions
    contained in BCP 78, and except as set forth therein, the authors
@@ -907,10 +1019,10 @@ Full Copyright Statement
 
    This document and the information contained herein are provided on an
    "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
-   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET
-   ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED,
-   INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE
-   INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND
+   THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF
+   THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
    WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 
 
@@ -939,14 +1051,14 @@ Intellectual Property
    ietf-ipr@ietf.org.
 
 
-Acknowledgment
-
-   Funding for the RFC Editor function is provided by the IETF
-   Administrative Support Activity (IASA).
 
 
 
 
 
-Daboo & Desruisseaux      Expires May 18, 2007                 [Page 17]
+
+
+
+
+Daboo & Desruisseaux       Expires May 7, 2009                 [Page 19]
 

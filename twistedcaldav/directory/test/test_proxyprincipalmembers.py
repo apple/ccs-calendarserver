@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
+    succeed
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -130,8 +131,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
         principal = self._getPrincipalByShortName(recordType, recordName)
         proxies = (yield principal.proxyFor(read_write))
-        proxies = set([principal.displayName() for principal in proxies])
-        self.assertEquals(proxies, set(expectedProxies))
+        proxies = sorted([principal.displayName() for principal in proxies])
+        self.assertEquals(proxies, sorted(expectedProxies))
 
     def test_groupMembersRegular(self):
         """
@@ -260,9 +261,10 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
             def setGroupMembers(self, uid, members):
                 self.members = members
+                return succeed(None)
 
             def getMembers(self, uid):
-                return self.members
+                return succeed(self.members)
 
 
         user = self._getPrincipalByShortName(self.directoryService.recordType_users,
@@ -320,6 +322,21 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def test_proxyFor(self):
 
         return self._proxyForTest(
+            DirectoryService.recordType_users, "wsanchez", 
+            ("Mecury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            True
+        )
+
+    @inlineCallbacks
+    def test_proxyForDuplicates(self):
+
+        yield self._addProxy(
+            (DirectoryService.recordType_locations, "gemini",),
+            "calendar-proxy-write",
+            (DirectoryService.recordType_groups, "grunts",),
+        )
+
+        yield self._proxyForTest(
             DirectoryService.recordType_users, "wsanchez", 
             ("Mecury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
             True

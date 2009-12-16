@@ -72,9 +72,10 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # Check for local address matches first
         if cuaddr.startswith("mailto:") and config.Scheduling[cls.serviceType()]["EmailDomain"]:
-            splits = cuaddr[7:].split("?")
+            addr = cuaddr[7:].split("?")[0]
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
-            if splits[0].endswith(domain):
+            account, addrDomain = addr.split("@")
+            if addrDomain == domain:
                 return True
 
         elif (cuaddr.startswith("http://") or cuaddr.startswith("https://")) and config.Scheduling[cls.serviceType()]["HTTPDomain"]:
@@ -132,8 +133,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        calendar_str = str(self.scheduler.calendar)
-        name = md5(calendar_str + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
+        name = md5(self.scheduler.calendardata + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
     
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)
@@ -157,6 +157,9 @@ class ScheduleViaCalDAV(DeliveryService):
         if autoprocessed:
             # No need to write the inbox item as it has already been auto-processed
             responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
+            if not hasattr(self.scheduler.request, "extendedLogItems"):
+                self.scheduler.request.extendedLogItems = {}
+            self.scheduler.request.extendedLogItems["itip.auto"] = self.scheduler.request.extendedLogItems.get("itip.auto", 0) + 1
             returnValue(True)
         else:
             # Copy calendar to inbox 

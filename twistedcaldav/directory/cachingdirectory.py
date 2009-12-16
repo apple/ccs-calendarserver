@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_cachedirectory -*-
 ##
 # Copyright (c) 2009 Apple Inc. All rights reserved.
 #
@@ -26,12 +27,12 @@ __all__ = [
 
 
 import time
-import types
+
 import memcacheclient
 import base64
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
@@ -92,7 +93,11 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             if useMemcache:
                 key = "dir|%s|%s" % (indexType, indexKey)
                 self.log_debug("Memcache: storing %s" % (key,))
-                self.directoryService.memcacheSet(key, record)
+                try:
+                    self.directoryService.memcacheSet(key, record)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to store %s" % (key,))
+                    pass
 
 
     def removeRecord(self, record):
@@ -103,16 +108,13 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                     indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
                 except AttributeError:
                     continue
-                if isinstance(indexData, str):
-                    indexData = (indexData,)
-                if type(indexData) in (types.ListType, types.TupleType, set):
-                    for item in indexData:
-                        try:
-                            del self.recordsIndexedBy[indexType][item]
-                        except KeyError:
-                            self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
-                else:
-                    raise AssertionError("Data from record attribute must be str, list or tuple")
+                if isinstance(indexData, basestring):
+                    indexData = [indexData]
+                for item in indexData:
+                    try:
+                        del self.recordsIndexedBy[indexType][item]
+                    except KeyError:
+                        self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
         
     def findRecord(self, indexType, indexKey):
         return self.recordsIndexedBy[indexType].get(indexKey)
@@ -215,7 +217,10 @@ class CachingDirectoryService(DirectoryService):
         )
 
     def recordCacheForType(self, recordType):
-        return self._recordCaches[recordType]
+        try:
+            return self._recordCaches[recordType]
+        except KeyError:
+            raise UnknownRecordTypeError(recordType)
 
     def listRecords(self, recordType):
         return self.recordCacheForType(recordType).records
@@ -290,8 +295,14 @@ class CachingDirectoryService(DirectoryService):
             # Check memcache
             if config.Memcached.Pools.Default.ClientEnabled:
                 key = "dir|%s|%s" % (indexType, indexKey)
-                record = self.memcacheGet(key)
                 self.log_debug("Memcache: checking %s" % (key,))
+
+                try:
+                    record = self.memcacheGet(key)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to get %s" % (key,))
+                    record = None
+
                 if record is None:
                     self.log_debug("Memcache: miss %s" % (key,))
                 else:
@@ -300,7 +311,11 @@ class CachingDirectoryService(DirectoryService):
                     return record
 
                 # Check negative memcache
-                val = self.memcacheGet("-%s" % (key,))
+                try:
+                    val = self.memcacheGet("-%s" % (key,))
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to get -%s" % (key,))
+                    val = None
                 if val == 1:
                     self.log_debug("Memcache: negative %s" % (key,))
                     self._disabledKeys[indexType][indexKey] = time.time()
@@ -323,7 +338,12 @@ class CachingDirectoryService(DirectoryService):
 
             if config.Memcached.Pools.Default.ClientEnabled:
                 self.log_debug("Memcache: storing (negative) %s" % (key,))
-                self.memcacheSet("-%s" % (key,), 1)
+                try:
+                    self.memcacheSet("-%s" % (key,), 1)
+                except DirectoryMemcacheError:
+                    self.log_error("Memcache: failed to set -%s" % (key,))
+                    pass
+
 
         return None
 

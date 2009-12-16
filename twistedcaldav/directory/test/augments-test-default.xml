@@ -33,7 +33,6 @@ limitations under the License.
     <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <cuaddr>mailto:wsanchez@example.com</cuaddr>
   </record>
   <record>
     <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
@@ -61,8 +60,5 @@ limitations under the License.
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <auto-schedule>true</auto-schedule>
-    <cuaddr>mailto:usera@example.com</cuaddr>
-    <cuaddr>mailto:user.a@example.com</cuaddr>
-    <cuaddr>mailto:user_a@example.com</cuaddr>
   </record>
 </augments>

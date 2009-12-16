@@ -15,10 +15,18 @@
 ##
 
 import os
+import stat
+import grp
+
 from os.path import dirname, abspath
+
+from twisted.trial.unittest import TestCase as BaseTestCase
 
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
+
+from twisted.internet.protocol import ServerFactory
+
 from twisted.application.service import IService
 from twisted.application import internet
 
@@ -26,6 +34,7 @@ from twisted.web2.dav import auth
 from twisted.web2.log import LogWrapperResource
 
 from twext.python.plistlib import writePlist
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, _mergeData
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
@@ -35,7 +44,8 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
 from twistedcaldav.test.util import TestCase
 
-from calendarserver.tap.caldav import CalDAVOptions, CalDAVServiceMaker, CalDAVService
+from calendarserver.tap.caldav import (CalDAVOptions, CalDAVServiceMaker,
+                                       CalDAVService, GroupOwnedUNIXServer)
 
 
 # Points to top of source tree.
@@ -127,7 +137,6 @@ class CalDAVOptionsTest (TestCase):
         myConfig = ConfigDict(DEFAULT_CONFIG)
 
         myConfig.Authentication.Basic.Enabled = False
-        myConfig.MultiProcess.LoadBalancer.Enabled = False
         myConfig.HTTPPort = 80
         myConfig.ServerHostName = "calendar.calenderserver.org"
 
@@ -139,10 +148,6 @@ class CalDAVOptionsTest (TestCase):
         self.config.parseOptions(args)
 
         self.assertEquals(config.ServerHostName, myConfig["ServerHostName"])
-        self.assertEquals(
-            config.MultiProcess.LoadBalancer.Enabled,
-            myConfig.MultiProcess.LoadBalancer.Enabled
-        )
         self.assertEquals(config.HTTPPort, myConfig.HTTPPort)
         self.assertEquals(
             config.Authentication.Basic.Enabled,
@@ -239,6 +244,37 @@ class BaseServiceMakerTests(TestCase):
         return service.services[0].args[1].protocolArgs["requestFactory"]
 
 
+
+def determineAppropriateGroupID():
+    """
+    Determine a secondary group ID which can be used for testing.
+    """
+    return os.getgroups()[1]
+
+
+
+class SocketGroupOwnership(BaseTestCase):
+    """
+    Tests for L{GroupOwnedUNIXServer}.
+    """
+
+    def test_groupOwnedUNIXSocket(self):
+        """
+        When a L{GroupOwnedUNIXServer} is started, it will change the group of
+        its socket.
+        """
+        alternateGroup = determineAppropriateGroupID()
+        socketName = self.mktemp()
+        gous = GroupOwnedUNIXServer(alternateGroup, socketName, ServerFactory(), mode=0660)
+        gous.privilegedStartService()
+        self.addCleanup(gous.stopService)
+        filestat = os.stat(socketName)
+        self.assertTrue(stat.S_ISSOCK(filestat.st_mode))
+        self.assertEquals(filestat.st_gid, alternateGroup)
+        self.assertEquals(filestat.st_uid, os.getuid())
+
+
+
 class CalDAVServiceMakerTests(BaseServiceMakerTests):
     """
     Test the service maker's behavior
@@ -248,9 +284,9 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         """
         Test the default options of the dispatching makeService
         """
-        validServices = ["Slave", "Master", "Combined"]
+        validServices = ["Slave", "Combined"]
 
-        self.config["HTTPPort"] = 80
+        self.config["HTTPPort"] = 0
 
         for service in validServices:
             self.config["ProcessType"] = service
@@ -260,6 +296,32 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config["ProcessType"] = "Unknown Service"
         self.writeConfig()
         self.assertRaises(UsageError, self.makeService)
+
+
+    def test_modesOnUNIXSockets(self):
+        """
+        The logging and stats UNIX sockets that are bound as part of the
+        'Combined' service hierarchy should have a secure mode specified: only
+        the executing user should be able to open and send to them.
+        """
+
+        self.config["HTTPPort"] = 0 # Don't conflict with the test above.
+        alternateGroup = determineAppropriateGroupID()
+        self.config.GroupName = grp.getgrgid(alternateGroup).gr_name
+
+        self.config["ProcessType"] = "Combined"
+        self.writeConfig()
+        svc = self.makeService()
+        for serviceName in ["logging", "stats"]:
+            socketService = svc.getServiceNamed(serviceName)
+            self.assertIsInstance(socketService, GroupOwnedUNIXServer)
+            m = socketService.kwargs.get("mode", 0666)
+            self.assertEquals(
+                m, int("660", 8),
+                "Wrong mode on %s: %s" % (serviceName, oct(m))
+            )
+            self.assertEquals(socketService.gid, alternateGroup)
+
 
 
 class SlaveServiceTest(BaseServiceMakerTests):
@@ -300,8 +362,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         expectedSubServices = (
-            (internet.TCPServer, self.config["HTTPPort"]),
-            (internet.SSLServer, self.config["SSLPort"]),
+            (MaxAcceptTCPServer, self.config["HTTPPort"]),
+            (MaxAcceptSSLServer, self.config["SSLPort"]),
         )
 
         configuredSubServices = [(s.__class__, s.args) for s in service.services]

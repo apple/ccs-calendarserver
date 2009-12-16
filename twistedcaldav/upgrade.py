@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_upgrade -*-
 ##
 # Copyright (c) 2008-2009 Apple Inc. All rights reserved.
 #
@@ -176,6 +177,14 @@ def upgrade_to_1(config):
         try:
             for cal in os.listdir(homePath):
                 calPath = os.path.join(homePath, cal)
+                if not os.path.isdir(calPath):
+                    # Skip non-directories; these might have been uploaded by a
+                    # random DAV client, they can't be calendar collections.
+                    continue
+                if cal == 'notifications':
+                    # Delete the old, now obsolete, notifications directory.
+                    rmdir(calPath)
+                    continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
                 if not upgradeCalendarCollection(calPath, directory):
                     errorOccurred = True
@@ -346,6 +355,10 @@ def upgrade_to_1(config):
                         continue
 
                     oldHome = os.path.join(uidHomes, home)
+                    if not os.path.isdir(oldHome):
+                        # Skip non-directories
+                        continue
+
                     newHome = os.path.join(uidHomes, home[0:2], home[2:4], home)
                     moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
 
@@ -364,11 +377,16 @@ def upgrade_to_1(config):
                     for shortName in os.listdir(dirPath):
                         record = directory.recordWithShortName(recordType,
                             shortName)
+                        oldHome = os.path.join(dirPath, shortName)
                         if record is not None:
-                            oldHome = os.path.join(dirPath, shortName)
                             newHome = os.path.join(uidHomes, record.uid[0:2],
                                 record.uid[2:4], record.uid)
                             moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
+                        else:
+                            # an orphaned calendar home (principal no longer
+                            # exists in the directory)
+                            archive(config, oldHome, uid, gid)
+
                     os.rmdir(dirPath)
 
 
@@ -451,10 +469,10 @@ def upgradeData(config):
         try:
             with open(versionFilePath) as versionFile:
                 onDiskVersion = int(versionFile.read().strip())
-        except IOError, e:
+        except IOError:
             log.error("Cannot open %s; skipping migration" %
                 (versionFilePath,))
-        except ValueError, e:
+        except ValueError:
             log.error("Invalid version number in %s; skipping migration" %
                 (versionFilePath,))
 
@@ -489,8 +507,9 @@ def updateFreeBusyHref(href, directory):
     shortName = pieces[3]
     record = directory.recordWithShortName(recordType, shortName)
     if record is None:
-        msg = "Can't update free-busy href; %s is not in the directory" % shortName
-        raise UpgradeError(msg)
+        # We will simply ignore this and not write out an fb-set entry
+        log.error("Can't update free-busy href; %s is not in the directory" % shortName)
+        return ""
 
     uid = record.uid
     newHref = "/calendars/__uids__/%s/%s/" % (uid, pieces[4])
@@ -525,7 +544,8 @@ def updateFreeBusySet(value, directory):
             fbset.add(href)
         else:
             didUpdate = True
-            fbset.add(newHref)
+            if newHref != "":
+                fbset.add(newHref)
 
     if didUpdate:
         property = caldavxml.CalendarFreeBusySet(*[davxml.HRef(href)
@@ -550,3 +570,31 @@ def makeDirsUserGroup(path, uid=-1, gid=-1):
             os.mkdir(path)
             os.chown(path, uid, gid)
 
+
+def archive(config, srcPath, uid, gid):
+    """
+    Move srcPath into dataroot/archived, giving the destination a unique
+    (sequentially numbered) name in the case of duplicates.
+    """
+
+    archiveDir = os.path.join(config.DataRoot, "archived")
+
+    if not os.path.exists(archiveDir):
+        os.mkdir(archiveDir)
+    os.chown(archiveDir, uid, gid)
+
+    baseName = os.path.basename(srcPath)
+    newName = baseName
+    count = 0
+    destPath = os.path.join(archiveDir, newName)
+    while os.path.exists(destPath):
+        count += 1
+        newName = "%s.%d" % (baseName, count)
+        destPath = os.path.join(archiveDir, newName)
+
+    try:
+        os.rename(srcPath, destPath)
+    except OSError:
+        # Can't rename, must copy/delete
+        shutil.copy2(srcPath, destPath)
+        os.remove(srcPath)

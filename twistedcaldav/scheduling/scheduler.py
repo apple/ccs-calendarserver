@@ -26,7 +26,7 @@ from twisted.web2.dav.http import errorForFailure, messageForFailure, statusForF
 from twisted.web2.http import HTTPError, Response, StatusResponse
 from twisted.web2.http_headers import MimeType
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, dateops
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
@@ -99,6 +99,7 @@ class Scheduler(object):
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
         self.request.extendedLogItems["recipients"] = len(self.recipients)
+        self.request.extendedLogItems["cl"] = str(len(self.calendardata))
     
         # Do some extra authorization checks
         self.checkAuthorization()
@@ -117,6 +118,7 @@ class Scheduler(object):
         self.originator = originator
         self.recipients = recipients
         self.calendar = calendar
+        self.calendardata = str(self.calendar)
         self.internal_request = internal_request
 
         # Do some extra authorization checks
@@ -237,6 +239,7 @@ class Scheduler(object):
         # Parse the calendar object from the HTTP request stream
         try:
             self.calendar = (yield Component.fromIStream(self.request.stream))
+            self.calendardata = str(self.calendar)
         except:
             # FIXME: Bare except
             log.err("Error while handling %s: %s" % (self.method, Failure(),))
@@ -317,7 +320,13 @@ class Scheduler(object):
                 if dtstart is None or dtend is None:
                     log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start/end not valid"))
-                self.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
+
+                # Some clients send floating instead of UTC - coerce to UTC
+                if dtstart.tzinfo is None or dtend.tzinfo is None:
+                    log.err("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start or end not UTC"))
+
+                self.timeRange = TimeRange(start=dateops.toString(dtstart), end=dateops.toString(dtend))
                 self.timeRange.start = dtstart
                 self.timeRange.end = dtend
         
@@ -355,7 +364,7 @@ class Scheduler(object):
                         str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
                         str(self.request.serverInstance),
                         str(self.method),
-                        str(self.calendar)
+                        self.calendardata,
                     )
                 )
 

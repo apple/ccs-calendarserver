@@ -128,6 +128,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 ]
                 if hasattr(request, "extendedLogItems"):
                     for k, v in request.extendedLogItems.iteritems():
+                        k = str(k).replace('"', "%22")
                         v = str(v).replace('"', "%22")
                         if " " in v:
                             v = '"%s"' % (v,)
@@ -145,7 +146,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "bytesSent"           : loginfo.bytesSent,
                 "referer"             : request.headers.getHeader("referer", "-"),
                 "userAgent"           : request.headers.getHeader("user-agent", "-"),
-                "serverInstance"      : request.serverInstance,
+                "serverInstance"      : config.LogID,
                 "timeSpent"           : (time.time() - request.initTime) * 1000,
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
             }

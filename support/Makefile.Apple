@@ -47,17 +47,16 @@ PyOpenDirectory::       $(BuildDirectory)/PyOpenDirectory
 PyXML-0.8.4::           $(BuildDirectory)/PyXML-0.8.4
 vobject::               $(BuildDirectory)/vobject
 Twisted::               $(BuildDirectory)/Twisted
-pydirector-1.0.0::      $(BuildDirectory)/pydirector-1.0.0
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject Twisted $(Project)
+build:: PyKerberos PyOpenDirectory PyXML-0.8.4 vobject Twisted $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup CalDAVTester.tgz PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz pydirector-1.0.0.tgz vobject.tgz Twisted.tgz
+prep:: setup CalDAVTester.tgz PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz vobject.tgz Twisted.tgz
 
-PyKerberos PyOpenDirectory PyXML-0.8.4 pydirector-1.0.0 vobject $(Project)::
+PyKerberos PyOpenDirectory PyXML-0.8.4 vobject $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -79,7 +78,6 @@ install:: build
 	          --install-data="$(ETCDIR)"
 	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyOpenDirectory  && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pydirector-1.0.0 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject          && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/Twisted && $(TwistedSubEnvironment) $(PYTHON) twisted/runner/topfiles/setup.py install $(PY_INSTALL_FLAGS)

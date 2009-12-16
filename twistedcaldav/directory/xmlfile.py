@@ -79,7 +79,13 @@ class XMLDirectoryService(CachingDirectoryService):
         
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
-                
+                record = XMLDirectoryRecord(
+                    service       = self,
+                    recordType    = recordType,
+                    shortNames    = tuple(xmlPrincipal.shortNames),
+                    xmlPrincipal  = xmlPrincipal,
+                )
+
                 record = XMLDirectoryRecord(
                     service       = self,
                     recordType    = recordType,

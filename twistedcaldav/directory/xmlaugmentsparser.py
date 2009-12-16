@@ -38,7 +38,6 @@ ELEMENT_ENABLE            = "enable"
 ELEMENT_HOSTEDAT          = "hosted-at"
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
-ELEMENT_CUADDR            = "cuaddr"
 
 ATTRIBUTE_REPEAT          = "repeat"
 
@@ -51,7 +50,6 @@ ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_HOSTEDAT:       "hostedAt",
     ELEMENT_ENABLECALENDAR: "enabledForCalendaring",
     ELEMENT_AUTOSCHEDULE:   "autoSchedule",
-    ELEMENT_CUADDR:         "calendarUserAddresses",
 }
 
 class XMLAugmentsParser(object):
@@ -105,8 +103,6 @@ class XMLAugmentsParser(object):
                     ELEMENT_AUTOSCHEDULE,
                 ):
                     fields[node.tag] = node.text == VALUE_TRUE
-                elif node.tag == ELEMENT_CUADDR:
-                    fields.setdefault(node.tag, set()).add(node.text)
                 else:
                     log.error("Invalid element '%s' in augment file: '%s'" % (node.tag, self.xmlFile,), raiseException=RuntimeError)
                     

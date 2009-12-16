@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -24,7 +25,6 @@ __all__ = [
     "DirectoryRecord",
     "DirectoryError",
     "DirectoryConfigurationError",
-    "UnknownRecordError",
     "UnknownRecordTypeError",
 ]
 
@@ -153,7 +153,7 @@ class DirectoryService(LoggingMixIn):
             record = self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             for record in self.allRecords():
-                if address in record.calendarUserAddresses:
+                if address[7:] in record.emailAddresses:
                     break
             else:
                 return None
@@ -196,7 +196,7 @@ class DirectoryService(LoggingMixIn):
                         return True
                 elif matchType == 'contains':
                     try:
-                        _ignore_discard = testValue.index(value)
+                        testValue.index(value)
                         return True
                     except ValueError:
                         pass
@@ -312,6 +312,9 @@ class DirectoryRecord(LoggingMixIn):
         if uid is None:
             uid = guid
 
+        if fullName is None:
+            fullName = ""
+
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
@@ -326,7 +329,23 @@ class DirectoryRecord(LoggingMixIn):
         self.emailAddresses        = emailAddresses
         self.enabledForCalendaring = False
         self.autoSchedule          = False
-        self.calendarUserAddresses = set()
+
+    def get_calendarUserAddresses(self):
+        """
+        Dynamically construct a calendarUserAddresses attribute which describes
+        this L{DirectoryRecord}.
+
+        @see: L{IDirectoryRecord.calendarUserAddresses}.
+        """
+        if not self.enabledForCalendaring:
+            return frozenset()
+        return frozenset(
+            ["urn:uuid:%s" % (self.guid,)] +
+            ["mailto:%s" % (emailAddress,)
+             for emailAddress in self.emailAddresses]
+        )
+
+    calendarUserAddresses = property(get_calendarUserAddresses)
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -353,24 +372,15 @@ class DirectoryRecord(LoggingMixIn):
             self.hostedAt = augment.hostedAt
             self.enabledForCalendaring = augment.enabledForCalendaring
             self.autoSchedule = augment.autoSchedule
-            self.calendarUserAddresses = set(augment.calendarUserAddresses)
 
             if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
                 self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortName,))
                 self.enabledForCalendaring = False
-    
-            if self.enabledForCalendaring:
-                for email in self.emailAddresses:
-                    self.calendarUserAddresses.add("mailto:%s" % (email.lower(),))
-                self.calendarUserAddresses.add("urn:uuid:%s" % (self.guid,))
-            else:
-                assert len(self.calendarUserAddresses) == 0
 
         else:
             self.enabled = False
             self.hostedAt = ""
             self.enabledForCalendaring = False
-            self.calendarUserAddresses = set()
 
     def members(self):
         return ()
@@ -419,3 +429,6 @@ class UnknownRecordTypeError(DirectoryError):
     """
     Unknown directory record type.
     """
+    def __init__(self, recordType):
+        DirectoryError.__init__(self, "Invalid record type: %s" % (recordType,))
+        self.recordType = recordType

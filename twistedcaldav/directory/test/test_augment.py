@@ -26,16 +26,16 @@ xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")
 
 testRecords = (
-    {"guid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
-    {"guid":"6423F94A-6B76-4A3A-815B-D52CFD77935D", "enabled":True,  "hostedAt":"", "enabledForCalendaring":True, "autoSchedule":False, "calendarUserAddresses":set(("mailto:wsanchez@example.com",))},
-    {"guid":"5A985493-EE2C-4665-94CF-4DFEA3A89500", "enabled":False, "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
-    {"guid":"8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
-    {"guid":"5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
-    {"guid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":False, "autoSchedule":False, "calendarUserAddresses":set()},
-    {"guid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True, "autoSchedule":True, "calendarUserAddresses":set(("mailto:usera@example.com", "mailto:user.a@example.com", "mailto:user_a@example.com",))},
+    {"guid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False},
+    {"guid":"6423F94A-6B76-4A3A-815B-D52CFD77935D", "enabled":True,  "hostedAt":"", "enabledForCalendaring":True, "autoSchedule":False},
+    {"guid":"5A985493-EE2C-4665-94CF-4DFEA3A89500", "enabled":False, "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False},
+    {"guid":"8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "autoSchedule":False},
+    {"guid":"5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "autoSchedule":False},
+    {"guid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":False, "autoSchedule":False},
+    {"guid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True, "autoSchedule":True},
 )
 
-testRecordDefault = {"guid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True, "autoSchedule":False, "calendarUserAddresses":set()}
+testRecordDefault = {"guid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True, "autoSchedule":False}
 
 class AugmentTests(TestCase):
 

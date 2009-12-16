@@ -324,7 +324,7 @@ class InstanceList(object):
 
         # Make sure override RECURRENCE-ID is a valid instance of the master
         if got_master:
-            if str(rid) not in self.instances:
+            if str(rid) not in self.instances and compareDateTime(rid, limit) <= 0:
                 if self.ignoreInvalidInstances:
                     return
                 else:

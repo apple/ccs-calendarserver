@@ -16,15 +16,8 @@
 
 try:
     _plistlib = __import__("plistlib")
-
 except ImportError:
-    from twext.python._plistlib import *
+    from twext.python import _plistlib
 
-    import twext.python._plistlib
-    __all__ = twext.python._plistlib.__all__
-    del twext
-
-else:
-    for symbol in _plistlib.__all__:
-        globals()[symbol] = getattr(_plistlib, symbol)
-    del _plistlib
+import sys
+sys.modules[__name__] = _plistlib

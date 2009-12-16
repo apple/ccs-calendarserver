@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -681,6 +682,13 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
             proxyFors.update(proxies)
 
+        uids = set()
+        for principal in tuple(proxyFors):
+            if principal.principalUID() in uids:
+                proxyFors.remove(principal)
+            else:
+                uids.add(principal.principalUID())
+
         returnValue(proxyFors)
 
     def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=None, infinity=False):
@@ -831,9 +839,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             if config.SSLPort:
                 addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
 
-        # Add a UUID URI based on the record's GUID to the list.
-        addresses.add("urn:uuid:%s" % (self.record.guid,))
-
         return addresses
 
     def enabledAsOrganizer(self):
@@ -876,15 +881,19 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def _homeChildURL(self, name):
-        home = self.calendarHome()
-        if home is None:
+        if not hasattr(self, "calendarHomeURL"):
+            home = self.calendarHome()
+            if home is None:
+                self.calendarHomeURL = None
+                return None
+            else:
+                self.calendarHomeURL = home.url()
+            
+        url = self.calendarHomeURL
+        if url is None:
             return None
         else:
-            url = home.url()
-            if name:
-                url = joinURL(url, name)
-                
-            return url
+            return joinURL(url, name) if name else url
 
     def calendarHome(self):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack

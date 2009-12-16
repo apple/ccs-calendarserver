@@ -69,7 +69,6 @@ class TestDirectoryService (CachingDirectoryService):
                         guid = cacheRecord.guid,
                         enabled=True,
                         enabledForCalendaring = True,
-                        calendarUserAddresses = set(record.get("cua")),
                     )
                     
                     cacheRecord.addAugmentInformation(augmentRecord)

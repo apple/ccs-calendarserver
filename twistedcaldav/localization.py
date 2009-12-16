@@ -360,7 +360,12 @@ def processLocalizationFiles(settings):
 
         # Make sure the gnutext translations directory exists
         if not os.path.exists(gnuRoot):
-            os.mkdir(gnuRoot)
+            try:
+                os.mkdir(gnuRoot)
+            except OSError:
+                log.warn("Could not create gnuttext translation directory: %s"
+                    % (gnuRoot,))
+                return
 
         # Scan for Apple translations (directories ending in .lproj)
         for item in os.listdir(lprojRoot):

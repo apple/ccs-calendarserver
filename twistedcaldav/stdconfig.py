@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
 # Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
@@ -21,7 +22,7 @@ import re
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
 
-from twext.python.plistlib import readPlist
+from twext.python.plistlib import PlistParser
 
 from twistedcaldav.config import (
     ConfigProvider, ConfigurationError, config, _mergeData, )
@@ -98,6 +99,8 @@ DEFAULT_CONFIG = {
     "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP [empty = same as "Port"]
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
+    "InheritFDs": [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
+    "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
 
     #
     # Data store
@@ -197,6 +200,7 @@ DEFAULT_CONFIG = {
     "EnableExtendedAccessLog": True,
     "DefaultLogLevel"   : "",
     "LogLevels"         : {},
+    "LogID"             : "",
 
     "AccountingCategories": {
         "iTIP": False,
@@ -230,10 +234,6 @@ DEFAULT_CONFIG = {
     "MultiProcess": {
         "ProcessCount": 0,
         "MinProcessCount": 4,
-        "LoadBalancer": {
-            "Enabled": True,
-            "Scheduler": "LeastConnections",
-        },
         "StaggeredStartup": {
             "Enabled": False,
             "Interval": 15,
@@ -370,9 +370,10 @@ DEFAULT_CONFIG = {
     #
 
     # Set the maximum number of outstanding requests to this server.
-    "MaxRequests": 600,
+    "MaxRequests": 80,
+    "MaxAccepts": 1,
 
-    "ListenBacklog": 50,
+    "ListenBacklog": 2024,
     "IdleConnectionTimeOut": 15,
     "UIDReservationTimeOut": 30 * 60,
 
@@ -398,13 +399,6 @@ DEFAULT_CONFIG = {
     "Twisted": {
         "twistd": "/usr/share/caldavd/bin/twistd",
         "reactor": "select",
-    },
-
-    # Python Director
-    "PythonDirector": {
-        "pydir": "/usr/share/caldavd/bin/pydir.py",
-        "ConfigFile": "/etc/caldavd/pydir.xml",
-        "ControlSocket": "/var/run/caldavd-pydir.sock",
     },
 
     # Umask
@@ -463,15 +457,36 @@ DEFAULT_CONFIG = {
     "ResponseCacheTimeout": 30, # Minutes
 }
 
+
+
+class NoUnicodePlistParser(PlistParser):
+    """
+    A variant of L{PlistParser} which avoids exposing the 'unicode' data-type
+    to application code when non-ASCII characters are found, instead
+    consistently exposing UTF-8 encoded 'str' objects.
+    """
+
+    def getData(self):
+        """
+        Get the currently-parsed data as a 'str' object.
+        """
+        data = "".join(self.data).encode("utf-8")
+        self.data = []
+        return data
+
+
+
 class PListConfigProvider(ConfigProvider):
     
     def loadConfig(self):
         configDict = {}
         if self._configFileName:
+            parser = NoUnicodePlistParser()
             try:
-                configDict = readPlist(self._configFileName)
+                configDict = parser.parse(open(self._configFileName))
             except (IOError, OSError):                                    
-                log.error("Configuration file does not exist or is inaccessible: %s" % (self._configFileName,))
+                log.error("Configuration file does not exist or is inaccessible: %s" %
+                          (self._configFileName,))
             else:
                 configDict = _cleanup(configDict, self._defaults)
         return configDict
@@ -780,13 +795,6 @@ def _cleanup(configDict, defaultDict):
 
         elif key in renamedOptions:
             renamed(key, renamedOptions[key])
-
-#       elif key == "pydirConfig":
-#           deprecated(key, "PythonDirector -> pydir")
-#           if "PythonDirector" not in cleanDict:
-#               cleanDict["PythonDirector"] = {}
-#           cleanDict["PythonDirector"]["ConfigFile"] = cleanDict["pydirConfig"]
-#           del cleanDict["pydirConfig"]
 
         else:
             unknown(key,)

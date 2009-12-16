@@ -158,8 +158,6 @@ def http_PROPFIND(self, request):
                         except:
                             f = Failure()
     
-                            log.err("Error reading property %r for resource %s: %s" % (property, uri, f.value))
-    
                             status = statusForFailure(f, "getting property: %s" % (property,))
                             if status not in properties_by_status:
                                 properties_by_status[status] = []

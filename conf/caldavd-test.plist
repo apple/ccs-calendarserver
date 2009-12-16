@@ -416,6 +416,10 @@
     <key>SSLCertificate</key>
     <string>twistedcaldav/test/data/server.pem</string>
 
+    <!-- SSL authority chain (for intermediate certs) -->
+    <key>SSLAuthorityChain</key>
+    <string></string>
+
     <!-- Private key -->
     <key>SSLPrivateKey</key>
     <string>twistedcaldav/test/data/server.pem</string>
@@ -438,19 +442,6 @@
     <dict>
       <key>ProcessCount</key>
       <integer>2</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
-
-      <key>LoadBalancer</key>
-      <dict>
-        <!--
-            Valid values are:
-            - LeastConnections
-            - RoundRobin
-            - LeastConnectionsAndRoundRobin
-          -->
-        <key>Scheduler</key>
-        <string>LeastConnections</string>
-      </dict>
-
     </dict>
 
 
@@ -718,22 +709,6 @@
       <string>../Twisted/bin/twistd</string>
     </dict>
 
-
-    <!--
-        Python Director
-      -->
-
-    <key>PythonDirector</key>
-    <dict>
-      <key>pydir</key>
-      <string>../pydirector-1.0.0/pydir.py</string>
-
-      <key>ConfigFile</key>
-      <string>conf/pydir.xml</string>
-
-      <key>ControlSocket</key>
-      <string>logs/caldavd-pydir.sock</string>
-    </dict>
 
     <key>Localization</key>
     <dict>

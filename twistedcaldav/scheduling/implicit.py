@@ -34,9 +34,10 @@ from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
     LocalCalendarUser
 from twistedcaldav.scheduling.icaldiff import iCalDiff
-from twistedcaldav.scheduling.itip import iTipGenerator
+from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 __all__ = [
     "ImplicitScheduler",
@@ -284,16 +285,21 @@ class ImplicitScheduler(object):
             if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
                 self.request.suppressRefresh = True
         
-        self.request.doing_attendee_refresh = True
+        if hasattr(self.request, "doing_attendee_refresh"):
+            self.request.doing_attendee_refresh += 1
+        else:
+            self.request.doing_attendee_refresh = 1
         try:
-            result = (yield self.processRequests())
+            refreshCount = (yield self.processRequests())
         finally:
-            delattr(self.request, "doing_attendee_refresh")
+            self.request.doing_attendee_refresh -= 1
+            if self.request.doing_attendee_refresh == 0:
+                delattr(self.request, "doing_attendee_refresh")
 
-        if result:
+        if refreshCount:
             if not hasattr(self.request, "extendedLogItems"):
                 self.request.extendedLogItems = {}
-            self.request.extendedLogItems["itip.refreshes"] = result
+            self.request.extendedLogItems["itip.refreshes"] = refreshCount
 
     @inlineCallbacks
     def sendAttendeeReply(self, request, resource, calendar, attendee):
@@ -798,6 +804,8 @@ class ImplicitScheduler(object):
                 if not doITipReply:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
                     returnValue(None)
+                log.debug("Attendee '%s' is allowed to update UID: '%s' with local organizer '%s'" % (self.attendee, self.uid, self.organizer))
+
             elif isinstance(self.organizerAddress, LocalCalendarUser):
                 # Check to see whether all instances are CANCELLED
                 if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
@@ -808,14 +816,24 @@ class ImplicitScheduler(object):
                     log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
                     self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                     returnValue(None)
+
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
-                log.debug("Attendee '%s' is not allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                # We will allow the attendee to do anything in this case, but we will mark the organizer
+                # with an schedule-status error
+                log.debug("Attendee '%s' is allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
+                self.calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    iTIPRequestStatus.NO_USER_SUPPORT_CODE,
+                    "ORGANIZER",
+                    self.organizer)
+                returnValue(None)
+
             else:
                 # We have a remote Organizer of some kind. For now we will allow the Attendee
                 # to make any change they like as we cannot verify what is reasonable. In reality
                 # we ought to be comparing the Attendee changes against the attendee's own copy
                 # and restrict changes based on that when the organizer's copy is not available.
+                log.debug("Attendee '%s' is allowed to update UID: '%s' with remote organizer '%s'" % (self.attendee, self.uid, self.organizer))
                 changedRids = None
 
             log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))

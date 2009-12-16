@@ -1,0 +1,11 @@
+#!/bin/sh
+
+branch_base_revision="$(
+  svn log --stop-on-copy "$1"									\
+    | grep -e '------------------------------------------------------------------------' -A 1	\
+    | egrep '^r'										\
+    | cut -d ' ' -f 1										\
+    | tail -1
+)";
+
+svn diff "-${branch_base_revision}" "$@";

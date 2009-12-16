@@ -164,7 +164,7 @@ if "${build}"; then
   if "${package}"; then
     package_tmp="${tmp}/pkg";
     install -d "${package_tmp}";
-    merge_flags="-merge \"${package_tmp}\"";
+    merge_flags="-merge ${package_tmp}";
   elif "${install}"; then
     merge_flags="-merge /";
   else

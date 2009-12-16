@@ -1,0 +1,18 @@
+#!/bin/sh
+
+uri="$1"; shift;
+
+if [ -e "${uri}" ]; then
+   # URI is a file.  Get the URI.
+   uri="$(svn info --xml "${uri}" | sed -n 's|<url>\(.*\)</url>|\1|p')";
+fi;
+
+branch_base_revision="$(
+  svn log --stop-on-copy "${uri}"								\
+    | grep -e '------------------------------------------------------------------------' -A 1	\
+    | egrep '^r'										\
+    | cut -d ' ' -f 1										\
+    | tail -1
+)";
+
+svn merge "-${branch_base_revision}:HEAD" "${uri}" "$@";

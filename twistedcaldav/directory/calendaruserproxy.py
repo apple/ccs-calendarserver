@@ -26,8 +26,7 @@ __all__ = [
     "ProxyPostgreSQLDB",
 ]
 
-from twisted.internet.defer import returnValue
-from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
@@ -210,11 +209,12 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             
         returnValue(True)
 
-    @inlineCallbacks
     def setGroupMemberSetPrincipals(self, principals):
         # Map the principals to UIDs.
-        uids = [p.principalUID() for p in principals]
-        yield self._index().setGroupMembers(self.uid, uids)
+        return self._index().setGroupMembers(
+            self.uid,
+            [p.principalUID() for p in principals],
+        )
 
     ##
     # HTTP
@@ -353,11 +353,15 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     def expandedGroupMembers(self):
         return self._expandMemberUIDs(infinity=True)
 
-    @inlineCallbacks
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
-        memberships = yield self._index().getMemberships(self.uid)
-        returnValue([p for p in [self.pcollection.principalForUID(uid) for uid in memberships] if p])
+        d = self._index().getMemberships(self.uid)
+        d.addCallback(lambda memberships: [
+            p for p
+            in [self.pcollection.principalForUID(uid) for uid in memberships]
+            if p
+        ])
+        return d
 
 class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     """
@@ -468,8 +472,8 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         # Update cache
         for member in itertools.chain(remove_members, add_members,):
-            _ignore = yield self._memcacher.deleteMembership(member)
-        _ignore = yield self._memcacher.deleteMember(principalUID)
+            yield self._memcacher.deleteMembership(member)
+        yield self._memcacher.deleteMember(principalUID)
 
     @inlineCallbacks
     def setGroupMembersInDatabase(self, principalUID, members):
@@ -541,13 +545,13 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
             elif overdue is None:
                 # No timer was previously set
-                self.log_debug("Delaying removal of missing proxy principal '%s'" %
-                    (principalUID,))
+                self.log_debug("Delaying removal of missing proxy principal '%s'"
+                               % (principalUID,))
                 yield self._memcacher.setDeletionTimer(principalUID, delay=delay)
                 returnValue(None)
 
-        self.log_warn("Removing missing proxy principal for '%s'" %
-            (principalUID,))
+        self.log_warn("Removing missing proxy principal for '%s'"
+                      % (principalUID,))
 
         for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
             groupUID = "%s#%s" % (principalUID, suffix,)
@@ -578,45 +582,55 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         
         return self._memcacher.clearDeletionTimer(principalUID)
 
-    @inlineCallbacks
     def getMembers(self, principalUID):
         """
         Return the list of group member UIDs for the specified principal.
 
         @return: a deferred returning a C{set} of members.
         """
+        def gotCachedMembers(members):
+            if members is not None:
+                return members
 
-        @inlineCallbacks
-        def _members():
-            result = set([row[0] for row in (yield self.query("select MEMBER from GROUPS where GROUPNAME = :1", (principalUID,)))])
-            returnValue(result)
+            # Cache miss; compute members and update cache
+            def gotMembersFromDB(dbmembers):
+                members = set([row[0] for row in dbmembers])
+                d = self._memcacher.setMembers(principalUID, members)
+                d.addCallback(lambda _: members)
+                return d
 
-        # Pull from cache
-        result = yield self._memcacher.getMembers(principalUID)
-        if result is None:
-            result = (yield _members())
-            yield self._memcacher.setMembers(principalUID, result)
-        returnValue(result)
+            d =  self.query("select MEMBER from GROUPS where GROUPNAME = :1", (principalUID,))
+            d.addCallback(gotMembersFromDB)
+            return d
 
-    @inlineCallbacks
+        d = self._memcacher.getMembers(principalUID)
+        d.addCallback(gotCachedMembers)
+        return d
+
     def getMemberships(self, principalUID):
         """
         Return the list of group principal UIDs the specified principal is a member of.
         
         @return: a deferred returning a C{set} of memberships.
         """
+        def gotCachedMemberships(memberships):
+            if memberships is not None:
+                return memberships
 
-        @inlineCallbacks
-        def _members():
-            result = set([row[0] for row in (yield self.query("select GROUPNAME from GROUPS where MEMBER = :1", (principalUID,)))])
-            returnValue(result)
+            # Cache miss; compute memberships and update cache
+            def gotMembershipsFromDB(dbmemberships):
+                memberships = set([row[0] for row in dbmemberships])
+                d = self._memcacher.setMemberships(principalUID, memberships)
+                d.addCallback(lambda _: memberships)
+                return d
 
-        # Pull from cache
-        result = yield self._memcacher.getMemberships(principalUID)
-        if result is None:
-            result = (yield _members())
-            yield self._memcacher.setMemberships(principalUID, result)
-        returnValue(result)
+            d =  self.query("select GROUPNAME from GROUPS where MEMBER = :1", (principalUID,))
+            d.addCallback(gotMembershipsFromDB)
+            return d
+
+        d = self._memcacher.getMemberships(principalUID)
+        d.addCallback(gotCachedMemberships)
+        return d
 
     @inlineCallbacks
     def _add_to_db(self, principalUID, members):

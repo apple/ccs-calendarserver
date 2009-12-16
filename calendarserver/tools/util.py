@@ -131,10 +131,6 @@ def booleanArgument(arg):
     else:
         raise ValueError("Not a boolean: %s" % (arg,))
 
-
-
-
-
 def autoDisableMemcached(config):
     """
     If memcached is not running, set config.Memcached.ClientEnabled to False

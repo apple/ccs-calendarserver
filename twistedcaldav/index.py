@@ -57,7 +57,7 @@ from twistedcaldav.memcachepool import CachePoolUserMixIn
 log = Logger()
 
 db_basename = db_prefix + "sqlite"
-schema_version = "7"
+schema_version = "8"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 icalfbtype_to_indexfbtype = {
@@ -439,6 +439,11 @@ class CalendarIndex (AbstractCalendarIndex):
             )
             """
         )
+        q.execute(
+            """
+            create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)
+            """
+        )
 
         if uidunique:
             #
@@ -455,22 +460,27 @@ class CalendarIndex (AbstractCalendarIndex):
                 """
             )
 
-    def _db_upgrade(self, old_version):
+    def _db_can_upgrade(self, old_version):
         """
-        Upgrade the database tables.
+        Can we do an in-place upgrade
         """
         
-        # When going to version 7 all we need to do is add a column to the time-range
+        # Previous versions can be upgraded as per _db_upgrade_data_tables
+        return True
+
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        """
+
+        # When going to version 8 all we need to do is add an index
+        if old_version < "8":
+            q.execute("create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)")
+
+        # When going to version 7,8 all we need to do is add a column to the resource and timespan
         if old_version < "7":
-            self._db_connection = sqlite.connect(self.dbpath, isolation_level=None)
-            q = self._db_connection.cursor()
             q.execute("alter table RESOURCE add column ORGANIZER text default '?'")
             q.execute("alter table TIMESPAN add column FBTYPE text(1) default '?'")
-            self._db_upgrade_schema(q)
-            self._db_close()
-            return self._db()
-        else:
-            return super(AbstractCalendarIndex, self)._db_upgrade(old_version)
 
     def notExpandedBeyond(self, minDate):
         """

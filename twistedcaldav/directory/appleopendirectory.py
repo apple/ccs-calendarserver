@@ -33,6 +33,7 @@ from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 
+from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
@@ -330,7 +331,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         def collectResults(results):
             self.log_info("Got back %d records from OD" % (len(results),))
-            for key, val in results.iteritems():
+            for key, val in results:
                 self.log_debug("OD result: %s %s" % (key, val))
                 try:
                     guid = val[dsattributes.kDS1AttrGeneratedUID]
@@ -341,7 +342,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     pass
 
         def multiQuery(directory, queries, attrs, operand):
-            results = {}
+            results = []
 
             for query, recordTypes in queries.iteritems():
                 if not query:
@@ -362,8 +363,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
                     (recordTypes, operand, caseless, complexExpression))
 
-                results.update(
-                    opendirectory.queryRecordsWithAttributes(
+                results.extend(
+                    opendirectory.queryRecordsWithAttributes_list(
                         directory,
                         complexExpression,
                         caseless,
@@ -440,9 +441,10 @@ class OpenDirectoryService(CachingDirectoryService):
                 listRecordTypes.append(dsattributes.kDSStdRecordTypeUsers)
     
             elif recordType == DirectoryService.recordType_groups:
-                listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
-                attrs.append(dsattributes.kDSNAttrGroupMembers)
-                attrs.append(dsattributes.kDSNAttrNestedGroups)
+                if queryattr != dsattributes.kDSNAttrEMailAddress:
+                    listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
+                    attrs.append(dsattributes.kDSNAttrGroupMembers)
+                    attrs.append(dsattributes.kDSNAttrNestedGroups)
     
             elif recordType == DirectoryService.recordType_locations:
                 if queryattr != dsattributes.kDSNAttrEMailAddress:
@@ -526,9 +528,14 @@ class OpenDirectoryService(CachingDirectoryService):
             recordEmailAddresses = _setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
+            if recordNodeName == "/Local/Default" and not (config.Scheduling.iMIP.Username in recordShortNames):
+                self.log_info("Local record (%s)%s is not eligible for calendaring."
+                              % (recordType, recordShortName))
+                continue
+
             if not recordType:
                 self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
-                    % (recordShortName, recordNodeName))
+                               % (recordShortName, recordNodeName))
                 continue
 
             recordType = self._fromODRecordTypes[recordType]
@@ -611,7 +618,9 @@ class OpenDirectoryService(CachingDirectoryService):
         """
 
         if self.node == "/Search":
-            nodes = opendirectory.listNodes(self.directory)
+            result = opendirectory.getNodeAttributes(self.directory, "/Search",
+                (dsattributes.kDS1AttrSearchPath,))
+            nodes = result[dsattributes.kDS1AttrSearchPath]
         else:
             nodes = [self.node]
 
@@ -655,8 +664,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     """
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
-        fullName, firstName, lastName, emailAddresses,
-        memberGUIDs,
+        fullName, firstName, lastName, emailAddresses, memberGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,

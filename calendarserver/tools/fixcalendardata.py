@@ -136,15 +136,25 @@ def scanCalendar(basePath, calendarPath, scanFile, doFix):
             if f:
                 f.close()
 
-        # See whether there is a \" that needs fixing.
-        # NB Have to handle the case of a folded line... 
-        if testICSData_DoubleQuotes(icsData) or testICSData_TZIDs(icsData):
+        # See what needs fixing.
+        problems = []
+        fixQuotes = fixTZIDs = fixMultiVALARMs = False
+        if testICSData_DoubleQuotes(icsData):
+            problems.append("double quotes")
+            fixQuotes = True
+        if testICSData_TZIDs(icsData):
+            problems.append("tzids")
+            fixTZIDs = True
+        if testICSData_MultipleVALARMS(icsData):
+            problems.append("multi-valarms")
+            fixMultiVALARMs = True
+        if problems:
             if doFix:
-                if fixPath(icsPath, icsData):
+                if fixPath(icsPath, icsData, fixQuotes, fixTZIDs, fixMultiVALARMs):
                     didFix = True
-                    print "Problem fixed in: <BasePath>%s" % (icsPath[basePathLength:],)
+                    print "Problems %s fixed in: <BasePath>%s" % (",".join(problems), icsPath[basePathLength:],)
             else:
-                print "Problem found in: <BasePath>%s" % (icsPath[basePathLength:],)
+                print "Problem %s found in: <BasePath>%s" % (",".join(problems), icsPath[basePathLength:],)
                 scanFile.write(icsPath + "\n")
             totalProblems += 1
      
@@ -164,6 +174,10 @@ tzidREReplace = re.compile("(.*)TZID=[^;:]+;(VALUE=DATE.*)", flags=re.S)
 def testICSData_TZIDs(icsData):
     
     return tzidRESearch.search(icsData) != None
+
+def testICSData_MultipleVALARMS(icsData):
+    
+    return icsData.find("END:VALARM\r\nBEGIN:VALARM") != -1
 
 def fixData(basePath, scanPath):
     
@@ -204,7 +218,7 @@ def fixData(basePath, scanPath):
         if didFix:
             updateCtag(calendarPath)
         
-def fixPath(icsPath, icsData=None):
+def fixPath(icsPath, icsData=None, doQuotes=True, doTZIDs=True, doMultiVALARMs=True):
 
     global totalProblems
     global totalErrors
@@ -224,20 +238,34 @@ def fixPath(icsPath, icsData=None):
                 f.close()
         
     # Fix by continuously replacing \" with " until no more replacements occur
-    while True:
-        newIcsData = icsData.replace('\\"', '"').replace('\\\r\n "', '\r\n "').replace('\r\n \r\n "', '\r\n "')
-        if newIcsData == icsData:
-            break
-        else:
-            icsData = newIcsData
+    if doQuotes:
+        while True:
+            newIcsData = icsData.replace('\\"', '"').replace('\\\r\n "', '\r\n "').replace('\r\n \r\n "', '\r\n "')
+            if newIcsData == icsData:
+                break
+            else:
+                icsData = newIcsData
     
     # Fix the TZID problem
-    while True:
-        icsMatch = tzidREReplace.search(icsData)
-        if icsMatch is not None:
-            icsData = icsMatch.expand("\\1\\2")
-        else:
-            break
+    if doTZIDs:
+        while True:
+            icsMatch = tzidREReplace.search(icsData)
+            if icsMatch is not None:
+                icsData = icsMatch.expand("\\1\\2")
+            else:
+                break
+
+    if doMultiVALARMs:
+        lines = icsData.split("BEGIN:")
+        newlines = []
+        lastalarm = False
+        for line in lines:
+            isalarm = line.startswith("VALARM")
+            if lastalarm and isalarm:
+                newlines.pop()
+            newlines.append(line)
+            lastalarm = isalarm     
+        icsData = "BEGIN:".join(newlines)
 
     try:
         f = None

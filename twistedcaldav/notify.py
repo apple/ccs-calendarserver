@@ -333,7 +333,13 @@ class Coalescer(LoggingMixIn):
     """
 
     delaySeconds = 5
-    sendAnywayAfterCount = 5
+
+    # sendAnywayAfterCount can be used to control how many times a notification
+    # countdown timer is reset because of new changes.  Once a notification
+    # has been delayed 'sendAnywayAfterCount' times, it is sent anyway,
+    # otherwise a busy calendar might never have a notification sent out.
+    # Set this to 0 to disable the timer reset feature.
+    sendAnywayAfterCount = 0
 
     def __init__(self, notifiers, reactor=None, delaySeconds=None,
         sendAnywayAfterCount=None):

@@ -14,6 +14,9 @@
 # limitations under the License.
 ##
 
+
+from twisted.web2.dav import davxml
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -22,7 +25,6 @@ from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
-from twisted.web2.dav import davxml
 
 import hashlib
 import os, zlib, cPickle
@@ -218,11 +220,90 @@ class ProxyDBUpgradeTests(TestCase):
 
 
         #
-        # Shortname not in directory, raise an UpgradeError
+        # Shortname not in directory, return empty string
         #
 
+        expected = "<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/nonexistent/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        self.assertRaises(UpgradeError, updateFreeBusySet, value, directory)
+        newValue = updateFreeBusySet(value, directory)
+        newValue = zlib.decompress(newValue)
+        self.assertEquals(newValue, expected)
+
+
+    def verifyDirectoryComparison(self, before, after, reverify=False):
+        """
+        Verify that the hierarchy described by "before", when upgraded, matches
+        the hierarchy described by "after".
+
+        @param before: a dictionary of the format accepted by L{TestCase.createHierarchy}
+
+        @param after: a dictionary of the format accepted by L{TestCase.createHierarchy}
+
+        @param reverify: if C{True}, re-verify the hierarchy by upgrading a
+            second time and re-verifying the root again.
+
+        @raise twisted.trial.unittest.FailTest: if the test fails.
+
+        @return: C{None}
+        """
+        root = self.createHierarchy(before)
+
+        config.DocumentRoot = root
+        config.DataRoot = root
+
+        upgradeData(config)
+        self.assertTrue(self.verifyHierarchy(root, after))
+
+        if reverify:
+            # Ensure that repeating the process doesn't change anything
+            upgradeData(config)
+            self.assertTrue(self.verifyHierarchy(root, after))
+
+
+    def test_removeNotificationDirectories(self):
+        """
+        The upgrade process should remove unused notification directories in
+        users' calendar homes, as well as the XML files found therein.
+        """
+        self.setUpXMLDirectory()
+
+        before = {
+            "calendars": {
+                "users": {
+                    "wsanchez": {
+                        "calendar" : {},
+                        "notifications": {
+                            "sample-notification.xml": {
+                                "@contents":  "<?xml version='1.0'>\n<should-be-ignored />"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        after = {
+            "calendars" : {
+                "__uids__" : {
+                    "64" : {
+                        "23" : {
+                            "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                                "calendar": {},
+                            }
+                        }
+                    }
+                }
+            },
+            ".calendarserver_version" : {
+                "@contents" : "1",
+            },
+            CalendarUserProxyDatabase.dbFilename : { "@contents" : None },
+            MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
+            ResourceInfoDatabase.dbFilename : { "@contents" : None },
+            "tasks" : {"incoming" : {}}
+        }
+
+        self.verifyDirectoryComparison(before, after)
 
 
     def test_calendarsUpgradeWithTypes(self):
@@ -232,7 +313,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -359,17 +439,270 @@ class ProxyDBUpgradeTests(TestCase):
 #            }
         }
 
-        root = self.createHierarchy(before)
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
-        config.DocumentRoot = root
-        config.DataRoot = root
 
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
+    def test_calendarsUpgradeWithOrphans(self):
+        """
+        Verify that calendar homes in the /calendars/<type>/<shortname>/ form
+        whose records don't exist are moved into dataroot/archived/
+        """
 
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
+        self.setUpXMLDirectory()
+
+        before = {
+            "calendars" :
+            {
+                "users" :
+                {
+                    "unknownuser" :
+                    {
+                    },
+                },
+                "groups" :
+                {
+                    "unknowngroup" :
+                    {
+                    },
+                },
+            },
+            "principals" :
+            {
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                },
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        self.verifyDirectoryComparison(before, after, reverify=True)
+
+
+    def test_calendarsUpgradeWithDuplicateOrphans(self):
+        """
+        Verify that calendar homes in the /calendars/<type>/<shortname>/ form
+        whose records don't exist are moved into dataroot/archived/
+        """
+
+        self.setUpXMLDirectory()
+
+        before = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+            },
+            "calendars" :
+            {
+                "users" :
+                {
+                    "unknownuser" :
+                    {
+                    },
+                },
+                "groups" :
+                {
+                    "unknowngroup" :
+                    {
+                    },
+                },
+            },
+            "principals" :
+            {
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            "archived" :
+            {
+                "unknownuser" :
+                {
+                },
+                "unknowngroup" :
+                {
+                },
+                "unknownuser.1" :
+                {
+                },
+                "unknowngroup.1" :
+                {
+                },
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                },
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        self.verifyDirectoryComparison(before, after, reverify=True)
+
+
+    def test_calendarsUpgradeWithUnknownFiles(self):
+        """
+        Unknown files, including .DS_Store files at any point in the hierarchy,
+        as well as non-directory in a user's calendar home, will be ignored and not
+        interrupt an upgrade.
+        """
+
+        self.setUpXMLDirectory()
+
+        ignoredUIDContents = {
+            "64" : {
+                "23" : {
+                    "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                        "calendar" : {
+                        },
+                        "garbage.ics" : {
+                            "@contents": "Oops, not actually an ICS file.",
+                        },
+                        "other-file.txt": {
+                            "@contents": "Also not a calendar collection."
+                        }
+                    }
+                }
+            },
+            ".DS_Store" : {
+                "@contents" : "",
+            }
+        }
+
+        before = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" :ignoredUIDContents,
+            },
+            "principals" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                CalendarUserProxyDatabase.dbOldFilename :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "1",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" : ignoredUIDContents,
+            },
+            CalendarUserProxyDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            }
+        }
+
+        self.verifyDirectoryComparison(before, after, reverify=True)
+
 
     def test_calendarsUpgradeWithUIDs(self):
         """
@@ -378,8 +711,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
-
 
         before = {
             "calendars" :
@@ -473,17 +804,8 @@ class ProxyDBUpgradeTests(TestCase):
 #            }
         }
 
-        root = self.createHierarchy(before)
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
 
     def test_calendarsUpgradeWithUIDsMultilevel(self):
         """
@@ -492,7 +814,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -603,18 +924,7 @@ class ProxyDBUpgradeTests(TestCase):
 #            }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        # Ensure that repeating the process doesn't change anything
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
+        self.verifyDirectoryComparison(before, after, reverify=True)
 
     def test_calendarsUpgradeWithNoChange(self):
         """
@@ -623,7 +933,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -734,15 +1043,7 @@ class ProxyDBUpgradeTests(TestCase):
 #            }
         }
 
-        root = self.createHierarchy(before)
-
-        config.DocumentRoot = root
-        config.DataRoot = root
-
-        upgradeData(config)
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-
+        self.verifyDirectoryComparison(before, after)
 
 
     def test_calendarsUpgradeWithError(self):
@@ -752,7 +1053,6 @@ class ProxyDBUpgradeTests(TestCase):
         """
 
         self.setUpXMLDirectory()
-        directory = getDirectory()
 
         before = {
             "calendars" :
@@ -1011,7 +1311,7 @@ def isValidCTag(value):
     except zlib.error:
         return False
     try:
-        doc = davxml.WebDAVDocument.fromString(value)
+        davxml.WebDAVDocument.fromString(value)
         return True
     except ValueError:
         return False

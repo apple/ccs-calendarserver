@@ -16,13 +16,17 @@
 # limitations under the License.
 ##
 
-set -e
-set -u
+set -e;
+set -u;
 
-    random="--random=$(date "+%s")";
- no_colour="";
+wd="$(cd "$(dirname "$0")" && pwd -L)";
+
+. support/py.sh;
+
+random="--random=$(date "+%s")";
+no_colour="";
 until_fail="";
-  coverage="";
+coverage="";
 
 usage ()
 {
@@ -56,7 +60,6 @@ while getopts "nhoucr:" option; do
 done;
 shift $((${OPTIND} - 1));
 
-     wd="$(cd "$(dirname "$0")" && pwd -L)";
 twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
 
 export PYTHONPATH="$("${wd}/run" -p)";
@@ -67,4 +70,4 @@ else
     test_modules="calendarserver twistedcaldav twext twisted";
 fi;
 
-cd "${wd}" && "${twisted}/bin/trial" ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
+cd "${wd}" && "${python}" "${twisted}/bin/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
