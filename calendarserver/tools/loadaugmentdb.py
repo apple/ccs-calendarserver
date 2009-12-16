@@ -1,9 +1,6 @@
 #!/usr/bin/env python
-from twistedcaldav.directory import augment
-from twistedcaldav.directory.augment import AugmentXMLDB
-
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +15,6 @@ from twistedcaldav.directory.augment import AugmentXMLDB
 # limitations under the License.
 ##
 
-
 from calendarserver.tools.util import loadConfig, getDirectory,\
     autoDisableMemcached
 from getopt import getopt, GetoptError
@@ -30,6 +26,8 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.log import addObserver, removeObserver
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory import augment
+from twistedcaldav.directory.augment import AugmentXMLDB
 from twistedcaldav.log import setLogLevelForNamespace
 import os
 import sys
