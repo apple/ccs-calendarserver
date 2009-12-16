@@ -60,7 +60,10 @@ class AutoProvisioningResourceMixIn (object):
 
         name = segments[0]
         if name != "":
-            child = self.provisionChild(name)
+            # If getChild() finds a child resource, return it
+            child = self.getChild(name)
+            if child is None:
+                child = self.provisionChild(name)
             if child:
                 returnValue((child, segments[1:],))
         
