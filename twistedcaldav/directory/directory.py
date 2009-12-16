@@ -374,7 +374,7 @@ class DirectoryRecord(LoggingMixIn):
             self.autoSchedule = augment.autoSchedule
 
             if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
-                self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortName,))
+                self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortNames[0],))
                 self.enabledForCalendaring = False
 
         else:
