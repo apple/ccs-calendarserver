@@ -395,7 +395,6 @@ class OpenDirectoryService(CachingDirectoryService):
                         firstName             = recordFirstName,
                         lastName              = recordLastName,
                         emailAddresses        = recordEmailAddresses,
-                        enabledForCalendaring = True,
                         memberGUIDs           = (),
                     )
                     yield record
