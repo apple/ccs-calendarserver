@@ -530,7 +530,7 @@ class iCalDiff(object):
         # Need to special case EXDATEs as an Attendee can effectively DECLINE by adding an EXDATE
         if serverProps[:-1] != clientProps[:-1]:
             invalidChanges = []
-            propNames = ("DTSTART", "DTEND", "RRULE", "RDATE", "EXDATE")
+            propNames = ("DTSTART", "DTEND", "DUE", "RRULE", "RDATE", "EXDATE")
             invalidChanges = [propName for ctr, propName in enumerate(propNames) if serverProps[ctr] != clientProps[ctr]]
             log.debug("Critical properties do not match: %s" % (", ".join(invalidChanges),))
             return False
@@ -548,16 +548,35 @@ class iCalDiff(object):
     def _getNormalizedDateTimeProperties(self, component):
         
         # Basic time properties
-        dtstart = component.getProperty("DTSTART")
-        dtend = component.getProperty("DTEND")
-        duration = component.getProperty("DURATION")
-        
-        newdtstart, newdtend = normalizeStartEndDuration(
-            dtstart.value(),
-            dtend.value() if dtend is not None else None,
-            duration.value() if duration is not None else None,
-        )
-        
+        if component.name() in ("VEVENT", "VJOURNAL",):
+            dtstart = component.getProperty("DTSTART")
+            dtend = component.getProperty("DTEND")
+            duration = component.getProperty("DURATION")
+            
+            newdtstart, newdtend = normalizeStartEndDuration(
+                dtstart.value() if dtstart is not None else None,
+                dtend.value() if dtend is not None else None,
+                duration.value() if duration is not None else None,
+            )
+            newdue = None
+            
+        elif component.name() == "VTODO":
+            dtstart = component.getProperty("DTSTART")
+            duration = component.getProperty("DURATION")
+            
+            if dtstart or duration:
+                newdtstart, newdtend = normalizeStartEndDuration(
+                    dtstart.value() if dtstart is not None else None,
+                    None,
+                    duration.value() if duration is not None else None,
+                )
+            else:
+                newdtstart = newdtend = None
+
+            newdue = component.getProperty("DUE")
+            if newdue is not None:
+                newdue = normalizeToUTC(newdue.value())
+            
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
         rrules = component.properties("RRULE")
@@ -579,7 +598,7 @@ class iCalDiff(object):
         for exdate in exdates:
             newexdates.update([normalizeToUTC(value) for value in exdate.value()])
 
-        return newdtstart, newdtend, newrrules, newrdates, newexdates
+        return newdtstart, newdtend, newdue, newrrules, newrdates, newexdates
 
     def _transferProperty(self, propName, serverComponent, clientComponent):
 

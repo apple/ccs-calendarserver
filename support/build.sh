@@ -496,7 +496,7 @@ dependencies () {
     false true true true 212;
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4853;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4874;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;
 }
 
