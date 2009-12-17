@@ -183,13 +183,13 @@ class DirectoryProvisioningResource (
     def principalForUID(self, uid):
         raise NotImplementedError("Subclass must implement principalForUID()")
 
+    def principalForCalendarUserAddress(self, address):
+        raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
+
     def principalForRecord(self, record):
         if record is None or not record.enabled:
             return None
         return self.principalForUID(record.uid)
-
-    def principalForCalendarUserAddress(self, address):
-        raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
 
     ##
     # DAV-property-to-record-field mapping
@@ -332,6 +332,8 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         log.debug("No principal for calendar user address: %r" % (address,))
         return None
 
+    def principalForRecord(self, record):
+        return self.getChild(uidsResourceName).principalForRecord(record)
 
     ##
     # Static
@@ -382,6 +384,9 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
+
+    def principalForRecord(self, record):
+        return self.parent.principalForRecord(record)
 
     ##
     # Static
@@ -443,6 +448,16 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
 
+    def principalForRecord(self, record):
+        if record is None:
+            return None
+
+        if record.enabledForCalendaring:
+            principal = DirectoryCalendarPrincipalResource(self, record)
+        else:
+            principal = DirectoryPrincipalResource(self, record)
+        return principal
+
     ##
     # Static
     ##
@@ -464,14 +479,10 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         record = self.directory.recordWithUID(primaryUID)
 
-        if record is None or not record.enabled:
+        primaryPrincipal = self.principalForRecord(record) if record.enabled else None
+        if primaryPrincipal is None:
             log.err("No principal found for UID: %s" % (name,))
             return None
-
-        if record.enabledForCalendaring:
-            primaryPrincipal = DirectoryCalendarPrincipalResource(self, record)
-        else:
-            primaryPrincipal = DirectoryPrincipalResource(self, record)
 
         if subType is None:
             return primaryPrincipal

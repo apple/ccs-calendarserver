@@ -52,8 +52,9 @@ def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
     DTSTART and DTEND.
     """
     
-    assert dtend is None or duration is None, "Cannot specify both dtend and duration" 
-    dtstart = normalizeToUTC(dtstart)
+    assert dtend is None or duration is None, "Cannot specify both dtend and duration"
+    if dtstart is not None:
+        dtstart = normalizeToUTC(dtstart)
     if dtend is not None:
         dtend = normalizeToUTC(dtend)
     elif duration:

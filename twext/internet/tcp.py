@@ -41,11 +41,11 @@ class MaxAcceptPortMixin(object):
         self.numberAccepts = min(self.factory.maxRequests - self.factory.outstandingRequests, self.factory.maxAccepts)
         tcp.Port.doRead(self)
 
-class MaxAcceptTCPPort(tcp.Port, MaxAcceptPortMixin):
+class MaxAcceptTCPPort(MaxAcceptPortMixin, tcp.Port):
     """ Use for non-inheriting tcp ports """
     pass
 
-class MaxAcceptSSLPort(ssl.Port, MaxAcceptPortMixin):
+class MaxAcceptSSLPort(MaxAcceptPortMixin, ssl.Port):
     """ Use for non-inheriting SSL ports """
     pass
 

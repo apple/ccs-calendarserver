@@ -491,7 +491,7 @@ class iTipProcessing(object):
     def fixForiCal3(components, recipient, compatibilityMode):
         # For each component where the ATTENDEE property of the recipient has PARTSTAT
         # NEEDS-ACTION we need to add X-APPLE-NEEDS-REPLY:TRUE
-        # We also add TRANSP:TRANSPARENT
+        # We also add TRANSP:TRANSPARENT for VEVENTs
         for component in components:
             if component.name() == "VTIMEZONE":
                 continue
@@ -501,7 +501,8 @@ class iTipProcessing(object):
                 if partstat == "NEEDS-ACTION":
                     if compatibilityMode:
                         component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
-                    component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
+                    if component.name() == "VEVENT":
+                        component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
 
 class iTipGenerator(object):
     
