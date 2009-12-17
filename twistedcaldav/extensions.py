@@ -36,7 +36,7 @@ import time
 
 from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred
-from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.web2 import responsecode
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web2.http import HTTPError, Response, RedirectResponse
@@ -142,7 +142,11 @@ class SudoSACLMixin (object):
             else:
                 factory = request.credentialFactories[authHeader[0]]
 
-                creds = (yield factory.decode(authHeader[1], request))
+                try:
+                    creds = (yield factory.decode(authHeader[1], request))
+                except (UnauthorizedLogin, LoginFailed,):
+                    raise HTTPError((yield UnauthorizedResponse.makeResponse(
+                                request.credentialFactories, request.remoteAddr)))
 
                 # Try to match principals in each principal collection on the resource
                 authnPrincipal, authzPrincipal = (yield self.principalsForAuthID(request, creds))
