@@ -69,7 +69,7 @@ class ScheduleViaISchedule(DeliveryService):
         # Do default match
         return super(ScheduleViaISchedule, cls).matchCalendarUserAddress(cuaddr)
 
-    def generateSchedulingResponses(self):
+    def generateSchedulingResponses(self, refreshOnly=False):
         """
         Generate scheduling responses for remote recipients.
         """
@@ -112,7 +112,7 @@ class ScheduleViaISchedule(DeliveryService):
         # rather than serialize them.
         deferreds = []
         for server, recipients in groups.iteritems():
-            requestor = IScheduleRequest(self.scheduler, server, recipients, self.responses)
+            requestor = IScheduleRequest(self.scheduler, server, recipients, self.responses, refreshOnly)
             deferreds.append(requestor.doRequest())
 
         return DeferredList(deferreds)
@@ -131,12 +131,13 @@ class ScheduleViaISchedule(DeliveryService):
 
 class IScheduleRequest(object):
     
-    def __init__(self, scheduler, server, recipients, responses):
+    def __init__(self, scheduler, server, recipients, responses, refreshOnly=False):
 
         self.scheduler = scheduler
         self.server = server
         self.recipients = recipients
         self.responses = responses
+        self.refreshOnly = refreshOnly
         
         self._generateHeaders()
         self._prepareData()
@@ -179,6 +180,9 @@ class IScheduleRequest(object):
         for recipient in self.recipients:
             self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))
         self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset":"utf-8"}))
+
+        if self.refreshOnly:
+            self.headers.addRawHeader("X-CALENDARSERVER-ITIP-REFRESHONLY", "T")
 
     def _doAuthentication(self):
         if self.server.authentication and self.server.authentication[0] == "basic":

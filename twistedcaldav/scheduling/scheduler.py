@@ -387,6 +387,7 @@ class Scheduler(object):
     
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
+        partitioned_recipients = []
         remote_recipients = []
         imip_recipients = []
         for recipient in self.recipients:
@@ -398,7 +399,7 @@ class Scheduler(object):
                 caldav_recipients.append(recipient)
 
             elif isinstance(recipient, PartitionedCalendarUser):
-                remote_recipients.append(recipient)
+                partitioned_recipients.append(recipient)
 
             elif isinstance(recipient, RemoteCalendarUser):
                 remote_recipients.append(recipient)
@@ -413,6 +414,10 @@ class Scheduler(object):
         # Now process local recipients
         if caldav_recipients:
             yield self.generateLocalSchedulingResponses(caldav_recipients, responses, freebusy)
+
+        # Now process partitioned recipients
+        if partitioned_recipients:
+            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.request, 'suppressRefresh', False))
 
         # To reduce chatter, we suppress certain messages
         if not getattr(self.request, 'suppressRefresh', False):
@@ -437,14 +442,14 @@ class Scheduler(object):
         requestor = ScheduleViaCalDAV(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses()
 
-    def generateRemoteSchedulingResponses(self, recipients, responses, freebusy):
+    def generateRemoteSchedulingResponses(self, recipients, responses, freebusy, refreshOnly=False):
         """
         Generate scheduling responses for remote recipients.
         """
 
         # Create the scheduler and run it.
         requestor = ScheduleViaISchedule(self, recipients, responses, freebusy)
-        return requestor.generateSchedulingResponses()
+        return requestor.generateSchedulingResponses(refreshOnly)
 
     def generateIMIPSchedulingResponses(self, recipients, responses, freebusy):
         """
@@ -680,6 +685,15 @@ class RemoteScheduler(Scheduler):
 
 class IScheduleScheduler(RemoteScheduler):
 
+    def loadFromRequestHeaders(self):
+        """
+        Load Originator and Recipient from request headers.
+        """
+        super(IScheduleScheduler, self).loadFromRequestHeaders()
+        
+        if self.request.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
+            self.request.doing_attendee_refresh = 1
+        
     def checkAuthorization(self):
         # Must have an unauthenticated user
         if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):

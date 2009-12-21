@@ -479,7 +479,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         record = self.directory.recordWithUID(primaryUID)
 
-        primaryPrincipal = self.principalForRecord(record) if record.enabled else None
+        primaryPrincipal = self.principalForRecord(record) if record and record.enabled else None
         if primaryPrincipal is None:
             log.err("No principal found for UID: %s" % (name,))
             return None

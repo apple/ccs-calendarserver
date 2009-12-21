@@ -317,7 +317,7 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()        
 
-        self.attendee = attendee.cuaddr
+        self.originator = self.attendee = attendee.cuaddr
         self.attendeePrincipal = attendee.principal
         
         result = (yield self.scheduleWithOrganizer())
