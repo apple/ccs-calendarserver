@@ -245,6 +245,15 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
 
+        # Look for forwarding
+        if config.Partitioning.Enabled:
+            remote_ip = request.headers.getRawHeaders('x-forwarded-for')
+            if remote_ip and len(remote_ip) == 1:
+                request.forwarded_for = remote_ip[0]
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["xff"] = remote_ip[0]
+
         if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:
                 authnUser, authzUser = (yield self.authenticate(request))

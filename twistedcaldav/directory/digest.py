@@ -163,7 +163,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
         # The database record is a tuple of (client ip, nonce-count, timestamp)
-        yield self.db.set(c, (peer.host, 0, time.time()))
+        yield self.db.set(c, (str(peer.host), 0, time.time()))
 
         challenge = {
             'nonce': c,
@@ -262,7 +262,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
 
         nonce = auth.get('nonce')
-        clientip = request.remoteAddr.host
+        clientip = request.forwarded_for if hasattr(request, "forwarded_for") else str(request.remoteAddr.host)
         nonce_count = auth.get('nc')
 
         # First check we have this nonce

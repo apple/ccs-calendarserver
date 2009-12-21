@@ -24,6 +24,7 @@ from twisted.web2.client.http import ClientRequest
 from twisted.web2.resource import LeafResource
 
 from twistedcaldav.client.pool import getHTTPClientPool
+from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 
 import urllib
@@ -65,4 +66,11 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         self.logger.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
         clientPool = getHTTPClientPool(self.poolID)
         proxyRequest = ClientRequest(request.method, request.uri, request.headers, request.stream)
+        
+        # Need x-forwarded-(for|host) headers. First strip any existing ones out, then add ours
+        proxyRequest.headers.removeHeader("x-forwarded-host")
+        proxyRequest.headers.removeHeader("x-forwarded-for")
+        proxyRequest.headers.addRawHeader("x-forwarded-host", config.ServerHostName)
+        proxyRequest.headers.addRawHeader("x-forwarded-for", request.remoteAddr.host)
+
         return clientPool.submitRequest(proxyRequest)
