@@ -417,7 +417,7 @@ class Scheduler(object):
 
         # Now process partitioned recipients
         if partitioned_recipients:
-            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.request, 'suppressRefresh', False))
+            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.request, 'doing_attendee_refresh', False))
 
         # To reduce chatter, we suppress certain messages
         if not getattr(self.request, 'suppressRefresh', False):

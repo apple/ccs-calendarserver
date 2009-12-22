@@ -32,12 +32,11 @@ from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser
+    LocalCalendarUser, PartitionedCalendarUser
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
-from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 __all__ = [
     "ImplicitScheduler",
@@ -853,6 +852,10 @@ class ImplicitScheduler(object):
         calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.organizerPrincipal, self.uid))
         if calendar_resource:
             self.organizer_calendar = calendar_resource.iCalendar()
+        elif isinstance(self.organizerAddress, PartitionedCalendarUser):
+            # For partitioning where the organizer is on a different node, we will assume that the attendee's copy
+            # of the event is up to date and "authoritative". So we pretend that is the organizer copy
+            self.organizer_calendar = self.oldcalendar
         
     def isAttendeeChangeInsignificant(self):
         """
