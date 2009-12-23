@@ -50,6 +50,7 @@ from twisted.runner import procmon
 from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
+from twisted.web2.resource import RedirectResource
 from twisted.web2.server import Site
 from twisted.web2.static import File as FileResource
 
@@ -80,6 +81,7 @@ from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
+from twistedcaldav.simpleresource import SimpleResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
@@ -639,6 +641,17 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         root.putChild("principals", principalCollection)
         root.putChild("calendars", calendarCollection)
+        
+        if config.EnableWellKnown:
+            self.log_info("Setting up .well-known collection resource")
+
+            wellKnownCollection = SimpleResource(
+                principalCollections=(principalCollection,),
+                isdir=True,
+                defaultACL=SimpleResource.allReadACL
+            )
+            wellKnownCollection.putChild("caldav", RedirectResource(path="/"))
+            root.putChild(".well-known", wellKnownCollection)
 
         for name, info in config.Aliases.iteritems():
             if os.path.sep in name or not info.get("path", None):

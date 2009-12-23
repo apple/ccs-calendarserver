@@ -201,6 +201,13 @@ DEFAULT_CONFIG = {
     "EnableSACLs": False,
 
     #
+    # Standard (or draft) WebDAV extensions
+    #
+    "EnableWellKnown"         : True,  # /.well-known resource
+    "EnableAddMember"         : True,  # POST ;add-member extension
+    "EnableSyncReport"        : True,  # REPORT collection-sync
+
+    #
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"           : False, # Calendar Drop Box
