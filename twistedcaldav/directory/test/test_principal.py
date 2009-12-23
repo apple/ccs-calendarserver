@@ -187,6 +187,19 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.failIf(principal is None)
             self.assertEquals(record, principal.record)
 
+
+    def test_principalForUIDCache(self):
+        """
+        L{DirectoryPrincipalUIDProvisioningResource.principalForUID} should
+        return an identical principal resource when passed the same principal.
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            principal = provisioningResource.principalForRecord(record)
+            principal2 = provisioningResource.principalForRecord(record)
+            self.assertIdentical(principal, principal2,
+                                 ("mismatch from %s" % (provisioningResource,)))
+
+
     def test_principalForRecord(self):
         """
         DirectoryPrincipalProvisioningResource.principalForRecord()
@@ -476,13 +489,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     self.fail("%s should have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
                 d.addErrback(onError)
             else:
-                def onError(f):
+                def expectAccessDenied(f):
                     f.trap(AccessDeniedError)
                 def onSuccess(_):
                     #print resource.readDeadProperty(davxml.ACL)
                     self.fail("%s should not have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
-                d.addCallback(onSuccess)
-                d.addErrback(onError)
+                d.addCallbacks(onSuccess, expectAccessDenied)
             return d
 
         d = request.locateResource(url)
@@ -492,12 +504,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 def _authReadOnlyPrivileges(self, resource, url):
     items = []
     for provisioningResource, recordType, recordResource, record in self._allRecords():
-        if recordResource == resource:
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , True ))
-        else:
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
+        items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
+        items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
     items.append(( davxml.Unauthenticated() , davxml.Read()  , False ))
     items.append(( davxml.Unauthenticated() , davxml.Write() , False ))
             
