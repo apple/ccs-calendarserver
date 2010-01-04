@@ -27,10 +27,12 @@ __all__ = [
     "get",
     "mkcalendar",
     "mkcol",
+    "post",
     "propfind",
     "put",
     "report",
     "report_calquery",
     "report_freebusy",
     "report_multiget",
+    "report_sync_collection",
 ]

@@ -452,7 +452,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
                     
                     # Lets also force an index rebuild for this resource so that next time we have the fbtype set
-                    calresource.index().addResource(name, calendar, reCreate=True)
+                    calresource.index().addResource(name, calendar, None, reCreate=True)
 
                 elif calendar.mainType() == "VFREEBUSY":
                     processFreeBusyFreeBusy(calendar, fbinfo, timerange)

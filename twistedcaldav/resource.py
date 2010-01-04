@@ -31,7 +31,7 @@ import urllib
 
 from zope.interface import implements
 
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.davxml import ErrorResponse, AddMember, SyncCollection
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
@@ -189,6 +189,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
 
     liveProperties = DAVResource.liveProperties + (
         (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
+        (dav_namespace,    "add-member"),
         (caldav_namespace, "supported-calendar-component-set"),
         (caldav_namespace, "supported-calendar-data"         ),
     )
@@ -226,6 +227,10 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             if name == "owner":
                 owner = (yield self.owner(request))
                 returnValue(davxml.Owner(owner))
+
+            elif name == "add-member" and config.EnableAddMember and self.isCalendarCollection():
+                url = (yield self.canonicalURL(request))
+                returnValue(AddMember(davxml.HRef(url + "/;add-member")))
 
         elif namespace == caldav_namespace:
             if name == "supported-calendar-component-set":
@@ -690,9 +695,12 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         result = super(CalDAVResource, self).supportedReports()
         result.append(davxml.Report(caldavxml.CalendarQuery(),))
         result.append(davxml.Report(caldavxml.CalendarMultiGet(),))
-        if (self.isCollection()):
+        if self.isCollection():
             # Only allowed on collections
             result.append(davxml.Report(caldavxml.FreeBusyQuery(),))
+        if self.isPseudoCalendarCollection() and config.EnableSyncReport:
+            # Only allowed on calendar/inbox collections
+            result.append(davxml.Report(SyncCollection(),))
         return result
 
     def writeNewACEs(self, newaces):

@@ -21,12 +21,16 @@ Extensions to twisted.web2.dav.davxml
 __all__ = [
     "sname2qname",
     "qname2sname",
+    "ErrorDescription",
     "ErrorResponse",
+    "AddMember",
+    "SyncCollection",
+    "SyncToken",
 ]
 
 from twisted.web2.http import Response
 from twisted.web2.dav.http import ErrorResponse as SuperErrorResponse
-from twisted.web2.dav.davxml import twisted_dav_namespace, WebDAVTextElement
+from twisted.web2.dav.davxml import dav_namespace, twisted_dav_namespace, WebDAVElement, WebDAVTextElement
 from twisted.web2.dav.davxml import WebDAVUnknownElement, Error
 from twisted.web2.http_headers import MimeType
 
@@ -88,6 +92,7 @@ class ErrorResponse(SuperErrorResponse):
     Renders itself as a DAV:error XML document.
     """
     error = None
+    unregistered = True     # base class is already registered
 
     def __init__(self, code, error, description=None):
         """
@@ -119,4 +124,59 @@ class ErrorResponse(SuperErrorResponse):
 
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
+
+class AddMember (WebDAVElement):
+    """
+    A property on a collection to allow for "anonymous" creation of resources.
+    (draft-reschke-webdav-post)
+    """
+    name = "add-member"
+    hidden = True
+    protected = True
+
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
+
+class SyncCollection (WebDAVElement):
+    """
+    DAV report used to retrieve specific calendar component items via their
+    URIs.
+    (CalDAV-access-09, section 9.9)
+    """
+    name = "sync-collection"
+
+    # To allow for an empty element in a supported-report-set property we need
+    # to relax the child restrictions
+    allowed_children = {
+        (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
+        (dav_namespace, "prop"    ):   (0, 1),
+    }
+
+    def __init__(self, *children, **attributes):
+        super(SyncCollection, self).__init__(*children, **attributes)
+
+        self.property = None
+        self.sync_token = None
+
+        for child in self.children:
+            qname = child.qname()
+
+            if qname == (dav_namespace, "sync-token"):
+                
+                self.sync_token = str(child)
+
+            elif qname in (
+                (dav_namespace, "prop"    ),
+            ):
+                if property is not None:
+                    raise ValueError("Only one of DAV:prop allowed")
+                self.property = child
+
+class SyncToken (WebDAVTextElement):
+    """
+    Synchronization token used in report and as a property.
+    """
+    name = "sync-token"
+    hidden = True
+    protected = True
+
 

@@ -15,5 +15,14 @@
 ##
 
 """
-Extentions to twisted.web2.dav
+Extensions to twisted.web2.dav
 """
+
+#
+# Register additional WebDAV XML elements
+#
+
+from twext.web2.dav import davxml
+import twisted.web2.dav.davxml
+
+twisted.web2.dav.davxml.registerElements(davxml)

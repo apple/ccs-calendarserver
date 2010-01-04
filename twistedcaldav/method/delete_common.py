@@ -105,11 +105,9 @@ class DeleteResource(object):
 
         if response == responsecode.NO_CONTENT:
             if isPseudoCalendarCollectionResource(parent):
+                newrevision = (yield parent.bumpSyncToken())
                 index = parent.index()
-                index.deleteResource(delresource.fp.basename())
-
-                # Change CTag on the parent calendar collection
-                yield parent.updateCTag()
+                index.deleteResource(delresource.fp.basename(), newrevision)
                 
         returnValue(response)
 
@@ -161,11 +159,9 @@ class DeleteResource(object):
                 yield delresource.quotaSizeAdjust(self.request, -old_size)
     
             if response == responsecode.NO_CONTENT:
+                newrevision = (yield parent.bumpSyncToken())
                 index = parent.index()
-                index.deleteResource(delresource.fp.basename())
-    
-                # Change CTag on the parent calendar collection
-                yield parent.updateCTag()
+                index.deleteResource(delresource.fp.basename(), newrevision)
     
                 # Do scheduling
                 if scheduler and not self.internal_request:
@@ -217,7 +213,7 @@ class DeleteResource(object):
 
         # Now do normal delete
         # Change CTag
-        yield delresource.updateCTag()
+        yield delresource.bumpSyncToken()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
         
         if isinstance(more_responses, MultiStatusResponse):
