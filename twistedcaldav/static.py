@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import datetime
 import os
 import errno
 from urlparse import urlsplit
+from uuid import uuid4
 
 from twext.web2.dav.davxml import ErrorResponse
 
@@ -47,6 +48,7 @@ from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode, http, http_headers
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.dav import davxml
+from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.fileop import mkcollection, rmdir
 from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.noneprops import NonePropertyStore
@@ -60,11 +62,12 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
-from twistedcaldav.index import Index, IndexSchedule
+from twistedcaldav.index import Index, IndexSchedule, SyncTokenValidException
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
@@ -208,7 +211,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise HTTPError(status)
 
             # Initialize CTag on the calendar collection
-            d1 = self.updateCTag()
+            d1 = self.bumpSyncToken()
 
             # Calendar is initially transparent to freebusy
             self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
@@ -373,6 +376,94 @@ class CalDAVFile (CalDAVResource, DAVFile):
         """
         return Index(self)
 
+    def whatchanged(self, client_token):
+        
+        current_token = str(self.readDeadProperty(customxml.GETCTag))
+        current_uuid, current_revision = current_token.split("#", 1)
+        current_revision = int(current_revision)
+
+        if client_token:
+            try:
+                caluuid, revision = client_token.split("#", 1)
+                revision = int(revision)
+                
+                # Check client token validity
+                if caluuid != current_uuid:
+                    raise ValueError
+                if revision > current_revision:
+                    raise ValueError
+            except ValueError:
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
+        else:
+            revision = 0
+
+        try:
+            changed, removed = self.index().whatchanged(revision)
+        except SyncTokenValidException:
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
+
+        return changed, removed, current_token
+
+    @inlineCallbacks
+    def bumpSyncToken(self, reset=False):
+        """
+        Increment the sync-token which is also the ctag.
+        
+        return: a deferred that returns the new revision number
+        """
+        assert self.isCollection()
+        
+        # Need to lock
+        lock = MemcacheLock("ResourceLock", self.fp.path, timeout=60.0)
+        try:
+            try:
+                yield lock.acquire()
+            except MemcacheLockTimeoutError:
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
+
+            try:
+                if reset:
+                    raise ValueError
+                token = str(self.readDeadProperty(customxml.GETCTag))
+                caluuid, revision = token.split("#", 1)
+                revision = int(revision) + 1
+                token = "%s#%d" % (caluuid, revision,)
+    
+            except (HTTPError, ValueError):
+                # Initialise it
+                caluuid = uuid4()
+                revision = 1
+                token = "%s#%d" % (caluuid, revision,)
+    
+            yield self.updateCTag(token)
+            returnValue(revision)
+        finally:
+            yield lock.clean()
+
+    def updateCTag(self, token=None):
+        assert self.isCollection()
+        
+        if not token:
+            token = str(datetime.datetime.now())
+        try:
+            self.writeDeadProperty(customxml.GETCTag(token))
+        except:
+            return fail(Failure())
+
+        if hasattr(self, 'clientNotifier'):
+            self.clientNotifier.notify(op="update")
+        else:
+            log.debug("%r does not have a clientNotifier but the CTag changed"
+                      % (self,))
+
+        if hasattr(self, 'cacheNotifier'):
+            return self.cacheNotifier.changed()
+        else:
+            log.debug("%r does not have a cacheNotifier but the CTag changed"
+                      % (self,))
+
+        return succeed(True)
+
     ##
     # File
     ##
@@ -438,28 +529,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 setattr(similar, method, override)
 
         return similar
-
-    def updateCTag(self):
-        assert self.isCollection()
-        try:
-            self.writeDeadProperty(customxml.GETCTag(
-                    str(datetime.datetime.now())))
-        except:
-            return fail(Failure())
-
-        if hasattr(self, 'clientNotifier'):
-            self.clientNotifier.notify(op="update")
-        else:
-            log.debug("%r does not have a clientNotifier but the CTag changed"
-                      % (self,))
-
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            log.debug("%r does not have a cacheNotifier but the CTag changed"
-                      % (self,))
-
-        return succeed(True)
 
     ##
     # Quota
@@ -883,7 +952,7 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
         if self.provisionFile():
 
             # Initialize CTag on the calendar collection
-            self.updateCTag()
+            self.bumpSyncToken()
 
             # Initialize the index
             self.index().create()
@@ -910,10 +979,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
         ScheduleOutboxResource.__init__(self, parent)
 
     def provision(self):
-        if self.provisionFile():
-            # Initialize CTag on the calendar collection
-            self.updateCTag()
-
+        self.provisionFile()
         return super(ScheduleOutboxFile, self).provision()
 
     def __repr__(self):

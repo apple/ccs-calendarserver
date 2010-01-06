@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from twisted.internet.task import deferLater
 from twistedcaldav.ical import Component
 from twistedcaldav.index import Index, default_future_expansion_duration,\
     maximum_future_expansion_duration, IndexedSearchException,\
-    AbstractCalendarIndex
+    AbstractCalendarIndex, icalfbtype_to_indexfbtype
 from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
@@ -230,17 +230,19 @@ END:VCALENDAR
             ),
         )
 
+        revision = 0
         for description, name, calendar_txt, reCreate, ok in data:
+            revision += 1
             calendar = Component.fromString(calendar_txt)
             if ok:
                 f = open(os.path.join(self.site.resource.fp.path, name), "w")
                 f.write(calendar_txt)
                 del f
 
-                self.db.addResource(name, calendar, reCreate=reCreate)
+                self.db.addResource(name, calendar, revision, reCreate=reCreate)
                 self.assertTrue(self.db.resourceExists(name), msg=description)
             else:
-                self.assertRaises(InvalidOverriddenInstanceError, self.db.addResource, name, calendar)
+                self.assertRaises(InvalidOverriddenInstanceError, self.db.addResource, name, calendar, revision)
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
         self.db._db_recreate()
@@ -402,14 +404,16 @@ END:VCALENDAR
             ),
         )
 
+        revision = 0
         for description, name, calendar_txt, trstart, trend, organizer, instances in data:
+            revision += 1
             calendar = Component.fromString(calendar_txt)
 
             f = open(os.path.join(self.site.resource.fp.path, name), "w")
             f.write(calendar_txt)
             del f
 
-            self.db.addResource(name, calendar)
+            self.db.addResource(name, calendar, revision)
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
@@ -433,6 +437,69 @@ END:VCALENDAR
                 index_results.add((float, start, end, fbtype,))
 
             self.assertEqual(set(instances), index_results, msg=description)
+
+    def test_index_revisions(self):
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+"""
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.3
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar = Component.fromString(data1)
+        self.db.addResource("data1.ics", calendar, 1)
+        calendar = Component.fromString(data2)
+        self.db.addResource("data2.ics", calendar, 2)
+        calendar = Component.fromString(data3)
+        self.db.addResource("data3.ics", calendar, 3)
+        self.db.deleteResource("data3.ics", 4)
+
+        tests = (
+            (0, (["data1.ics", "data2.ics",], [],)),
+            (1, (["data2.ics",], [],)),
+            (2, ([], [],)),
+            (3, ([], ["data3.ics",],)),
+            (4, ([], [],)),
+            (5, ([], [],)),
+        )
+        
+        for revision, results in tests:
+            self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
 
 class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
     """
@@ -556,7 +623,7 @@ class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
             except InvalidOverriddenInstanceError:
                 raise
     
-            self._delete_from_db(name, uid)
+            self._delete_from_db(name, uid, None)
     
             for key in instances:
                 instance = instances[key]
@@ -675,6 +742,77 @@ class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
                     """
                 )
 
+        def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
+            """
+            Records the given calendar resource in the index with the given name.
+            Resource names and UIDs must both be unique; only one resource name may
+            be associated with any given UID and vice versa.
+            NB This method does not commit the changes to the db - the caller
+            MUST take care of that
+            @param name: the name of the resource to add.
+            @param calendar: a L{Calendar} object representing the resource
+                contents.
+            """
+            uid = calendar.resourceUID()
+            organizer = calendar.getOrganizer()
+            if not organizer:
+                organizer = ""
+    
+            # Decide how far to expand based on the component
+            master = calendar.masterComponent()
+            if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
+                # When there is no master we have a set of overridden components - index them all.
+                # When there is one instance - index it.
+                # When bounded - index all.
+                expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            else:
+                if expand_until:
+                    expand = expand_until
+                else:
+                    expand = datetime.date.today() + default_future_expansion_duration
+        
+                if expand > (datetime.date.today() + maximum_future_expansion_duration):
+                    raise IndexedSearchException
+    
+            try:
+                instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+            except InvalidOverriddenInstanceError, e:
+                raise
+    
+            self._delete_from_db(name, uid, None)
+    
+            for key in instances:
+                instance = instances[key]
+                start = instance.start.replace(tzinfo=utc)
+                end = instance.end.replace(tzinfo=utc)
+                float = 'Y' if instance.start.tzinfo is None else 'N'
+                self._db_execute(
+                    """
+                    insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                    values (:1, :2, :3, :4, :5)
+                    """, name, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
+                )
+    
+            # Special - for unbounded recurrence we insert a value for "infinity"
+            # that will allow an open-ended time-range to always match it.
+            if calendar.isRecurringUnbounded():
+                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+                float = 'N'
+                self._db_execute(
+                    """
+                    insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                    values (:1, :2, :3, :4, :5)
+                    """, name, float, start, end, '?'
+                )
+                 
+            self._db_execute(
+                """
+                insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
+                values (:1, :2, :3, :4, :5)
+                """, name, uid, calendar.resourceType(), instances.limit, organizer
+            )
+
     def setUp(self):
         super(SQLIndexUpgradeTests, self).setUp()
         self.site.resource.isCalendarCollection = lambda: True
@@ -749,7 +887,7 @@ END:VEVENT
 END:VCALENDAR
 """
     
-            olddb.addResource(calendar_name, Component.fromString(calendar_data))
+            olddb.addResource(calendar_name, Component.fromString(calendar_data), 1)
             self.assertTrue(olddb.resourceExists(calendar_name))
     
             if olddb._db_version() == "6":
@@ -772,7 +910,7 @@ END:VCALENDAR
             else:
                 self.assertEqual(value, "B")
     
-            self.db.addResource(calendar_name, Component.fromString(calendar_data))
+            self.db.addResource(calendar_name, Component.fromString(calendar_data), 2)
             self.assertTrue(olddb.resourceExists(calendar_name))
     
             value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -199,6 +199,11 @@ DEFAULT_CONFIG = {
     # Service ACLs
     #
     "EnableSACLs": False,
+
+    #
+    # Standard (or draft) WebDAV extensions
+    #
+    "EnableSyncReport"        : True,  # REPORT collection-sync
 
     #
     # Non-standard CalDAV extensions

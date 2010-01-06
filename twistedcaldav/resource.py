@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import urllib
 
 from zope.interface import implements
 
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.davxml import ErrorResponse, SyncCollection
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
@@ -690,9 +690,12 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         result = super(CalDAVResource, self).supportedReports()
         result.append(davxml.Report(caldavxml.CalendarQuery(),))
         result.append(davxml.Report(caldavxml.CalendarMultiGet(),))
-        if (self.isCollection()):
+        if self.isCollection():
             # Only allowed on collections
             result.append(davxml.Report(caldavxml.FreeBusyQuery(),))
+        if self.isPseudoCalendarCollection() and config.EnableSyncReport:
+            # Only allowed on calendar/inbox collections
+            result.append(davxml.Report(SyncCollection(),))
         return result
 
     def writeNewACEs(self, newaces):

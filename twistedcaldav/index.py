@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ from twistedcaldav.memcachepool import CachePoolUserMixIn
 log = Logger()
 
 db_basename = db_prefix + "sqlite"
-schema_version = "8"
+schema_version = "9"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 icalfbtype_to_indexfbtype = {
@@ -99,6 +99,9 @@ class ReservationError(LookupError):
     """
 
 class IndexedSearchException(ValueError):
+    pass
+
+class SyncTokenValidException(ValueError):
     pass
 
 class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
@@ -180,7 +183,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             if name is not None and self.resource.getChild(name_utf8) is None:
                 # Clean up
                 log.err("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
-                self._delete_from_db(name, uid)
+                self._delete_from_db(name, uid, None)
                 self._db_commit()
             else:
                 resources.append(name)
@@ -212,7 +215,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         return uid
 
-    def addResource(self, name, calendar, fast=False, reCreate=False):
+    def addResource(self, name, calendar, revision, fast=False, reCreate=False):
         """
         Adding or updating an existing resource.
         To check for an update we attempt to get an existing UID
@@ -225,12 +228,12 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         oldUID = self.resourceUIDForName(name)
         if oldUID is not None:
-            self._delete_from_db(name, oldUID)
-        self._add_to_db(name, calendar, reCreate=reCreate)
+            self._delete_from_db(name, oldUID, None)
+        self._add_to_db(name, calendar, revision, reCreate=reCreate)
         if not fast:
             self._db_commit()
 
-    def deleteResource(self, name):
+    def deleteResource(self, name, revision):
         """
         Remove this resource from the index.
         @param name: the name of the resource to add.
@@ -238,7 +241,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         uid = self.resourceUIDForName(name)
         if uid is not None:
-            self._delete_from_db(name, uid)
+            self._delete_from_db(name, uid, revision)
             self._db_commit()
 
     def resourceExists(self, name):
@@ -273,6 +276,26 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         for name in names:
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
+
+    def whatchanged(self, revision):
+
+        results = [(name.encode("utf-8"), created, wasdeleted) for name, created, wasdeleted in self._db_execute("select NAME, CREATEDREVISION, WASDELETED from REVISIONS where REVISION > :1", revision)]
+        results.sort(key=lambda x:x[1])
+        
+        changed = []
+        deleted = []
+        for name, created, wasdeleted in results:
+            if name:
+                if wasdeleted == 'Y':
+                    # Don't report items that were created/deleted since the requested revision
+                    if created <= revision:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+            else:
+                raise SyncTokenValidException
+        
+        return changed, deleted,
 
     def indexedSearch(self, filter, fbtype=False):
         """
@@ -357,7 +380,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         return schema_version
 
-    def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
+    def _add_to_db(self, name, calendar, revision, cursor=None, expand_until=None, reCreate=False):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -370,7 +393,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         """
         raise NotImplementedError
 
-    def _delete_from_db(self, name, uid):
+    def _delete_from_db(self, name, uid, revision):
         """
         Deletes the specified entry from all dbs.
         @param name: the name of the resource to delete.
@@ -445,6 +468,28 @@ class CalendarIndex (AbstractCalendarIndex):
             """
         )
 
+        #
+        # REVISIONS table tracks changes
+        #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
+        #   REVISION: revision number
+        #   WASDELETED: Y if revision deleted, N if added or changed
+        #
+        q.execute(
+            """
+            create table REVISIONS (
+                NAME            text unique,
+                REVISION        integer,
+                CREATEDREVISION integer,
+                WASDELETED      text(1)
+            )
+            """
+        )
+        q.execute(
+            """
+            create index REVISION on REVISIONS (REVISION)
+            """
+        )
+
         if uidunique:
             #
             # RESERVED table tracks reserved UIDs
@@ -473,14 +518,28 @@ class CalendarIndex (AbstractCalendarIndex):
         Upgrade the data from an older version of the DB.
         """
 
-        # When going to version 8 all we need to do is add an index
-        if old_version < "8":
-            q.execute("create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)")
-
-        # When going to version 7,8 all we need to do is add a column to the resource and timespan
+        # When going to version 7+ all we need to do is add a column to the resource and timespan
         if old_version < "7":
             q.execute("alter table RESOURCE add column ORGANIZER text default '?'")
             q.execute("alter table TIMESPAN add column FBTYPE text(1) default '?'")
+
+        # When going to version 8+ all we need to do is add an index
+        if old_version < "8":
+            q.execute("create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)")
+
+        # When going to version 9+ all we need to do is add revision table and index
+        if old_version < "9":
+            q.execute(
+                """
+                create table REVISIONS (
+                    NAME            text unique,
+                    REVISION        integer,
+                    CREATEDREVISION integer,
+                    WASDELETED      text(1)
+                )
+                """
+            )
+            q.execute("create index REVISION on REVISIONS (REVISION)")
 
     def notExpandedBeyond(self, minDate):
         """
@@ -495,10 +554,10 @@ class CalendarIndex (AbstractCalendarIndex):
         with a longer expansion.
         """
         calendar = self.resource.getChild(name).iCalendar()
-        self._add_to_db(name, calendar, expand_until=expand_until, reCreate=True)
+        self._add_to_db(name, calendar, None, expand_until=expand_until, reCreate=True)
         self._db_commit()
 
-    def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
+    def _add_to_db(self, name, calendar, revision, cursor = None, expand_until=None, reCreate=False):
         """
         Records the given calendar resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -536,7 +595,7 @@ class CalendarIndex (AbstractCalendarIndex):
             log.err("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
             raise
 
-        self._delete_from_db(name, uid)
+        self._delete_from_db(name, uid, None)
 
         for key in instances:
             instance = instances[key]
@@ -562,7 +621,7 @@ class CalendarIndex (AbstractCalendarIndex):
                 values (:1, :2, :3, :4, :5)
                 """, name, float, start, end, '?'
             )
-             
+            
         self._db_execute(
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
@@ -570,7 +629,18 @@ class CalendarIndex (AbstractCalendarIndex):
             """, name, uid, calendar.resourceType(), instances.limit, organizer
         )
 
-    def _delete_from_db(self, name, uid):
+        if revision is not None:
+            created = self._db_value_for_sql("select CREATEDREVISION from REVISIONS where NAME = :1", name)
+            if created is None:
+                created = revision
+            self._db_execute(
+                """
+                insert or replace into REVISIONS (NAME, REVISION, CREATEDREVISION, WASDELETED)
+                values (:1, :2, :3, :4)
+                """, name, revision, revision, 'N',
+            )
+
+    def _delete_from_db(self, name, uid, revision):
         """
         Deletes the specified entry from all dbs.
         @param name: the name of the resource to delete.
@@ -578,6 +648,13 @@ class CalendarIndex (AbstractCalendarIndex):
         """
         self._db_execute("delete from TIMESPAN where NAME = :1", name)
         self._db_execute("delete from RESOURCE where NAME = :1", name)
+        if revision is not None:
+            self._db_execute(
+                """
+                update REVISIONS SET REVISION = :1, WASDELETED = :2
+                where NAME = :3
+                """, revision, 'Y', name
+            )
 
 
 def wrapInDeferred(f):
@@ -832,13 +909,16 @@ class Index (CalendarIndex):
                 log.err("Non-calendar resource: %s" % (name,))
             else:
                 #log.msg("Indexing resource: %s" % (name,))
-                self.addResource(name, calendar, True, reCreate=True)
+                self.addResource(name, calendar, 0, True, reCreate=True)
             finally:
                 stream.close()
 
         # Do commit outside of the loop for better performance
         if do_commit:
             self._db_commit()
+            
+        # This is a deferred but we can't defer at this point...
+        self.resource.bumpSyncToken(True)
 
 class IndexSchedule (CalendarIndex):
     """
@@ -944,10 +1024,13 @@ class IndexSchedule (CalendarIndex):
                 log.err("Non-calendar resource: %s" % (name,))
             else:
                 #log.msg("Indexing resource: %s" % (name,))
-                self.addResource(name, calendar, True, reCreate=True)
+                self.addResource(name, calendar, 0, True, reCreate=True)
             finally:
                 stream.close()
 
         # Do commit outside of the loop for better performance
         if do_commit:
             self._db_commit()
+            
+        # This is a deferred but we can't defer at this point...
+        self.resource.bumpSyncToken(True)

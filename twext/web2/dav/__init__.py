@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,5 +15,14 @@
 ##
 
 """
-Extentions to twisted.web2.dav
+Extensions to twisted.web2.dav
 """
+
+#
+# Register additional WebDAV XML elements
+#
+
+from twext.web2.dav import davxml
+import twisted.web2.dav.davxml
+
+twisted.web2.dav.davxml.registerElements(davxml)
