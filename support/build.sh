@@ -415,7 +415,7 @@ c_dependency () {
 # or, it may do as much as download and install all dependencies.
 dependencies () {
 
-  if ! type memcached >& /dev/null; then
+  if ! type memcached > /dev/null 2>&1; then
     # Dependencies compiled from C source code
     local le="libevent-1.4.8-stable";
     c_dependency "libevent" "${le}" \
@@ -435,7 +435,7 @@ dependencies () {
   py_dependency "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
     "www" "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz" \
     false false false false 0;
-  if type krb5-config > /dev/null; then
+  if type krb5-config > /dev/null 2>&1; then
     py_dependency "PyKerberos" "kerberos" "PyKerberos" \
       "svn" "${svn_uri_base}/PyKerberos/trunk" \
       false false false false 4241;

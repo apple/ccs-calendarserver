@@ -254,13 +254,9 @@ class CachingDirectoryService(DirectoryService):
         else:
             # Only use recordTypes this service supports:
             supportedRecordTypes = self.recordTypes()
-            typesToQuery = []
-            for recordType in recordTypes:
-                if recordType in supportedRecordTypes:
-                    typesToQuery.append(recordType)
-            if not typesToQuery:
+            recordTypes = [t for t in recordTypes if t in supportedRecordTypes]
+            if not recordTypes:
                 return None
-            recordTypes = typesToQuery
 
         def lookup():
             for recordType in recordTypes:
