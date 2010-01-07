@@ -760,13 +760,19 @@ class ImplicitScheduler(object):
         if not self.internal_request:
             yield self.doAccessControl(self.attendeePrincipal, False)
 
+        # Check SCHEDULE-AGENT
+        doScheduling = self.checkOrganizerScheduleAgent()
+
         if self.action == "remove":
             if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
                 log.debug("Implicit - attendee '%s' is removing cancelled UID: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do
-            else:
+            elif doScheduling:
                 log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
                 yield self.scheduleCancelWithOrganizer()
+            else:
+                log.debug("Implicit - attendee '%s' is removing UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                # Nothing else to do
         
         else:
             # Make sure ORGANIZER is not changed
@@ -833,8 +839,29 @@ class ImplicitScheduler(object):
                 log.debug("Attendee '%s' is allowed to update UID: '%s' with remote organizer '%s'" % (self.attendee, self.uid, self.organizer))
                 changedRids = None
 
-            log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
-            yield self.scheduleWithOrganizer(changedRids)
+            if doScheduling:
+                log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
+                yield self.scheduleWithOrganizer(changedRids)
+            else:
+                log.debug("Implicit - attendee '%s' is updating UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                # Nothing else to do
+
+    def checkOrganizerScheduleAgent(self):
+
+        is_server = self.calendar.getOrganizerScheduleAgent()
+        local_organizer = isinstance(self.organizerAddress, LocalCalendarUser)
+
+        if local_organizer and not is_server:
+            log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+        elif not local_organizer and is_server:
+            # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
+            log.debug("Attendee '%s' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+            self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
+            self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
+            is_server = False
+            
+        return is_server
 
     @inlineCallbacks
     def getOrganizersCopy(self):

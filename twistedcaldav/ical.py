@@ -1511,6 +1511,18 @@ class Component (object):
 
         return None
 
+    def getOrganizerScheduleAgent(self):
+
+        is_server = False
+        organizerProp = self.getOrganizerProperty()
+        if "SCHEDULE-AGENT" in organizerProp.params():
+            if organizerProp.paramValue("SCHEDULE-AGENT") == "SERVER":
+                is_server = True
+        else:
+            is_server = True
+
+        return is_server
+
     def getAttendees(self):
         """
         Get the attendee value. Works on either a VCALENDAR or on a component.
