@@ -493,7 +493,7 @@ dependencies () {
   # XXX actually vObject should be imported in-place.
   py_dependency "vObject" "vobject" "vobject" \
     "svn" "${base}/vobject/trunk" \
-    false true true true 212;
+    false true true true 219;
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4912;
