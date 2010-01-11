@@ -23,6 +23,7 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav import memcacher
 from twistedcaldav.config import config
 from twistedcaldav.static import CalDAVFile
 import memcacheclient
@@ -44,6 +45,7 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
         config.Memcached.ClientEnabled = False
         config.Memcached.ServerEnabled = False
         memcacheclient.ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
 
     def createHierarchy(self, structure, root=None):
         if root is None:

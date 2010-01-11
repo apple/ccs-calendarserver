@@ -33,6 +33,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
     # Translation table: all ctrls (0x00 - 0x1F) and space and 0x7F mapped to _
     keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_"*33 + "_")
 
+    allowTestCache = False
+
     class memoryCacher():
         """
         A class implementing the memcache client API we care about but
@@ -117,7 +119,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if config.Memcached['ClientEnabled']:
             self._memcacheProtocol = self.getCachePool()
 
-        elif config.ProcessType == "Single" or self._noInvalidation:
+        elif config.ProcessType == "Single" or self._noInvalidation or self.allowTestCache:
             # NB no need to pickle the memory cacher as it handles python types natively
             self._memcacheProtocol = Memcacher.memoryCacher()
             self._pickle = False
