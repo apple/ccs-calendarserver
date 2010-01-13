@@ -61,6 +61,14 @@ class ICalendar(Interface):
     """
     Calendar
     """
+    def ownerCalendarHome(self):
+        """
+        Retrieve the calendar home for the owner of this calendar.
+        Calendars may be shared from one (the owner's) calendar home
+        to other (the sharee's) calendar homes.
+        @return: an L{ICalendarHome}.
+        """
+
     def calendarObjects(self):
         """
         Retrieve the calendar objects contained in this calendar.
@@ -89,6 +97,14 @@ class ICalendar(Interface):
         @return: a string containing a sync token.
         """
 
+#    def calendarObjectsInTimeRange(self, start, end, timeZone):
+#        """
+#        Retrieve all calendar objects in this calendar which have
+#        instances that occur within the time range that begins at
+#        C{start} and ends at C{end}.
+#        @return: an iterable of L{ICalendarObject}s.
+#        """
+
     def calendarObjectsSinceToken(self, token):
         """
         Retrieve all calendar objects in this calendar that have
@@ -113,6 +129,26 @@ class ICalendarObject(Interface):
         Retrieve the iCalendar text data for this calendar object.
         @return: a string containing iCalendar data for a single
         calendar object.
+        """
+
+    def uid(self):
+        """
+        Retrieve the UID for this calendar object.
+        @return: a string containing a UID.
+        """
+
+    def componentType(self):
+        """
+        Retrieve the iCalendar component type for the main component
+        in this calendar object.
+        @return: a string containing the component type.
+        """
+
+    def organizer(self):
+        # FIXME: Ideally should return a URI object
+        """
+        Retrieve the organizer for this calendar object.
+        @return: a calendar user address.
         """
 
     def properties(self):

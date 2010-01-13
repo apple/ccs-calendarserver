@@ -113,6 +113,12 @@ class IContactCard(Interface):
         contact.
         """
 
+    def uid(self):
+        """
+        Retrieve the UID for this contact card.
+        @return: a string containing a UID.
+        """
+
     def properties(self):
         """
         Retrieve the property store for this contact card.
