@@ -117,6 +117,7 @@ class TwistdSlaveProcess(object):
              '-o', 'PIDFile=None',
              '-o', 'ErrorLogFile=None',
              '-o', 'LogID=%s' % (self.id,),
+             '-o', 'InspectionPort=%s' % (config.BaseInspectionPort + self.id,),
              '-o', 'MultiProcess/ProcessCount=%d' % (
                     config.MultiProcess['ProcessCount'],)])
 

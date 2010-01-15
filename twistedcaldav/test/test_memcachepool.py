@@ -176,12 +176,6 @@ class MemCacheClientFactoryTests(TestCase):
                           [('gone', self.protocol)])
 
 
-    def tearDown(self):
-        """
-        Make sure the L{MemCacheClientFactory} isn't trying to reconnect
-        anymore.
-        """
-        self.factory.stopTrying()
 
 
 

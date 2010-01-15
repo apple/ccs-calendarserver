@@ -64,6 +64,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
+
+            channel = request.chanRequest.channel
+            if channel._inspection:
+                channel._inspection.add("access_log")
     
             # Try to determine authentication and authorization identifiers
             uid = "-"

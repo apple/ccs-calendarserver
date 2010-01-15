@@ -19,6 +19,8 @@ from random import randint
 from twisted.internet import protocol
 from twisted.python import log
 from twisted.web2.channel.http import HTTPFactory, HTTPChannel
+from twisted.web2.server import Request, Site
+from twistedcaldav.inspection import Inspector
 
 from twistedcaldav.config import config
 
@@ -72,29 +74,90 @@ class HTTP503LoggingFactory(HTTPFactory):
 class LimitingHTTPChannel(HTTPChannel):
 
     def connectionMade(self):
-        HTTPChannel.connectionMade(self)
+        if self._inspection:
+            self._inspection.add("conn_made")
+
+        retVal = HTTPChannel.connectionMade(self)
         if self.factory.outstandingRequests >= self.factory.maxRequests:
             # log.msg("Overloaded")
             self.factory.myServer.myPort.stopReading()
+        return retVal
 
     def connectionLost(self, reason):
-        HTTPChannel.connectionLost(self, reason)
+        if self._inspection:
+            self._inspection.add("conn_lost")
+            self._inspection.complete()
+
+        retVal = HTTPChannel.connectionLost(self, reason)
         if self.factory.outstandingRequests < self.factory.resumeRequests:
             # log.msg("Resuming")
             self.factory.myServer.myPort.startReading()
+        return retVal
+
+    _firstChunkReceived = False
+
+    def dataReceived(self, data):
+        if not self._firstChunkReceived:
+            self._firstChunkReceived = True
+            if self._inspection:
+                self._inspection.add("first_byte")
+
+        return HTTPChannel.dataReceived(self, data)
+
+    def requestReadFinished(self, request):
+        if self._inspection:
+            self._inspection.add("body_received")
+
+        return HTTPChannel.requestReadFinished(self, request)
+
+    def requestWriteFinished(self, request):
+        if self._inspection:
+            self._inspection.add("resp_finish")
+
+        return HTTPChannel.requestWriteFinished(self, request)
+
 
 class LimitingHTTPFactory(HTTPFactory):
     protocol = LimitingHTTPChannel
+
 
     def __init__(self, requestFactory, maxRequests=600, maxAccepts=100, resumeRequests=550,
         **kwargs):
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
         self.maxAccepts = maxAccepts
         self.resumeRequests = resumeRequests
+        self.channelCounter = 0
 
     def buildProtocol(self, addr):
 
         p = protocol.ServerFactory.buildProtocol(self, addr)
         for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
+        self.channelCounter += 1
+
+        p._inspection = Inspector.getInspection(self.channelCounter)
         return p
+
+class LimitingRequest(Request):
+
+    def __init__(self, *args, **kwargs):
+        Request.__init__(self, *args, **kwargs)
+        self.extendedLogItems = {}
+        channel = self.chanRequest.channel
+        if channel._inspection:
+            channel._inspection.add("headers_received")
+            self.extendedLogItems['insp'] = channel._inspection.id
+
+    def writeResponse(self, response):
+        channel = self.chanRequest.channel
+        if channel._inspection:
+            channel._inspection.add("resp_start")
+
+        Request.writeResponse(self, response)
+
+
+class LimitingSite(Site):
+
+    def __call__(self, *args, **kwargs):
+        return LimitingRequest(site=self, *args, **kwargs)
+
