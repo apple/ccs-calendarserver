@@ -28,7 +28,7 @@ __all__ = [
 from OpenSSL import SSL
 from twisted.application import internet
 from twisted.internet import tcp, ssl
-from twistedcaldav.log import Logger, logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav.log import Logger
 import socket
 
 log = Logger()
