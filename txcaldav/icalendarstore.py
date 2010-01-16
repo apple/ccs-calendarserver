@@ -24,11 +24,10 @@ __all__ = [
     "ICalendarObject",
 ]
 
-from datetime import datetime, date, tzinfo
-
 from zope.interface import Interface #, Attribute
 
-from twext.ical import Component
+from datetime import datetime, date, tzinfo
+from twext.icalendar import Component
 from txdav.idav import IPropertyStore
 
 #

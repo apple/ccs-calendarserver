@@ -23,7 +23,7 @@ __all__ = [
 
 from zope.interface import Interface #, Attribute
 
-from twext.ical import Component
+from twext.icalendar import Component
 from txdav.idav import IPropertyStore
 
 #
