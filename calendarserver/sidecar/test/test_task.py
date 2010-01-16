@@ -19,13 +19,11 @@ import os, zlib
 from calendarserver.sidecar.task import CalDAVTaskServiceMaker, CalDAVTaskOptions, Task
 from os.path import dirname, abspath
 from twext.python.plistlib import writePlist
-from twisted.python.usage import Options, UsageError
-from twistedcaldav.config import config, ConfigDict, _mergeData
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twisted.python.usage import Options
+from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks
-
-import memcacheclient
 
 # Points to top of source tree.
 sourceRoot = dirname(dirname(dirname(dirname(abspath(__file__)))))

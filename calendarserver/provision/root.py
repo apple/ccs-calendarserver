@@ -37,7 +37,7 @@ from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache
 from twistedcaldav.static import CalendarHomeFile
-from twistedcaldav.directory.principal import DirectoryPrincipalResource, DirectoryCalendarPrincipalResource
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
 log = Logger()
 

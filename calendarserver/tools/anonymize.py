@@ -22,13 +22,11 @@ from getopt import getopt, GetoptError
 from subprocess import Popen, PIPE, STDOUT
 import datetime
 import hashlib
-import operator
 import os
 import plistlib
 import random
 import shutil
 import sys
-import tempfile
 import urllib
 import uuid
 import vobject

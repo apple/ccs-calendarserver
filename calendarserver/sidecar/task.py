@@ -81,6 +81,8 @@ class FakeRequest(object):
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
         if url is None:
+            class NoURLForResourceError(RuntimeError):
+                pass
             raise NoURLForResourceError(resource)
         return url
 
