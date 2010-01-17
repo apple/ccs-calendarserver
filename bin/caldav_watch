@@ -16,13 +16,13 @@
 # limitations under the License.
 ##
 
-import sys
+import os, sys
 
 from twisted.internet import reactor
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientFactory
 from subprocess import Popen, PIPE, STDOUT
-import time
+import time, datetime
 
 INACTIVITY_SECONDS = 60
 
@@ -45,10 +45,9 @@ class WatchProtocol(LineReceiver):
             print "Error determining PID from ID"
         else:
             print "Server process for ID %d is %d" % (self.id, pid)
-            print "Running dtruss..."
-            dtruss(pid)
-            print "Running sample..."
-            sample(pid)
+            dirname = capture(pid, self.history)
+            print "Data captured to:", dirname
+
         self.later = reactor.callLater(INACTIVITY_SECONDS, self.inactivity)
         print "--------------------------------------------------------------"
 
@@ -81,25 +80,38 @@ def pidForID(id):
                 return int(pid)
     return None
 
-def sample(pid):
-    child = Popen(args=['/usr/bin/sample', str(pid)],
+def sample(pid, filename):
+    child = Popen(args=['/usr/bin/sample', str(pid), "-file", filename],
         stdout=PIPE, stderr=STDOUT)
     output, error = child.communicate()
-    print output
 
-def dtruss(pid):
-    filename = "/tmp/auto_dtrace_%d_%f.out" % (pid, time.time())
+def dtruss(pid, filename):
     output = open(filename, "w")
     try:
         child = Popen(args=['/usr/bin/dtruss', '-p', str(pid)],
             stdout=output, stderr=STDOUT)
         time.sleep(5)
         child.terminate()
-        print "Dtrace of %d captured to %s" % (pid, filename)
     except OSError, e:
         print "Couldn't run dtruss:", e
     finally:
         output.close()
+
+def capture(pid, history):
+    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    dirname = os.path.join("/tmp", "caldav_watch_%s_%d" % (now, pid))
+    os.mkdir(dirname)
+    historyname = os.path.join(dirname, "history.out")
+    historyfile = open(historyname, "w")
+    for line in history:
+        line = line + "\n"
+        historyfile.write(line)
+    historyfile.close()
+    samplename = os.path.join(dirname, "sample.out")
+    sample(pid, samplename)
+    dtrussname = os.path.join(dirname, "dtruss.out")
+    dtruss(pid, dtrussname)
+    return dirname
 
 def main():
     for id in range(0, 75):
