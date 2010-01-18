@@ -11,7 +11,7 @@ from twistedcaldav.memcache import ClientError, ServerError
 from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransportWithDisconnection
 from twisted.internet.task import Clock
-from twisted.internet.defer import Deferred, gatherResults, TimeoutError
+from twisted.internet.defer import Deferred, gatherResults
 
 
 
@@ -221,118 +221,6 @@ class MemCacheTestCase(TestCase):
             self.proto.dataReceived,
             "VALUE bar 0 %s\r\n%s\r\nEND\r\n" % (len(s), s))
 
-
-    def test_timeOut(self):
-        """
-        Test the timeout on outgoing requests: when timeout is detected, all
-        current commands should fail with a L{TimeoutError}, and the
-        connection should be closed.
-        """
-        d1 = self.proto.get("foo")
-        d2 = self.proto.get("bar")
-        d3 = Deferred()
-        self.proto.connectionLost = d3.callback
-
-        self.clock.advance(self.proto.persistentTimeOut)
-        self.assertFailure(d1, TimeoutError)
-        self.assertFailure(d2, TimeoutError)
-        def checkMessage(error):
-            self.assertEquals(str(error), "Connection timeout")
-        d1.addCallback(checkMessage)
-        return gatherResults([d1, d2, d3])
-
-
-    def test_timeoutRemoved(self):
-        """
-        When a request gets a response, no pending timeout call should remain
-        around.
-        """
-        d = self.proto.get("foo")
-
-        self.clock.advance(self.proto.persistentTimeOut - 1)
-        self.proto.dataReceived("VALUE foo 0 3\r\nbar\r\nEND\r\n")
-
-        def check(result):
-            self.assertEquals(result, (0, "bar"))
-            self.assertEquals(len(self.clock.calls), 0)
-        d.addCallback(check)
-        return d
-
-
-    def test_timeOutRaw(self):
-        """
-        Test the timeout when raw mode was started: the timeout should not be
-        reset until all the data has been received, so we can have a
-        L{TimeoutError} when waiting for raw data.
-        """
-        d1 = self.proto.get("foo")
-        d2 = Deferred()
-        self.proto.connectionLost = d2.callback
-
-        self.proto.dataReceived("VALUE foo 0 10\r\n12345")
-        self.clock.advance(self.proto.persistentTimeOut)
-        self.assertFailure(d1, TimeoutError)
-        return gatherResults([d1, d2])
-
-
-    def test_timeOutStat(self):
-        """
-        Test the timeout when stat command has started: the timeout should not
-        be reset until the final B{END} is received.
-        """
-        d1 = self.proto.stats()
-        d2 = Deferred()
-        self.proto.connectionLost = d2.callback
-
-        self.proto.dataReceived("STAT foo bar\r\n")
-        self.clock.advance(self.proto.persistentTimeOut)
-        self.assertFailure(d1, TimeoutError)
-        return gatherResults([d1, d2])
-
-
-    def test_timeoutPipelining(self):
-        """
-        When two requests are sent, a timeout call should remain around for the
-        second request, and its timeout time should be correct.
-        """
-        d1 = self.proto.get("foo")
-        d2 = self.proto.get("bar")
-        d3 = Deferred()
-        self.proto.connectionLost = d3.callback
-
-        self.clock.advance(self.proto.persistentTimeOut - 1)
-        self.proto.dataReceived("VALUE foo 0 3\r\nbar\r\nEND\r\n")
-
-        def check(result):
-            self.assertEquals(result, (0, "bar"))
-            self.assertEquals(len(self.clock.calls), 1)
-            for i in range(self.proto.persistentTimeOut):
-                self.clock.advance(1)
-            return self.assertFailure(d2, TimeoutError).addCallback(checkTime)
-        def checkTime(ignored):
-            # Check that the timeout happened C{self.proto.persistentTimeOut}
-            # after the last response
-            self.assertEquals(self.clock.seconds(),
-                    2 * self.proto.persistentTimeOut - 1)
-        d1.addCallback(check)
-        return d1
-
-
-    def test_timeoutNotReset(self):
-        """
-        Check that timeout is not resetted for every command, but keep the
-        timeout from the first command without response.
-        """
-        d1 = self.proto.get("foo")
-        d3 = Deferred()
-        self.proto.connectionLost = d3.callback
-
-        self.clock.advance(self.proto.persistentTimeOut - 1)
-        d2 = self.proto.get("bar")
-        self.clock.advance(1)
-        self.assertFailure(d1, TimeoutError)
-        self.assertFailure(d2, TimeoutError)
-        return gatherResults([d1, d2, d3])
 
 
     def test_tooLongKey(self):

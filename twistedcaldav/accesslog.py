@@ -64,6 +64,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             request = eventDict['request']
             response = eventDict['response']
             loginfo = eventDict['loginfo']
+
+            channel = request.chanRequest.channel
+            if channel._inspection:
+                channel._inspection.add("access_log")
     
             # Try to determine authentication and authorization identifiers
             uid = "-"
@@ -137,6 +141,15 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         if " " in v:
                             v = '"%s"' % (v,)
                         formats.append("%s=%s" % (k, v))
+
+                fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
+                if fwdHeaders:
+                    forwardedFor = ",".join(fwdHeaders)
+                    forwardedFor = forwardedFor.replace(" ", "")
+                    formats.append("fwd=%(fwd)s")
+                else:
+                    forwardedFor = ""
+
                 format = " ".join(formats)
 
             formatArgs = {
@@ -153,6 +166,8 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "serverInstance"      : serverInstance,
                 "timeSpent"           : (time.time() - request.initTime) * 1000,
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
+                "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
+                "fwd"                 : forwardedFor,
             }
             self.logMessage(format % formatArgs)
 

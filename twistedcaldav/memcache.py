@@ -34,7 +34,6 @@ except ImportError:
 
 
 from twisted.protocols.basic import LineReceiver
-from twisted.protocols.policies import TimeoutMixin
 from twisted.internet.defer import Deferred, fail, TimeoutError
 from twisted.python import log
 
@@ -109,12 +108,9 @@ class Command(object):
 
 
 
-class MemCacheProtocol(LineReceiver, TimeoutMixin):
+class MemCacheProtocol(LineReceiver):
     """
     MemCache protocol: connect to a memcached server to store/retrieve values.
-
-    @ivar persistentTimeOut: the timeout period used to wait for a response.
-    @type persistentTimeOut: C{int}
 
     @ivar _current: current list of requests waiting for an answer from the
         server.
@@ -133,44 +129,20 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
     """
     MAX_KEY_LENGTH = 250
 
-    def __init__(self, timeOut=60):
+    def __init__(self):
         """
         Create the protocol.
-
-        @param timeOut: the timeout to wait before detecting that the
-            connection is dead and close it. It's expressed in seconds.
-        @type timeOut: C{int}
         """
         self._current = deque()
         self._lenExpected = None
         self._getBuffer = None
         self._bufferLength = None
-        self.persistentTimeOut = self.timeOut = timeOut
-
-
-    def timeoutConnection(self):
-        """
-        Close the connection in case of timeout.
-        """
-        for cmd in self._current:
-            cmd.fail(TimeoutError("Connection timeout"))
-        self.transport.loseConnection()
-
-
-    def sendLine(self, line):
-        """
-        Override sendLine to add a timeout to response.
-        """
-        if not self._current:
-            self.setTimeout(self.persistentTimeOut)
-        LineReceiver.sendLine(self, line)
 
 
     def rawDataReceived(self, data):
         """
         Collect data for a get.
         """
-        self.resetTimeout()
         self._getBuffer.append(data)
         self._bufferLength += len(data)
         if self._bufferLength >= self._lenExpected + 2:
@@ -310,7 +282,6 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
         """
         Receive line commands from the server.
         """
-        self.resetTimeout()
         token = line.split(" ", 1)[0]
         # First manage standard commands without space
         cmd = getattr(self, "cmd_%s" % (token,), None)
@@ -331,9 +302,6 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
                 cmd = self._current.popleft()
                 val = int(line)
                 cmd.success(val)
-        if not self._current:
-            # No pending request, remove timeout
-            self.setTimeout(None)
 
 
     def increment(self, key, val=1):
