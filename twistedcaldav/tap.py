@@ -831,8 +831,9 @@ class CalDAVServiceMaker(object):
 
         # Register USR1 handler
         def sigusr1_handler(num, frame):
+            from twisted.internet import reactor
             log.debug("SIGUSR1 recieved, triggering directory refresh")
-            baseDirectory.refresh()
+            reactor.callLater(0, baseDirectory.refresh)
             return
 
         signal.signal(signal.SIGUSR1, sigusr1_handler)
