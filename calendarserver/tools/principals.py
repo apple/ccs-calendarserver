@@ -494,8 +494,6 @@ def _run(directory, root, optargs, principalIDs):
 
     print ""
 
-    resource = None
-
     for opt, arg in optargs:
 
         if opt in ("-s", "--search",):

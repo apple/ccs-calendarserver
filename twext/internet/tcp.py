@@ -19,10 +19,8 @@ Extentions to twisted.internet.tcp.
 """
 
 __all__ = [
-    "InheritedPort",
-    "InheritedSSLPort",
-    "InheritTCPServer",
-    "InheritSSLServer",
+    "MaxAcceptTCPServer",
+    "MaxAcceptSSLServer",
 ]
 
 from OpenSSL import SSL
@@ -35,22 +33,29 @@ log = Logger()
 
 
 class MaxAcceptPortMixin(object):
-    """ Mixin for resetting maxAccepts """
-
+    """
+    Mixin for resetting maxAccepts.
+    """
     def doRead(self):
         self.numberAccepts = min(self.factory.maxRequests - self.factory.outstandingRequests, self.factory.maxAccepts)
         tcp.Port.doRead(self)
 
 class MaxAcceptTCPPort(MaxAcceptPortMixin, tcp.Port):
-    """ Use for non-inheriting tcp ports """
+    """
+    Use for non-inheriting tcp ports.
+    """
     pass
 
 class MaxAcceptSSLPort(MaxAcceptPortMixin, ssl.Port):
-    """ Use for non-inheriting SSL ports """
+    """
+    Use for non-inheriting SSL ports.
+    """
     pass
 
 class InheritedTCPPort(MaxAcceptTCPPort):
-    """ A tcp port which uses an inherited file descriptor """
+    """
+    A tcp port which uses an inherited file descriptor.
+    """
 
     def __init__(self, fd, factory, reactor):
         tcp.Port.__init__(self, 0, factory, reactor=reactor)
@@ -72,7 +77,9 @@ class InheritedTCPPort(MaxAcceptTCPPort):
 
 
 class InheritedSSLPort(InheritedTCPPort):
-    """ An SSL port which uses an inherited file descriptor """
+    """
+    An SSL port which uses an inherited file descriptor.
+    """
 
     _socketShutdownMethod = 'sock_shutdown'
 
@@ -88,8 +95,9 @@ class InheritedSSLPort(InheritedTCPPort):
         return tcp.Port._preMakeConnection(self, transport)
 
 class MaxAcceptTCPServer(internet.TCPServer):
-    """ TCP server which will uses MaxAcceptTCPPorts (and optionally,
-        inherited ports)
+    """
+    TCP server which will uses MaxAcceptTCPPorts (and optionally,
+    inherited ports)
     """
 
     def __init__(self, *args, **kwargs):
@@ -112,8 +120,9 @@ class MaxAcceptTCPServer(internet.TCPServer):
         return port
 
 class MaxAcceptSSLServer(internet.SSLServer):
-    """ SSL server which will uses MaxAcceptSSLPorts (and optionally,
-        inherited ports)
+    """
+    SSL server which will uses MaxAcceptSSLPorts (and optionally,
+    inherited ports)
     """
 
     def __init__(self, *args, **kwargs):

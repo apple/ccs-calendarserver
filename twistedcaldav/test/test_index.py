@@ -776,7 +776,7 @@ class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
     
             try:
                 instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
-            except InvalidOverriddenInstanceError, e:
+            except InvalidOverriddenInstanceError:
                 raise
     
             self._delete_from_db(name, uid, None)

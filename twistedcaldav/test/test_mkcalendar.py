@@ -157,7 +157,6 @@ END:VCALENDAR
         Make calendar with no parent
         """
         uri  = "/no/parent/for/calendar"
-        path = os.path.join(self.docroot, uri[1:])
 
         def do_test(response):
             response = IResponse(response)
@@ -214,7 +213,6 @@ END:VCALENDAR
                     self.fail("Incorrect response to nested MKCALENDAR: %s" % (response.code,))
 
             nested_uri  = os.path.join(first_uri, "nested")
-            nested_path = os.path.join(self.docroot, nested_uri[1:])
 
             request = SimpleRequest(self.site, "MKCALENDAR", nested_uri)
             self.send(request, do_test)

@@ -129,7 +129,7 @@ class AbstractDirectoryService(DirectoryService):
 
         try:
             handle = recordFile.open()
-        except IOError, OSError:
+        except (IOError, OSError):
             self.log_error("Auth file (for %s) not found: %s" % (recordType, recordFile.path))
             return
 

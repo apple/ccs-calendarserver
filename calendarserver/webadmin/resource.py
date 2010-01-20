@@ -154,7 +154,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             # Update the auto-schedule value if specified.
             if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
                 if principal.record.recordType != "users" and principal.record.recordType != "groups":
-                    result = (yield principal.setAutoSchedule(autoSchedule == "true"))
+                    (yield principal.setAutoSchedule(autoSchedule == "true"))
 
             # Update the proxies if specified.
             for proxyId in removeProxies:
@@ -263,7 +263,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         if davPropertyName:
             try:
                 namespace, name = davPropertyName.split("#")
-            except Exception, e:
+            except Exception:
                 propertyHtml += "<div>Unable to parse property to read: <b>%s</b></div>" % davPropertyName
 
             result = (yield resource.readProperty((namespace, name), None))

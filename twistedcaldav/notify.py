@@ -641,8 +641,7 @@ class XMPPNotifier(LoggingMixIn):
             publishElement['node'] = nodeName
             if self.settings["NodeConfiguration"]["pubsub#deliver_payloads"] == '1':
                 itemElement = publishElement.addElement('item')
-                payloadElement = itemElement.addElement('plistfrag',
-                    defaultUri='plist-apple')
+                itemElement.addElement('plistfrag', defaultUri='plist-apple')
 
             self.sendDebug("Publishing (%s)" % (nodeName,), iq)
             d = iq.send(to=self.settings['ServiceAddress'])

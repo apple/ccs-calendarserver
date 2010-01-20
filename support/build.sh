@@ -332,7 +332,6 @@ py_install () {
 
 # Declare a dependency on a Python project.
 py_dependency () {
-
   # args
   local            name="$1"; shift; # the name of the package (for display)
   local          module="$1"; shift; # the name of the python module.
@@ -349,8 +348,8 @@ py_dependency () {
   local        skip_egg="$1"; shift; # skip even the 'egg_info' step, because nothing
                                      # needs to be built.
   local        revision="$1"; shift; # what revision to check out (for SVN dependencies)
-  # end args
-  local          srcdir="${top}/${distribution}"
+
+  local srcdir="${top}/${distribution}"
 
   if "${override_system}" || ! py_have_module "${module}"; then
     "${get_type}_get" "${name}" "${srcdir}" "${get_uri}" "${revision}"
@@ -372,9 +371,9 @@ py_dependency () {
   fi;
 
   if "$inplace"; then
-    local  add_path="${srcdir}";
+    local add_path="${srcdir}";
   else
-    local  add_path="${srcdir}/build/${py_platform_libdir}";
+    local add_path="${srcdir}/build/${py_platform_libdir}";
   fi;
   export PYTHONPATH="${PYTHONPATH}:${add_path}";
 }
@@ -415,8 +414,11 @@ c_dependency () {
 # or, it may do as much as download and install all dependencies.
 dependencies () {
 
+  #
+  # Dependencies compiled from C source code
+  #
+
   if ! type memcached > /dev/null 2>&1; then
-    # Dependencies compiled from C source code
     local le="libevent-1.4.8-stable";
     c_dependency "libevent" "${le}" \
       "http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz";
@@ -425,7 +427,17 @@ dependencies () {
       --enable-threads --with-libevent="${top}/${le}/_root";
   fi;
 
+  if ! type postgres > /dev/null 2>&1; then
+    c_dependency "PostgreSQL" "postgresql-8.4.2" \
+      "http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v8.4.2/postgresql-8.4.2.tar.gz" \
+      --with-python;
+    :;
+  fi;
+
+  #
   # Python dependencies
+  #
+
   py_dependency "Zope Interface" "zope.interface" "zope.interface-3.3.0" \
     "www" "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz" \
     false false false false 0;
@@ -454,17 +466,8 @@ dependencies () {
       true false false false 0;
   fi;
 
-  case "${USER}" in
-    wsanchez)
-      proto="svn+ssh";
-      ;;
-    *)
-      proto="svn";
-      ;;
-  esac;
-
   py_dependency "Twisted" "twisted" "Twisted" \
-    "svn" "${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
+    "svn" "svn://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
     false true true false 27622;
 
   # twisted.web2 doesn't get installed by default, so in the install phase
@@ -497,7 +500,7 @@ dependencies () {
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4912;
-  svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;
+  svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
 }
 
 

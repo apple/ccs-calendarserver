@@ -21,7 +21,6 @@ Implements drop-box functionality. A drop box is an external attachment store.
 __all__ = [
     "DropBoxHomeResource",
     "DropBoxCollectionResource",
-    "DropBoxChildResource",
 ]
 
 from twext.web2.dav.davxml import ErrorResponse

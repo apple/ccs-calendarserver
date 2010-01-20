@@ -116,7 +116,7 @@ class XMLDirectoryService(CachingDirectoryService):
                         return True
                 elif matchType == 'contains':
                     try:
-                        _ignore_discard = testValue.index(value)
+                        testValue.index(value)
                         return True
                     except ValueError:
                         pass

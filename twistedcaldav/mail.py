@@ -608,7 +608,6 @@ class IScheduleService(service.Service, LoggingMixIn):
         )
 
         # Authenticated /inbox
-        credentialFactories = []
         portal = Portal(auth.DavRealm())
         portal.registerChecker(directory)
         realm = directory.realmName or ""
@@ -652,7 +651,7 @@ class MailHandler(LoggingMixIn):
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)
 
-        report = deliveryStatus = original = calBody = None
+        report = deliveryStatus = calBody = None
 
         for part in message.walk():
             content_type = part.get_content_type()
@@ -663,7 +662,7 @@ class MailHandler(LoggingMixIn):
                 deliveryStatus = part
                 continue
             elif content_type == "message/rfc822":
-                original = part
+                #original = part
                 continue
             elif content_type == "text/calendar":
                 calBody = part.get_payload(decode=True)
