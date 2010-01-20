@@ -28,9 +28,10 @@ from twisted.web2.filter.location import addLocation
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import StatusResponse, HTTPError
+from twisted.web2.http import StatusResponse, HTTPError, splitHostPort
 
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.method.put_common import storeCalendarObjectResource
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.log import Logger
@@ -252,6 +253,27 @@ def checkForCalendarAction(self, request):
         log.err(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
     
+    # Make sure it is a valid resource URI, but strip off the scheme:host details
+    (scheme, host, path, query, fragment) = urlsplit(destination_uri)
+    if query or fragment:
+        raise HTTPError(StatusResponse(
+            responsecode.BAD_REQUEST,
+            "URL may not contain a query or fragment: %s" % (destination_uri,)
+        ))
+    if scheme and scheme not in ("http", "https",):
+        raise HTTPError(StatusResponse(
+            responsecode.BAD_GATEWAY,
+            "URL is not on this site (%s://%s/): %s" % (request.scheme, request.headers.getHeader("host"), destination_uri)
+        ))
+    elif host:
+        host, port = splitHostPort(scheme, host)
+        if host != config.ServerHostName or port not in (config.HTTPPort, config.SSLPort,):
+            raise HTTPError(StatusResponse(
+                responsecode.BAD_GATEWAY,
+                "URL is not on this site (%s://%s/): %s" % (request.scheme, request.headers.getHeader("host"), destination_uri)
+            ))
+    destination_uri = path
+
     destination = waitForDeferred(request.locateResource(destination_uri))
     yield destination
     destination = destination.getResult()
