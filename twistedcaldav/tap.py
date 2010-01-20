@@ -832,17 +832,19 @@ class CalDAVServiceMaker(object):
         # Register USR1 handler
         def sigusr1_handler(num, frame):
             from twisted.internet import reactor
-            log.debug("SIGUSR1 recieved, triggering directory refresh")
+            log.debug("SIGUSR1 received, triggering directory refresh")
             reactor.callLater(0, baseDirectory.refresh)
             return
 
         signal.signal(signal.SIGUSR1, sigusr1_handler)
 
-        internet.TCPServer(
-            int(config.InspectionPort),
-            InspectionFactory(),
-            interface="127.0.0.1"
-        ).setServiceParent(service)
+        if config.EnableInspection:
+            inspector = internet.TCPServer(
+                int(config.InspectionPort) if config.InspectionPort else config.BaseInspectionPort,
+                InspectionFactory(),
+                interface="127.0.0.1"
+            )
+            inspector.setServiceParent(service)
 
         return service
 

@@ -50,6 +50,7 @@ class Inspector(object):
     @classmethod
     def isInspecting(klass):
         return klass._inspector is not None and len(klass._inspector.observers) > 0
+
     def __init__(self):
         self.observers = set()
 
@@ -62,7 +63,7 @@ class Inspector(object):
         except KeyError:
             pass
 
-    def hasObservers():
+    def hasObservers(self):
         return len(self.observers) > 0
 
     def emit(self, msg):

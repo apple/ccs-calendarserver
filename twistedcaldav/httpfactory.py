@@ -23,6 +23,7 @@ from twisted.web2.server import Request, Site
 from twistedcaldav.inspection import Inspector
 
 from twistedcaldav.config import config
+from twisted.web2 import iweb
 
 __all__ = ['HTTP503LoggingFactory', ]
 
@@ -54,45 +55,22 @@ class OverloadedLoggingServerProtocol(protocol.Protocol):
 
         self.transport.loseConnection()
 
-class HTTP503LoggingFactory(HTTPFactory):
-    """Factory for HTTP server."""
+class InspectableHTTPChannel(HTTPChannel):
 
-    def __init__(self, requestFactory, maxRequests=600, **kwargs):
-        HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
-        
-    def buildProtocol(self, addr):
-        if self.outstandingRequests >= self.maxRequests:
-            return OverloadedLoggingServerProtocol(self.outstandingRequests)
-        
-        p = protocol.ServerFactory.buildProtocol(self, addr)
-        
-        for arg,value in self.protocolArgs.iteritems():
-            setattr(p, arg, value)
-        return p
-
-
-class LimitingHTTPChannel(HTTPChannel):
+    _inspection = None
 
     def connectionMade(self):
         if self._inspection:
             self._inspection.add("conn_made")
 
-        retVal = HTTPChannel.connectionMade(self)
-        if self.factory.outstandingRequests >= self.factory.maxRequests:
-            # log.msg("Overloaded")
-            self.factory.myServer.myPort.stopReading()
-        return retVal
+        return super(InspectableHTTPChannel, self).connectionMade()
 
     def connectionLost(self, reason):
         if self._inspection:
             self._inspection.add("conn_lost")
             self._inspection.complete()
 
-        retVal = HTTPChannel.connectionLost(self, reason)
-        if self.factory.outstandingRequests < self.factory.resumeRequests:
-            # log.msg("Resuming")
-            self.factory.myServer.myPort.startReading()
-        return retVal
+        return super(InspectableHTTPChannel, self).connectionLost(reason)
 
     _firstChunkReceived = False
 
@@ -102,24 +80,66 @@ class LimitingHTTPChannel(HTTPChannel):
             if self._inspection:
                 self._inspection.add("first_byte")
 
-        return HTTPChannel.dataReceived(self, data)
+        return super(InspectableHTTPChannel, self).dataReceived(data)
 
     def requestReadFinished(self, request):
         if self._inspection:
             self._inspection.add("body_received")
 
-        return HTTPChannel.requestReadFinished(self, request)
+        return super(InspectableHTTPChannel, self).requestReadFinished(request)
 
     def requestWriteFinished(self, request):
         if self._inspection:
             self._inspection.add("resp_finish")
 
-        return HTTPChannel.requestWriteFinished(self, request)
+        return super(InspectableHTTPChannel, self).requestWriteFinished(request)
+
+
+class HTTP503LoggingFactory(HTTPFactory):
+    """Factory for HTTP server."""
+
+    protocol = InspectableHTTPChannel
+
+    def __init__(self, requestFactory, maxRequests=600, **kwargs):
+        HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
+        self.channelCounter = 0
+        
+    def buildProtocol(self, addr):
+        if self.outstandingRequests >= self.maxRequests:
+            return OverloadedLoggingServerProtocol(self.outstandingRequests)
+        
+        p = protocol.ServerFactory.buildProtocol(self, addr)
+        
+        for arg,value in self.protocolArgs.iteritems():
+            setattr(p, arg, value)
+
+        self.channelCounter += 1
+        if config.EnableInspection:
+            p._inspection = Inspector.getInspection(self.channelCounter)
+
+        return p
+
+
+class LimitingHTTPChannel(InspectableHTTPChannel):
+
+    def connectionMade(self):
+        retVal = super(LimitingHTTPChannel, self).connectionMade()
+        if self.factory.outstandingRequests >= self.factory.maxRequests:
+            # log.msg("Overloaded")
+            self.factory.myServer.myPort.stopReading()
+        return retVal
+
+    def connectionLost(self, reason):
+        retVal = super(LimitingHTTPChannel, self).connectionLost(reason)
+        if self.factory.outstandingRequests < self.factory.resumeRequests:
+            # log.msg("Resuming")
+            self.factory.myServer.myPort.startReading()
+        return retVal
 
 
 class LimitingHTTPFactory(HTTPFactory):
-    protocol = LimitingHTTPChannel
 
+    protocol = LimitingHTTPChannel
 
     def __init__(self, requestFactory, maxRequests=600, maxAccepts=100, resumeRequests=550,
         **kwargs):
@@ -133,9 +153,11 @@ class LimitingHTTPFactory(HTTPFactory):
         p = protocol.ServerFactory.buildProtocol(self, addr)
         for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
-        self.channelCounter += 1
 
-        p._inspection = Inspector.getInspection(self.channelCounter)
+        self.channelCounter += 1
+        if config.EnableInspection:
+            p._inspection = Inspector.getInspection(self.channelCounter)
+
         return p
 
 class LimitingRequest(Request):
@@ -144,13 +166,13 @@ class LimitingRequest(Request):
         Request.__init__(self, *args, **kwargs)
         self.extendedLogItems = {}
         channel = self.chanRequest.channel
-        if channel._inspection:
+        if config.EnableInspection and channel._inspection:
             channel._inspection.add("headers_received")
             self.extendedLogItems['insp'] = channel._inspection.id
 
     def writeResponse(self, response):
         channel = self.chanRequest.channel
-        if channel._inspection:
+        if config.EnableInspection and channel._inspection:
             channel._inspection.add("resp_start")
 
         Request.writeResponse(self, response)
