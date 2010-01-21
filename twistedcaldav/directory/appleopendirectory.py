@@ -35,7 +35,6 @@ import opendirectory
 import dsattributes
 import dsquery
 import memcacheclient
-import memcacheclient
 import cPickle as pickle
 
 try:
