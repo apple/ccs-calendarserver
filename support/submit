@@ -36,7 +36,8 @@ src="$(cd "${wd}/.." && pwd)";
 install=false;
 package=false;
 
-submission_enabled=true;
+        submission_enabled=true;
+ignore_uncommitted_changes=false;
 
 usage ()
 {
@@ -51,18 +52,20 @@ usage ()
   echo "	-b Run buildit";
   echo "	-i Install resulting build on this system";
   echo "	-p Create a package with the resulting build";
+  echo "	-f Ignore uncommitted changes";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hbip' option; do
+while getopts 'hbipf' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'b')   build=true; ;;
-    'i') install=true; ;;
-    'p') package=true; ;;
+    'b')                      build=true; ;;
+    'i')                    install=true; ;;
+    'p')                    package=true; ;;
+    'f') ignore_uncommitted_changes=true; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -108,7 +111,7 @@ else
   #
   # Make sure changes are checked in.
   #
-  if [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
+  if [ ! "${ignore_uncommitted_changes}" ] && [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
     echo "Working copy has uncommitted changes.  Aborting.";
     exit 1;
   fi;

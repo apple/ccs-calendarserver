@@ -16,9 +16,10 @@
 from __future__ import with_statement
 
 __all__ = [
-    "CalDAVService",
-    "CalDAVOptions",
-    "CalDAVServiceMaker",
+    "CalDAVTaskService",
+    "CalDAVTaskServiceMaker",
+    "CalDAVTaskOptions",
+    "Task",
 ]
 
 from calendarserver.provision.root import RootResource
@@ -81,6 +82,8 @@ class FakeRequest(object):
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
         if url is None:
+            class NoURLForResourceError(RuntimeError):
+                pass
             raise NoURLForResourceError(resource)
         return url
 
@@ -115,8 +118,7 @@ def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
     originator = LocalCalendarUser(originator, originatorPrincipal)
     recipients = (owner,)
     scheduler = DirectScheduler(FakeRequest(rootResource, "PUT"), inboxItemFile)
-    result = (yield scheduler.doSchedulingViaPUT(originator, recipients,
-        calendar, internal_request=False))
+    yield scheduler.doSchedulingViaPUT(originator, recipients, calendar, internal_request=False)
 
     if os.path.exists(inboxItemFile.fp.path):
         os.remove(inboxItemFile.fp.path)
@@ -363,8 +365,6 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
         #
         # Setup the Directory
         #
-        directories = []
-
         directoryClass = namedClass(config.DirectoryService.type)
 
         self.log_info("Configuring directory service of type: %s"

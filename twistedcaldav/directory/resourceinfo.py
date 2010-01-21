@@ -76,7 +76,7 @@ class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
         self.setAutoScheduleInDatabase(guid, autoSchedule)
 
         # Update cache
-        _ignore = (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
+        (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
 
     def setAutoScheduleInDatabase(self, guid, autoSchedule):
         """
@@ -104,7 +104,7 @@ class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
             autoSchedule = self._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
             if autoSchedule is not None:
                 autoSchedule = autoSchedule == 1
-                result = (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
+                (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
         returnValue(autoSchedule)
 
     def _add_to_db(self, guid, autoSchedule):

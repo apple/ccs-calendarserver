@@ -26,7 +26,7 @@ __all__ = [
     "DAVFile",
     "ReadOnlyWritePropertiesResourceMixIn",
     "ReadOnlyResourceMixIn",
-    "CachingXattrPropertyStore",
+    "CachingPropertyStore",
 ]
 
 import cPickle as pickle

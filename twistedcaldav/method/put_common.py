@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_validation -*-
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -273,6 +273,7 @@ class StoreCalendarObjectResource(object):
         
         self.rollback = None
         self.access = None
+        self.newrevision = None
 
     @inlineCallbacks
     def fullValidation(self):
@@ -830,7 +831,8 @@ class StoreCalendarObjectResource(object):
     def doSourceDelete(self):
         # Delete index for original item
         if self.sourcecal:
-            self.source_index.deleteResource(self.source.fp.basename())
+            self.newrevision = (yield self.sourceparent.bumpSyncToken())
+            self.source_index.deleteResource(self.source.fp.basename(), self.newrevision)
             self.rollback.source_index_deleted = True
             log.debug("Source index removed %s" % (self.source.fp.path,))
 
@@ -838,10 +840,6 @@ class StoreCalendarObjectResource(object):
         delete(self.source_uri, self.source.fp, "0")
         self.rollback.source_deleted = True
         log.debug("Source removed %s" % (self.source.fp.path,))
-
-        # Change CTag on the parent calendar collection
-        if self.sourcecal:
-            yield self.sourceparent.updateCTag()
   
         returnValue(None)
 
@@ -878,7 +876,7 @@ class StoreCalendarObjectResource(object):
         
         # Add or update the index for this resource.
         try:
-            self.source_index.addResource(self.source.fp.basename(), self.calendar)
+            self.source_index.addResource(self.source.fp.basename(), self.calendar, self.newrevision)
         except TooManyInstancesError, ex:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -899,7 +897,7 @@ class StoreCalendarObjectResource(object):
         
         # Add or update the index for this resource.
         try:
-            self.destination_index.addResource(self.destination.fp.basename(), caltoindex)
+            self.destination_index.addResource(self.destination.fp.basename(), caltoindex, self.newrevision)
             log.debug("Destination indexed %s" % (self.destination.fp.path,))
         except TooManyInstancesError, ex:
             log.err("Cannot index calendar resource as there are too many recurrence instances %s" % self.destination)
@@ -926,7 +924,7 @@ class StoreCalendarObjectResource(object):
         
         # Delete index for original item
         if self.destinationcal:
-            self.destination_index.deleteResource(self.destination.fp.basename())
+            self.destination_index.deleteResource(self.destination.fp.basename(), None)
             self.rollback.destination_index_deleted = True
             log.debug("Destination index removed %s" % (self.destination.fp.path,))
 
@@ -1088,6 +1086,7 @@ class StoreCalendarObjectResource(object):
     
             # Index the new resource if storing to a calendar.
             if self.destinationcal:
+                self.newrevision = (yield self.destinationparent.bumpSyncToken())
                 result = self.doDestinationIndex(self.calendar)
                 if result is not None:
                     self.rollback.Rollback()
@@ -1100,10 +1099,6 @@ class StoreCalendarObjectResource(object):
             # Do quota check on destination
             if self.destquota is not None:
                 yield self.doDestinationQuotaCheck()
-    
-            if self.destinationcal:
-                # Change CTag on the parent calendar collection
-                yield self.destinationparent.updateCTag()
     
             # Can now commit changes and forget the rollback details
             self.rollback.Commit()

@@ -9,7 +9,7 @@ flakes="$(cd "${wd}/../Pyflakes" && pwd)";
 export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
 
 if [ $# -eq 0 ]; then
-  set - calendarserver twistedcaldav twext;
+  set - calendarserver twistedcaldav twext txdav txcaldav txcarddav;
 fi;
 
 cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
@@ -18,4 +18,5 @@ cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
   -e "/redefinition of unused/d"                                      \
   -e "/'from .* import \\*' used; unable to detect undefined names/d" \
   -e "/redefinition of function/d"                                    \
+  -e "/i[a-z]*store.py:[0-9][0-9]*: '.*' imported but unused/d"       \
   ;

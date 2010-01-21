@@ -349,7 +349,7 @@ class OpenDirectoryService(CachingDirectoryService):
         # specified in the last field in the fields list
 
         def collectResults(results):
-            self.log_info("Got back %d records from OD" % (len(results),))
+            self.log_debug("Got back %d records from OD" % (len(results),))
             for key, value in results:
                 self.log_debug("OD result: %s %s" % (key, value))
                 try:
@@ -421,7 +421,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
                 complexExpression = dsquery.expression(operand, expressions).generate()
 
-                self.log_info("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
+                self.log_debug("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
                     (recordTypes, operand, caseless, complexExpression))
 
                 results.extend(

@@ -1,0 +1,504 @@
+
+
+
+Network Working Group                                           C. Daboo
+Internet-Draft                                                Apple Inc.
+Intended status: Standards Track                         October 4, 2009
+Expires: April 7, 2010
+
+
+      Use of SRV records for locating CalDAV and CardDAV services
+                       draft-daboo-srv-caldav-01
+
+Status of This Memo
+
+   This Internet-Draft is submitted to IETF in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on April 7, 2010.
+
+Copyright Notice
+
+   Copyright (c) 2009 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents in effect on the date of
+   publication of this document (http://trustee.ietf.org/license-info).
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+Abstract
+
+   This specification describes how SRV records and well-known URIs can
+   be used to locate Calendaring Extensions to WebDAV (CalDAV) or vCard
+   Extensions to WebDAV (CardDAV) services.
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 1]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 3
+   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 3
+   3.  CalDAV SRV Service Types  . . . . . . . . . . . . . . . . . . . 4
+   4.  CalDAV and CardDAV Service Well-Known URI . . . . . . . . . . . 4
+     4.1.  Example: well-known URI as context path . . . . . . . . . . 4
+     4.2.  Example: well-known URI redirects to actual context
+           path  . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+   5.  Client "Bootstrapping" Guidelines . . . . . . . . . . . . . . . 5
+   6.  Security Considerations . . . . . . . . . . . . . . . . . . . . 6
+   7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 6
+     7.1.  caldav Well-Known URI Registration  . . . . . . . . . . . . 7
+     7.2.  carddav Well-Known URI Registration . . . . . . . . . . . . 7
+   8.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . 7
+   9.  References  . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+     9.1.  Normative References  . . . . . . . . . . . . . . . . . . . 7
+     9.2.  Informative References  . . . . . . . . . . . . . . . . . . 8
+   Appendix A.  Change History (to be removed prior to
+                publication as an RFC) . . . . . . . . . . . . . . . . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 2]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+1.  Introduction
+
+   [RFC2782] defines a DNS-based service discovery protocol that has
+   been widely adopted as a means of locating particular services within
+   a local area network and beyond, using SRV RR records.
+
+   [RFC4791] defines the CalDAV Calendar Access protocol, based on HTTP
+   [RFC2616], for accessing calendar data stored on a server.  CalDAV
+   clients need to be able to discover appropriate CalDAV servers within
+   their local area network and at other domains, e.g., to minimize the
+   need for end users to know specific details such as hostname and port
+   for their servers.
+
+   [I-D.ietf-vcarddav-carddav] defines the CardDAV vCard Access protocol
+   based on HTTP [RFC2616], for accessing contact data stored on a
+   server.  As with CalDAV, clients also need to be able to discover
+   CardDAV servers.
+
+   This specification defines new SRV service types for the CalDAV
+   protocol, and gives an example of how clients can use this together
+   with other protocol features to enable simple client configuration.
+   SRV service types for CardDAV are already defined in Section 11 of
+   [I-D.ietf-vcarddav-carddav].
+
+   Another issue with CalDAV or CardDAV service discovery is that the
+   service may not be located at the "root" URI of the HTTP server
+   hosting it.  For example, if CalDAV is implemented as a "servlet" in
+   a web server "container", the servlet "context path" might be
+   "/caldav/".  So the URI for the CalDAV service would be, e.g.,
+   "http://caldav.example.com/caldav/" rather than
+   "http://caldav.example.com/".  SRV records by themselves only provide
+   a hostname and port for the service, not a path.  Since the client
+   "bootstrapping" process requires initial access to the "context path"
+   of the service, there needs to be a simple way for clients to also
+   discover what that path is.
+
+   This specification makes use of the "well known URI" feature
+   [I-D.nottingham-site-meta] of HTTP servers to provide a well known
+   URI for CalDAV or CardDAV services that clients can make use of.  The
+   well known URI will point to a resource on the server that might be
+   the actual "context path" of the CalDAV or CardDAV service, or it
+   might simply be a "stub" resource that provides a redirect to the
+   actual "context path".
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 3]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+   document are to be interpreted as described in [RFC2119].
+
+3.  CalDAV SRV Service Types
+
+   This specification adds two service types for use with SRV records:
+
+   caldav:  Identifies a CalDAV server that uses HTTP without transport
+      layer security ([RFC2818]).
+
+   caldavs:  Identifies a CalDAV server that uses HTTP with transport
+      layer security ([RFC2818]).
+
+   Clients SHOULD honor "TTL", "Priority" and "Weight" values in the SRV
+   records, as described by [RFC2782].
+
+   Example: service record for server without transport layer security
+
+       _caldav._tcp     SRV 0 1 80 calendar.example.com.
+
+   Example: service record for server with transport layer security
+
+       _caldavs._tcp    SRV 0 1 443 calendar.example.com.
+
+4.  CalDAV and CardDAV Service Well-Known URI
+
+   Two "well-known" URIs are registered by this specification for CalDAV
+   and CardDAV services, "caldav" and "carddav" respectively (see
+   Section 7).  These URIs point to a resource that the client can use
+   as the "context path" for the service they are trying to use.  The
+   actual service could be located at that specific path.  Alternatively
+   the server MAY redirect HTTP requests for that resource (using the
+   "301 Moved Permanently" status response) to the actual "context
+   path".  Clients MUST handle HTTP redirects on the well-known URI.
+
+4.1.  Example: well-known URI as context path
+
+   A CalDAV server has a "context path" that is the same as the well-
+   known URI, so the client will use "/.well-known/caldav" as the path
+   for its "bootstrapping" process after it has first found the hostname
+   and port via an SRV lookup.
+
+4.2.  Example: well-known URI redirects to actual context path
+
+   A CalDAV server has a "context path" that is "/servlet/caldav".  The
+   client will use "/.well-known/caldav" as the path for its
+   "bootstrapping" process after it has first found the hostname and
+   port via an SRV lookup.  When the client makes its initial HTTP
+   request against "/.well-known/caldav", the server would issue an HTTP
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 4]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+   301 redirect response with a Location response header using the path
+   "/servlet/caldav".  The client would then "follow" this redirect to
+   the new resource and continue making HTTP requests there to complete
+   its "bootstrapping" process.
+
+5.  Client "Bootstrapping" Guidelines
+
+   This section describes a procedure that CalDAV or CardDAV clients MAY
+   use to do their initial configuration based on minimal user input.
+
+   For a CalDAV server, minimal input from a user would consist of a
+   calendar user address.  A calendar user address is defined by
+   iCalendar [RFC5545] to be a URI [RFC3986].  Provided a user
+   identifier and a domain name can be extracted from the URI, this
+   simple "bootstrap" configuration can be done.
+
+   If the calendar user address is a "mailto:" [RFC2368] URI, the
+   "mailbox" portion of the URI is examined and the "local-part" and
+   "domain" portions extracted.  The "local-part" is used for the user
+   identifier and the "domain" is used as the service domain.
+
+   If the calendar user address is an "http:" [RFC2616] or "https:"
+   [RFC2818] URI, the "userinfo" and "host" portion of the URI is
+   extracted.  The "userinfo" is used for the user identifier and the
+   "host" is used as the service domain.
+
+   For a CardDAV server, minimal input from a user would consist of
+   their email address [RFC5322] for the domain where the CardDAV
+   service is hosted.  The "mailbox" portion of the email address is
+   examined and the "local-part" and "domain" portions extracted.  The
+   "local-part" is used for the user identifier and the "domain" is used
+   as the service domain.
+
+   Once the user identifier and service domain have been extracted, the
+   following is done:
+
+   1.  An SRV lookup for _caldavs._tcp (for CalDAV) or _carddavs._tcp
+       (for CardDAV) is done against the extracted service domain.
+
+   2.  If no result is found for that, the client can try _caldav._tcp
+       (for CalDAV) or _carddav._tcp (for CardDAV) provided non-SSL
+       connections are appropriate.
+
+   3.  If an SRV record is returned the client extracts the server host
+       name and port number.
+
+   4.  The client does an authenticated "PROPFIND" [RFC4791] request
+       using the user identifier, host name and port number and a
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 5]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+       request URI of "/.well-known/caldav" (for CalDAV) or "/.well-
+       known/carddav" (for CardDAV).  The body of the request should
+       include the DAV:current-user-principal [RFC5397] property as one
+       of the properties to return.  Note that clients MUST properly
+       handle HTTP redirect responses for the request.
+
+   5.  If the server returns a 404 Not Found HTTP status response to the
+       request on the well-known URI, clients MAY try repeating the
+       request on the "root" URI "/".
+
+   6.  If the DAV:current-user-principal property is returned on the
+       initial request, the client uses that value for the principal-URI
+       of the authenticated user.  With that, it can do a "PROPFIND" on
+       the principal-URI and discover additional properties for
+       configuration.
+
+   7.  If the DAV:current-user-principal property is not returned, then
+       the client will need to request the principal-URI path from the
+       user in order to continue with configuration.
+
+6.  Security Considerations
+
+   Clients that support transport layer security as defined by [RFC2818]
+   SHOULD try the "caldavs" or "carddavs" services first before trying
+   the "caldav" or "carddav" services respectively.  If a user has
+   explicitly requested a connection with transport layer security, the
+   client MUST NOT use any service information returned for the "caldav"
+   or "carddav" services.  Clients MUST follow the certificate
+   verification process specified in
+   [I-D.saintandre-tls-server-id-check].
+
+   A malicious attacker with access to the DNS server data can
+   potentially cause clients to connect to any server chosen by the
+   attacker.  In the absence of a secure DNS option, clients SHOULD
+   check that the host name returned in the SRV record matches the
+   original service domain that was queried.  If the host is not in the
+   queried domain, clients SHOULD verify with the user that the SRV host
+   name is suitable for use before executing any CalDAV or CardDAV
+   requests against the host.
+
+7.  IANA Considerations
+
+   This document defines two "well-known" URIs using the registration
+   procedure and template from Section 5.1 of
+   [I-D.nottingham-site-meta].
+
+
+
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 6]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+7.1.  caldav Well-Known URI Registration
+
+   URI suffix:  caldav
+
+   Change controller:  IETF.
+
+   Specification document(s):  This RFC.
+
+   Related information:  See also [RFC4791].
+
+7.2.  carddav Well-Known URI Registration
+
+   URI suffix:  carddav
+
+   Change controller:  IETF.
+
+   Specification document(s):  This RFC.
+
+   Related information:  See also [I-D.ietf-vcarddav-carddav].
+
+8.  Acknowledgments
+
+   This specification was suggested by discussion that took place within
+   the Calendaring and Scheduling Consortium's CalDAV Technical
+   Committee.  The authors thank the participants of that group for
+   their input.  The "bootstrapping" process is based on diagrams
+   developed by Wilfredo Sanchez.
+
+9.  References
+
+9.1.  Normative References
+
+   [I-D.ietf-vcarddav-carddav]           Daboo, C., "vCard Extensions to
+                                         WebDAV (CardDAV)",
+                                         draft-ietf-vcarddav-carddav-09
+                                         (work in progress),
+                                         September 2009.
+
+   [I-D.nottingham-site-meta]            Nottingham, M. and E. Hammer-
+                                         Lahav, "Defining Well-Known
+                                         URIs",
+                                         draft-nottingham-site-meta-03
+                                         (work in progress),
+                                         September 2009.
+
+   [I-D.saintandre-tls-server-id-check]  Saint-Andre, P., Zeilenga, K.,
+                                         and J. Hodges, "Server Identity
+                                         Verification in Application
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 7]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+                                         Protocols", draft-saintandre-
+                                         tls-server-id-check-02 (work in
+                                         progress), October 2009.
+
+   [RFC2119]                             Bradner, S., "Key words for use
+                                         in RFCs to Indicate Requirement
+                                         Levels", BCP 14, RFC 2119,
+                                         March 1997.
+
+   [RFC2368]                             Hoffman, P., Masinter, L., and
+                                         J. Zawinski, "The mailto URL
+                                         scheme", RFC 2368, July 1998.
+
+   [RFC2616]                             Fielding, R., Gettys, J.,
+                                         Mogul, J., Frystyk, H.,
+                                         Masinter, L., Leach, P., and T.
+                                         Berners-Lee, "Hypertext
+                                         Transfer Protocol -- HTTP/1.1",
+                                         RFC 2616, June 1999.
+
+   [RFC2782]                             Gulbrandsen, A., Vixie, P., and
+                                         L. Esibov, "A DNS RR for
+                                         specifying the location of
+                                         services (DNS SRV)", RFC 2782,
+                                         February 2000.
+
+   [RFC2818]                             Rescorla, E., "HTTP Over TLS",
+                                         RFC 2818, May 2000.
+
+   [RFC3986]                             Berners-Lee, T., Fielding, R.,
+                                         and L. Masinter, "Uniform
+                                         Resource Identifier (URI):
+                                         Generic Syntax", STD 66,
+                                         RFC 3986, January 2005.
+
+   [RFC4791]                             Daboo, C., Desruisseaux, B.,
+                                         and L. Dusseault, "Calendaring
+                                         Extensions to WebDAV (CalDAV)",
+                                         RFC 4791, March 2007.
+
+9.2.  Informative References
+
+   [RFC5322]                             Resnick, P., Ed., "Internet
+                                         Message Format", RFC 5322,
+                                         October 2008.
+
+   [RFC5397]                             Sanchez, W. and C. Daboo,
+                                         "WebDAV Current Principal
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 8]
+
+Internet-Draft               SRV for CalDAV                 October 2009
+
+
+                                         Extension", RFC 5397,
+                                         December 2008.
+
+   [RFC5545]                             Desruisseaux, B., "Internet
+                                         Calendaring and Scheduling Core
+                                         Object Specification
+                                         (iCalendar)", RFC 5545,
+                                         September 2009.
+
+Appendix A.  Change History (to be removed prior to publication as an
+             RFC)
+
+   Changes in -01:
+
+   1.  Added discovery of CardDAV service.
+
+   2.  Now makes use of well-known URIs for the service "context path".
+
+   3.  Updated to RFC 5545 reference.
+
+   4.  Added reference to certificate verification spec.
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   EMail: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                     Expires April 7, 2010                 [Page 9]
+

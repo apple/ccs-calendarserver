@@ -2,7 +2,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -332,7 +332,6 @@ py_install () {
 
 # Declare a dependency on a Python project.
 py_dependency () {
-
   # args
   local            name="$1"; shift; # the name of the package (for display)
   local          module="$1"; shift; # the name of the python module.
@@ -349,8 +348,8 @@ py_dependency () {
   local        skip_egg="$1"; shift; # skip even the 'egg_info' step, because nothing
                                      # needs to be built.
   local        revision="$1"; shift; # what revision to check out (for SVN dependencies)
-  # end args
-  local          srcdir="${top}/${distribution}"
+
+  local srcdir="${top}/${distribution}"
 
   if "${override_system}" || ! py_have_module "${module}"; then
     "${get_type}_get" "${name}" "${srcdir}" "${get_uri}" "${revision}"
@@ -372,9 +371,9 @@ py_dependency () {
   fi;
 
   if "$inplace"; then
-    local  add_path="${srcdir}";
+    local add_path="${srcdir}";
   else
-    local  add_path="${srcdir}/build/${py_platform_libdir}";
+    local add_path="${srcdir}/build/${py_platform_libdir}";
   fi;
   export PYTHONPATH="${PYTHONPATH}:${add_path}";
 }
@@ -415,8 +414,11 @@ c_dependency () {
 # or, it may do as much as download and install all dependencies.
 dependencies () {
 
-  if ! type memcached >& /dev/null; then
-    # Dependencies compiled from C source code
+  #
+  # Dependencies compiled from C source code
+  #
+
+  if ! type memcached > /dev/null 2>&1; then
     local le="libevent-1.4.8-stable";
     c_dependency "libevent" "${le}" \
       "http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz";
@@ -425,7 +427,17 @@ dependencies () {
       --enable-threads --with-libevent="${top}/${le}/_root";
   fi;
 
+  if ! type postgres > /dev/null 2>&1; then
+    c_dependency "PostgreSQL" "postgresql-8.4.2" \
+      "http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v8.4.2/postgresql-8.4.2.tar.gz" \
+      --with-python;
+    :;
+  fi;
+
+  #
   # Python dependencies
+  #
+
   py_dependency "Zope Interface" "zope.interface" "zope.interface-3.3.0" \
     "www" "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz" \
     false false false false 0;
@@ -435,7 +447,7 @@ dependencies () {
   py_dependency "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
     "www" "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz" \
     false false false false 0;
-  if type krb5-config > /dev/null; then
+  if type krb5-config > /dev/null 2>&1; then
     py_dependency "PyKerberos" "kerberos" "PyKerberos" \
       "svn" "${svn_uri_base}/PyKerberos/trunk" \
       false false false false 4241;
@@ -454,25 +466,12 @@ dependencies () {
       true false false false 0;
   fi;
 
-  if ! type psql >& /dev/null; then
-    c_dependency "postgresql" "postgresql-8.4.1" \
-      "http://wwwmaster.postgresql.org/redir/198/h/source/v8.4.1/postgresql-8.4.1.tar.bz2";
-  fi;
   py_dependency "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "www" "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz" \
     false false false false 0;
 
-  case "${USER}" in
-    wsanchez)
-      proto="svn+ssh";
-      ;;
-    *)
-      proto="svn";
-      ;;
-  esac;
-
   py_dependency "Twisted" "twisted" "Twisted" \
-    "svn" "${proto}://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
+    "svn" "svn://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
     false true true false 27622;
 
   # twisted.web2 doesn't get installed by default, so in the install phase
@@ -501,11 +500,11 @@ dependencies () {
   # XXX actually vObject should be imported in-place.
   py_dependency "vObject" "vobject" "vobject" \
     "svn" "${base}/vobject/trunk" \
-    false true true true 212;
+    false true true true 219;
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4874;
-  svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes 17198;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" 4912;
+  svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
 }
 
 

@@ -81,7 +81,6 @@ def main():
         usage(e)
 
     configFileName = None
-    outputFileName = None
 
     calendarHomes = set()
     records = set()
@@ -168,7 +167,7 @@ def main():
                 child = calendarCollection.getChild(name)
 
                 #sys.stdout.write("+")
-                childCalendar = child.iCalendarText()
+                child.iCalendarText()
 
                 readProperties(child)
 
@@ -180,7 +179,7 @@ def main():
 def readProperties(resource):
     #sys.stdout.write("-")
     for qname in resource.deadProperties().list():
-        property = resource.readDeadProperty(qname)
+        resource.readDeadProperty(qname)
         #sys.stdout.write(".")
 
 if __name__ == "__main__":
