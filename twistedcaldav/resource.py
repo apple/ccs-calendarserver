@@ -911,16 +911,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-    def writeProperty(self, property, request):
-        assert isinstance(property, davxml.WebDAVElement), (
-            "%r is not a WebDAVElement instance" % (property,)
-        )
-
-        #if property.qname() == (caldav_namespace, "auto-schedule"):
-        #    self.setAutoSchedule(autoSchedule)
-
-        return super(CalendarPrincipalResource, self).writeProperty(property, request)
-
     def calendarHomeURLs(self):
         if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
             home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))
