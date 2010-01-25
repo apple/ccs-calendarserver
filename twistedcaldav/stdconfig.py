@@ -28,6 +28,7 @@ from twistedcaldav.config import (
     ConfigProvider, ConfigurationError, config, _mergeData, )
 from twistedcaldav.log import (
     Logger, clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError, )
+from twistedcaldav.partitions import partitions
 from twistedcaldav.util import (
     KeychainAccessError, KeychainPasswordNotFound, getPasswordFromKeychain, )
 
@@ -41,9 +42,34 @@ DEFAULT_SERVICE_PARAMS = {
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "restrictEnabledRecords": False,
-        "restrictToGroup": "",
         "cacheTimeout": 30,
+    },
+}
+
+DEFAULT_AUGMENT_PARAMS = {
+    "twistedcaldav.directory.augment.AugmentXMLDB": {
+        "xmlFiles": ["/etc/caldavd/augments.xml",],
+    },
+    "twistedcaldav.directory.augment.AugmentSqliteDB": {
+        "dbpath": "/etc/caldavd/augments.sqlite",
+    },
+    "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
+        "host":     "localhost",
+        "database": "augments",
+        "user":     "",
+        "password": "",
+    },
+}
+
+DEFAULT_PROXYDB_PARAMS = {
+    "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB": {
+        "dbpath": "/etc/caldavd/proxies.sqlite",
+    },
+    "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
+        "host":     "localhost",
+        "database": "proxies",
+        "user":     "",
+        "password": "",
     },
 }
 
@@ -99,6 +125,25 @@ DEFAULT_CONFIG = {
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
+
+    #
+    # Augment service
+    #
+    #    Augments for the directory service records to add calendar specific attributes.
+    #
+    "AugmentService": {
+        "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+        "params": DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
+    },
+
+    #
+    # Proxies
+    #
+    "ProxyDBService": {
+        "type": "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB",
+        "params": DEFAULT_PROXYDB_PARAMS["twistedcaldav.directory.calendaruserproxy.ProxySqliteDB"],
+    },
+    "ProxyLoadFromFile": "",    # Allows for initialization of the proxy database from an XML file
 
     #
     # Special principals
@@ -316,6 +361,16 @@ DEFAULT_CONFIG = {
     },
 
     #
+    # Partitioning
+    #
+    "Partitioning" : {
+        "Enabled":             False,   # Partitioning enabled or not
+        "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
+        "PartitionConfigFile": "/etc/caldavd/partitions.plist", # File path for partition information
+        "MaxClients":          5,       # Pool size for connections to each partition
+    },
+
+    #
     # Performance tuning
     #
 
@@ -378,10 +433,26 @@ DEFAULT_CONFIG = {
 
     "Memcached": {
         "MaxClients": 5,
-        "ClientEnabled": True,
-        "ServerEnabled": True,
-        "BindAddress": "127.0.0.1",
-        "Port": 11211,
+        "Pools": {
+            "Default": {
+                "ClientEnabled": True,
+                "ServerEnabled": True,
+                "BindAddress": "127.0.0.1",
+                "Port": 11211,
+                "HandleCacheTypes": [
+                    "Default",
+                ]
+            },
+#            "ProxyDB": {
+#                "ClientEnabled": True,
+#                "ServerEnabled": True,
+#                "BindAddress": "127.0.0.1",
+#                "Port": 11211,
+#                "HandleCacheTypes": [
+#                    "ProxyDB", "PrincipalToken",
+#                ]
+#            },
+        },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
         "Options": [],
@@ -459,6 +530,20 @@ def _postUpdateDirectoryService(configDict):
         for param in tuple(configDict.DirectoryService.params):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
+
+def _postUpdateAugmentService(configDict):
+    if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
+        for param in tuple(configDict.AugmentService.params):
+            if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
+                log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
+                del configDict.AugmentService.params[param]
+
+def _postUpdateProxyDBService(configDict):
+    if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
+        for param in tuple(configDict.ProxyDBService.params):
+            if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
+                log.warn("Parameter %s is not supported by service %s" % (param, configDict.ProxyDBService.type))
+                del configDict.ProxyDBService.params[param]
 
 def _updateACLs(configDict):
     #
@@ -555,9 +640,8 @@ def _updateLogLevels(configDict):
     try:
         if "DefaultLogLevel" in configDict:
             level = configDict["DefaultLogLevel"]
-            if not level:
-                level = "warn"
-            setLogLevelForNamespace(None, level)
+            if level:
+                setLogLevelForNamespace(None, level)
 
         if "LogLevels" in configDict:
             for namespace in configDict["LogLevels"]:
@@ -650,19 +734,35 @@ def _updateScheduling(configDict):
                     # The password doesn't exist in the keychain.
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
-    
+
+def _updatePartitions(configDict):
+    #
+    # Partitions
+    #
+
+    if configDict.Partitioning.Enabled:
+        partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
+        partitions.setMaxClients(configDict.Partitioning.MaxClients)
+        partitions.readConfig(configDict.Partitioning.PartitionConfigFile)
+        partitions.installReverseProxies()
+    else:
+        partitions.clear()
+
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
     )
 POST_UPDATE_HOOKS = (
     _updateHostName,
     _postUpdateDirectoryService,
+    _postUpdateAugmentService,
+    _postUpdateProxyDBService,
     _updateACLs,
     _updateRejectClients,
     _updateDropBox,
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
+    _updatePartitions,
     )
     
 def _cleanup(configDict, defaultDict):

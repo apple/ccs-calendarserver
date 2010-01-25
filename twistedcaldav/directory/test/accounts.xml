@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE accounts SYSTEM "../../../conf/accounts.dtd">
+<!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
 <accounts realm="Test">
   <user>
@@ -66,7 +66,6 @@ limitations under the License.
     <password>radnelacon</password>
     <name>No Calendar</name>
     <email-address>nocalendar@example.com</email-address>
-    <disable-calendar/>
   </user>
   <user repeat="2">
     <uid>user%02d</uid>
@@ -162,7 +161,6 @@ limitations under the License.
       <member>cdaboo</member>
       <member>lecroy</member>
     </members>
-    <disable-calendar/>
   </group>
   <location>
     <uid>mercury</uid>
@@ -170,9 +168,6 @@ limitations under the License.
     <password>mercury</password>
     <name>Mecury Seven</name>
     <email-address>mercury@example.com</email-address>
-    <proxies>
-      <member type="groups">left_coast</member>
-    </proxies>
   </location>
   <location>
     <uid>gemini</uid>
@@ -180,10 +175,6 @@ limitations under the License.
     <password>gemini</password>
     <name>Gemini Twelve</name>
     <email-address>gemini@example.com</email-address>
-    <auto-schedule/>
-    <proxies>
-      <member>wsanchez</member>
-    </proxies>
   </location>
   <location>
     <uid>apollo</uid>
@@ -191,9 +182,6 @@ limitations under the License.
     <password>apollo</password>
     <name>Apollo Eleven</name>
     <email-address>apollo@example.com</email-address>
-    <proxies>
-      <member type="groups">both_coasts</member>
-    </proxies>
   </location>
   <location>
     <uid>orion</uid>
@@ -201,9 +189,6 @@ limitations under the License.
     <password>orion</password>
     <name>Orion</name>
     <email-address>orion@example.com</email-address>
-    <proxies>
-      <member type="groups">recursive1_coasts</member>
-    </proxies>
   </location>
   <resource>
     <uid>transporter</uid>
@@ -225,11 +210,5 @@ limitations under the License.
     <password>non_calendar_proxy</password>
     <name>Non-calendar proxy</name>
     <email-address>non_calendar_proxy@example.com</email-address>
-    <proxies>
-      <member type="groups">non_calendar_group</member>
-    </proxies>
-    <read-only-proxies>
-      <member type="groups">recursive2_coasts</member>
-    </read-only-proxies>
   </resource>
 </accounts>

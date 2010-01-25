@@ -466,6 +466,10 @@ dependencies () {
       true false false false 0;
   fi;
 
+  py_dependency "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
+    "www" "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz" \
+    false false false false 0;
+
   py_dependency "Twisted" "twisted" "Twisted" \
     "svn" "svn://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
     false true true false 27622;

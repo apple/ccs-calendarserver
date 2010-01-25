@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,8 @@ import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
-from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.log import Logger
-from twistedcaldav.sql import DatabaseError
-from twistedcaldav.directory.directory import DirectoryError
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 
 log = Logger()
 
@@ -52,14 +47,13 @@ ELEMENT_LAST_NAME         = "last-name"
 ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
-ELEMENT_AUTOSCHEDULE      = "auto-schedule"
-ELEMENT_DISABLECALENDAR   = "disable-calendar"
-ELEMENT_PROXIES           = "proxies"
-ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
 
 ATTRIBUTE_REALM           = "realm"
 ATTRIBUTE_REPEAT          = "repeat"
 ATTRIBUTE_RECORDTYPE      = "type"
+
+VALUE_TRUE                = "true"
+VALUE_FALSE               = "false"
 
 RECORD_TYPES = {
     ELEMENT_USER     : DirectoryService.recordType_users,
@@ -75,7 +69,7 @@ class XMLAccountsParser(object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
-    def __init__(self, xmlFile):
+    def __init__(self, xmlFile, externalUpdate=True):
 
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
@@ -98,45 +92,6 @@ class XMLAccountsParser(object):
             log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
             return
         self._parseXML(accounts_node)
-        try:
-            self._updateExternalDatabases()
-        except DatabaseError, e:
-            raise DirectoryError(e)
-
-    def _updateExternalDatabases(self):
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-
-        for records in self.items.itervalues():
-            for principal in records.itervalues():
-
-                resourceInfoDatabase.setAutoScheduleInDatabase(principal.guid,
-                    principal.autoSchedule)
-
-                if principal.proxies:
-                    proxies = []
-                    for recordType, uid in principal.proxies:
-                        record = self.items[recordType].get(uid)
-                        if record is not None:
-                            proxies.append(record.guid)
-
-                    calendarUserProxyDatabase.setGroupMembersInDatabase(
-                        "%s#calendar-proxy-write" % (principal.guid,),
-                        proxies
-                    )
-
-                if principal.readOnlyProxies:
-                    readOnlyProxies = []
-                    for recordType, uid in principal.readOnlyProxies:
-                        record = self.items[recordType].get(uid)
-                        if record is not None:
-                            readOnlyProxies.append(record.guid)
-
-                    calendarUserProxyDatabase.setGroupMembersInDatabase(
-                        "%s#calendar-proxy-read" % (principal.guid,),
-                        readOnlyProxies
-                    )
 
     def _parseXML(self, node):
         """
@@ -152,19 +107,6 @@ class XMLAccountsParser(object):
                 item = self.items[recordType].get(shortName)
                 if item is not None:
                     item.groups.add(group.shortNames[0])
-
-        def updateProxyFor(proxier):
-            # Update proxy membership
-            for recordType, shortName in proxier.proxies:
-                item = self.items[recordType].get(shortName)
-                if item is not None:
-                    item.proxyFor.add((proxier.recordType, proxier.shortNames[0]))
-
-            # Update read-only proxy membership
-            for recordType, shortName in proxier.readOnlyProxies:
-                item = self.items[recordType].get(shortName)
-                if item is not None:
-                    item.readOnlyProxyFor.add((proxier.recordType, proxier.shortNames[0]))
 
         for child in node._get_childNodes():
             child_name = child._get_localName()
@@ -194,7 +136,6 @@ class XMLAccountsParser(object):
         for records in self.items.itervalues():
             for principal in records.itervalues():
                 updateMembership(principal)
-                updateProxyFor(principal)
                 
 class XMLAccountRecord (object):
     """
@@ -214,16 +155,6 @@ class XMLAccountRecord (object):
         self.emailAddresses = set()
         self.members = set()
         self.groups = set()
-        self.calendarUserAddresses = set()
-        self.autoSchedule = False
-        if recordType == DirectoryService.recordType_groups:
-            self.enabledForCalendaring = False
-        else:
-            self.enabledForCalendaring = True
-        self.proxies = set()
-        self.proxyFor = set()
-        self.readOnlyProxies = set()
-        self.readOnlyProxyFor = set()
 
     def repeat(self, ctr):
         """
@@ -273,10 +204,6 @@ class XMLAccountRecord (object):
         result.lastName = lastName
         result.emailAddresses = emailAddresses
         result.members = self.members
-        result.autoSchedule = self.autoSchedule
-        result.enabledForCalendaring = self.enabledForCalendaring
-        result.proxies = self.proxies
-        result.readOnlyProxies = self.readOnlyProxies
         return result
 
     def parseXML(self, node):
@@ -309,24 +236,11 @@ class XMLAccountRecord (object):
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
-            elif child_name == ELEMENT_AUTOSCHEDULE:
-                self.autoSchedule = True
-            elif child_name == ELEMENT_DISABLECALENDAR:
-                # FIXME: Not sure I see why this restriction is needed. --wsanchez
-                ## Only Users or Groups
-                #if self.recordType != DirectoryService.recordType_users:
-                #    raise ValueError("<disable-calendar> element only allowed for Users: %s" % (child_name,))
-                self.enabledForCalendaring = False
-            elif child_name == ELEMENT_PROXIES:
-                self._parseMembers(child, self.proxies)
-            elif child_name == ELEMENT_READ_ONLY_PROXIES:
-                self._parseMembers(child, self.readOnlyProxies)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 
-        if self.enabledForCalendaring:
-            for email in self.emailAddresses:
-                self.calendarUserAddresses.add("mailto:%s" % (email,))
+        if not self.shortNames:
+            self.shortNames.append(self.guid)
 
     def _parseMembers(self, node, addto):
         for child in node._get_childNodes():

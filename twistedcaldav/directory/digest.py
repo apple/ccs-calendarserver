@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
         # The database record is a tuple of (client ip, nonce-count, timestamp)
-        yield self.db.set(c, (peer.host, 0, time.time()))
+        yield self.db.set(c, (str(peer.host), 0, time.time()))
 
         challenge = {
             'nonce': c,
@@ -262,7 +262,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
 
         nonce = auth.get('nonce')
-        clientip = request.remoteAddr.host
+        clientip = request.forwarded_for if hasattr(request, "forwarded_for") else str(request.remoteAddr.host)
         nonce_count = auth.get('nc')
 
         # First check we have this nonce

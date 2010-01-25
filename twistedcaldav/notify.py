@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1301,13 +1301,10 @@ class NotificationServiceMaker(object):
         #
         # Configure Memcached Client Pool
         #
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPool(
-                IPv4Address(
-                    'TCP',
-                    config.Memcached.BindAddress,
-                    config.Memcached.Port),
-                config.Memcached.MaxClients)
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
 
         multiService = service.MultiService()
 

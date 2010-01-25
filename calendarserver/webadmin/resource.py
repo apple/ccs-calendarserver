@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             # Update the auto-schedule value if specified.
             if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
                 if principal.record.recordType != "users" and principal.record.recordType != "groups":
-                    (yield principal.setAutoSchedule(autoSchedule == "true"))
+                    principal.setAutoSchedule(autoSchedule == "true")
 
             # Update the proxies if specified.
             for proxyId in removeProxies:
@@ -277,7 +277,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         ###
         autoScheduleHtml = ""
         if resource.record.recordType != "users" and resource.record.recordType != "groups":
-            autoSchedule = (yield resource.getAutoSchedule())
+            autoSchedule = resource.getAutoSchedule()
             autoScheduleHtml = """
 <div style=\"margin-top:15px; border-bottom:1px #444444 dotted\"></div>
 <form id=\"frm_autoSchedule\" name=\"autoScheduleForm\" action=\"/admin/\" style=\"margin-top:15px\">

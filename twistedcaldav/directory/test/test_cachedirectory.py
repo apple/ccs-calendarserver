@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.util import uuidFromName
 from uuid import uuid4
+from twistedcaldav.directory.augment import AugmentRecord
 
 class TestDirectoryService (CachingDirectoryService):
 
@@ -62,8 +63,16 @@ class TestDirectoryService (CachingDirectoryService):
                         firstName             = "",
                         lastName              = "",
                         emailAddresses        = record.get("email"),
-                        enabledForCalendaring = True,
                     ) 
+                    
+                    augmentRecord = AugmentRecord(
+                        guid = cacheRecord.guid,
+                        enabled=True,
+                        enabledForCalendaring = True,
+                    )
+                    
+                    cacheRecord.addAugmentInformation(augmentRecord)
+
                     self.recordCacheForType(recordType).addRecord(cacheRecord,
                         indexType, indexKey)
 

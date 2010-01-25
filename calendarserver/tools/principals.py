@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -265,15 +265,10 @@ def run(principalIDs, actions):
         #
         # Connect to memcached, notifications
         #
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPool(
-                IPv4Address(
-                    "TCP",
-                    config.Memcached.BindAddress,
-                    config.Memcached.Port,
-                ),
-                config.Memcached.MaxClients
-            )
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients
+        )
         if config.Notifications.Enabled:
             installNotificationClient(
                 config.Notifications.InternalNotificationHost,
@@ -479,11 +474,11 @@ def action_setAutoSchedule(principal, autoSchedule):
             { True: "true", False: "false" }[autoSchedule],
             principal,
         )
-        (yield principal.setAutoSchedule(autoSchedule))
+        principal.setAutoSchedule(autoSchedule)
 
 @inlineCallbacks
 def action_getAutoSchedule(principal):
-    autoSchedule = (yield principal.getAutoSchedule())
+    autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (
         principal,
         { True: "true", False: "false" }[autoSchedule],

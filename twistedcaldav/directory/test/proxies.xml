@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE proxies SYSTEM "proxies.dtd">
+
+<proxies>
+  <record>
+    <guid>mercury</guid>
+    <proxies>
+      <member>left_coast</member>
+    </proxies>
+  </record>
+  <record>
+    <guid>gemini</guid>
+    <proxies>
+      <member>6423F94A-6B76-4A3A-815B-D52CFD77935D</member>
+    </proxies>
+  </record>
+  <record>
+    <guid>apollo</guid>
+    <proxies>
+      <member>both_coasts</member>
+    </proxies>
+  </record>
+  <record>
+    <guid>orion</guid>
+    <proxies>
+      <member>recursive1_coasts</member>
+    </proxies>
+  </record>
+  <record>
+    <guid>non_calendar_proxy</guid>
+    <proxies>
+      <member>non_calendar_group</member>
+    </proxies>
+    <read-only-proxies>
+      <member>recursive2_coasts</member>
+    </read-only-proxies>
+  </record>
+</proxies>

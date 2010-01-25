@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
     """
-    def __init__(self):
+    def __init__(self, uri=None):
         """
         @param recordType: record type for directory entry.
         """
@@ -133,6 +133,11 @@ class IScheduleServerRecord (object):
         self.allow_to = True
         self.domains = []
         self.client_hosts = []
+        self.unNormalizeAddresses = True
+        
+        if uri:
+            self.uri = uri
+            self._parseDetails()
 
     def parseXML(self, node):
         for child in node._get_childNodes():

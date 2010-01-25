@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,12 +96,15 @@ class IDirectoryRecord(Interface):
     recordType            = Attribute("The type of this record.")
     guid                  = Attribute("The GUID of this record.")
     uid                   = Attribute("The UID of this record.")
+    enabled               = Attribute("Determines whether this record should be provisioned as a principal.")
+    hostedAt              = Attribute("Identifies the server that actually hosts data for the record.")
     shortNames            = Attribute("The names for this record.")
     authIDs               = Attribute("Alternative security identities for this record.")
     fullName              = Attribute("The full name of this record.")
     firstName             = Attribute("The first name of this record.")
     lastName              = Attribute("The last name of this record.")
     emailAddress          = Attribute("The email address of this record.")
+    enabledForCalendaring = Attribute("Determines whether this record should be provisioned with a calendar home.")
     calendarUserAddresses = Attribute(
         """
         An iterable of C{str}s representing calendar user addresses for this
@@ -114,7 +117,6 @@ class IDirectoryRecord(Interface):
         hierarchy.
         """
     )
-    enabledForCalendaring = Attribute("Determines whether this record should be provisioned with a calendar home.")
 
     def members():
         """

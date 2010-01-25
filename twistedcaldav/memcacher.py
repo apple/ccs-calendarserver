@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,6 +107,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         
         assert len(namespace) <= Memcacher.NAMESPACE_MAX_LENGTH, "Memcacher namespace must be less than or equal to %s characters long" % (Memcacher.NAMESPACE_MAX_LENGTH,)
         self._memcacheProtocol = None
+        self._cachePoolHandle = namespace
         self._namespace = namespace
         self._pickle = pickle
         self._noInvalidation = no_invalidation
@@ -116,7 +117,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if self._memcacheProtocol is not None:
             return self._memcacheProtocol
 
-        if config.Memcached['ClientEnabled']:
+        if config.Memcached.Pools.Default.ClientEnabled:
             self._memcacheProtocol = self.getCachePool()
 
         elif config.ProcessType == "Single" or self._noInvalidation or self.allowTestCache:

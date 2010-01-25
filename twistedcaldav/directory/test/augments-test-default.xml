@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE accounts SYSTEM "../../../conf/auth/augments.dtd">
+
+<augments>
+  <record>
+    <guid>Default</guid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <hosted-at>00001</hosted-at>
+  </record>
+  <record>
+    <guid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</guid>
+    <enable>true</enable>
+  </record>
+  <record>
+    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <enable>false</enable>
+  </record>
+  <record>
+    <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
+    <enable>true</enable>
+    <enable-calendar>false</enable-calendar>
+  </record>
+  <record>
+    <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
+    <enable>true</enable>
+    <hosted-at>00001</hosted-at>
+  </record>
+  <record>
+    <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
+    <enable>true</enable>
+    <hosted-at>00002</hosted-at>
+  </record>
+  <record>
+    <guid>6A73326A-F781-47E7-A9F8-AF47364D4152</guid>
+    <enable>true</enable>
+    <hosted-at>00002</hosted-at>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule>true</auto-schedule>
+  </record>
+</augments>

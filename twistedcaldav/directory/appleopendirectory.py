@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,12 +24,6 @@ __all__ = [
 ]
 
 import sys
-import time
-from uuid import UUID
-
-from twext.python.plistlib import readPlistFromString
-
-from xml.parsers.expat import ExpatError
 
 import opendirectory
 import dsattributes
@@ -38,8 +32,9 @@ import dsquery
 from twisted.internet.threads import deferToThread
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
-from twistedcaldav.config import config
 
+from twistedcaldav.config import config
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -60,11 +55,6 @@ class OpenDirectoryService(CachingDirectoryService):
         """
         @param params: a dictionary containing the following keys:
             node: an OpenDirectory node name to bind to.
-            restrictEnabledRecords: C{True} if a group in the
-              directory is to be used to determine which calendar
-              users are enabled.
-            restrictToGroup: C{str} guid or name of group used to
-              restrict enabled users.
             cacheTimeout: C{int} number of minutes before cache is invalidated.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
@@ -73,11 +63,13 @@ class OpenDirectoryService(CachingDirectoryService):
 
         defaults = {
             'node' : '/Search',
-            'restrictEnabledRecords' : False,
-            'restrictToGroup' : '',
             'cacheTimeout' : 30,
         }
-        ignored = ('requireComputerRecord',)
+        ignored = (
+            'requireComputerRecord',
+            'restrictEnabledRecords',
+            'restrictToGroup'
+        )
         params = self.getParams(params, defaults, ignored)
 
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
@@ -91,16 +83,6 @@ class OpenDirectoryService(CachingDirectoryService):
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']
-        self.restrictEnabledRecords = params['restrictEnabledRecords']
-        self.restrictToGroup = params['restrictToGroup']
-        try:
-            UUID(self.restrictToGroup)
-        except:
-            self.restrictToGUID = False
-        else:
-            self.restrictToGUID = True
-        self.restrictedGUIDs = None
-        self.restrictedTimestamp = 0
         self._records = {}
         self._delayedCalls = set()
 
@@ -413,7 +395,6 @@ class OpenDirectoryService(CachingDirectoryService):
                         firstName             = recordFirstName,
                         lastName              = recordLastName,
                         emailAddresses        = recordEmailAddresses,
-                        enabledForCalendaring = True,
                         memberGUIDs           = (),
                     )
                     yield record
@@ -622,69 +603,6 @@ class OpenDirectoryService(CachingDirectoryService):
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
-            # Determine enabled state
-            if recordType == self.recordType_groups:
-                enabledForCalendaring = False
-            else:
-                if (
-                    self.restrictEnabledRecords and
-                    config.Scheduling.iMIP.Username != recordShortName
-                ):
-                    if time.time() - self.restrictedTimestamp > self.cacheTimeout:
-                        attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
-                        valueToMatch = self.restrictToGroup
-                        self.log_debug("Doing restricted group membership check")
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                            self.directory,
-                            attributeToMatch,
-                            valueToMatch,
-                            dsattributes.eDSExact,
-                            False,
-                            dsattributes.kDSStdRecordTypeGroups,
-                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-                        ))
-                        results = lookupMethod(
-                            self.directory,
-                            attributeToMatch,
-                            valueToMatch,
-                            dsattributes.eDSExact,
-                            False,
-                            dsattributes.kDSStdRecordTypeGroups,
-                            [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
-                        )
-
-                        if len(results) == 1:
-                            members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
-                            nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
-                        else:
-                            members = []
-                            nestedGroups = []
-                        self.restrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-                        self.log_debug("Got %d restricted group members" % (len(self.restrictedGUIDs),))
-                        self.restrictedTimestamp = time.time()
-
-                    enabledForCalendaring = recordGUID in self.restrictedGUIDs
-                else:
-                    enabledForCalendaring = True
-
-            if not enabledForCalendaring:
-                # Some records we want to keep even though they are not enabled for calendaring.
-                # Others we discard.
-                if recordType not in (
-                    self.recordType_users,
-                    self.recordType_groups,
-                ):
-                    self.log_debug(
-                        "Record (%s) %s is not enabled for calendaring"
-                        % (recordType, recordShortName)
-                    )
-                    continue
-
-                self.log_debug(
-                    "Record (%s) %s is not enabled for calendaring but may be used in ACLs"
-                    % (recordType, recordShortName)
-                )
-
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
@@ -711,10 +629,16 @@ class OpenDirectoryService(CachingDirectoryService):
                 firstName             = recordFirstName,
                 lastName              = recordLastName,
                 emailAddresses        = recordEmailAddresses,
-                enabledForCalendaring = enabledForCalendaring,
                 memberGUIDs           = memberGUIDs,
             )
-            if enabledForCalendaring:
+
+            # Look up augment information
+            # TODO: this needs to be deferred but for now we hard code the deferred result because
+            # we know it is completing immediately.
+            d = augment.AugmentService.getAugmentRecord(record.guid)
+            d.addCallback(lambda x:record.addAugmentInformation(x))
+
+            if record.enabledForCalendaring:
                 enabledRecords.append(record)
             else:
                 disabledRecords.append(record)
@@ -740,73 +664,6 @@ class OpenDirectoryService(CachingDirectoryService):
             record._groupMembershipGUIDs = self.groupsForGUID(record.guid)
 
             self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
-
-    def _parseResourceInfo(self, plist, guid, recordType, shortname):
-        """
-        Parse OD ResourceInfo attribute and extract information that the server needs.
-
-        @param plist: the plist that is the attribute value.
-        @type plist: str
-        @param guid: the directory GUID of the record being parsed.
-        @type guid: str
-        @param shortname: the record shortname of the record being parsed.
-        @type shortname: str
-        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
-        """
-        try:
-            plist = readPlistFromString(plist)
-            wpframework = plist.get("com.apple.WhitePagesFramework", {})
-            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
-            proxy = wpframework.get("CalendaringDelegate", None)
-            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
-        except (ExpatError, AttributeError), e:
-            self.log_error(
-                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
-                (recordType, shortname, guid, e, plist,)
-            )
-            raise ValueError("Invalid ResourceInfo")
-
-        return (autoaccept, proxy, read_only_proxy,)
-
-    def getResourceInfo(self):
-        """
-        Resource information including proxy assignments for resource and
-        locations, as well as auto-schedule settings, used to live in the
-        directory.  This method fetches old resource info for migration
-        purposes.
-        """
-        attrs = [
-            dsattributes.kDS1AttrGeneratedUID,
-            dsattributes.kDSNAttrResourceInfo,
-        ]
-
-        for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
-            try:
-                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
-                    self.directory,
-                    recordType,
-                    attrs,
-                ))
-                results = opendirectory.listAllRecordsWithAttributes_list(
-                    self.directory,
-                    recordType,
-                    attrs,
-                )
-            except opendirectory.ODError, ex:
-                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
-                raise
-
-            for (recordShortName, value) in results:
-                recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
-                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
-                if resourceInfo is not None:
-                    try:
-                        autoSchedule, proxy, readOnlyProxy = self._parseResourceInfo(resourceInfo,
-                            recordGUID, recordType, recordShortName)
-                    except ValueError:
-                        continue
-                    yield recordGUID, autoSchedule, proxy, readOnlyProxy
-
 
     def isAvailable(self):
         """
@@ -860,8 +717,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     """
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
-        fullName, firstName, lastName, emailAddresses,
-        enabledForCalendaring, memberGUIDs,
+        fullName, firstName, lastName, emailAddresses, memberGUIDs,
     ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,

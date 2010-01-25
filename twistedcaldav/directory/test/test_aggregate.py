@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,18 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.directory.apache import BasicDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 
-from twistedcaldav.directory.test.test_apache import digestRealm, basicUserFile, groupFile
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
+from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 import twistedcaldav.directory.test.util
+from twistedcaldav.directory import augment
 
 apache_prefix = "apache:"
 xml_prefix = "xml:"
 
 testServices = (
-    (apache_prefix, twistedcaldav.directory.test.test_apache.Apache  ),
     (xml_prefix   , twistedcaldav.directory.test.test_xmlfile.XMLFile),
 )
 
@@ -65,16 +63,9 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         """
         Returns an IDirectoryService.
         """
-        apacheService = BasicDirectoryService(
-            {
-                'realmName' : digestRealm,
-                'userFile' : basicUserFile,
-                'groupFile' : groupFile,
-            }
-        )
-        apacheService.recordTypePrefix = apache_prefix
-
         xmlService = XMLDirectoryService({'xmlFile' : xmlFile})
         xmlService.recordTypePrefix = xml_prefix
 
-        return AggregateDirectoryService((apacheService, xmlService))
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
+
+        return AggregateDirectoryService((xmlService,))

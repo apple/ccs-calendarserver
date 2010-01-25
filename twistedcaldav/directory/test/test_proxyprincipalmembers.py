@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
 from twisted.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
+from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile,\
+    proxiesFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
@@ -27,16 +28,22 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util
 from twistedcaldav.config import config
-
+from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+import os
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
     """
+    
+    @inlineCallbacks
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
         self.directoryService = XMLDirectoryService({'xmlFile' : xmlFile})
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(self.mktemp())
 
         # Set up a principals hierarchy for each service we're testing with
         self.principalRootResources = {}
@@ -48,6 +55,10 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         self.site.resource.putChild(name, provisioningResource)
 
         self.principalRootResources[self.directoryService.__class__.__name__] = provisioningResource
+
+        config.DataRoot = self.mktemp()
+        os.mkdir(config.DataRoot)
+        yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
     def _getPrincipalByShortName(self, type, name):
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
@@ -278,7 +289,6 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             set(["5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
                  "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"]))
 
-
     @inlineCallbacks
     def test_setGroupMemberSetNotifiesPrincipalCaches(self):
         class StubCacheNotifier(object):
@@ -295,7 +305,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         oldCacheNotifier = DirectoryPrincipalResource.cacheNotifierFactory
 
         try:
-            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2: notifier)
+            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2, **kwargs: notifier)
 
             self.assertEquals(notifier.changedCount, 0)
 
@@ -387,6 +397,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         # Set up the in-memory (non-null) memcacher:
         config.ProcessType = "Single"
+        calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
         principal = self._getPrincipalByShortName(
             DirectoryService.recordType_users, "wsanchez")
         db = principal._calendar_user_proxy_index()

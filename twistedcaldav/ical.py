@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1242,8 +1242,8 @@ class Component (object):
         timezone_refs    = set()
         timezones        = set()
         got_master       = False
-       #got_override     = False
-       #master_recurring = False
+        #got_override     = False
+        #master_recurring = False
         
         for subcomponent in self.subcomponents():
             # Disallowed in CalDAV-Access-08, section 4.1
@@ -1291,15 +1291,14 @@ class Component (object):
                         raise ValueError(msg)
                     else:
                         got_master = True
-                        # master_recurring =
-                        subcomponent.hasProperty("RRULE") or subcomponent.hasProperty("RDATE")
+                        # master_recurring = subcomponent.hasProperty("RRULE") or subcomponent.hasProperty("RDATE")
                 else:
                     pass # got_override = True
                             
                 # Check that if an override is present then the master is recurring
                 # Leopard iCal sometimes does this for overridden instances that an Attendee receives and
                 # it creates a "fake" (invalid) master. We are going to skip this test here. Instead implicit
-                # scheduling with verify the validity of the components and raise if they don't make sense.
+                # scheduling will verify the validity of the components and raise if they don't make sense.
                 # If no scheduling is happening then we allow this - that may cause other clients to choke.
                 # If it does we will have to reinstate this check but only after we have checked for implicit.
 # UNCOMMENT OUT master_recurring AND got_override ASSIGNMENTS ABOVE
@@ -2089,7 +2088,7 @@ class Component (object):
                     if dataValue.find(dropboxPrefix) != -1:
                         self.removeProperty(attachment)
 
-    def normalizeCalendarUserAddresses(self, lookupFunction):
+    def normalizeCalendarUserAddresses(self, lookupFunction, toUUID=True):
         """
         Do the ORGANIZER/ATTENDEE property normalization.
 
@@ -2111,8 +2110,47 @@ class Component (object):
                 if guid is None:
                     continue
 
-                # Always re-write value to urn:uuid
-                prop.setValue("urn:uuid:%s" % (guid,))
+                # Get any EMAIL parameter
+                oldemail = prop.params().get("EMAIL", (None,))[0]
+                if oldemail:
+                    oldemail = "mailto:%s" % (oldemail,)
+
+                if toUUID:
+                    # Always re-write value to urn:uuid
+                    prop.setValue("urn:uuid:%s" % (guid,))
+                    
+                # If it is already a non-UUID address leave it be
+                elif cuaddr.startswith("urn:uuid:"):
+                    if oldemail:
+                        # Use the EMAIL parameter if it exists
+                        newaddr = oldemail
+                    else:
+                        # Pick the first mailto, or failing that the first http, or failing that the first one
+                        first_mailto = None
+                        first_http = None
+                        first = None
+                        for addr in cuaddrs:
+                            if addr.startswith("mailto:"):
+                                first_mailto = addr
+                                break
+                            elif addr.startswith("http:"):
+                                if not first_http:
+                                    first_http = addr
+                            elif not first:
+                                first = addr
+                        
+                        if first_mailto:
+                            newaddr = first_mailto
+                        elif first_http:
+                            newaddr = first_http
+                        elif first:
+                            newaddr = first
+                        else:
+                            newaddr = None
+                    
+                    # Make the change
+                    if newaddr:
+                        prop.setValue(newaddr)
 
                 # Always re-write the CN parameter
                 if name:
@@ -2123,12 +2161,8 @@ class Component (object):
                     except KeyError:
                         pass
 
-                # Re-write the EMAIL if its value no longer
-                # matches
-                oldemail = prop.params().get("EMAIL", (None,))[0]
-                if oldemail:
-                    oldemail = "mailto:%s" % (oldemail,)
-                if oldemail is None or oldemail not in cuaddrs:
+                # Re-write the EMAIL if its value no longer matches
+                if oldemail and oldemail not in cuaddrs or oldemail is None and toUUID:
                     if cuaddr.startswith("mailto:") and cuaddr in cuaddrs:
                         email = cuaddr[7:]
                     else:

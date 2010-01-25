@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
@@ -85,17 +86,29 @@ class XMLDirectoryService(CachingDirectoryService):
                     xmlPrincipal  = xmlPrincipal,
                 )
 
+                record = XMLDirectoryRecord(
+                    service       = self,
+                    recordType    = recordType,
+                    shortNames    = tuple(xmlPrincipal.shortNames),
+                    xmlPrincipal  = xmlPrincipal,
+                )
+                
+                # Look up augment information
+                # TODO: this needs to be deferred but for now we hard code the deferred result because
+                # we know it is completing immediately.
+                d = augment.AugmentService.getAugmentRecord(record.guid)
+                d.addCallback(lambda x:record.addAugmentInformation(x))
+
                 matched = False
                 if indexType == self.INDEX_TYPE_GUID:
-                    matched = indexKey == xmlPrincipal.guid
+                    matched = indexKey == record.guid
                 elif indexType == self.INDEX_TYPE_SHORTNAME:
-                    matched = indexKey in xmlPrincipal.shortNames
+                    matched = indexKey in record.shortNames
                 elif indexType == self.INDEX_TYPE_CUA:
                     matched = indexKey in record.calendarUserAddresses
                 
                 if matched:
-                    self.recordCacheForType(recordType).addRecord(
-                        record, indexType, indexKey)
+                    self.recordCacheForType(recordType).addRecord(record, indexType, indexKey)
             
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
@@ -191,7 +204,6 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,
             emailAddresses        = xmlPrincipal.emailAddresses,
-            enabledForCalendaring = xmlPrincipal.enabledForCalendaring,
         )
 
         self.password          = xmlPrincipal.password
@@ -207,9 +219,10 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
 
     def verifyCredentials(self, credentials):
-        if isinstance(credentials, UsernamePassword):
-            return credentials.password == self.password
-        if isinstance(credentials, DigestedCredentials):
-            return credentials.checkPassword(self.password)
+        if self.enabled:
+            if isinstance(credentials, UsernamePassword):
+                return credentials.password == self.password
+            if isinstance(credentials, DigestedCredentials):
+                return credentials.checkPassword(self.password)
 
         return super(XMLDirectoryRecord, self).verifyCredentials(credentials)

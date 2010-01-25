@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ except ImportError:
 else:
     import twisted.web2.auth.digest
     import twistedcaldav.directory.test.util
+    from twistedcaldav.directory import augment
     from twisted.internet.defer import inlineCallbacks
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
@@ -53,6 +54,7 @@ else:
         def setUp(self):
             super(OpenDirectory, self).setUp()
             self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
+            augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
 
         def tearDown(self):
             for call in self._service._delayedCalls:
@@ -73,7 +75,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
             self.assertEquals(record.fullName, "")
@@ -90,7 +91,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
 
@@ -111,7 +111,6 @@ else:
                 firstName             = "Some",
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
-                enabledForCalendaring = True,
                 memberGUIDs           = [],
             )
 

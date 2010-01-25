@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser,\
+    PartitionedCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
@@ -73,7 +74,7 @@ class ScheduleViaCalDAV(DeliveryService):
         if cuaddr.startswith("mailto:") and config.Scheduling[cls.serviceType()]["EmailDomain"]:
             addr = cuaddr[7:].split("?")[0]
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
-            account, addrDomain = addr.split("@")
+            _ignore_account, addrDomain = addr.split("@")
             if addrDomain == domain:
                 return True
 
@@ -98,7 +99,7 @@ class ScheduleViaCalDAV(DeliveryService):
         uid = self.scheduler.calendar.resourceUID()
 
         organizerPrincipal = None
-        if type(self.scheduler.organizer) in (LocalCalendarUser,):
+        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser,):
             organizerPrincipal = davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL()))
 
         for recipient in self.recipients:
@@ -125,7 +126,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
             # Different behavior for free-busy vs regular invite
             if self.freebusy:
-                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid)
+                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, organizerPrincipal, uid)
             else:
                 yield self.generateResponse(recipient, self.responses)
 
@@ -196,7 +197,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 returnValue(True)
     
     @inlineCallbacks
-    def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid):
+    def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
         cuas = recipient.principal.calendarUserAddresses()
@@ -208,6 +209,7 @@ class ScheduleViaCalDAV(DeliveryService):
             fbresult = (yield self.generateAttendeeFreeBusyResponse(
                 recipient,
                 organizerProp,
+                organizerPrincipal,
                 uid,
                 attendeeProp,
                 remote,
@@ -222,7 +224,7 @@ class ScheduleViaCalDAV(DeliveryService):
             returnValue(True)
     
     @inlineCallbacks
-    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, uid, attendeeProp, remote):
+    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote):
 
         # Find the current recipients calendar-free-busy-set
         fbset = (yield recipient.principal.calendarFreeBusyURIs(self.scheduler.request))
@@ -261,6 +263,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 matchtotal,
                 excludeuid = self.scheduler.excludeUID,
                 organizer = self.scheduler.organizer.cuaddr,
+                organizerPrincipal = organizerPrincipal,
                 same_calendar_user = same_calendar_user,
                 servertoserver=remote,
             ))

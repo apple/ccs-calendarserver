@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,8 +52,7 @@ from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
@@ -190,7 +189,7 @@ class DirectoryProvisioningResource (
         raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
 
     def principalForRecord(self, record):
-        if record is None:
+        if record is None or not record.enabled:
             return None
         return self.principalForUID(record.uid)
 
@@ -329,7 +328,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         else:
             # Next try looking it up in the directory
             record = self.directory.recordWithCalendarUserAddress(address)
-            if record is not None:
+            if record is not None and record.enabled:
                 return self.principalForRecord(record)
 
         log.debug("No principal for calendar user address: %r" % (address,))
@@ -410,8 +409,9 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
             def _recordShortnameExpand():
                 for record in self.directory.listRecords(self.recordType):
-                    for shortName in record.shortNames:
-                        yield shortName
+                    if record.enabled:
+                        for shortName in record.shortNames:
+                            yield shortName
 
             return _recordShortnameExpand()
         else:
@@ -485,8 +485,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         record = self.directory.recordWithUID(primaryUID)
 
-        primaryPrincipal = self.principalForRecord(record)
-
+        primaryPrincipal = self.principalForRecord(record) if record and record.enabled else None
         if primaryPrincipal is None:
             log.err("No principal found for UID: %s" % (name,))
             return None
@@ -527,7 +526,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         """
         super(DirectoryPrincipalResource, self).__init__(NotFilePath(isdir=True))
 
-        self.cacheNotifier = self.cacheNotifierFactory(self)
+        self.cacheNotifier = self.cacheNotifierFactory(self, cacheHandle="PrincipalToken")
 
         if self.isCollection():
             slash = "/"
@@ -660,16 +659,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         """
         Return the SQL database for calendar user proxies.
 
-        @return: the L{CalendarUserProxyDatabase} for the principal collection.
+        @return: the L{ProxyDB} for the principal collection.
         """
 
-        # Get the principal collection we are contained in
-        pcollection = self.parent.parent
-
         # The db is located in the principal collection root
-        if not hasattr(pcollection, "calendar_user_proxy_db"):
-            setattr(pcollection, "calendar_user_proxy_db", CalendarUserProxyDatabase(config.DataRoot))
-        return pcollection.calendar_user_proxy_db
+        return calendaruserproxy.ProxyDBService
 
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
@@ -777,44 +771,21 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def principalUID(self):
         return self.record.uid
 
+    def locallyHosted(self):
+        return self.record.locallyHosted()
+    
+    def hostedURL(self):
+        return self.record.hostedURL()
 
     ##
     # Extra resource info
     ##
 
     def setAutoSchedule(self, autoSchedule):
-        self._resource_info_index().setAutoSchedule(self.record.guid, autoSchedule)
+        self.record.autoSchedule = autoSchedule
 
-    @inlineCallbacks
     def getAutoSchedule(self):
-        value = (yield self._resource_info_index().getAutoSchedule(self.record.guid))
-        if value is None:
-            # No value has been explicitly set yet.  If this is a user/group
-            # the default should be False.  If resource/location, True.
-            if self.record.recordType in (DirectoryService.recordType_locations,
-                DirectoryService.recordType_resources):
-                yield self.setAutoSchedule(True)
-                returnValue(True)
-            else:
-                yield self.setAutoSchedule(False)
-                returnValue(False)
-        else:
-            returnValue(value)
-
-
-    def _resource_info_index(self):
-        """
-        Return the resource info SQL database for this calendar principal.
-
-        @return: the L{ResourceInfoDatabase} for the calendar principal.
-        """
-
-        # The db is located in the data root
-        self.pcollection = self.parent.parent
-        if not hasattr(self.pcollection, "resource_info_db"):
-            setattr(self.pcollection, "resource_info_db", ResourceInfoDatabase(config.DataRoot))
-        return self.pcollection.resource_info_db
-
+        return self.record.autoSchedule
 
     ##
     # Static

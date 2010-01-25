@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
+from twisted.internet import reactor
 from twisted.internet.reactor import callLater, spawnProcess
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -64,32 +65,35 @@ except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
-from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav import memcachepool
+from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
+from twistedcaldav.accesslog import AMPLoggingFactory
 from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
-from twistedcaldav.accesslog import AMPLoggingFactory
-from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.config import config
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
+from twistedcaldav.config import config
+from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
+from twistedcaldav.localization import processLocalizationFiles
+from twistedcaldav.log import Logger, LoggingMixIn
+from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
+from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.pdmonster import PDClientAddressWrapper
+from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
-from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import upgradeData
-from twistedcaldav import memcachepool
-from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.util import getNCPU
-from twistedcaldav.localization import processLocalizationFiles
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -409,10 +413,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # Now do any on disk upgrades we might need.
                 # Memcache isn't running at this point, so temporarily change
                 # the config so nobody tries to talk to it while upgrading
-                memcacheSetting = config.Memcached.ClientEnabled
-                config.Memcached.ClientEnabled = False
+                memcacheSetting = config.Memcached.Pools.Default.ClientEnabled
+                config.Memcached.Pools.Default.ClientEnabled = False
                 upgradeData(config)
-                config.Memcached.ClientEnabled = memcacheSetting
+                config.Memcached.Pools.Default.ClientEnabled = memcacheSetting
 
 
             service = serviceMethod(options)
@@ -517,17 +521,48 @@ class CalDAVServiceMaker (LoggingMixIn):
                 SudoDirectoryService.recordType_sudoers)
 
         #
+        # Setup the Augment Service
+        #
+        augmentClass = namedClass(config.AugmentService.type)
+
+        self.log_info("Configuring augment service of type: %s" % (augmentClass,))
+
+        try:
+            augment.AugmentService = augmentClass(**config.AugmentService.params)
+        except IOError, e:
+            self.log_error("Could not start augment service")
+            raise
+
+        #
+        # Setup the PoxyDB Service
+        #
+        proxydbClass = namedClass(config.ProxyDBService.type)
+
+        self.log_info("Configuring proxydb service of type: %s" % (proxydbClass,))
+
+        try:
+            calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+        except IOError, e:
+            self.log_error("Could not start proxydb service")
+            raise
+
+        #
+        # Make sure proxies get initialized
+        #
+        if config.ProxyLoadFromFile:
+            def _doProxyUpdate():
+                loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
+                return loader.updateProxyDB()
+            
+            reactor.addSystemEventTrigger("after", "startup", _doProxyUpdate)
+
+        #
         # Configure Memcached Client Pool
         #
-        if config.Memcached.ClientEnabled:
-            memcachepool.installPool(
-                IPv4Address(
-                    "TCP",
-                    config.Memcached.BindAddress,
-                    config.Memcached.Port,
-                ),
-                config.Memcached.MaxClients,
-            )
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
 
         #
         # Configure NotificationClient
@@ -1037,25 +1072,23 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 
-        if config.Memcached.ServerEnabled:
-            self.log_info("Adding memcached service")
-
-            memcachedArgv = [
-                config.Memcached.memcached,
-                "-p", str(config.Memcached.Port),
-                "-l", config.Memcached.BindAddress,
-                "-U", "0",
-            ]
-
-            if config.Memcached.MaxMemory is not 0:
-                memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
-
-            if config.UserName:
-                memcachedArgv.extend(["-u", config.UserName])
-
-            memcachedArgv.extend(config.Memcached.Options)
-
-            monitor.addProcess("memcached", memcachedArgv, env=parentEnv)
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                self.log_info("Adding memcached service for pool: %s" % (name,))
+        
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-p", str(pool.Port),
+                    "-l", pool.BindAddress,
+                    "-U", "0",
+                ]
+        
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
+        
+                memcachedArgv.extend(config.Memcached.Options)
+        
+                monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
 
         if (
             config.Notifications.Enabled and
@@ -1211,9 +1244,6 @@ class TwistdSlaveProcess(object):
             "-o", "ControlPort=%d"
                   % (config.ControlPort,),
         ])
-
-        if config.Memcached.ServerEnabled:
-            args.extend(["-o", "Memcached/ClientEnabled=True"])
 
         if self.inheritFDs:
             args.extend([

@@ -54,11 +54,12 @@ from twisted.web2.dav.idav import IDAVResource
 from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.dav.resource import davPrivilegeSet
-from twisted.web2.dav.util import parentForURL, bindMethods
+from twisted.web2.dav.util import parentForURL, bindMethods, joinURL
 
 from twistedcaldav import caldavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
@@ -736,59 +737,76 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
         
-        childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-        child = self.homeResourceClass(childPath.path, self, record)
-
-        if not child.exists():
-            self.provision()
-
-            if not childPath.parent().isdir():
-                childPath.parent().makedirs()
-
-            for oldPath in (
-                # Pre 2.0: All in one directory
-                self.fp.child(name),
-                # Pre 1.2: In types hierarchy instead of the GUID hierarchy
-                self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
-            ):
-                if oldPath.exists():
-                    # The child exists at an old location.  Move to new location.
-                    log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
-                    try:
-                        oldPath.moveTo(childPath)
-                    except (OSError, IOError), e:
-                        log.err("Error moving calendar home %r: %s" % (oldPath, e))
+        if record.locallyHosted():
+            childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
+            child = self.homeResourceClass(childPath.path, self, record)
+    
+            if not child.exists():
+                self.provision()
+    
+                if not childPath.parent().isdir():
+                    childPath.parent().makedirs()
+    
+                for oldPath in (
+                    # Pre 2.0: All in one directory
+                    self.fp.child(name),
+                    # Pre 1.2: In types hierarchy instead of the GUID hierarchy
+                    self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
+                ):
+                    if oldPath.exists():
+                        # The child exists at an old location.  Move to new location.
+                        log.msg("Moving calendar home from old location %r to new location %r." % (oldPath, childPath))
+                        try:
+                            oldPath.moveTo(childPath)
+                        except (OSError, IOError), e:
+                            log.err("Error moving calendar home %r: %s" % (oldPath, e))
+                            raise HTTPError(StatusResponse(
+                                responsecode.INTERNAL_SERVER_ERROR,
+                                "Unable to move calendar home."
+                            ))
+                        child.fp.changed()
+                        break
+                else:
+                    #
+                    # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
+                    # The result being that the default calendars will be present at some point
+                    # in the future, not necessarily right now, and we don't have a way to wait
+                    # on that to finish.
+                    #
+                    child.provisionDefaultCalendars()
+    
+                    #
+                    # Try to work around the above a little by telling the client that something
+                    # when wrong temporarily if the child isn't provisioned right away.
+                    #
+                    if not child.exists():
                         raise HTTPError(StatusResponse(
-                            responsecode.INTERNAL_SERVER_ERROR,
-                            "Unable to move calendar home."
+                            responsecode.SERVICE_UNAVAILABLE,
+                            "Provisioning calendar home."
                         ))
-                    child.fp.changed()
-                    break
-            else:
-                #
-                # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
-                # The result being that the default calendars will be present at some point
-                # in the future, not necessarily right now, and we don't have a way to wait
-                # on that to finish.
-                #
-                child.provisionDefaultCalendars()
-
-                #
-                # Try to work around the above a little by telling the client that something
-                # when wrong temporarily if the child isn't provisioned right away.
-                #
-                if not child.exists():
-                    raise HTTPError(StatusResponse(
-                        responsecode.SERVICE_UNAVAILABLE,
-                        "Provisioning calendar home."
-                    ))
-
-            assert child.exists()
+    
+                assert child.exists()
+        
+        else:
+            childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
+            child = CalendarHomeReverseProxyFile(childPath.path, self, record)
 
         return child
 
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
+
+class CalendarHomeReverseProxyFile(ReverseProxyResource):
+    
+    def __init__(self, path, parent, record):
+        self.path = path
+        self.parent = parent
+        self.record = record
+        
+        super(CalendarHomeReverseProxyFile, self).__init__(self.record.hostedAt)
+    
+    def url(self):
+        return joinURL(self.parent.url(), self.record.uid)
 
 class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """

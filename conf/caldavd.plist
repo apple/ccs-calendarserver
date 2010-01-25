@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -148,12 +148,94 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
+      </dict>
+    </dict>
+     -->
+
+    <!--
+        Augment service
+
+        Augments for the directory service records to add calendar specific attributes.
+
+        A variety of augment services are available for use.
+        When using a partitioned server, a service that can be accessed from each host will be needed.
+      -->
+
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>xmlFiles</key>
+        <array>
+	      <string>/etc/caldavd/augments.xml</string>
+        </array>
+      </dict>
+    </dict>
+    
+    <!-- Sqlite Augment Service -->
+    <!--
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>/etc/caldavd/augments.sqlite</string>
+      </dict>
+    </dict>
+     -->
+
+    <!-- PostgreSQL Augment Service -->
+    <!--
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>augments</string>
+      </dict>
+    </dict>
+     -->
+
+    <!-- Sqlite ProxyDB Service -->
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>/etc/caldavd/proxies.sqlite</string>
+      </dict>
+    </dict>
+
+    <!-- PostgreSQL ProxyDB Service -->
+    <!--
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>proxies</string>
       </dict>
     </dict>
      -->

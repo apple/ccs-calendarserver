@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_cachedirectory -*-
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
 
-        useMemcache = useMemcache and config.Memcached.ClientEnabled
+        useMemcache = useMemcache and config.Memcached.Pools.Default.ClientEnabled
         if neverExpire:
             record.neverExpire()
 
@@ -156,7 +156,7 @@ class CachingDirectoryService(DirectoryService):
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
             self.memcacheClient = memcacheclient.ClientFactory.getClient(['%s:%s' %
-                (config.Memcached.BindAddress, config.Memcached.Port)],
+                (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
 
@@ -289,7 +289,7 @@ class CachingDirectoryService(DirectoryService):
                 pass
             
             # Check memcache
-            if config.Memcached.ClientEnabled:
+            if config.Memcached.Pools.Default.ClientEnabled:
                 key = "dir|%s|%s" % (indexType, indexKey)
                 self.log_debug("Memcache: checking %s" % (key,))
 
@@ -332,7 +332,7 @@ class CachingDirectoryService(DirectoryService):
             self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
 
-            if config.Memcached.ClientEnabled:
+            if config.Memcached.Pools.Default.ClientEnabled:
                 self.log_debug("Memcache: storing (negative) %s" % (key,))
                 try:
                     self.memcacheSet("-%s" % (key,), 1)
@@ -349,9 +349,10 @@ class CachingDirectoryService(DirectoryService):
 class CachingDirectoryRecord(DirectoryRecord):
 
     def __init__(
-        self, service, recordType, guid, shortNames=(), authIDs=set(),
+        self, service, recordType, guid,
+        shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        enabledForCalendaring=None, uid=None,
+        uid=None,
     ):
         super(CachingDirectoryRecord, self).__init__(
             service               = service,
@@ -363,7 +364,6 @@ class CachingDirectoryRecord(DirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            enabledForCalendaring = enabledForCalendaring,
             uid                   = uid,
         )
         

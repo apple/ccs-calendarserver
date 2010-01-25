@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -185,11 +185,17 @@ class BaseServiceMakerTests(TestCase):
         self.config = ConfigDict(DEFAULT_CONFIG)
 
         accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
+        augmentsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/augments.xml")
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
 
         self.config["DirectoryService"] = {
             "params": {"xmlFile": accountsFile},
             "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"
+        }
+
+        self.config["AugmentService"] = {
+            "params": {"xmlFiles": [augmentsFile]},
+            "type": "twistedcaldav.directory.augment.AugmentXMLDB"
         }
 
         self.config.DocumentRoot   = self.mktemp()

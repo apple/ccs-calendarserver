@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -145,71 +145,100 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
       </dict>
     </dict>
     -->
 
-    <!-- Apache-style Basic Directory Service (Experimental) -->
     <!--
-    <key>DirectoryService</key>
+        Augment service
+
+        Augments for the directory service records to add calendar specific attributes.
+
+        A variety of augment services are available for use.
+        When using a partitioned server, a service that can be accessed from each host will be needed.
+      -->
+
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.apache.BasicDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
       
       <key>params</key>
       <dict>
-        <key>realmName</key>
-        <string>Test Realm</string>
-        <key>userFile</key>
-        <string>conf/auth/accounts.htauth</string>
-        <key>groupFile</key>
-        <string>conf/auth/groups</string>
+        <key>xmlFiles</key>
+        <array>
+	      <string>conf/auth/augments-test.xml</string>
+        </array>
       </dict>
     </dict>
-    -->
-
-    <!-- Apache-style Digest Directory Service (Experimental) -->
+    
+    <!-- Sqlite Augment Service -->
     <!--
-    <key>DirectoryService</key>
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.apache.DigestDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
       
       <key>params</key>
       <dict>
-        <key>realmName</key>
-        <string>Test Realm</string>
-        <key>userFile</key>
-        <string>conf/auth/accounts.htdigest</string>
-        <key>groupFile</key>
-        <string>conf/auth/groups</string>
+        <key>dbpath</key>
+        <string>/etc/caldavd/augments.sqlite</string>
       </dict>
     </dict>
      -->
 
-    <!-- SQL Directory Service (Experimental) -->
+    <!-- PostgreSQL Augment Service -->
     <!--
-    <key>DirectoryService</key>
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.sqldb.SQLDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
       
       <key>params</key>
       <dict>
-        <key>dbParentPath</key>
-        <string>twistedcaldav/test/data/</string>
-        <key>xmlFile</key>
-        <string>conf/auth/accounts-test.xml</string>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>augments</string>
       </dict>
     </dict>
-    -->
+     -->
 
+    <!-- Sqlite ProxyDB Service -->
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>data/proxies.sqlite</string>
+      </dict>
+    </dict>
+
+    <!-- PostgreSQL ProxyDB Service -->
+    <!--
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>proxies</string>
+      </dict>
+    </dict>
+     -->
+
+	<key>ProxyLoadFromFile</key>
+    <string>conf/auth/proxies-test.xml</string>
 
     <!--
         Special principals
@@ -655,10 +684,6 @@
     <!-- Support for Memcached -->
     <key>Memcached</key>
     <dict>
-      <key>ServerEnabled</key>
-      <true/>
-      <key>ClientEnabled</key>
-      <true/>
       <key>MaxClients</key>
       <integer>5</integer>
       <key>memcached</key>

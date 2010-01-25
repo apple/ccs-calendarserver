@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -352,8 +352,10 @@ for level in logLevels:
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message, __level__=level, **kwargs):
+    def log_emit(self, message, __level__=level, raiseException=None, **kwargs):
         self.emit(__level__, message, **kwargs)
+        if raiseException:
+            raise raiseException(message)
 
     def will_emit(self, __level__=level):
         return self.willLogAtLevel(__level__)
@@ -369,8 +371,10 @@ for level in logLevels:
     #
     # Attach methods to LoggingMixIn
     #
-    def log_emit(self, message, __level__=level, **kwargs):
+    def log_emit(self, message, __level__=level, raiseException=None, **kwargs):
         self.logger.emit(__level__, message, **kwargs)
+        if raiseException:
+            raise raiseException(message)
 
     def will_emit(self=log_emit, __level__=level):
         return self.logger.willLogAtLevel(__level__)

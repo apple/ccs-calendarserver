@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,15 @@
 import os
 
 from twisted.python.filepath import FilePath
-from twisted.internet.defer import inlineCallbacks
 
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.config import config
 
 xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
+augmentsFile = FilePath(os.path.join(os.path.dirname(__file__), "augments.xml"))
+proxiesFile = FilePath(os.path.join(os.path.dirname(__file__), "proxies.xml"))
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -88,6 +87,12 @@ class XMLFileBase(object):
             xmlFile.copyTo(self._xmlFile)
         return self._xmlFile
 
+    def augmentsFile(self):
+        if not hasattr(self, "_augmentsFile"):
+            self._augmentsFile = FilePath(self.mktemp())
+            augmentsFile.copyTo(self._augmentsFile)
+        return self._augmentsFile
+
 class XMLFile (
     XMLFileBase,
     twistedcaldav.directory.test.util.BasicTestCase,
@@ -97,7 +102,9 @@ class XMLFile (
     Test XML file based directory implementation.
     """
     def service(self):
-        return XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
+        directory = XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,))
+        return directory
 
     def test_changedXML(self):
         service = self.service()
@@ -130,7 +137,6 @@ class XMLFile (
                 set(expectedRecords)
             )
 
-    @inlineCallbacks
     def test_okAutoSchedule(self):
         service = self.service()
 
@@ -143,11 +149,25 @@ class XMLFile (
     <guid>myoffice</guid>
     <password>nimda</password>
     <name>Super User</name>
-    <auto-schedule/>
   </location>
 </accounts>
 """
         )
+        self.augmentsFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<augments>
+  <record>
+    <guid>myoffice</guid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule>true</auto-schedule>
+  </record>
+</augments>
+"""
+        )
+        augment.AugmentService.refresh()
+
         for recordType, expectedRecords in (
             ( DirectoryService.recordType_users     , ()             ),
             ( DirectoryService.recordType_groups    , ()             ),
@@ -162,8 +182,7 @@ class XMLFile (
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        self.assertTrue((yield resourceInfoDatabase.getAutoSchedule(service.recordWithShortName(DirectoryService.recordType_locations, "my office").guid)))
+        self.assertTrue(service.recordWithShortName(DirectoryService.recordType_locations, "my office").autoSchedule)
 
 
     def test_okDisableCalendar(self):
@@ -182,11 +201,11 @@ class XMLFile (
     <uid>disabled</uid>
     <password>disabled</password>
     <name>Disabled</name>
-    <disable-calendar/>
   </group>
 </accounts>
 """
         )
+        
         for recordType, expectedRecords in (
             ( DirectoryService.recordType_users     , ()                       ),
             ( DirectoryService.recordType_groups    , ("enabled", "disabled")  ),
@@ -205,51 +224,4 @@ class XMLFile (
         # All groups are disabled
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
-
-    @inlineCallbacks
-    def test_okProxies(self):
-        service = self.service()
-
-        self.xmlFile().open("w").write(
-"""<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
-<accounts realm="Test Realm">
-  <user>
-    <uid>test</uid>
-    <guid>test</guid>
-    <password>nimda</password>
-    <name>Test</name>
-  </user>
-  <location>
-    <uid>my office</uid>
-    <guid>myoffice</guid>
-    <password>nimda</password>
-    <name>Super User</name>
-    <auto-schedule/>
-    <proxies>
-        <member>test</member>
-    </proxies>
-  </location>
-</accounts>
-"""
-        )
-        for recordType, expectedRecords in (
-            ( DirectoryService.recordType_users     , ("test",)      ),
-            ( DirectoryService.recordType_groups    , ()             ),
-            ( DirectoryService.recordType_locations , ("my office",) ),
-            ( DirectoryService.recordType_resources , ()             ),
-        ):
-            # Fault records in
-            for name in expectedRecords:
-                service.recordWithShortName(recordType, name)
-
-            self.assertEquals(
-                set(r.shortNames[0] for r in service.listRecords(recordType)),
-                set(expectedRecords)
-            )
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-        members = (yield calendarUserProxyDatabase.getMembers("myoffice#calendar-proxy-write"))
-        self.assertTrue("test" in members)
-        members = (yield calendarUserProxyDatabase.getMemberships("test"))
-        self.assertTrue("myoffice#calendar-proxy-write" in members)
 

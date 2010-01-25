@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 
 __all__ = [
     "LocalCalendarUser",
+    "PartitionedCalendarUser",
     "RemoteCalendarUser",
     "EmailCalendarUser",
     "InvalidCalendarUser",
@@ -42,6 +43,15 @@ class LocalCalendarUser(CalendarUser):
     
     def __str__(self):
         return "Local calendar user: %s" % (self.cuaddr,)
+
+class PartitionedCalendarUser(CalendarUser):
+    def __init__(self, cuaddr, principal):
+        self.cuaddr = cuaddr
+        self.principal = principal
+        self.serviceType = DeliveryService.serviceType_ischedule
+
+    def __str__(self):
+        return "Partitioned calendar user: %s" % (self.cuaddr,)
 
 class RemoteCalendarUser(CalendarUser):
     def __init__(self, cuaddr):

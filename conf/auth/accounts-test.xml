@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,27 +52,18 @@ limitations under the License.
     <name>Public %02d</name>
     <first-name>Public</first-name>
     <last-name>%02d</last-name>
-    <email-address>public%02d@example.com</email-address>
   </user>
   <location repeat="10">
     <uid>location%02d</uid>
     <guid>location%02d</guid>
     <password>location%02d</password>
     <name>Room %02d</name>
-    <auto-schedule/>
   </location>
   <resource repeat="10">
     <uid>resource%02d</uid>
     <guid>resource%02d</guid>
     <password>resource%02d</password>
     <name>Resource %02d</name>
-    <auto-schedule/>
-    <proxies>
-      <member type="users">user01</member>
-    </proxies>
-    <read-only-proxies>
-      <member type="users">user03</member>
-    </read-only-proxies>
   </resource>
   <group>
     <uid>group01</uid>
@@ -122,6 +113,5 @@ limitations under the License.
     <members>
       <member type="users">user01</member>
     </members>
-    <disable-calendar/>
   </group>
 </accounts>

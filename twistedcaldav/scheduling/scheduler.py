@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,8 @@ from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser, RemoteCalendarUser, EmailCalendarUser
+    LocalCalendarUser, RemoteCalendarUser, EmailCalendarUser,\
+    PartitionedCalendarUser
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
@@ -45,6 +46,7 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 import itertools
 import re
 import socket
+import urlparse
 
 """
 CalDAV/Server-to-Server scheduling behavior.
@@ -70,6 +72,8 @@ class Scheduler(object):
         self.recipients = None
         self.calendar = None
         self.organizer = None
+        self.attendee = None
+        self.isiTIPRequest = None
         self.timeRange = None
         self.excludeUID = None
         self.fakeTheResult = False
@@ -247,7 +251,7 @@ class Scheduler(object):
     def checkOriginator(self):
         raise NotImplementedError
 
-    def checkRecipient(self):
+    def checkRecipients(self):
         raise NotImplementedError
 
     def checkOrganizer(self):
@@ -282,6 +286,27 @@ class Scheduler(object):
             log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
     
+        # Determine iTIP method mode
+        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+            self.isiTIPRequest = True
+
+        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
+            self.isiTIPRequest = False
+
+            # Verify that there is a single ATTENDEE property
+            attendees = self.calendar.getAttendees()
+        
+            # Must have only one
+            if len(attendees) != 1:
+                log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendardata,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+            self.attendee = attendees[0]
+
+        else:
+            msg = "Unknown iTIP METHOD: %s" % (self.calendar.propertyValue("METHOD"),)
+            log.err(msg)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+
     def checkForFreeBusy(self):
         if not hasattr(self, "isfreebusy"):
             if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
@@ -362,6 +387,7 @@ class Scheduler(object):
     
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
+        partitioned_recipients = []
         remote_recipients = []
         imip_recipients = []
         for recipient in self.recipients:
@@ -371,6 +397,9 @@ class Scheduler(object):
                 
             elif isinstance(recipient, LocalCalendarUser):
                 caldav_recipients.append(recipient)
+
+            elif isinstance(recipient, PartitionedCalendarUser):
+                partitioned_recipients.append(recipient)
 
             elif isinstance(recipient, RemoteCalendarUser):
                 remote_recipients.append(recipient)
@@ -385,6 +414,10 @@ class Scheduler(object):
         # Now process local recipients
         if caldav_recipients:
             yield self.generateLocalSchedulingResponses(caldav_recipients, responses, freebusy)
+
+        # Now process partitioned recipients
+        if partitioned_recipients:
+            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.request, 'doing_attendee_refresh', False))
 
         # To reduce chatter, we suppress certain messages
         if not getattr(self.request, 'suppressRefresh', False):
@@ -409,14 +442,14 @@ class Scheduler(object):
         requestor = ScheduleViaCalDAV(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses()
 
-    def generateRemoteSchedulingResponses(self, recipients, responses, freebusy):
+    def generateRemoteSchedulingResponses(self, recipients, responses, freebusy, refreshOnly=False):
         """
         Generate scheduling responses for remote recipients.
         """
 
         # Create the scheduler and run it.
         requestor = ScheduleViaISchedule(self, recipients, responses, freebusy)
-        return requestor.generateSchedulingResponses()
+        return requestor.generateSchedulingResponses(refreshOnly)
 
     def generateIMIPSchedulingResponses(self, recipients, responses, freebusy):
         """
@@ -499,10 +532,10 @@ class CalDAVScheduler(Scheduler):
                 inbox = None
                 inboxURL = principal.scheduleInboxURL()
                 if inboxURL:
-                    inbox = (yield self.request.locateResource(inboxURL))
+                    inbox = (yield self.request.locateResource(inboxURL)) if principal.locallyHosted() else "dummy"
 
                 if inbox:
-                    results.append(LocalCalendarUser(recipient, principal, inbox, inboxURL))
+                    results.append(LocalCalendarUser(recipient, principal, inbox, inboxURL) if principal.locallyHosted() else PartitionedCalendarUser(recipient, principal))
                 else:
                     log.err("No schedule inbox for principal: %s" % (principal,))
                     results.append(InvalidCalendarUser(recipient))
@@ -559,17 +592,8 @@ class CalDAVScheduler(Scheduler):
         Only local attendees are allowed for message originating from this server.
         """
         
-        # Verify that there is a single ATTENDEE property
-        attendees = self.calendar.getAttendees()
-    
-        # Must have only one
-        if len(attendees) != 1:
-            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-        attendee = attendees[0]
-    
         # Attendee's Outbox MUST be the request URI
-        attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
+        attendeePrincipal = self.resource.principalForCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if self.doingPOST and attendeePrincipal.scheduleOutboxURL() != self.request.uri:
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
@@ -584,16 +608,12 @@ class CalDAVScheduler(Scheduler):
         """
     
         # Prevent spoofing of ORGANIZER with specific METHODs when local
-        if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
+        if self.isiTIPRequest:
             self.checkOrganizerAsOriginator()
     
         # Prevent spoofing when doing reply-like METHODs
-        elif self.calendar.propertyValue("METHOD") in ("REPLY", "COUNTER", "REFRESH"):
-            self.checkAttendeeAsOriginator()
-            
         else:
-            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Unknown iTIP METHOD for security checks"))
+            self.checkAttendeeAsOriginator()
 
     def finalChecks(self):
         """
@@ -618,8 +638,62 @@ class CalDAVScheduler(Scheduler):
             else:
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid iTIP message for implicit scheduling"))
 
-class IScheduleScheduler(Scheduler):
+class RemoteScheduler(Scheduler):
 
+    def checkOrganizer(self):
+        """
+        Delay ORGANIZER check until we know what their role is.
+        """
+        pass
+
+    @inlineCallbacks
+    def checkRecipients(self):
+        """
+        Check the validity of the Recipient header values. These must all be local as there
+        is no concept of server-to-server relaying.
+        """
+        
+        results = []
+        for recipient in self.recipients:
+            # Get the principal resource for this recipient
+            principal = self.resource.principalForCalendarUserAddress(recipient)
+            
+            # If no principal we may have a remote recipient but we should check whether
+            # the address is one that ought to be on our server and treat that as a missing
+            # user. Also if server-to-server is not enabled then remote addresses are not allowed.
+            if principal is None:
+                localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(recipient))
+                if localUser:
+                    log.err("No principal for calendar user address: %s" % (recipient,))
+                else:
+                    log.err("Unknown calendar user address: %s" % (recipient,))
+                results.append(InvalidCalendarUser(recipient))
+            else:
+                # Map recipient to their inbox
+                inbox = None
+                inboxURL = principal.scheduleInboxURL()
+                if inboxURL:
+                    inbox = (yield self.request.locateResource(inboxURL)) if principal.locallyHosted() else "dummy"
+
+                if inbox:
+                    results.append(LocalCalendarUser(recipient, principal, inbox, inboxURL) if principal.locallyHosted() else PartitionedCalendarUser(recipient, principal))
+                else:
+                    log.err("No schedule inbox for principal: %s" % (principal,))
+                    results.append(InvalidCalendarUser(recipient))
+        
+        self.recipients = results
+
+class IScheduleScheduler(RemoteScheduler):
+
+    def loadFromRequestHeaders(self):
+        """
+        Load Originator and Recipient from request headers.
+        """
+        super(IScheduleScheduler, self).loadFromRequestHeaders()
+        
+        if self.request.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
+            self.request.doing_attendee_refresh = 1
+        
     def checkAuthorization(self):
         # Must have an unauthenticated user
         if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):
@@ -636,11 +710,21 @@ class IScheduleScheduler(Scheduler):
         originatorPrincipal = self.resource.principalForCalendarUserAddress(self.originator)
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
-            log.err("Cannot use originator that is on this server: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            if originatorPrincipal.locallyHosted():
+                log.err("Cannot use originator that is on this server: %s" % (self.originator,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            else:
+                self.originator = PartitionedCalendarUser(self.originator, originatorPrincipal)
+                #self._validPartitionServer()
         else:
             self.originator = RemoteCalendarUser(self.originator)
-            
+            self._validiScheduleServer()
+
+    def _validiScheduleServer(self):
+        """
+        Check the validity of the iSchedule host.
+        """
+    
         # We will only accept originator in known domains.
         servermgr = IScheduleServers()
         server = servermgr.mapDomain(self.originator.domain)
@@ -684,48 +768,37 @@ class IScheduleScheduler(Scheduler):
                 log.err("Originator not on allowed server: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
-    @inlineCallbacks
-    def checkRecipients(self):
+    def _validPartitionServer(self, principal):
         """
-        Check the validity of the Recipient header values. These must all be local as there
-        is no concept of server-to-server relaying.
+        Check the validity of the partitioned host.
         """
-        
-        results = []
-        for recipient in self.recipients:
-            # Get the principal resource for this recipient
-            principal = self.resource.principalForCalendarUserAddress(recipient)
-            
-            # If no principal we may have a remote recipient but we should check whether
-            # the address is one that ought to be on our server and treat that as a missing
-            # user. Also if server-to-server is not enabled then remote addresses are not allowed.
-            if principal is None:
-                localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(recipient))
-                if localUser:
-                    log.err("No principal for calendar user address: %s" % (recipient,))
-                else:
-                    log.err("Unknown calendar user address: %s" % (recipient,))
-                results.append(InvalidCalendarUser(recipient))
-            else:
-                # Map recipient to their inbox
-                inbox = None
-                inboxURL = principal.scheduleInboxURL()
-                if inboxURL:
-                    inbox = (yield self.request.locateResource(inboxURL))
 
-                if inbox:
-                    results.append(LocalCalendarUser(recipient, principal, inbox, inboxURL))
-                else:
-                    log.err("No schedule inbox for principal: %s" % (principal,))
-                    results.append(InvalidCalendarUser(recipient))
+        # Extract expected host/port
+        expected_uri = principal.hostedURL()
+        expected_uri = urlparse.urlparse(expected_uri)
+    
+        # Get the request IP and map to hostname.
+        clientip = self.request.remoteAddr.host
         
-        self.recipients = results
-
-    def checkOrganizer(self):
-        """
-        Delay ORGANIZER check until we know what their role is.
-        """
-        pass
+        # First compare as dotted IP
+        matched = False
+        if clientip == expected_uri.hostname:
+            matched = True
+        else:
+            # Now do hostname lookup
+            try:
+                host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
+                for hostname in itertools.chain((host,), aliases):
+                    # Try host match
+                    if hostname == expected_uri.hostname:
+                        matched = True
+                        break
+            except socket.herror, e:
+                log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
+        
+        if not matched:
+            log.err("Originator not on allowed server: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
     @inlineCallbacks
     def checkOrganizerAsOriginator(self):
@@ -738,8 +811,13 @@ class IScheduleScheduler(Scheduler):
         if organizer:
             organizerPrincipal = self.resource.principalForCalendarUserAddress(organizer)
             if organizerPrincipal:
-                log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                if organizerPrincipal.locallyHosted():
+                    log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                else:
+                    # Check that the origin server is the correct partition
+                    self.organizer = PartitionedCalendarUser(organizer, organizerPrincipal)
+                    self._validPartitionServer(self.organizer.principal)
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
@@ -758,22 +836,16 @@ class IScheduleScheduler(Scheduler):
         Only local attendees are allowed for message originating from this server.
         """
         
-        # Verify that there is a single ATTENDEE property
-        attendees = self.calendar.getAttendees()
-    
-        # Must have only one
-        if len(attendees) != 1:
-            log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
-        attendee = attendees[0]
-    
         # Attendee cannot be local.
-        attendeePrincipal = self.resource.principalForCalendarUserAddress(attendee)
+        attendeePrincipal = self.resource.principalForCalendarUserAddress(self.attendee)
         if attendeePrincipal:
-            log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+            if attendeePrincipal.locallyHosted():
+                log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+            else:
+                self._validPartitionServer(attendeePrincipal)                
         else:
-            localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(attendee))
+            localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:
                 log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
@@ -826,13 +898,25 @@ class DirectScheduler(Scheduler):
         pass
 
 
-class IMIPScheduler(Scheduler):
+class IMIPScheduler(RemoteScheduler):
 
     def checkAuthorization(self):
         pass
 
-    def checkOrganizer(self):
-        pass
+    @inlineCallbacks
+    def checkOriginator(self):
+        """
+        Check the validity of the Originator header.
+        """
+    
+        # For remote requests we do not allow the originator to be a local user or one within our domain.
+        originatorPrincipal = self.resource.principalForCalendarUserAddress(self.originator)
+        localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
+        if originatorPrincipal or localUser:
+            log.err("Cannot use originator that is on this server: %s" % (self.originator,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+        else:
+            self.originator = RemoteCalendarUser(self.originator)
 
     def checkOrganizerAsOriginator(self):
         pass
@@ -855,59 +939,6 @@ class IMIPScheduler(Scheduler):
             log.err("Only %s is allowed to submit internal scheduling requests, not %s" % (allowed, host))
             # TODO: verify this is the right response:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-
-    @inlineCallbacks
-    def checkOriginator(self):
-        """
-        Check the validity of the Originator header.
-        """
-    
-        # For remote requests we do not allow the originator to be a local user or one within our domain.
-        originatorPrincipal = self.resource.principalForCalendarUserAddress(self.originator)
-        localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
-        if originatorPrincipal or localUser:
-            log.err("Cannot use originator that is on this server: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-        else:
-            self.originator = RemoteCalendarUser(self.originator)
-
-    @inlineCallbacks
-    def checkRecipients(self):
-        """
-        Check the validity of the Recipient header values. These must all be local as there
-        is no concept of server-to-server relaying.
-        """
-        
-        results = []
-        for recipient in self.recipients:
-            # Get the principal resource for this recipient
-            principal = self.resource.principalForCalendarUserAddress(recipient)
-            
-            # If no principal we may have a remote recipient but we should check whether
-            # the address is one that ought to be on our server and treat that as a missing
-            # user. Also if server-to-server is not enabled then remote addresses are not allowed.
-            if principal is None:
-                localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(recipient))
-                if localUser:
-                    log.err("No principal for calendar user address: %s" % (recipient,))
-                else:
-                    log.err("Unknown calendar user address: %s" % (recipient,))
-                results.append(InvalidCalendarUser(recipient))
-            else:
-                # Map recipient to their inbox
-                inbox = None
-                inboxURL = principal.scheduleInboxURL()
-                if inboxURL:
-                    inbox = (yield self.request.locateResource(inboxURL))
-
-                if inbox:
-                    results.append(LocalCalendarUser(recipient, principal, inbox, inboxURL))
-                else:
-                    log.err("No schedule inbox for principal: %s" % (principal,))
-                    results.append(InvalidCalendarUser(recipient))
-        
-        self.recipients = results
-
 
 
 class ScheduleResponseResponse (Response):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,7 +60,9 @@ class MemcachePropertyCollection (LoggingMixIn):
 
             log.info("Instantiating memcache connection for MemcachePropertyCollection")
 
-            MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient(["%s:%s" % (config.Memcached.BindAddress, config.Memcached.Port)],
+            MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient([
+                    "%s:%s" % (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)
+                ],
                 debug=0,
                 pickleProtocol=2,
             )

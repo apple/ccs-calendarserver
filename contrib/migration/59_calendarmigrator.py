@@ -10,7 +10,7 @@
 # The only argument this script currently cares about is --sourceRoot, which
 # should point to the root of the previous system.
 #
-# Copyright (c) 2005-2009 Apple Inc.  All Rights Reserved.
+# Copyright (c) 2005-2010 Apple Inc.  All Rights Reserved.
 #
 # IMPORTANT NOTE:  This file is licensed only for use on Apple-labeled
 # computers and is subject to the terms and conditions of the Apple
@@ -187,7 +187,7 @@ def mergePlist(oldPlist, newPlist):
         newPlist["DirectoryService"] = oldPlist["DirectoryService"]
         for key in newPlist["DirectoryService"]["params"].keys():
             if key not in (
-                "node", "restrictEnabledRecords", "restrictToGroup",
+                "node",
                 "cacheTimeout", "xmlFile"
             ):
                 del newPlist["DirectoryService"]["params"][key]

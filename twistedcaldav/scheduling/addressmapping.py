@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
-    RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser
+    RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
+    PartitionedCalendarUser
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 __all__ = [
@@ -49,17 +50,14 @@ class ScheduleAddressMapper(object):
     @inlineCallbacks
     def getCalendarUser(self, cuaddr, principal):
         
-        # If we have a principal always treat the user as local
+        # If we have a principal always treat the user as local or partitioned
         if principal:
-            returnValue(LocalCalendarUser(cuaddr, principal))
+            returnValue(LocalCalendarUser(cuaddr, principal) if principal.locallyHosted() else PartitionedCalendarUser(cuaddr, principal))
 
         # Get the type
         cuaddr_type = (yield self.getCalendarUserServiceType(cuaddr))
         if cuaddr_type == DeliveryService.serviceType_caldav:
-            if principal:
-                returnValue(LocalCalendarUser(cuaddr, principal))
-            else:
-                returnValue(InvalidCalendarUser(cuaddr))
+            returnValue(InvalidCalendarUser(cuaddr))
         elif cuaddr_type == DeliveryService.serviceType_ischedule:
             returnValue(RemoteCalendarUser(cuaddr))
         elif cuaddr_type == DeliveryService.serviceType_imip:

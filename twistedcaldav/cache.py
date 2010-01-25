@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from twisted.web2.iweb import IResource
 from twisted.web2.stream import MemoryStream
 
 from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcachepool import CachePoolUserMixIn
+from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config
 
 
@@ -61,9 +61,10 @@ class URINotFoundException(Exception):
 
 class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
-    def __init__(self, resource, cachePool=None):
+    def __init__(self, resource, cachePool=None, cacheHandle="Default"):
         self._resource = resource
         self._cachePool = cachePool
+        self._cachePoolHandle = cacheHandle
 
     def _newCacheToken(self):
         return str(uuid.uuid4())
@@ -162,7 +163,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         self._cachePool = cachePool
 
 
-    def _tokenForURI(self, uri):
+    def _tokenForURI(self, uri, cachePoolHandle=None):
         """
         Get a property store for the given C{uri}.
 
@@ -170,13 +171,16 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         @return: A C{str} representing the token for the URI.
         """
 
-        return self.getCachePool().get('cacheToken:%s' % (uri,))
+        if cachePoolHandle:
+            return defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,))
+        else:
+            return self.getCachePool().get('cacheToken:%s' % (uri,))
 
 
     def _getTokens(self, request):
         def _tokensForURIs((pURI, rURI)):
             tokens = []
-            d1 = self._tokenForURI(pURI)
+            d1 = self._tokenForURI(pURI, "PrincipalToken")
             d1.addCallback(tokens.append)
             d1.addCallback(lambda _ign: self._getRecordForURI(pURI, request))
             d1.addCallback(lambda dToken: tokens.append(hash(dToken)))

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_upgrade -*-
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ from __future__ import with_statement
 from twisted.web2.dav.fileop import rmdir
 from twisted.web2.dav import davxml
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.log import Logger
@@ -208,42 +207,42 @@ def upgrade_to_1(config):
 
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
-
-        # See if the new one is already present
-        newDbPath = os.path.join(config.DataRoot,
-            CalendarUserProxyDatabase.dbFilename)
-        if os.path.exists(newDbPath):
-            # Nothing to be done, it's already in the new location
-            return
-
-        # See if the old DB is present
-        oldDbPath = os.path.join(config.DocumentRoot, "principals",
-            CalendarUserProxyDatabase.dbOldFilename)
-        if not os.path.exists(oldDbPath):
-            # Nothing to be moved
-            return
-
-        # Now move the old one to the new location
-        try:
-            if not os.path.exists(config.DataRoot):
-                makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
-            try:
-                os.rename(oldDbPath, newDbPath)
-            except OSError:
-                # Can't rename, must copy/delete
-                shutil.copy2(oldDbPath, newDbPath)
-                os.remove(oldDbPath)
-
-        except Exception, e:
-            raise UpgradeError(
-                "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' due to %s."
-                % (oldDbPath, newDbPath, str(e))
-            )
-
-        log.debug(
-            "Moved the calendar user proxy database from '%s' to '%s'."
-            % (oldDbPath, newDbPath,)
-        )
+        pass
+#        # See if the new one is already present
+#        newDbPath = os.path.join(config.DataRoot,
+#            CalendarUserProxyDatabase.dbFilename)
+#        if os.path.exists(newDbPath):
+#            # Nothing to be done, it's already in the new location
+#            return
+#
+#        # See if the old DB is present
+#        oldDbPath = os.path.join(config.DocumentRoot, "principals",
+#            CalendarUserProxyDatabase.dbOldFilename)
+#        if not os.path.exists(oldDbPath):
+#            # Nothing to be moved
+#            return
+#
+#        # Now move the old one to the new location
+#        try:
+#            if not os.path.exists(config.DataRoot):
+#                makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
+#            try:
+#                os.rename(oldDbPath, newDbPath)
+#            except OSError:
+#                # Can't rename, must copy/delete
+#                shutil.copy2(oldDbPath, newDbPath)
+#                os.remove(oldDbPath)
+#
+#        except Exception, e:
+#            raise UpgradeError(
+#                "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' due to %s."
+#                % (oldDbPath, newDbPath, str(e))
+#            )
+#
+#        log.debug(
+#            "Moved the calendar user proxy database from '%s' to '%s'."
+#            % (oldDbPath, newDbPath,)
+#        )
 
 
     def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
@@ -261,30 +260,34 @@ def upgrade_to_1(config):
 
 
     def migrateResourceInfo(config, directory, uid, gid):
-        log.info("Fetching delegate assignments and auto-schedule settings from directory")
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-        resourceInfo = directory.getResourceInfo()
-        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
-            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
-            if proxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-write" % (guid,),
-                    [proxy]
-                )
-            if readOnlyProxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-read" % (guid,),
-                    [readOnlyProxy]
-                )
+        # TODO: we need to account for the new augments database. This means migrating from the pre-resource info
+        # implementation and the resource-info implementation
+        pass
 
-        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
-
-        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
+#        log.info("Fetching delegate assignments and auto-schedule settings from directory")
+#        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+#        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
+#        resourceInfo = directory.getResourceInfo()
+#        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
+#            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
+#            if proxy:
+#                calendarUserProxyDatabase.setGroupMembersInDatabase(
+#                    "%s#calendar-proxy-write" % (guid,),
+#                    [proxy]
+#                )
+#            if readOnlyProxy:
+#                calendarUserProxyDatabase.setGroupMembersInDatabase(
+#                    "%s#calendar-proxy-read" % (guid,),
+#                    [readOnlyProxy]
+#                )
+#
+#        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+#        if os.path.exists(dbPath):
+#            os.chown(dbPath, uid, gid)
+#
+#        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
+#        if os.path.exists(dbPath):
+#            os.chown(dbPath, uid, gid)
 
     def createMailTokensDatabase(config, uid, gid):
         # Cause the tokens db to be created on disk so we can set the

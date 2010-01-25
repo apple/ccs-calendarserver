@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -283,7 +283,7 @@ class ImplicitProcessor(object):
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
             name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
             
@@ -306,7 +306,7 @@ class ImplicitProcessor(object):
             result = (True, autoprocessed, changes,)
         else:
             # Processing update to existing event
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
             new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
             if new_calendar:
      
@@ -367,7 +367,7 @@ class ImplicitProcessor(object):
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed.
-            autoprocessed = (yield self.recipient.principal.getAutoSchedule())
+            autoprocessed = self.recipient.principal.getAutoSchedule()
 
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
@@ -506,7 +506,7 @@ class ImplicitProcessor(object):
                         tr.start = makeTimedUTC(instance.start)
                         tr.end = makeTimedUTC(instance.end)
 
-                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid)
+                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
                         
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ from twisted.python.reflect import namedClass
 
 import socket
 from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -88,6 +89,13 @@ def getDirectory():
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
 
+    # Load augment/proxy db classes now
+    augmentClass = namedClass(config.AugmentService.type)
+    augment.AugmentService = augmentClass(**config.AugmentService.params)
+
+    proxydbClass = namedClass(config.ProxyDBService.type)
+    calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+
     # Wait for directory service to become available
     directory = MyDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
@@ -128,14 +136,14 @@ def autoDisableMemcached(config):
     If memcached is not running, set config.Memcached.ClientEnabled to False
     """
 
-    if not config.Memcached.ClientEnabled:
+    if not config.Memcached.Pools.Default.ClientEnabled:
         return
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        s.connect((config.Memcached.BindAddress, config.Memcached.Port))
+        s.connect((config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port))
         s.close()
 
     except socket.error:
-        config.Memcached.ClientEnabled = False
+        config.Memcached.Pools.Default.ClientEnabled = False

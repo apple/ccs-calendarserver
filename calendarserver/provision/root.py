@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         self.contentFilters = []
 
-        if config.Memcached["ClientEnabled"]:
+        if config.Memcached.Pools.Default.ClientEnabled:
             self.responseCache = MemcacheResponseCache(self.fp)
 
             CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
@@ -243,6 +243,15 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             responsecode.FORBIDDEN,
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
+
+        # Look for forwarding
+        if config.Partitioning.Enabled:
+            remote_ip = request.headers.getRawHeaders('x-forwarded-for')
+            if remote_ip and len(remote_ip) == 1:
+                request.forwarded_for = remote_ip[0]
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["xff"] = remote_ip[0]
 
         if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:

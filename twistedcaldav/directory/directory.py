@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test -*-
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 
 """
 Generic directory service classes.
@@ -37,9 +38,11 @@ from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.internet.defer import succeed
 
+from twistedcaldav.config import config
 from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
+from twistedcaldav.partitions import partitions
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 class DirectoryService(LoggingMixIn):
@@ -150,7 +153,7 @@ class DirectoryService(LoggingMixIn):
             record = self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             for record in self.allRecords():
-                if address in record.calendarUserAddresses:
+                if address[7:] in record.emailAddresses:
                     break
             else:
                 return None
@@ -282,20 +285,21 @@ class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s(%s)] %s(%s) %r>" % (
+        return "<%s[%s@%s(%s)] %s(%s) %r @ %s>" % (
             self.__class__.__name__,
             self.recordType,
             self.service.guid,
             self.service.realmName,
             self.guid,
             ",".join(self.shortNames),
-            self.fullName
+            self.fullName,
+            self.hostedAt,
         )
 
     def __init__(
-        self, service, recordType, guid, shortNames=(), authIDs=set(), fullName=None,
+        self, service, recordType, guid,
+        shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        enabledForCalendaring=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -311,27 +315,20 @@ class DirectoryRecord(LoggingMixIn):
         if fullName is None:
             fullName = ""
 
-        if enabledForCalendaring is None:
-            if recordType == service.recordType_groups:
-                enabledForCalendaring = False
-            else:
-                enabledForCalendaring = True
-
-        if enabledForCalendaring and recordType == service.recordType_groups:
-            raise AssertionError("Groups may not be enabled for calendaring")
-
         self.service               = service
         self.recordType            = recordType
         self.guid                  = guid
         self.uid                   = uid
+        self.enabled               = False
+        self.hostedAt              = ""
         self.shortNames            = shortNames
         self.authIDs               = authIDs
         self.fullName              = fullName
         self.firstName             = firstName
         self.lastName              = lastName
         self.emailAddresses        = emailAddresses
-        self.enabledForCalendaring = enabledForCalendaring
-
+        self.enabledForCalendaring = False
+        self.autoSchedule          = False
 
     def get_calendarUserAddresses(self):
         """
@@ -350,7 +347,6 @@ class DirectoryRecord(LoggingMixIn):
 
     calendarUserAddresses = property(get_calendarUserAddresses)
 
-
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
             return NotImplemented
@@ -364,10 +360,27 @@ class DirectoryRecord(LoggingMixIn):
     def __hash__(self):
         h = hash(self.__class__)
         for attr in ("service", "recordType", "shortNames", "guid",
-                     "enabledForCalendaring"):
+                     "enabled", "enabledForCalendaring"):
             h = (h + hash(getattr(self, attr))) & sys.maxint
 
         return h
+
+    def addAugmentInformation(self, augment):
+        
+        if augment:
+            self.enabled = augment.enabled
+            self.hostedAt = augment.hostedAt
+            self.enabledForCalendaring = augment.enabledForCalendaring
+            self.autoSchedule = augment.autoSchedule
+
+            if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
+                self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortNames[0],))
+                self.enabledForCalendaring = False
+
+        else:
+            self.enabled = False
+            self.hostedAt = ""
+            self.enabledForCalendaring = False
 
     def members(self):
         return ()
@@ -395,6 +408,12 @@ class DirectoryRecord(LoggingMixIn):
             if val == cuType:
                 return key
         return None
+
+    def locallyHosted(self):
+        return not self.hostedAt or not config.Partitioning.Enabled or self.hostedAt == config.Partitioning.ServerPartitionID
+    
+    def hostedURL(self):
+        return partitions.getPartitionURL(self.hostedAt)
 
 class DirectoryError(RuntimeError):
     """

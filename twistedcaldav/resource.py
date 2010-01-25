@@ -905,7 +905,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                 ))
 
             elif name == "auto-schedule":
-                autoSchedule = (yield self.getAutoSchedule())
+                autoSchedule = self.getAutoSchedule()
                 returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
@@ -916,8 +916,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             "%r is not a WebDAVElement instance" % (property,)
         )
 
-        if property.qname() == (caldav_namespace, "auto-schedule"):
-            self.setAutoSchedule(autoSchedule)
+        #if property.qname() == (caldav_namespace, "auto-schedule"):
+        #    self.setAutoSchedule(autoSchedule)
 
         return super(CalendarPrincipalResource, self).writeProperty(property, request)
 

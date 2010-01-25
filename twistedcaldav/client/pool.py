@@ -1,0 +1,391 @@
+##
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+__all__ = [
+    "installPools",
+    "installPool",
+    "getHTTPClientPool",
+]
+
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twisted.internet.address import IPv4Address
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
+from twisted.internet.protocol import ClientFactory
+from twisted.web2 import responsecode
+from twisted.web2.client.http import HTTPClientProtocol
+from twisted.web2.http import StatusResponse, HTTPError
+from twistedcaldav.config import config
+from twistedcaldav.log import LoggingMixIn
+import OpenSSL
+import urlparse
+
+class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
+    """
+    A client factory for HTTPClient that notifies a pool of it's state. It the connection
+    fails in the middle of a request it will retry the request.
+
+    @ivar protocol: The current instance of our protocol that we pass
+        to our connectionPool.
+    @ivar connectionPool: A managing connection pool that we notify of events.
+    """
+    protocol = HTTPClientProtocol
+    connectionPool = None
+
+    def __init__(self, reactor):
+        self.reactor = reactor
+        self.instance = None
+        self.onConnect = Deferred()
+        self.afterConnect = Deferred()
+
+    def clientConnectionLost(self, connector, reason):
+        """
+        Notify the connectionPool that we've lost our connection.
+        """
+
+        if hasattr(self, "afterConnect"):
+            self.reactor.callLater(0, self.afterConnect.errback, reason)
+            del self.afterConnect
+
+        if self.connectionPool.shutdown_requested:
+            # The reactor is stopping; don't reconnect
+            return
+
+    def clientConnectionFailed(self, connector, reason):
+        """
+        Notify the connectionPool that we're unable to connect
+        """
+        if hasattr(self, "onConnect"):
+            self.reactor.callLater(0, self.onConnect.errback, reason)
+            del self.onConnect
+        elif hasattr(self, "afterConnect"):
+            self.reactor.callLater(0, self.afterConnect.errback, reason)
+            del self.afterConnect
+
+    def buildProtocol(self, addr):
+        self.instance = self.protocol()
+        self.reactor.callLater(0, self.onConnect.callback, self.instance)
+        del self.onConnect
+        return self.instance
+
+class HTTPClientPool(LoggingMixIn):
+    """
+    A connection pool for HTTPClientProtocol instances.
+
+    @ivar clientFactory: The L{ClientFactory} implementation that will be used
+        for each protocol.
+
+    @ivar _maxClients: A C{int} indicating the maximum number of clients.
+    @ivar _serverAddress: An L{IAddress} provider indicating the server to
+        connect to.  (Only L{IPv4Address} currently supported.)
+    @ivar _reactor: The L{IReactorTCP} provider used to initiate new
+        connections.
+
+    @ivar _busyClients: A C{set} that contains all currently busy clients.
+    @ivar _freeClients: A C{set} that contains all currently free clients.
+    @ivar _pendingConnects: A C{int} indicating how many connections are in
+        progress.
+    """
+    clientFactory = PooledHTTPClientFactory
+    maxRetries = 2
+
+    def __init__(self, name, scheme, serverAddress, maxClients=5, reactor=None):
+        """
+        @param serverAddress: An L{IPv4Address} indicating the server to
+            connect to.
+        @param maxClients: A C{int} indicating the maximum number of clients.
+        @param reactor: An L{IReactorTCP{ provider used to initiate new
+            connections.
+        """
+        
+        self._name = name
+        self._scheme = scheme
+        self._serverAddress = serverAddress
+        self._maxClients = maxClients
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self._reactor = reactor
+
+        self.shutdown_deferred = None
+        self.shutdown_requested = False
+        reactor.addSystemEventTrigger('before', 'shutdown', self._shutdownCallback)
+
+        self._busyClients = set([])
+        self._freeClients = set([])
+        self._pendingConnects = 0
+        self._pendingRequests = []
+
+    def _isIdle(self):
+        return (
+            len(self._busyClients) == 0 and
+            len(self._pendingRequests) == 0 and
+            self._pendingConnects == 0
+        )
+
+    def _shutdownCallback(self):
+        self.shutdown_requested = True
+        if self._isIdle():
+            return None
+        self.shutdown_deferred = Deferred()
+        return self.shutdown_deferred
+
+    def _newClientConnection(self):
+        """
+        Create a new client connection.
+
+        @return: A L{Deferred} that fires with the L{IProtocol} instance.
+        """
+        self.log_debug("Initiating new client connection to: %s" % (self._serverAddress,))
+        self._logClientStats()
+
+        self._pendingConnects += 1
+
+        factory = self.clientFactory(self._reactor)
+        factory.connectionPool = self
+
+        if self._scheme == "https":
+            context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain, sslmethod=getattr(OpenSSL.SSL, config.SSLMethod))
+            self._reactor.connectSSL(self._serverAddress.host, self._serverAddress.port, factory, context)
+        elif self._scheme == "http":
+            self._reactor.connectTCP(self._serverAddress.host, self._serverAddress.port, factory)
+        else:
+            raise ValueError("URL scheme for client pool not supported")
+
+        def _doneOK(client):
+            self._pendingConnects -= 1
+
+            def _goneClientAfterError(f, client):
+                f.trap(ConnectionLost, ConnectionDone, ConnectError)
+                self.clientGone(client)
+
+            d2 = factory.afterConnect
+            d2.addErrback(_goneClientAfterError, client)
+            return client
+
+        def _doneError(result):
+            self._pendingConnects -= 1
+            return result
+
+        d = factory.onConnect
+        d.addCallbacks(_doneOK, _doneError)
+        
+        return d
+
+    def _performRequestOnClient(self, client, request, *args, **kwargs):
+        """
+        Perform the given request on the given client.
+
+        @param client: A L{PooledMemCacheProtocol} that will be used to perform
+            the given request.
+
+        @param command: A C{str} representing an attribute of
+            L{MemCacheProtocol}.
+        @parma args: Any positional arguments that should be passed to
+            C{command}.
+        @param kwargs: Any keyword arguments that should be passed to
+            C{command}.
+
+        @return: A L{Deferred} that fires with the result of the given command.
+        """
+
+        def _freeClientAfterRequest(result):
+            self.clientFree(client)
+            return result
+
+        def _goneClientAfterError(result):
+            self.clientGone(client)
+            return result
+
+        self.clientBusy(client)
+        d = client.submitRequest(request, closeAfter=False)
+        d.addCallbacks(_freeClientAfterRequest, _goneClientAfterError)
+        return d
+
+    @inlineCallbacks
+    def submitRequest(self, request, *args, **kwargs):
+        """
+        Select an available client and perform the given request on it.
+
+        @param command: A C{str} representing an attribute of
+            L{MemCacheProtocol}.
+        @parma args: Any positional arguments that should be passed to
+            C{command}.
+        @param kwargs: Any keyword arguments that should be passed to
+            C{command}.
+
+        @return: A L{Deferred} that fires with the result of the given command.
+        """
+
+        # Try this maxRetries times
+        for ctr in xrange(self.maxRetries + 1):
+            try:
+                response = (yield self._submitRequest(request, args, kwargs))
+
+            except (ConnectionLost, ConnectionDone, ConnectError), e:
+                self.log_error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr+1, e,))
+                continue
+            
+            # TODO: find the proper cause of these assertions and fix
+            except (AssertionError,), e:
+                self.log_error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr+1, e,))
+                continue
+
+            else:
+                returnValue(response)
+        else:
+            self.log_error("HTTP pooled client connection error - exhausted retry attempts.")
+            raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to HTTP pooled client host."))
+
+    def _submitRequest(self, request, *args, **kwargs):
+        """
+        Select an available client and perform the given request on it.
+
+        @param command: A C{str} representing an attribute of
+            L{MemCacheProtocol}.
+        @parma args: Any positional arguments that should be passed to
+            C{command}.
+        @param kwargs: Any keyword arguments that should be passed to
+            C{command}.
+
+        @return: A L{Deferred} that fires with the result of the given command.
+        """
+
+        if len(self._freeClients) > 0:
+            d = self._performRequestOnClient(self._freeClients.pop(), request, *args, **kwargs)
+
+        elif len(self._busyClients) + self._pendingConnects >= self._maxClients:
+            d = Deferred()
+            self._pendingRequests.append((d, request, args, kwargs))
+            self.log_debug("Request queued: %s, %r, %r" % (request, args, kwargs))
+            self._logClientStats()
+
+        else:
+            d = self._newClientConnection()
+            d.addCallback(self._performRequestOnClient, request, *args, **kwargs)
+
+        return d
+
+    def _logClientStats(self):
+        self.log_debug("Clients #free: %d, #busy: %d, "
+                       "#pending: %d, #queued: %d" % (
+                len(self._freeClients),
+                len(self._busyClients),
+                self._pendingConnects,
+                len(self._pendingRequests)))
+
+    def clientGone(self, client):
+        """
+        Notify that the given client is to be removed from the pool completely.
+
+        @param client: An instance of L{PooledMemCacheProtocol}.
+        """
+        if client in self._busyClients:
+            self._busyClients.remove(client)
+
+        elif client in self._freeClients:
+            self._freeClients.remove(client)
+
+        self.log_debug("Removed client: %r" % (client,))
+        self._logClientStats()
+
+        self._processPending()
+
+    def clientBusy(self, client):
+        """
+        Notify that the given client is being used to complete a request.
+
+        @param client: An instance of C{self.clientFactory}
+        """
+
+        if client in self._freeClients:
+            self._freeClients.remove(client)
+
+        self._busyClients.add(client)
+
+        self.log_debug("Busied client: %r" % (client,))
+        self._logClientStats()
+
+    def clientFree(self, client):
+        """
+        Notify that the given client is free to handle more requests.
+
+        @param client: An instance of C{self.clientFactory}
+        """
+        if client in self._busyClients:
+            self._busyClients.remove(client)
+
+        self._freeClients.add(client)
+
+        if self.shutdown_deferred and self._isIdle():
+            self.shutdown_deferred.callback(None)
+
+        self.log_debug("Freed client: %r" % (client,))
+        self._logClientStats()
+
+        self._processPending()
+
+    def _processPending(self):
+        if len(self._pendingRequests) > 0:
+            d, request, args, kwargs = self._pendingRequests.pop(0)
+
+            self.log_debug("Performing Queued Request: %s, %r, %r" % (
+                    request, args, kwargs))
+            self._logClientStats()
+
+            _ign_d = self._submitRequest(request, *args, **kwargs)
+
+            _ign_d.addCallbacks(d.callback, d.errback)
+
+    def suggestMaxClients(self, maxClients):
+        """
+        Suggest the maximum number of concurrently connected clients.
+
+        @param maxClients: A C{int} indicating how many client connections we
+            should keep open.
+        """
+        self._maxClients = maxClients
+
+_clientPools = {}     # Maps a host:port to a pool object
+
+def installPools(hosts, maxClients=5, reactor=None):
+    
+    for name, url in hosts:
+        installPool(
+            name,
+            url,
+            maxClients,
+            reactor,
+        )
+
+def installPool(name, url, maxClients=5, reactor=None):
+
+    parsedURL = urlparse.urlparse(url)
+    pool = HTTPClientPool(
+        name,
+        parsedURL.scheme,
+        IPv4Address(
+            "TCP",
+            parsedURL.hostname,
+            parsedURL.port,
+        ),
+        maxClients,
+        reactor,
+    )
+    _clientPools[name] = pool
+
+def getHTTPClientPool(name):
+    return _clientPools[name]
