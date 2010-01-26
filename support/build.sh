@@ -488,18 +488,9 @@ dependencies () {
     "www" "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz" \
     false false false false 0;
 
-  case "${USER}" in
-    cyrusdaboo)
-      base="svn+ssh://cdaboo@svn.osafoundation.org/svn";
-      ;;
-    *)
-      base="http://svn.osafoundation.org";
-      ;;
-  esac;
-
   # XXX actually vObject should be imported in-place.
   py_dependency "vObject" "vobject" "vobject" \
-    "svn" "${base}/vobject/trunk" \
+    "svn" "http://svn.osafoundation.org/vobject/trunk" \
     false true true true 219;
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
