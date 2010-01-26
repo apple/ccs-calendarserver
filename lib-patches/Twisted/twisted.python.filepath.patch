@@ -1,0 +1,13 @@
+Index: twisted/python/filepath.py
+===================================================================
+--- twisted/python/filepath.py	(revision 26969)
++++ twisted/python/filepath.py	(working copy)
+@@ -337,6 +337,8 @@
+         return d
+ 
+     def child(self, path):
++        if isinstance(path, unicode):
++            path = path.encode('utf-8')
+         if platform.isWindows() and path.count(":"):
+             # Catch paths like C:blah that don't have a slash
+             raise InsecurePath("%r contains a colon." % (path,))
