@@ -709,19 +709,23 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         #
         # GROUPS table
         #
-        yield self._create_table("GROUPS", (
-            ("GROUPNAME", "text"),
-            ("MEMBER",    "text"),
-        ))
+        yield self._create_table(
+            "GROUPS",
+            (
+                ("GROUPNAME", "text"),
+                ("MEMBER",    "text"),
+            ),
+            ifnotexists=True,
+        )
 
         yield self._db_execute(
             """
-            create index GROUPNAMES on GROUPS (GROUPNAME)
+            create index if not exists GROUPNAMES on GROUPS (GROUPNAME)
             """
         )
         yield self._db_execute(
             """
-            create index MEMBERS on GROUPS (MEMBER)
+            create index if not exists MEMBERS on GROUPS (MEMBER)
             """
         )
 
@@ -737,12 +741,12 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         if int(old_version) < 4:
             yield self._db_execute(
                 """
-                create index GROUPNAMES on GROUPS (GROUPNAME)
+                create index if not exists GROUPNAMES on GROUPS (GROUPNAME)
                 """
             )
             yield self._db_execute(
                 """
-                create index MEMBERS on GROUPS (MEMBER)
+                create index if not exists MEMBERS on GROUPS (MEMBER)
                 """
             )
 
