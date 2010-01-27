@@ -89,8 +89,12 @@ class CalDAVOptionsTest (TestCase):
         Test that values on the command line's -o and --option options
         overide the config file
         """
+        myConfig = ConfigDict(DEFAULT_CONFIG)
+        myConfigFile = self.mktemp()
+        writePlist(myConfig, myConfigFile)
+
         argv = [
-            "-f", "No-Such-File",
+            "-f", myConfigFile,
             "-o", "EnableSACLs",
             "-o", "HTTPPort=80",
             "-o", "BindAddresses=127.0.0.1,127.0.0.2,127.0.0.3",
@@ -118,8 +122,12 @@ class CalDAVOptionsTest (TestCase):
         Test that certain values are set on the parent (i.e. twistd's
         Option's object)
         """
+        myConfig = ConfigDict(DEFAULT_CONFIG)
+        myConfigFile = self.mktemp()
+        writePlist(myConfig, myConfigFile)
+
         argv = [
-            "-f", "No-Such-File",
+            "-f", myConfigFile,
             "-o", "ErrorLogFile=/dev/null",
             "-o", "PIDFile=/dev/null",
         ]
@@ -159,9 +167,13 @@ class CalDAVOptionsTest (TestCase):
         Test that we can specify command line overrides to leafs using
         a "/" seperated path.  Such as "-o MultiProcess/ProcessCount=1"
         """
+        myConfig = ConfigDict(DEFAULT_CONFIG)
+        myConfigFile = self.mktemp()
+        writePlist(myConfig, myConfigFile)
+
         argv = [
             "-o", "MultiProcess/ProcessCount=102",
-            "-f", "conf/caldavd.plist",
+            "-f", myConfigFile,
         ]
 
         self.config.parseOptions(argv)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,4 +66,43 @@ class ConfigParsingTests(TestCase):
         self.assertEquals(cfg.DataRoot, nonASCIIValue)
 
 
+    def test_includes(self):
 
+        plist1 = """
+<plist version="1.0">
+  <dict>
+    <key>DocumentRoot</key>
+    <string>defaultdoc</string>
+    <key>DataRoot</key>
+    <string>defaultdata</string>
+    <key>Includes</key>
+    <array>
+        <string>%s</string>
+    </array>
+  </dict>
+</plist>
+"""
+
+        plist2 = """
+<plist version="1.0">
+  <dict>
+    <key>DataRoot</key>
+    <string>overridedata</string>
+  </dict>
+</plist>
+"""
+
+        tempfile2 = FilePath(self.mktemp())
+        tempfile2.setContent(plist2)
+
+        tempfile1 = FilePath(self.mktemp())
+        tempfile1.setContent(plist1 % (tempfile2.path,))
+
+        cfg = Config(PListConfigProvider({
+            "DocumentRoot": "",
+            "DataRoot": "",
+            "Includes": [],
+        }))
+        cfg.load(tempfile1.path)
+        self.assertEquals(cfg.DocumentRoot, "defaultdoc")
+        self.assertEquals(cfg.DataRoot, "overridedata")

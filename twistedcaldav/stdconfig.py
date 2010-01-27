@@ -460,6 +460,8 @@ DEFAULT_CONFIG = {
 
     "EnableKeepAlive": True,
     "ResponseCacheTimeout": 30, # Minutes
+    
+    "Includes": [],     # Other plists to parse after this one
 }
 
 
@@ -486,16 +488,31 @@ class PListConfigProvider(ConfigProvider):
     def loadConfig(self):
         configDict = {}
         if self._configFileName:
-            parser = NoUnicodePlistParser()
-            try:
-                configDict = parser.parse(open(self._configFileName))
-            except (IOError, OSError):                                    
-                log.error("Configuration file does not exist or is inaccessible: %s" %
-                          (self._configFileName,))
-            else:
-                configDict = _cleanup(configDict, self._defaults)
+            configDict = self._parseConfigFromFile(self._configFileName)
+                
+        # Now check for Includes and parse and add each of those
+        if "Includes" in configDict:
+            for include in configDict.Includes:
+                
+                additionalDict = self._parseConfigFromFile(include)
+                if additionalDict:
+                    log.info("Adding configuration from file: '%s'" % (include,))
+                    configDict.update(additionalDict)
+
         return configDict
 
+    def _parseConfigFromFile(self, filename):
+        parser = NoUnicodePlistParser()
+        configDict = None
+        try:
+            configDict = parser.parse(open(filename))
+        except (IOError, OSError):
+            log.err("Configuration file does not exist or is inaccessible: %s" % (filename, ))
+            raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename, ))
+        else:
+            configDict = _cleanup(configDict, self._defaults)
+        
+        return configDict
 
 def _updateHostName(configDict):
     if not configDict.ServerHostName:
