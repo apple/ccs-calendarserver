@@ -55,6 +55,7 @@ class DirectoryService(LoggingMixIn):
     realmName = None
 
     recordType_users = "users"
+    recordType_people = "people"
     recordType_groups = "groups"
     recordType_locations = "locations"
     recordType_resources = "resources"
@@ -300,6 +301,8 @@ class DirectoryRecord(LoggingMixIn):
         self, service, recordType, guid,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
+        calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
+        enabledForAddressBooks=True,
         uid=None,
     ):
         assert service.realmName is not None
@@ -327,8 +330,10 @@ class DirectoryRecord(LoggingMixIn):
         self.firstName             = firstName
         self.lastName              = lastName
         self.emailAddresses        = emailAddresses
-        self.enabledForCalendaring = False
-        self.autoSchedule          = False
+        self.enabledForCalendaring = enabledForCalendaring
+        self.autoSchedule          = autoSchedule
+        self.enabledForAddressBooks = enabledForAddressBooks
+
 
     def get_calendarUserAddresses(self):
         """

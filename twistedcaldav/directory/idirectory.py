@@ -105,6 +105,7 @@ class IDirectoryRecord(Interface):
     lastName              = Attribute("The last name of this record.")
     emailAddress          = Attribute("The email address of this record.")
     enabledForCalendaring = Attribute("Determines whether this record should be provisioned with a calendar home.")
+    enabledForAddressBooks = Attribute("Determines whether this record should be provisioned with an address book home.")
     calendarUserAddresses = Attribute(
         """
         An iterable of C{str}s representing calendar user addresses for this

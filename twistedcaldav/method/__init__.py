@@ -33,5 +33,7 @@ __all__ = [
     "report_calquery",
     "report_freebusy",
     "report_multiget",
+    "report_addressbook_multiget",
+    "report_addressbook_query",
     "report_sync_collection",
 ]

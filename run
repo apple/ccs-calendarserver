@@ -37,6 +37,7 @@ wd="$(cd "$(dirname "$0")" && pwd)";
 
 . support/build.sh;
 
+DAVD="cal"
 
 # Echo the usage for the main 'run' script, then exit with an error.
 usage () {
@@ -56,9 +57,9 @@ usage () {
   echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
   echo "	-p  Print PYTHONPATH value for server and exit";
-  echo "	-d  Run caldavd as a daemon";
-  echo "	-k  Stop caldavd";
-  echo "	-r  Restart caldavd";
+  echo "	-d  Run ${DAVD}davd as a daemon";
+  echo "	-k  Stop ${DAVD}davd";
+  echo "	-r  Restart ${DAVD}davd";
   echo "	-K  Print value of configuration key and exit";
   echo "	-i  Perform a system install into dst; implies -s";
   echo "	-I  Perform a home install into dst; implies -s";
@@ -76,10 +77,11 @@ usage () {
 # Parse command-line options to set up state which controls the behavior of the
 # functions in build.sh.
 parse_options () {
-  while getopts 'hvgsfnpdkrK:i:I:t:S:P:R:' option; do
+  while getopts 'ahvgsfnpdkrK:i:I:t:S:P:R:' option; do
     case "$option" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
+      'a') DAVD=card; plugin_name="carddav"; ;;
       'v')       verbose="-v"; ;;
       'f')   force_setup="true"; ;;
       'k')          kill="true"; ;;
@@ -116,7 +118,7 @@ run () {
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
       echo "";
-      echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
+      echo "  cp conf/${DAVD}davd-test.plist conf/caldavd-dev.plist";
       echo "";
       exit 1;
     fi;
@@ -129,7 +131,7 @@ run () {
     echo "";
     echo "Starting server...";
     exec ${caldavd_wrapper_command}                   \
-        "${caldav}/bin/caldavd" ${daemonize}          \
+        "${caldav}/bin/${DAVD}davd" ${daemonize}      \
         -f "${config}"                                \
         -T "${twisted}/bin/twistd"                    \
         -P "${plugin_name}"                           \

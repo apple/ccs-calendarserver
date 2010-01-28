@@ -50,6 +50,7 @@ class XMLDirectoryService(CachingDirectoryService):
 
         defaults = {
             'xmlFile' : None,
+            'directoryBackedAddressBook': None
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
@@ -64,7 +65,16 @@ class XMLDirectoryService(CachingDirectoryService):
         self._fileInfo = None
         self._lastCheck = 0
         self._alwaysStat = alwaysStat
+        self.directoryBackedAddressBook = params.get('directoryBackedAddressBook')
+
         self._accounts()
+
+
+    def createCache(self):
+        """
+        No-op to pacify addressbook backing.
+        """
+        
 
     def recordTypes(self):
         recordTypes = (

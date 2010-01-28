@@ -86,6 +86,20 @@ class AggregateDirectoryService(DirectoryService):
 
     calendarHomesCollection = property(_getCalendarHomesCollection, _setCalendarHomesCollection)
 
+    #
+    # Define addressBookHomesCollection as a property so we can set it on contained services
+    # See AddressBookHomeProvisioningFile.__init__()
+    #
+    def _getAddressBookHomesCollection(self):
+        return self._addressBookHomesCollection
+
+    def _setAddressBookHomesCollection(self, value):
+        for service in self._recordTypes.values():
+            service.addressBookHomesCollection = value
+        self._addressBookHomesCollection = value
+
+    addressBookHomesCollection = property(_getAddressBookHomesCollection, _setAddressBookHomesCollection)
+
     def recordTypes(self):
         return set(self._recordTypes)
 

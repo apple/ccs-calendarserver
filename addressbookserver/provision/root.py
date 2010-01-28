@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,16 @@
 # limitations under the License.
 ##
 
-"""
-CalDAV and CardDAV queries.
-"""
+__all__ = [
+    "RootResource",
+]
+
+from calendarserver.provision.root import RootResource as _ParentRootResource
+
+class RootResource (_ParentRootResource):
+    """
+    A special root resource that contains support checking SACLs
+    as well as adding responseFilters.
+    """
+
+    saclService = "addressbook"

@@ -48,6 +48,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.noneprops import NonePropertyStore
 
+from twistedcaldav import carddavxml
+
 from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
@@ -457,7 +459,9 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         if record in self._principalResourceCache:
             return self._principalResourceCache[record]
-        if record.enabledForCalendaring:
+        if record.enabledForCalendaring or record.enabledForAddressBooks:
+            # XXX these are different features and one should not automatically
+            # imply the other...
             principal = DirectoryCalendarPrincipalResource(self, record)
         else:
             principal = DirectoryPrincipalResource(self, record)
@@ -838,6 +842,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         return "".join((
             """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
             """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
+            """\nAddress Book homes:\n"""       , format_list(format_link(u) for u in self.addressBookHomeURLs()),
         ))
 
     ##
@@ -897,6 +902,13 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         else:
             return None
 
+    def addressBookHomeURLs(self):
+        home = self._addressBookHome()
+        if home is None:
+            return ()
+        else:
+            return (home.url(),)
+
     def _homeChildURL(self, name):
         if not hasattr(self, "calendarHomeURL"):
             home = self.calendarHome()
@@ -920,6 +932,21 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record)
         else:
             return None
+
+    def _addressBookHome(self):
+        # FIXME: self.record.service.addressBookHomesCollection smells like a hack
+        # See AddressBookHomeProvisioningFile.__init__()
+        service = self.record.service
+        if hasattr(service, "addressBookHomesCollection"):
+            return service.addressBookHomesCollection.homeForDirectoryRecord(self.record)
+        else:
+            return None
+
+    def supportedReports(self):            # Method added for AddressBook find-shared report support
+        result = super(DirectoryCalendarPrincipalResource, self).supportedReports()
+        if config.EnableCardDAV and config.EnableFindSharedReport:
+            result.append(davxml.Report(carddavxml.AddressBookFindShared(),)) 
+        return result
 
 
     ##
