@@ -137,7 +137,7 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         yield apply(addrresource, uri)
 
 
-def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True):
+def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True, vcard=None):
     """
     Create an appropriate property status response for the given resource.
 
@@ -151,7 +151,11 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
     @param vcard: the L{Component} for the vcard for the resource. This may be None
         if the vcard has not already been read in, in which case the resource
         will be used to get the vcard if needed.
-    @param propertiesForResource: the method to use to get the list of properties to return.
+
+    @param propertiesForResource: the method to use to get the list of
+        properties to return.  This is a callable object with a signature
+        matching that of L{allPropertiesForResource}.
+
     @param propertyreq: the L{PropertyContainer} element for the properties of interest.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
@@ -172,13 +176,28 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
         if propstats:
             responses.append(davxml.PropertyStatusResponse(href, *propstats))
 
-    d = propertiesForResource(request, propertyreq, resource, calendar, timezone, isowner)
+    d = propertiesForResource(request, propertyreq, resource, calendar, timezone, vcard, isowner)
     d.addCallback(_defer)
     return d
+
+
+
+def responseForHrefAB(request, responses, href, resource, propertiesForResource,
+                      propertyreq, calendar=None, timezone=None, vcard=None,
+                      isowner=True):
+    """
+    Legacy wrapper for compatibility of signature of L{responseForHref} in
+    Contacts Server.
+    """
+    return responseForHref(request, responses, href, resource, calendar,
+                           timezone, propertiesForResource, propertyreq, isowner, vcard)
+
+
 
 def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return all (non-hidden) properties for the specified resource.
+
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
     @param resource: the L{CalDAVFile} for the targeted resource.

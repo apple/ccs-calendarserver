@@ -177,7 +177,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
                                     break;
 
                             if matchingRecord:
-                                yield report_common.responseForHref(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
+                                yield report_common.responseForHrefAB(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
                             else:
                                 responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         # done with live, noncaching directoryBackedAddressBook query
@@ -225,7 +225,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
         
                     # Get properties for all valid readable resources
                     for resource, href in ok_resources:
-                        yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq)
+                        yield report_common.responseForHrefAB(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq)
                                 
                     # Indicate error for all valid non-readable resources
                     for ignore_resource, href in bad_resources: #@UnusedVariable
@@ -305,7 +305,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
         
-                yield report_common.responseForHref(request, responses, href, child, propertiesForResource, propertyreq)
+                yield report_common.responseForHrefAB(request, responses, href, child, propertiesForResource, propertyreq)
 
     retValue = MultiStatusResponse(responses)
     

@@ -131,7 +131,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
+                return report_common.responseForHrefAB(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
             else:
                 return succeed(None)
             
@@ -150,7 +150,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     # Check size of results is within limit
                     checkMaxResults()
                    
-                    yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=vCardRecord.vCard())
+                    yield report_common.responseForHrefAB(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=vCardRecord.vCard())
  
  
             
@@ -293,4 +293,3 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
     self.log_info("Timing: CARDDAV:addressbook-query Report total: %.1f ms" % (elaspedTime*1000,))
 
     returnValue(retValue)
-    
