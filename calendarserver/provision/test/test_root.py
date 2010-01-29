@@ -31,9 +31,10 @@ from twisted.web2.test.test_server import SimpleRequest
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
+from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 from calendarserver.provision.root import RootResource
+from twistedcaldav.directory import augment
 
 class FakeCheckSACL(object):
     def __init__(self, sacls=None):
@@ -60,6 +61,7 @@ class RootTests(TestCase):
                 'calendar': ['dreid']})
 
         directory = XMLDirectoryService({'xmlFile' : xmlFile})
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
 
         principals = DirectoryPrincipalProvisioningResource('/principals/', directory)
 
