@@ -1,0 +1,12 @@
+Index: twisted/test/test_paths.py
+===================================================================
+--- twisted/test/test_paths.py	(revision 27622)
++++ twisted/test/test_paths.py	(working copy)
+@@ -793,6 +793,7 @@
+         self.assertEquals(fp.exists(), False)
+ 
+         fp.makedirs()
++        fp.changed()
+         self.assertEquals(fp.exists(), True)
+ 
+ 
