@@ -1,6 +1,6 @@
 Index: vobject/vcard.py
 ===================================================================
---- vobject/vcard.py	(revision 218)
+--- vobject/vcard.py	(revision 219)
 +++ vobject/vcard.py	(working copy)
 @@ -210,7 +210,7 @@
  def splitFields(string):
