@@ -20,6 +20,7 @@ from twistedcaldav.directory import xmlaugmentsparser
 from xml.etree.ElementTree import ElementTree, tostring, SubElement
 from xml.parsers.expat import ExpatError
 import sys
+import os
 
 def error(s):
     print s
@@ -173,6 +174,8 @@ ACTION is one of add|modify|remove|print
                       help="XML augment file to manipulate", metavar="FILE")
     parser.add_option("-g", "--guid", dest="guid",
                       help="OD GUID to manipulate", metavar="GUID")
+    parser.add_option("-h", "--guidfile", dest="guidfile",
+                      help="File containing a list of GUIDs to manipulate", metavar="GUIDFILE")
     parser.add_option("-n", "--node", dest="node",
                       help="Partition node to assign to GUID", metavar="NODE")
     parser.add_option("-c", "--enable-calendar", action="store_true", dest="enable_calendar",
@@ -185,14 +188,27 @@ ACTION is one of add|modify|remove|print
     if len(args) != 1:
         parser.error("incorrect number of arguments")
 
+    guids = []
+    if options.guid:
+        guids.append(options.guid)
+    elif options.guidfile:
+        if not os.path.exists(options.guidfile):
+            parser.error("File containing list of GUIDs does not exist")
+        with open(options.guidfile) as f:
+            for line in f:
+                guids.append(line[:-1])
+        
     if args[0] == "add":
         if not options.node:
-            parser.error("Partition node must be specified when adding")   
-        doAdd(options.xmlfilename, options.guid, options.node, options.enable_calendar, options.auto_schedule)
+            parser.error("Partition node must be specified when adding")
+        for guid in guids:
+            doAdd(options.xmlfilename, guid, options.node, options.enable_calendar, options.auto_schedule)
     elif args[0] == "modify":
-        doModify(options.xmlfilename, options.guid, options.node, options.enable_calendar, options.auto_schedule)
+        for guid in guids:
+            doModify(options.xmlfilename, guid, options.node, options.enable_calendar, options.auto_schedule)
     elif args[0] == "remove":
-        doRemove(options.xmlfilename, options.guid)
+        for guid in guids:
+            doRemove(options.xmlfilename, guid)
     elif args[0] == "print":
         doPrint(options.xmlfilename)
 
