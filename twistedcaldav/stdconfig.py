@@ -23,14 +23,14 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import TwistedACLInheritable
 
 from twext.python.plistlib import PlistParser
+from twext.log import Logger, InvalidLogLevelError
+from twext.log import clearLogLevels, setLogLevelForNamespace
 
-from twistedcaldav.config import (
-    ConfigProvider, ConfigurationError, config, _mergeData, )
-from twistedcaldav.log import (
-    Logger, clearLogLevels, setLogLevelForNamespace, InvalidLogLevelError, )
+from twistedcaldav.config import ConfigProvider, ConfigurationError
+from twistedcaldav.config import config, _mergeData
 from twistedcaldav.partitions import partitions
-from twistedcaldav.util import (
-    KeychainAccessError, KeychainPasswordNotFound, getPasswordFromKeychain, )
+from twistedcaldav.util import getPasswordFromKeychain
+from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
 log = Logger()
 

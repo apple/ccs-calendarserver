@@ -56,9 +56,10 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.method import prop_common
 from twisted.web2.dav.method.report import max_number_of_matches
 
+from twext.log import Logger, LoggingMixIn
+
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.util import submodule, Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService

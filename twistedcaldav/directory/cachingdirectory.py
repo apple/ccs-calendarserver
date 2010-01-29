@@ -31,9 +31,10 @@ import time
 import memcacheclient
 import base64
 
+from twext.log import LoggingMixIn
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
-from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 

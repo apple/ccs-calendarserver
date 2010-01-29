@@ -14,10 +14,11 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.config import config
-from twistedcaldav.log import Logger
-
 import re
+
+from twext.log import Logger
+
+from twistedcaldav.config import config
 
 __all__ = [
     "DeliveryService",

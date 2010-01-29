@@ -20,11 +20,21 @@ Mail Gateway for Calendar Server
 """
 from __future__ import with_statement
 
-from calendarserver.provision.root import RootResource
+import datetime
+import email.utils
+import os
+import uuid
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+from zope.interface import implements
 
 from twisted.application import internet, service
 from twisted.cred.portal import Portal
@@ -45,6 +55,8 @@ from twisted.web2.dav.noneprops import NonePropertyStore
 from twisted.web2.http import Response, HTTPError
 from twisted.web2.http_headers import MimeType
 
+from twext.log import Logger, LoggingMixIn
+
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
@@ -53,7 +65,6 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.ical import Property
 from twistedcaldav.localization import translationTo
-from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
@@ -63,18 +74,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.localization import translationTo
 
-from zope.interface import implements
-
-import datetime
-import email.utils
-import os
-import uuid
-
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
+from calendarserver.provision.root import RootResource
 
 
 __all__ = [

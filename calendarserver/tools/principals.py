@@ -30,12 +30,12 @@ from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 
+from twext.log import setLogLevelForNamespace
 from twext.python.log import StandardIOObserver
 from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.log import setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError

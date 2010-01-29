@@ -15,8 +15,8 @@
 ##
 
 from twext.python.plistlib import writePlist
+from twext.log import logLevelForNamespace
 
-from twistedcaldav.log import logLevelForNamespace
 from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.static import CalDAVFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider

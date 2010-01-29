@@ -20,18 +20,18 @@ __all__ = [
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web.xmlrpc import Proxy
 
+from twext.log import Logger
+
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache

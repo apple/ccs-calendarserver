@@ -32,13 +32,14 @@ iTIP (RFC2446) processing.
 
 import datetime
 
-from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeToUTC, toString
-from twistedcaldav.log import Logger
-from twistedcaldav.ical import Property, iCalendarProductID, Component
-
 from vobject.icalendar import utc
 from vobject.icalendar import dateTimeToString
+
+from twext.log import Logger
+
+from twistedcaldav.config import config
+from twistedcaldav.dateops import normalizeToUTC, toString
+from twistedcaldav.ical import Property, iCalendarProductID, Component
 
 log = Logger()
 

@@ -27,8 +27,9 @@ import xml.dom.minidom
 
 from twisted.python.filepath import FilePath
 
+from twext.log import Logger
+
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.log import Logger
 
 log = Logger()
 

@@ -50,6 +50,8 @@ from twisted.web2.dav.method.report import max_number_of_matches
 from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.http import HTTPError
 
+from twext.log import Logger
+
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
@@ -57,7 +59,6 @@ from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOve
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.index import IndexedSearchException
-from twistedcaldav.log import Logger
 
 log = Logger()
 

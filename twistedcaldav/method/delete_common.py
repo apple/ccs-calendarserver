@@ -21,8 +21,6 @@ CalDAV DELETE behaviors.
 
 __all__ = ["DeleteResource"]
 
-from twext.web2.dav.davxml import ErrorResponse
-
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.dav.fileop import delete
@@ -30,9 +28,11 @@ from twisted.web2.dav.http import ResponseQueue, MultiStatusResponse
 from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError, StatusResponse
 
+from twext.log import Logger
+from twext.web2.dav.davxml import ErrorResponse
+
 from twistedcaldav.caldavxml import caldav_namespace, ScheduleTag
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.report_common import applyToCalendarCollections
 from twistedcaldav.resource import isCalendarCollectionResource,\

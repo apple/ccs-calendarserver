@@ -54,17 +54,19 @@ from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
 from twisted.web2.static import File as FileResource
 
+from twext.log import Logger, LoggingMixIn
+from twext.log import logLevelForNamespace, setLogLevelForNamespace
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 
 try:
     from twistedcaldav.version import version
-    version                     # pacify pyflakes
 except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
+
 from twistedcaldav import memcachepool
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.accesslog import AMPLoggingFactory
@@ -81,8 +83,6 @@ from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.localization import processLocalizationFiles
-from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.pdmonster import PDClientAddressWrapper

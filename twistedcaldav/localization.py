@@ -23,8 +23,10 @@ import struct
 import array
 import codecs
 from locale import normalize
+
+from twext.log import Logger
+
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 
 log = Logger()
 

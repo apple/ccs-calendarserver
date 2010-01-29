@@ -48,10 +48,11 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.noneprops import NonePropertyStore
 
+from twext.log import Logger
+
 from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
-
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -59,7 +60,6 @@ from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.log import Logger
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import getWikiACL

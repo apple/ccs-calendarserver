@@ -34,6 +34,13 @@ These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 
 # TODO: add CalDAVTester test for examining new xmpp-uri property
 
+import uuid
+from fnmatch import fnmatch
+
+from zope.interface import Interface, implements
+
+from twext.log import LoggingMixIn
+
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.address import IPv4Address
 from twisted.internet.ssl import ClientContextFactory
@@ -48,14 +55,10 @@ from twisted.words.protocols.jabber.jid import JID
 from twisted.words.protocols.jabber.client import XMPPAuthenticator, IQAuthInitializer
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
-from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav import memcachepool
-from zope.interface import Interface, implements
-from fnmatch import fnmatch
-import uuid
 
 __all__ = [
     "ClientNotifier",

@@ -28,8 +28,9 @@ from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
 
+from twext.log import Logger
+
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.log import Logger
 
 log = Logger()
 

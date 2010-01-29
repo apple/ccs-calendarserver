@@ -14,9 +14,10 @@
 # limitations under the License.
 ##
 
+from twext.log import Logger
 from twext.python.plistlib import readPlist
+
 from twistedcaldav.client.pool import installPool
-from twistedcaldav.log import Logger
 
 """
 Collection of classes for managing partition information for a group of servers.

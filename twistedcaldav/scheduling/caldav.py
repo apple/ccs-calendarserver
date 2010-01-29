@@ -21,6 +21,7 @@ try:
 except ImportError:
     from md5 import new as md5
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -35,7 +36,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser,\

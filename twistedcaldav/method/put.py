@@ -22,14 +22,15 @@ __all__ = ["http_PUT"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
-from twext.web2.dav.davxml import ErrorResponse
 from twisted.web2.dav.util import allDataFromStream, parentForURL
 from twisted.web2.http import HTTPError, StatusResponse
+
+from twext.log import Logger
+from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
-from twistedcaldav.log import Logger
 
 log = Logger()
 

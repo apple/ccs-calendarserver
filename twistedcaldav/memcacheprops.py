@@ -34,12 +34,13 @@ except ImportError:
 
 from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError, TokenMismatchError
 
+from twext.log import LoggingMixIn, Logger
+
 from twisted.python.filepath import FilePath
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
-from twistedcaldav.log import LoggingMixIn, Logger
 
 log = Logger()
 

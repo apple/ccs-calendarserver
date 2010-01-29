@@ -34,6 +34,8 @@ from twisted.web2.http import HTTPError
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.resource import TwistedACLInheritable
 
+from twext.log import Logger
+
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.dropbox import DropBoxHomeResource
@@ -45,7 +47,6 @@ from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
-from twistedcaldav.log import Logger
 log = Logger()
 
 # Use __underbars__ convention to avoid conflicts with directory resource types.

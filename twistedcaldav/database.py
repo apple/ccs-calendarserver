@@ -14,13 +14,6 @@
 # limitations under the License.
 ##
 
-from twisted.enterprise.adbapi import ConnectionPool
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.threadpool import ThreadPool
-
-from twistedcaldav.config import ConfigurationError
-from twistedcaldav.log import Logger
-
 import thread
 
 try:
@@ -28,6 +21,14 @@ try:
 except:
     pgdb = None
 #pgdb = None
+
+from twisted.enterprise.adbapi import ConnectionPool
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.threadpool import ThreadPool
+
+from twext.log import Logger
+
+from twistedcaldav.config import ConfigurationError
 
 """
 Generic ADAPI database access object.

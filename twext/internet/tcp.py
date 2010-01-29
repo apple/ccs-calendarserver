@@ -23,11 +23,13 @@ __all__ = [
     "MaxAcceptSSLServer",
 ]
 
+import socket
 from OpenSSL import SSL
+
 from twisted.application import internet
 from twisted.internet import tcp, ssl
-from twistedcaldav.log import Logger
-import socket
+
+from twext.log import Logger
 
 log = Logger()
 

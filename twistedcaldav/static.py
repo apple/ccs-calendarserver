@@ -40,6 +40,7 @@ import errno
 from urlparse import urlsplit
 from uuid import uuid4
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
@@ -78,7 +79,6 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioni
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
-from twistedcaldav.log import Logger
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI

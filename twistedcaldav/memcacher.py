@@ -14,14 +14,16 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import succeed
-
-from twistedcaldav.log import LoggingMixIn
-from twistedcaldav.memcachepool import CachePoolUserMixIn
-from twistedcaldav.config import config
 import hashlib
 import cPickle
 import string
+
+from twisted.internet.defer import succeed
+
+from twext.log import LoggingMixIn
+
+from twistedcaldav.memcachepool import CachePoolUserMixIn
+from twistedcaldav.config import config
 
 class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 

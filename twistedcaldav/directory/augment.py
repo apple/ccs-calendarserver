@@ -14,15 +14,17 @@
 # limitations under the License.
 ##
 
-
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
-    ADBAPIPostgreSQLMixin
-from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import copy
 import time
 
-from twistedcaldav.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+
+from twext.log import Logger
+
+from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
+    ADBAPIPostgreSQLMixin
+from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
+
 
 log = Logger()
 

@@ -14,11 +14,12 @@
 # limitations under the License.
 ##
 
+from twext.log import Logger
+
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeToUTC, toString,\
     normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
-from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav import accounting

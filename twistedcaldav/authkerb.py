@@ -46,7 +46,7 @@ from twisted.web2 import responsecode
 from twisted.web2.auth.interfaces import ICredentialFactory
 from twisted.web2.dav.auth import IPrincipalCredentials
 
-from twistedcaldav.log import LoggingMixIn
+from twext.log import LoggingMixIn
 
 class KerberosCredentialFactoryBase(LoggingMixIn):
     """

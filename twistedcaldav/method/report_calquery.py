@@ -22,6 +22,7 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
 import urllib
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -38,7 +39,6 @@ from twistedcaldav.caldavxml import caldav_namespace,\
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
-from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 
 log = Logger()

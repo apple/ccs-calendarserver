@@ -21,13 +21,13 @@ import uuid
 from zope.interface import implements
 
 from twisted.internet.defer import succeed, maybeDeferred
-
 from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.http import Response
 from twisted.web2.iweb import IResource
 from twisted.web2.stream import MemoryStream
 
-from twistedcaldav.log import LoggingMixIn
+from twext.log import LoggingMixIn
+
 from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config
 

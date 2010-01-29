@@ -18,7 +18,8 @@ import logging
 
 from twisted.python import log as twistedLogging
 
-from twistedcaldav.log import *
+from twext.log import *
+
 from twistedcaldav.test.util import TestCase
 
 defaultLogLevel = logLevelsByNamespace[None]

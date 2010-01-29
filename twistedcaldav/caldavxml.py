@@ -31,11 +31,12 @@ from vobject.icalendar import utc, TimezoneComponent
 
 from twisted.web2.dav import davxml
 
+from twext.log import Logger
+
 from twistedcaldav.dateops import clipPeriod, timeRangesOverlap
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.ical import parse_date_or_datetime
-from twistedcaldav.log import Logger
 
 log = Logger()
 

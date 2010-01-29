@@ -23,7 +23,8 @@ from twisted.web2.http_headers import parseKeyValue
 from twisted.web2.http_headers import split
 from twisted.web2.http_headers import tokenize
 
-from twistedcaldav.log import Logger
+from twext.log import Logger
+
 from twistedcaldav.memcacher import Memcacher
 
 from zope.interface import implements, Interface

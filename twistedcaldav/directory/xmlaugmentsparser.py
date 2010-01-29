@@ -14,10 +14,6 @@
 # limitations under the License.
 ##
 
-from xml.etree.ElementTree import ElementTree
-from xml.parsers.expat import ExpatError
-import types
-
 """
 XML based augment configuration file handling.
 """
@@ -26,7 +22,11 @@ __all__ = [
     "XMLAugmentsParser",
 ]
 
-from twistedcaldav.log import Logger
+from xml.etree.ElementTree import ElementTree
+from xml.parsers.expat import ExpatError
+import types
+
+from twext.log import Logger
 
 log = Logger()
 

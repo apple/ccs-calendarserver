@@ -20,6 +20,7 @@ DAV sync-collection report
 
 __all__ = ["report_DAV__sync_collection"]
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse, SyncToken
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -34,7 +35,6 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
 
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 
 import functools
 

@@ -26,6 +26,9 @@ __all__ = [
     "ProxyPostgreSQLDB",
 ]
 
+import itertools
+import time
+
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.http import HTTPError, StatusResponse
@@ -33,6 +36,8 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.util import joinURL
 from twisted.web2.dav.noneprops import NonePropertyStore
+
+from twext.log import LoggingMixIn
 
 from twistedcaldav.config import config
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
@@ -42,10 +47,6 @@ from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.log import LoggingMixIn
-
-import itertools
-import time
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def defaultAccessControlList(self):

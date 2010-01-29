@@ -25,8 +25,6 @@ import os
 import types
 import uuid
 
-from twext.web2.dav.davxml import ErrorResponse
-
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import returnValue
@@ -46,6 +44,9 @@ from twisted.web2.http_headers import generateContentType, MimeType
 from twisted.web2.iweb import IResponse
 from twisted.web2.stream import MemoryStream
 
+from twext.log import Logger
+from twext.web2.dav.davxml import ErrorResponse
+
 from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict, ScheduleTag
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
@@ -61,7 +62,6 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
-from twistedcaldav.log import Logger
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.delete_common import DeleteResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler

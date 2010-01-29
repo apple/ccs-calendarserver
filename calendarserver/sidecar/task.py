@@ -22,8 +22,11 @@ __all__ = [
     "Task",
 ]
 
-from calendarserver.provision.root import RootResource
 from time import sleep
+import os
+
+from zope.interface import implements
+
 from twisted.application.service import Service, IServiceMaker
 from twisted.internet.address import IPv4Address
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
@@ -32,19 +35,21 @@ from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web2.http_headers import Headers
+
+from twext.log import Logger, LoggingMixIn
+from twext.log import logLevelForNamespace, setLogLevelForNamespace
+
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.ical import Component
-from twistedcaldav.log import Logger, LoggingMixIn
-from twistedcaldav.log import logLevelForNamespace, setLogLevelForNamespace
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
 from twistedcaldav.static import CalendarHomeProvisioningFile
-from zope.interface import implements
-import os
+
+from calendarserver.provision.root import RootResource
 
 log = Logger()
 
