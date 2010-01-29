@@ -39,7 +39,6 @@ from zope.interface import implements
 from twisted.application import internet, service
 from twisted.cred.portal import Portal
 from twisted.internet import protocol, defer, ssl, reactor
-from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory

@@ -27,7 +27,7 @@ from twisted.web2.dav import davxml
 from twext.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+#from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml

@@ -43,7 +43,6 @@ from twisted.internet import reactor
 from twisted.internet.reactor import callLater, spawnProcess
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
-from twisted.internet.address import IPv4Address
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
@@ -85,7 +84,6 @@ from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.notify import installNotificationClient
-from twistedcaldav.pdmonster import PDClientAddressWrapper
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile

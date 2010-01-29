@@ -1190,9 +1190,9 @@ class ProxyDBUpgradeTests(TestCase):
         upgradeData(config)
         self.assertTrue(self.verifyHierarchy(root, after))
 
-        calendarUserProxyDatabase = CalendarUserProxyDatabase(root)
-        resourceInfoDatabase = ResourceInfoDatabase(root)
-
+#        calendarUserProxyDatabase = CalendarUserProxyDatabase(root)
+#        resourceInfoDatabase = ResourceInfoDatabase(root)
+#
 #        for guid, info in assignments.iteritems():
 #
 #            proxyGroup = "%s#calendar-proxy-write" % (guid,)

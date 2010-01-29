@@ -28,7 +28,6 @@ import os
 from zope.interface import implements
 
 from twisted.application.service import Service, IServiceMaker
-from twisted.internet.address import IPv4Address
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin

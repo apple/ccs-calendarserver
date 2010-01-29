@@ -26,7 +26,6 @@ from grp import getgrnam
 
 from twisted.python.util import switchUID
 from twisted.internet import reactor
-from twisted.internet.address import IPv4Address
 from twisted.internet.defer import inlineCallbacks
 from twisted.web2.dav import davxml
 

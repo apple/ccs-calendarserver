@@ -42,7 +42,6 @@ from zope.interface import Interface, implements
 from twext.log import LoggingMixIn
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
-from twisted.internet.address import IPv4Address
 from twisted.internet.ssl import ClientContextFactory
 from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.protocols.basic import LineReceiver
