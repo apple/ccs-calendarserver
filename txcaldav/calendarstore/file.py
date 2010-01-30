@@ -25,11 +25,14 @@ __all__ = [
     "CalendarObject",
 ]
 
+import errno
+
 from zope.interface import implements
 
 from twisted.python.filepath import FilePath
 
 from twext.log import LoggingMixIn
+from twext.python.icalendar import Component as iComponent, InvalidICalendarDataError
 
 from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
 #from txcaldav.icalendarstore import CalendarStoreError
@@ -39,8 +42,9 @@ from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
 #from txcaldav.icalendarstore import CalendarObjectUIDAlreadyExistsError
 from txcaldav.icalendarstore import NotFoundError
 #from txcaldav.icalendarstore import NoSuchCalendarError
-#from txcaldav.icalendarstore import NoSuchCalendarObjectError
+from txcaldav.icalendarstore import NoSuchCalendarObjectError
 #from txcaldav.icalendarstore import InvalidCalendarComponentError
+from txcaldav.icalendarstore import InternalDataStoreError
 
 
 class CalendarStore(LoggingMixIn):
@@ -52,6 +56,8 @@ class CalendarStore(LoggingMixIn):
         """
         @param path: a L{FilePath}
         """
+        assert isinstance(path, FilePath)
+
         self.path = path
 
         if not path.isdir():
@@ -135,10 +141,10 @@ class Calendar(LoggingMixIn):
     def createCalendarObjectWithName(self, name, component):
         raise NotImplementedError()
 
-    def removeCalendarComponentWithName(self, name):
+    def removeCalendarObjectWithName(self, name):
         raise NotImplementedError()
 
-    def removeCalendarComponentWithUID(self, uid):
+    def removeCalendarObjectWithUID(self, uid):
         raise NotImplementedError()
 
     def syncToken(self):
@@ -171,16 +177,60 @@ class CalendarObject(LoggingMixIn):
         raise NotImplementedError()
 
     def component(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_component"):
+            text = self.iCalendarText()
+
+            try:
+                component = iComponent.fromString(text)
+            except InvalidICalendarDataError, e:
+                raise InternalDataStoreError(
+                    "File corruption detected (%s) in file: %s"
+                    % (e, self.path.path)
+                )
+
+            del self._text
+            self._component = component
+
+        return self._component
 
     def iCalendarText(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_text"):
+            if hasattr(self, "_component"):
+                return str(self._component)
+
+            try:
+                fh = self.path.open()
+            except IOError, e:
+                if e[0] == errno.ENOENT:
+                    raise NoSuchCalendarObjectError(self)
+
+            try:
+                text = fh.read()
+            finally:
+                fh.close()
+
+            if not (
+                text.startswith("BEGIN:VCALENDAR\r\n") or
+                text.endswith("\r\nEND:VCALENDAR\r\n")
+            ):
+                raise InternalDataStoreError(
+                    "File corruption detected (improper start) in file: %s"
+                    % (self.path.path,)
+                )
+
+            self._text = text
+
+        return self._text
 
     def uid(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_uid"):
+            self._uid = self.component().resourceUID()
+        return self._uid
 
     def componentType(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_componentType"):
+            self._componentType = self.component().mainType()
+        return self._componentType
 
     def organizer(self):
         # FIXME: Ideally should return a URI object

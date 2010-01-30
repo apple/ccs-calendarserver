@@ -18,12 +18,12 @@
 File calendar store tests.
 """
 
-import os
-
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.python.filepath import FilePath
 from twisted.trial import unittest
+
+from twext.python.icalendar import Component as iComponent
 
 from txdav.idav import IPropertyStore
 
@@ -45,9 +45,9 @@ home1_calendarNames = (
 )
 
 calendar1_objectNames = (
-    "1b5b7348a80950dcf567e904943949d3.ics",
-    "2dc69bdb048b56b81697c87093f4d115.ics",
-    "6d9700c01f2f360adb285ce7b4c0dab3.ics",
+    "1.ics",
+    "2.ics",
+    "3.ics",
 )
 
 class CalendarStoreTest(unittest.TestCase):
@@ -203,6 +203,71 @@ class CalendarTest(unittest.TestCase):
     def test_calendarObjectsSinceToken(self):
         raise NotImplementedError()
     test_calendarObjectsSinceToken.todo = "Unimplemented"
+
+    def test_properties(self):
+        raise NotImplementedError()
+    test_properties.todo = "Unimplemented"
+
+
+class CalendarObjectTest(unittest.TestCase):
+    def setUp(self):
+        self.calendarStore = CalendarStore(storePath)
+        self.home1 = self.calendarStore.calendarHomeWithUID("home1")
+        self.calendar1 = self.home1.calendarWithName("calendar_1")
+        self.object1 = self.calendar1.calendarObjectWithName("1.ics")
+
+    def test_interface(self):
+        try:
+            verifyObject(ICalendarObject, self.object1)
+        except BrokenMethodImplementation, e:
+            self.fail(e)
+
+    def test_init(self):
+        self.failUnless(
+            isinstance(self.object1.path, FilePath),
+            self.object1.path
+        )
+        self.failUnless(
+            isinstance(self.object1.calendar, Calendar),
+            self.object1.calendar
+        )
+
+    def test_name(self):
+        self.assertEquals(self.object1.name(), "1.ics")
+
+    def test_setComponent(self):
+        raise NotImplementedError()
+    test_setComponent.todo = "Unimplemented"
+
+    def test_component(self):
+        component = self.object1.component()
+
+        self.failUnless(
+            isinstance(component, iComponent),
+            component
+        )
+
+        self.assertEquals(component.name(), "VCALENDAR")
+        self.assertEquals(component.mainType(), "VEVENT")
+        self.assertEquals(component.resourceUID(), "uid1")
+
+    def text_iCalendarText(self):
+        text = self.object1.iCalendarText()
+
+        self.failUnless(isinstance(text, str), text)
+        self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
+        self.failUnless("\r\nUID:uid-1\r\n" in text)
+        self.failUnless(text.endswith("\r\nEND:VCALENDAR\r\n"))
+
+    def test_uid(self):
+        self.assertEquals(self.object1.uid(), "uid1")
+
+    def test_componentType(self):
+        self.assertEquals(self.object1.componentType(), "VEVENT")
+
+    def test_organizer(self):
+        raise NotImplementedError()
+    test_organizer.todo = "Unimplemented"
 
     def test_properties(self):
         raise NotImplementedError()

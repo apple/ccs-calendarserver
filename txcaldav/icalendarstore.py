@@ -32,6 +32,7 @@ __all__ = [
     "NoSuchCalendarError",
     "NoSuchCalendarObjectError",
     "InvalidCalendarComponentError",
+    "InternalDataStoreError",
 
     # Classes
     "ICalendarHome",
@@ -107,6 +108,11 @@ class NoSuchCalendarObjectError(NotFoundError):
 class InvalidCalendarComponentError(CalendarStoreError):
     """
     Invalid calendar component.
+    """
+
+class InternalDataStoreError(CalendarStoreError):
+    """
+    Uh, oh.
     """
 
 #
@@ -225,9 +231,9 @@ class ICalendar(Interface):
             a calendar object.
         """
 
-    def removeCalendarComponentWithName(name):
+    def removeCalendarObjectWithName(name):
         """
-        Remove the calendar component with the given C{name} from this
+        Remove the calendar object with the given C{name} from this
         calendar.
 
         @param name: a string.
@@ -235,9 +241,9 @@ class ICalendar(Interface):
             exists.
         """
 
-    def removeCalendarComponentWithUID(uid):
+    def removeCalendarObjectWithUID(uid):
         """
-        Remove the calendar component with the given C{uid} from this
+        Remove the calendar object with the given C{uid} from this
         calendar.
 
         @param uid: a string.
