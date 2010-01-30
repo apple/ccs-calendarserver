@@ -19,6 +19,7 @@ iCalendar Utilities
 """
 
 __all__ = [
+    "InvalidICalendarDataError",
     "iCalendarProductID",
     "allowedComponents",
     "Property",
@@ -131,6 +132,9 @@ normalizePropsValue = {
     "ORGANIZER":    normalizeCUAddr,
 }
 
+class InvalidICalendarDataError(ValueError):
+    pass
+
 class Property (object):
     """
     iCalendar Property
@@ -199,12 +203,12 @@ class Property (object):
     def paramValue(self, name):
         """
         Returns a single value for the given parameter.  Raises
-        ValueError if the parameter has more than one value.
+        InvalidICalendarDataError if the parameter has more than one value.
         """
         values = self._vobject.params.get(name, [None,])
         assert type(values) is list, "vobject returned non-list value for parameter %r in property %r" % (name, self)
         if len(values) != 1:
-            raise ValueError("Not exactly one %s value in property %r" % (name, self))
+            raise InvalidICalendarDataError("Not exactly one %s value in property %r" % (name, self))
         return values[0]
 
     def containsTimeRange(self, start, end, tzinfo=None):
@@ -301,11 +305,11 @@ class Component (object):
             return clazz(None, vobject=readComponents(stream, findBegin=False).next())
         except UnicodeDecodeError, e:
             stream.seek(0)
-            raise ValueError("%s: %s" % (e, stream.read()))
+            raise InvalidICalendarDataError("%s: %s" % (e, stream.read()))
         except vParseError, e:
-            raise ValueError(e)
+            raise InvalidICalendarDataError(e)
         except StopIteration, e:
-            raise ValueError(e)
+            raise InvalidICalendarDataError(e)
 
     @classmethod
     def fromIStream(clazz, stream):
@@ -414,7 +418,7 @@ class Component (object):
         """
         Determine the primary type of iCal component in this calendar.
         @return: the name of the primary type.
-        @raise: L{ValueError} if there is more than one primary type.
+        @raise: L{InvalidICalendarDataError} if there is more than one primary type.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
@@ -423,7 +427,7 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             elif mtype and (mtype != component.name()):
-                raise ValueError("Component contains more than one type of primary type: %r" % (self,))
+                raise InvalidICalendarDataError("Component contains more than one type of primary type: %r" % (self,))
             else:
                 mtype = component.name()
         
@@ -433,7 +437,7 @@ class Component (object):
         """
         Return the primary iCal component in this calendar.
         @return: the L{Component} of the primary type.
-        @raise: L{ValueError} if there is more than one primary type.
+        @raise: L{InvalidICalendarDataError} if there is more than one primary type.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
@@ -442,7 +446,7 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             elif not allow_multiple and (result is not None):
-                raise ValueError("Calendar contains more than one primary component: %r" % (self,))
+                raise InvalidICalendarDataError("Calendar contains more than one primary component: %r" % (self,))
             else:
                 result = component
                 if allow_multiple:
@@ -549,11 +553,11 @@ class Component (object):
         Get one property from the property list.
         @param name: the name of the property to get.
         @return: the L{Property} found or None.
-        @raise: L{ValueError} if there is more than one property of the given name.
+        @raise: L{InvalidICalendarDataError} if there is more than one property of the given name.
         """
         properties = tuple(self.properties(name))
         if len(properties) == 1: return properties[0]
-        if len(properties) > 1: raise ValueError("More than one %s property in component %r" % (name, self))
+        if len(properties) > 1: raise InvalidICalendarDataError("More than one %s property in component %r" % (name, self))
         return None
         
     def properties(self, name=None):
@@ -582,7 +586,7 @@ class Component (object):
         if len(properties) == 1:
             return properties[0].value()
         if len(properties) > 1:
-            raise ValueError("More than one %s property in component %r" % (name, self))
+            raise InvalidICalendarDataError("More than one %s property in component %r" % (name, self))
         return None
 
 
@@ -606,7 +610,7 @@ class Component (object):
             return result
 
         elif len(properties) > 1:
-            raise ValueError("More than one %s property in component %r" % (name, self))
+            raise InvalidICalendarDataError("More than one %s property in component %r" % (name, self))
         else:
             return None
 
@@ -704,7 +708,7 @@ class Component (object):
         # The trigger value
         trigger = self.propertyNativeValue("TRIGGER")
         if trigger is None:
-            raise ValueError("VALARM has no TRIGGER property: %r" % (self,))
+            raise InvalidICalendarDataError("VALARM has no TRIGGER property: %r" % (self,))
         
         # The related parameter
         related = self.getProperty("TRIGGER").paramValue("RELATED")
@@ -722,7 +726,7 @@ class Component (object):
         duration = self.propertyNativeValue("DURATION")
 
         if repeat > 0 and duration is None:
-            raise ValueError("VALARM has invalid REPEAT/DURATIOn properties: %r" % (self,))
+            raise InvalidICalendarDataError("VALARM has invalid REPEAT/DURATIOn properties: %r" % (self,))
 
         return (trigger, related, repeat, duration)
  
@@ -1192,30 +1196,30 @@ class Component (object):
                 if has_timezone:
                     self._resource_type = "VTIMEZONE"
                 else:
-                    raise ValueError("No component type found for calendar component: %r" % (self,))
+                    raise InvalidICalendarDataError("No component type found for calendar component: %r" % (self,))
 
         return self._resource_type
 
     def validCalendarForCalDAV(self):
         """
-        @raise ValueError: if the given calendar data is not valid.
+        @raise InvalidICalendarDataError: if the given calendar data is not valid.
         """
         if self.name() != "VCALENDAR":
             log.debug("Not a calendar: %s" % (self,))
-            raise ValueError("Not a calendar")
+            raise InvalidICalendarDataError("Not a calendar")
         if not self.resourceType():
             log.debug("Unknown resource type: %s" % (self,))
-            raise ValueError("Unknown resource type")
+            raise InvalidICalendarDataError("Unknown resource type")
 
         version = self.propertyValue("VERSION")
         if version != "2.0":
             msg = "Not a version 2.0 iCalendar (version=%s)" % (version,)
             log.debug(msg)
-            raise ValueError(msg)
+            raise InvalidICalendarDataError(msg)
 
     def validateForCalDAV(self):
         """
-        @raise ValueError: if the given calendar component is not valid for
+        @raise InvalidICalendarDataError: if the given calendar component is not valid for
             use as a X{CalDAV} resource.
         """
         self.validCalendarForCalDAV()
@@ -1224,14 +1228,14 @@ class Component (object):
         if self.hasProperty("METHOD"):
             msg = "METHOD property is not allowed in CalDAV iCalendar data"
             log.debug(msg)
-            raise ValueError(msg)
+            raise InvalidICalendarDataError(msg)
 
         self.validateComponentsForCalDAV(False)
 
     def validateComponentsForCalDAV(self, method):
         """
         @param method:     True if METHOD property is allowed, False otherwise.
-        @raise ValueError: if the given calendar component is not valid for
+        @raise InvalidICalendarDataError: if the given calendar component is not valid for
             use as a X{CalDAV} resource.
         """
         #
@@ -1252,7 +1256,7 @@ class Component (object):
             if not method and subcomponent.hasProperty("METHOD"):
                 msg = "METHOD property is not allowed in CalDAV iCalendar data"
                 log.debug(msg)
-                raise ValueError(msg)
+                raise InvalidICalendarDataError(msg)
         
             if subcomponent.name() == "VTIMEZONE":
                 timezones.add(subcomponent.propertyValue("TZID"))
@@ -1263,18 +1267,18 @@ class Component (object):
                     if ctype != subcomponent.name():
                         msg = "Calendar resources may not contain more than one type of calendar component (%s and %s found)" % (ctype, subcomponent.name())
                         log.debug(msg)
-                        raise ValueError(msg)
+                        raise InvalidICalendarDataError(msg)
         
                 if ctype not in allowedComponents:
                     msg = "Component type: %s not allowed" % (ctype,)
                     log.debug(msg)
-                    raise ValueError(msg)
+                    raise InvalidICalendarDataError(msg)
                     
                 uid = subcomponent.propertyValue("UID")
                 if uid is None:
                     msg = "All components must have UIDs"
                     log.debug(msg)
-                    raise ValueError(msg)
+                    raise InvalidICalendarDataError(msg)
                 rid = subcomponent.getRecurrenceIDUTC()
                 
                 # Verify that UIDs are the same
@@ -1283,14 +1287,14 @@ class Component (object):
                 elif component_id != uid:
                     msg = "Calendar resources may not contain components with different UIDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
                     log.debug(msg)
-                    raise ValueError(msg)
+                    raise InvalidICalendarDataError(msg)
 
                 # Verify that there is only one master component
                 if rid is None:
                     if got_master:
                         msg = "Calendar resources may not contain components with the same UIDs and no Recurrence-IDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
                         log.debug(msg)
-                        raise ValueError(msg)
+                        raise InvalidICalendarDataError(msg)
                     else:
                         got_master = True
                         # master_recurring = subcomponent.hasProperty("RRULE") or subcomponent.hasProperty("RDATE")
@@ -1307,13 +1311,13 @@ class Component (object):
 #                if got_override and got_master and not master_recurring:
 #                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
 #                    log.debug(msg)
-#                    raise ValueError(msg)
+#                    raise InvalidICalendarDataError(msg)
                 
                 # Check for duplicate RECURRENCE-IDs        
                 if rid in component_rids:
                     msg = "Calendar resources may not contain components with the same Recurrence-IDs (%s)" % (rid,)
                     log.debug(msg)
-                    raise ValueError(msg)
+                    raise InvalidICalendarDataError(msg)
                 else:
                     component_rids.add(rid)
 
@@ -1326,7 +1330,7 @@ class Component (object):
             if timezone_ref not in timezones:
                 msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
                 log.debug(msg)
-                raise ValueError(msg)
+                raise InvalidICalendarDataError(msg)
         
         #
         # FIXME:
@@ -1355,7 +1359,7 @@ class Component (object):
                         # We have different ORGANIZERs in the same iCalendar object - this is an error
                         msg = "Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self,)
                         log.debug(msg)
-                        raise ValueError(msg)
+                        raise InvalidICalendarDataError(msg)
                 else:
                     foundOrganizer = organizer
                     foundRid = rid
@@ -1411,7 +1415,7 @@ class Component (object):
             method = self.propertyValue("METHOD")
             if method not in ("PUBLISH", "REQUEST", "REPLY", "ADD", "CANCEL", "REFRESH", "COUNTER", "DECLINECOUNTER"):
                 return False
-        except ValueError:
+        except InvalidICalendarDataError:
             return False
         
         return True
@@ -1442,7 +1446,7 @@ class Component (object):
                 if len([c for c in self.subcomponents()]) != 1:
                     return False
 
-        except ValueError:
+        except InvalidICalendarDataError:
             return False
         
         return True
@@ -1463,7 +1467,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.propertyValue("ORGANIZER")
-            except ValueError:
+            except InvalidICalendarDataError:
                 pass
 
         return None
@@ -1488,7 +1492,7 @@ class Component (object):
                 org = self.propertyValue("ORGANIZER")
                 rid = self.getRecurrenceIDUTC()
                 return ((org, rid),)
-            except ValueError:
+            except InvalidICalendarDataError:
                 pass
 
         return ()
@@ -1509,7 +1513,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.getProperty("ORGANIZER")
-            except ValueError:
+            except InvalidICalendarDataError:
                 pass
 
         return None
@@ -1665,7 +1669,7 @@ class Component (object):
             try:
                 # Find the primary subcomponent
                 return self.propertyValue("X-CALENDARSERVER-MASK-UID")
-            except ValueError:
+            except InvalidICalendarDataError:
                 pass
 
         return None
@@ -1951,7 +1955,7 @@ class Component (object):
                             del prop.params()[param]
                     except KeyError:
                         pass
-                    except ValueError:
+                    except InvalidICalendarDataError:
                         pass
 
     def normalizeAll(self):
@@ -2208,8 +2212,8 @@ def parse_date(date_string):
     """
     try:
         return stringToDate(date_string)
-    except (vParseError, ValueError):
-        raise ValueError("Invalid iCalendar DATE: %r" % (date_string,))
+    except (vParseError, InvalidICalendarDataError):
+        raise InvalidICalendarDataError("Invalid iCalendar DATE: %r" % (date_string,))
 
 def parse_time(time_string):
     """
@@ -2221,8 +2225,8 @@ def parse_time(time_string):
         # Parse this as a fake date-time string by prepending date
         with_date = "20000101T" + time_string
         return stringToDateTime(with_date).time()
-    except (vParseError, ValueError):
-        raise ValueError("Invalid iCalendar TIME: %r" % (time_string,))
+    except (vParseError, InvalidICalendarDataError):
+        raise InvalidICalendarDataError("Invalid iCalendar TIME: %r" % (time_string,))
 
 def parse_datetime(datetime_string):
     """
@@ -2232,8 +2236,8 @@ def parse_datetime(datetime_string):
     """
     try:
         return stringToDateTime(datetime_string)
-    except (vParseError, ValueError):
-        raise ValueError("Invalid iCalendar DATE-TIME: %r" % (datetime_string,))
+    except (vParseError, InvalidICalendarDataError):
+        raise InvalidICalendarDataError("Invalid iCalendar DATE-TIME: %r" % (datetime_string,))
 
 def parse_date_or_datetime(date_string):
     """
@@ -2248,8 +2252,8 @@ def parse_date_or_datetime(date_string):
             return parse_date(date_string)
         else:
             return parse_datetime(date_string)
-    except ValueError:
-        raise ValueError("Invalid iCalendar DATE or DATE-TIME: %r" % (date_string,))
+    except InvalidICalendarDataError:
+        raise InvalidICalendarDataError("Invalid iCalendar DATE or DATE-TIME: %r" % (date_string,))
 
 def parse_duration(duration_string):
     """
@@ -2259,8 +2263,8 @@ def parse_duration(duration_string):
     """
     try:
         return stringToDurations(duration_string)[0]
-    except (vParseError, ValueError):
-        raise ValueError("Invalid iCalendar DURATION: %r" % (duration_string,))
+    except (vParseError, InvalidICalendarDataError):
+        raise InvalidICalendarDataError("Invalid iCalendar DURATION: %r" % (duration_string,))
 
 _regex_duration = None
 
@@ -2292,7 +2296,7 @@ def tzexpand(tzdata, start, end):
             tzcomp = comp
             break
     else:
-        raise ValueError("No VTIMEZONE component in %s" % (tzdata,))
+        raise InvalidICalendarDataError("No VTIMEZONE component in %s" % (tzdata,))
 
     tzinfo = tzcomp.gettzinfo()
     
