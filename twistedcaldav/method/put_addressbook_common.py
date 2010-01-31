@@ -298,10 +298,7 @@ class StoreAddressObjectResource(object):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "max-resource-size")))
 
             # Check access
-            if self.destinationadbk and config.EnablePrivateEvents:
-                return self.validAccess()
-            else:
-                return succeed(None)
+            return succeed(None)
     
     def validResourceName(self):
         """

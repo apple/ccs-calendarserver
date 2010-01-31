@@ -229,7 +229,7 @@ class AddressBookIndex(AbstractSQLDatabase):
         db_filename = os.path.join(self.resource.fp.path, db_basename)
         super(AddressBookIndex, self).__init__(db_filename, False)
 
-        if config.Memcached['ClientEnabled']:
+        if config.Memcached.Pools.Default.ClientEnabled:
             self.reserver = MemcachedUIDReserver(self)
         else:
             self.reserver = SQLUIDReserver(self)

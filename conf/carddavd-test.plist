@@ -16,7 +16,7 @@
     limitations under the License.
   -->
 
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
 
@@ -44,12 +44,11 @@
     <!-- SSL port [0 = disable HTTPS] -->
     <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
     <key>SSLPort</key>
-    <integer>8443</integer>
+    <integer>8843</integer>
 
-    <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
+    <!-- Redirect non-SSL ports to an SSL port -->
     <key>RedirectHTTPToHTTPS</key>
     <false/>
-
 
     <!--
         Network address configuration information
@@ -85,9 +84,36 @@
     <key>DocumentRoot</key>
     <string>twistedcaldav/test/data/</string>
 
+    <!-- Child aliases -->
+    <key>Aliases</key>
+    <dict>
+      <!--
+      <key>foo</key>
+      <dict>
+        <key>path</key>
+        <string>/path/to/foo</string>
+      </dict>
+       -->
+    </dict>
+
     <!-- User quota (in bytes) -->
     <key>UserQuota</key>
-    <integer>104857600</integer><!-- 104857600 = 100Mb ; use 0 for no quota -->
+    <integer>104857600</integer><!-- 100Mb -->
+
+    <!-- Attachment size limit (in bytes) -->
+    <key>MaximumAttachmentSize</key>
+    <integer>1048576</integer><!-- 1Mb -->
+
+    <!-- Maximum number of unique attendees per entire event -->
+    <!-- 0 for no limit -->
+    <key>MaxAttendeesPerInstance</key>
+    <integer>100</integer>
+
+    <!-- Maximum number of instances allowed for a single RRULE -->
+    <!-- 0 for no limit -->
+    <key>MaxInstancesForRRULE</key>
+    <integer>400</integer>
+
 
     <!--
         Directory service
@@ -111,7 +137,7 @@
       </dict>
     </dict>
     
-    <!-- Cache-on-Demand Open Directory Service (Mac OS X) -->
+    <!-- Open Directory Service (Mac OS X) -->
     <!--
     <key>DirectoryService</key>
     <dict>
@@ -122,74 +148,100 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>maxAvailableWaitSeconds</key>
-        <integer>120</integer>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
       </dict>
     </dict>
     -->
 
-
-    <!-- Apache-style Basic Directory Service (Experimental) -->
     <!--
-    <key>DirectoryService</key>
+        Augment service
+
+        Augments for the directory service records to add calendar specific attributes.
+
+        A variety of augment services are available for use.
+        When using a partitioned server, a service that can be accessed from each host will be needed.
+      -->
+
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.apache.BasicDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
       
       <key>params</key>
       <dict>
-        <key>realmName</key>
-        <string>Test Realm</string>
-        <key>userFile</key>
-        <string>conf/auth/accounts.htauth</string>
-        <key>groupFile</key>
-        <string>conf/auth/groups</string>
+        <key>xmlFiles</key>
+        <array>
+	      <string>conf/auth/augments-test.xml</string>
+        </array>
       </dict>
     </dict>
-    -->
-
-    <!-- Apache-style Digest Directory Service (Experimental) -->
+    
+    <!-- Sqlite Augment Service -->
     <!--
-    <key>DirectoryService</key>
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.apache.DigestDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
       
       <key>params</key>
       <dict>
-        <key>realmName</key>
-        <string>Test Realm</string>
-        <key>userFile</key>
-        <string>conf/auth/accounts.htdigest</string>
-        <key>groupFile</key>
-        <string>conf/auth/groups</string>
+        <key>dbpath</key>
+        <string>/etc/carddavd/augments.sqlite</string>
       </dict>
     </dict>
      -->
 
-    <!-- SQL Directory Service (Experimental) -->
+    <!-- PostgreSQL Augment Service -->
     <!--
-    <key>DirectoryService</key>
+    <key>AugmentService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.sqldb.SQLDirectoryService</string>
+      <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
       
       <key>params</key>
       <dict>
-        <key>dbParentPath</key>
-        <string>twistedcaldav/test/data/</string>
-        <key>xmlFile</key>
-        <string>conf/auth/accounts-test.xml</string>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>augments</string>
       </dict>
     </dict>
-    -->
+     -->
 
+    <!-- Sqlite ProxyDB Service -->
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>data/proxies.sqlite</string>
+      </dict>
+    </dict>
+
+    <!-- PostgreSQL ProxyDB Service -->
+    <!--
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>host</key>
+        <string>localhost</string>
+        <key>database</key>
+        <string>proxies</string>
+      </dict>
+    </dict>
+     -->
+
+	<key>ProxyLoadFromFile</key>
+    <string>conf/auth/proxies-test.xml</string>
 
     <!--
         Special principals
@@ -216,7 +268,7 @@
 
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
-    <false/>
+    <true/>
 
 
     <!--
@@ -237,6 +289,9 @@
     <key>EnablePrincipalListings</key>
     <true/>
 
+    <!-- Render calendar collections as a monolithic iCalendar object -->
+    <key>EnableMonolithicCalendars</key>
+    <true/>
 
 
     <!--
@@ -309,7 +364,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>debug</string> <!-- debug, info, warn, error -->
+    <string>info</string> <!-- debug, info, warn, error -->
 
     <!-- Log level overrides for specific functionality -->
     <key>LogLevels</key>
@@ -320,6 +375,18 @@
       -->
     </dict>
 
+    <!-- Global server stats --> 
+    <key>GlobalStatsSocket</key> 
+    <string>logs/carddavd-stats.sock</string> 
+
+    <!-- Global server stats logging period --> 
+    <key>GlobalStatsLoggingPeriod</key> 
+    <integer>60</integer> 
+
+    <!-- Global server stats logging frequency [0 = disable stats] --> 
+    <key>GlobalStatsLoggingFrequency</key> 
+    <integer>12</integer>
+
     <!-- Server statistics file -->
     <key>ServerStatsFile</key>
     <string>logs/stats.plist</string>
@@ -328,24 +395,6 @@
     <key>PIDFile</key>
     <string>logs/carddavd.pid</string>
 
-    <!-- Global server stats -->
-    <key>GlobalStatsSocket</key>
-    <string>logs/carddavd-stats.sock</string>
-
-    <!--
-	To log every five minutes and keep stats for the last hour:
-	    GlobalStatsLoggingPeriod : 60
-	    GlobalStatsLoggingFrequency : 12
-	Set GlobalStatsLoggingFrequency to 0 to disable the stats
-      -->
-
-    <!-- Global server stats logging period -->
-    <key>GlobalStatsLoggingPeriod</key>
-    <integer>1</integer>
-
-    <!-- Global server stats logging frequency -->
-    <key>GlobalStatsLoggingFrequency</key>
-    <integer>1</integer>
 
     <!--
         Accounting
@@ -355,6 +404,8 @@
     <key>AccountingCategories</key>
     <dict>
       <key>iTIP</key>
+      <false/>
+      <key>HTTP</key>
       <false/>
     </dict>
     <!-- Enable accounting for specific principals -->
@@ -371,6 +422,10 @@
     <!-- Public key -->
     <key>SSLCertificate</key>
     <string>twistedcaldav/test/data/server.pem</string>
+
+    <!-- SSL authority chain (for intermediate certs) -->
+    <key>SSLAuthorityChain</key>
+    <string></string>
 
     <!-- Private key -->
     <key>SSLPrivateKey</key>
@@ -393,38 +448,232 @@
     <key>MultiProcess</key>
     <dict>
       <key>ProcessCount</key>
-      <integer>2</integer> <!-- 0 = larger of: 2 or CPU count -->
+      <integer>2</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
+    </dict>
 
-      <key>LoadBalancer</key>
+
+    <!--
+        Notifications
+      -->
+
+    <key>Notifications</key>
+    <dict>
+      <!-- Time spent coalescing notifications before delivery -->
+      <key>CoalesceSeconds</key>
+      <integer>3</integer>
+
+      <key>InternalNotificationHost</key>
+      <string>localhost</string>
+
+      <key>InternalNotificationPort</key>
+      <integer>62309</integer>
+
+      <key>Services</key>
       <dict>
-        <!--
-            Valid values are:
-            - LeastConnections
-            - RoundRobin
-            - LeastConnectionsAndRoundRobin
-          -->
-        <key>Scheduler</key>
-        <string>LeastConnections</string>
+        <key>SimpleLineNotifier</key>
+        <dict>
+          <!-- Simple line notification service (for testing) -->
+          <key>Service</key>
+          <string>twistedcaldav.notify.SimpleLineNotifierService</string>
+          <key>Enabled</key>
+          <false/>
+          <key>Port</key>
+          <integer>62308</integer>
+        </dict>
+
+        <key>XMPPNotifier</key>
+        <dict>
+          <!-- XMPP notification service -->
+          <key>Service</key>
+          <string>twistedcaldav.notify.XMPPNotifierService</string>
+          <key>Enabled</key>
+          <false/>
+
+          <!-- XMPP host and port to contact -->
+          <key>Host</key>
+          <string>xmpp.host.name</string>
+          <key>Port</key>
+          <integer>5222</integer>
+
+          <!-- Jabber ID and password for the server -->
+          <key>JID</key>
+          <string>jid@xmpp.host.name/resource</string>
+          <key>Password</key>
+          <string>password_goes_here</string>
+
+          <!-- PubSub service address -->
+          <key>ServiceAddress</key>
+          <string>pubsub.xmpp.host.name</string>
+
+          <key>NodeConfiguration</key>
+          <dict>
+            <key>pubsub#deliver_payloads</key>
+            <string>1</string>
+            <key>pubsub#persist_items</key>
+            <string>1</string>
+          </dict>
+
+          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
+          <key>KeepAliveSeconds</key>
+          <integer>120</integer>
+
+          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
+          <key>HeartbeatMinutes</key>
+          <integer>30</integer>
+
+          <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server (for debugging) -->
+          <key>AllowedJIDs</key>
+          <array>
+            <!--
+            <string>*.example.com</string>
+             -->
+          </array>
+        </dict>
       </dict>
+    </dict>
+
+
+    <!--
+        Server-to-server protocol
+      -->
+
+    <key>Scheduling</key>
+    <dict>
+
+      <!-- CalDAV protocol options -->
+      <key>CalDAV</key>
+      <dict>
+        <key>EmailDomain</key>
+        <string></string>
+        <key>HTTPDomain</key>
+        <string></string>
+        <key>AddressPatterns</key>
+        <array>
+        </array>
+        <key>OldDraftCompatibility</key>
+        <true/>
+        <key>ScheduleTagCompatibility</key>
+        <true/>
+        <key>EnablePrivateComments</key>
+        <true/>
+      </dict>
+
+      <!-- iSchedule protocol options -->
+      <key>iSchedule</key>
+      <dict>
+        <key>Enabled</key>
+        <false/>
+        <key>AddressPatterns</key>
+        <array>
+        </array>
+        <key>Servers</key>
+        <string>conf/servertoserver-test.xml</string>
+      </dict>
+
+      <!-- iMIP protocol options -->
+      <key>iMIP</key>
+      <dict>
+        <key>Enabled</key>
+        <false/>
+        <key>MailGatewayServer</key>
+        <string>localhost</string>
+        <key>MailGatewayPort</key>
+        <integer>62310</integer>
+        <key>Sending</key>
+        <dict>
+          <key>Server</key>
+          <string></string>
+          <key>Port</key>
+          <integer>587</integer>
+          <key>UseSSL</key>
+          <true/>
+          <key>Username</key>
+          <string></string>
+          <key>Password</key>
+          <string></string>
+          <key>Address</key>
+          <string></string> <!-- Address email will be sent from -->
+        </dict>
+        <key>Receiving</key>
+        <dict>
+          <key>Server</key>
+          <string></string>
+          <key>Port</key>
+          <integer>995</integer>
+          <key>Type</key>
+          <string></string> <!-- Either "pop" or "imap" -->
+          <key>UseSSL</key>
+          <true/>
+          <key>Username</key>
+          <string></string>
+          <key>Password</key>
+          <string></string>
+          <key>PollingSeconds</key>
+          <integer>30</integer>
+        </dict>
+        <key>AddressPatterns</key>
+        <array>
+          <string>mailto:.*</string>
+        </array>
+      </dict>
+
+	  <!-- General options for scheduling -->
+	  <key>Options</key>
+	  <dict>
+        <key>AllowGroupAsOrganizer</key>
+        <false/>
+        <key>AllowLocationAsOrganizer</key>
+        <false/>
+        <key>AllowResourceAsOrganizer</key>
+        <false/>
+       </dict>
 
     </dict>
 
 
-     <!--
-        Miscellaneous items
+    <!--
+        Free-busy URL protocol
       -->
 
-    <!-- Maximum results returned by addressbook-query report -->
-    <key>MaxAddressBookQueryResults</key>
-    <integer>1000</integer>
+    <key>FreeBusyURL</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+      <key>TimePeriod</key>
+      <integer>14</integer>
+      <key>AnonymousAccess</key>
+      <false/>
+    </dict>
 
-    <!-- Maximum hrefs in addressbook-multiget report -->
-    <key>MaxAddressBookMultigetHrefs</key>
-    <integer>5000</integer>
+
+    <!--
+        Non-standard CalDAV extensions
+      -->
+
+    <!-- Calendar Drop Box -->
+    <key>EnableDropBox</key>
+    <true/>
+
+    <!-- Private Events -->
+    <key>EnablePrivateEvents</key>
+    <true/>
+
+    <!-- Timezone Service -->
+    <key>EnableTimezoneService</key>
+    <true/>
+
+
+    <!--
+        Miscellaneous items
+      -->
 
     <!-- Service ACLs (Mac OS X) -->
     <key>EnableSACLs</key>
     <false/>
+
+    <!-- Web-based administration -->
+    <key>EnableWebAdmin</key>
+    <true/>
 
     <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
     <key>ResponseCompression</key>
@@ -442,10 +691,6 @@
     <!-- Support for Memcached -->
     <key>Memcached</key>
     <dict>
-      <key>ServerEnabled</key>
-      <true/>
-      <key>ClientEnabled</key>
-      <true/>
       <key>MaxClients</key>
       <integer>5</integer>
       <key>memcached</key>
@@ -455,6 +700,10 @@
         <!--<string>-vv</string>-->
       </array>
     </dict>
+
+    <!-- Response Caching -->
+    <key>ResponseCacheTimeout</key>
+    <integer>30</integer> <!-- in minutes -->
 
 
     <!--
@@ -467,22 +716,6 @@
       <string>../Twisted/bin/twistd</string>
     </dict>
 
-
-    <!--
-        Python Director
-      -->
-
-    <key>PythonDirector</key>
-    <dict>
-      <key>pydir</key>
-      <string>../pydirector-1.0.0/pydir.py</string>
-
-      <key>ConfigFile</key>
-      <string>conf/pydir.xml</string>
-
-      <key>ControlSocket</key>
-      <string>logs/carddavd-pydir.sock</string>
-    </dict>
 
     <key>Localization</key>
     <dict>
@@ -514,22 +747,6 @@
         <string>conf/auth/accounts-test.xml</string>
       </dict>
     </dict>
-
-    <!-- XML File Augment Service -->
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
-      
-      <key>params</key>
-      <dict>
-        <key>xmlFiles</key>
-        <array>
-	      <string>conf/auth/augments-test.xml</string>
-        </array>
-      </dict>
-    </dict>
-
 
     <!--  allow unauthenticated users to access the directory address book -->
     <key>AnonymousDirectoryAddressBookAccess</key>
