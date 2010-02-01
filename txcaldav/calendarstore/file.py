@@ -194,6 +194,12 @@ class CalendarObject(LoggingMixIn):
         return self._component
 
     def iCalendarText(self):
+        #
+        # Note I'm making an assumption here that caching both is
+        # redundant, so we're caching the text if it's asked for and
+        # we don't have the component cached, then tossing it and
+        # relying on the component if we have that cached. -wsv
+        #
         if not hasattr(self, "_text"):
             if hasattr(self, "_component"):
                 return str(self._component)
