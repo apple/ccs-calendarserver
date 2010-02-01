@@ -155,7 +155,7 @@ class SyncCollection (WebDAVElement):
             elif qname in (
                 (dav_namespace, "prop"    ),
             ):
-                if property is not None:
+                if self.property is not None:
                     raise ValueError("Only one of DAV:prop allowed")
                 self.property = child
 
