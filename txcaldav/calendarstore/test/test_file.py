@@ -254,7 +254,6 @@ class CalendarObjectTest(unittest.TestCase):
     def text_iCalendarText(self):
         text = self.object1.iCalendarText()
 
-        self.failUnless(isinstance(text, str), text)
         self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
         self.failUnless("\r\nUID:uid-1\r\n" in text)
         self.failUnless(text.endswith("\r\nEND:VCALENDAR\r\n"))
@@ -266,8 +265,7 @@ class CalendarObjectTest(unittest.TestCase):
         self.assertEquals(self.object1.componentType(), "VEVENT")
 
     def test_organizer(self):
-        raise NotImplementedError()
-    test_organizer.todo = "Unimplemented"
+        self.assertEquals(self.object1.organizer(), "mailto:wsanchez@apple.com")
 
     def test_properties(self):
         raise NotImplementedError()

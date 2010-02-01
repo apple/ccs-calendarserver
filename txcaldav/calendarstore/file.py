@@ -239,8 +239,7 @@ class CalendarObject(LoggingMixIn):
         return self._componentType
 
     def organizer(self):
-        # FIXME: Ideally should return a URI object
-        raise NotImplementedError()
+        return self.component().getOrganizer()
 
     def properties(self):
         raise NotImplementedError()
