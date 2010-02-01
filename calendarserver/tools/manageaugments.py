@@ -79,7 +79,8 @@ def doAdd(xmlfile, guid, host, enable_calendar, auto_schedule):
                 error("Cannot add guid '%s' because it already exists in augment file: '%s'" % (guid, xmlfile,))
     
     # Create new record
-    augments_node.getchildren()[-1].tail = "\n  "
+    if len(augments_node.getchildren()):
+        augments_node.getchildren()[-1].tail = "\n  "
     record = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD, "\n    ")
     addSubElement(record, xmlaugmentsparser.ELEMENT_GUID, guid, 4)
     addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLE, "true", 4)
@@ -174,7 +175,7 @@ ACTION is one of add|modify|remove|print
                       help="XML augment file to manipulate", metavar="FILE")
     parser.add_option("-g", "--guid", dest="guid",
                       help="OD GUID to manipulate", metavar="GUID")
-    parser.add_option("-h", "--guidfile", dest="guidfile",
+    parser.add_option("-i", "--guidfile", dest="guidfile",
                       help="File containing a list of GUIDs to manipulate", metavar="GUIDFILE")
     parser.add_option("-n", "--node", dest="node",
                       help="Partition node to assign to GUID", metavar="NODE")
