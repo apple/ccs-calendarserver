@@ -18,7 +18,7 @@
 CalDAV COPY and MOVE methods.
 """
 
-__all__ = ["http_COPY", "http_MOVE"]
+__all__ = ["maybeCOPYContact", "maybeMOVEContact"]
 
 from urlparse import urlsplit
 
@@ -37,24 +37,25 @@ from twistedcaldav.log import Logger
 
 log = Logger()
 
+KEEP_GOING = object()
+
 @inlineCallbacks
-def http_COPY(self, request):
+def maybeCOPYContact(self, request):
     """
     Special handling of COPY request if parents are addressbook collections.
     When copying we do not have to worry about the source resource as it
     is not being changed in any way. We do need to do an index update for
     the destination if its an addressbook collection.
     """
-
     # Copy of addressbook collections isn't allowed.
     if isAddressBookCollectionResource(self):
         returnValue(responsecode.FORBIDDEN)
 
     result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent = (yield checkForAddressBookAction(self, request))
     if not result or not destinationadbk:
-        # Do default WebDAV action
-        result = (yield super(CalDAVFile, self).http_COPY(request))
-        returnValue(result)
+        # Give up, do default action.
+        
+        returnValue(KEEP_GOING)
 
     #
     # Check authentication and access controls
@@ -108,7 +109,7 @@ def http_COPY(self, request):
     returnValue(result)
 
 @inlineCallbacks
-def http_MOVE(self, request):
+def maybeMOVEContact(self, request):
     """
     Special handling of MOVE request if parent is an addressbook collection.
     When moving we may need to remove the index entry for the source resource
@@ -123,8 +124,7 @@ def http_MOVE(self, request):
             yield self.updateCTag()
             
         # Do default WebDAV action
-        result = (yield super(CalDAVFile, self).http_MOVE(request))
-        returnValue(result)
+        returnValue(KEEP_GOING)
         
     #
     # Check authentication and access controls
