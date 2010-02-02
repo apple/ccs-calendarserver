@@ -32,7 +32,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 
 from twistedcaldav.config import config
 from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
-from twistedcaldav.log import Logger
+from twext.log import Logger
 
 log = Logger()
 
