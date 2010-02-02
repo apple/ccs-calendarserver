@@ -18,7 +18,7 @@
 from twisted.web2.dav import davxml
 
 from twistedcaldav.config import config
-# from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
