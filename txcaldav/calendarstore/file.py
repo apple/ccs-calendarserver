@@ -34,6 +34,8 @@ from twisted.python.filepath import FilePath
 from twext.log import LoggingMixIn
 from twext.python.icalendar import Component as iComponent, InvalidICalendarDataError
 
+from txdav.propertystore.xattr import PropertyStore
+
 from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
 #from txcaldav.icalendarstore import CalendarStoreError
 #from txcaldav.icalendarstore import AlreadyExistsError
@@ -104,7 +106,9 @@ class CalendarHome(LoggingMixIn):
         raise NotImplementedError()
 
     def properties(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_properties"):
+            self._properties = PropertyStore(self.path)
+        return self._properties
 
 
 class Calendar(LoggingMixIn):
@@ -157,7 +161,9 @@ class Calendar(LoggingMixIn):
         raise NotImplementedError()
 
     def properties(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_properties"):
+            self._properties = PropertyStore(self.path)
+        return self._properties
 
 
 class CalendarObject(LoggingMixIn):
@@ -242,4 +248,6 @@ class CalendarObject(LoggingMixIn):
         return self.component().getOrganizer()
 
     def properties(self):
-        raise NotImplementedError()
+        if not hasattr(self, "_properties"):
+            self._properties = PropertyStore(self.path)
+        return self._properties

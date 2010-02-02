@@ -50,6 +50,17 @@ calendar1_objectNames = (
     "3.ics",
 )
 
+
+class PropertiesTestMixin(object):
+    def test_properties(self):
+        properties = self.home1.properties()
+
+        self.failUnless(
+            IPropertyStore.providedBy(properties),
+            properties
+        )
+
+
 class CalendarStoreTest(unittest.TestCase):
     def setUp(self):
         self.calendarStore = CalendarStore(storePath)
@@ -70,7 +81,7 @@ class CalendarStoreTest(unittest.TestCase):
         assert isinstance(calendarHome, CalendarHome)
 
 
-class CalendarHomeTest(unittest.TestCase):
+class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
         self.calendarStore = CalendarStore(storePath)
         self.home1 = self.calendarStore.calendarHomeWithUID("home1")
@@ -98,7 +109,7 @@ class CalendarHomeTest(unittest.TestCase):
         calendars = tuple(self.home1.calendars())
 
         for calendar in calendars:
-            self.failUnless(isinstance(calendar, Calendar))
+            self.failUnless(isinstance(calendar, Calendar), calendar)
 
         self.assertEquals(
             tuple(c.name() for c in calendars),
@@ -108,7 +119,7 @@ class CalendarHomeTest(unittest.TestCase):
     def test_calendarWithName(self):
         for name in home1_calendarNames:
             calendar = self.home1.calendarWithName(name)
-            self.failUnless(isinstance(calendar, Calendar))
+            self.failUnless(isinstance(calendar, Calendar), calendar)
             self.assertEquals(calendar.name(), name)
 
     def test_createCalendarWithName(self):
@@ -119,15 +130,8 @@ class CalendarHomeTest(unittest.TestCase):
         raise NotImplementedError()
     test_removeCalendarWithName.todo = "Unimplemented"
 
-    def test_properties(self):
-        properties = self.home1.properties()
 
-        # FIXME: check specific class later?
-        self.failUnless(IPropertyStore.providedBy(properties))
-    test_properties.todo = "Unimplemented"
-
-
-class CalendarTest(unittest.TestCase):
+class CalendarTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
         self.calendarStore = CalendarStore(storePath)
         self.home1 = self.calendarStore.calendarHomeWithUID("home1")
@@ -163,7 +167,10 @@ class CalendarTest(unittest.TestCase):
         calendarObjects = tuple(self.calendar1.calendarObjects())
 
         for calendarObject in calendarObjects:
-            self.failUnless(isinstance(calendarObject, CalendarObject))
+            self.failUnless(
+                isinstance(calendarObject, CalendarObject),
+                calendarObject
+            )
 
         self.assertEquals(
             tuple(o.name() for o in calendarObjects),
@@ -173,7 +180,10 @@ class CalendarTest(unittest.TestCase):
     def test_calendarObjectWithName(self):
         for name in calendar1_objectNames:
             calendarObject = self.calendar1.calendarObjectWithName(name)
-            self.failUnless(isinstance(calendarObject, CalendarObject))
+            self.failUnless(
+                isinstance(calendarObject, CalendarObject),
+                calendarObject
+            )
             self.assertEquals(calendarObject.name(), name)
 
     def test_calendarObjectWithUID(self):
@@ -204,12 +214,8 @@ class CalendarTest(unittest.TestCase):
         raise NotImplementedError()
     test_calendarObjectsSinceToken.todo = "Unimplemented"
 
-    def test_properties(self):
-        raise NotImplementedError()
-    test_properties.todo = "Unimplemented"
 
-
-class CalendarObjectTest(unittest.TestCase):
+class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
         self.calendarStore = CalendarStore(storePath)
         self.home1 = self.calendarStore.calendarHomeWithUID("home1")
@@ -266,7 +272,3 @@ class CalendarObjectTest(unittest.TestCase):
 
     def test_organizer(self):
         self.assertEquals(self.object1.organizer(), "mailto:wsanchez@apple.com")
-
-    def test_properties(self):
-        raise NotImplementedError()
-    test_properties.todo = "Unimplemented"
