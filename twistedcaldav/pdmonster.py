@@ -4,7 +4,7 @@ from twisted.protocols import amp
 
 from twisted.web2.resource import WrapperResource
 
-from twistedcaldav.log import LoggingMixIn
+from twext.log import LoggingMixIn
 
 class PDClientAddressWrapper(WrapperResource, LoggingMixIn):
     def __init__(self, resource, socket, directory):

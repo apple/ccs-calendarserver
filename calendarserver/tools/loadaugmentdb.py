@@ -15,12 +15,16 @@
 # limitations under the License.
 ##
 
-from calendarserver.tools.util import loadConfig, getDirectory,\
-    autoDisableMemcached
+import os
+import sys
+
 from getopt import getopt, GetoptError
 from grp import getgrnam
 from pwd import getpwnam
 from sys import stdout, stderr
+
+from twext.log import setLogLevelForNamespace
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.log import addObserver, removeObserver
@@ -28,9 +32,9 @@ from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.augment import AugmentXMLDB
-from twistedcaldav.log import setLogLevelForNamespace
-import os
-import sys
+
+from calendarserver.tools.util import loadConfig, getDirectory,\
+    autoDisableMemcached
 
 class UsageError (StandardError):
     pass

@@ -24,9 +24,10 @@ from twisted.web2.dav.resource import AccessDeniedError
 from twisted.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile
+from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 import twistedcaldav.test.util
+from twistedcaldav.directory import augment
 
 
 class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
@@ -42,6 +43,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         fd.write(open(xmlFile.path, "r").read())
         fd.close()
         self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlFile})
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         
         # Set up a principals hierarchy for each service we're testing with
         name = "principals"

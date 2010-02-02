@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
+from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twisted.python.failure import Failure
-
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.web2 import responsecode
@@ -26,7 +26,6 @@ from twisted.web import client
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus

@@ -18,16 +18,18 @@ __all__ = [
     "ReverseProxyResource",
 ]
 
+import urllib
+
+from zope.interface.declarations import implements
+
 from twisted.web2 import iweb
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.resource import LeafResource
 
+from twext.log import LoggingMixIn
+
 from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.config import config
-from twistedcaldav.log import LoggingMixIn
-
-import urllib
-from zope.interface.declarations import implements
 
 class ReverseProxyResource(LeafResource, LoggingMixIn):
     """

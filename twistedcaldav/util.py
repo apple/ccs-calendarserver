@@ -17,14 +17,15 @@
 import os
 import re
 import sys
+import base64
+
 from subprocess import Popen, PIPE, STDOUT
+from hashlib import md5, sha1
 
 from twisted.internet import ssl, reactor
 from twisted.web import client
-from twistedcaldav.log import LoggingMixIn
 from twisted.python import failure
-from hashlib import md5, sha1
-import base64
+from twext.log import LoggingMixIn
 
 ##
 # getNCPU

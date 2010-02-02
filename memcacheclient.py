@@ -49,8 +49,10 @@ import time
 import os
 import re
 import types
+
+from twext.log import Logger
+
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 
 log = Logger()
 

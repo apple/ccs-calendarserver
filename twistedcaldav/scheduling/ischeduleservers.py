@@ -16,8 +16,9 @@
 
 from twisted.python.filepath import FilePath
 
+from twext.log import Logger
+
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
 
 import xml.dom.minidom

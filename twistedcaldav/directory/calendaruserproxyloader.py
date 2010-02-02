@@ -14,12 +14,6 @@
 # limitations under the License.
 ##
 
-from xml.etree.ElementTree import ElementTree
-from xml.parsers.expat import ExpatError
-from twistedcaldav.directory import calendaruserproxy
-from twisted.internet.defer import inlineCallbacks
-import types
-
 """
 XML based calendar user proxy loader.
 """
@@ -28,7 +22,15 @@ __all__ = [
     "XMLCalendarUserProxyLoader",
 ]
 
-from twistedcaldav.log import Logger
+import types
+from xml.etree.ElementTree import ElementTree
+from xml.parsers.expat import ExpatError
+
+from twisted.internet.defer import inlineCallbacks
+
+from twext.log import Logger
+
+from twistedcaldav.directory import calendaruserproxy
 
 log = Logger()
 

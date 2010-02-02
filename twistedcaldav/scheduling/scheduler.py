@@ -14,12 +14,11 @@
 # limitations under the License.
 ##
 
+from twext.log import Logger, LoggingMixIn
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twisted.python.failure import Failure
-
 from twisted.web2 import responsecode
 from twisted.web2.dav import davxml
 from twisted.web2.dav.http import errorForFailure, messageForFailure, statusForFailure
@@ -32,7 +31,6 @@ from twistedcaldav.caldavxml import caldav_namespace, TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Component
-from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\

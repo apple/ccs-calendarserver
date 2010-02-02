@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -28,7 +29,6 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import TwistedSchedulingObjectResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
-from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\

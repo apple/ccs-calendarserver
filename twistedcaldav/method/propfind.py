@@ -36,7 +36,7 @@ from twisted.web2.dav import davxml
 from twisted.web2.dav.http import MultiStatusResponse, statusForFailure
 from twisted.web2.dav.util import normalizeURL, davXMLFromStream
 
-from twistedcaldav.log import Logger
+from twext.log import Logger
 
 log = Logger()
 

@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.log import Logger
+from twext.log import Logger
+
 from twistedcaldav.scheduling.delivery import DeliveryService
 
 __all__ = [

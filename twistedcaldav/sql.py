@@ -31,7 +31,7 @@ try:
 except ImportError:
     from pysqlite2 import dbapi2 as sqlite
 
-from twistedcaldav.log import Logger
+from twext.log import Logger
 
 log = Logger()
 

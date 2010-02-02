@@ -38,8 +38,9 @@ from twisted.cred.checkers import ICredentialsChecker
 from twisted.web2.dav.auth import IPrincipalCredentials
 from twisted.internet.defer import succeed
 
+from twext.log import LoggingMixIn
+
 from twistedcaldav.config import config
-from twistedcaldav.log import LoggingMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
 from twistedcaldav.partitions import partitions

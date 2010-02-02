@@ -14,7 +14,14 @@
 # limitations under the License.
 ##
 
+import datetime
+import time
 from hashlib import md5
+
+from vobject.icalendar import utc
+
+from twext.log import Logger
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -24,15 +31,11 @@ from twistedcaldav import customxml, caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.log import Logger
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
-from vobject.icalendar import utc
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-import datetime
-import time
 
 __all__ = [
     "ImplicitProcessor",

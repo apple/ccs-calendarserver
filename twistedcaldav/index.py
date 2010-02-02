@@ -44,13 +44,14 @@ from vobject.icalendar import utc
 
 from twisted.internet.defer import maybeDeferred, succeed
 
+from twext.log import Logger, LoggingMixIn
+
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav import caldavxml
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.log import Logger, LoggingMixIn
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 

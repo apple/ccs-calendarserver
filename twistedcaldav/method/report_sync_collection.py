@@ -20,6 +20,7 @@ DAV sync-collection report
 
 __all__ = ["report_DAV__sync_collection"]
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse, SyncToken
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -34,7 +35,6 @@ from twisted.web2.dav.util import joinURL
 from twisted.web2.http import HTTPError
 
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 
 import functools
 
@@ -51,7 +51,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
    
     responses = []
 
-    propertyreq = sync_collection.property
+    propertyreq = sync_collection.property.children if sync_collection.property else None 
     
     @inlineCallbacks
     def _namedPropertiesForResource(request, props, resource, forbidden=False):
@@ -91,7 +91,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
                 else:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
         
-        yield properties_by_status
+        returnValue(properties_by_status)
     
     # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.

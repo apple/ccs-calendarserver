@@ -20,7 +20,12 @@ __all__ = [
     "getHTTPClientPool",
 ]
 
+import OpenSSL
+import urlparse
+
+from twext.log import LoggingMixIn
 from twext.internet.ssl import ChainingOpenSSLContextFactory
+
 from twisted.internet.address import IPv4Address
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
@@ -29,9 +34,6 @@ from twisted.web2 import responsecode
 from twisted.web2.client.http import HTTPClientProtocol
 from twisted.web2.http import StatusResponse, HTTPError
 from twistedcaldav.config import config
-from twistedcaldav.log import LoggingMixIn
-import OpenSSL
-import urlparse
 
 class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
     """

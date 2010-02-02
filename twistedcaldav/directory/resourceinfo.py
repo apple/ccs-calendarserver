@@ -22,11 +22,14 @@ __all__ = [
     "ResourceInfoDatabase",
 ]
 
+import os
+
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav.log import LoggingMixIn
+
+from twext.log import LoggingMixIn
+
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
-import os
 
 class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
     """

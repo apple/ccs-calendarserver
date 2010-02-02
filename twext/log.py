@@ -15,18 +15,18 @@
 ##
 
 """
-Classes and functions to do better logging.
+Classes and functions to do granular logging.
 
 Example usage in a module:
 
-    from twistedcaldav.log import Logger
+    from twext.log import Logger
     log = Logger()
 
     log.info("Blah blah")
 
 Or in a class:
 
-    from twistedcaldav.log import LoggingMixIn
+    from twext.log import LoggingMixIn
 
     class Foo (LoggingMixIn):
         def oops(self):
@@ -60,14 +60,6 @@ import inspect
 import logging
 
 from twisted.python import log
-
-from StringIO import StringIO
-
-from twisted.internet.defer import succeed
-
-from twisted.web2 import responsecode
-from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.stream import MemoryStream
 
 logLevels = (
     "debug",
@@ -241,85 +233,6 @@ class Logger (object):
         """
         return cmpLogLevels(self.level(), level) <= 0
 
-    # FIXME: This doesn't belong here
-    def logRequest(self, level, message, request, **kwargs):
-        """
-        Log an HTTP request.
-        """
-
-        assert level in logLevels
-
-        if self.willLogAtLevel(level):
-            iostr = StringIO()
-            iostr.write("%s\n" % (message,))
-            if hasattr(request, "clientproto"):
-                protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
-            else:
-                protocol = "HTTP/1.1"
-            iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
-            for name, valuelist in request.headers.getAllRawHeaders():
-                for value in valuelist:
-                    # Do not log authorization details
-                    if name not in ("Authorization",):
-                        iostr.write("%s: %s\n" % (name, value))
-                    else:
-                        iostr.write("%s: xxxxxxxxx\n" % (name,))
-            iostr.write("\n")
-            
-            # We need to play a trick with the request stream as we can only read it once. So we
-            # read it, store the value in a MemoryStream, and replace the request's stream with that,
-            # so the data can be read again.
-            def _gotData(data):
-                iostr.write(data)
-                
-                request.stream = MemoryStream(data if data is not None else "")
-                request.stream.doStartReading = None
-            
-                self.emit(level, iostr.getvalue(), **kwargs)
-
-            d = allDataFromStream(request.stream)
-            d.addCallback(_gotData)
-            return d
-        
-        else:
-            return succeed(None)
-    
-    # FIXME: This doesn't belong here
-    def logResponse(self, level, message, response, **kwargs):
-        """
-        Log an HTTP request.
-        """
-
-        assert level in logLevels
-
-        if self.willLogAtLevel(level):
-            iostr = StringIO()
-            iostr.write("%s\n" % (message,))
-            code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
-            iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
-            for name, valuelist in response.headers.getAllRawHeaders():
-                for value in valuelist:
-                    # Do not log authorization details
-                    if name not in ("WWW-Authenticate",):
-                        iostr.write("%s: %s\n" % (name, value))
-                    else:
-                        iostr.write("%s: xxxxxxxxx\n" % (name,))
-            iostr.write("\n")
-            
-            # We need to play a trick with the response stream to ensure we don't mess it up. So we
-            # read it, store the value in a MemoryStream, and replace the response's stream with that,
-            # so the data can be read again.
-            def _gotData(data):
-                iostr.write(data)
-                
-                response.stream = MemoryStream(data if data is not None else "")
-                response.stream.doStartReading = None
-            
-                self.emit(level, iostr.getvalue(), **kwargs)
-                
-            d = allDataFromStream(response.stream)
-            d.addCallback(_gotData)
-            return d
 
 class LoggingMixIn (object):
     """

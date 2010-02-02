@@ -19,6 +19,22 @@ Calendar store interfaces
 """
 
 __all__ = [
+    # Exceptions
+    "CalendarStoreError",
+    "NameNotAllowedError",
+    "CalendarNameNotAllowedError",
+    "CalendarObjectNameNotAllowedError",
+    "AlreadyExistsError",
+    "CalendarAlreadyExistsError",
+    "CalendarObjectNameAlreadyExistsError",
+    "CalendarObjectUIDAlreadyExistsError",
+    "NotFoundError",
+    "NoSuchCalendarError",
+    "NoSuchCalendarObjectError",
+    "InvalidCalendarComponentError",
+    "InternalDataStoreError",
+
+    # Classes
     "ICalendarHome",
     "ICalendar",
     "ICalendarObject",
@@ -27,7 +43,7 @@ __all__ = [
 from zope.interface import Interface #, Attribute
 
 from datetime import datetime, date, tzinfo
-from twext.icalendar import Component
+from twext.python.icalendar import Component
 from txdav.idav import IPropertyStore
 
 #
@@ -37,6 +53,21 @@ from txdav.idav import IPropertyStore
 class CalendarStoreError(RuntimeError):
     """
     Calendar store generic error.
+    """
+
+class NameNotAllowedError(CalendarStoreError):
+    """
+    Attempt to create an object with a name that is not allowed.
+    """
+
+class CalendarNameNotAllowedError(NameNotAllowedError):
+    """
+    Calendar name not allowed.
+    """
+
+class CalendarObjectNameNotAllowedError(NameNotAllowedError):
+    """
+    Calendar object name not allowed.
     """
 
 class AlreadyExistsError(CalendarStoreError):
@@ -79,6 +110,11 @@ class InvalidCalendarComponentError(CalendarStoreError):
     Invalid calendar component.
     """
 
+class InternalDataStoreError(CalendarStoreError):
+    """
+    Uh, oh.
+    """
+
 #
 # Interfaces
 #
@@ -87,14 +123,21 @@ class ICalendarHome(Interface):
     """
     Calendar home
     """
-    def calendars(self):
+    def uid():
+        """
+        Retrieve the unique identifier for this calendar home.
+
+        @return: a string.
+        """
+
+    def calendars():
         """
         Retrieve calendars contained in this calendar home.
 
         @return: an iterable of L{ICalendar}s.
         """
 
-    def calendarWithName(self, name):
+    def calendarWithName(name):
         """
         Retrieve the calendar with the given C{name} contained in this
         calendar home.
@@ -104,7 +147,7 @@ class ICalendarHome(Interface):
             exists.
         """
 
-    def createCalendarWithName(self, name):
+    def createCalendarWithName(name):
         """
         Create a calendar with the given C{name} in this calendar
         home.
@@ -114,7 +157,7 @@ class ICalendarHome(Interface):
             given C{name} already exists.
         """
 
-    def removeCalendarWithName(self, name):
+    def removeCalendarWithName(name):
         """
         Remove the calendar with the given C{name} from this calendar
         home.  If this calendar home owns the calendar, also remove
@@ -124,7 +167,7 @@ class ICalendarHome(Interface):
         @raise NoSuchCalendarObjectError: if no such calendar exists.
         """
 
-    def properties(self):
+    def properties():
         """
         Retrieve the property store for this calendar home.
 
@@ -135,7 +178,7 @@ class ICalendar(Interface):
     """
     Calendar
     """
-    def ownerCalendarHome(self):
+    def ownerCalendarHome():
         """
         Retrieve the calendar home for the owner of this calendar.
         Calendars may be shared from one (the owner's) calendar home
@@ -144,14 +187,14 @@ class ICalendar(Interface):
         @return: an L{ICalendarHome}.
         """
 
-    def calendarObjects(self):
+    def calendarObjects():
         """
         Retrieve the calendar objects contained in this calendar.
 
         @return: an iterable of L{ICalendarObject}s.
         """
 
-    def calendarObjectWithName(self, name):
+    def calendarObjectWithName(name):
         """
         Retrieve the calendar object with the given C{name} contained
         in this calendar.
@@ -161,7 +204,7 @@ class ICalendar(Interface):
             object exists.
         """
 
-    def calendarObjectWithUID(self, uid):
+    def calendarObjectWithUID(uid):
         """
         Retrieve the calendar object with the given C{uid} contained
         in this calendar.
@@ -171,7 +214,7 @@ class ICalendar(Interface):
             object exists.
         """
 
-    def createCalendarObjectWithName(self, name, component):
+    def createCalendarObjectWithName(name, component):
         """
         Create a calendar component with the given C{name} in this
         calendar from the given C{component}.
@@ -188,9 +231,9 @@ class ICalendar(Interface):
             a calendar object.
         """
 
-    def removeCalendarComponentWithName(self, name):
+    def removeCalendarObjectWithName(name):
         """
-        Remove the calendar component with the given C{name} from this
+        Remove the calendar object with the given C{name} from this
         calendar.
 
         @param name: a string.
@@ -198,9 +241,9 @@ class ICalendar(Interface):
             exists.
         """
 
-    def removeCalendarComponentWithUID(self, uid):
+    def removeCalendarObjectWithUID(uid):
         """
-        Remove the calendar component with the given C{uid} from this
+        Remove the calendar object with the given C{uid} from this
         calendar.
 
         @param uid: a string.
@@ -208,14 +251,14 @@ class ICalendar(Interface):
             not exist.
         """
 
-    def syncToken(self):
+    def syncToken():
         """
         Retrieve the current sync token for this calendar.
 
         @return: a string containing a sync token.
         """
 
-    def calendarObjectsInTimeRange(self, start, end, timeZone):
+    def calendarObjectsInTimeRange(start, end, timeZone):
         """
         Retrieve all calendar objects in this calendar which have
         instances that occur within the time range that begins at
@@ -227,7 +270,7 @@ class ICalendar(Interface):
         @return: an iterable of L{ICalendarObject}s.
         """
 
-    def calendarObjectsSinceToken(self, token):
+    def calendarObjectsSinceToken(token):
         """
         Retrieve all calendar objects in this calendar that have
         changed since the given C{token} was last valid.
@@ -238,7 +281,7 @@ class ICalendar(Interface):
             that have been removed, and the current sync token.
         """
 
-    def properties(self):
+    def properties():
         """
         Retrieve the property store for this calendar.
 
@@ -249,7 +292,7 @@ class ICalendarObject(Interface):
     """
     Calendar object (event, to-do, etc.).
     """
-    def setComponent(self, component):
+    def setComponent(component):
         """
         Rewrite this calendar object to match the given C{component}.
         C{component} must have the same UID and be of the same
@@ -261,14 +304,14 @@ class ICalendarObject(Interface):
             a calendar object.
         """
 
-    def component(self):
+    def component():
         """
         Retrieve the calendar component for this calendar object.
 
         @return: a C{VCALENDAR} L{Component}.
         """
 
-    def iCalendarText(self):
+    def iCalendarText():
         """
         Retrieve the iCalendar text data for this calendar object.
 
@@ -276,14 +319,14 @@ class ICalendarObject(Interface):
             calendar object.
         """
 
-    def uid(self):
+    def uid():
         """
         Retrieve the UID for this calendar object.
 
         @return: a string containing a UID.
         """
 
-    def componentType(self):
+    def componentType():
         """
         Retrieve the iCalendar component type for the main component
         in this calendar object.
@@ -291,7 +334,7 @@ class ICalendarObject(Interface):
         @return: a string containing the component type.
         """
 
-    def organizer(self):
+    def organizer():
         # FIXME: Ideally should return a URI object
         """
         Retrieve the organizer's calendar user address for this
@@ -300,7 +343,7 @@ class ICalendarObject(Interface):
         @return: a URI string.
         """
 
-    def properties(self):
+    def properties():
         """
         Retrieve the property store for this calendar object.
 

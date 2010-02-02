@@ -14,8 +14,11 @@
 # limitations under the License.
 ##
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twext.log import Logger
+
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.delivery import DeliveryService
@@ -24,7 +27,6 @@ from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
     RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
     PartitionedCalendarUser
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 __all__ = [
     "ScheduleAddressMapper",

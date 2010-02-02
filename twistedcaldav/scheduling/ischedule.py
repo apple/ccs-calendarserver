@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.web2.dav.davxml import ErrorResponse
+from StringIO import StringIO
 
-from twisted.internet.defer import inlineCallbacks, DeferredList
+from twisted.internet.defer import inlineCallbacks, DeferredList, succeed
 from twisted.internet.protocol import ClientCreator
 
 from twisted.python.failure import Failure
@@ -24,24 +24,26 @@ from twisted.python.failure import Failure
 from twisted.web2 import responsecode
 from twisted.web2.client.http import ClientRequest
 from twisted.web2.client.http import HTTPClientProtocol
-from twisted.web2.dav.util import davXMLFromStream, joinURL
+from twisted.web2.dav.util import davXMLFromStream, joinURL, allDataFromStream
 from twisted.web2.http import HTTPError
 from twisted.web2.http_headers import Headers
 from twisted.web2.http_headers import MimeType
+from twisted.web2.stream import MemoryStream
 
+from twext.log import Logger, logLevels
 from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.log import Logger
 from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServers,\
-    IScheduleServerRecord
+from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String
-from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser,\
-    PartitionedCalendarUser
+from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
+from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser
 
 import OpenSSL
 
@@ -169,6 +171,83 @@ class IScheduleRequest(object):
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
+    def logRequest(self, level, message, request, **kwargs):
+        """
+        Log an HTTP request.
+        """
+
+        assert level in logLevels
+
+        if self.willLogAtLevel(level):
+            iostr = StringIO()
+            iostr.write("%s\n" % (message,))
+            if hasattr(request, "clientproto"):
+                protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
+            else:
+                protocol = "HTTP/1.1"
+            iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
+            for name, valuelist in request.headers.getAllRawHeaders():
+                for value in valuelist:
+                    # Do not log authorization details
+                    if name not in ("Authorization",):
+                        iostr.write("%s: %s\n" % (name, value))
+                    else:
+                        iostr.write("%s: xxxxxxxxx\n" % (name,))
+            iostr.write("\n")
+            
+            # We need to play a trick with the request stream as we can only read it once. So we
+            # read it, store the value in a MemoryStream, and replace the request's stream with that,
+            # so the data can be read again.
+            def _gotData(data):
+                iostr.write(data)
+                
+                request.stream = MemoryStream(data if data is not None else "")
+                request.stream.doStartReading = None
+            
+                self.emit(level, iostr.getvalue(), **kwargs)
+
+            d = allDataFromStream(request.stream)
+            d.addCallback(_gotData)
+            return d
+        
+        else:
+            return succeed(None)
+    
+    def logResponse(self, level, message, response, **kwargs):
+        """
+        Log an HTTP request.
+        """
+        assert level in logLevels
+
+        if self.willLogAtLevel(level):
+            iostr = StringIO()
+            iostr.write("%s\n" % (message,))
+            code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
+            iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
+            for name, valuelist in response.headers.getAllRawHeaders():
+                for value in valuelist:
+                    # Do not log authorization details
+                    if name not in ("WWW-Authenticate",):
+                        iostr.write("%s: %s\n" % (name, value))
+                    else:
+                        iostr.write("%s: xxxxxxxxx\n" % (name,))
+            iostr.write("\n")
+            
+            # We need to play a trick with the response stream to ensure we don't mess it up. So we
+            # read it, store the value in a MemoryStream, and replace the response's stream with that,
+            # so the data can be read again.
+            def _gotData(data):
+                iostr.write(data)
+                
+                response.stream = MemoryStream(data if data is not None else "")
+                response.stream.doStartReading = None
+            
+                self.emit(level, iostr.getvalue(), **kwargs)
+                
+            d = allDataFromStream(response.stream)
+            d.addCallback(_gotData)
+            return d
 
     def _generateHeaders(self):
         self.headers = Headers()

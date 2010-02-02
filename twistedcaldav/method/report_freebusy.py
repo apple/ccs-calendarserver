@@ -20,6 +20,7 @@ CalDAV freebusy report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
+from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -32,7 +33,6 @@ from twisted.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.method import report_common
-from twistedcaldav.log import Logger
 
 log = Logger()
 

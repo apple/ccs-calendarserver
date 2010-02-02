@@ -31,9 +31,11 @@ __all__ = [
 ]
 
 import urllib
+from urlparse import urlsplit
 
 from zope.interface import implements
 
+from twext.log import LoggingMixIn
 from twext.web2.dav.davxml import ErrorResponse, SyncCollection
 
 from twisted.internet import reactor
@@ -66,14 +68,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import allowedComponents
-from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.vcard import Component as vComponent
-from twistedcaldav.log import LoggingMixIn
 
-from urlparse import urlsplit
 
 if twistedcaldav.__version__:
     serverVersion = twisted.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__

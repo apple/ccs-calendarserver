@@ -23,20 +23,19 @@ __all__ = [
     "WikiDirectoryService",
 ]
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2.dav import davxml
 from twisted.web.xmlrpc import Proxy, Fault
 from twisted.web2.http import HTTPError, StatusResponse
 from twisted.web2.auth.wrapper import UnauthorizedResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-
+from twext.log import Logger
 
 from twisted.web2.dav.resource import TwistedACLInheritable
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
-from twistedcaldav.log import Logger
 
 log = Logger()
 
