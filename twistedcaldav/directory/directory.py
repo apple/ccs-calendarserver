@@ -80,6 +80,20 @@ class DirectoryService(LoggingMixIn):
     baseGUID = None
     guid = property(_generatedGUID)
 
+    # Needed by twistedcaldav.directorybackedaddressbook
+    liveQuery = False
+
+    def available(self):
+        """
+        By default, the directory is available.  This may return a boolean or a
+        Deferred which fires a boolean.
+
+        A return value of "False" means that the directory is currently
+        unavailable due to the service starting up.
+        """
+        return True
+    # end directorybackedaddressbook requirements
+
     ##
     # ICredentialsChecker
     ##
