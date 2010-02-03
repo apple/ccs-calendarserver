@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_DAV.MKCOL -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -94,7 +95,14 @@ def http_MKCOL(self, request):
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
         log.err("Error while handling MKCOL: %s" % (e,))
-        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
+        # TODO: twisted.web2.dav 'MKCOL' tests demand this particular response
+        # code, but should we really be looking at the XML content or the
+        # content-type header?  It seems to me like this ought to be considered
+        # a BAD_REQUEST if it claims to be XML but isn't, but an
+        # UNSUPPORTED_MEDIA_TYPE if it claims to be something else. -glyph
+        raise HTTPError(
+            StatusResponse(responsecode.UNSUPPORTED_MEDIA_TYPE, str(e))
+        )
 
     if doc is not None:
 
